@@ -1,0 +1,19 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.1
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix, --no-cache]
+
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.27.3
+    hooks:
+      - id: typos
+        files: \.(py|md)$ # 同时检查 .py 和 .md 文件
+        args: []
+
+  # black
+  - repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 24.8.0
+    hooks:
+    -   id: black
