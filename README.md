@@ -26,7 +26,7 @@ punc_ct-transformer_zh-cn-common-vocab272727-pytorch  2024.2
 * 整合bilibili@不知雪孤的代码，各方面使用更加舒适。  
 
 **注意：**  
-请不要在旧版本环境基础上构建新版本代码，旧版本的funasr不支持AutoModel模块，而新版本代码去掉了以前pipline的inference，可以自由搭配模型。  
+请不要在旧版本环境基础上构建新版本代码，旧版本的funasr不支持AutoModel模块，而新版本代码去掉了以前pipeline的inference，可以自由搭配模型。  
 
 你可以自己在modelscope中下载模型然后放在./models 下方。或者使用我们的整合包。    
 链接：https://pan.baidu.com/s/1_RUIsaaAJkfx1EsJlbdv3A?pwd=4v4e   
@@ -104,7 +104,7 @@ or
 
 ```shell
 ACGO -i xxx.mp4/xxx.wav [-o xxx.srt]
-
+```
 
 GUI版本则是拖动视频形成列表，进行批处理。<br>
 
