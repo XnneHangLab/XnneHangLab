@@ -89,3 +89,27 @@ punc_ct-transformer_zh-cn-common-vocab272727-pytorch  2024.2
 
 **详细见：[字幕生成V2.3-Stable : 吞句子现象fix,mp4原因导致字幕偏移音画不同步fix,提供GUI，支持保留标点和限制句子长度。 | XnneHang's Blog](http://xnnehang.top/blog/92)**
 
+
+## RoadMap:
+
+我希望分成两个版本，一个是GUI版本，一个是CLI版本。<br>
+
+CLI版本类似于这样：<br>
+
+```shell
+python run_srt.py -i xxx.mp4/xxx.wav [-o xxx.srt]
+```
+
+or
+
+```shell
+ACGO -i xxx.mp4/xxx.wav [-o xxx.srt]
+
+
+GUI版本则是拖动视频形成列表，进行批处理。<br>
+
+不过这里我们先实现CLI版本，然后再实现GUI版本。因为CLI版本相当于是GUI版本运行单个的情况。<br>
+
+之后我们会先考虑支持任务列表的输入。最后转换成GUI形式就很轻松。<br>
+
+最后我们的重心将会放在断点续下和多进程速度优化上（目前简直是一坨）。<br>
