@@ -1,0 +1,52 @@
+[project]
+name = "Auto-Caption-Generate-Offline"
+version = "2.4.0"
+description = ""
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "funasr==1.2.4",
+    "pyaml==25.1.0",
+    "torch==2.1.0+cpu",
+]
+authors = [{ name = "MrXnneHang", email = "XnneHang@gmail.com" }]
+keywords = []
+license = { text = "MIT" }
+classifiers = [
+  "Operating System :: OS Independent",
+  "License :: OSI Approved :: MIT License",
+  "Typing :: Typed",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+]
+
+[project.urls]
+Homepage = "https://github.com/MrXnneHang/Auto_Caption_Generated_Offline"
+Documentation = "https://github.com/MrXnneHang/Auto_Caption_Generated_Offline"
+Repository = "https://github.com/MrXnneHang/Auto_Caption_Generated_Offline"
+Issues = "https://github.com/MrXnneHang/Auto_Caption_Generated_Offline/issues"
+
+[project.scripts]
+ACGO = "uiya.cli:main"
+ACGO-UI = "uiya.gui:main"
+test-ACGO = "uiya.test:main"
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.pyright]
+include = ["src/uiya", "tests"]
+pythonVersion = "3.10"
+typeCheckingMode = "strict"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/uiya"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
