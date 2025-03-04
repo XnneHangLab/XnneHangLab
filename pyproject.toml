@@ -6,8 +6,10 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "funasr==1.2.4",
+    "numpy==1.26.4",
     "pyaml==25.1.0",
-    "torch==2.1.0+cpu",
+    "torch==2.1.0",
+    "torchaudio==2.1.0",
 ]
 authors = [{ name = "MrXnneHang", email = "XnneHang@gmail.com" }]
 keywords = []
@@ -21,7 +23,6 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: Implementation :: CPython",
 ]
 
@@ -38,6 +39,19 @@ test-ACGO = "uiya.test:main"
 
 [tool.uv.workspace]
 members = ["packages/*"]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cpu" },
+]
+torchaudio = [
+  { index = "pytorch-cpu" },
+]
 
 [tool.pyright]
 include = ["src/uiya", "tests"]
