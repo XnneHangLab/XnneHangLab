@@ -5,7 +5,7 @@ import argparse
 from pathlib import Path
 
 from uiya.utils.model import FunASRModel, generate_results
-from uiya.utils.TxtHelper import save_only_text_from_response
+from uiya.BasicRunner.extractor import save_only_text_from_response
 
 
 def main():
