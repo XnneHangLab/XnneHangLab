@@ -36,7 +36,7 @@ Issues = "https://github.com/MrXnneHang/Auto_Caption_Generated_Offline/issues"
 [project.scripts]
 # ACGO = "uiya.cli:main"
 # ACGO-UI = "uiya.gui:main"
-test-ACGO = "uiya.test:main"
+test = "uiya.test:main"
 
 [tool.uv.workspace]
 members = ["packages/*"]
