@@ -2,17 +2,31 @@
 
 [punc_ct-transformer_zh-cn-common-vocab272727-pytorch](https://modelscope.cn/models/iic/punc_ct-transformer_zh-cn-common-vocab272727-pytorch)
 
+或者:<br>
+
+```shell
+pip install modelscope
+modelscope download --model iic/punc_ct-transformer_zh-cn-common-vocab272727-pytorch --local_dir ./punc_ct-transformer_zh-cn-common-vocab272727-pytorch
+```
+
 ## 语音活动检测:
 
 [speech_fsmn_vad_zh-cn-16k-common-pytorch](https://modelscope.cn/models/iic/speech_fsmn_vad_zh-cn-16k-common-pytorch/files)
+
+```shell
+modelscope download --model iic/speech_fsmn_vad_zh-cn-16k-common-pytorch --local_dir ./speech_fsmn_vad_zh-cn-16k-common-pytorch
+```
 
 ## ASR模型:
 
 [speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch](https://modelscope.cn/models/iic/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch)
 
+```shell
+modelscope download --model iic/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch --local_dir ./speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
+```
 
 
-```cmd
+```shell
 $ ls models/
 download.md
 punc_ct-transformer_zh-cn-common-vocab272727-pytorch/
