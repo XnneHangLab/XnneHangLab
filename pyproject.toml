@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "funasr==1.2.4",
+    "modelscope>=1.23.1",
     "numpy==1.26.4",
     "pyaml==25.1.0",
     "torch==2.1.0",

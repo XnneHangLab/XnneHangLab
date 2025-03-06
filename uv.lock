@@ -49,6 +49,7 @@ version = "2.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "funasr" },
+    { name = "modelscope" },
     { name = "numpy" },
     { name = "pyaml" },
     { name = "torch", version = "2.1.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
@@ -60,6 +61,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "funasr", specifier = "==1.2.4" },
+    { name = "modelscope", specifier = ">=1.23.1" },
     { name = "numpy", specifier = "==1.26.4" },
     { name = "pyaml", specifier = "==25.1.0" },
     { name = "torch", specifier = "==2.1.0", index = "https://download.pytorch.org/whl/cpu" },
