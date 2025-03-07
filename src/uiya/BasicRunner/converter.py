@@ -5,12 +5,9 @@ import re
 from uiya._dataclass import ConfigParser
 from uiya._typing import AutoModelResponse, Sentence, Word
 
-# 对于 Response 中存在的英文单词的处理方式。
-# text: 这个软件基于Funasr。(7 words),(12 characters, without punc)
-# ts_list: [(0, 100), (100, 200), (200, 300), (300, 400), (400, 500), (500, 600), (600, 700)]
-# text_seg: "这 个 软 件 基 于 F u n a s r"
-# 坚持的原则是， text 的 word_num = ts_list 的长度，不管这个单词是不是有效的单词。
-# TODO: 把 text_seg 的英文单词也合并起来。
+# =====
+# 将 Response 处理成 Sentence 和 Word 的形式，两者都有自己的起始点。
+# =====
 
 
 def segment_text(text: str):
