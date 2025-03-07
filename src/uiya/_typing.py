@@ -50,3 +50,16 @@ class Sentence(TypedDict):
     end: int  # 句子结束的时间
     text_seg: str  # 句子的文本,每个字以空格分隔(不包含标点)
     ts_list: list[list[int]]  # 每个字开始的时间和结束的时间，单位 ms
+
+
+class DebugMessage(TypedDict):
+    """debug 用的信息
+    Args:
+        segmented_text (list[str]): 分割后的文本
+        total_words_num (int): 总共统计到的单词数
+        total_ts_num (int): 总共统计到的时间戳数
+    """
+
+    segmented_text: list[str]
+    total_words_num: int
+    total_ts_num: int
