@@ -2,6 +2,10 @@ from pathlib import Path
 
 from uiya._typing import AutoModelResponse
 
+# =======
+# 直接从 AutoModelResponse 或者 Sentence (经过 converter 加工过的 AutoModelResponse )中解析出想要的信息并且保存。
+# =======
+
 
 # 从 AutoModelResponse 中解析无 time stamp 的 text
 def save_only_text_from_response(response: AutoModelResponse, output_dir: Path):
@@ -18,3 +22,21 @@ def save_only_text_from_response(response: AutoModelResponse, output_dir: Path):
     save_path = output_dir / (response["key"] + "_only_text.txt")
     with open(save_path, "w", encoding="utf-8") as file:
         file.write(response["text"])
+
+
+# 从 Sentence 中解析有 time stamp 以及 text 并且保存
+def save_text_with_timestamp_from_response(
+    response: AutoModelResponse, output_dir: Path
+):
+    """将文本单独保存到txt文件中 --with-timestamp
+    Args:
+        response (AutoModelResponse): AutoModel 返回的参数。参见 _typing.py
+        input_path (Path): 输入的音频或者视频文件.
+        output_dir (Path): 输到哪个的文件夹
+    """
+    print("开始保存文本和时间戳")
+    if output_dir.exists() is False:
+        output_dir.mkdir(parents=True)
+        # save_path = output_dir / (response["key"] + "_with_timestamp.txt")
+
+    # TODO: 需要把 convertor 写完。
