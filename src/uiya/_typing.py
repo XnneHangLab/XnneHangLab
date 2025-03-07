@@ -31,3 +31,22 @@ class AutoModelResponse(TypedDict):
     key: str
     text: str
     timestamp: list[list[int]]
+
+
+class Sentence(TypedDict):
+    """经过加工过的 AutoModelResponse, 只包含一个句子
+    Example:
+    {
+    "text": "你今天可真是cute呢"
+    "start": 0,
+    "end": 2500,
+    "text_seg": "你 今 天 可 真 是 c u t e 呢", # 有点不完美，但目前 ts_list 是一一对应的。
+    "ts_list": [[0, 300], [300,540], [540, 600], [600, 900], [900, 1200], [1200, 1500], [1500, 2200],[2200, 2500]]
+    }
+    """
+
+    text: str
+    start: int  # 句子开始的时间 ,ms
+    end: int  # 句子结束的时间
+    text_seg: str  # 句子的文本,每个字以空格分隔(不包含标点)
+    ts_list: list[list[int]]  # 每个字开始的时间和结束的时间，单位 ms
