@@ -2,7 +2,8 @@ import funasr
 import torch
 import torchaudio
 
-from uiya.BasicRunner.converter import split_into_words
+from uiya.BasicRunner.converter import split_into_words, convert_response_to_sentences
+from uiya._typing import AutoModelResponse, Sentence
 
 
 def main():
@@ -26,8 +27,25 @@ def main():
 
     # === test convert_response_to_sentences ===
 
+    response: AutoModelResponse = AutoModelResponse(
+        key="example",
+        text="你今天可真是cute呢!",
+        timestamp=[
+            [0, 300],
+            [300, 540],
+            [540, 600],
+            [600, 900],
+            [900, 1200],
+            [1200, 1500],
+            [1500, 2200],
+            [2200, 2500],
+        ],
+    )
+    sentence: list[Sentence] = convert_response_to_sentences(response)
+    print(sentence[0]["text"])
+    print(sentence[0]["Words"])
+
     # === test split_into_words ===
-    # print(convert_format(input_data,debug=True))
     print(
         split_into_words("晚安纳尼南尼nony!")
     )  # ['晚', '安', '纳', '尼', '南', '尼', 'nony']

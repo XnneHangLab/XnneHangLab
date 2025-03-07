@@ -3,7 +3,7 @@
 import re
 
 from uiya._dataclass import ConfigParser
-from uiya._typing import AutoModelResponse, Sentence
+from uiya._typing import AutoModelResponse, Sentence, Word
 
 # 对于 Response 中存在的英文单词的处理方式。
 # text: 这个软件基于Funasr。(7 words),(12 characters, without punc)
@@ -102,17 +102,22 @@ def convert_response_to_sentences(input_data: AutoModelResponse) -> list[Sentenc
             continue
         else:
             ts_list = timestamps[current_ts_idx : current_ts_idx + len(sentence)]
-            text_seg = " ".join(sentence)
             start = ts_list[0][0]
             end = ts_list[-1][1]
             matched_ts_list = match_timestamps_to_words(sentence, ts_list)
+
+            words = split_into_words(sentence)
+            words_ts_list = matched_ts_list
+            Words = []
+            for word, ts in zip(words, words_ts_list):
+                Word_: Word = {"start": ts[0], "end": ts[1], "text": word}
+                Words.append(Word_)  # type:ignore
 
             result_item: Sentence = {
                 "text": sentence,
                 "start": start,
                 "end": end,
-                "text_seg": text_seg,
-                "ts_list": matched_ts_list,
+                "Words": Words,
             }
 
             results.append(result_item)
