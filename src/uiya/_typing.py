@@ -67,6 +67,17 @@ class Word(TypedDict):
     end: int  # 单词结束的时间
 
 
+class CutPoint(TypedDict):
+    """根据 Sentence 和 Word 的 index 把句子沿着 Word 左侧切开进而调整字幕速度(单句长度)
+    Args:
+         sentence_index: 需要被切的点位于哪个 Sentence
+         word_index: 位于该 Sentence 中的哪个 Word
+    """
+
+    sentence_index: int
+    word_index: int
+
+
 class DebugMessage(TypedDict):
     """debug 用的信息
     Args:
