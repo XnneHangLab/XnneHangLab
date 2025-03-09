@@ -11,9 +11,9 @@ class FunASRModel:
     def __init__(self):
         """ """
         self.config = ConfigParser()
-        self.base_model: str = self.config.base_model
-        self.vad_model: str = self.config.vad_model
-        self.punc_model: str = self.config.punc_model
+        self.base_model: str = str(self.config.base_model)
+        self.vad_model: str = str(self.config.vad_model)
+        self.punc_model: str = str(self.config.punc_model)
         self.device: str = self.config.device
 
     def full_version(self):
