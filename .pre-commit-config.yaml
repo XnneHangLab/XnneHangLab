@@ -9,7 +9,7 @@ repos:
     rev: v1.27.3
     hooks:
       - id: typos
-        files: \.(py|md)$ # 同时检查 .py 和 .md 文件
+        files: \.(py|md)$
         args: []
 
   # black
