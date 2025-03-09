@@ -5,7 +5,7 @@ from src.uiya._typing import Sentence, CutPoint, Word
 # 拆分 Sentence 为 Word 果然是对的。
 
 
-def generate_new_sentences(sentences: list[Sentence], cutline: int):
+def cut_sentences(sentences: list[Sentence], cutline: int):
     all_new_sentences: list[Sentence] = []
 
     for sentence_index, sentence in enumerate(sentences):
