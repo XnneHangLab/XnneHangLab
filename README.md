@@ -88,13 +88,13 @@ pip install git+https://github.com/MrXnneHang/Auto-Caption-Generate-Offline@v2.4
 
 可以都设置为 false,即直接按照模型生成的字幕写入 srt，但是不能同时设置为 true, 会相互抵消。<br>
 
-### need_punc: 是否需要标点恢复
+### `need_punc`: 是否需要标点恢复
 
 对于字幕很长的比如上面使用了 combine 的用户，那么请打开，它会在生成字幕的时候自动恢复标点。<br>
 
 你并不希望30字的一句话没有一个标点吧？<br>
 
-### hot_words_path: 热词路径
+### `hot_words_path`: 热词路径
 
 热词功能可以抑制口音带来的口胡，比如一些音近词。`西式`和`西市`, 当你在热词中加入`西市`，那么模型会优先生成`西市`而不是`西式`。在特定任务中很有用。<br>
 
@@ -114,3 +114,7 @@ hot_words 格式:<br>
 - [ ] config 的自动创建
 - [ ] 简单 gui 的支持.
 - [ ] mp4 的支持.(需要 ffmpeg)
+
+## 如何参与到开发:
+
+参见[CONTRIBUTING.md](https://github.com/MrXnneHang/Auto-Caption-Generate-Offline/blob/v2.4-cpu/CONTRIBUTING.md)<br>
