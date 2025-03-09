@@ -27,8 +27,8 @@ def convert_sentence_to_srt(sentence: Sentence) -> tuple[str, str, str]:
     return (start_time, end_time, text)
 
 
-def write_srt_from_Sentences(
-    Sentences: list[Sentence], srt_file_path: Path, remove_punctuation: bool = True
+def write_srt_from_sentences(
+    sentences: list[Sentence], srt_file_path: Path, remove_punctuation: bool = True
 ):
     """写入最终的 SRT 文件
 
@@ -40,7 +40,7 @@ def write_srt_from_Sentences(
     Config = ConfigParser()
 
     srt_content = ""
-    for index, sentence in enumerate(Sentences, start=1):
+    for index, sentence in enumerate(sentences, start=1):
         start_time, end_time, text = convert_sentence_to_srt(sentence)
         srt_content += f"{index}\n{start_time} --> {end_time}\n{text}\n\n"
 

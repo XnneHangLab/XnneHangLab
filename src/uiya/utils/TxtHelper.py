@@ -24,6 +24,7 @@ def write_lines_to_file(file_path: Path, lines: list[str]):
 def write_txt_to_file(file_path: Path, text: str):
     with open(file_path, "w", encoding="utf-8") as file:
         file.write(text)
+        print(f"已写入文件: {file_path}.")
 
 
 # 读取文件

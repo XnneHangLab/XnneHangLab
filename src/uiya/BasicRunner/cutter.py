@@ -1,4 +1,4 @@
-from src.uiya._typing import Sentence, CutPoint, Word
+from uiya._typing import Sentence, CutPoint, Word
 
 
 # ====

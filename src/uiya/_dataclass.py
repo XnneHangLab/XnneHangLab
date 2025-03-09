@@ -1,4 +1,6 @@
 from pathlib import Path
+import subprocess
+
 from dataclasses import dataclass
 from uiya.utils.config import load_config
 
@@ -39,5 +41,14 @@ class ConfigParser:
             # 创建空文件
             self.hot_words_path.touch()
             # TODO, 加上 Logger 告知用户没有检测到热词文件
-        if not self.FFMPEG_PATH.exists():
-            raise FileNotFoundError(f"{self.FFMPEG_PATH} not found")
+        # 运行 `ffmpeg -version` 检查是否安装了 ffmpeg,不需要打印输出
+        # 如果没有安装，抛出异常
+        if (
+            subprocess.run(
+                [str(self.FFMPEG_PATH), "-version"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            ).returncode
+            != 0
+        ):
+            raise FileNotFoundError("FFMPEG not found")
