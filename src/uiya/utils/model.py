@@ -47,9 +47,7 @@ class FunASRModel:
 """
 
 
-def generate_results(
-    model: "AutoModel", input_path: Path, debug: bool = False
-) -> AutoModelResponse:
+def generate_results(model: "AutoModel", input_path: Path) -> AutoModelResponse:
     config = ConfigParser()
     batch_size_s = config.batch_size_s
     hot_word_path = config.hot_words_path
