@@ -17,9 +17,9 @@ def xdg_config_home() -> Path:
 
 
 def search_for_settings_file() -> Path | None:
-    settings_file = Path("ACGO.yaml")
+    settings_file = Path("acgo.yaml")
     if not settings_file.exists():
-        settings_file = xdg_config_home() / "ACGO.yaml"
+        settings_file = xdg_config_home() / "acgo.yaml"
     if not settings_file.exists():
         return None
     return settings_file
