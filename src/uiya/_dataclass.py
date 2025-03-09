@@ -36,6 +36,8 @@ class ConfigParser:
         if not self.punc_model.exists():
             raise FileNotFoundError(f"{self.punc_model} not found")
         if not self.hot_words_path.exists():
-            raise FileNotFoundError(f"{self.hot_words_path} not found")
+            # 创建空文件
+            self.hot_words_path.touch()
+            # TODO, 加上 Logger 告知用户没有检测到热词文件
         if not self.FFMPEG_PATH.exists():
             raise FileNotFoundError(f"{self.FFMPEG_PATH} not found")

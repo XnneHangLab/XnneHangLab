@@ -48,23 +48,20 @@ class FunASRModel:
 
 
 def generate_results(
-    model: "AutoModel", input_path: Path, hot_word: str = "", debug: bool = False
+    model: "AutoModel", input_path: Path, debug: bool = False
 ) -> AutoModelResponse:
     config = ConfigParser()
     batch_size_s = config.batch_size_s
+    hot_word_path = config.hot_words_path
     # 原本 AutoModel 支持 input_path 是 list 的情况，但这里我忽略了它，我只需要写一个BasicRunner，多任务自己处理。
     if not input_path.exists():
         raise FileNotFoundError(f"{input_path} not found.")
     else:
-        if hot_word != "":
-            res: list[dict[str, Any]] = model.generate(  # type: ignore
-                input=str(input_path), hotword=hot_word, batch_size_s=batch_size_s
-            )
-        else:
-            res: list[dict[str, Any]] = model.generate(  # type: ignore
-                input=str(input_path),
-                batch_size_s=batch_size_s,
-            )
+        res: list[dict[str, Any]] = model.generate(  # type: ignore
+            input=str(input_path),
+            batch_size_s=batch_size_s,
+            hot_word=str(hot_word_path),
+        )
 
     if not res:
         raise ValueError("The res from automodel is empty.")
