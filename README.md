@@ -1,117 +1,116 @@
-## 项目介绍:
-
-#### 使用Funasr的带time_stamp的语音识别后转换成srt,并不复杂,
-
-#### 注意:
-
-Models 会自动下载，不过会下到C盘的User用户路径下，如果有需要自己配置环境的,可以手动下载然后放到当前根目录的Model下方。
-
-###  环境配置见:https://github.com/modelscope/FunASR
-
-
-
-有bug，请在b站私信反映，或者放在Isuue中。
-
-b站:https://space.bilibili.com/556737824?spm_id_from=333.788.0.0
-
-## 2024/6/13更新:  
-* 更新了新的模型，包括:  
-speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch    2024.4
-语音检测base模型.  
-speech_fsmn_vad_zh-cn-16k-common-pytorch  2024.2
-长音频自动划分模型，可以接受长音频输入。   
-punc_ct-transformer_zh-cn-common-vocab272727-pytorch  2024.2
-语音活动检测模型，用于生成time_stamp   
-* 支持热词功能。  
-* 整合bilibili@不知雪孤的代码，各方面使用更加舒适。  
-
-**注意：**  
-请不要在旧版本环境基础上构建新版本代码，旧版本的funasr不支持AutoModel模块，而新版本代码去掉了以前pipeline的inference，可以自由搭配模型。  
-
-你可以自己在modelscope中下载模型然后放在./models 下方。或者使用我们的整合包。    
-链接：https://pan.baidu.com/s/1_RUIsaaAJkfx1EsJlbdv3A?pwd=4v4e   
-提取码：4v4e    
-6.13对应V2版本   
-关于演示视频：    
-[b站](https://www.bilibili.com/video/BV1bz421z7gj/?spm_id_from=333.999.0.0)
+<p align="center">
+       <a href="https://github.com/modelscope/FunASR?tab=readme-ov-file"><img alt="funasr" src="https://camo.githubusercontent.com/eda774e3f1b9215478715fedecf8587062f33f37864ff904008d24117e18bc43/68747470733a2f2f7376672d62616e6e6572732e76657263656c2e6170702f6170693f747970653d6f726967696e2674657874313d46756e4153522546302539462541342541302674657874323d2546302539462539322539362532304125323046756e64616d656e74616c253230456e642d746f2d456e642532305370656563682532305265636f676e6974696f6e253230546f6f6c6b69742677696474683d383030266865696768743d323130" width="600" height="150"></a>
+   <br/>
+   <a href="https://python.org/" target="_blank"><img alt="PyPI - Python Version" src="https://img.shields.io/pypi/pyversions/moelib?logo=python&style=flat-square"></a>
+   <br/>
+   <a href="https://github.com/astral-sh/uv"><img alt="uv" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json&style=flat-square"></a>
+   <a href="https://github.com/astral-sh/ruff"><img alt="ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=flat-square"></a>
+   <a href="https://gitmoji.dev"><img alt="Gitmoji" src="https://img.shields.io/badge/gitmoji-%20😜%20😍-FFDD67?style=flat-square"></a>
+   <br/>
+</p>
 
 
+# 这是什么？
 
-## 2024/6/21的更新:(主要是Bug-fix)
+这是一个基于 [Funasr](https://github.com/modelscope/FunASR?tab=readme-ov-file), 将 wav 文件转换为 srt 字幕文件的工具。
 
-1.部分用户转成.wav文件时是大写的.WAV，被认为不是支持的wav
+# 如何使用？(从安装开始~)
 
-2.偶尔的吞字现象。
+以安装 cpu 版本为例。(目前也暂时只有 cpu 版本 =_= )
 
-3.cut_line未引用导致调整cut_line无效
+## 克隆本仓库:
 
-4.你可以在config.yml中调整cut_line和combine_line
+```shell
+git clone https://github.com/MrXnneHang/Auto-Caption-Generate-Offline@v2.4-cpu
+cd Auto-Caption-Generate-Offline
+```
 
+## 下载必要的模型文件
 
+参见 [models/download.md](https://github.com/MrXnneHang/Auto-Caption-Generate-Offline/blob/v2.4-cpu/models/download.md) 进行手动下载.<br>
 
-**详细见:[字幕生成V2.1:更新介绍、Bug Fix | XnneHang's Blog](http://xnnehang.top/blog/27)**
+或者直接使用 `modelscope`.<br>
 
+```shell
+pip install modelscope
+```
 
+vad 模型:<br>
 
-## 2024/7/7的更新(主要是bug-fix)
+```shell
+cd models/
+modelscope download --model iic/speech_fsmn_vad_zh-cn-16k-common-pytorch --local_dir ./speech_fsmn_vad_zh-cn-16k-common-pytorch
+```
 
-1.识别到英文的时候偶尔就会碰到List out of Index.
+punc 模型:<br>
 
-2.可以在config.yml中更改device
+```shell
+modelscope download --model iic/punc_ct-transformer_zh-cn-common-vocab272727-pytorch --local_dir ./punc_ct-transformer_zh-cn-common-vocab272727-pytorch
+```
 
-3.写入srt的时候顺便写入了whole_text
+asr 模型:<br>
 
-**详细见：[字幕生成V2.2:Bug Fix,支持手动修改device，可选择文本标点恢复。 | XnneHang's Blog](http://xnnehang.top/blog/44)**
+```shell
+modelscope download --model iic/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch --local_dir ./speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
+```
 
+## 运行:
 
+```shell
+uv run acgo -i test.wav -o test.srt
+```
 
-## 2024/7/30更新:
+建议使用 uv 运行。不需要手动配置环境。<br>
 
-1.英文单词被拆开,字母被当成单词
+[安装uv](https://docs.astral.sh/uv/getting-started/installation/)<br>
 
-2.如果异常，不退出，继续执行。
+或者你可以使用 pip 从源码安装:<br>
 
-3.将batch_size_s改成可以修改的值。
+```shell
+pip install git+https://github.com/MrXnneHang/Auto-Caption-Generate-Offline@v2.4-cpu
+```
 
-**详细见：[字幕生成V2.3 : 英文单词的兼容，batch_size的自定义. | XnneHang's Blog](http://xnnehang.top/blog/81)**
+## 配置文件（更灵活的字幕配置）:
 
+你可以把配置文件放在工作目录下或者 `~/.config/acgo.yaml`.<br>
 
-##  2024/8/8更新:『Important』
-1.修复了7/30引入了一个大bug:convert short text to long 吞句子现象。
+大部分参数都有注释。<br>
 
-2.修复某些mp4转录wav后可能长度和wav不一致导致字幕偏移。
+这里讲一下一些特别的:<br>
 
-3.提供GUI
+### `cut`&`cut_line`&`combine`&`combine_line`的联动: 自由调整字幕速度节奏
 
-4.标点可以选择保留
+你可以通过设置它们来调整你字幕中每一句的长度，即字幕速度。<br>
 
-5.合并了7/30:V2.3的第0个Issue，英文单词被拆分成字母
+如果你希望在快节奏视频（如游戏解说）中字幕速度快一些，短一些，那么请把`cut`设置为`True`，`cut_line`设置得略微小一些，比如`300`,单位是`ms`，当两个字幕之间的间隔大于`300ms`时，会自动切割。<br>
 
-**详细见：[字幕生成V2.3-Stable : 吞句子现象fix,mp4原因导致字幕偏移音画不同步fix,提供GUI，支持保留标点和限制句子长度。 | XnneHang's Blog](http://xnnehang.top/blog/92)**
+如果你希望在慢节奏视频（如课程）中字幕慢一点长一点完整一点，那么请把`combine`设置为`True`，`combine_line`设置得略微大一些，比如`1000`,单位是`ms`，当两个字幕之间的间隔小于`1000ms`时，会自动合并。当然为了防止过长，你可以通过`max_sentence_length`(单位是字)来限制最长句子长度。<br>
 
+可以都设置为 false,即直接按照模型生成的字幕写入 srt，但是不能同时设置为 true, 会相互抵消。<br>
+
+### need_punc: 是否需要标点恢复
+
+对于字幕很长的比如上面使用了 combine 的用户，那么请打开，它会在生成字幕的时候自动恢复标点。<br>
+
+你并不希望30字的一句话没有一个标点吧？<br>
+
+### hot_words_path: 热词路径
+
+热词功能可以抑制口音带来的口胡，比如一些音近词。`西式`和`西市`, 当你在热词中加入`西市`，那么模型会优先生成`西市`而不是`西式`。在特定任务中很有用。<br>
+
+hot_words 格式:<br>
+
+```txt
+请不要加入标点符号
+以换行分隔热词
+依孜镇
+卡落斯
+新作
+```
 
 ## RoadMap:
 
-我希望分成两个版本，一个是GUI版本，一个是CLI版本。<br>
-
-CLI版本类似于这样：<br>
-
-```shell
-python run_srt.py -i xxx.mp4/xxx.wav [-o xxx.srt]
-```
-
-or
-
-```shell
-ACGO -i xxx.mp4/xxx.wav [-o xxx.srt]
-```
-
-GUI版本则是拖动视频形成列表，进行批处理。<br>
-
-不过这里我们先实现CLI版本，然后再实现GUI版本。因为CLI版本相当于是GUI版本运行单个的情况。<br>
-
-之后我们会先考虑支持任务列表的输入。最后转换成GUI形式就很轻松。<br>
-
-最后我们的重心将会放在断点续下和多进程速度优化上（目前简直是一坨）。<br>
-
-## Building...
+- [ ] 创建 cuda 版本分支
+- [ ] config 的自动创建
+- [ ] 简单 gui 的支持.
+- [ ] mp4 的支持.(需要 ffmpeg)
