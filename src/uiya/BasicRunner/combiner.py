@@ -1,5 +1,12 @@
 from uiya._typing import Sentence, Word
 
+
+# ====
+# 根据 combine_line 把间隔较短的两个句子合并成一个句子
+# 建议和 cut_line 之间打开一个即可，如果同时打开，需要 combine_line>cut_line 否则会取消所有 cut_line 的效果
+# ====
+
+
 # 做的事情和 cutter 相反，根据 combine_line 把间隔较短的两个句子合并成一个句子
 # 需要考虑连续 combine 的情况,即经过一次合并后，这个新句子可能依然需要和下一个句子合并
 # 所以我们考虑的实现路径是这样的: 从左到右边，一次性找出连续的并且需要合并的句子，然后合并。

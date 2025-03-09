@@ -1,6 +1,11 @@
 from src.uiya._typing import Sentence, CutPoint, Word
 
 
+# ====
+# 根据 cutline 把单个句子拆成多个句子，如果句子停顿时间超过 cutline 。
+# 可以用于调整字幕长度和速度。
+# ====
+
 # 卧槽，这比之前简洁了不止一点点。
 # 拆分 Sentence 为 Word 果然是对的。
 
