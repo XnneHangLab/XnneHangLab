@@ -98,8 +98,6 @@ def convert_response_to_sentences(input_data: AutoModelResponse) -> list[Sentenc
             continue
         else:
             ts_list = timestamps[current_ts_idx : current_ts_idx + len(sentence)]
-            start = ts_list[0][0]
-            end = ts_list[-1][1]
             matched = match_timestamps_to_words(sentence, ts_list)
             Words: list[Word] = []
             for start, end, word in matched:
@@ -108,8 +106,8 @@ def convert_response_to_sentences(input_data: AutoModelResponse) -> list[Sentenc
 
             result_item: Sentence = {
                 "text": sentence,
-                "start": int(start),
-                "end": int(end),
+                "start": Words[0]["start"],
+                "end": Words[-1]["end"],
                 "Words": Words,
             }
 

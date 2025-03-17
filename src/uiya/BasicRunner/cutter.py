@@ -20,8 +20,8 @@ def cut_sentences(sentences: list[Sentence], cutline: int):
         new_words_lists: list[list[Word]] = []
 
         for word_index, word in enumerate(sentence["Words"]):
-            if (
-                word["start"] - latest_end > cutline and latest_end != 0
+            if (word["start"] - latest_end > cutline) and (
+                latest_end != 0
             ):  # 这一个字的开始时间 - 上一个字的结束时间 > cutline
                 cut_points.append(
                     {"sentence_index": sentence_index, "word_index": word_index}
