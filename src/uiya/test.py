@@ -1,52 +1,42 @@
 import funasr
 import torch
 import torchaudio
+import argparse
+from pathlib import Path
 
-from uiya.BasicRunner.converter import split_into_words
-
-# import cProfile
+from uiya.utils.model import FunASRModel, generate_results
+from uiya.utils.config import load_settings_file
+from uiya.utils.SrtHelper import write_srt_from_sentences
+from uiya.BasicRunner.converter import split_into_words, convert_response_to_sentences
+from uiya.BasicRunner.extractor import save_only_text_from_response
+from uiya.BasicRunner.cutter import cut_sentences
+from uiya.BasicRunner.combiner import combine_sentences
+from uiya._typing import Sentence
+from uiya._dataclass import RunnerSettings
 
 
 def main():
+    print("====== Version =======")
     print(f"funasr:{funasr.__version__}")
     print(f"torch:{torch.__version__}")
     print(f"torchaudio:{torchaudio.__version__}")
 
-    # === test save_only_text_from_response ===
-    # parser = argparse.ArgumentParser(description="将wav音频转换成srt")
-    # parser.add_argument(
-    #     "-i", "--input_path", default="./example.wav", help="输入音频文件"
-    # )
-    # args = parser.parse_args()
+    print("====== Testing fn_convert_response_to_sentences =======")
+    parser = argparse.ArgumentParser(description="将wav音频转换成srt")
+    parser.add_argument(
+        "-i", "--input_path", default="./tests/test.wav", help="输入音频文件"
+    )
+    args = parser.parse_args()
 
-    # Model = FunASRModel()
-    # model = Model.full_version()
-    # response = generate_results(
-    #     model=model, input_path=Path(args.input_path), hot_word="", debug=True
-    # )
-    # save_only_text_from_response(response=response, output_dir=Path("./test"))
+    Model = FunASRModel()
+    model = Model.full_version()
+    response = generate_results(model=model, input_path=Path(args.input_path))
+    save_only_text_from_response(response=response, output_dir=Path("./tests"))
 
-    # === test convert_response_to_sentences ===
+    print("====== Testing fn_convert_response_to_sentences =======")
+    sentences: list[Sentence] = convert_response_to_sentences(response)
 
-    # response: AutoModelResponse = AutoModelResponse(
-    #     key="example",
-    #     text="你今天可真是cute呢!",
-    #     timestamp=[
-    #         [0, 300],
-    #         [300, 540],
-    #         [540, 600],
-    #         [600, 900],
-    #         [900, 1200],
-    #         [1200, 1500],
-    #         [1500, 2200],
-    #         [2200, 2500],
-    #     ],
-    # )
-    # sentence: list[Sentence] = convert_response_to_sentences(response)
-    # print(sentence[0]["text"])
-    # print(sentence[0]["Words"])
-
-    # === test split_into_words ===
+    print("====== Testing fn_split_into_words =======")
     print(
         split_into_words("晚安纳尼南尼nony!")
     )  # ['晚', '安', '纳', '尼', '南', '尼', 'nony']
@@ -57,3 +47,23 @@ def main():
         split_into_words("多喜天dustin birthday.")
     )  # ['多', '喜', '天', 'dustin', 'birthday']
     print(split_into_words("He's 我见过的。"))  # ["He's", '我', '见', '过', '的', '。']
+
+    print("====== Testing fn_load_settings_file =======")
+    settings: RunnerSettings = load_settings_file("acgo.toml")
+
+    print("====== Testing non-process-wav2srt =======")
+    write_srt_from_sentences(
+        sentences=sentences, srt_file_path=Path("./tests/test.srt")
+    )
+
+    print("====== Testing cut wav2srt")
+    cutted_sentences = cut_sentences(sentences=sentences, cutline=500)
+    write_srt_from_sentences(cutted_sentences, Path("./tests/test_cut.srt"))
+
+    print("====== Testing combine wav2srt")
+    combined_sentences = combine_sentences(
+        sentences=sentences, combine_line=500, max_sentence_length=500
+    )
+    write_srt_from_sentences(combined_sentences, Path("./tests/test_combine.srt"))
+
+    return settings
