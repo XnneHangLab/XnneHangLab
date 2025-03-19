@@ -2,7 +2,7 @@ from funasr import AutoModel
 from pathlib import Path
 from typing_extensions import Any
 
-from uiya._dataclass import ConfigParser
+from uiya.utils.config import load_settings_file
 from uiya._typing import AutoModelResponse
 
 
@@ -10,11 +10,11 @@ class FunASRModel:
 
     def __init__(self):
         """ """
-        self.config = ConfigParser()
-        self.base_model: str = str(self.config.base_model)
-        self.vad_model: str = str(self.config.vad_model)
-        self.punc_model: str = str(self.config.punc_model)
-        self.device: str = self.config.device
+        self.settings = load_settings_file("acgo.toml")
+        self.base_model: str = str(self.settings.paths.base_model)
+        self.vad_model: str = str(self.settings.paths.vad_model)
+        self.punc_model: str = str(self.settings.paths.punc_model)
+        self.device: str = self.settings.basic.device
 
     def full_version(self):
         model = AutoModel(
@@ -48,9 +48,9 @@ class FunASRModel:
 
 
 def generate_results(model: "AutoModel", input_path: Path) -> AutoModelResponse:
-    config = ConfigParser()
-    batch_size_s = config.batch_size_s
-    hot_word_path = config.hot_words_path
+    settings = load_settings_file("acgo.toml")
+    batch_size_s = settings.basic.batch_size_s
+    hot_word_path = settings.paths.hot_words_path
     # 原本 AutoModel 支持 input_path 是 list 的情况，但这里我忽略了它，我只需要写一个BasicRunner，多任务自己处理。
     if not input_path.exists():
         raise FileNotFoundError(f"{input_path} not found.")

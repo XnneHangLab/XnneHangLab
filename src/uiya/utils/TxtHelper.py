@@ -2,15 +2,15 @@ import re
 
 from pathlib import Path
 
-from uiya._dataclass import ConfigParser
+from uiya.utils.config import load_settings_file
 
 
 def split_text_into_sentences_by_punctuation_list(text: str) -> list[str]:
     """
     测试移除文本中的指定标点符号(参见 config)
     """
-    Config = ConfigParser()
-    return re.split(f"([{Config.punctuation_list}])", text)
+    settings = load_settings_file("acgo.toml")
+    return re.split(f"([{settings.basic.punctuation_list}])", text)
     # 如果后续碰到 list out of index,可以打印一下看一下文本中出现了什么没有见过的符号然后加入 pop_list。
 
 

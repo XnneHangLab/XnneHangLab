@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 
 import re
-from uiya._dataclass import ConfigParser
+from uiya.utils.config import load_settings_file
 from uiya._typing import AutoModelResponse, Sentence, Word
-
+from uiya._dataclass import RunnerSettings
 
 # =====
 # 将 Response 处理成 Sentence 和 Word 的形式，两者都有自己的起始点。
 # =====
 
-Config = ConfigParser()
+settings: RunnerSettings = load_settings_file("acgo.toml")
 
 
 def segment_text(text: str):
@@ -17,7 +17,7 @@ def segment_text(text: str):
     将文本按照标点符号分割成句子列表
     """
 
-    pop_list = Config.punctuation_list
+    pop_list = settings.basic.punctuation_list
 
     # 移除 pop_list 中的单引号
     # 应对这种情况, He's a boy. 我希望`He's`被视作一个单词
@@ -57,7 +57,7 @@ def match_timestamps_to_words(
     """
     将时间戳分配给对应的单词,同时去除标点符号。
     """
-    pop_list = Config.punctuation_list
+    pop_list = settings.basic.punctuation_list
     words: list[str] = split_into_words(text)
     matched: list[list[int | str]] = []
     ts_idx = 0
@@ -79,13 +79,13 @@ def calculate_words_length(segmented_text: str) -> int:
     words = split_into_words(segmented_text)
     length = 0
     for word in words:
-        if word not in Config.punctuation_list:
+        if word not in settings.basic.punctuation_list:
             length += 1
     return length
 
 
 def convert_response_to_sentences(input_data: AutoModelResponse) -> list[Sentence]:
-    pop_list = Config.punctuation_list
+    pop_list = settings.basic.punctuation_list
 
     results: list[Sentence] = []
     text = input_data["text"]

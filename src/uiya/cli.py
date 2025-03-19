@@ -11,7 +11,8 @@ from uiya.BasicRunner.converter import (
 )
 from uiya.utils.TxtHelper import split_text_into_sentences_by_punctuation_list
 from uiya.utils.SrtHelper import write_srt_from_sentences
-from uiya._dataclass import ConfigParser
+from uiya.utils.config import load_settings_file
+from uiya._dataclass import RunnerSettings
 
 
 # 定义长文本写入函数
@@ -24,6 +25,7 @@ def main() -> DebugMessage | None:
     argparser.add_argument(
         "-o", "--output_path", default="./example.srt", help="输出srt文件"
     )
+    # argparser.add_argument("--only-text", store_true, help="是否只输出文本")
     argparser.add_argument("-d", "--debug", default=False, help="是否开启debug模式")
 
     args = argparser.parse_args()
@@ -34,7 +36,7 @@ def main() -> DebugMessage | None:
     Model = FunASRModel()
     model = Model.full_version()
 
-    Config = ConfigParser()
+    settings: RunnerSettings = load_settings_file("acgo.toml")
 
     response: AutoModelResponse = generate_results(
         model=model, input_path=audio_file_path
@@ -59,22 +61,24 @@ def main() -> DebugMessage | None:
     else:
         # TODO: 设置 Logger 告知用户自己正在使用哪种模式.
         sentences = convert_response_to_sentences(response)
-        if Config.cut and Config.combine:
-            if Config.combine_line < Config.cut_line:
+        if settings.extra.cut and settings.extra.combine:
+            if settings.extra.combine_line < settings.extra.cut_line:
                 raise ValueError(
                     "combine_line should be greater than cut_line, or all cut will be ignored."
                 )
-        elif Config.cut and not Config.combine:
-            if Config.cut_line < 0:
+        elif settings.extra.cut and not settings.extra.combine:
+            if settings.extra.combine_line < 0:
                 raise ValueError("cut_line should be greater than 0.")
-            sentences = cut_sentences(sentences=sentences, cutline=Config.cut_line)
-        elif not Config.cut and Config.combine:
-            if Config.combine_line < 0:
+            sentences = cut_sentences(
+                sentences=sentences, cutline=settings.extra.combine_line
+            )
+        elif not settings.extra.cut and settings.extra.combine:
+            if settings.extra.combine_line < 0:
                 raise ValueError("combine_line should be greater than 0.")
             sentences = combine_sentences(
                 sentences=sentences,
-                combine_line=Config.combine_line,
-                max_sentence_length=Config.max_sentence_length,
+                combine_line=settings.extra.combine_line,
+                max_sentence_length=settings.extra.max_sentence_length,
             )
         else:
             pass
