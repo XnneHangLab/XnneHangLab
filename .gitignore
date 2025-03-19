@@ -7,4 +7,4 @@ speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch/
 output.txt
 *.srt
 *.mp4
-./tests/
+tests/
