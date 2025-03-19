@@ -1,22 +1,10 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Literal, TypedDict
+from typing import TypedDict
 
 
 # 两条线，一条是直接 mp4 输入。(需要考虑mp4->wav和音视频长度对齐)。
 # 一种是音频(wav)直接输入。或者考虑自动转换aac,mp3,m4a->wav.
-
-InputResourceType = Literal["wav", "mp4"]  # m4a,aac,mp3 待定
-# 需要同时最小化后缀。
-
-
-class BasicRunner(TypedDict):
-    """Command Status"""
-
-    resource_type: InputResourceType
-    input_path: Path
-    output_path: Path
 
 
 class AutoModelResponse(TypedDict):
