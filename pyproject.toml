@@ -14,6 +14,7 @@ dependencies = [
     "tomli_w==1.2.0",
     "pydantic==2.10.6",
     "setuptools==76.0.0",
+    "streamlit==1.43.2",
 ]
 authors = [{ name = "MrXnneHang", email = "XnneHang@gmail.com" }]
 keywords = []
@@ -39,6 +40,7 @@ Issues = "https://github.com/MrXnneHang/Auto_Caption_Generated_Offline/issues"
 [project.scripts]
 test = "uiya.test:main"
 acgo = "uiya.cli:main"
+uiya = "uiya.ui:main"
 
 [tool.uv.workspace]
 members = ["packages/*"]
