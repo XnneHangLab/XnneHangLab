@@ -1,41 +1,76 @@
 from pydantic import BaseModel, Field
-from typing import Annotated
-from uiya._typing import Device
+from typing import Annotated, Literal
+
+# 并不是所有的配置项目都向用户开放。有 title 的是开放项。
 
 
-class RunnerBasicSettings(BaseModel):
-    batch_size_s: Annotated[int, Field(300)]
-    device: Annotated[Device, Field("cpu")]
+class RunnerSettings(BaseModel):
+    batch_size_s: Annotated[
+        int, Field(300, title="批处理大小(默认300,只要能吃满显卡或者CPU即可)")
+    ]
+    device: Annotated[Literal["cpu", "cuda"], Field("cpu", title="设备选择")]
     punctuation_list: Annotated[str, Field("，。；、？！,.;?!")]
 
+    hot_words_path: Annotated[str, Field("./hot_words.txt", title="热词路径")]
+    FFMPEG_PATH: Annotated[str, Field("ffmpeg", title="FFMPEG路径,默认用系统环境变量")]
+    base_model: Annotated[
+        str,
+        Field(
+            "./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch",
+            title="base 模型",
+        ),
+    ]
+    vad_model: Annotated[
+        str,
+        Field("./models/speech_fsmn_vad_zh-cn-16k-common-pytorch", title="vad 模型"),
+    ]
+    punc_model: Annotated[
+        str,
+        Field(
+            "./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch",
+            title="punc 模型",
+        ),
+    ]
 
-class RunnerExtraSettings(BaseModel):
     cut: Annotated[bool, Field(False)]
-    cut_line: Annotated[int, Field(500)]
+    cut_line: Annotated[int, Field(10)]
     combine: Annotated[bool, Field(False)]
-    combine_line: Annotated[int, Field(500)]
+    combine_line: Annotated[int, Field(10)]
     max_sentence_length: Annotated[int, Field(20)]
     need_punc: Annotated[bool, Field(False)]
 
 
-class RunnerPathSettings(BaseModel):
-    hot_words_path: Annotated[str, Field("./hot_words.txt")]
-    FFMPEG_PATH: Annotated[str, Field("ffmpeg")]
-    base_model: Annotated[
-        str,
-        Field(
-            "./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch"
-        ),
+# 开放的配置项
+RunnerSettingsTitle = Literal[
+    "batch_size_s",
+    "device",
+    "hot_words_path",
+    "FFMPEG_PATH",
+    "base_model",
+    "vad_model",
+    "punc_model",
+]
+
+
+class AudioSettings(BaseModel):
+    guide: Annotated[bool, Field(True, title="指引")]
+    output_type: Annotated[
+        Literal["with_timestamp", "without_timestamp"],
+        Field("with_timestamp", title="输出类型"),
     ]
-    vad_model: Annotated[
-        str, Field("./models/speech_fsmn_vad_zh-cn-16k-common-pytorch")
-    ]
-    punc_model: Annotated[
-        str, Field("./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch")
+    subtitle_speed: Annotated[
+        Literal["slow", "normal", "fast"], Field("normal", title="字幕速度")
     ]
 
 
-class RunnerSettings(BaseModel):
-    basic: Annotated[RunnerBasicSettings, Field(RunnerBasicSettings())]  # type: ignore
-    paths: Annotated[RunnerPathSettings, Field(RunnerPathSettings())]  # type: ignore
-    extra: Annotated[RunnerExtraSettings, Field(RunnerExtraSettings())]  # type: ignore
+# 开放的配置项
+AudioSettingsTitle = Literal["guide", "output_type", "subtitle_speed"]
+
+
+class VideoSettings(BaseModel):
+    guide: Annotated[bool, Field(True)]
+    subtitle_speed: Annotated[Literal["slow", "normal", "fast"], Field("normal")]
+
+
+# 开放的配置项
+VideoSettingsTitle = Literal["guide", "subtitle_speed"]
