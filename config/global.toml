@@ -1,6 +1,9 @@
 batch_size_s = 300
 device = "cpu"
 punctuation_list = "，。；、？！,.;?!"
+custom_output_dir = false
+cache_dir = "./cache"
+output_dir = "./output"
 hot_words_path = "./hot_words.txt"
 FFMPEG_PATH = "ffmpeg"
 base_model = "./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch"

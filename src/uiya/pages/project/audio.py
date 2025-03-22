@@ -80,7 +80,7 @@ with tab2:
     with AudioSetting:
         st.markdown("##### 指引 ")
         st.selectbox("guide", ["关闭", "开启"], index=0, label_visibility="collapsed")
-        st.markdown("关闭指引，开启后每次就不会再弹出使用提示")
+        st.caption("关闭指引，开启后每次就不会再弹出使用提示")
         st.markdown("")
         st.markdown("##### 输出类型 ")
         mode = st.selectbox(
@@ -89,17 +89,19 @@ with tab2:
             index=0,
             label_visibility="collapsed",
         )
-        st.markdown(
+        st.caption(
             "具体配置输出字幕类型请参见 `Project -> 音频识别 -> 音频识别 -> 更多功能`。 只有勾选带时间线的字幕才支持输出各种格式。"
         )
         st.markdown("")
         st.markdown("##### Subtitle 字幕速度配置 ")
         st.markdown("")
-        st.selectbox("subtitle_speed", ["慢", "适中", "快"])
-        st.markdown(
+        st.selectbox(
+            "subtitle_speed", ["慢", "适中", "快"], label_visibility="collapsed"
+        )
+        st.caption(
             "字幕速度快慢的衡量是一句和一句的之间的切换的速度，单句字幕越短，一般越快，单句字幕越长，一般越慢。"
         )
-        st.markdown("实况视频建议快，课程视频建议慢。")
+        st.caption("实况视频建议快，课程视频建议慢。")
         st.markdown("")
 
     with AudioSave:
@@ -152,7 +154,7 @@ with tab1:
                     "output." + uploaded_file_audio.name.split(".")[-1]
                 )
                 output_dir = (
-                    Path(settings.cache_path)
+                    Path(settings.cache_dir)
                     / st.session_state.audio_name_original
                     / current_time
                 )
