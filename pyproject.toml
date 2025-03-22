@@ -3,18 +3,18 @@ name = "Auto-Caption-Generate-Offline"
 version = "2.4.0"
 description = ""
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11,<3.12"
 dependencies = [
     "funasr==1.2.6",
     "modelscope>=1.23.1",
     "numpy==1.26.4",
     "torch==2.1.0",
     "torchaudio==2.1.0",
-    "tomli==2.0.2; python_version < '3.11'",
     "tomli_w==1.2.0",
     "pydantic==2.10.6",
     "setuptools==76.0.0",
     "streamlit==1.43.2",
+    "streamlit-antd-components==0.3.2",
 ]
 authors = [{ name = "MrXnneHang", email = "XnneHang@gmail.com" }]
 keywords = []
@@ -25,9 +25,7 @@ classifiers = [
   "Typing :: Typed",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: Implementation :: CPython",
 ]
 
@@ -60,7 +58,7 @@ torchaudio = [
 
 [tool.pyright]
 include = ["src/uiya", "tests"]
-pythonVersion = "3.10"
+pythonVersion = "3.11"
 typeCheckingMode = "strict"
 
 [tool.hatch.build.targets.wheel]
@@ -69,3 +67,8 @@ packages = ["src/uiya"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# 选取的该版本 Pytorch 仅仅支持 310 311.
+# < 3.11 需要额外安装 tomlilib 
+# < 3.11 不支持 *tuple 的解包。(_dataclass.py 中涉及)
+# 于是，该项目只能在 3.11 运行，3.12 及以上需要考虑手动升级 pytorch。
