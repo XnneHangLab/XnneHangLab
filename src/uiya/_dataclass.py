@@ -11,6 +11,7 @@ class RunnerSettings(BaseModel):
     device: Annotated[Literal["cpu", "cuda"], Field("cpu", title="设备选择")]
     punctuation_list: Annotated[str, Field("，。；、？！,.;?!")]
 
+    cache_path: Annotated[str, Field("./cache", title="缓存路径")]
     hot_words_path: Annotated[str, Field("./hot_words.txt", title="热词路径")]
     FFMPEG_PATH: Annotated[str, Field("ffmpeg", title="FFMPEG路径,默认用系统环境变量")]
     base_model: Annotated[
@@ -44,6 +45,7 @@ class RunnerSettings(BaseModel):
 RunnerSettingsTitle = Literal[
     "batch_size_s",
     "device",
+    "cache_path",
     "hot_words_path",
     "FFMPEG_PATH",
     "base_model",

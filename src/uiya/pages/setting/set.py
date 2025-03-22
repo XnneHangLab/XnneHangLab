@@ -38,6 +38,7 @@ if "initial_settings" not in st.session_state:
             "vad_model": settings.vad_model,
             "hot_words_path": settings.hot_words_path,
             "FFMPEG_PATH": settings.FFMPEG_PATH,
+            "cache_path": settings.cache_path,
         },
     }
 
@@ -49,6 +50,7 @@ punc_model = st.session_state.get("punc_model", settings.punc_model)
 vad_model = st.session_state.get("vad_model", settings.vad_model)
 hot_words_path = st.session_state.get("hot_words_path", settings.hot_words_path)
 ffmpeg_path = st.session_state.get("ffmpeg_path", settings.FFMPEG_PATH)
+cache_path = st.session_state.get("cache_path", settings.cache_path)
 
 
 BOTSave = st.container()
@@ -112,6 +114,7 @@ with BOTSave:
                     "vad_model": vad_model,
                     "hot_words_path": hot_words_path,
                     "FFMPEG_PATH": ffmpeg_path,
+                    "cache_path": cache_path,
                 },
             }
 
@@ -125,6 +128,7 @@ with BOTSave:
                 settings.vad_model = vad_model
                 settings.hot_words_path = hot_words_path
                 settings.FFMPEG_PATH = ffmpeg_path
+                settings.cache_path = cache_path
                 write_settings_file(settings_name="global.toml", settings=settings)
                 message_box(
                     "保存成功！", "你也可以通过手动配置 `global.toml` 来修改配置。"

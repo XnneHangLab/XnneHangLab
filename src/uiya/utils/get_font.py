@@ -58,3 +58,25 @@ def get_font_data():
 
     else:
         print(f"获取字体失败！尚未支持的操作系统: {system_type}")
+
+
+def read_font_data():
+    system_type = platform.system()
+    if system_type == "Windows":
+        path = os.getcwd().replace("utils", "/")
+        with open(path + "/config/font.txt", "r", encoding="utf-8") as file:
+            lines = file.readlines()
+            fonts = [line.strip() for line in lines]
+            return fonts
+    elif system_type in ["Darwin"]:
+        path = os.path.join(os.getcwd().replace("utils", ""), "config", "font.txt")
+        with open(path, "r", encoding="utf-8") as file:
+            lines = file.readlines()
+            fonts = [line.strip() for line in lines]
+            return fonts
+    elif system_type in ["Linux"]:
+        path = os.path.join(os.getcwd().replace("utils", ""), "config", "font.txt")
+        with open(path, "r", encoding="utf-8") as file:
+            lines = file.readlines()
+            fonts = [line.strip() for line in lines]
+            return fonts

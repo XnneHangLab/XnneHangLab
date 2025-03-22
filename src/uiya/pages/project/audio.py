@@ -2,10 +2,6 @@ import os
 from pathlib import Path
 import datetime
 import streamlit as st
-import sys
-
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 
 from uiya.utils.model import FunASRModel, generate_results
 from uiya.BasicRunner.extractor import save_only_text_from_response
@@ -14,21 +10,15 @@ from uiya.utils.SrtHelper import write_srt_from_sentences
 from uiya.styles.global_style import style
 from uiya.utils.public import srt_to_ass, srt_to_vtt, srt_to_sbv
 from uiya.utils.config import load_settings_file
-from uiya._dataclass import AudioSettings
+from uiya._dataclass import AudioSettings, RunnerSettings
+from uiya.utils.get_font import read_font_data
 
 
 style()
 
+settings: RunnerSettings = load_settings_file("global.toml", setting=RunnerSettings)
 audio_settings: AudioSettings = load_settings_file("audio.toml", setting=AudioSettings)
-
-
-path = os.getcwd() + "/"
-font_data_path = "config/font.txt"
-audio_cache_path = path + "cache/audio/"
-
-with open(font_data_path, "r", encoding="utf-8") as file:
-    lines = file.readlines()
-    fonts = [line.strip() for line in lines]
+fonts = read_font_data()
 
 
 @st.dialog("使用提示")
@@ -161,22 +151,20 @@ with tab1:
                 st.session_state.audio_name = (
                     "output." + uploaded_file_audio.name.split(".")[-1]
                 )
-                output_file = (
-                    audio_cache_path
-                    + st.session_state.audio_name_original
-                    + current_time
+                output_dir = (
+                    Path(settings.cache_path)
+                    / st.session_state.audio_name_original
+                    / current_time
                 )
-                os.makedirs(output_file)
+                output_dir.mkdir(parents=True, exist_ok=True)
                 current_time = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
-                with open(
-                    output_file + "/" + st.session_state.audio_name, "wb"
-                ) as file:
+                with (output_dir / st.session_state.audio_name).open("wb") as file:
                     file.write(uploaded_file_audio.getbuffer())
                 msg_ved.toast("音频预处理完成", icon=":material/graphic_eq:")
 
                 print("\n\033[1;34m🚀 任务开始执行\033[0m")
                 print(
-                    f"\033[1;34m📂 本次任务目录:\033[0m\033[1;34m {output_file} \033[0m"
+                    f"\033[1;34m📂 本次任务目录:\033[0m\033[1;34m {output_dir} \033[0m"
                 )
                 print("\033[1;33m⚠️ 请不要在任务运行期间切换菜单或修改参数！\033[0m")
 
@@ -186,26 +174,20 @@ with tab1:
                     model = Model.only_txt()
                     response = generate_results(
                         model=model,
-                        input_path=Path(
-                            output_file + "/" + st.session_state.audio_name
-                        ),
+                        input_path=output_dir / st.session_state.audio_name,
                     )
                     result = save_only_text_from_response(
-                        response, output_dir=Path(output_file)
+                        response, output_dir=output_dir
                     )
                 elif mode == "full_version":
                     Model = FunASRModel()
                     model = Model.full_version()
                     response = generate_results(
                         model=model,
-                        input_path=Path(
-                            output_file + "/" + st.session_state.audio_name
-                        ),
+                        input_path=Path(output_dir / st.session_state.audio_name),
                     )
                     sentences = convert_response_to_sentences(response)
-                    write_srt_from_sentences(
-                        sentences, Path(output_file + "/output.srt")
-                    )
+                    write_srt_from_sentences(sentences, output_dir / "output.srt")
 
                 # if 'error' in result:
                 #     print(f"\033[1;31m❌ Whisper识别异常: {result['error']}\033[0m")
@@ -215,7 +197,7 @@ with tab1:
                 msg_whs.toast("音频内容识别完成", icon=":material/colorize:")
                 msg_srt = st.toast("正在生成SRT字幕文件", icon=":material/edit_note:")
                 print("\n\033[1;35m*** 正在生成 SRT 字幕文件 ***\033[0m\n")
-                st.session_state.output_file_audio = output_file
+                st.session_state.output_file_audio = str(output_dir)
 
                 print("\033[1;34m🎉 任务成功结束！\033[0m")
                 print("\n" + "=" * 50 + "\n")
