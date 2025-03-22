@@ -19,14 +19,18 @@ def main():
                     page="pages/project/home.py", title="主页", icon=":material/home:"
                 ),
                 st.Page(
-                    "pages/setting/set.py", title="设置", icon=":material/settings:"
+                    "pages/setting/set.py", title="全局设置", icon=":material/settings:"
                 ),
             ],
-            # "Project": [
-            #     st.Page(page="pages/project/audio.py", title="音频识别", icon=":material/graphic_eq:"),
-            #     st.Page(page="pages/project/video.py", title="视频识别", icon=":material/subscriptions:"),
-            #     st.Page(page="pages/project/translate.py", title="字幕翻译", icon=":material/subtitles:"),
-            # ],
+            "Project": [
+                st.Page(
+                    page="pages/project/audio.py",
+                    title="音频识别",
+                    icon=":material/graphic_eq:",
+                ),
+                #     st.Page(page="pages/project/video.py", title="视频识别", icon=":material/subscriptions:"),
+                #     st.Page(page="pages/project/translate.py", title="字幕翻译", icon=":material/subtitles:"),
+            ],
             # "Test": [
             #     st.Page("pages/tests/test.py", title="声音克隆", icon=":material/view_in_ar:"),
             #     st.Page(page="pages/tests/tools.py", title="辅助工具", icon=":material/construction:")
