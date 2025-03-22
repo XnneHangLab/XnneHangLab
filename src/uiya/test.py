@@ -5,7 +5,7 @@ import argparse
 from pathlib import Path
 
 from uiya.utils.model import FunASRModel, generate_results
-from uiya.utils.config import load_settings_file
+from uiya.utils.config import load_settings_file, get_setting_title
 from uiya.utils.SrtHelper import write_srt_from_sentences
 from uiya.utils.FFmpegHelper import mp4_to_wav, test_call_ffmpeg
 from uiya.BasicRunner.converter import split_into_words, convert_response_to_sentences
@@ -13,7 +13,7 @@ from uiya.BasicRunner.extractor import save_only_text_from_response
 from uiya.BasicRunner.cutter import cut_sentences
 from uiya.BasicRunner.combiner import combine_sentences
 from uiya._typing import Sentence
-from uiya._dataclass import RunnerSettings
+from uiya._dataclass import RunnerSettings, AudioSettings, VideoSettings
 
 
 def main():
@@ -21,6 +21,19 @@ def main():
     print(f"funasr:{funasr.__version__}")
     print(f"torch:{torch.__version__}")
     print(f"torchaudio:{torchaudio.__version__}")
+
+    print("====== Testing fn_load_settings_file =======")
+    settings: RunnerSettings = load_settings_file("acgo.toml", RunnerSettings)
+    print(settings)
+    audio_settings: AudioSettings = load_settings_file("audio.toml", AudioSettings)
+    print(audio_settings)
+    video_settings: VideoSettings = load_settings_file("video.toml", VideoSettings)
+    print(video_settings)
+
+    print("====== Testing fn_get_setting_title=======")
+    print("subtitle -> " + get_setting_title("subtitle_speed", AudioSettings))
+    print("device -> " + get_setting_title("device", RunnerSettings))
+    print("base_model -> " + get_setting_title("base_model", RunnerSettings))
 
     print("====== Testing fn_call_test_ffmpeg ======")
     test_call_ffmpeg()
@@ -56,9 +69,6 @@ def main():
         split_into_words("多喜天dustin birthday.")
     )  # ['多', '喜', '天', 'dustin', 'birthday']
     print(split_into_words("He's 我见过的。"))  # ["He's", '我', '见', '过', '的', '。']
-
-    print("====== Testing fn_load_settings_file =======")
-    settings: RunnerSettings = load_settings_file("acgo.toml")
 
     print("====== Testing non-process-wav2srt =======")
     write_srt_from_sentences(
