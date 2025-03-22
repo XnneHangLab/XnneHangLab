@@ -8,7 +8,7 @@ from uiya._typing import AutoModelResponse
 
 
 # 从 AutoModelResponse 中解析无 time stamp 的 text
-def save_only_text_from_response(response: AutoModelResponse, output_dir: Path):
+def save_only_text_from_response(response: AutoModelResponse, output_dir: Path) -> str:
     """将文本单独保存到txt文件中 --only-text
     Args:
         response (AutoModelResponse): AutoModel 返回的参数。参见 _typing.py
@@ -22,6 +22,8 @@ def save_only_text_from_response(response: AutoModelResponse, output_dir: Path):
     save_path = output_dir / (response["key"] + "_only_text.txt")
     with open(save_path, "w", encoding="utf-8") as file:
         file.write(response["text"])
+
+    return response["text"]
 
 
 # 从 Sentence 中解析有 time stamp 以及 text 并且保存

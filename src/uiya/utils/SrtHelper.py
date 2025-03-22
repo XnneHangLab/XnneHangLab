@@ -4,6 +4,7 @@ from pathlib import Path
 from uiya.utils.TxtHelper import write_txt_to_file
 from uiya.utils.config import load_settings_file
 from uiya._typing import Sentence
+from uiya._dataclass import RunnerSettings
 
 
 def ms_to_srt_time(ms: int) -> str:
@@ -37,7 +38,7 @@ def write_srt_from_sentences(
         srt_file_path (Path): *.srt 文件路径
         remove_punctuation (bool, optional): 是否移除标点符号. Defaults to True.
     """
-    settings = load_settings_file("acgo.toml")
+    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
 
     srt_content = ""
     for index, sentence in enumerate(sentences, start=1):
@@ -45,7 +46,7 @@ def write_srt_from_sentences(
         srt_content += f"{index}\n{start_time} --> {end_time}\n{text}\n\n"
 
     if remove_punctuation:
-        pattern = rf"{settings.basic.punctuation_list}"
+        pattern = rf"{settings.punctuation_list}"
         filtered_content = re.sub(pattern, "", srt_content)
         write_txt_to_file(srt_file_path, filtered_content)
     else:

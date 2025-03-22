@@ -4,8 +4,8 @@ from uiya.utils.SubprocessHelper import run_shell_command
 from uiya._dataclass import RunnerSettings
 
 
-settings: RunnerSettings = load_settings_file("acgo.toml")
-FFMPEG_PATH = settings.paths.FFMPEG_PATH
+settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
+FFMPEG_PATH = settings.FFMPEG_PATH
 
 
 def test_call_ffmpeg():

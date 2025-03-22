@@ -36,7 +36,7 @@ def main() -> DebugMessage | None:
     Model = FunASRModel()
     model = Model.full_version()
 
-    settings: RunnerSettings = load_settings_file("acgo.toml")
+    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
 
     response: AutoModelResponse = generate_results(
         model=model, input_path=audio_file_path
@@ -61,24 +61,24 @@ def main() -> DebugMessage | None:
     else:
         # TODO: 设置 Logger 告知用户自己正在使用哪种模式.
         sentences = convert_response_to_sentences(response)
-        if settings.extra.cut and settings.extra.combine:
-            if settings.extra.combine_line < settings.extra.cut_line:
+        if settings.cut and settings.combine:
+            if settings.combine_line < settings.cut_line:
                 raise ValueError(
                     "combine_line should be greater than cut_line, or all cut will be ignored."
                 )
-        elif settings.extra.cut and not settings.extra.combine:
-            if settings.extra.combine_line < 0:
+        elif settings.cut and not settings.combine:
+            if settings.combine_line < 0:
                 raise ValueError("cut_line should be greater than 0.")
             sentences = cut_sentences(
-                sentences=sentences, cutline=settings.extra.combine_line
+                sentences=sentences, cutline=settings.combine_line
             )
-        elif not settings.extra.cut and settings.extra.combine:
-            if settings.extra.combine_line < 0:
+        elif not settings.cut and settings.combine:
+            if settings.combine_line < 0:
                 raise ValueError("combine_line should be greater than 0.")
             sentences = combine_sentences(
                 sentences=sentences,
-                combine_line=settings.extra.combine_line,
-                max_sentence_length=settings.extra.max_sentence_length,
+                combine_line=settings.combine_line,
+                max_sentence_length=settings.max_sentence_length,
             )
         else:
             pass
