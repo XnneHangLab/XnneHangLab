@@ -86,7 +86,7 @@ def load_settings_file(
 def write_settings_file(
     settings_name: str, settings: RunnerSettings | AudioSettings | VideoSettings
 ) -> None:
-    """将 UiyaSetting 对象写入 TOML 文件。"""
+    """将 Setting 对象写入 TOML 文件。"""
     settings_file = search_for_settings_file(setting_name=settings_name)
     if settings_file is None:
         settings_file = Path("config") / settings_name

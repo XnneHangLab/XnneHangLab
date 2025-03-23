@@ -11,7 +11,7 @@ class FunASRModel:
 
     def __init__(self):
         """ """
-        self.settings = load_settings_file("acgo.toml", RunnerSettings)
+        self.settings = load_settings_file("global.toml", RunnerSettings)
         self.base_model: str = str(self.settings.base_model)
         self.vad_model: str = str(self.settings.vad_model)
         self.punc_model: str = str(self.settings.punc_model)
@@ -49,7 +49,7 @@ class FunASRModel:
 
 
 def generate_results(model: "AutoModel", input_path: Path) -> AutoModelResponse:
-    settings: RunnerSettings = load_settings_file("acgo.toml", RunnerSettings)
+    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
     batch_size_s = settings.batch_size_s
     hot_word_path = settings.hot_words_path
     # 原本 AutoModel 支持 input_path 是 list 的情况，但这里我忽略了它，我只需要写一个BasicRunner，多任务自己处理。
