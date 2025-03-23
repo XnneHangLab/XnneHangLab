@@ -23,7 +23,7 @@ def main():
     print(f"torchaudio:{torchaudio.__version__}")
 
     print("====== Testing fn_load_settings_file =======")
-    settings: RunnerSettings = load_settings_file("acgo.toml", RunnerSettings)
+    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
     print(settings)
     audio_settings: AudioSettings = load_settings_file("audio.toml", AudioSettings)
     print(audio_settings)
