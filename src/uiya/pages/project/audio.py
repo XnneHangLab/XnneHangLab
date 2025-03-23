@@ -19,27 +19,6 @@ settings: RunnerSettings = load_settings_file("global.toml", setting=RunnerSetti
 audio_settings: AudioSettings = load_settings_file("audio.toml", setting=AudioSettings)
 fonts = read_font_data()
 
-# 映射字典
-guide_options_map = {
-    "关闭": False,
-    "开启": True,
-}
-guide_options_labels = list(guide_options_map.keys())  # 用于 selectbox 的标签列表
-
-output_type_options_map = {
-    "不含时间线的纯文本(txt)": "without_timestamp",
-    "带时间线的字幕(srt/ass/att)": "with_timestamp",
-}
-output_type_options_labels = list(output_type_options_map.keys())
-
-subtitle_speed_options_map = {
-    "慢": "slow",
-    "适中": "normal",
-    "快": "fast",
-}
-subtitle_speed_options_labels = list(subtitle_speed_options_map.keys())
-
-
 guide = st.session_state.get("guide", audio_settings.guide)
 output_type = st.session_state.get("output_type", audio_settings.output_type)
 subtitle_speed = st.session_state.get("subtitle_speed", audio_settings.subtitle_speed)
@@ -72,7 +51,7 @@ def AudioReadme():
         st.rerun()
 
 
-if "readme" not in st.session_state and audio_settings.guide:
+if "readme" not in st.session_state and audio_settings.guide == "open":
     AudioReadme()
 if "welcome" in st.session_state:
     st.toast("欢迎使用 ~", icon=":material/verified:")
