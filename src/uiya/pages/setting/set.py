@@ -2,7 +2,8 @@ import streamlit as st
 from pathlib import Path
 from uiya.styles.global_style import style
 from uiya.utils.config import load_settings_file, write_settings_file
-from uiya._typing import Device
+from uiya._dataclass import Device
+from uiya.utils.config import get_setting_title
 from uiya._dataclass import RunnerSettings
 
 # 我也很想用 st.write , 但是它存在类型未知 (> _ <)
@@ -66,7 +67,7 @@ with BOTSetting:
     st.markdown("###### 基础配置")
     st.markdown("")
     batch_size_s = st.number_input(
-        "批处理大小(默认300,只要能吃满显卡或者CPU即可)",
+        get_setting_title("batch_size_s", RunnerSettings),
         value=batch_size_s,
         placeholder="Batch Size",
         key="batch_size_s",
@@ -78,32 +79,38 @@ with BOTSetting:
     st.markdown("###### 路径配置")
     st.caption("所有路径都与你的运行程序的工作目录相对应")
     hot_words_path = st.text_input(
-        "热词路径",
+        get_setting_title("hot_words_path", RunnerSettings),
         value=hot_words_path,
         placeholder="Hot Words Path",
         key="hot_words_path",
     )  # Add key
     ffmpeg_path = st.text_input(
-        "FFMPEG 路径", value=ffmpeg_path, placeholder="FFMPEG Path", key="ffmpeg_path"
+        get_setting_title("FFMPEG_PATH", RunnerSettings),
+        value=ffmpeg_path,
+        placeholder="FFMPEG Path",
+        key="ffmpeg_path",
     )  # Add key
     base_model = st.text_input(
-        "基础模型路径",
+        get_setting_title("base_model", RunnerSettings),
         value=base_model,
         placeholder="Base Model Path",
         key="base_model",
     )  # Add key
     vad_model = st.text_input(
-        "VAD 模型路径", value=vad_model, placeholder="VAD Model Path", key="vad_model"
+        get_setting_title("vad_model", RunnerSettings),
+        value=vad_model,
+        placeholder="VAD Model Path",
+        key="vad_model",
     )  # Add key
     punc_model = st.text_input(
-        "标点模型路径",
+        get_setting_title("punc_model", RunnerSettings),
         value=punc_model,
         placeholder="Punctuation Model Path",
         key="punc_model",
     )  # Add key
     if st.toggle("自定义输出目录", custom_output_dir, key="custom_output_dir"):
         output_dir = st.text_input(
-            "输出目录",
+            get_setting_title("output_dir", RunnerSettings),
             value=output_dir,
             placeholder="Output Directory",
             key="output_dir",

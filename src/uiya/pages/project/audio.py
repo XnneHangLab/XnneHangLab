@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 import datetime
 import streamlit as st
@@ -9,16 +8,41 @@ from uiya.BasicRunner.converter import convert_response_to_sentences
 from uiya.utils.SrtHelper import write_srt_from_sentences
 from uiya.styles.global_style import style
 from uiya.utils.public import srt_to_ass, srt_to_vtt, srt_to_sbv
-from uiya.utils.config import load_settings_file
+from uiya.utils.config import load_settings_file, write_settings_file
 from uiya._dataclass import AudioSettings, RunnerSettings
 from uiya.utils.get_font import read_font_data
+from uiya.utils.config import get_setting_title
 
 
 style()
-
 settings: RunnerSettings = load_settings_file("global.toml", setting=RunnerSettings)
 audio_settings: AudioSettings = load_settings_file("audio.toml", setting=AudioSettings)
 fonts = read_font_data()
+
+# 映射字典
+guide_options_map = {
+    "关闭": False,
+    "开启": True,
+}
+guide_options_labels = list(guide_options_map.keys())  # 用于 selectbox 的标签列表
+
+output_type_options_map = {
+    "不含时间线的纯文本(txt)": "without_timestamp",
+    "带时间线的字幕(srt/ass/att)": "with_timestamp",
+}
+output_type_options_labels = list(output_type_options_map.keys())
+
+subtitle_speed_options_map = {
+    "慢": "slow",
+    "适中": "normal",
+    "快": "fast",
+}
+subtitle_speed_options_labels = list(subtitle_speed_options_map.keys())
+
+
+guide = st.session_state.get("guide", audio_settings.guide)
+output_type = st.session_state.get("output_type", audio_settings.output_type)
+subtitle_speed = st.session_state.get("subtitle_speed", audio_settings.subtitle_speed)
 
 
 @st.dialog("使用提示")
@@ -26,41 +50,36 @@ def AudioReadme():
     st.markdown(
         """
     ## 欢迎首次使用 AI全自动音频翻译 功能！
-
     为了确保顺利运行并获得最佳体验，请关闭此弹窗后，前往页面中的**参数设置**模块，进行必要的参数配置。
-    
-    请务必根据您的需求及时调整设置，以提高翻译的准确性和效率。
 
+    请务必根据您的需求及时调整设置，以提高翻译的准确性和效率。
     更多参考资源：
     - 📘 [相关教程](https://blog.chenyme.top/blog/aavt-install)
-    - 📂 [项目地址](https://github.com/Chenyme/Chenyme-AAVT)
+    - 📂 [项目地址](https://github.com/Chenyme-AAVT)
     - 💬 [交流群组](https://t.me/+j8SNSwhS7xk1NTc9)
-    
+
     """
     )
     st.markdown("")
-
     if st.button(
-        "**我已知晓&nbsp;&nbsp;&nbsp;不再弹出**",
+        "**我已知晓&nbsp;&nbsp;&nbsp;本次不再弹出**",
         type="primary",
         use_container_width=True,
-        key="blog_first_button",
+        key="guide",
     ):
-        st.session_state.read = True
+        st.session_state.readme = True
+        st.session_state.welcome = True
         st.rerun()
-    st.markdown("")
 
 
-whisper_mode = "OpenAIWhisper - API"
-
-
-AudioReadme()
+if "readme" not in st.session_state and audio_settings.guide:
+    AudioReadme()
+if "welcome" in st.session_state:
+    st.toast("欢迎使用 ~", icon=":material/verified:")
+    del st.session_state["welcome"]
 if "save" in st.session_state:
     st.toast("参数已成功保存", icon=":material/verified:")
     del st.session_state["save"]
-if "read" in st.session_state:
-    st.toast("欢迎使用 ~", icon=":material/verified:")
-    del st.session_state["read"]
 if "upload" in st.session_state:
     st.toast("文件上传成功！", icon=":material/verified:")
     del st.session_state["upload"]
@@ -68,40 +87,29 @@ if "upload" in st.session_state:
 tab1, tab2 = st.tabs(["**音频识别**", "**参数设置**"])
 with tab2:
 
-    @st.dialog("语言说明")
-    def Audio_lang():
-        st.markdown(
-            "**强制指定视频语言会提高识别准确度，但也可能会造成识别出错。** \n\n`自动识别` - 自动检测语言 (Auto Detect) \n\n`zh` - 中文 (Chinese) - 中文 \n\n`en` - 英语 (English) - English \n\n`ja` - 日语 (Japanese) - 日本語 \n\n`th` - 泰语 (Thai) - ภาษาไทย \n\n`de` - 德语 (German) - Deutsch \n\n`fr` - 法语 (French) - français \n\n`ru` - 俄语 (Russian) - Русский \n\n`ko` - 韩语 (Korean) - 한국어 \n\n`vi` - 越南语 (Vietnamese) - Tiếng Việt \n\n`it` - 意大利语 (Italian) - Italiano \n\n`ar` - 阿拉伯语 (Arabic) - العربية \n\n`es` - 西班牙语 (Spanish) - Español \n\n`bn` - 孟加拉语 (Bengali) - বাংলা \n\n`pt` - 葡萄牙语 (Portuguese) - Português \n\n`hi` - 印地语 (Hindi) - हिंदी"
-        )
-
     AudioSave = st.container()
     AudioSetting = st.container(border=True)
 
     with AudioSetting:
-        st.markdown("##### 指引 ")
-        st.selectbox("guide", ["关闭", "开启"], index=0, label_visibility="collapsed")
-        st.caption("关闭指引，开启后每次就不会再弹出使用提示")
-        st.markdown("")
-        st.markdown("##### 输出类型 ")
-        mode = st.selectbox(
-            "output_type",
-            ["不含时间线的纯文本(txt)", "带时间线的字幕(srt/ass/att)"],
-            index=0,
-            label_visibility="collapsed",
+        guide = st.selectbox(
+            get_setting_title("guide", AudioSettings),
+            audio_settings.get_zh_option_list("guide"),
+            index=audio_settings.get_index("guide"),
         )
-        st.caption(
-            "具体配置输出字幕类型请参见 `Project -> 音频识别 -> 音频识别 -> 更多功能`。 只有勾选带时间线的字幕才支持输出各种格式。"
+        st.caption("关闭指引，开启后每次重启就不会再弹出使用提示")
+        st.markdown("")
+        output_type = st.selectbox(
+            get_setting_title("output_type", AudioSettings),
+            audio_settings.get_zh_option_list("output_type"),
+            index=audio_settings.get_index("output_type"),
         )
         st.markdown("")
-        st.markdown("##### Subtitle 字幕速度配置 ")
-        st.markdown("")
-        st.selectbox(
-            "subtitle_speed", ["慢", "适中", "快"], label_visibility="collapsed"
+        subtitle_speed = st.selectbox(
+            get_setting_title("subtitle_speed", AudioSettings),
+            audio_settings.get_zh_option_list("subtitle_speed"),
+            index=audio_settings.get_index("subtitle_speed"),
         )
-        st.caption(
-            "字幕速度快慢的衡量是一句和一句的之间的切换的速度，单句字幕越短，一般越快，单句字幕越长，一般越慢。"
-        )
-        st.caption("实况视频建议快，课程视频建议慢。")
+        st.caption("快慢以实况视频建议快，课程视频建议慢。")
         st.markdown("")
 
     with AudioSave:
@@ -111,7 +119,10 @@ with tab2:
             st.markdown("")
             st.markdown("")
             if st.button("**保存更改**", use_container_width=True, type="primary"):
-                pass
+                audio_settings.zh_set_value("guide", guide)
+                audio_settings.zh_set_value("output_type", output_type)
+                audio_settings.zh_set_value("subtitle_speed", subtitle_speed)
+                write_settings_file("audio.toml", audio_settings)
                 st.session_state.save = True
                 st.rerun()
         with col1:
@@ -171,7 +182,7 @@ with tab1:
                 print("\033[1;33m⚠️ 请不要在任务运行期间切换菜单或修改参数！\033[0m")
 
                 msg_whs = st.toast("正在识别音频内容", icon=":material/troubleshoot:")
-                if mode == "only_text":
+                if audio_settings.output_type == "without_timestamp":
                     Model = FunASRModel()
                     model = Model.only_txt()
                     response = generate_results(
@@ -181,7 +192,7 @@ with tab1:
                     result = save_only_text_from_response(
                         response, output_dir=output_dir
                     )
-                elif mode == "full_version":
+                elif audio_settings.output_type == "with_timestamp":
                     Model = FunASRModel()
                     model = Model.full_version()
                     response = generate_results(
@@ -199,7 +210,7 @@ with tab1:
                 msg_whs.toast("音频内容识别完成", icon=":material/colorize:")
                 msg_srt = st.toast("正在生成SRT字幕文件", icon=":material/edit_note:")
                 print("\n\033[1;35m*** 正在生成 SRT 字幕文件 ***\033[0m\n")
-                st.session_state.output_file_audio = str(output_dir)
+                # st.session_state.output_file_audio = str(output_dir)
 
                 print("\033[1;34m🎉 任务成功结束！\033[0m")
                 print("\n" + "=" * 50 + "\n")
@@ -256,17 +267,18 @@ with tab1:
                 type="primary",
                 key="audio_change",
             ):
-                try:
-                    with open(
-                        st.session_state.output_file_audio + "/output.srt",
-                        "w",
-                        encoding="utf-8",
-                    ) as srt_file:
-                        srt_file.write(st.session_state.srt_content_new_audio)
-                    st.toast("已成功保存", icon=":material/task_alt:")
-                except Exception as e:
-                    print(e)
-                    st.toast("未检测到运行后的字幕文件", icon=":material/error:")
+                # try:
+                #     with open(
+                #         st.session_state.output_file_audio + "/output.srt",
+                #         "w",
+                #         encoding="utf-8",
+                #     ) as srt_file:
+                #         srt_file.write(st.session_state.srt_content_new_audio)
+                #     st.toast("已成功保存", icon=":material/task_alt:")
+                # except Exception as e:
+                #     print(e)
+                #     st.toast("未检测到运行后的字幕文件", icon=":material/error:")
+                pass
 
             if st.button(
                 "**打开目录**",
@@ -274,15 +286,16 @@ with tab1:
                 type="primary",
                 key="audio_open",
             ):
-                try:
-                    os.startfile(st.session_state.output_file_audio)
-                    st.toast(
-                        "注意：文件夹已成功打开，可能未置顶显示，请检查任务栏！",
-                        icon=":material/task_alt:",
-                    )
-                except Exception as e:
-                    print(e)
-                    st.toast("未进行识别，目录尚未生成！", icon=":material/error:")
+                # try:
+                #     os.startfile(st.session_state.output_file_audio)
+                #     st.toast(
+                #         "注意：文件夹已成功打开，可能未置顶显示，请检查任务栏！",
+                #         icon=":material/task_alt:",
+                #     )
+                # except Exception as e:
+                #     print(e)
+                #     st.toast("未进行识别，目录尚未生成！", icon=":material/error:")
+                pass
             st.divider()
 
             if st.toggle("**更多功能**"):
@@ -359,12 +372,12 @@ with tab1:
         ):
             try:
                 st.caption("字幕时间轴")
-                with open(
-                    st.session_state.output_file_audio + "/output.srt",
-                    "r",
-                    encoding="utf-8",
-                ) as srt_file:
-                    srt_content = srt_file.read()
+                # with open(
+                #     st.session_state.output_file_audio + "/output.srt",
+                #     "r",
+                #     encoding="utf-8",
+                # ) as srt_file:
+                #     srt_content = srt_file.read()
                 # srt_data1 = parse_srt_file(srt_content, srt_setting)
                 # edited_data = st.data_editor(srt_data1, height=st.session_state.height_audio, hide_index=True, use_container_width=True)
                 # srt_data2 = convert_to_srt(edited_data, srt_setting)
@@ -380,12 +393,12 @@ with tab1:
     with col6:
         try:
             st.caption("音频音轨")
-            audio_file = open(
-                f"{st.session_state.output_file_audio}/{st.session_state.audio_name}",
-                "rb",
-            )
-            audio_bytes = audio_file.read()
-            st.audio(audio_bytes)
+            # audio_file = open(
+            #     f"{st.session_state.output_file_audio}/{st.session_state.audio_name}",
+            #     "rb",
+            # )
+            # audio_bytes = audio_file.read()
+            # st.audio(audio_bytes)
         except Exception as e:
             print(e)
             try:
