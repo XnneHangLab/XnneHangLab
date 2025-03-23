@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-from typing import TypedDict, Literal
+from typing import TypedDict
 
 
 # 两条线，一条是直接 mp4 输入。(需要考虑mp4->wav和音视频长度对齐)。
 # 一种是音频(wav)直接输入。或者考虑自动转换aac,mp3,m4a->wav.
-
-
-Device = Literal["cpu", "cuda"]
 
 
 class AutoModelResponse(TypedDict):
