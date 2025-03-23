@@ -1,4 +1,4 @@
-batch_size_s = 300
+batch_size_s = 200
 device = "cpu"
 punctuation_list = "，。；、？！,.;?!"
 custom_output_dir = false
