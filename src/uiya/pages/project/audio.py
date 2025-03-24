@@ -5,6 +5,8 @@ import streamlit as st
 from uiya.utils.model import FunASRModel, generate_results
 from uiya.BasicRunner.extractor import save_only_text_from_response
 from uiya.BasicRunner.converter import convert_response_to_sentences
+from uiya.BasicRunner.combiner import combine_sentences
+from uiya.BasicRunner.cutter import cut_sentences
 from uiya.utils.SrtHelper import write_srt_from_sentences
 from uiya.styles.global_style import style
 from uiya.utils.public import (
@@ -188,6 +190,21 @@ with tab1:
                         input_path=Path(cache_dir / st.session_state.audio_name),
                     )
                     sentences = convert_response_to_sentences(response)
+                    if audio_settings.subtitle_speed == "slow":
+                        print("\n\033[1;35m*** 正在调整字幕速度 : 慢***\033[0m\n")
+                        settings.combine = True
+                        settings.cut = False
+                        sentences = combine_sentences(
+                            sentences,
+                            combine_line=settings.combine_line,
+                            max_sentence_length=settings.max_sentence_length,
+                        )
+                    elif audio_settings.subtitle_speed == "fast":
+                        print("\n\033[1;35m*** 正在调整字幕速度 : 快***\033[0m\n")
+                        settings.combine = False
+                        settings.cut = True
+                        sentences = cut_sentences(sentences, cutline=settings.cut_line)
+
                     msg_srt = st.toast(
                         "正在生成SRT字幕文件", icon=":material/edit_note:"
                     )
@@ -220,10 +237,7 @@ with tab1:
     with col6:
         try:
             st.caption("音频音轨")
-            audio_file = open(
-                f"{st.session_state.output_file_audio}/{st.session_state.audio_name}",
-                "rb",
-            )
+            audio_file = st.session_state.uploaded_file_audio
             audio_bytes = audio_file.read()
             st.audio(audio_bytes)
         except Exception:
@@ -245,13 +259,14 @@ with tab1:
         ):
             st.caption("上传文件")
 
-            @st.dialog("上传音频文件")
+            @st.dialog("上传音频文件 / 选择示例文件")
             def upload_audio():
                 st.markdown("在这里上传您需要处理的视频文件。")
                 st.markdown(
-                    "请注意，除关闭 CMD 外，执行任务后无法取消任务！请勿在执行时点击任何 项目按钮 或 切换菜单，以免导致识别报错！"
+                    """请注意，**开始识别**后无法取消任务！请勿在执行时点击任何 `项目按钮` 或 `切换菜单`，以免导致识别报错！"""
                 )
                 st.markdown("")
+
                 uploaded_file_audio = st.file_uploader(
                     "上传您的音频文件",
                     type=["mp3", "mpga", "m4a", "wav"],
@@ -262,6 +277,29 @@ with tab1:
                     st.session_state.uploaded_file_audio = uploaded_file_audio
                     st.session_state.upload = True
                     st.rerun()
+
+                st.markdown(
+                    "**PS:** 由于我的服务器的带宽限制，**上传真的需要非常非常久**(20MB需要1分钟哦)。所以只是体验的话你可以选择我的示例文件。"
+                )
+                st.caption(
+                    "example1: [华容道迷宫 | 《20 Small Mazes》](https://www.bilibili.com/video/BV1Xzk3YPEd9)"
+                )
+                select_file = st.selectbox(
+                    "选择示例文件",
+                    [
+                        "example1",
+                    ],
+                )
+                if st.button(
+                    "**使用示例文件**", use_container_width=True, type="primary"
+                ):
+                    if select_file == "example1":
+                        st.session_state.uploaded_file_audio = open(
+                            "tests/example1.wav", "rb"
+                        )
+                        st.session_state.upload = True
+                        st.rerun()
+
                 st.markdown("")
 
             if st.button(
