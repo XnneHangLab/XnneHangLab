@@ -118,8 +118,8 @@ with tab1:
     with col1:
         st.markdown("")
         st.markdown("")
-        st.subheader("AI 全自动音频翻译")
-        st.caption("AI Automatic Audio Translation")
+        st.subheader("AI 全自动音频识别")
+        st.caption("AI Automatic Audio Recognize")
 
     # 执行按钮流程模块
     with col2:
@@ -129,7 +129,9 @@ with tab1:
             if "uploaded_file_audio" in st.session_state:
                 uploaded_file_audio = st.session_state.uploaded_file_audio
                 print("\n" + "=" * 50)
-                print("\n\033[1;39m*** Chenyme-AAVT AI音频识别 ***\033[0m")
+                print(
+                    "\n\033[1;39m*** Auto-Caption-Generator-Offline 音频识别 ***\033[0m"
+                )
                 st.toast(
                     "任务开始执行！请勿在运行时切换菜单或修改参数!",
                     icon=":material/rocket_launch:",
@@ -140,57 +142,63 @@ with tab1:
                 st.session_state.audio_name_original = uploaded_file_audio.name.split(
                     "."
                 )[0]
-                st.session_state.audio_name = (
-                    "output." + uploaded_file_audio.name.split(".")[-1]
-                )
-                output_dir = (
+                st.session_state.audio_name = uploaded_file_audio.name
+                cache_dir = (
                     Path(settings.cache_dir)
                     / st.session_state.audio_name_original
                     / current_time
                 )
-                output_dir.mkdir(parents=True, exist_ok=True)
+                cache_dir.mkdir(parents=True, exist_ok=True)
                 current_time = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
-                with (output_dir / st.session_state.audio_name).open("wb") as file:
+                # TODO 这里只是复制到了 cache_Dir ,实际上， 我们需要把它处理成 wav.
+                with (cache_dir / st.session_state.audio_name).open("wb") as file:
                     file.write(uploaded_file_audio.getbuffer())
                 msg_ved.toast("音频预处理完成", icon=":material/graphic_eq:")
 
                 print("\n\033[1;34m🚀 任务开始执行\033[0m")
                 print(
-                    f"\033[1;34m📂 本次任务目录:\033[0m\033[1;34m {output_dir} \033[0m"
+                    f"\033[1;34m📂 本次任务目录:\033[0m\033[1;34m {cache_dir} \033[0m"
                 )
                 print("\033[1;33m⚠️ 请不要在任务运行期间切换菜单或修改参数！\033[0m")
 
                 msg_whs = st.toast("正在识别音频内容", icon=":material/troubleshoot:")
                 if audio_settings.output_type == "without_timestamp":
                     Model = FunASRModel()
-                    model = Model.only_txt()
+                    model = Model.full_version()
                     response = generate_results(
                         model=model,
-                        input_path=output_dir / st.session_state.audio_name,
+                        input_path=cache_dir / st.session_state.audio_name,
                     )
+                    msg_srt = st.toast("正在生成 txt 文件", icon=":material/edit_note:")
+                    print("\n\033[1;35m*** 正在生成 txt 文件 ***\033[0m\n")
                     result = save_only_text_from_response(
-                        response, output_dir=output_dir
+                        response, output_dir=Path(settings.output_dir) / "audio"
                     )
                 elif audio_settings.output_type == "with_timestamp":
                     Model = FunASRModel()
                     model = Model.full_version()
                     response = generate_results(
                         model=model,
-                        input_path=Path(output_dir / st.session_state.audio_name),
+                        input_path=Path(cache_dir / st.session_state.audio_name),
                     )
                     sentences = convert_response_to_sentences(response)
-                    write_srt_from_sentences(sentences, output_dir / "output.srt")
-
+                    msg_srt = st.toast(
+                        "正在生成SRT字幕文件", icon=":material/edit_note:"
+                    )
+                    print("\n\033[1;35m*** 正在生成 SRT 字幕文件 ***\033[0m\n")
+                    write_srt_from_sentences(
+                        sentences,
+                        Path(settings.output_dir)
+                        / "audio"
+                        / (st.session_state.audio_name_original.split(".")[0] + ".srt"),
+                    )
                 # if 'error' in result:
                 #     print(f"\033[1;31m❌ Whisper识别异常: {result['error']}\033[0m")
                 #     st.error(f"处理失败，错误信息：{result['error']}")
                 #     st.stop()
-                print("\033[1;34m🎉 Whisper 识别成功！\033[0m")
+                print("\033[1;34m🎉 FunASR 识别成功！\033[0m")
                 msg_whs.toast("音频内容识别完成", icon=":material/colorize:")
-                msg_srt = st.toast("正在生成SRT字幕文件", icon=":material/edit_note:")
-                print("\n\033[1;35m*** 正在生成 SRT 字幕文件 ***\033[0m\n")
                 # st.session_state.output_file_audio = str(output_dir)
-
                 print("\033[1;34m🎉 任务成功结束！\033[0m")
                 print("\n" + "=" * 50 + "\n")
             else:
@@ -203,6 +211,25 @@ with tab1:
         "**Audio Preview / 音轨预览**", expanded=True, icon=":material/graphic_eq:"
     ):
         col6, col7 = st.columns([0.9999999, 0.0000001])
+    with col6:
+        try:
+            st.caption("音频音轨")
+            audio_file = open(
+                f"{st.session_state.output_file_audio}/{st.session_state.audio_name}",
+                "rb",
+            )
+            audio_bytes = audio_file.read()
+            st.audio(audio_bytes)
+        except Exception:
+            try:
+                audio_bytes = st.session_state.uploaded_file_audio.getvalue()
+                st.audio(audio_bytes)
+            except Exception:
+                st.info(
+                    "##### 音轨预览区域 \n\n&nbsp;**运行后自动显示 | 查看 [项目文档](https://blog.chenyme.top/blog/aavt-install) | 加入 [交流群组](https://t.me/+j8SNSwhS7xk1NTc9)**",
+                    icon=":material/view_in_ar:",
+                )
+                st.markdown("")
 
     st.markdown("")
     col1, col2 = st.columns([0.75, 0.25])
@@ -266,7 +293,7 @@ with tab1:
                 key="audio_open",
             ):
                 # try:
-                #     os.startfile(st.session_state.output_file_audio)
+                #     os.startfile(settings.output_dir)
                 #     st.toast(
                 #         "注意：文件夹已成功打开，可能未置顶显示，请检查任务栏！",
                 #         icon=":material/task_alt:",
@@ -351,42 +378,17 @@ with tab1:
         ):
             try:
                 st.caption("字幕时间轴")
-                # with open(
-                #     st.session_state.output_file_audio + "/output.srt",
-                #     "r",
-                #     encoding="utf-8",
-                # ) as srt_file:
-                #     srt_content = srt_file.read()
-                # srt_data1 = parse_srt_file(srt_content, srt_setting)
-                # edited_data = st.data_editor(srt_data1, height=st.session_state.height_audio, hide_index=True, use_container_width=True)
-                # srt_data2 = convert_to_srt(edited_data, srt_setting)
-                # st.session_state.srt_content_new_audio = srt_data2
+                with (
+                    Path(settings.output_dir)
+                    / "audio"
+                    / (st.session_state.audio_name_original.split(".")[0] + ".srt")
+                ).open("r", encoding="utf-8") as srt_file:
+                    srt_content = srt_file.read()
+                st.session_state.srt_content_new_audio = srt_content
             except Exception as e:
                 print(e)
                 st.info(
                     "##### 结果预览区域 \n\n&nbsp;\n\n**生成完毕后会在此区域自动显示字幕时间轴**\n\n 运行前，请在右侧使用上传文件工具导入你的音频文件！ \n\n&nbsp;\n\n&nbsp;",
-                    icon=":material/view_in_ar:",
-                )
-                st.markdown("")
-
-    with col6:
-        try:
-            st.caption("音频音轨")
-            # audio_file = open(
-            #     f"{st.session_state.output_file_audio}/{st.session_state.audio_name}",
-            #     "rb",
-            # )
-            # audio_bytes = audio_file.read()
-            # st.audio(audio_bytes)
-        except Exception as e:
-            print(e)
-            try:
-                audio_bytes = st.session_state.uploaded_file_audio.getvalue()
-                st.audio(audio_bytes)
-            except Exception as e:
-                print(e)
-                st.info(
-                    "##### 音轨预览区域 \n\n&nbsp;**运行后自动显示 | 查看 [项目文档](https://blog.chenyme.top/blog/aavt-install) | 加入 [交流群组](https://t.me/+j8SNSwhS7xk1NTc9)**",
                     icon=":material/view_in_ar:",
                 )
                 st.markdown("")
