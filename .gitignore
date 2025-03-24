@@ -8,3 +8,5 @@ output.txt
 *.srt
 *.mp4
 tests/
+output/
+cache/
