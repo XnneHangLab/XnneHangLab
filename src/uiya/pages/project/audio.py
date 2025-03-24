@@ -7,7 +7,7 @@ from uiya.BasicRunner.extractor import save_only_text_from_response
 from uiya.BasicRunner.converter import convert_response_to_sentences
 from uiya.utils.SrtHelper import write_srt_from_sentences
 from uiya.styles.global_style import style
-from uiya.utils.public import srt_to_ass, srt_to_vtt, srt_to_sbv
+from uiya.utils.public import srt_to_ass, srt_to_vtt, srt_to_sbv, parse_srt_file
 from uiya.utils.config import load_settings_file, write_settings_file
 from uiya._dataclass import AudioSettings, RunnerSettings
 from uiya.utils.get_font import read_font_data
@@ -384,9 +384,10 @@ with tab1:
                     / (st.session_state.audio_name_original.split(".")[0] + ".srt")
                 ).open("r", encoding="utf-8") as srt_file:
                     srt_content = srt_file.read()
-                st.session_state.srt_content_new_audio = srt_content
-            except Exception as e:
-                print(e)
+                srt_data = parse_srt_file(srt_content)
+                st.session_state.srt_content_new_audio = srt_data
+                st.dataframe(srt_data)  # type: ignore
+            except Exception:
                 st.info(
                     "##### 结果预览区域 \n\n&nbsp;\n\n**生成完毕后会在此区域自动显示字幕时间轴**\n\n 运行前，请在右侧使用上传文件工具导入你的音频文件！ \n\n&nbsp;\n\n&nbsp;",
                     icon=":material/view_in_ar:",
