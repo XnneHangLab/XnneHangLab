@@ -1,4 +1,4 @@
-batch_size_s = 200
+batch_size_s = 300
 device = "cpu"
 punctuation_list = "，。；、？！,.;?!"
 custom_output_dir = false
@@ -10,8 +10,8 @@ base_model = "./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vo
 vad_model = "./models/speech_fsmn_vad_zh-cn-16k-common-pytorch"
 punc_model = "./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch"
 cut = false
-cut_line = 500
+cut_line = 400
 combine = false
-combine_line = 300
+combine_line = 400
 max_sentence_length = 20
 need_punc = false

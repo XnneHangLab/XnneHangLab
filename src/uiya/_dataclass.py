@@ -53,9 +53,9 @@ class RunnerSettings(BaseModel):
     ]
 
     cut: Annotated[bool, Field(False)]
-    cut_line: Annotated[int, Field(10)]
+    cut_line: Annotated[int, Field(400)]
     combine: Annotated[bool, Field(False)]
-    combine_line: Annotated[int, Field(10)]
+    combine_line: Annotated[int, Field(400)]
     max_sentence_length: Annotated[int, Field(20)]
     need_punc: Annotated[bool, Field(False)]
 

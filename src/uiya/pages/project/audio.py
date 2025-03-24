@@ -1,6 +1,7 @@
 from pathlib import Path
 import datetime
 import streamlit as st
+import shutil
 
 from uiya.utils.model import FunASRModel, generate_results
 from uiya.BasicRunner.extractor import save_only_text_from_response
@@ -10,9 +11,6 @@ from uiya.BasicRunner.cutter import cut_sentences
 from uiya.utils.SrtHelper import write_srt_from_sentences
 from uiya.styles.global_style import style
 from uiya.utils.public import (
-    srt_to_ass,
-    srt_to_vtt,
-    srt_to_sbv,
     parse_srt_file,
     open_folder_in_explorer,
 )
@@ -58,6 +56,15 @@ def AudioReadme():
         st.session_state.welcome = True
         st.rerun()
 
+
+if "use_upload" not in st.session_state:
+    st.session_state.use_upload = False
+
+if "use_example" not in st.session_state:
+    st.session_state.use_example = False
+
+if "srt_file" not in st.session_state:
+    st.session_state.srt_file = None
 
 if "readme" not in st.session_state and audio_settings.guide == "open":
     AudioReadme()
@@ -134,8 +141,8 @@ with tab1:
         st.markdown("")
         st.markdown("")
         if st.button("**开始识别**", type="primary", use_container_width=True):
-            if "uploaded_file_audio" in st.session_state:
-                uploaded_file_audio = st.session_state.uploaded_file_audio
+            if "audio_file" in st.session_state:
+                audio_file = st.session_state.audio_file
                 print("\n" + "=" * 50)
                 print(
                     "\n\033[1;39m*** Auto-Caption-Generator-Offline 音频识别 ***\033[0m"
@@ -147,20 +154,39 @@ with tab1:
 
                 msg_ved = st.toast("正在对音频进行预处理", icon=":material/graphic_eq:")
                 current_time = datetime.datetime.now().strftime("_%Y%m%d%H%M%S")
-                st.session_state.audio_name_original = uploaded_file_audio.name.split(
-                    "."
-                )[0]
-                st.session_state.audio_name = uploaded_file_audio.name
-                cache_dir = (
-                    Path(settings.cache_dir)
-                    / st.session_state.audio_name_original
-                    / current_time
-                )
-                cache_dir.mkdir(parents=True, exist_ok=True)
-                current_time = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
-                # TODO 这里只是复制到了 cache_Dir ,实际上， 我们需要把它处理成 wav.
-                with (cache_dir / st.session_state.audio_name).open("wb") as file:
-                    file.write(uploaded_file_audio.getbuffer())
+                if st.session_state.use_upload:
+                    st.session_state.audio_first_name = audio_file.name.split(".")[0]
+                    st.session_state.audio_last_name = audio_file.name.split(".")[-1]
+                    st.session_state.audio_name = audio_file.name
+                    cache_dir = (
+                        Path(settings.cache_dir)
+                        / st.session_state.audio_first_name
+                        / current_time
+                    )
+                    cache_dir.mkdir(parents=True, exist_ok=True)
+                    # TODO 这里只是复制到了 cache_Dir ,实际上， 我们需要把它处理成 wav.
+                    with (cache_dir / st.session_state.audio_name).open("wb") as file:
+                        file.write(audio_file.getbuffer())
+                elif st.session_state.use_example:
+                    st.session_state.audio_first_name = st.session_state.selected_file
+                    st.session_state.audio_last_name = "wav"
+                    st.session_state.audio_name = (
+                        st.session_state.selected_file + ".wav"
+                    )
+                    cache_dir = (
+                        Path(settings.cache_dir)
+                        / st.session_state.audio_first_name
+                        / current_time
+                    )
+                    cache_dir.mkdir(parents=True, exist_ok=True)
+                    shutil.copy(
+                        Path(f"tests/{st.session_state.selected_file}.wav"),
+                        cache_dir / st.session_state.audio_name,
+                    )
+                else:
+                    st.toast("请先上传音频文件", icon=":material/error:")
+                    st.stop()
+
                 msg_ved.toast("音频预处理完成", icon=":material/graphic_eq:")
 
                 print("\n\033[1;34m🚀 任务开始执行\033[0m")
@@ -213,15 +239,15 @@ with tab1:
                         sentences,
                         Path(settings.output_dir)
                         / "audio"
-                        / (st.session_state.audio_name_original.split(".")[0] + ".srt"),
+                        / (st.session_state.audio_first_name + ".srt"),
                     )
-                # if 'error' in result:
-                #     print(f"\033[1;31m❌ Whisper识别异常: {result['error']}\033[0m")
-                #     st.error(f"处理失败，错误信息：{result['error']}")
-                #     st.stop()
+                    st.session_state.srt_file = (
+                        Path(settings.output_dir)
+                        / "audio"
+                        / (st.session_state.audio_first_name + ".srt")
+                    )
                 print("\033[1;34m🎉 FunASR 识别成功！\033[0m")
                 msg_whs.toast("音频内容识别完成", icon=":material/colorize:")
-                # st.session_state.output_file_audio = str(output_dir)
                 print("\033[1;34m🎉 任务成功结束！\033[0m")
                 print("\n" + "=" * 50 + "\n")
             else:
@@ -235,21 +261,22 @@ with tab1:
     ):
         col6, col7 = st.columns([0.9999999, 0.0000001])
     with col6:
-        try:
-            st.caption("音频音轨")
-            audio_file = st.session_state.uploaded_file_audio
-            audio_bytes = audio_file.read()
+        st.caption("音频音轨")
+        if st.session_state.use_example:
+            audio_file = st.session_state.audio_file
+            with open(audio_file, "rb") as f:
+                audio_bytes = f.read()
             st.audio(audio_bytes)
-        except Exception:
-            try:
-                audio_bytes = st.session_state.uploaded_file_audio.getvalue()
-                st.audio(audio_bytes)
-            except Exception:
-                st.info(
-                    "##### 音轨预览区域 \n\n&nbsp;**运行后自动显示 | 查看 [项目文档](https://blog.chenyme.top/blog/aavt-install) | 加入 [交流群组](https://t.me/+j8SNSwhS7xk1NTc9)**",
-                    icon=":material/view_in_ar:",
-                )
-                st.markdown("")
+        elif st.session_state.use_upload:
+            audio_data = st.session_state.audio_file.getbuffer()
+            audio_bytes = st.session_state.audio_file.getvalue()
+            st.audio(audio_bytes)
+        else:
+            st.info(
+                "##### 音轨预览区域 \n\n&nbsp;**运行后自动显示 | 查看 [项目文档](https://blog.chenyme.top/blog/aavt-install) | 加入 [交流群组](https://t.me/+j8SNSwhS7xk1NTc9)**",
+                icon=":material/view_in_ar:",
+            )
+            st.markdown("")
 
     st.markdown("")
     col1, col2 = st.columns([0.75, 0.25])
@@ -267,14 +294,15 @@ with tab1:
                 )
                 st.markdown("")
 
-                uploaded_file_audio = st.file_uploader(
+                audio_file = st.file_uploader(
                     "上传您的音频文件",
                     type=["mp3", "mpga", "m4a", "wav"],
                     label_visibility="collapsed",
                 )
                 st.markdown("")
                 if st.button("**点击上传**", use_container_width=True, type="primary"):
-                    st.session_state.uploaded_file_audio = uploaded_file_audio
+                    st.session_state.audio_file = audio_file
+                    st.session_state.use_upload = True
                     st.session_state.upload = True
                     st.rerun()
 
@@ -294,9 +322,9 @@ with tab1:
                     "**使用示例文件**", use_container_width=True, type="primary"
                 ):
                     if select_file == "example1":
-                        st.session_state.uploaded_file_audio = open(
-                            "tests/example1.wav", "rb"
-                        )
+                        st.session_state.audio_file = "tests/example1.wav"
+                        st.session_state.selected_file = "example1"
+                        st.session_state.use_example = True
                         st.session_state.upload = True
                         st.rerun()
 
@@ -311,25 +339,6 @@ with tab1:
                 upload_audio()
 
             st.caption("字幕工具")
-            if st.button(
-                "**保存修改**",
-                use_container_width=True,
-                type="primary",
-                key="audio_change",
-            ):
-                # try:
-                #     with open(
-                #         st.session_state.output_file_audio + "/output.srt",
-                #         "w",
-                #         encoding="utf-8",
-                #     ) as srt_file:
-                #         srt_file.write(st.session_state.srt_content_new_audio)
-                #     st.toast("已成功保存", icon=":material/task_alt:")
-                # except Exception as e:
-                #     print(e)
-                #     st.toast("未检测到运行后的字幕文件", icon=":material/error:")
-                pass
-
             if st.button(
                 "**打开目录**",
                 use_container_width=True,
@@ -346,73 +355,10 @@ with tab1:
                     print(e)
                     st.toast("未进行识别，目录尚未生成！", icon=":material/error:")
                 pass
+
+            if st.button("**下载字幕**", use_container_width=True, type="primary"):
+                st.toast("未检测到字幕生成！", icon=":material/error:")
             st.divider()
-
-            if st.toggle("**更多功能**"):
-                st.caption("字幕轴高度")
-                height = st.number_input(
-                    "高度显示",
-                    min_value=300,
-                    step=100,
-                    value=550,
-                    label_visibility="collapsed",
-                )
-                st.session_state.height_audio = height
-                st.caption("其他字幕格式")
-                try:
-                    captions_option = st.radio(
-                        "更多字幕格式导出",
-                        ("VTT", "ASS", "SBV"),
-                        index=0,
-                        label_visibility="collapsed",
-                    )
-                    if captions_option == "VTT":
-                        vtt_content = srt_to_vtt(st.session_state.srt_content_new_audio)
-                        st.download_button(
-                            label="**VTT 下载**",
-                            data=vtt_content.encode("utf-8"),
-                            key="vtt_download",
-                            file_name="output.vtt",
-                            mime="text/vtt",
-                            use_container_width=True,
-                            type="primary",
-                        )
-                    elif captions_option == "ASS":
-                        sbv_content = srt_to_ass(
-                            st.session_state.srt_content_new_audio,
-                            "Arial",
-                            "18",
-                            "#FFFFFF",
-                        )
-                        st.download_button(
-                            label="**ASS 下载**",
-                            data=sbv_content.encode("utf-8"),
-                            key="ass_download",
-                            file_name="output.ass",
-                            mime="text/ass",
-                            use_container_width=True,
-                            type="primary",
-                        )
-                    elif captions_option == "SBV":
-                        sbv_content = srt_to_sbv(st.session_state.srt_content_new_audio)
-                        st.download_button(
-                            label="**SBV 下载**",
-                            data=sbv_content.encode("utf-8"),
-                            key="sbv_download",
-                            file_name="output.sbv",
-                            mime="text/sbv",
-                            use_container_width=True,
-                            type="primary",
-                        )
-                except Exception as e:
-                    print(e)
-                    if st.button(
-                        "**下载字幕**", use_container_width=True, type="primary"
-                    ):
-                        st.toast("未检测到字幕生成！", icon=":material/error:")
-
-            if "height_audio" not in st.session_state:
-                st.session_state.height_audio = 550
 
     with col1:
         with st.expander(
@@ -420,18 +366,13 @@ with tab1:
             expanded=True,
             icon=":material/subtitles:",
         ):
-            try:
+            if st.session_state.srt_file:
                 st.caption("字幕时间轴")
-                with (
-                    Path(settings.output_dir)
-                    / "audio"
-                    / (st.session_state.audio_name_original.split(".")[0] + ".srt")
-                ).open("r", encoding="utf-8") as srt_file:
+                with st.session_state.srt_file.open("r", encoding="utf-8") as srt_file:
                     srt_content = srt_file.read()
                 srt_data = parse_srt_file(srt_content)
-                st.session_state.srt_content_new_audio = srt_data
                 st.dataframe(srt_data)  # type: ignore
-            except Exception:
+            else:
                 st.info(
                     "##### 结果预览区域 \n\n&nbsp;\n\n**生成完毕后会在此区域自动显示字幕时间轴**\n\n 运行前，请在右侧使用上传文件工具导入你的音频文件！ \n\n&nbsp;\n\n&nbsp;",
                     icon=":material/view_in_ar:",
