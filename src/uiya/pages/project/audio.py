@@ -7,7 +7,13 @@ from uiya.BasicRunner.extractor import save_only_text_from_response
 from uiya.BasicRunner.converter import convert_response_to_sentences
 from uiya.utils.SrtHelper import write_srt_from_sentences
 from uiya.styles.global_style import style
-from uiya.utils.public import srt_to_ass, srt_to_vtt, srt_to_sbv, parse_srt_file
+from uiya.utils.public import (
+    srt_to_ass,
+    srt_to_vtt,
+    srt_to_sbv,
+    parse_srt_file,
+    open_folder_in_explorer,
+)
 from uiya.utils.config import load_settings_file, write_settings_file
 from uiya._dataclass import AudioSettings, RunnerSettings
 from uiya.utils.get_font import read_font_data
@@ -292,15 +298,15 @@ with tab1:
                 type="primary",
                 key="audio_open",
             ):
-                # try:
-                #     os.startfile(settings.output_dir)
-                #     st.toast(
-                #         "注意：文件夹已成功打开，可能未置顶显示，请检查任务栏！",
-                #         icon=":material/task_alt:",
-                #     )
-                # except Exception as e:
-                #     print(e)
-                #     st.toast("未进行识别，目录尚未生成！", icon=":material/error:")
+                try:
+                    open_folder_in_explorer(Path(settings.output_dir) / "audio")
+                    st.toast(
+                        "注意：文件夹已成功打开，可能未置顶显示，请检查任务栏！",
+                        icon=":material/task_alt:",
+                    )
+                except Exception as e:
+                    print(e)
+                    st.toast("未进行识别，目录尚未生成！", icon=":material/error:")
                 pass
             st.divider()
 

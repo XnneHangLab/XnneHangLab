@@ -5,6 +5,9 @@ from pathlib import Path
 import re
 import torch
 import base64
+import pandas as pd
+import platform
+import os
 
 
 def FileToMp3(
@@ -53,6 +56,119 @@ def check_cuda_installed():
         return True
     else:
         return False
+
+
+def parse_srt_file(srt_content: str) -> pd.DataFrame:
+    """
+    Parses SRT content string and converts it into a Pandas DataFrame.
+
+    Args:
+        srt_content: A string containing the SRT subtitle content.
+
+    Returns:
+        A Pandas DataFrame with columns '索引', '起始', '结束', and '字幕'.
+    """
+    lines = srt_content.strip().split("\n")
+    subtitles: list[dict[str, str]] = []
+    current_subtitle = {"索引": "", "起始": "", "结束": "", "字幕": ""}
+    state = 0  # 0: Expect Index, 1: Expect Time, 2: Expect Text, 3: Expect Blank Line
+    subtitle_text_lines: list[str] = []
+
+    for line in lines:
+        line = line.strip()
+        if state == 0:  # Expect Index
+            if line.isdigit():
+                current_subtitle["索引"] = line
+                state = 1
+        elif state == 1:  # Expect Time
+            if "-->" in line:
+                parts = line.split("-->")
+                if len(parts) == 2:
+                    current_subtitle["起始"] = parts[0].strip()
+                    current_subtitle["结束"] = parts[1].strip()
+                    state = 2
+        elif state == 2:  # Expect Text
+            if line:
+                subtitle_text_lines.append(line)
+            else:  # Blank line indicates end of subtitle entry
+                current_subtitle["字幕"] = "\n".join(subtitle_text_lines)
+                subtitles.append(current_subtitle.copy())  # Append a copy!
+                current_subtitle = {
+                    "索引": "",
+                    "起始": "",
+                    "结束": "",
+                    "字幕": "",
+                }  # Reset for next subtitle
+                subtitle_text_lines = []
+                state = 0  # Expect next index
+
+    # Handle the last subtitle if the file doesn't end with a blank line
+    if state == 2 and subtitle_text_lines:
+        current_subtitle["字幕"] = "\n".join(subtitle_text_lines)
+        subtitles.append(current_subtitle.copy())
+
+    df = pd.DataFrame(subtitles)
+    return df
+
+
+def open_folder_in_explorer(folder_path: Path):
+    """跨平台打开指定目录。"""
+    if platform.system() == "Windows":
+        try:
+            os.startfile(str(folder_path))  # type: ignore
+        except Exception as e:
+            print(f"Windows 打开目录失败: {e}")
+            return False
+    elif platform.system() == "Darwin":  # macOS
+        try:
+            subprocess.run(
+                ["open", str(folder_path)], check=True
+            )  # macOS 使用 open 命令
+        except subprocess.CalledProcessError as e:
+            print(f"macOS 打开目录失败: {e}")
+            return False
+    elif platform.system() == "Linux":
+        try:
+            subprocess.run(
+                ["xdg-open", str(folder_path)], check=True
+            )  # Linux 优先使用 xdg-open
+        except subprocess.CalledProcessError as e:
+            print(f"Linux xdg-open 打开目录失败: {e}")
+            try:
+                subprocess.run(
+                    ["gnome-open", str(folder_path)], check=True
+                )  # 尝试 gnome-open
+            except subprocess.CalledProcessError as e:
+                print(f"Linux gnome-open 打开目录失败: {e}")
+                try:
+                    subprocess.run(
+                        ["kde-open", str(folder_path)], check=True
+                    )  # 尝试 kde-open
+                except subprocess.CalledProcessError as e:
+                    print(f"Linux kde-open 打开目录失败: {e}")
+                    try:
+                        subprocess.run(
+                            ["nautilus", str(folder_path)], check=True
+                        )  # 尝试 nautilus (GNOME 文件管理器)
+                    except subprocess.CalledProcessError as e:
+                        print(f"Linux nautilus 打开目录失败: {e}")
+                        try:
+                            subprocess.run(
+                                ["dolphin", str(folder_path)], check=True
+                            )  # 尝试 dolphin (KDE 文件管理器)
+                        except subprocess.CalledProcessError as e:
+                            print(f"Linux dolphin 打开目录失败: {e}")
+                            try:
+                                subprocess.run(
+                                    ["thunar", str(folder_path)], check=True
+                                )  # 尝试 thunar (XFCE 文件管理器)
+                            except subprocess.CalledProcessError as e:
+                                print(f"Linux thunar 打开目录失败: {e}")
+                                return False  # Linux 多种尝试失败
+    else:
+        print(f"不支持的操作系统: {platform.system()}")
+        return False
+    return True  # 打开成功
 
 
 # def srt_mv(
