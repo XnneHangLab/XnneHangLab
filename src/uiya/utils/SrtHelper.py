@@ -39,7 +39,9 @@ def write_srt_from_sentences(
         remove_punctuation (bool, optional): 是否移除标点符号. Defaults to True.
     """
     settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
-
+    srt_dir = srt_file_path.parent
+    if not srt_dir.exists():
+        srt_dir.mkdir(parents=True)
     srt_content = ""
     for index, sentence in enumerate(sentences, start=1):
         start_time, end_time, text = convert_sentence_to_srt(sentence)
