@@ -1,14 +1,12 @@
 from funasr import AutoModel
 from pathlib import Path
 from typing_extensions import Any
-
 from uiya.utils.config import load_settings_file
 from uiya._typing import AutoModelResponse
 from uiya._dataclass import RunnerSettings
 
 
 class FunASRModel:
-
     def __init__(self):
         """ """
         self.settings = load_settings_file("global.toml", RunnerSettings)
@@ -24,19 +22,26 @@ class FunASRModel:
             punc_model=self.punc_model,  # 给出标点。
             # model_revision="v2.0.4",
             device=self.device,
+            disable_update=True,  # 添加在这里，禁用更新检查
         )
         return model
 
     def only_vad(self):
-        model = AutoModel(model=self.vad_model, device=self.device)
+        model = AutoModel(
+            model=self.vad_model, device=self.device, disable_update=True
+        )  # 也可以添加在这里
         return model
 
     def only_txt(self):
-        model = AutoModel(model=self.base_model, device=self.device)
+        model = AutoModel(
+            model=self.base_model, device=self.device, disable_update=True
+        )  # 也可以添加在这里
         return model
 
     def only_puc(self):
-        model = AutoModel(model=self.punc_model, device=self.device)
+        model = AutoModel(
+            model=self.punc_model, device=self.device, disable_update=True
+        )  # 也可以添加在这里
         return model
 
 
@@ -61,16 +66,12 @@ def generate_results(model: "AutoModel", input_path: Path) -> AutoModelResponse:
             batch_size_s=batch_size_s,
             hot_word=str(hot_word_path),
         )
-
     if not res:
         raise ValueError("The res from automodel is empty.")
-
     res: dict[str, Any] = res[0]  # type: ignore
-
     response: AutoModelResponse = {
         "key": res.get("key", ""),
         "text": res.get("text", ""),
         "timestamp": res.get("timestamp", []),
     }
-
     return response
