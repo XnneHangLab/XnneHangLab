@@ -12,7 +12,6 @@ from uiya.utils.SrtHelper import write_srt_from_sentences
 from uiya.styles.global_style import style
 from uiya.utils.public import (
     parse_srt_file,
-    open_folder_in_explorer,
 )
 from uiya.utils.config import load_settings_file, write_settings_file
 from uiya._dataclass import AudioSettings, RunnerSettings
@@ -66,6 +65,15 @@ if "use_example" not in st.session_state:
 if "srt_file" not in st.session_state:
     st.session_state.srt_file = None
 
+if "preview_srt_file" not in st.session_state:
+    st.session_state.preview_srt_file = None
+if "slow_srt_file" not in st.session_state:
+    st.session_state.slow_srt_file = None
+if "fast_srt_file" not in st.session_state:
+    st.session_state.fast_srt_file = None
+if "normal_srt_file" not in st.session_state:
+    st.session_state.normal_srt_file = None
+
 if "readme" not in st.session_state and audio_settings.guide == "open":
     AudioReadme()
 if "welcome" in st.session_state:
@@ -90,22 +98,11 @@ with tab2:
             audio_settings.get_zh_option_list("guide"),
             index=audio_settings.get_index("guide"),
         )
-        st.caption("关闭指引，开启后每次重启就不会再弹出使用提示")
-        st.markdown("")
         output_type = st.selectbox(
             get_setting_title("output_type", AudioSettings),
             audio_settings.get_zh_option_list("output_type"),
             index=audio_settings.get_index("output_type"),
         )
-        st.markdown("")
-        subtitle_speed = st.selectbox(
-            get_setting_title("subtitle_speed", AudioSettings),
-            audio_settings.get_zh_option_list("subtitle_speed"),
-            index=audio_settings.get_index("subtitle_speed"),
-        )
-        st.caption("快慢以实况视频建议快，课程视频建议慢。")
-        st.markdown("")
-
     with AudioSave:
         col1, col2 = st.columns([0.75, 0.25])
         st.markdown("")
@@ -196,7 +193,66 @@ with tab1:
                 print("\033[1;33m⚠️ 请不要在任务运行期间切换菜单或修改参数！\033[0m")
 
                 msg_whs = st.toast("正在识别音频内容", icon=":material/troubleshoot:")
-                if audio_settings.output_type == "without_timestamp":
+                if audio_settings.output_type == "with_timestamp":
+                    Model = FunASRModel()
+                    model = Model.full_version()
+                    response = generate_results(
+                        model=model,
+                        input_path=Path(cache_dir / st.session_state.audio_name),
+                    )
+                    sentences = convert_response_to_sentences(response)
+                    # 保存常速字幕
+                    print("\n\033[1;35m*** 正在生成 SRT 字幕文件 ***\033[0m\n")
+                    write_srt_from_sentences(
+                        sentences,
+                        Path(settings.output_dir)
+                        / "audio"
+                        / (st.session_state.audio_first_name + ".srt"),
+                    )
+
+                    # 保存慢速字幕
+                    print("\n\033[1;35m*** 正在调整字幕速度 : 慢***\033[0m\n")
+                    sentences = combine_sentences(
+                        sentences,
+                        combine_line=settings.combine_line,
+                        max_sentence_length=settings.max_sentence_length,
+                    )
+                    write_srt_from_sentences(
+                        sentences,
+                        Path(settings.output_dir)
+                        / "audio"
+                        / (st.session_state.audio_first_name + "-slow.srt"),
+                    )
+
+                    # 保存快速字幕
+                    print("\n\033[1;35m*** 正在调整字幕速度 : 快***\033[0m\n")
+                    sentences = convert_response_to_sentences(response)
+                    sentences = cut_sentences(sentences, cutline=settings.cut_line)
+                    write_srt_from_sentences(
+                        sentences,
+                        Path(settings.output_dir)
+                        / "audio"
+                        / (st.session_state.audio_first_name + "-fast.srt"),
+                    )
+
+                    st.session_state.normal_srt_file = (
+                        Path(settings.output_dir)
+                        / "audio"
+                        / (st.session_state.audio_first_name + ".srt")
+                    )
+                    st.session_state.slow_srt_file = (
+                        Path(settings.output_dir)
+                        / "audio"
+                        / (st.session_state.audio_first_name + "-slow.srt")
+                    )
+                    st.session_state.fast_srt_file = (
+                        Path(settings.output_dir)
+                        / "audio"
+                        / (st.session_state.audio_first_name + "-fast.srt")
+                    )
+                    st.session_state.preview_srt_file = st.session_state.normal_srt_file
+
+                elif audio_settings.output_type == "without_timestamp":
                     Model = FunASRModel()
                     model = Model.full_version()
                     response = generate_results(
@@ -207,44 +263,6 @@ with tab1:
                     print("\n\033[1;35m*** 正在生成 txt 文件 ***\033[0m\n")
                     result = save_only_text_from_response(
                         response, output_dir=Path(settings.output_dir) / "audio"
-                    )
-                elif audio_settings.output_type == "with_timestamp":
-                    Model = FunASRModel()
-                    model = Model.full_version()
-                    response = generate_results(
-                        model=model,
-                        input_path=Path(cache_dir / st.session_state.audio_name),
-                    )
-                    sentences = convert_response_to_sentences(response)
-                    if audio_settings.subtitle_speed == "slow":
-                        print("\n\033[1;35m*** 正在调整字幕速度 : 慢***\033[0m\n")
-                        settings.combine = True
-                        settings.cut = False
-                        sentences = combine_sentences(
-                            sentences,
-                            combine_line=settings.combine_line,
-                            max_sentence_length=settings.max_sentence_length,
-                        )
-                    elif audio_settings.subtitle_speed == "fast":
-                        print("\n\033[1;35m*** 正在调整字幕速度 : 快***\033[0m\n")
-                        settings.combine = False
-                        settings.cut = True
-                        sentences = cut_sentences(sentences, cutline=settings.cut_line)
-
-                    msg_srt = st.toast(
-                        "正在生成SRT字幕文件", icon=":material/edit_note:"
-                    )
-                    print("\n\033[1;35m*** 正在生成 SRT 字幕文件 ***\033[0m\n")
-                    write_srt_from_sentences(
-                        sentences,
-                        Path(settings.output_dir)
-                        / "audio"
-                        / (st.session_state.audio_first_name + ".srt"),
-                    )
-                    st.session_state.srt_file = (
-                        Path(settings.output_dir)
-                        / "audio"
-                        / (st.session_state.audio_first_name + ".srt")
                     )
                 print("\033[1;34m🎉 FunASR 识别成功！\033[0m")
                 msg_whs.toast("音频内容识别完成", icon=":material/colorize:")
@@ -339,22 +357,50 @@ with tab1:
                 upload_audio()
 
             st.caption("字幕工具")
-            if st.button(
-                "**打开目录**",
-                use_container_width=True,
-                type="primary",
-                key="audio_open",
-            ):
-                try:
-                    open_folder_in_explorer(Path(settings.output_dir) / "audio")
-                    st.toast(
-                        "注意：文件夹已成功打开，可能未置顶显示，请检查任务栏！",
-                        icon=":material/task_alt:",
-                    )
-                except Exception as e:
-                    print(e)
-                    st.toast("未进行识别，目录尚未生成！", icon=":material/error:")
-                pass
+            # if st.button(
+            #     "**打开目录**",
+            #     use_container_width=True,
+            #     type="primary",
+            #     key="audio_open",
+            # ):
+            #     try:
+            #         open_folder_in_explorer(Path(settings.output_dir) / "audio")
+            #         st.toast(
+            #             "注意：文件夹已成功打开，可能未置顶显示，请检查任务栏！",
+            #             icon=":material/task_alt:",
+            #         )
+            #     except Exception as e:
+            #         st.toast("未进行识别，目录尚未生成！", icon=":material/error:")
+            #     pass
+
+            if st.toggle("自定义字幕", False, key="custom_subtitle"):
+                subtitle_speed = st.selectbox(
+                    get_setting_title("subtitle_speed", AudioSettings),
+                    audio_settings.get_zh_option_list("subtitle_speed"),
+                    index=audio_settings.get_index("subtitle_speed"),
+                )
+                st.caption("快慢以实况视频建议快，课程视频建议慢。")
+                st.markdown("")
+
+                if (
+                    st.session_state.slow_srt_file
+                    and st.session_state.fast_srt_file
+                    and st.session_state.normal_srt_file
+                ):
+                    if subtitle_speed == "慢":
+                        st.session_state.preview_srt_file = (
+                            st.session_state.slow_srt_file
+                        )
+                    elif subtitle_speed == "快":
+                        st.session_state.preview_srt_file = (
+                            st.session_state.fast_srt_file
+                        )
+                    else:
+                        st.session_state.preview_srt_file = (
+                            st.session_state.normal_srt_file
+                        )
+                else:
+                    pass
 
             if st.button("**下载字幕**", use_container_width=True, type="primary"):
                 st.toast("未检测到字幕生成！", icon=":material/error:")
@@ -366,9 +412,11 @@ with tab1:
             expanded=True,
             icon=":material/subtitles:",
         ):
-            if st.session_state.srt_file:
+            if st.session_state.preview_srt_file:
                 st.caption("字幕时间轴")
-                with st.session_state.srt_file.open("r", encoding="utf-8") as srt_file:
+                with st.session_state.preview_srt_file.open(
+                    "r", encoding="utf-8"
+                ) as srt_file:
                     srt_content = srt_file.read()
                 srt_data = parse_srt_file(srt_content)
                 st.dataframe(srt_data, hide_index=True)  # type: ignore
