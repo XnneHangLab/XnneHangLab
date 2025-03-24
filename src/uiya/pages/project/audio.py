@@ -371,7 +371,7 @@ with tab1:
                 with st.session_state.srt_file.open("r", encoding="utf-8") as srt_file:
                     srt_content = srt_file.read()
                 srt_data = parse_srt_file(srt_content)
-                st.dataframe(srt_data)  # type: ignore
+                st.dataframe(srt_data, hide_index=True)  # type: ignore
             else:
                 st.info(
                     "##### 结果预览区域 \n\n&nbsp;\n\n**生成完毕后会在此区域自动显示字幕时间轴**\n\n 运行前，请在右侧使用上传文件工具导入你的音频文件！ \n\n&nbsp;\n\n&nbsp;",
