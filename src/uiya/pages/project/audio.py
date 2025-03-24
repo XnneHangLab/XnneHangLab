@@ -51,20 +51,17 @@ def AudioReadme():
         use_container_width=True,
         key="guide",
     ):
-        st.session_state.readme = True
         st.session_state.welcome = True
         st.rerun()
 
 
+# 用于音频上传
 if "use_upload" not in st.session_state:
     st.session_state.use_upload = False
-
 if "use_example" not in st.session_state:
     st.session_state.use_example = False
 
-if "srt_file" not in st.session_state:
-    st.session_state.srt_file = None
-
+# 用于字幕预览
 if "preview_srt_file" not in st.session_state:
     st.session_state.preview_srt_file = None
 if "slow_srt_file" not in st.session_state:
@@ -74,8 +71,13 @@ if "fast_srt_file" not in st.session_state:
 if "normal_srt_file" not in st.session_state:
     st.session_state.normal_srt_file = None
 
+if "text_result" not in st.session_state:
+    st.session_state.text_result = None
+
+# 用于消息提示
 if "readme" not in st.session_state and audio_settings.guide == "open":
     AudioReadme()
+    st.session_state.readme = True
 if "welcome" in st.session_state:
     st.toast("欢迎使用 ~", icon=":material/verified:")
     del st.session_state["welcome"]
@@ -103,6 +105,7 @@ with tab2:
             audio_settings.get_zh_option_list("output_type"),
             index=audio_settings.get_index("output_type"),
         )
+        st.caption("只有带时间戳的字幕才支持自定义字幕速度。")
     with AudioSave:
         col1, col2 = st.columns([0.75, 0.25])
         st.markdown("")
@@ -112,14 +115,13 @@ with tab2:
             if st.button("**保存更改**", use_container_width=True, type="primary"):
                 audio_settings.zh_set_value("guide", guide)
                 audio_settings.zh_set_value("output_type", output_type)
-                audio_settings.zh_set_value("subtitle_speed", subtitle_speed)
                 write_settings_file("audio.toml", audio_settings)
                 st.session_state.save = True
                 st.rerun()
         with col1:
             st.markdown("")
             st.markdown("")
-            st.markdown("### 更改参数设置")
+            st.markdown("### 参数设置")
             st.caption("Changing Parameter Settings")
 
 with tab1:
@@ -138,6 +140,14 @@ with tab1:
         st.markdown("")
         st.markdown("")
         if st.button("**开始识别**", type="primary", use_container_width=True):
+            # 避免上一次的结果干扰
+            # TODO 如果多个用户同时使用，这里会有问题，比如一个用户在预览，一个用户在识别，预览的用户的预览会被识别的用户的结果覆盖
+            # TODO 可以通过给 key 加上 username 来解决/但似乎没有这么简单。
+            st.session_state.preview_srt_file = None
+            st.session_state.normal_srt_file = None
+            st.session_state.slow_srt_file = None
+            st.session_state.fast_srt_file = None
+            st.session_state.text_result = None
             if "audio_file" in st.session_state:
                 audio_file = st.session_state.audio_file
                 print("\n" + "=" * 50)
@@ -151,6 +161,7 @@ with tab1:
 
                 msg_ved = st.toast("正在对音频进行预处理", icon=":material/graphic_eq:")
                 current_time = datetime.datetime.now().strftime("_%Y%m%d%H%M%S")
+                # 使用上传的音频文件
                 if st.session_state.use_upload:
                     st.session_state.audio_first_name = audio_file.name.split(".")[0]
                     st.session_state.audio_last_name = audio_file.name.split(".")[-1]
@@ -164,6 +175,8 @@ with tab1:
                     # TODO 这里只是复制到了 cache_Dir ,实际上， 我们需要把它处理成 wav.
                     with (cache_dir / st.session_state.audio_name).open("wb") as file:
                         file.write(audio_file.getbuffer())
+
+                # 使用示例音频文件
                 elif st.session_state.use_example:
                     st.session_state.audio_first_name = st.session_state.selected_file
                     st.session_state.audio_last_name = "wav"
@@ -235,6 +248,7 @@ with tab1:
                         / (st.session_state.audio_first_name + "-fast.srt"),
                     )
 
+                    # 持久化文件路径变量，除非重新生成，否则一直都可以预览
                     st.session_state.normal_srt_file = (
                         Path(settings.output_dir)
                         / "audio"
@@ -264,6 +278,8 @@ with tab1:
                     result = save_only_text_from_response(
                         response, output_dir=Path(settings.output_dir) / "audio"
                     )
+                    st.session_state.text_result = result
+                    msg_srt.toast("txt 文件生成完成", icon=":material/edit_note:")
                 print("\033[1;34m🎉 FunASR 识别成功！\033[0m")
                 msg_whs.toast("音频内容识别完成", icon=":material/colorize:")
                 print("\033[1;34m🎉 任务成功结束！\033[0m")
@@ -357,21 +373,6 @@ with tab1:
                 upload_audio()
 
             st.caption("字幕工具")
-            # if st.button(
-            #     "**打开目录**",
-            #     use_container_width=True,
-            #     type="primary",
-            #     key="audio_open",
-            # ):
-            #     try:
-            #         open_folder_in_explorer(Path(settings.output_dir) / "audio")
-            #         st.toast(
-            #             "注意：文件夹已成功打开，可能未置顶显示，请检查任务栏！",
-            #             icon=":material/task_alt:",
-            #         )
-            #     except Exception as e:
-            #         st.toast("未进行识别，目录尚未生成！", icon=":material/error:")
-            #     pass
 
             if st.toggle("自定义字幕", False, key="custom_subtitle"):
                 subtitle_speed = st.selectbox(
@@ -400,7 +401,14 @@ with tab1:
                             st.session_state.normal_srt_file
                         )
                 else:
-                    pass
+                    st.toast(
+                        "未生成字幕，或生成的字幕不支持自定义。",
+                        icon=":material/error:",
+                    )
+                    st.toast(
+                        "请到`参数设置`-> `输出类型` -> `带时间戳`",
+                        icon=":material/error:",
+                    )
 
             if st.button("**下载字幕**", use_container_width=True, type="primary"):
                 st.toast("未检测到字幕生成！", icon=":material/error:")
@@ -420,6 +428,9 @@ with tab1:
                     srt_content = srt_file.read()
                 srt_data = parse_srt_file(srt_content)
                 st.dataframe(srt_data, hide_index=True)  # type: ignore
+            elif st.session_state.text_result:
+                st.caption("提取到的文本")
+                st.markdown(st.session_state.text_result)
             else:
                 st.info(
                     "##### 结果预览区域 \n\n&nbsp;\n\n**生成完毕后会在此区域自动显示字幕时间轴**\n\n 运行前，请在右侧使用上传文件工具导入你的音频文件！ \n\n&nbsp;\n\n&nbsp;",
