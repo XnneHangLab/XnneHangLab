@@ -10,47 +10,6 @@ import platform
 import os
 
 
-def FileToMp3(
-    log_level: str, input_dir: str, output_dir: str, output_name: str = "output.mp3"
-):
-    input_path = Path(input_dir)
-    output_path = Path(output_dir) / output_name
-
-    if not input_path.is_file():
-        raise FileNotFoundError(f"输入文件不存在: {input_path}")
-
-    if input_path.suffix.lower() == ".mp3":
-        print("\033[1;34m🎧 文件已经是 MP3 格式，无需转换。\033[0m")
-        return output_path
-
-    try:
-        command = [
-            "ffmpeg",
-            "-loglevel",
-            log_level,
-            "-i",
-            str(input_path),
-            "-vn",
-            "-acodec",
-            "libmp3lame",
-            "-ab",
-            "320k",
-            "-f",
-            "mp3",
-            str(output_path),
-        ]
-        subprocess.run(command, check=True)
-        print("\033[1;34m🎧 文件已成功转换为 MP3 格式！\033[0m")
-        return output_path
-
-    except subprocess.CalledProcessError as e:
-        raise EOFError(f"FFmpeg 执行失败: {e}")
-    except Exception as e:
-        raise EOFError(
-            f"发生错误！可能是 FFmpeg 未被正确配置或上传文件格式不受支持。详细信息: {e}"
-        )
-
-
 def check_cuda_installed():
     if torch.cuda.is_available():
         return True

@@ -20,15 +20,24 @@ def test_call_ffmpeg():
         return False
 
 
-def mp4_to_wav(input_mp4_path: Path, output_wav_path: Path):
+def file_to_wav(input_path: Path, output_wav_path: Path):
     """
-    使用 ffmpeg 将 MP4 文件转换为 WAV 文件，并应用指定的参数，使用 run_shell_command 执行命令。
+    使用 ffmpeg 将 * 文件转换为 WAV 文件，并应用指定的参数，使用 run_shell_command 执行命令。
+    可以处理 MP4, MP3, AAC, FLAC, etc. 等 FFmpeg 支持的格式。
     """
+
+    if not input_path.exists():
+        raise FileNotFoundError(f"输入文件不存在: {input_path}")
+
+    if input_path.suffix.lower() == ".wav":
+        print("\033[1;34m🎧 文件已经是 WAV 格式，无需转换。\033[0m")
+        return input_path
+
     command = [
         str(FFMPEG_PATH),
         "-y",  # 强制覆盖输出文件
         "-i",
-        str(input_mp4_path.absolute()),
+        str(input_path.absolute()),
         "-vn",  # 禁用视频流
         "-af",
         "aresample=async=1",  # 音频滤波器，异步重采样
@@ -44,9 +53,43 @@ def mp4_to_wav(input_mp4_path: Path, output_wav_path: Path):
     result = run_shell_command(command)  # 使用 run_shell_command 执行命令
 
     if result.returncode == 0:
-        print(f"MP4 文件 '{input_mp4_path}' 成功转换为 WAV 文件 '{output_wav_path}'")
+        print(f"\033[1;34m🎧 '{input_path}' 成功转换为 WAV 文件 '{output_wav_path}'")
         return True
     else:
         print(f"FFmpeg 转换失败，返回码: {result.returncode}")
         # run_shell_command 已经记录了错误信息，这里可以不再重复打印 stderr/stdout
         return False
+
+
+def file_to_mp3(input_path: Path, output_path: Path):
+
+    if not input_path.exists():
+        raise FileNotFoundError(f"输入文件不存在: {input_path}")
+
+    if input_path.suffix.lower() == ".mp3":
+        print("\033[1;34m🎧 文件已经是 MP3 格式，无需转换。\033[0m")
+        return input_path
+
+    command = [
+        str(FFMPEG_PATH),
+        "-i",
+        str(input_path),
+        "-vn",
+        "-y",
+        "-acodec",
+        "libmp3lame",
+        "-ab",
+        "320k",
+        "-f",
+        "mp3",
+        str(output_path),
+    ]
+
+    result = run_shell_command(command)
+
+    if result.returncode == 0:
+        print(f"🎧 文件 '{input_path}' 成功转换为 MP3 文件 '{output_path}'")
+        return output_path
+    else:
+        print(f"FFmpeg 转换失败，返回码: {result.returncode}")
+        return None
