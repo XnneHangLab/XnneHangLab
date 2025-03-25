@@ -17,6 +17,7 @@ from uiya.utils.config import load_settings_file, write_settings_file
 from uiya._dataclass import AudioSettings, RunnerSettings
 from uiya.utils.get_font import read_font_data
 from uiya.utils.config import get_setting_title
+from uiya.utils.FFmpegHelper import file_to_wav
 
 
 style()
@@ -141,8 +142,7 @@ with tab1:
         st.markdown("")
         if st.button("**开始识别**", type="primary", use_container_width=True):
             # 避免上一次的结果干扰
-            # TODO 如果多个用户同时使用，这里会有问题，比如一个用户在预览，一个用户在识别，预览的用户的预览会被识别的用户的结果覆盖
-            # TODO 可以通过给 key 加上 username 来解决/但似乎没有这么简单。
+            # TODO 需要分开不同用户的工作区，config 路径。
             st.session_state.preview_srt_file = None
             st.session_state.normal_srt_file = None
             st.session_state.slow_srt_file = None
@@ -175,6 +175,21 @@ with tab1:
                     # TODO 这里只是复制到了 cache_Dir ,实际上， 我们需要把它处理成 wav.
                     with (cache_dir / st.session_state.audio_name).open("wb") as file:
                         file.write(audio_file.getbuffer())
+                    if st.session_state.audio_last_name != "wav":
+                        msg_ved.toast(
+                            "转换音频为 wav 格式", icon=":material/graphic_eq:"
+                        )
+                        print("\n\033转换音频为 wav 格式\033[0m")
+                        # 转换成接受的 wav
+                        file_to_wav(
+                            input_path=cache_dir / st.session_state.audio_name,
+                            output_wav_path=cache_dir
+                            / (st.session_state.audio_first_name + ".wav"),
+                        )
+                        # 更正使用的文件名
+                        st.session_state.audio_name = (
+                            st.session_state.audio_first_name + ".wav"
+                        )
 
                 # 使用示例音频文件
                 elif st.session_state.use_example:
@@ -193,6 +208,21 @@ with tab1:
                         Path(f"tests/{st.session_state.selected_file}.wav"),
                         cache_dir / st.session_state.audio_name,
                     )
+                    if st.session_state.audio_last_name != "wav":
+                        msg_ved.toast(
+                            "转换音频为 wav 格式", icon=":material/graphic_eq:"
+                        )
+                        print("\n\033转换音频为 wav 格式\033[0m")
+                        # 转换成接受的 wav
+                        file_to_wav(
+                            input_path=cache_dir / st.session_state.audio_name,
+                            output_wav_path=cache_dir
+                            / (st.session_state.audio_first_name + ".wav"),
+                        )
+                        # 更正使用的文件名
+                        st.session_state.audio_name = (
+                            st.session_state.audio_first_name + ".wav"
+                        )
                 else:
                     st.toast("请先上传音频文件", icon=":material/error:")
                     st.stop()
