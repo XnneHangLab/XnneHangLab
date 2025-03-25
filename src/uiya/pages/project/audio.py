@@ -177,7 +177,7 @@ with tab1:
                         file.write(audio_file.getbuffer())
                     if st.session_state.audio_last_name != "wav":
                         msg_ved.toast(
-                            "转换音频为 wav 格式", icon=":material/graphic_eq:"
+                            "转转换音频为 wav 格式", icon=":material/graphic_eq:"
                         )
                         print("\n\033转换音频为 wav 格式\033[0m")
                         # 转换成接受的 wav
@@ -193,11 +193,13 @@ with tab1:
 
                 # 使用示例音频文件
                 elif st.session_state.use_example:
-                    st.session_state.audio_first_name = st.session_state.selected_file
-                    st.session_state.audio_last_name = "wav"
-                    st.session_state.audio_name = (
-                        st.session_state.selected_file + ".wav"
+                    st.session_state.audio_first_name = (
+                        st.session_state.selected_file.split(".")[0]
                     )
+                    st.session_state.audio_last_name = (
+                        st.session_state.selected_file.split(".")[-1]
+                    )
+                    st.session_state.audio_name = st.session_state.selected_file
                     cache_dir = (
                         Path(settings.cache_dir)
                         / st.session_state.audio_first_name
@@ -205,7 +207,7 @@ with tab1:
                     )
                     cache_dir.mkdir(parents=True, exist_ok=True)
                     shutil.copy(
-                        Path(f"tests/{st.session_state.selected_file}.wav"),
+                        Path(f"tests/{st.session_state.selected_file}"),
                         cache_dir / st.session_state.audio_name,
                     )
                     if st.session_state.audio_last_name != "wav":
@@ -378,35 +380,38 @@ with tab1:
                 )
                 st.caption(
                     "example1: [华容道迷宫 | 《20 Small Mazes》](https://www.bilibili.com/video/BV1Xzk3YPEd9)"
-                    "example2: [【AI巴老师】难道看我失魂落魄，你竟然心动](https://www.bilibili.com/video/BV1314y1k73r/)"
-                    "example3: AI生成的一个长音频,用于上行速度影响测试。"
                 )
+                st.caption(
+                    "example2: [【AI巴老师】难道看我失魂落魄，你竟然心动](https://www.bilibili.com/video/BV1314y1k73r/)"
+                )
+                st.caption("example3: AI生成的一个长音频,用于上行速度影响测试。")
+
                 select_file = st.selectbox(
                     "选择示例文件",
                     [
-                        "example1",
-                        "example2",
-                        "example3",
+                        "example1.wav",
+                        "example2.m4a",
+                        "example3.mp3",
                     ],
                 )
                 if st.button(
                     "**使用示例文件**", use_container_width=True, type="primary"
                 ):
-                    if select_file == "example1":
+                    if select_file == "example1.wav":
                         st.session_state.audio_file = "tests/example1.wav"
-                        st.session_state.selected_file = "example1"
+                        st.session_state.selected_file = select_file
                         st.session_state.use_example = True
                         st.session_state.upload = True
                         st.rerun()
-                    elif select_file == "example2":
-                        st.session_state.audio_file = "tests/example2.wav"
-                        st.session_state.selected_file = "example2"
+                    elif select_file == "example2.m4a":
+                        st.session_state.audio_file = "tests/example2.m4a"
+                        st.session_state.selected_file = select_file
                         st.session_state.use_example = True
                         st.session_state.upload = True
                         st.rerun()
-                    elif select_file == "example3":
-                        st.session_state.audio_file = "tests/example3.wav"
-                        st.session_state.selected_file = "example3"
+                    elif select_file == "example3.mp3":
+                        st.session_state.audio_file = "tests/example3.mp3"
+                        st.session_state.selected_file = select_file
                         st.session_state.use_example = True
                         st.session_state.upload = True
                         st.rerun()
