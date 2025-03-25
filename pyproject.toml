@@ -8,8 +8,8 @@ dependencies = [
     "funasr==1.2.6",
     "modelscope>=1.23.1",
     "numpy==1.26.4",
-    "torch==2.1.0",
-    "torchaudio==2.1.0",
+    "torch==2.2.0",
+    "torchaudio==2.2.0",
     "tomli_w==1.2.0",
     "pydantic==2.10.6",
     "setuptools==76.0.0",
@@ -45,18 +45,17 @@ uiya = "uiya.ui:main"
 members = ["packages/*"]
 
 [[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
+name = "pytorch-cu118"
+url = "https://download.pytorch.org/whl/cu118"
 explicit = true
 
 [tool.uv.sources]
 torch = [
-  { index = "pytorch-cpu" },
+  { index = "pytorch-cu118", marker = "platform_system != 'Darwin'"  },
 ]
 torchaudio = [
-  { index = "pytorch-cpu" },
+  { index = "pytorch-cu118", marker = "platform_system != 'Darwin'" },
 ]
-
 [tool.pyright]
 include = ["src/uiya", "tests"]
 pythonVersion = "3.11"
