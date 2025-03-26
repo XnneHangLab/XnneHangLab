@@ -3,7 +3,6 @@ import datetime
 import streamlit as st
 import shutil
 
-from uiya.utils.jsonHelper import save_response_to_json, read_response_from_json
 from uiya.utils.model import FunASRModel, generate_results
 from uiya.BasicRunner.extractor import save_only_text_from_response
 from uiya.BasicRunner.converter import convert_response_to_sentences
@@ -58,21 +57,19 @@ def AudioReadme():
 
 
 # 用于音频上传
+if "audio_name" not in st.session_state:
+    st.session_state.audio_name = None
 if "use_upload" not in st.session_state:
     st.session_state.use_upload = False
 if "use_example" not in st.session_state:
     st.session_state.use_example = False
+if "selected_file" not in st.session_state:
+    st.session_state.selected_file = None
 
-# 用于字幕预览
-if "preview_srt_file" not in st.session_state:
-    st.session_state.preview_srt_file = None
-if "slow_srt_file" not in st.session_state:
-    st.session_state.slow_srt_file = None
-if "fast_srt_file" not in st.session_state:
-    st.session_state.fast_srt_file = None
-if "normal_srt_file" not in st.session_state:
-    st.session_state.normal_srt_file = None
 
+# with_timestamp
+if "response_with_timestamp" not in st.session_state:
+    st.session_state.response_with_timestamp = None
 if "text_result" not in st.session_state:
     st.session_state.text_result = None
 
@@ -142,13 +139,6 @@ with tab1:
         st.markdown("")
         st.markdown("")
         if st.button("**开始识别**", type="primary", use_container_width=True):
-            # 避免上一次的结果干扰
-            # TODO 需要分开不同用户的工作区，config 路径。
-            st.session_state.preview_srt_file = None
-            st.session_state.normal_srt_file = None
-            st.session_state.slow_srt_file = None
-            st.session_state.fast_srt_file = None
-            st.session_state.text_result = None
             if "audio_file" in st.session_state:
                 audio_file = st.session_state.audio_file
                 print("\n" + "=" * 50)
@@ -164,19 +154,18 @@ with tab1:
                 current_time = datetime.datetime.now().strftime("_%Y%m%d%H%M%S")
                 # 使用上传的音频文件
                 if st.session_state.use_upload:
-                    st.session_state.audio_first_name = audio_file.name.split(".")[0]
-                    st.session_state.audio_last_name = audio_file.name.split(".")[-1]
+                    audio_first_name = audio_file.name.split(".")[0]
+                    audio_last_name = audio_file.name.split(".")[-1]
                     st.session_state.audio_name = audio_file.name
-                    cache_dir = (
-                        Path(settings.cache_dir)
-                        / st.session_state.audio_first_name
-                        / current_time
+                    st.session_state.cache_dir = (
+                        Path(settings.cache_dir) / audio_first_name / current_time
                     )
+                    cache_dir = st.session_state.cache_dir
                     cache_dir.mkdir(parents=True, exist_ok=True)
                     # TODO 这里只是复制到了 cache_Dir ,实际上， 我们需要把它处理成 wav.
                     with (cache_dir / st.session_state.audio_name).open("wb") as file:
                         file.write(audio_file.getbuffer())
-                    if st.session_state.audio_last_name != "wav":
+                    if audio_last_name != "wav":
                         msg_ved.toast(
                             "转转换音频为 wav 格式", icon=":material/graphic_eq:"
                         )
@@ -184,34 +173,30 @@ with tab1:
                         # 转换成接受的 wav
                         file_to_wav(
                             input_path=cache_dir / st.session_state.audio_name,
-                            output_wav_path=cache_dir
-                            / (st.session_state.audio_first_name + ".wav"),
+                            output_wav_path=cache_dir / (audio_first_name + ".wav"),
                         )
                         # 更正使用的文件名
-                        st.session_state.audio_name = (
-                            st.session_state.audio_first_name + ".wav"
-                        )
+                        st.session_state.audio_name = audio_first_name + ".wav"
 
                 # 使用示例音频文件
                 elif st.session_state.use_example:
-                    st.session_state.audio_first_name = (
-                        st.session_state.selected_file.split(".")[0]
-                    )
-                    st.session_state.audio_last_name = (
-                        st.session_state.selected_file.split(".")[-1]
-                    )
+                    if st.session_state.selected_file:
+                        audio_first_name = st.session_state.selected_file.split(".")[0]
+                        audio_last_name = st.session_state.selected_file.split(".")[-1]
+                    else:
+                        st.toast("请先选择示例文件", icon=":material/error:")
+                        st.stop()
                     st.session_state.audio_name = st.session_state.selected_file
-                    cache_dir = (
-                        Path(settings.cache_dir)
-                        / st.session_state.audio_first_name
-                        / current_time
+                    st.session_state.cache_dir = (
+                        Path(settings.cache_dir) / audio_first_name / current_time
                     )
+                    cache_dir = st.session_state.cache_dir
                     cache_dir.mkdir(parents=True, exist_ok=True)
                     shutil.copy(
-                        Path(f"tests/{st.session_state.selected_file}"),
+                        Path(f"tests/{st.session_state.audio_name}"),
                         cache_dir / st.session_state.audio_name,
                     )
-                    if st.session_state.audio_last_name != "wav":
+                    if audio_last_name != "wav":
                         msg_ved.toast(
                             "转换音频为 wav 格式", icon=":material/graphic_eq:"
                         )
@@ -219,13 +204,10 @@ with tab1:
                         # 转换成接受的 wav
                         file_to_wav(
                             input_path=cache_dir / st.session_state.audio_name,
-                            output_wav_path=cache_dir
-                            / (st.session_state.audio_first_name + ".wav"),
+                            output_wav_path=cache_dir / (audio_first_name + ".wav"),
                         )
                         # 更正使用的文件名
-                        st.session_state.audio_name = (
-                            st.session_state.audio_first_name + ".wav"
-                        )
+                        st.session_state.audio_name = audio_first_name + ".wav"
                 else:
                     st.toast("请先上传音频文件", icon=":material/error:")
                     st.stop()
@@ -242,64 +224,25 @@ with tab1:
                 if audio_settings.output_type == "with_timestamp":
                     Model = FunASRModel()
                     model = Model.full_version()
-                    response = generate_results(
+                    response_with_timestamp = generate_results(
                         model=model,
                         input_path=Path(cache_dir / st.session_state.audio_name),
                     )
                     # 保存 response 到 json 文件
-
-                    sentences = convert_response_to_sentences(response)
-                    # 保存常速字幕
+                    st.session_state.response_with_timestamp = response_with_timestamp
+                    sentences = convert_response_to_sentences(response_with_timestamp)
+                    # 保存字幕
                     print("\n\033[1;35m*** 正在生成 SRT 字幕文件 ***\033[0m\n")
-                    write_srt_from_sentences(
-                        sentences,
-                        Path(settings.output_dir)
-                        / "audio"
-                        / (st.session_state.audio_first_name + ".srt"),
-                    )
-
-                    # 保存慢速字幕
-                    print("\n\033[1;35m*** 正在调整字幕速度 : 慢***\033[0m\n")
-                    sentences = combine_sentences(
-                        sentences,
-                        combine_line=settings.combine_line,
-                        max_sentence_length=settings.max_sentence_length,
-                    )
-                    write_srt_from_sentences(
-                        sentences,
-                        Path(settings.output_dir)
-                        / "audio"
-                        / (st.session_state.audio_first_name + "-slow.srt"),
-                    )
-
-                    # 保存快速字幕
-                    print("\n\033[1;35m*** 正在调整字幕速度 : 快***\033[0m\n")
-                    sentences = convert_response_to_sentences(response)
-                    sentences = cut_sentences(sentences, cutline=settings.cut_line)
-                    write_srt_from_sentences(
-                        sentences,
-                        Path(settings.output_dir)
-                        / "audio"
-                        / (st.session_state.audio_first_name + "-fast.srt"),
-                    )
-
-                    # 持久化文件路径变量，除非重新生成，否则一直都可以预览
-                    st.session_state.normal_srt_file = (
+                    st.session_state.preview_srt_file = (
                         Path(settings.output_dir)
                         / "audio"
                         / (st.session_state.audio_first_name + ".srt")
                     )
-                    st.session_state.slow_srt_file = (
-                        Path(settings.output_dir)
-                        / "audio"
-                        / (st.session_state.audio_first_name + "-slow.srt")
+                    write_srt_from_sentences(
+                        sentences,
+                        st.session_state.preview_srt_file,
                     )
-                    st.session_state.fast_srt_file = (
-                        Path(settings.output_dir)
-                        / "audio"
-                        / (st.session_state.audio_first_name + "-fast.srt")
-                    )
-                    st.session_state.preview_srt_file = st.session_state.normal_srt_file
+                    print("\033[1;34m🎉 字幕生成成功！\033[0m")
 
                 elif audio_settings.output_type == "without_timestamp":
                     Model = FunASRModel()
@@ -440,22 +383,23 @@ with tab1:
                 st.caption("快慢以实况视频建议快，课程视频建议慢。")
                 st.markdown("")
 
-                if (
-                    st.session_state.slow_srt_file
-                    and st.session_state.fast_srt_file
-                    and st.session_state.normal_srt_file
-                ):
+                if st.session_state.response_with_timestamp:
+                    response_with_timestamp = st.session_state.response_with_timestamp
+                    sentences = convert_response_to_sentences(response_with_timestamp)
                     if subtitle_speed == "慢":
-                        st.session_state.preview_srt_file = (
-                            st.session_state.slow_srt_file
+                        sentences = combine_sentences(
+                            sentences,
+                            max_sentence_length=settings.max_sentence_length,
+                            combine_line=settings.combine_line,
                         )
                     elif subtitle_speed == "快":
-                        st.session_state.preview_srt_file = (
-                            st.session_state.fast_srt_file
-                        )
+                        sentences = cut_sentences(sentences, cutline=settings.cut_line)
                     else:
-                        st.session_state.preview_srt_file = (
-                            st.session_state.normal_srt_file
+                        pass
+                    if st.session_state.preview_srt_file:
+                        write_srt_from_sentences(
+                            sentences=sentences,
+                            srt_file_path=Path(st.session_state.preview_srt_file),
                         )
                 else:
                     st.toast(
