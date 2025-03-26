@@ -1,5 +1,5 @@
 batch_size_s = 300
-device = "cpu"
+device = "cuda"
 punctuation_list = "，。；、？！,.;?!"
 custom_output_dir = false
 cache_dir = "./cache"
