@@ -320,10 +320,14 @@ with tab1:
                 )
                 st.markdown("")
                 if st.button("**点击上传**", use_container_width=True, type="primary"):
-                    st.session_state.audio_file = audio_file
-                    st.session_state.use_upload = True
-                    st.session_state.upload = True
-                    st.rerun()
+                    if audio_file is None:
+                        st.toast("请先上传文件", icon=":material/error:")
+                        pass
+                    else:
+                        st.session_state.audio_file = audio_file
+                        st.session_state.use_upload = True
+                        st.session_state.upload = True
+                        st.rerun()
 
                 st.markdown(
                     "**PS:** 因为卡 100% 真的很影响体验，这里提供了示例文件（都存在我的电脑中）。等到我升级了家里的带宽后，再使用上传功能。"
