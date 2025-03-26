@@ -3,6 +3,7 @@ import datetime
 import streamlit as st
 import shutil
 
+from uiya.utils.jsonHelper import save_response_to_json, read_response_from_json
 from uiya.utils.model import FunASRModel, generate_results
 from uiya.BasicRunner.extractor import save_only_text_from_response
 from uiya.BasicRunner.converter import convert_response_to_sentences
@@ -245,6 +246,8 @@ with tab1:
                         model=model,
                         input_path=Path(cache_dir / st.session_state.audio_name),
                     )
+                    # 保存 response 到 json 文件
+
                     sentences = convert_response_to_sentences(response)
                     # 保存常速字幕
                     print("\n\033[1;35m*** 正在生成 SRT 字幕文件 ***\033[0m\n")
