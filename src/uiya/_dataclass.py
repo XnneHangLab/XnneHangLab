@@ -18,6 +18,9 @@ RunnerSettingsTitle = Literal[
     "punc_model",
     "custom_output_dir",
     "output_dir",
+    "combine_line",
+    "cut_line",
+    "max_sentence_length",
 ]
 
 
@@ -53,10 +56,10 @@ class RunnerSettings(BaseModel):
     ]
 
     cut: Annotated[bool, Field(False)]
-    cut_line: Annotated[int, Field(400)]
+    cut_line: Annotated[int, Field(400, title="分割间隔(毫秒)")]
     combine: Annotated[bool, Field(False)]
-    combine_line: Annotated[int, Field(400)]
-    max_sentence_length: Annotated[int, Field(20)]
+    combine_line: Annotated[int, Field(400, title="合并间隔(毫秒)")]
+    max_sentence_length: Annotated[int, Field(20, title="最大单句长度")]
     need_punc: Annotated[bool, Field(False)]
 
     def get_option_list(self, key: RunnerSettingsTitle):

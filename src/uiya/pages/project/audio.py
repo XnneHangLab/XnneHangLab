@@ -28,6 +28,11 @@ fonts = read_font_data()
 guide = st.session_state.get("guide", audio_settings.guide)
 output_type = st.session_state.get("output_type", audio_settings.output_type)
 subtitle_speed = st.session_state.get("subtitle_speed", audio_settings.subtitle_speed)
+cut_line = st.session_state.get("cut_line", settings.cut_line)
+combine_line = st.session_state.get("combine_line", settings.combine_line)
+max_sentence_length = st.session_state.get(
+    "max_sentence_length", settings.max_sentence_length
+)
 
 
 @st.dialog("使用提示")
@@ -66,13 +71,13 @@ if "use_example" not in st.session_state:
 if "selected_file" not in st.session_state:
     st.session_state.selected_file = None
 
-
-# with_timestamp
+# 用于音频识别
 if "response_with_timestamp" not in st.session_state:
     st.session_state.response_with_timestamp = None
 if "text_result" not in st.session_state:
     st.session_state.text_result = None
 
+# 字幕预览
 if "preview_srt_file" not in st.session_state:
     st.session_state.preview_srt_file = None
 
@@ -388,13 +393,45 @@ with tab1:
             st.caption("字幕工具")
 
             if st.toggle("自定义字幕", False, key="custom_subtitle"):
+                st.caption("所有自定义行为均在生成字幕后操作，请先生成字幕。")
                 subtitle_speed = st.selectbox(
                     get_setting_title("subtitle_speed", AudioSettings),
                     audio_settings.get_zh_option_list("subtitle_speed"),
                     index=audio_settings.get_index("subtitle_speed"),
                 )
-                st.caption("快慢以实况视频建议快，课程视频建议慢。")
+                st.caption("字幕单句长则慢，单句短则快")
                 st.markdown("")
+                if subtitle_speed == "快":
+                    cut_line = st.slider(
+                        get_setting_title("cut_line", RunnerSettings),
+                        min_value=100,
+                        max_value=1000,
+                        value=cut_line,
+                        step=100,
+                        key="cut_line",
+                    )
+                    st.caption("两个字间隔时长超过这个值分为两句。")
+                    st.markdown("")
+                if subtitle_speed == "慢":
+                    combine_line = st.slider(
+                        get_setting_title("combine_line", RunnerSettings),
+                        min_value=100,
+                        max_value=1000,
+                        value=combine_line,
+                        step=100,
+                        key="combine_line",
+                    )
+                    st.caption("两个字间隔时长小于这个值合并为一句。")
+                    max_sentence_length = st.slider(
+                        get_setting_title("max_sentence_length", RunnerSettings),
+                        min_value=5,
+                        max_value=40,
+                        value=max_sentence_length,
+                        step=1,
+                        key="max_sentence_length",
+                    )
+                    st.caption("单句最大长度，如果超过该长度就不再继续合并。")
+                    st.markdown("")
 
                 if st.session_state.response_with_timestamp:
                     response_with_timestamp = st.session_state.response_with_timestamp
@@ -403,10 +440,10 @@ with tab1:
                         sentences = combine_sentences(
                             sentences,
                             max_sentence_length=settings.max_sentence_length,
-                            combine_line=settings.combine_line,
+                            combine_line=combine_line,
                         )
                     elif subtitle_speed == "快":
-                        sentences = cut_sentences(sentences, cutline=settings.cut_line)
+                        sentences = cut_sentences(sentences, cutline=cut_line)
                     else:
                         pass
                     if st.session_state.preview_srt_file:
