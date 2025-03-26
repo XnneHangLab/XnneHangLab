@@ -10,3 +10,5 @@ output.txt
 tests/
 output/
 cache/
+
+global.toml
