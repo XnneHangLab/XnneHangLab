@@ -240,7 +240,7 @@ with tab1:
                     st.session_state.preview_srt_file = (
                         Path(settings.output_dir)
                         / "audio"
-                        / (st.session_state.audio_first_name + ".srt")
+                        / (audio_first_name + ".srt")
                     )
                     write_srt_from_sentences(
                         sentences,
