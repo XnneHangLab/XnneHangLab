@@ -7,7 +7,7 @@ from pathlib import Path
 from uiya.utils.model import FunASRModel, generate_results
 from uiya.utils.config import load_settings_file, get_setting_title
 from uiya.utils.SrtHelper import write_srt_from_sentences
-from uiya.utils.FFmpegHelper import mp4_to_wav, test_call_ffmpeg
+from uiya.utils.FFmpegHelper import test_call_ffmpeg
 from uiya.BasicRunner.converter import split_into_words, convert_response_to_sentences
 from uiya.BasicRunner.extractor import save_only_text_from_response
 from uiya.BasicRunner.cutter import cut_sentences
@@ -38,15 +38,10 @@ def main():
     print("====== Testing fn_call_test_ffmpeg ======")
     test_call_ffmpeg()
 
-    print("====== Testing fn_mp4_to_wav ======")
-    mp4_path = Path("./tests/test.mp4")
-    wav_path = Path("./tests/test.wav")
-    mp4_to_wav(input_mp4_path=mp4_path, output_wav_path=wav_path)
-
     print("====== Testing fn_convert_response_to_sentences =======")
     parser = argparse.ArgumentParser(description="将wav音频转换成srt")
     parser.add_argument(
-        "-i", "--input_path", default="./tests/test.wav", help="输入音频文件"
+        "-i", "--input_path", default="./tests/example1.wav", help="输入音频文件"
     )
     args = parser.parse_args()
 
@@ -76,13 +71,8 @@ def main():
     )
 
     print("====== Testing cut wav2srt")
-    cutted_sentences = cut_sentences(sentences=sentences, cutline=500)
-    write_srt_from_sentences(cutted_sentences, Path("./tests/test_cut.srt"))
+    cut_sentences(sentences=sentences, cutline=500)
 
     print("====== Testing combine wav2srt")
-    combined_sentences = combine_sentences(
-        sentences=sentences, combine_line=500, max_sentence_length=500
-    )
-    write_srt_from_sentences(combined_sentences, Path("./tests/test_combine.srt"))
-
+    combine_sentences(sentences=sentences, combine_line=500, max_sentence_length=500)
     return settings

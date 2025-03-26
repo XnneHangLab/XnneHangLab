@@ -1,9 +1,11 @@
 from funasr import AutoModel
 from pathlib import Path
-from typing_extensions import Any
+from typing import Any
 from uiya.utils.config import load_settings_file
-from uiya._typing import AutoModelResponse
+
+
 from uiya._dataclass import RunnerSettings
+from uiya._typing import AutoModelResponse
 
 
 class FunASRModel:

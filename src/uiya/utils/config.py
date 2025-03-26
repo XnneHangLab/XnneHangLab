@@ -20,10 +20,15 @@ else:
     toml_loads = tomllib.loads  # type: ignore
     toml_dumps = tomlw.dumps  # type: ignore
 
-from typing_extensions import Any, overload
+from typing import Any, overload, TYPE_CHECKING
 
-from uiya._dataclass import RunnerSettings, AudioSettings, VideoSettings
-from uiya._dataclass import RunnerSettingsTitle, AudioSettingsTitle, VideoSettingsTitle
+if TYPE_CHECKING:
+    from uiya._dataclass import RunnerSettings, AudioSettings, VideoSettings
+    from uiya._dataclass import (
+        RunnerSettingsTitle,
+        AudioSettingsTitle,
+        VideoSettingsTitle,
+    )
 
 
 def xdg_config_home() -> Path:
