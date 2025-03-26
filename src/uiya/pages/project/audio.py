@@ -425,7 +425,21 @@ with tab1:
                     )
 
             if st.button("**下载字幕**", use_container_width=True, type="primary"):
-                st.toast("未检测到字幕生成！", icon=":material/error:")
+
+                if st.session_state.preview_srt_file:
+                    with st.session_state.preview_srt_file.open(
+                        "r", encoding="utf-8"
+                    ) as srt_file:
+                        srt_content = srt_file.read()
+                    st.download_button(
+                        label=st.session_state.preview_srt_file.name,
+                        data=srt_content,
+                        file_name=st.session_state.preview_srt_file.name,
+                        mime="text/plain",
+                    )
+
+                else:
+                    st.toast("未检测到字幕生成！", icon=":material/error:")
             st.divider()
 
     with col1:
