@@ -73,6 +73,10 @@ if "response_with_timestamp" not in st.session_state:
 if "text_result" not in st.session_state:
     st.session_state.text_result = None
 
+if "preview_srt_file" not in st.session_state:
+    st.session_state.preview_srt_file = None
+
+
 # 用于消息提示
 if "readme" not in st.session_state and audio_settings.guide == "open":
     AudioReadme()
