@@ -49,7 +49,7 @@ def main():
     Model = FunASRModel()
     model = Model.full_version()
     response = generate_results(model=model, input_path=Path(args.input_path))
-    save_only_text_from_response(response=response, output_dir=Path("./tests"))
+    save_only_text_from_response(response=response, output_dir=Path("./output"))
 
     print("====== Testing fn_convert_response_to_sentences =======")
     sentences: list[Sentence] = convert_response_to_sentences(response)
@@ -68,7 +68,7 @@ def main():
 
     print("====== Testing non-process-wav2srt =======")
     write_srt_from_sentences(
-        sentences=sentences, srt_file_path=Path("./tests/test.srt")
+        sentences=sentences, srt_file_path=Path("./output/test.srt")
     )
 
     print("====== Testing cut wav2srt")
