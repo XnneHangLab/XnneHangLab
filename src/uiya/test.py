@@ -14,6 +14,7 @@ from uiya.BasicRunner.cutter import cut_sentences
 from uiya.BasicRunner.combiner import combine_sentences
 from uiya._typing import Sentence
 from uiya._dataclass import RunnerSettings, AudioSettings, VideoSettings
+from todo._dictionary import LANGUAGES
 
 
 def main():
@@ -75,4 +76,6 @@ def main():
 
     print("====== Testing combine wav2srt")
     combine_sentences(sentences=sentences, combine_line=500, max_sentence_length=500)
-    return settings
+
+    print("====== Testing package_todo =======")
+    print(LANGUAGES)
