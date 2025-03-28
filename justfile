@@ -14,7 +14,11 @@ install-model:
 fmt:
   uv run ruff check --fix --select I . --exclude packages # isort
   uv run ruff format . --exclude packages
+
 lint:
   uv run pyright src/uiya
   uv run ruff check . --exclude packages
   prettier --ignore-path .prettierignore --write '**/*.md'
+
+test:
+  uv run test
