@@ -12,12 +12,12 @@ install-model:
   uv run modelscope download --model iic/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch --local_dir ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
 
 fmt:
-  uv run ruff check --fix --select I . --exclude packages # isort
+  uv run ruff check --fix --select I . --exclude packages tests
   uv run ruff format . --exclude packages
 
 lint:
   uv run pyright src/uiya
-  uv run ruff check . --exclude packages
+  uv run ruff check . --exclude packages tests
   prettier --ignore-path .prettierignore --write '**/*.md'
 
 test:
