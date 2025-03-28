@@ -29,6 +29,7 @@ if TYPE_CHECKING:
         AudioSettingsTitle,
         VideoSettingsTitle,
     )
+    from uiya._dataclass import RootAbsDir
 
 
 def xdg_config_home() -> Path:
@@ -68,10 +69,19 @@ def load_settings_file(
 ) -> VideoSettings: ...
 
 
+@overload
+def load_settings_file(setting_name: str, setting: type[RootAbsDir]) -> RootAbsDir: ...
+
+
 def load_settings_file(
     setting_name: str,
-    setting: type[RunnerSettings] | type[AudioSettings] | type[VideoSettings],
-) -> RunnerSettings | AudioSettings | VideoSettings:
+    setting: (
+        type[RunnerSettings]
+        | type[AudioSettings]
+        | type[VideoSettings]
+        | type[RootAbsDir]
+    ),
+) -> RunnerSettings | AudioSettings | VideoSettings | RootAbsDir:
     """加载配置文件，如果不存在则创建默认配置文件在当前工作目录。"""
     settings_file = search_for_settings_file(setting_name=setting_name)
     if settings_file is None:
@@ -89,7 +99,8 @@ def load_settings_file(
 
 
 def write_settings_file(
-    settings_name: str, settings: RunnerSettings | AudioSettings | VideoSettings
+    settings_name: str,
+    settings: RunnerSettings | AudioSettings | VideoSettings | RootAbsDir,
 ) -> None:
     """将 Setting 对象写入 TOML 文件。"""
     settings_file = search_for_settings_file(setting_name=settings_name)

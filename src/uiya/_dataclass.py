@@ -2,8 +2,14 @@ from pydantic import BaseModel, Field
 from typing import Annotated, Literal, get_args
 from uiya._dictionary import audio_setting_dictionary
 
-# 并不是所有的配置项目都向用户开放。有 title 的是开放项。
 
+class RootAbsDir(BaseModel):
+    root_dir: Annotated[
+        str, Field("", title="项目根目录")
+    ]  # 项目根目录, 实时计算绝对目录。
+
+
+# 并不是所有的配置项目都向用户开放。有 title 的是开放项。
 
 Device = Literal["cpu", "cuda"]
 # 开放的配置项
