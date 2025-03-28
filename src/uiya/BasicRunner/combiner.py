@@ -1,5 +1,9 @@
-from uiya._typing import Sentence, Word
+from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from uiya._typing import Sentence, Word
 
 # ====
 # 根据 combine_line 把间隔较短的两个句子合并成一个句子
@@ -14,9 +18,7 @@ from uiya._typing import Sentence, Word
 # 这代表了六个句子会被合并成三个句子
 
 
-def count_new_sentences_word_length(
-    sentences: list[Sentence], new_sentence: Sentence
-) -> int:
+def count_new_sentences_word_length(sentences: list[Sentence], new_sentence: Sentence) -> int:
     length = 0
     for sentence in sentences:
         length += len(sentence["Words"])
@@ -24,9 +26,7 @@ def count_new_sentences_word_length(
     return length
 
 
-def combine_sentences(
-    sentences: list[Sentence], combine_line: int, max_sentence_length: int
-):
+def combine_sentences(sentences: list[Sentence], combine_line: int, max_sentence_length: int):
     new_sentences: list[Sentence] = []
 
     combine_sentence_lists: list[list[Sentence]] = []
@@ -41,8 +41,7 @@ def combine_sentences(
         else:
             if (
                 sentence["start"] - latest_end < combine_line
-                and count_new_sentences_word_length(combine_sentence_list, sentence)
-                < max_sentence_length
+                and count_new_sentences_word_length(combine_sentence_list, sentence) < max_sentence_length
             ):
                 combine_sentence_list.append(sentence)
                 latest_end = sentence["end"]
@@ -56,7 +55,7 @@ def combine_sentences(
 
     sentence_num = 0
     for combine_sentence_list in combine_sentence_lists:
-        for sentence in combine_sentence_list:
+        for _sentence in combine_sentence_list:
             sentence_num += 1
     assert sentence_num == len(sentences), "合并中句子存在遗漏"
 

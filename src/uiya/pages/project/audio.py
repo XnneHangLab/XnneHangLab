@@ -1,38 +1,40 @@
-from pathlib import Path
-import datetime
-import streamlit as st
-import shutil
+from __future__ import annotations
 
-from uiya.utils.model import FunASRModel, generate_results
-from uiya.BasicRunner.extractor import save_only_text_from_response
-from uiya.BasicRunner.converter import convert_response_to_sentences
+import datetime
+import shutil
+from pathlib import Path
+
+import streamlit as st
+
+from uiya._dataclass import AudioSettings, RunnerSettings
 from uiya.BasicRunner.combiner import combine_sentences
+from uiya.BasicRunner.converter import convert_response_to_sentences
 from uiya.BasicRunner.cutter import cut_sentences
-from uiya.utils.SrtHelper import write_srt_from_sentences
+from uiya.BasicRunner.extractor import save_only_text_from_response
 from uiya.styles.global_style import style
+from uiya.utils.config import get_setting_title, load_settings_file, write_settings_file
+from uiya.utils.FFmpegHelper import file_to_wav
+from uiya.utils.get_font import read_font_data
+from uiya.utils.model import FunASRModel, generate_results
 from uiya.utils.public import (
     parse_srt_file,
 )
-from uiya.utils.config import load_settings_file, write_settings_file
-from uiya._dataclass import AudioSettings, RunnerSettings
-from uiya.utils.get_font import read_font_data
-from uiya.utils.config import get_setting_title
-from uiya.utils.FFmpegHelper import file_to_wav
-
+from uiya.utils.SrtHelper import write_srt_from_sentences
 
 style()
 settings: RunnerSettings = load_settings_file("global.toml", setting=RunnerSettings)
 audio_settings: AudioSettings = load_settings_file("audio.toml", setting=AudioSettings)
 fonts = read_font_data()
 
+if not fonts:
+    raise FileNotFoundError("Font data not found!")
+
 guide = st.session_state.get("guide", audio_settings.guide)
 output_type = st.session_state.get("output_type", audio_settings.output_type)
 subtitle_speed = st.session_state.get("subtitle_speed", audio_settings.subtitle_speed)
 cut_line = st.session_state.get("cut_line", settings.cut_line)
 combine_line = st.session_state.get("combine_line", settings.combine_line)
-max_sentence_length = st.session_state.get(
-    "max_sentence_length", settings.max_sentence_length
-)
+max_sentence_length = st.session_state.get("max_sentence_length", settings.max_sentence_length)
 
 
 @st.dialog("使用提示")
@@ -98,7 +100,6 @@ if "upload" in st.session_state:
 
 tab1, tab2 = st.tabs(["**音频识别**", "**参数设置**"])
 with tab2:
-
     AudioSave = st.container()
     AudioSetting = st.container(border=True)
 
@@ -151,9 +152,7 @@ with tab1:
             if "audio_file" in st.session_state:
                 audio_file = st.session_state.audio_file
                 print("\n" + "=" * 50)
-                print(
-                    "\n\033[1;39m*** Auto-Caption-Generator-Offline 音频识别 ***\033[0m"
-                )
+                print("\n\033[1;39m*** Auto-Caption-Generator-Offline 音频识别 ***\033[0m")
                 st.toast(
                     "任务开始执行！请勿在运行时切换菜单或修改参数!",
                     icon=":material/rocket_launch:",
@@ -166,18 +165,14 @@ with tab1:
                     audio_first_name = audio_file.name.split(".")[0]
                     audio_last_name = audio_file.name.split(".")[-1]
                     st.session_state.audio_name = audio_file.name
-                    st.session_state.cache_dir = (
-                        Path(settings.cache_dir) / audio_first_name / current_time
-                    )
+                    st.session_state.cache_dir = Path(settings.cache_dir) / audio_first_name / current_time
                     cache_dir = st.session_state.cache_dir
                     cache_dir.mkdir(parents=True, exist_ok=True)
                     # TODO 这里只是复制到了 cache_Dir ,实际上， 我们需要把它处理成 wav.
                     with (cache_dir / st.session_state.audio_name).open("wb") as file:
                         file.write(audio_file.getbuffer())
                     if audio_last_name != "wav":
-                        msg_ved.toast(
-                            "转转换音频为 wav 格式", icon=":material/graphic_eq:"
-                        )
+                        msg_ved.toast("转转换音频为 wav 格式", icon=":material/graphic_eq:")
                         print("\n\033转换音频为 wav 格式\033[0m")
                         # 转换成接受的 wav
                         file_to_wav(
@@ -196,9 +191,7 @@ with tab1:
                         st.toast("请先选择示例文件", icon=":material/error:")
                         st.stop()
                     st.session_state.audio_name = st.session_state.selected_file
-                    st.session_state.cache_dir = (
-                        Path(settings.cache_dir) / audio_first_name / current_time
-                    )
+                    st.session_state.cache_dir = Path(settings.cache_dir) / audio_first_name / current_time
                     cache_dir = st.session_state.cache_dir
                     cache_dir.mkdir(parents=True, exist_ok=True)
                     shutil.copy(
@@ -206,9 +199,7 @@ with tab1:
                         cache_dir / st.session_state.audio_name,
                     )
                     if audio_last_name != "wav":
-                        msg_ved.toast(
-                            "转换音频为 wav 格式", icon=":material/graphic_eq:"
-                        )
+                        msg_ved.toast("转换音频为 wav 格式", icon=":material/graphic_eq:")
                         print("\n\033转换音频为 wav 格式\033[0m")
                         # 转换成接受的 wav
                         file_to_wav(
@@ -224,9 +215,7 @@ with tab1:
                 msg_ved.toast("音频预处理完成", icon=":material/graphic_eq:")
 
                 print("\n\033[1;34m🚀 任务开始执行\033[0m")
-                print(
-                    f"\033[1;34m📂 本次任务目录:\033[0m\033[1;34m {cache_dir} \033[0m"
-                )
+                print(f"\033[1;34m📂 本次任务目录:\033[0m\033[1;34m {cache_dir} \033[0m")
                 print("\033[1;33m⚠️ 请不要在任务运行期间切换菜单或修改参数！\033[0m")
 
                 msg_whs = st.toast("正在识别音频内容", icon=":material/troubleshoot:")
@@ -243,9 +232,7 @@ with tab1:
                     # 保存字幕
                     print("\n\033[1;35m*** 正在生成 SRT 字幕文件 ***\033[0m\n")
                     st.session_state.preview_srt_file = (
-                        Path(settings.output_dir)
-                        / "audio"
-                        / (audio_first_name + ".srt")
+                        Path(settings.output_dir) / "audio" / (audio_first_name + ".srt")
                     )
                     write_srt_from_sentences(
                         sentences,
@@ -262,9 +249,7 @@ with tab1:
                     )
                     msg_srt = st.toast("正在生成 txt 文件", icon=":material/edit_note:")
                     print("\n\033[1;35m*** 正在生成 txt 文件 ***\033[0m\n")
-                    result = save_only_text_from_response(
-                        response, output_dir=Path(settings.output_dir) / "audio"
-                    )
+                    result = save_only_text_from_response(response, output_dir=Path(settings.output_dir) / "audio")
                     st.session_state.text_result = result
                     msg_srt.toast("txt 文件生成完成", icon=":material/edit_note:")
                 print("\033[1;34m🎉 FunASR 识别成功！\033[0m")
@@ -272,20 +257,16 @@ with tab1:
                 print("\033[1;34m🎉 任务成功结束！\033[0m")
                 print("\n" + "=" * 50 + "\n")
             else:
-                st.toast(
-                    "请先在工具栏中上传音频文件！", icon=":material/release_alert:"
-                )
+                st.toast("请先在工具栏中上传音频文件！", icon=":material/release_alert:")
 
     st.markdown("")
-    with st.expander(
-        "**Audio Preview / 音轨预览**", expanded=True, icon=":material/graphic_eq:"
-    ):
+    with st.expander("**Audio Preview / 音轨预览**", expanded=True, icon=":material/graphic_eq:"):
         col6, col7 = st.columns([0.9999999, 0.0000001])
     with col6:
         st.caption("音频音轨")
         if st.session_state.use_example:
             audio_file = st.session_state.audio_file
-            with open(audio_file, "rb") as f:
+            with Path(audio_file).open("rb") as f:
                 audio_bytes = f.read()
             st.audio(audio_bytes)
         elif st.session_state.use_upload:
@@ -302,19 +283,13 @@ with tab1:
     st.markdown("")
     col1, col2 = st.columns([0.75, 0.25])
     with col2:
-        with st.expander(
-            "**Tool / 工具**", expanded=True, icon=":material/construction:"
-        ):
+        with st.expander("**Tool / 工具**", expanded=True, icon=":material/construction:"):
             st.caption("上传文件")
 
             @st.dialog("上传音频文件 / 选择示例文件")
             def upload_audio():
-                st.markdown(
-                    "在这里上传您需要处理的音频文件，该模块一次只能处理一个，多个会互相覆盖。"
-                )
-                st.markdown(
-                    """暂时受限于我家下行带宽(90M),建议上传小文件,mp3,m4a 都可以。wav 太大了。"""
-                )
+                st.markdown("在这里上传您需要处理的音频文件，该模块一次只能处理一个，多个会互相覆盖。")
+                st.markdown("""暂时受限于我家下行带宽(90M),建议上传小文件,mp3,m4a 都可以。wav 太大了。""")
                 st.caption(
                     """该服务用 frp 内网穿透，你看到的上传进度条只是上传到服务器，服务器还得发到我的电脑，所以会卡100%（等待电脑下载到本地，超级久），所以请上传小文件试试水（<10MB）！！！"""
                 )
@@ -337,12 +312,8 @@ with tab1:
                         st.session_state.upload = True
                         st.rerun()
 
-                st.markdown(
-                    "**PS:** 因为卡 100% 真的很影响体验，这里提供了示例文件（都存在我的电脑中，不需要上传）。"
-                )
-                st.caption(
-                    "example1: [华容道迷宫 | 《20 Small Mazes》](https://www.bilibili.com/video/BV1Xzk3YPEd9)"
-                )
+                st.markdown("**PS:** 因为卡 100% 真的很影响体验，这里提供了示例文件（都存在我的电脑中，不需要上传）。")
+                st.caption("example1: [华容道迷宫 | 《20 Small Mazes》](https://www.bilibili.com/video/BV1Xzk3YPEd9)")
                 st.caption(
                     "example2: [【AI巴老师】难道看我失魂落魄，你竟然心动](https://www.bilibili.com/video/BV1314y1k73r/)"
                 )
@@ -358,9 +329,7 @@ with tab1:
                         "example3.mp3",
                     ],
                 )
-                if st.button(
-                    "**使用示例文件**", use_container_width=True, type="primary"
-                ):
+                if st.button("**使用示例文件**", use_container_width=True, type="primary"):
                     if select_file == "example1.wav":
                         st.session_state.audio_file = "tests/example1.wav"
                         st.session_state.selected_file = select_file
@@ -462,11 +431,8 @@ with tab1:
                     )
 
             if st.button("**下载字幕**", use_container_width=True, type="primary"):
-
                 if st.session_state.preview_srt_file:
-                    with st.session_state.preview_srt_file.open(
-                        "r", encoding="utf-8"
-                    ) as srt_file:
+                    with st.session_state.preview_srt_file.open("r", encoding="utf-8") as srt_file:
                         srt_content = srt_file.read()
                     st.download_button(
                         label=st.session_state.preview_srt_file.name,
@@ -487,9 +453,7 @@ with tab1:
         ):
             if st.session_state.preview_srt_file:
                 st.caption("字幕时间轴")
-                with st.session_state.preview_srt_file.open(
-                    "r", encoding="utf-8"
-                ) as srt_file:
+                with st.session_state.preview_srt_file.open("r", encoding="utf-8") as srt_file:
                     srt_content = srt_file.read()
                 srt_data = parse_srt_file(srt_content)
                 st.dataframe(srt_data, hide_index=True)  # type: ignore

@@ -1,9 +1,14 @@
-# -*- coding: utf-8 -*-
+from __future__ import annotations
 
 import re
-from uiya.utils.config import load_settings_file
-from uiya._typing import AutoModelResponse, Sentence, Word
+from typing import TYPE_CHECKING
+
 from uiya._dataclass import RunnerSettings
+from uiya.utils.config import load_settings_file
+
+if TYPE_CHECKING:
+    from uiya._typing import AutoModelResponse, Sentence, Word
+
 
 # =====
 # 将 Response 处理成 Sentence 和 Word 的形式，两者都有自己的起始点。
@@ -41,9 +46,7 @@ def split_into_words(text: str) -> list[str]:
     """
 
     # 正则表达式用于匹配英文单词、汉字、标点符号和英文缩写
-    pattern = re.compile(
-        r"[a-zA-Z]+(?:'[a-zA-Z]+)?|[\u4e00-\u9fa5]|[^\u4e00-\u9fa5a-zA-Z\s]"
-    )
+    pattern = re.compile(r"[a-zA-Z]+(?:'[a-zA-Z]+)?|[\u4e00-\u9fa5]|[^\u4e00-\u9fa5a-zA-Z\s]")
 
     # 使用 findall 方法找到所有匹配的部分
     words = pattern.findall(text)
@@ -51,9 +54,7 @@ def split_into_words(text: str) -> list[str]:
     return words
 
 
-def match_timestamps_to_words(
-    text: str, timestamps: list[list[int]]
-) -> list[list[int | str]]:
+def match_timestamps_to_words(text: str, timestamps: list[list[int]]) -> list[list[int | str]]:
     """
     将时间戳分配给对应的单词,同时去除标点符号。
     """

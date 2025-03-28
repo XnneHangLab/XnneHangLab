@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import streamlit as st
 
 
@@ -16,33 +18,27 @@ def style(home: bool = False):  # 定义应用自定义字体的函数
         """
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
-        
         /* 全局样式 */
         body {
             font-family: 'Noto Sans SC', sans-serif;
             background-color: #F8F8F8;
             color: #1C1C1E;
         }
-        
         /* 全局样式 */
         .st-emotion-cache-y4bq5x {
             font-family: 'Noto Sans SC', sans-serif;
             font-size: 0.5em;
         }
-        
-        /* 全局字体 */        
+        /* 全局字体 */
         p {
             font-family: 'Noto Sans SC', sans-serif;
         }
-        
         .st-bp{
             font-family: 'Noto Sans SC', sans-serif;
         }
-        
         .st-ce {
             font-size: 0.9rem;
         }
-        
         hr {
             margin: 0.8em 0px;
             padding: 0px;
@@ -54,7 +50,6 @@ def style(home: bool = False):  # 定义应用自定义字体的函数
             border-image: initial;
             border-bottom: 1px solid rgba(28, 28, 30, 0.2);
         }
-        
         h1 {
             font-family: 'Noto Sans SC', sans-serif;
             font-size: 36px;
@@ -62,7 +57,6 @@ def style(home: bool = False):  # 定义应用自定义字体的函数
             margin-bottom: 16px;
             font-weight: 600;
         }
-        
         h2 {
             font-family: 'Noto Sans SC', sans-serif;
             font-size: 30px;
@@ -70,7 +64,6 @@ def style(home: bool = False):  # 定义应用自定义字体的函数
             margin-bottom: 16px;
             font-weight: 600;
         }
-        
         h3 {
             font-family: 'Noto Sans SC', sans-serif;
             color: #1C1C1E;
@@ -78,7 +71,6 @@ def style(home: bool = False):  # 定义应用自定义字体的函数
             margin-bottom: 5px;
             font-weight: 600;
         }
-        
         h4 {
             font-family: 'Noto Sans SC', sans-serif;
             font-size: 20px;
@@ -86,7 +78,6 @@ def style(home: bool = False):  # 定义应用自定义字体的函数
             margin-bottom: 0px;
             font-weight: 600;
         }
-        
         h5 {
             font-family: 'Noto Sans SC', sans-serif;
             font-size: 17px;
@@ -94,21 +85,18 @@ def style(home: bool = False):  # 定义应用自定义字体的函数
             margin-bottom: 0px;
             font-weight: 600;
         }
-        
         h6 {
             font-family: 'Noto Sans SC', sans-serif;
             color: #1C1C1E;
             margin-bottom: -25px;
             font-weight: 600;
         }
-        
         /* 全局布局 */
         .block-container {
             padding-top: 40px;
             padding-left: 70px;
             padding-right: 70px;
         }
-        
         @media (max-width: 600px) {
             .block-container {
                 padding-top: 55px;
@@ -116,7 +104,6 @@ def style(home: bool = False):  # 定义应用自定义字体的函数
                 padding-right: 24px;
             }
         }
-        
         /* 全局按钮 */
         .stButton > button {
             color: #FFFFFF;
@@ -130,26 +117,22 @@ def style(home: bool = False):  # 定义应用自定义字体的函数
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             transition: background-color 0.3s ease, box-shadow 0.3s ease, transform 0.1s ease;
         }
-        
         .stButton > button:hover {
             background-color: #005bb5;
             box-shadow: 0 6px 8px rgba(0, 0, 0, 0.2);
         }
-        
         .stButton > button:active {
             background-color: #004080;
             color: white;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             transform: scale(0.98);
         }
-        
         .stButton > button:disabled {
             background-color: #b0b0b0;
             color: #f0f0f0;
             cursor: not-allowed;
             box-shadow: none;
         }
-        
         .stButton > button:focus:not(:focus-visible) {
             outline: none;
             font-family: 'Noto Sans SC', sans-serif;
@@ -168,7 +151,6 @@ def style(home: bool = False):  # 定义应用自定义字体的函数
             box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.3);
             border-color: #007AFF;
         }
-        
         /* 上传器样式 */
         section[data-testid="stFileUploaderDropzone"] {
             display: flex;
@@ -183,24 +165,20 @@ def style(home: bool = False):  # 定义应用自定义字体的函数
             max-width: 100%;
             box-sizing: border-box;
         }
-        
         .st-emotion-cache-u8hs99 {
             display: flex;
             align-items: center;
             justify-content: space-between;
             width: 100%;
         }
-        
         .st-emotion-cache-1fttcpj {
             flex-grow: 1;
         }
-        
         .st-emotion-cache-1v7f65g .e1b2p2ww15 {
             display: flex;
             justify-content: center;
             align-items: center;
         }
-        
         span.st-emotion-cache-9ycgxx {
             color: white;
             text-align: center;
@@ -209,14 +187,12 @@ def style(home: bool = False):  # 定义应用自定义字体的函数
             font-weight: bold;
             cursor: pointer;
         }
-        
         small.st-emotion-cache-15rwkn9 {
             text-align: center;
             color: #666;
             font-size: 12px;
             cursor: pointer;
         }
-        
         button[data-testid="baseButton-secondary"] {
             font-family: 'Noto Sans SC', sans-serif;
             border-radius: 15px;
@@ -229,39 +205,32 @@ def style(home: bool = False):  # 定义应用自定义字体的函数
             transition: background-color 0.3s ease, color 0.3s ease;
             padding: 3px 16px;
         }
-        
         button[data-testid="baseButton-secondary"]:hover {
             background-color: #005BB5;
             color: white;
         }
-        
         button[data-testid="baseButton-secondary"]:active {
             background-color: #005BB5;
             color: white;
         }
-        
         @media (max-width: 600px) {
             section[data-testid="stFileUploaderDropzone"] {
                 flex-direction: column;
                 padding: 15px;
                 text-align: center;
             }
-            
             .st-emotion-cache-u8hs99 {
                 flex-direction: column;
                 align-items: center;
             }
-        
             .st-emotion-cache-e6zcxy {
                 margin-bottom: 10px;
             }
-        
             button[data-testid="baseButton-secondary"] {
                 margin-top: 15px;
                 width: 100%;
             }
         }
-        
         /* 标签容器 */
         .st-emotion-cache-19k6lld {
             border-radius: 15px;
@@ -271,24 +240,20 @@ def style(home: bool = False):  # 定义应用自定义字体的函数
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             transition: background-color 0.3s ease, box-shadow 0.3s ease, transform 0.1s ease;
         }
-        
         .st-emotion-cache-19k6lld:hover {
             color: white;
             box-shadow: 0 6px 8px rgba(0, 0, 0, 0.2);
         }
-        
         .st-emotion-cache-19k6lld:active {
             color: white;
             background-color: #004080;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             transform: scale(0.98);
         }
-        
         .st-emotion-cache-19k6lld:focus:not(:focus-visible) {
             color: white;
             outline: none;
         }
-        
         .stDownloadButton > button {
             border-radius: 15px;
             font-weight: 600;
@@ -314,7 +279,6 @@ def style(home: bool = False):  # 定义应用自定义字体的函数
             color: white;
             outline: none;
         }
-        
         div[data-baseweb="tabs"] {
             display: flex;
             justify-content: center;
@@ -322,7 +286,6 @@ def style(home: bool = False):  # 定义应用自定义字体的函数
             padding-bottom: 0px;
             border-bottom: none;
         }
-    
         button[data-baseweb="tab"] {
             background-color: #F7F7F7;
             border: none;
@@ -337,7 +300,6 @@ def style(home: bool = False):  # 定义应用自定义字体的函数
             cursor: pointer;
             box-shadow: none;
         }
-    
         button[data-baseweb="tab"][aria-selected="true"] {
             background-color: white;
             color: #007AFF;
@@ -348,13 +310,11 @@ def style(home: bool = False):  # 定义应用自定义字体的函数
             position: relative;
             top: 0px;
         }
-    
         button[data-baseweb="tab"]:hover {
             background-color: #E0E0E0;
             color: #007AFF;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
-    
         div[data-baseweb="tab-content"] {
             background-color: #FFFFFF;
             border: 1px solid #E0E0E0;

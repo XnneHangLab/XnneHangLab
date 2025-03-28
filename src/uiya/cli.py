@@ -1,30 +1,30 @@
-from pathlib import Path
-import argparse
+from __future__ import annotations
 
-from uiya._typing import AutoModelResponse, DebugMessage
-from uiya.utils.model import FunASRModel, generate_results
-from uiya.BasicRunner.cutter import cut_sentences
+import argparse
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from uiya._dataclass import RunnerSettings
 from uiya.BasicRunner.combiner import combine_sentences
 from uiya.BasicRunner.converter import (
-    convert_response_to_sentences,
     calculate_words_length,
+    convert_response_to_sentences,
 )
-from uiya.utils.TxtHelper import split_text_into_sentences_by_punctuation_list
-from uiya.utils.SrtHelper import write_srt_from_sentences
+from uiya.BasicRunner.cutter import cut_sentences
 from uiya.utils.config import load_settings_file
-from uiya._dataclass import RunnerSettings
+from uiya.utils.model import FunASRModel, generate_results
+from uiya.utils.SrtHelper import write_srt_from_sentences
+from uiya.utils.TxtHelper import split_text_into_sentences_by_punctuation_list
+
+if TYPE_CHECKING:
+    from uiya._typing import AutoModelResponse, DebugMessage
 
 
 # 定义长文本写入函数
 def main() -> DebugMessage | None:
-
     argparser = argparse.ArgumentParser(description="将wav音频转换成srt")
-    argparser.add_argument(
-        "-i", "--input_path", default="./example.wav", help="输入音频文件"
-    )
-    argparser.add_argument(
-        "-o", "--output_path", default="./example.srt", help="输出srt文件"
-    )
+    argparser.add_argument("-i", "--input_path", default="./example.wav", help="输入音频文件")
+    argparser.add_argument("-o", "--output_path", default="./example.srt", help="输出srt文件")
     # argparser.add_argument("--only-text", store_true, help="是否只输出文本")
     argparser.add_argument("-d", "--debug", default=False, help="是否开启debug模式")
 
@@ -38,9 +38,7 @@ def main() -> DebugMessage | None:
 
     settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
 
-    response: AutoModelResponse = generate_results(
-        model=model, input_path=audio_file_path
-    )
+    response: AutoModelResponse = generate_results(model=model, input_path=audio_file_path)
 
     if debug:
         # TODO: 加入Logger告知用户正在用debug模式,该模式不会生成最终文件.
@@ -63,15 +61,11 @@ def main() -> DebugMessage | None:
         sentences = convert_response_to_sentences(response)
         if settings.cut and settings.combine:
             if settings.combine_line < settings.cut_line:
-                raise ValueError(
-                    "combine_line should be greater than cut_line, or all cut will be ignored."
-                )
+                raise ValueError("combine_line should be greater than cut_line, or all cut will be ignored.")
         elif settings.cut and not settings.combine:
             if settings.combine_line < 0:
                 raise ValueError("cut_line should be greater than 0.")
-            sentences = cut_sentences(
-                sentences=sentences, cutline=settings.combine_line
-            )
+            sentences = cut_sentences(sentences=sentences, cutline=settings.combine_line)
         elif not settings.cut and settings.combine:
             if settings.combine_line < 0:
                 raise ValueError("combine_line should be greater than 0.")

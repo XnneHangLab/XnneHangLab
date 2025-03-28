@@ -1,5 +1,9 @@
-from uiya._typing import Sentence, CutPoint, Word
+from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from uiya._typing import CutPoint, Sentence, Word
 
 # ====
 # 根据 cutline 把单个句子拆成多个句子，如果句子停顿时间超过 cutline 。
@@ -23,9 +27,7 @@ def cut_sentences(sentences: list[Sentence], cutline: int):
             if (word["start"] - latest_end > cutline) and (
                 latest_end != 0
             ):  # 这一个字的开始时间 - 上一个字的结束时间 > cutline
-                cut_points.append(
-                    {"sentence_index": sentence_index, "word_index": word_index}
-                )
+                cut_points.append({"sentence_index": sentence_index, "word_index": word_index})
             latest_end = word["end"]
 
         if cut_points == []:  # 无切分点
@@ -33,16 +35,12 @@ def cut_sentences(sentences: list[Sentence], cutline: int):
             all_new_sentences.append(new_sentence)
 
         else:
-            for index, cut_point in enumerate(
-                cut_points
-            ):  # 存在至少一个切分点，需要重组形成多个 Sentence
+            for index, cut_point in enumerate(cut_points):  # 存在至少一个切分点，需要重组形成多个 Sentence
                 if index == 0:  # 第一字句
                     new_words = sentence["Words"][: cut_point["word_index"]]
                     new_words_lists.append(new_words)
                 elif index != 0 and index < len(cut_points):  ## 中间字句
-                    new_words = sentence["Words"][
-                        cut_points[index - 1]["word_index"] : cut_point["word_index"]
-                    ]
+                    new_words = sentence["Words"][cut_points[index - 1]["word_index"] : cut_point["word_index"]]
                     new_words_lists.append(new_words)
 
             # 最后字句,只要有切分，必然会有最后字句。就像一段木头被切两刀，会变成三段。
@@ -63,7 +61,7 @@ def cut_sentences(sentences: list[Sentence], cutline: int):
                 f"当前文本列表长度为 {len(new_text_lists)}，单词列表长度为 {len(new_words_lists)}。"
             )
 
-            for text, words in zip(new_text_lists, new_words_lists):
+            for text, words in zip(new_text_lists, new_words_lists, strict=True):
                 new_sentence: Sentence = {
                     "text": text,
                     "start": words[0]["start"],

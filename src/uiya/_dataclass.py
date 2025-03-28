@@ -1,12 +1,14 @@
-from pydantic import BaseModel, Field
+from __future__ import annotations
+
 from typing import Annotated, Literal, get_args
+
+from pydantic import BaseModel, Field
+
 from uiya._dictionary import audio_setting_dictionary
 
 
 class RootAbsDir(BaseModel):
-    root_dir: Annotated[
-        str, Field("", title="项目根目录")
-    ]  # 项目根目录, 实时计算绝对目录。
+    root_dir: Annotated[str, Field("", title="项目根目录")]  # 项目根目录, 实时计算绝对目录。
 
 
 # 并不是所有的配置项目都向用户开放。有 title 的是开放项。
@@ -31,9 +33,7 @@ RunnerSettingsTitle = Literal[
 
 
 class RunnerSettings(BaseModel):
-    batch_size_s: Annotated[
-        int, Field(300, title="批处理大小(默认300,只要能吃满显卡或者CPU即可)")
-    ]
+    batch_size_s: Annotated[int, Field(300, title="批处理大小(默认300,只要能吃满显卡或者CPU即可)")]
     device: Annotated[Literal["cpu", "cuda"], Field("cpu", title="设备选择")]
     punctuation_list: Annotated[str, Field("，。；、？！,.;?!")]
     custom_output_dir: Annotated[bool, Field(False, title="自定义输出目录")]
@@ -76,7 +76,7 @@ class RunnerSettings(BaseModel):
 
     def get_zh_option_list(self, key: RunnerSettingsTitle):
         if key == "device":
-            return list(map(lambda x: audio_setting_dictionary[x][1], get_args(Device)))
+            return [audio_setting_dictionary[x][1] for x in get_args(Device)]
         else:
             raise ValueError(f"不支持的配置项: {key}")
 
@@ -88,11 +88,7 @@ class RunnerSettings(BaseModel):
 
     def zh_set_value(self, key: RunnerSettingsTitle, value: str):
         if key == "device":
-            self.device = get_args(Device)[
-                list(
-                    map(lambda x: audio_setting_dictionary[x][1], get_args(Device))
-                ).index(value)
-            ]
+            self.device = get_args(Device)[[audio_setting_dictionary[x][1] for x in get_args(Device)].index(value)]
         else:
             raise ValueError(f"不支持的配置项: {key}")
 
@@ -115,20 +111,11 @@ class AudioSettings(BaseModel):
     def get_zh_option_list(self, key: AudioSettingsTitle):
         """获取中文配置项列表"""
         if key == "guide":
-            return list(
-                map(lambda x: audio_setting_dictionary[x][1], get_args(AudioGuide))
-            )
+            return [audio_setting_dictionary[x][1] for x in get_args(AudioGuide)]
         elif key == "output_type":
-            return list(
-                map(lambda x: audio_setting_dictionary[x][1], get_args(AudioOutputType))
-            )
+            return [audio_setting_dictionary[x][1] for x in get_args(AudioOutputType)]
         elif key == "subtitle_speed":
-            return list(
-                map(
-                    lambda x: audio_setting_dictionary[x][1],
-                    get_args(AudioSubtitleSpeed),
-                )
-            )
+            return [audio_setting_dictionary[x][1] for x in get_args(AudioSubtitleSpeed)]
         else:
             raise ValueError(f"不支持的配置项: {key}")
 
@@ -147,54 +134,9 @@ class AudioSettings(BaseModel):
         """通过中文设置配置项"""
         if key == "guide":
             self.guide = get_args(AudioGuide)[
-                list(
-                    map(lambda x: audio_setting_dictionary[x][1], get_args(AudioGuide))
-                ).index(value)
+                [audio_setting_dictionary[x][1] for x in get_args(AudioGuide)].index(value)
             ]
         elif key == "output_type":
             self.output_type = get_args(AudioOutputType)[
-                list(
-                    map(
-                        lambda x: audio_setting_dictionary[x][1],
-                        get_args(AudioOutputType),
-                    )
-                ).index(value)
+                [audio_setting_dictionary[x][1] for x in get_args(AudioOutputType)].index(value)
             ]
-        elif key == "subtitle_speed":
-            self.subtitle_speed = get_args(AudioSubtitleSpeed)[
-                list(
-                    map(
-                        lambda x: audio_setting_dictionary[x][1],
-                        get_args(AudioSubtitleSpeed),
-                    )
-                ).index(value)
-            ]
-        else:
-            raise ValueError(f"不支持的配置项: {key}")
-
-
-# 开放的配置项
-VideoSettingsTitle = Literal["guide", "subtitle_speed"]
-VideoGuide = Literal["open", "close"]
-VideoSubtitleSpeed = Literal["slow", "normal", "fast"]
-
-
-class VideoSettings(BaseModel):
-    guide: Annotated[bool, Field(True)]
-    subtitle_speed: Annotated[Literal["slow", "normal", "fast"], Field("normal")]
-
-    def get_zh_option_list(self, key: VideoSettingsTitle):
-        """获取中文配置项列表"""
-        if key == "guide":
-            return list(
-                map(lambda x: audio_setting_dictionary[x][1], get_args(VideoGuide))
-            )
-        elif key == "subtitle_speed":
-            return list(
-                map(
-                    lambda x: audio_setting_dictionary[x][1],
-                    get_args(VideoSubtitleSpeed),
-                )
-            )
-        else:
-            raise ValueError(f"不支持的配置项: {key}")

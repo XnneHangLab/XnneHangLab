@@ -1,8 +1,13 @@
-from pathlib import Path
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from uiya._dataclass import RunnerSettings
 from uiya.utils.config import load_settings_file
 from uiya.utils.SubprocessHelper import run_shell_command
-from uiya._dataclass import RunnerSettings
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
 settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
 FFMPEG_PATH = settings.FFMPEG_PATH
@@ -62,7 +67,6 @@ def file_to_wav(input_path: Path, output_wav_path: Path):
 
 
 def file_to_mp3(input_path: Path, output_path: Path):
-
     if not input_path.exists():
         raise FileNotFoundError(f"输入文件不存在: {input_path}")
 

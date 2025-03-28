@@ -1,35 +1,33 @@
 from __future__ import annotations
 
-from pathlib import Path
-
-import sys
 import os
 import platform
 
-
-if sys.version_info >= (3, 11):
-    import tomllib  # Python 3.11+ 自带
-    import tomli_w as tomlw  # 安装 tomli_w 用于写入
-
-    toml_loads = tomllib.loads
-    toml_dumps = tomlw.dumps  # 使用 tomlw.dumps
-else:
-    import tomli as tomllib  # type: ignore
-    import tomli_w as tomlw  # type: ignore
-
-    toml_loads = tomllib.loads  # type: ignore
-    toml_dumps = tomlw.dumps  # type: ignore
-
-from typing import Any, overload, TYPE_CHECKING
+# if sys.version_info >= (3, 11):
+import tomllib  # Python 3.11+ 自带
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, overload
 
 if TYPE_CHECKING:
-    from uiya._dataclass import RunnerSettings, AudioSettings, VideoSettings
     from uiya._dataclass import (
-        RunnerSettingsTitle,
+        AudioSettings,
         AudioSettingsTitle,
-        VideoSettingsTitle,
+        RootAbsDir,
+        RunnerSettings,
+        RunnerSettingsTitle,
     )
-    from uiya._dataclass import RootAbsDir
+
+
+import tomli_w as tomlw  # 安装 tomli_w 用于写入
+
+toml_loads = tomllib.loads
+toml_dumps = tomlw.dumps  # 使用 tomlw.dumps
+# else:
+#     import tomli as tomllib  # type: ignore
+#     import tomli_w as tomlw  # type: ignore
+
+#     toml_loads = tomllib.loads  # type: ignore
+#     toml_dumps = tomlw.dumps  # type: ignore
 
 
 def xdg_config_home() -> Path:
@@ -52,21 +50,11 @@ def search_for_settings_file(setting_name: str) -> Path | None:
 
 
 @overload
-def load_settings_file(
-    setting_name: str, setting: type[RunnerSettings]
-) -> RunnerSettings: ...
+def load_settings_file(setting_name: str, setting: type[RunnerSettings]) -> RunnerSettings: ...
 
 
 @overload
-def load_settings_file(
-    setting_name: str, setting: type[AudioSettings]
-) -> AudioSettings: ...
-
-
-@overload
-def load_settings_file(
-    setting_name: str, setting: type[VideoSettings]
-) -> VideoSettings: ...
+def load_settings_file(setting_name: str, setting: type[AudioSettings]) -> AudioSettings: ...
 
 
 @overload
@@ -75,13 +63,8 @@ def load_settings_file(setting_name: str, setting: type[RootAbsDir]) -> RootAbsD
 
 def load_settings_file(
     setting_name: str,
-    setting: (
-        type[RunnerSettings]
-        | type[AudioSettings]
-        | type[VideoSettings]
-        | type[RootAbsDir]
-    ),
-) -> RunnerSettings | AudioSettings | VideoSettings | RootAbsDir:
+    setting: (type[RunnerSettings | AudioSettings | RootAbsDir]),
+) -> RunnerSettings | AudioSettings | RootAbsDir:
     """加载配置文件，如果不存在则创建默认配置文件在当前工作目录。"""
     settings_file = search_for_settings_file(setting_name=setting_name)
     if settings_file is None:
@@ -100,7 +83,7 @@ def load_settings_file(
 
 def write_settings_file(
     settings_name: str,
-    settings: RunnerSettings | AudioSettings | VideoSettings | RootAbsDir,
+    settings: RunnerSettings | AudioSettings | RootAbsDir,
 ) -> None:
     """将 Setting 对象写入 TOML 文件。"""
     settings_file = search_for_settings_file(setting_name=settings_name)
@@ -131,17 +114,9 @@ def get_setting_title(
     return str(setting.model_fields[name].field_info.title)  # type: ignore
 
 
-@overload
 def get_setting_title(
-    name: VideoSettingsTitle,
-    setting: type[VideoSettings],
-) -> str:
-    return str(setting.model_fields[name].field_info.title)  # type: ignore
-
-
-def get_setting_title(
-    name: RunnerSettingsTitle | AudioSettingsTitle | VideoSettingsTitle,
-    setting: type[RunnerSettings] | type[AudioSettings] | type[VideoSettings],
+    name: RunnerSettingsTitle | AudioSettingsTitle,
+    setting: type[RunnerSettings | AudioSettings],
 ) -> str:
     """获取配置项(英文)的标题。（中文）
 

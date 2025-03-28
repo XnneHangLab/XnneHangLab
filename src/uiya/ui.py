@@ -1,10 +1,14 @@
+from __future__ import annotations
+
 import os
-import streamlit as st
-from uiya.utils.get_font import get_font_data
-from uiya.utils.config import load_settings_file
-from uiya._dataclass import RootAbsDir
 from pathlib import Path
+
+import streamlit as st
+
+from uiya._dataclass import RootAbsDir
 from uiya.styles.global_style import style
+from uiya.utils.config import load_settings_file
+from uiya.utils.get_font import get_font_data
 
 style(True)
 

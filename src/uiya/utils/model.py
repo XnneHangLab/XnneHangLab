@@ -1,11 +1,16 @@
-from funasr import AutoModel
-from pathlib import Path
-from typing import Any
-from uiya.utils.config import load_settings_file
+from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
+from funasr import AutoModel
 
 from uiya._dataclass import RunnerSettings
-from uiya._typing import AutoModelResponse
+from uiya.utils.config import load_settings_file
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from uiya._typing import AutoModelResponse
 
 
 class FunASRModel:
@@ -29,21 +34,15 @@ class FunASRModel:
         return model
 
     def only_vad(self):
-        model = AutoModel(
-            model=self.vad_model, device=self.device, disable_update=True
-        )  # 也可以添加在这里
+        model = AutoModel(model=self.vad_model, device=self.device, disable_update=True)  # 也可以添加在这里
         return model
 
     def only_txt(self):
-        model = AutoModel(
-            model=self.base_model, device=self.device, disable_update=True
-        )  # 也可以添加在这里
+        model = AutoModel(model=self.base_model, device=self.device, disable_update=True)  # 也可以添加在这里
         return model
 
     def only_puc(self):
-        model = AutoModel(
-            model=self.punc_model, device=self.device, disable_update=True
-        )  # 也可以添加在这里
+        model = AutoModel(model=self.punc_model, device=self.device, disable_update=True)  # 也可以添加在这里
         return model
 
 
@@ -55,7 +54,7 @@ class FunASRModel:
 """
 
 
-def generate_results(model: "AutoModel", input_path: Path) -> AutoModelResponse:
+def generate_results(model: AutoModel, input_path: Path) -> AutoModelResponse:
     settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
     batch_size_s = settings.batch_size_s
     hot_word_path = settings.hot_words_path

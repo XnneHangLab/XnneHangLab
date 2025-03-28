@@ -1,5 +1,7 @@
-import subprocess
+from __future__ import annotations
+
 import logging
+import subprocess
 
 
 def run_shell_command(
@@ -50,15 +52,11 @@ def run_shell_command(
 
     except FileNotFoundError as e:
         logger.error(f"命令未找到错误: {e}")
-        return subprocess.CompletedProcess(
-            args=command, returncode=-1, stdout="", stderr=str(e)
-        )
+        return subprocess.CompletedProcess(args=command, returncode=-1, stdout="", stderr=str(e))
     except subprocess.CalledProcessError as e:  # 只在 check_returncode=True 时可能抛出
         logger.error(f"子进程调用错误: {e}")
         logger.error(f"错误输出:\n{e.stderr}")
         raise e  # 重新抛出异常，让调用者处理
     except Exception as e:
         logger.exception(f"发生未知错误: {e}")
-        return subprocess.CompletedProcess(
-            args=command, returncode=-1, stdout="", stderr=str(e)
-        )
+        return subprocess.CompletedProcess(args=command, returncode=-1, stdout="", stderr=str(e))

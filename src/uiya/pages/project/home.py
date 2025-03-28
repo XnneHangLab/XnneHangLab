@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import requests
 import streamlit as st
+
 from uiya.styles.global_style import style
 
 # 参数配置
@@ -13,10 +16,8 @@ def readme():
         """
     ## 非常感谢您来到我的 XnneHangLab 项目！
     本项目旨在提供一个简单易用的自动识别视频或者音频的辅助工具，帮助快速识别视频字幕。
-    
     如果您需要更多帮助，可以参考以下资源：
     - 📂 [**项目地址**](https://github.com/MrXnneHang/Auto-Caption-Generate-Offline)
-    
     感谢您的使用，**希望您能在 GitHub 上给我一颗免费的星哟！**
     """
     )

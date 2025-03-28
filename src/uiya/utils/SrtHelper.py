@@ -1,10 +1,16 @@
-import re
-from pathlib import Path
+from __future__ import annotations
 
-from uiya.utils.TxtHelper import write_txt_to_file
-from uiya.utils.config import load_settings_file
-from uiya._typing import Sentence
+import re
+from typing import TYPE_CHECKING
+
 from uiya._dataclass import RunnerSettings
+from uiya.utils.config import load_settings_file
+from uiya.utils.TxtHelper import write_txt_to_file
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from uiya._typing import Sentence
 
 
 def ms_to_srt_time(ms: int) -> str:
@@ -28,9 +34,7 @@ def convert_sentence_to_srt(sentence: Sentence) -> tuple[str, str, str]:
     return (start_time, end_time, text)
 
 
-def write_srt_from_sentences(
-    sentences: list[Sentence], srt_file_path: Path, remove_punctuation: bool = True
-):
+def write_srt_from_sentences(sentences: list[Sentence], srt_file_path: Path, remove_punctuation: bool = True):
     """写入最终的 SRT 文件
 
     Args:
