@@ -75,9 +75,67 @@ torchaudio = [
 ]
 
 [tool.pyright]
-include = ["src/uiya", "tests"]
+include = ["src/uiya"]
 pythonVersion = "3.11"
 typeCheckingMode = "strict"
+reportMissingTypeStubs = false
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+  # Pyflakes
+  "F",
+  # Pycodestyle
+  "E",
+  "W",
+  # Isort
+  "I",
+  # Comprehensions
+  "C4",
+  # Debugger
+  "T100",
+  # Pyupgrade
+  "UP",
+  # Flake8-pyi
+  "PYI",
+  # Bugbear
+  "B",
+  # Pylint
+  "PLE",
+  # Flake8-simplify
+  "SIM101",
+  # Flake8-use-pathlib
+  "PTH",
+  # Pygrep-hooks
+  "PGH004",
+  # Flake8-type-checking
+  "TC",
+  # Flake8-raise
+  "RSE",
+  # Refurb
+  "FURB",
+  # Flake8-future-annotations
+  "FA",
+  # Yesqa
+  "RUF100",
+]
+ignore = [
+  "E501", # line too long, duplicate with ruff fmt
+  "F401", # imported but unused, duplicate with pyright
+  "F841", # local variable is assigned to but never used, duplicate with pyright
+]
+
+[tool.ruff.lint.isort]
+required-imports = ["from __future__ import annotations"]
+known-first-party = ["uiya"]
+combine-as-imports = true
+
+[tool.ruff.lint.flake8-type-checking]
+runtime-evaluated-base-classes = ["pydantic.BaseModel"]
+
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/uiya","packages/todo/src/todo"]
