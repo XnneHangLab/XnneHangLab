@@ -22,7 +22,7 @@ def main():
         "home": ROOT_DIR / "src" / "uiya" / "pages" / "project" / "home.py",
         "audio": ROOT_DIR / "src" / "uiya" / "pages" / "project" / "audio.py",
         "settings": ROOT_DIR / "src" / "uiya" / "pages" / "setting" / "set.py",
-        "todo": ROOT_DIR / "packages" / "todo" / "src" / "todo" / "__main__.py",
+        "todo": ROOT_DIR / "packages" / "todo" / "src" / "todo" / "todo.py",
     }
     # 检查路径是否存在
     for name, path in PAGE_PATHS.items():
