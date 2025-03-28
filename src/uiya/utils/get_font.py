@@ -23,7 +23,7 @@ def get_font_data():
             clean_font_name = re.sub(r"\s*\(.*?\)\s*", "", font_name).strip()
             fonts.append(clean_font_name)
         winreg.CloseKey(registry_key)
-        with path.open("/config/font.txt", "w", encoding="utf-8") as file:
+        with path.open("w", encoding="utf-8") as file:
             for font in fonts:
                 file.write(font + "\n")
 
