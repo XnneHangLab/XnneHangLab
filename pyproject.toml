@@ -40,9 +40,19 @@ Issues = "https://github.com/MrXnneHang/Auto_Caption_Generated_Offline/issues"
 test = "uiya.test:main"
 acgo = "uiya.cli:main"
 uiya = "uiya.ui:main"
+get_root = "uiya.utils.get_root:main"
+
+[dependency-groups]
+dev = [
+  "pyright>=1.1.391",
+  "ruff>=0.9.3",
+  "pytest>=8.3.4",
+  "pytest-rerunfailures>=15.0",
+]
+
 
 [tool.uv.workspace]
-members = ["packages/*"]
+members = ["packages/todo"]
 
 [[tool.uv.index]]
 name = "pytorch-cu118"
@@ -70,7 +80,7 @@ pythonVersion = "3.11"
 typeCheckingMode = "strict"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/uiya"]
+packages = ["src/uiya","packages/todo/src/todo"]
 
 [build-system]
 requires = ["hatchling"]
