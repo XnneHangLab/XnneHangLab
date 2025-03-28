@@ -1,44 +1,59 @@
 import os
 import streamlit as st
 from uiya.utils.get_font import get_font_data
+from uiya.utils.config import load_settings_file
+from uiya._dataclass import RootAbsDir
+from pathlib import Path
 from uiya.styles.global_style import style
+
+style(True)
 
 
 def main():
-    style(True)
     get_font_data()
 
-    os.environ["KMP_DUPLICATE_LIB_OK"] = "True"  # 修复OMP
+    os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 
-    st.session_state.verify = True
+    root_dir = load_settings_file("root.toml", RootAbsDir)
+    ROOT_DIR = Path(root_dir.root_dir)
 
-    if "verify" in st.session_state:
-        pages = {
-            "Home": [
-                st.Page(
-                    page="pages/project/home.py", title="主页", icon=":material/home:"
-                ),
-                st.Page(
-                    "pages/setting/set.py", title="全局设置", icon=":material/settings:"
-                ),
-            ],
-            "Project": [
-                st.Page(
-                    page="pages/project/audio.py",
-                    title="音频识别",
-                    icon=":material/graphic_eq:",
-                ),
-                #     st.Page(page="pages/project/video.py", title="视频识别", icon=":material/subscriptions:"),
-                #     st.Page(page="pages/project/translate.py", title="字幕翻译", icon=":material/subtitles:"),
-            ],
-            # "Test": [
-            #     st.Page("pages/tests/test.py", title="声音克隆", icon=":material/view_in_ar:"),
-            #     st.Page(page="pages/tests/tools.py", title="辅助工具", icon=":material/construction:")
-            # ],
-        }
+    # 所有页面路径基于 ROOT_DIR 计算
+    PAGE_PATHS = {
+        "home": ROOT_DIR / "src" / "uiya" / "pages" / "project" / "home.py",
+        "audio": ROOT_DIR / "src" / "uiya" / "pages" / "project" / "audio.py",
+        "settings": ROOT_DIR / "src" / "uiya" / "pages" / "setting" / "set.py",
+        "todo": ROOT_DIR / "packages" / "todo" / "src" / "todo" / "__main__.py",
+    }
+    # 检查路径是否存在
+    for name, path in PAGE_PATHS.items():
+        if not path.exists():
+            raise FileNotFoundError(f"Page '{name}' not found at: {path}")
 
-        pg = st.navigation(pages, position="sidebar")
-        pg.run()
+    # 在 st.Page() 中使用字符串路径（确保是绝对路径的字符串形式）
+    pages = {
+        "Home": [
+            st.Page(page=str(PAGE_PATHS["home"]), title="主页", icon=":material/home:"),
+            st.Page(
+                page=str(PAGE_PATHS["settings"]),
+                title="全局设置",
+                icon=":material/settings:",
+            ),
+        ],
+        "Project": [
+            st.Page(
+                page=str(PAGE_PATHS["todo"]),
+                title="待办事项/Roadmap",
+                icon=":material/checklist:",
+            ),
+            st.Page(
+                page=str(PAGE_PATHS["audio"]),
+                title="音频识别",
+                icon=":material/graphic_eq:",
+            ),
+        ],
+    }
+    pg = st.navigation(pages, position="sidebar")
+    pg.run()
 
 
 if __name__ == "__main__":

@@ -1,0 +1,2 @@
+history_file_path = "./config/todo_data_simplified.json"
+as_package = true
