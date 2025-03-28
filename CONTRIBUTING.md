@@ -51,7 +51,6 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 
 [install uv](https://docs.astral.sh/uv/getting-started/installation/)<br>
 
-
 当你有了 uv , 你可以这样运行项目:<br>
 
 ```shell

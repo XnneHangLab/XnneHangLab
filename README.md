@@ -9,14 +9,13 @@
    <br/>
 </p>
 
-
 # 这是什么？
 
 这是一个基于 [Funasr](https://github.com/modelscope/FunASR?tab=readme-ov-file), 将 wav 文件转换为 srt 字幕文件的工具。
 
 # 如何使用？(从安装开始~)
 
-以安装 cpu 版本为例。(目前也暂时只有 cpu 版本 =_= )
+以安装 cpu 版本为例。(目前也暂时只有 cpu 版本 =\_= )
 
 ## 克隆本仓库:
 

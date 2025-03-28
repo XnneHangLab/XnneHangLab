@@ -25,7 +25,6 @@ modelscope download --model iic/speech_fsmn_vad_zh-cn-16k-common-pytorch --local
 modelscope download --model iic/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch --local_dir ./speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
 ```
 
-
 ```shell
 $ ls models/
 download.md
