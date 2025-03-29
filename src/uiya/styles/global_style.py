@@ -9,8 +9,8 @@ def style(home: bool = False):  # 定义应用自定义字体的函数
             page_title="Auto-Caption-Generator-Offline",
             layout="wide",
             menu_items={
-                "Get Help": "https://blog.chenyme.top/blog/aavt-install",
-                "Report a bug": "https://github.com/Chenyme/Chenyme-AAVT/issues",
+                "Get Help": "还没有噢",
+                "Report a bug": "https://github.com/MrXnneHang/MrXnneHang/issues",
                 "About": "#### @2024 XnneHang 版权所有",
             },
         )

@@ -41,14 +41,10 @@ max_sentence_length = st.session_state.get("max_sentence_length", settings.max_s
 def AudioReadme():
     st.markdown(
         """
-    ## 欢迎首次使用 AI全自动音频翻译 功能！
-    为了确保顺利运行并获得最佳体验，请关闭此弹窗后，前往页面中的**参数设置**模块，进行必要的参数配置。
-
+    ## 欢迎使用 AI全自动音频翻译 功能！
     请务必根据您的需求及时调整设置，以提高翻译的准确性和效率。
     更多参考资源：
-    - 📘 [相关教程](https://blog.chenyme.top/blog/aavt-install)
-    - 📂 [项目地址](https://github.com/Chenyme-AAVT)
-    - 💬 [交流群组](https://t.me/+j8SNSwhS7xk1NTc9)
+    - 📘 [相关教程还没出噢](https://xnnehang.top/)
 
     """
     )
@@ -275,7 +271,7 @@ with tab1:
             st.audio(audio_bytes)
         else:
             st.info(
-                "##### 音轨预览区域 \n\n&nbsp;**运行后自动显示 | 查看 [项目文档](https://blog.chenyme.top/blog/aavt-install) | 加入 [交流群组](https://t.me/+j8SNSwhS7xk1NTc9)**",
+                "##### 音轨预览区域 \n\n&nbsp;**运行后自动显示 | 查看 [项目文档还没有噢](https://xnnehang.top/) | 加入 [交流群组，也还没有噢]()**",
                 icon=":material/view_in_ar:",
             )
             st.markdown("")
