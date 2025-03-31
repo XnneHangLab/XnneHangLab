@@ -3,7 +3,7 @@
 <div align="center">
     <img src="https://fastly.jsdelivr.net/gh/MrXnneHang/blog_img/BlogHosting/img/25/02/202503312014744.svg" alt="魔女の实验室" width="270" height="180">
 </div>
-<h1 align="center">XnneHangLab</h1>
+<h1 align="center">Elaina's Lab</h1>
 </a>
 <br/>
 <div align="center">
@@ -68,7 +68,7 @@
 
 ## 演示
 
-[从我的网站访问: **lab.xnnehang.top**](https://lab.xnnehang.top)
+[从我的网站访问: **xlab.xnnehang.top**](https://xlab.xnnehang.top)
 
 我用 frp 和 一个外国的服务器把该项目部署到了我家的台式机并且可以通过网站访问。你可以在这里轻度体验。
 
@@ -96,7 +96,7 @@
 
 建议下载最新，或者根据功能需求选择。
 
-因为目前该项目处于高速开发期，我并不是以 PR 的形式提交代码，而是框框地直接 commit ，所以每天可能都有五六个甚至十几个 commit 。其中人一些新功能为成型，或者容易有一些 bug 。所以除非你想要参与到开发，不然并不建议从 [dev 分支](https://github.com/MrXnneHang/XnneHangLab) 进行构建。
+因为目前该项目处于高速开发期，我并不是以 PR 的形式提交代码，而是框框地直接 commit ，所以每天可能都有五六个甚至十几个 commit 。其中有一些新功能未成型，或者容易有一些 bug 。所以除非你想要参与到开发，不然并不建议从 [dev 分支](https://github.com/MrXnneHang/XnneHangLab) 进行构建。
 
 ### 2. 自动安装依赖并下载必要模型权重文件
 
