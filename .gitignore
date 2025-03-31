@@ -11,3 +11,11 @@ output/
 cache/
 
 config/global.toml
+
+
+# converter
+workspace.toml
+*.onnx
+converter/
+realesrgan/
+workspace/
