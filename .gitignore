@@ -19,3 +19,7 @@ workspace.toml
 converter/
 realesrgan/
 workspace/
+
+# auto gen config
+config/font.txt
+config/root.toml
