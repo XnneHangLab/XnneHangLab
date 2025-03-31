@@ -66,12 +66,12 @@ explicit = true
 
 [tool.uv.sources]
 torch = [
-  { index = "pytorch-cu118", marker = "sys_platform != 'Darwin'  and  sys_platform != 'linux'" },
-  { index = "pytorch-cpu", marker = "sys_platform == 'linux'"}
+  { index = "pytorch-cu118", marker = "sys_platform == 'win32'" }, # sys_platform : 'win32' , 'linux' , 'Darwin'
+  { index = "pytorch-cpu", marker = "sys_platform != 'win32'"}
 ]
 torchaudio = [
-  { index = "pytorch-cu118", marker = "sys_platform != 'Darwin'  and sys_platform != 'linux'" },
-  { index = "pytorch-cpu", marker = "sys_platform == 'linux'"}
+  { index = "pytorch-cu118", marker = "sys_platform == 'win32'" },
+  { index = "pytorch-cpu", marker = "sys_platform != 'win32'"}
 ]
 
 [tool.pyright]

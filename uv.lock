@@ -2,10 +2,12 @@ version = 1
 revision = 1
 requires-python = "==3.11.*"
 resolution-markers = [
-    "platform_system != 'linux' and sys_platform != 'Darwin' and sys_platform != 'darwin' and sys_platform != 'linux'",
+    "platform_system != 'linux' and sys_platform == 'win32'",
+    "platform_system != 'linux' and sys_platform != 'Darwin' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32'",
     "platform_machine != 'aarch64' and platform_system != 'linux' and sys_platform == 'linux'",
     "platform_system != 'linux' and sys_platform == 'Darwin'",
-    "platform_system == 'linux' and sys_platform != 'Darwin' and sys_platform != 'darwin' and sys_platform != 'linux'",
+    "platform_system == 'linux' and sys_platform == 'win32'",
+    "platform_system == 'linux' and sys_platform != 'Darwin' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32'",
     "platform_machine != 'aarch64' and platform_system == 'linux' and sys_platform == 'linux'",
     "platform_system == 'linux' and sys_platform == 'Darwin'",
     "platform_machine == 'aarch64' and platform_system != 'linux' and sys_platform == 'linux'",
@@ -105,14 +107,12 @@ dependencies = [
     { name = "streamlit" },
     { name = "streamlit-antd-components" },
     { name = "tomli-w" },
-    { name = "torch", version = "2.2.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
-    { name = "torch", version = "2.2.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'Darwin'" },
-    { name = "torch", version = "2.2.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "platform_machine != 'aarch64' and sys_platform == 'linux'" },
-    { name = "torch", version = "2.2.0+cu118", source = { registry = "https://download.pytorch.org/whl/cu118" }, marker = "sys_platform != 'Darwin' and sys_platform != 'linux'" },
-    { name = "torchaudio", version = "2.2.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
-    { name = "torchaudio", version = "2.2.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'Darwin'" },
-    { name = "torchaudio", version = "2.2.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "platform_machine != 'aarch64' and sys_platform == 'linux'" },
-    { name = "torchaudio", version = "2.2.0+cu118", source = { registry = "https://download.pytorch.org/whl/cu118" }, marker = "sys_platform != 'Darwin' and sys_platform != 'linux'" },
+    { name = "torch", version = "2.2.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
+    { name = "torch", version = "2.2.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')" },
+    { name = "torch", version = "2.2.0+cu118", source = { registry = "https://download.pytorch.org/whl/cu118" }, marker = "sys_platform == 'win32'" },
+    { name = "torchaudio", version = "2.2.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
+    { name = "torchaudio", version = "2.2.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')" },
+    { name = "torchaudio", version = "2.2.0+cu118", source = { registry = "https://download.pytorch.org/whl/cu118" }, marker = "sys_platform == 'win32'" },
 ]
 
 [package.dev-dependencies]
@@ -134,12 +134,10 @@ requires-dist = [
     { name = "streamlit", specifier = "==1.43.2" },
     { name = "streamlit-antd-components", specifier = "==0.3.2" },
     { name = "tomli-w", specifier = "==1.2.0" },
-    { name = "torch", marker = "sys_platform != 'Darwin' and sys_platform != 'linux'", specifier = "==2.2.0", index = "https://download.pytorch.org/whl/cu118" },
-    { name = "torch", marker = "sys_platform == 'Darwin'", specifier = "==2.2.0" },
-    { name = "torch", marker = "sys_platform == 'linux'", specifier = "==2.2.0", index = "https://download.pytorch.org/whl/cpu" },
-    { name = "torchaudio", marker = "sys_platform != 'Darwin' and sys_platform != 'linux'", specifier = "==2.2.0", index = "https://download.pytorch.org/whl/cu118" },
-    { name = "torchaudio", marker = "sys_platform == 'Darwin'", specifier = "==2.2.0" },
-    { name = "torchaudio", marker = "sys_platform == 'linux'", specifier = "==2.2.0", index = "https://download.pytorch.org/whl/cpu" },
+    { name = "torch", marker = "sys_platform != 'win32'", specifier = "==2.2.0", index = "https://download.pytorch.org/whl/cpu" },
+    { name = "torch", marker = "sys_platform == 'win32'", specifier = "==2.2.0", index = "https://download.pytorch.org/whl/cu118" },
+    { name = "torchaudio", marker = "sys_platform != 'win32'", specifier = "==2.2.0", index = "https://download.pytorch.org/whl/cpu" },
+    { name = "torchaudio", marker = "sys_platform == 'win32'", specifier = "==2.2.0", index = "https://download.pytorch.org/whl/cu118" },
 ]
 
 [package.metadata.requires-dev]
@@ -1341,34 +1339,21 @@ source = { registry = "https://download.pytorch.org/whl/cpu" }
 resolution-markers = [
     "platform_machine == 'aarch64' and platform_system != 'linux' and sys_platform == 'linux'",
     "platform_machine == 'aarch64' and platform_system == 'linux' and sys_platform == 'linux'",
+    "platform_system == 'linux' and sys_platform == 'darwin'",
+    "platform_system != 'linux' and sys_platform == 'darwin'",
 ]
 dependencies = [
-    { name = "filelock", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
-    { name = "fsspec", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
-    { name = "jinja2", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
-    { name = "networkx", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
-    { name = "sympy", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
-    { name = "typing-extensions", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
+    { name = "filelock", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
+    { name = "fsspec", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
+    { name = "jinja2", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
+    { name = "networkx", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
+    { name = "sympy", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
+    { name = "typing-extensions", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
 ]
 wheels = [
     { url = "https://download.pytorch.org/whl/cpu/torch-2.2.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:4d819ad23591e0cd8a3c0b740d84eaae6fd09928cf2cadcebde8ae605ac2db8b" },
-]
-
-[[package]]
-name = "torch"
-version = "2.2.0"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "platform_system != 'linux' and sys_platform == 'Darwin'",
-    "platform_system == 'linux' and sys_platform == 'Darwin'",
-]
-dependencies = [
-    { name = "filelock", marker = "sys_platform == 'Darwin'" },
-    { name = "fsspec", marker = "sys_platform == 'Darwin'" },
-    { name = "jinja2", marker = "sys_platform == 'Darwin'" },
-    { name = "networkx", marker = "sys_platform == 'Darwin'" },
-    { name = "sympy", marker = "sys_platform == 'Darwin'" },
-    { name = "typing-extensions", marker = "sys_platform == 'Darwin'" },
+    { url = "https://download.pytorch.org/whl/cpu/torch-2.2.0-cp311-none-macosx_10_9_x86_64.whl", hash = "sha256:c82a7c10da1bac5a319568671dc7bbf8f7b17c551fc233e5a80803bab9ef0d04" },
+    { url = "https://download.pytorch.org/whl/cpu/torch-2.2.0-cp311-none-macosx_11_0_arm64.whl", hash = "sha256:a9b1af4fdda3b2b4824e5f12333d7dbd2279130241586972d96aceb98b44ac9b" },
 ]
 
 [[package]]
@@ -1376,16 +1361,20 @@ name = "torch"
 version = "2.2.0+cpu"
 source = { registry = "https://download.pytorch.org/whl/cpu" }
 resolution-markers = [
+    "platform_system != 'linux' and sys_platform != 'Darwin' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32'",
     "platform_machine != 'aarch64' and platform_system != 'linux' and sys_platform == 'linux'",
+    "platform_system != 'linux' and sys_platform == 'Darwin'",
+    "platform_system == 'linux' and sys_platform != 'Darwin' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32'",
     "platform_machine != 'aarch64' and platform_system == 'linux' and sys_platform == 'linux'",
+    "platform_system == 'linux' and sys_platform == 'Darwin'",
 ]
 dependencies = [
-    { name = "filelock", marker = "platform_machine != 'aarch64' and sys_platform == 'linux'" },
-    { name = "fsspec", marker = "platform_machine != 'aarch64' and sys_platform == 'linux'" },
-    { name = "jinja2", marker = "platform_machine != 'aarch64' and sys_platform == 'linux'" },
-    { name = "networkx", marker = "platform_machine != 'aarch64' and sys_platform == 'linux'" },
-    { name = "sympy", marker = "platform_machine != 'aarch64' and sys_platform == 'linux'" },
-    { name = "typing-extensions", marker = "platform_machine != 'aarch64' and sys_platform == 'linux'" },
+    { name = "filelock", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')" },
+    { name = "fsspec", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')" },
+    { name = "jinja2", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')" },
+    { name = "networkx", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')" },
+    { name = "sympy", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')" },
+    { name = "typing-extensions", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')" },
 ]
 wheels = [
     { url = "https://download.pytorch.org/whl/cpu/torch-2.2.0%2Bcpu-cp311-cp311-linux_x86_64.whl", hash = "sha256:2a8ff4440c1f024ad7982018c378470d2ae0a72f2bc269a22b1a677e09bdd3b1" },
@@ -1396,18 +1385,16 @@ name = "torch"
 version = "2.2.0+cu118"
 source = { registry = "https://download.pytorch.org/whl/cu118" }
 resolution-markers = [
-    "platform_system != 'linux' and sys_platform != 'Darwin' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "platform_system == 'linux' and sys_platform != 'Darwin' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "platform_system == 'linux' and sys_platform == 'darwin'",
-    "platform_system != 'linux' and sys_platform == 'darwin'",
+    "platform_system != 'linux' and sys_platform == 'win32'",
+    "platform_system == 'linux' and sys_platform == 'win32'",
 ]
 dependencies = [
-    { name = "filelock", marker = "sys_platform != 'Darwin' and sys_platform != 'linux'" },
-    { name = "fsspec", marker = "sys_platform != 'Darwin' and sys_platform != 'linux'" },
-    { name = "jinja2", marker = "sys_platform != 'Darwin' and sys_platform != 'linux'" },
-    { name = "networkx", marker = "sys_platform != 'Darwin' and sys_platform != 'linux'" },
-    { name = "sympy", marker = "sys_platform != 'Darwin' and sys_platform != 'linux'" },
-    { name = "typing-extensions", marker = "sys_platform != 'Darwin' and sys_platform != 'linux'" },
+    { name = "filelock", marker = "sys_platform == 'win32'" },
+    { name = "fsspec", marker = "sys_platform == 'win32'" },
+    { name = "jinja2", marker = "sys_platform == 'win32'" },
+    { name = "networkx", marker = "sys_platform == 'win32'" },
+    { name = "sympy", marker = "sys_platform == 'win32'" },
+    { name = "typing-extensions", marker = "sys_platform == 'win32'" },
 ]
 wheels = [
     { url = "https://download.pytorch.org/whl/cu118/torch-2.2.0%2Bcu118-cp311-cp311-win_amd64.whl", hash = "sha256:a8eda58ee69e6b0eeab2c25674da6a99d8bbf1e6bf4fda96761f953031097b08" },
@@ -1433,24 +1420,16 @@ source = { registry = "https://download.pytorch.org/whl/cpu" }
 resolution-markers = [
     "platform_machine == 'aarch64' and platform_system != 'linux' and sys_platform == 'linux'",
     "platform_machine == 'aarch64' and platform_system == 'linux' and sys_platform == 'linux'",
+    "platform_system == 'linux' and sys_platform == 'darwin'",
+    "platform_system != 'linux' and sys_platform == 'darwin'",
 ]
 dependencies = [
-    { name = "torch", version = "2.2.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
+    { name = "torch", version = "2.2.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
 ]
 wheels = [
     { url = "https://download.pytorch.org/whl/torchaudio-2.2.0-cp311-cp311-linux_aarch64.whl", hash = "sha256:9be18ca20a0c2e8ca0b633887114083c928c95e454870b1d6ea8cfe05982cec9" },
-]
-
-[[package]]
-name = "torchaudio"
-version = "2.2.0"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "platform_system != 'linux' and sys_platform == 'Darwin'",
-    "platform_system == 'linux' and sys_platform == 'Darwin'",
-]
-dependencies = [
-    { name = "torch", version = "2.2.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'Darwin'" },
+    { url = "https://download.pytorch.org/whl/cpu/torchaudio-2.2.0-cp311-cp311-macosx_10_13_x86_64.whl", hash = "sha256:971ede9e8488a8b85d6724a0586c3828648703d805054f5d1275d32060c17949" },
+    { url = "https://download.pytorch.org/whl/cpu/torchaudio-2.2.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:6a84522a48d4605e42f68e5729c0b0ea3c5a604c97aa34f10b8147ed010eee07" },
 ]
 
 [[package]]
@@ -1458,11 +1437,15 @@ name = "torchaudio"
 version = "2.2.0+cpu"
 source = { registry = "https://download.pytorch.org/whl/cpu" }
 resolution-markers = [
+    "platform_system != 'linux' and sys_platform != 'Darwin' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32'",
     "platform_machine != 'aarch64' and platform_system != 'linux' and sys_platform == 'linux'",
+    "platform_system != 'linux' and sys_platform == 'Darwin'",
+    "platform_system == 'linux' and sys_platform != 'Darwin' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32'",
     "platform_machine != 'aarch64' and platform_system == 'linux' and sys_platform == 'linux'",
+    "platform_system == 'linux' and sys_platform == 'Darwin'",
 ]
 dependencies = [
-    { name = "torch", version = "2.2.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "platform_machine != 'aarch64' and sys_platform == 'linux'" },
+    { name = "torch", version = "2.2.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')" },
 ]
 wheels = [
     { url = "https://download.pytorch.org/whl/cpu/torchaudio-2.2.0%2Bcpu-cp311-cp311-linux_x86_64.whl", hash = "sha256:e8cf9d0725f1f45845edb7effcd6c248b8db8611f6e0c1895b6faea8542299f7" },
@@ -1473,13 +1456,11 @@ name = "torchaudio"
 version = "2.2.0+cu118"
 source = { registry = "https://download.pytorch.org/whl/cu118" }
 resolution-markers = [
-    "platform_system != 'linux' and sys_platform != 'Darwin' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "platform_system == 'linux' and sys_platform != 'Darwin' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "platform_system == 'linux' and sys_platform == 'darwin'",
-    "platform_system != 'linux' and sys_platform == 'darwin'",
+    "platform_system != 'linux' and sys_platform == 'win32'",
+    "platform_system == 'linux' and sys_platform == 'win32'",
 ]
 dependencies = [
-    { name = "torch", version = "2.2.0+cu118", source = { registry = "https://download.pytorch.org/whl/cu118" }, marker = "sys_platform != 'Darwin' and sys_platform != 'linux'" },
+    { name = "torch", version = "2.2.0+cu118", source = { registry = "https://download.pytorch.org/whl/cu118" }, marker = "sys_platform == 'win32'" },
 ]
 wheels = [
     { url = "https://download.pytorch.org/whl/cu118/torchaudio-2.2.0%2Bcu118-cp311-cp311-win_amd64.whl", hash = "sha256:2b199fed7927e1db913929bdc6558aa8f8a64c6d39c72f4984b16536d7caa55d" },
