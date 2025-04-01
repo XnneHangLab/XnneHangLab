@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 from typing import TYPE_CHECKING
+import json
 
 import funasr
 import torch
@@ -16,7 +17,7 @@ from uiya.BasicRunner.cutter import cut_sentences
 from uiya.BasicRunner.extractor import save_only_text_from_response
 from uiya.utils.config import get_setting_title, load_settings_file
 from uiya.utils.FFmpegHelper import test_call_ffmpeg
-from uiya.utils.model import FunASRModel, generate_asr_results
+from uiya.utils.model import FunASRModel, generate_asr_results,generate_sense_voice_results
 from uiya.utils.SrtHelper import write_srt_from_sentences
 
 if TYPE_CHECKING:
@@ -73,3 +74,11 @@ def main():
 
     print("====== Testing combine wav2srt")
     combine_sentences(sentences=sentences, combine_line=500, max_sentence_length=500)
+
+    print("====== Testing generate_sense_voice_results =======")
+    Model = FunASRModel()
+    model = Model.sense_voice()
+    response = generate_asr_results(model=model, input_path=Path("./tests/example1.wav"))
+    print(response)
+    with open("./output/response.json", "w") as f:
+        json.dump(response, f, ensure_ascii=False, indent=4)

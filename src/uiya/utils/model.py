@@ -20,6 +20,7 @@ class FunASRModel:
         self.base_model: str = str(self.settings.base_model)
         self.vad_model: str = str(self.settings.vad_model)
         self.punc_model: str = str(self.settings.punc_model)
+        self.sense_voice_model: str = str(self.settings.sense_voice_model)
         self.device: str = self.settings.device
 
     def asr_full_version(self):
@@ -30,6 +31,15 @@ class FunASRModel:
             # model_revision="v2.0.4",
             device=self.device,
             disable_update=True,  # 添加在这里，禁用更新检查
+        )
+        return model
+
+    def sense_voice(self):
+        model = AutoModel(
+            model=self.sense_voice_model,
+            vad_model=self.vad_model,  # vad 是用于音频分段的
+            vad_kwargs={"max_single_segment_time": 30000},
+            device=self.device,
         )
         return model
 
@@ -76,3 +86,19 @@ def generate_asr_results(model: AutoModel, input_path: Path) -> ASRResponse:
         "timestamp": res.get("timestamp", []),
     }
     return response
+
+
+def generate_sense_voice_results(model: AutoModel, input_path: Path) -> Any:
+    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
+    batch_size_s = settings.batch_size_s
+    res = model.generate( # type: ignore
+        input=str(input_path),
+        cache={},
+        language="auto",  # "zn", "en", "yue", "ja", "ko", "nospeech"
+        use_itn=True,
+        batch_size_s=60,
+        merge_vad=True,
+        merge_length_s=15,
+        output_timestamp=True  #修复前 当同时开启vad和输出时间戳时model.py中会报错
+    )
+    return res

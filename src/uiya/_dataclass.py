@@ -60,6 +60,13 @@ class RunnerSettings(BaseModel):
             title="punc 模型",
         ),
     ]
+    sense_voice_model: Annotated[
+        str,
+        Field(
+            "./models/SenseVoiceSmall",
+            title="sense_voice 模型",
+        ),
+    ]
 
     cut: Annotated[bool, Field(False)]
     cut_line: Annotated[int, Field(400, title="分割间隔(毫秒)")]

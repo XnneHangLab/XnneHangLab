@@ -1,5 +1,5 @@
 batch_size_s = 300
-device = "cuda"
+device = "cpu"
 punctuation_list = "，。；、？！,.;?!"
 custom_output_dir = false
 cache_dir = "./cache"
@@ -9,6 +9,7 @@ FFMPEG_PATH = "ffmpeg"
 base_model = "./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch"
 vad_model = "./models/speech_fsmn_vad_zh-cn-16k-common-pytorch"
 punc_model = "./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch"
+sense_voice_model = "./models/SenseVoiceSmall"
 cut = false
 cut_line = 400
 combine = false
