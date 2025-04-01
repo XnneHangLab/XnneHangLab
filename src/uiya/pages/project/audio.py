@@ -8,14 +8,14 @@ import streamlit as st
 
 from uiya._dataclass import AudioSettings, RunnerSettings
 from uiya.BasicRunner.combiner import combine_sentences
-from uiya.BasicRunner.converter import convert_response_to_sentences
+from uiya.BasicRunner.converter import convert_asr_response_to_sentences
 from uiya.BasicRunner.cutter import cut_sentences
 from uiya.BasicRunner.extractor import save_only_text_from_response
 from uiya.styles.global_style import style
 from uiya.utils.config import get_setting_title, load_settings_file, write_settings_file
 from uiya.utils.FFmpegHelper import file_to_wav
 from uiya.utils.get_font import read_font_data
-from uiya.utils.model import FunASRModel, generate_results
+from uiya.utils.model import FunASRModel, generate_asr_results
 from uiya.utils.public import (
     parse_srt_file,
 )
@@ -217,14 +217,14 @@ with tab1:
                 msg_whs = st.toast("正在识别音频内容", icon=":material/troubleshoot:")
                 if audio_settings.output_type == "with_timestamp":
                     Model = FunASRModel()
-                    model = Model.full_version()
-                    response_with_timestamp = generate_results(
+                    model = Model.asr_full_version()
+                    response_with_timestamp = generate_asr_results(
                         model=model,
                         input_path=Path(cache_dir / st.session_state.audio_name),
                     )
                     # 保存 response 到 json 文件
                     st.session_state.response_with_timestamp = response_with_timestamp
-                    sentences = convert_response_to_sentences(response_with_timestamp)
+                    sentences = convert_asr_response_to_sentences(response_with_timestamp)
                     # 保存字幕
                     print("\n\033[1;35m*** 正在生成 SRT 字幕文件 ***\033[0m\n")
                     st.session_state.preview_srt_file = (
@@ -238,8 +238,8 @@ with tab1:
 
                 elif audio_settings.output_type == "without_timestamp":
                     Model = FunASRModel()
-                    model = Model.full_version()
-                    response = generate_results(
+                    model = Model.asr_full_version()
+                    response = generate_asr_results(
                         model=model,
                         input_path=cache_dir / st.session_state.audio_name,
                     )
@@ -400,7 +400,7 @@ with tab1:
 
                 if st.session_state.response_with_timestamp:
                     response_with_timestamp = st.session_state.response_with_timestamp
-                    sentences = convert_response_to_sentences(response_with_timestamp)
+                    sentences = convert_asr_response_to_sentences(response_with_timestamp)
                     if subtitle_speed == "慢":
                         sentences = combine_sentences(
                             sentences,

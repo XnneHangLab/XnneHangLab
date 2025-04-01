@@ -6,7 +6,7 @@ from typing import TypedDict
 # 一种是音频(wav)直接输入。或者考虑自动转换aac,mp3,m4a->wav.
 
 
-class AutoModelResponse(TypedDict):
+class ASRResponse(TypedDict):
     """response from funasr models
        Example:
        {'key': 'example',
@@ -23,7 +23,7 @@ class AutoModelResponse(TypedDict):
 
 
 class Sentence(TypedDict):
-    """经过加工过的 AutoModelResponse, 只包含一个句子
+    """经过加工过的 ASRResponse, 只包含一个句子
     Example:
     {
     "text": "你今天可真是cute呢"

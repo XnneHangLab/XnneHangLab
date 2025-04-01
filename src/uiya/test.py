@@ -11,12 +11,12 @@ from todo.__version__ import VERSION
 
 from uiya._dataclass import AudioSettings, RunnerSettings
 from uiya.BasicRunner.combiner import combine_sentences
-from uiya.BasicRunner.converter import convert_response_to_sentences, split_into_words
+from uiya.BasicRunner.converter import convert_asr_response_to_sentences, split_into_words
 from uiya.BasicRunner.cutter import cut_sentences
 from uiya.BasicRunner.extractor import save_only_text_from_response
 from uiya.utils.config import get_setting_title, load_settings_file
 from uiya.utils.FFmpegHelper import test_call_ffmpeg
-from uiya.utils.model import FunASRModel, generate_results
+from uiya.utils.model import FunASRModel, generate_asr_results
 from uiya.utils.SrtHelper import write_srt_from_sentences
 
 if TYPE_CHECKING:
@@ -46,18 +46,18 @@ def main():
     print("====== Testing fn_call_test_ffmpeg ======")
     test_call_ffmpeg()
 
-    print("====== Testing fn_convert_response_to_sentences =======")
+    print("====== Testing fn_convert_asr_response_to_sentences =======")
     parser = argparse.ArgumentParser(description="将wav音频转换成srt")
     parser.add_argument("-i", "--input_path", default="./tests/example1.wav", help="输入音频文件")
     args = parser.parse_args()
 
     Model = FunASRModel()
-    model = Model.full_version()
-    response = generate_results(model=model, input_path=Path(args.input_path))
+    model = Model.asr_full_version()
+    response = generate_asr_results(model=model, input_path=Path(args.input_path))
     save_only_text_from_response(response=response, output_dir=Path("./output"))
 
-    print("====== Testing fn_convert_response_to_sentences =======")
-    sentences: list[Sentence] = convert_response_to_sentences(response)
+    print("====== Testing fn_convert_asr_response_to_sentences =======")
+    sentences: list[Sentence] = convert_asr_response_to_sentences(response)
 
     print("====== Testing fn_split_into_words =======")
     print(split_into_words("晚安纳尼南尼nony!"))  # ['晚', '安', '纳', '尼', '南', '尼', 'nony']

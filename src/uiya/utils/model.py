@@ -10,7 +10,7 @@ from uiya.utils.config import load_settings_file
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from uiya._typing import AutoModelResponse
+    from uiya._typing import ASRResponse
 
 
 class FunASRModel:
@@ -22,7 +22,7 @@ class FunASRModel:
         self.punc_model: str = str(self.settings.punc_model)
         self.device: str = self.settings.device
 
-    def full_version(self):
+    def asr_full_version(self):
         model = AutoModel(
             model=self.base_model,  # base
             vad_model=self.vad_model,  # 检测语音活动，自动分隔
@@ -54,7 +54,7 @@ class FunASRModel:
 """
 
 
-def generate_results(model: AutoModel, input_path: Path) -> AutoModelResponse:
+def generate_asr_results(model: AutoModel, input_path: Path) -> ASRResponse:
     settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
     batch_size_s = settings.batch_size_s
     hot_word_path = settings.hot_words_path
@@ -70,7 +70,7 @@ def generate_results(model: AutoModel, input_path: Path) -> AutoModelResponse:
     if not res:
         raise ValueError("The res from automodel is empty.")
     res: dict[str, Any] = res[0]  # type: ignore
-    response: AutoModelResponse = {
+    response: ASRResponse = {
         "key": res.get("key", ""),
         "text": res.get("text", ""),
         "timestamp": res.get("timestamp", []),

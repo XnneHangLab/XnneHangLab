@@ -8,16 +8,16 @@ from uiya._dataclass import RunnerSettings
 from uiya.BasicRunner.combiner import combine_sentences
 from uiya.BasicRunner.converter import (
     calculate_words_length,
-    convert_response_to_sentences,
+    convert_asr_response_to_sentences,
 )
 from uiya.BasicRunner.cutter import cut_sentences
 from uiya.utils.config import load_settings_file
-from uiya.utils.model import FunASRModel, generate_results
+from uiya.utils.model import FunASRModel, generate_asr_results
 from uiya.utils.SrtHelper import write_srt_from_sentences
 from uiya.utils.TxtHelper import split_text_into_sentences_by_punctuation_list
 
 if TYPE_CHECKING:
-    from uiya._typing import AutoModelResponse, DebugMessage
+    from uiya._typing import ASRResponse, DebugMessage
 
 
 # 定义长文本写入函数
@@ -34,11 +34,11 @@ def main() -> DebugMessage | None:
     debug = args.debug
 
     Model = FunASRModel()
-    model = Model.full_version()
+    model = Model.asr_full_version()
 
     settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
 
-    response: AutoModelResponse = generate_results(model=model, input_path=audio_file_path)
+    response: ASRResponse = generate_asr_results(model=model, input_path=audio_file_path)
 
     if debug:
         # TODO: 加入Logger告知用户正在用debug模式,该模式不会生成最终文件.
@@ -58,7 +58,7 @@ def main() -> DebugMessage | None:
         return debug_message
     else:
         # TODO: 设置 Logger 告知用户自己正在使用哪种模式.
-        sentences = convert_response_to_sentences(response)
+        sentences = convert_asr_response_to_sentences(response)
         if settings.cut and settings.combine:
             if settings.combine_line < settings.cut_line:
                 raise ValueError("combine_line should be greater than cut_line, or all cut will be ignored.")

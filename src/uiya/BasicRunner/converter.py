@@ -7,7 +7,7 @@ from uiya._dataclass import RunnerSettings
 from uiya.utils.config import load_settings_file
 
 if TYPE_CHECKING:
-    from uiya._typing import AutoModelResponse, Sentence, Word
+    from uiya._typing import ASRResponse, Sentence, Word
 
 
 # =====
@@ -85,7 +85,7 @@ def calculate_words_length(segmented_text: str) -> int:
     return length
 
 
-def convert_response_to_sentences(input_data: AutoModelResponse) -> list[Sentence]:
+def convert_asr_response_to_sentences(input_data: ASRResponse) -> list[Sentence]:
     pop_list = settings.punctuation_list
 
     results: list[Sentence] = []
