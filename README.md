@@ -3,7 +3,7 @@
 <div align="center">
     <img src="https://fastly.jsdelivr.net/gh/MrXnneHang/blog_img/BlogHosting/img/25/02/202503312014744.svg" alt="魔女の实验室" width="270" height="180">
 </div>
-<h1 align="center">Elaina's Lab</h1>
+<h1 align="center">XnneHangLab</h1>
 </a>
 <br/>
 <div align="center">
