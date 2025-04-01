@@ -24,3 +24,6 @@ workspace/
 # auto gen config
 config/font.txt
 config/root.toml
+
+# ruff
+.ruff_cache/
