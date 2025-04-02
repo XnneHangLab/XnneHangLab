@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from funasr import AutoModel
-
 from uiya._dataclass import RunnerSettings
 from uiya.utils.config import load_settings_file
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from funasr import AutoModel
 
     from uiya._typing import ASRResponse
 
@@ -24,6 +24,8 @@ class FunASRModel:
         self.device: str = self.settings.device
 
     def asr_full_version(self):
+        from funasr import AutoModel
+
         model = AutoModel(
             model=self.base_model,  # base
             vad_model=self.vad_model,  # 检测语音活动，自动分隔
@@ -35,6 +37,8 @@ class FunASRModel:
         return model
 
     def sense_voice(self):
+        from funasr import AutoModel
+
         model = AutoModel(
             model=self.settings.sense_voice_model,
             vad_model=self.settings.vad_model,  # vad 是用于音频分段的
@@ -45,14 +49,20 @@ class FunASRModel:
         return model
 
     def only_vad(self):
+        from funasr import AutoModel
+
         model = AutoModel(model=self.vad_model, device=self.device, disable_update=True)  # 也可以添加在这里
         return model
 
     def only_txt(self):
+        from funasr import AutoModel
+
         model = AutoModel(model=self.base_model, device=self.device, disable_update=True)  # 也可以添加在这里
         return model
 
     def only_puc(self):
+        from funasr import AutoModel
+
         model = AutoModel(model=self.punc_model, device=self.device, disable_update=True)  # 也可以添加在这里
         return model
 

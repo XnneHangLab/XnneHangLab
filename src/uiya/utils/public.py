@@ -6,21 +6,21 @@ import platform
 import subprocess
 from typing import TYPE_CHECKING
 
-import pandas as pd
-import torch
-
 if TYPE_CHECKING:
     from pathlib import Path
 
+    import pandas as pd
 
-def check_cuda_installed():
-    if torch.cuda.is_available():
-        return True
-    else:
-        return False
+
+def check_cuda_available() -> bool:
+    import torch
+
+    return torch.cuda.is_available()
 
 
 def parse_srt_file(srt_content: str) -> pd.DataFrame:
+    import pandas as pd
+
     """
     Parses SRT content string and converts it into a Pandas DataFrame.
 

@@ -26,6 +26,7 @@ settings: RunnerSettings = load_settings_file("global.toml", setting=RunnerSetti
 audio_settings: AudioSettings = load_settings_file("audio.toml", setting=AudioSettings)
 fonts = read_font_data()
 
+
 if not fonts:
     raise FileNotFoundError("Font data not found!")
 
