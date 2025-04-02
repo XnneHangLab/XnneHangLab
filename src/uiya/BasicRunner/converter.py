@@ -14,14 +14,12 @@ if TYPE_CHECKING:
 # 将 Response 处理成 Sentence 和 Word 的形式，两者都有自己的起始点。
 # =====
 
-settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
-
 
 def segment_text(text: str):
     """
     将文本按照标点符号分割成句子列表
     """
-
+    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
     pop_list = settings.punctuation_list
 
     # 移除 pop_list 中的单引号
@@ -91,6 +89,7 @@ def match_timestamps_to_words(text: str, timestamps: list[list[int]]) -> list[li
     """
     将时间戳分配给对应的单词,同时去除标点符号。
     """
+    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
     pop_list = settings.punctuation_list
     words: list[str] = split_into_words(text)
     matched: list[list[int | str]] = []
@@ -110,6 +109,7 @@ def calculate_words_length(segmented_text: str) -> int:
     """
     计算分割后单词和汉字的长度
     """
+    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
     words = split_into_words(segmented_text)
     length = 0
     for word in words:
@@ -119,6 +119,7 @@ def calculate_words_length(segmented_text: str) -> int:
 
 
 def convert_asr_response_to_sentences(input_data: ASRResponse) -> list[Sentence]:
+    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
     pop_list = settings.punctuation_list
 
     results: list[Sentence] = []

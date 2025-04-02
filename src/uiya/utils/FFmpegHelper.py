@@ -9,12 +9,11 @@ from uiya.utils.SubprocessHelper import run_shell_command
 if TYPE_CHECKING:
     from pathlib import Path
 
-settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
-FFMPEG_PATH = settings.FFMPEG_PATH
-
 
 def test_call_ffmpeg():
-    command = ["ffmpeg", "-version"]
+    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
+    FFMPEG_PATH = settings.FFMPEG_PATH
+    command = [FFMPEG_PATH, "-version"]
     result = run_shell_command(command=command)
 
     if result.returncode == 0:
@@ -31,6 +30,8 @@ def file_to_wav(input_path: Path, output_wav_path: Path):
     可以处理 MP4, MP3, AAC, FLAC, etc. 等 FFmpeg 支持的格式。
     """
 
+    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
+    FFMPEG_PATH = settings.FFMPEG_PATH
     if not input_path.exists():
         raise FileNotFoundError(f"输入文件不存在: {input_path}")
 
@@ -67,6 +68,8 @@ def file_to_wav(input_path: Path, output_wav_path: Path):
 
 
 def file_to_mp3(input_path: Path, output_path: Path):
+    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
+    FFMPEG_PATH = settings.FFMPEG_PATH
     if not input_path.exists():
         raise FileNotFoundError(f"输入文件不存在: {input_path}")
 
