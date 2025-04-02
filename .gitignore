@@ -27,3 +27,6 @@ config/root.toml
 
 # ruff
 .ruff_cache/
+
+# bfg
+bfg-1.15.0.jar
