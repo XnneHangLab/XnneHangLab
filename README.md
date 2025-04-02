@@ -92,7 +92,7 @@
 
 ### 1.从 Release 页面下载源码（XnneHangLab.zip）
 
-[Release 页面](https://github.com/MrXnneHang/Auto-Caption-Generator-Offline/releases)
+[Release 页面](https://github.com/MrXnneHang/XnneHangLab/releases)
 
 建议下载最新，或者根据功能需求选择。
 
