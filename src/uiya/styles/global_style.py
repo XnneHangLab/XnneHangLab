@@ -6,7 +6,7 @@ import streamlit as st
 def style(home: bool = False):  # 定义应用自定义字体的函数
     if home:
         st.set_page_config(
-            page_title="Auto-Caption-Generator-Offline",
+            page_title="XnneHangLab",
             layout="wide",
             menu_items={
                 "Get Help": "https://lab.xnnehang.top/audio",

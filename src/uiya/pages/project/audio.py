@@ -148,7 +148,7 @@ with tab1:
             if "audio_file" in st.session_state:
                 audio_file = st.session_state.audio_file
                 print("\n" + "=" * 50)
-                print("\n\033[1;39m*** Auto-Caption-Generator-Offline 音频识别 ***\033[0m")
+                print("\n\033[1;39m*** XnneHangLab 音频识别 ***\033[0m")
                 st.toast(
                     "任务开始执行！请勿在运行时切换菜单或修改参数!",
                     icon=":material/rocket_launch:",
