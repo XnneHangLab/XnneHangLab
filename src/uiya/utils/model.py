@@ -36,10 +36,11 @@ class FunASRModel:
 
     def sense_voice(self):
         model = AutoModel(
-            model=self.sense_voice_model,
-            vad_model=self.vad_model,  # vad 是用于音频分段的
+            model=self.settings.sense_voice_model,
+            vad_model=self.settings.vad_model,  # vad 是用于音频分段的
             vad_kwargs={"max_single_segment_time": 30000},
             device=self.device,
+            disable_update=True,
         )
         return model
 
@@ -88,17 +89,28 @@ def generate_asr_results(model: AutoModel, input_path: Path) -> ASRResponse:
     return response
 
 
-def generate_sense_voice_results(model: AutoModel, input_path: Path) -> Any:
+def generate_sense_voice_results(model: AutoModel, input_path: Path) -> ASRResponse:
+    # TODO https://github.com/FunAudioLLM/SenseVoice/issues/204
+    # TODO https://github.com/FunAudioLLM/SenseVoice/issues/205
+    # 在这些结束后，可以考虑把 text 拆分成 status,text.
+    # 目前先返回 full_text
     settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
-    batch_size_s = settings.batch_size_s
-    res = model.generate( # type: ignore
-        input=str(input_path),
+    if not input_path.exists():
+        raise FileNotFoundError(f"File not found: {input_path}")
+    res: list[dict[str, Any]] = model.generate(  # type: ignore
+        input=str(input_path),  # 1分钟以上长音频
         cache={},
         language="auto",  # "zn", "en", "yue", "ja", "ko", "nospeech"
-        use_itn=True,
-        batch_size_s=60,
-        merge_vad=True,
-        merge_length_s=15,
-        output_timestamp=True  #修复前 当同时开启vad和输出时间戳时model.py中会报错
+        use_itn=False,
+        batch_size_s=settings.batch_size_s,
+        output_timestamp=True,  # 修复前 当同时开启vad和输出时间戳时model.py中会报错
     )
-    return res
+    if not res:
+        raise ValueError("The res from automodel is empty.")
+    res: dict[str, Any] = res[0]  # type: ignore
+    response: ASRResponse = {
+        "key": res.get("key", ""),
+        "text": res.get("text", ""),
+        "timestamp": res.get("timestamp", []),
+    }
+    return response

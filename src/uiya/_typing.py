@@ -10,14 +10,36 @@ class ASRResponse(TypedDict):
     """response from funasr models
        Example:
        {'key': 'example',
-        'text':'你今天可真是cute呢!'
-        'timestamp':[[0, 300], [300,540], [540, 600], [600, 900], [900, 1200], [1200, 1500], [1500, 2200],[2200, 2500]]
+        'text':'那年，长街春意正浓，策马同游。'
+        'timestamp':[[8160, 8610], [8610, 8910], [8910, 9390], [9390, 9750], [9750, 10169], [10169, 10530], [10530, 11190], [11190, 12090], [12090, 13230], [13230, 13590], [13590, 14010], [14010, 15210]]
      }
 
-    其中，text 单位长度和 timestamp 的长度是相等的。一个中文字符算作一个单位字符，一个完整英文单词算作一个单位字符。
+    text 单位长度和 timestamp 的长度是相等的。
+    一个中文字符算作一个单位字符，一个完整英文单词算作一个单位字符,或者一个被独立的不成型英文单词也算是一个单位字符。
+    具体参见 function: split_into_words_no_punct, split_into_words
     """
 
     key: str
+    text: str
+    timestamp: list[list[int]]
+
+
+class SenseVoiceResponse(TypedDict):
+    """response from sensevoice models
+      Example:
+      {'key': 'example',
+       'text': "<|zh|><|NEUTRAL|><|BGM|><|woitn|>那年长街声一正浓策马独游"
+       'timestamp':[[8390, 8630], [8670, 8910], [8970, 9210], [9430, 9670], [9850, 10090], [10170, 10410], [10510, 10750], [11330, 11570], [12890, 13130], [13230, 13470], [13590, 13830], [13950, 14635]]
+    }
+    key 和 ASRResponse 保持一致,不带后缀的文件名
+    text: 带有情感状态标识的语音转换的文本, 不能去掉标点符号
+    timestamp: 时间戳, 长度 = Words 的长度 + ！！标点符号的个数！！
+
+    <woitn> 和 <withitn> 代表 without_timestamp 和 with_timestamp
+    """
+
+    key: str
+    status: str
     text: str
     timestamp: list[list[int]]
 
