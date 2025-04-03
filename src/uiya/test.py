@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 def main():
     print("====== testing audio ========")
-    testing_file = Path("./tests/example5.wav")
+    testing_file = Path("./tests/example1.wav")
     if not testing_file.exists():
         raise FileNotFoundError(f"File not found: {testing_file}")
 
@@ -129,15 +129,12 @@ def main():
             "status": status_tags,
             "text": cleaned_sentence,
             "timestamp": sense_timestamp[
-                sense_timestamp : len(split_into_words(cleaned_sentence))
+                sentence_length : len(split_into_words(cleaned_sentence))
             ],  # TODO 如果标点时间戳后续被过滤掉，这里需要修改为 split_into_words_no_punct
         }
         sentence_length += len(split_into_words(cleaned_sentence))
         results.append(segment_dict)
         only_text += cleaned_sentence
-
-    # for result in results:
-    #     print(result)
 
     sense_text_list = split_into_words_no_punct(only_text)
     asr_text_list = split_into_words_no_punct(asr_text)
