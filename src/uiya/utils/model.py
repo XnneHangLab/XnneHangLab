@@ -99,7 +99,7 @@ def generate_asr_results(model: AutoModel, input_path: Path) -> ASRResponse:
     return response
 
 
-def generate_sense_voice_results(model: AutoModel, input_path: Path) -> ASRResponse:
+def generate_sense_voice_results(model: AutoModel, input_path: Path, use_itn:bool=False) -> ASRResponse:
     # TODO https://github.com/FunAudioLLM/SenseVoice/issues/204
     # TODO https://github.com/FunAudioLLM/SenseVoice/issues/205
     # 在这些结束后，可以考虑把 text 拆分成 status,text.
@@ -111,7 +111,7 @@ def generate_sense_voice_results(model: AutoModel, input_path: Path) -> ASRRespo
         input=str(input_path),  # 1分钟以上长音频
         cache={},
         language="auto",  # "zn", "en", "yue", "ja", "ko", "nospeech"
-        use_itn=False,
+        use_itn=use_itn,
         batch_size_s=settings.batch_size_s,
         output_timestamp=True,  # 修复前 当同时开启vad和输出时间戳时model.py中会报错
     )
