@@ -68,7 +68,7 @@
 
 ## 演示
 
-[从我的网站访问: **xlab.xnnehang.top**](https://xlab.xnnehang.top)
+[从我的网站访问: **lab.xnnehang.top**](https://lab.xnnehang.top)
 
 我用 frp 和 一个外国的服务器把该项目部署到了我家的台式机并且可以通过网站访问。你可以在这里轻度体验。
 
