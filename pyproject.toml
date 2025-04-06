@@ -1,6 +1,6 @@
 [project]
 name = "XnneHangLab"
-version = "0.0.1"
+version = "0.0.2"
 description = ""
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
@@ -37,10 +37,10 @@ Repository = "https://github.com/MrXnneHang/XnneHangLab"
 Issues = "https://github.com/MrXnneHang/XnneHangLab/issues"
 
 [project.scripts]
-test = "uiya.test:main"
-acgo = "uiya.cli:main"
-uiya = "uiya.ui:main"
-get_root = "uiya.utils.get_root:main"
+test = "lab.test:main"
+acgo = "lab.cli:main"
+lab = "lab.ui:main"
+get_root = "lab.utils.get_root:main"
 
 [dependency-groups]
 dev = [
@@ -75,7 +75,7 @@ torchaudio = [
 ]
 
 [tool.pyright]
-include = ["src/uiya"]
+include = ["src/lab"]
 pythonVersion = "3.11"
 typeCheckingMode = "strict"
 reportMissingTypeStubs = false
@@ -130,7 +130,7 @@ ignore = [
 
 [tool.ruff.lint.isort]
 required-imports = ["from __future__ import annotations"]
-known-first-party = ["uiya"]
+known-first-party = ["lab"]
 combine-as-imports = true
 
 [tool.ruff.lint.flake8-type-checking]
@@ -138,7 +138,7 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/uiya","packages/todo/src/todo"]
+packages = ["src/lab","packages/todo/src/todo"]
 
 [build-system]
 requires = ["hatchling"]
