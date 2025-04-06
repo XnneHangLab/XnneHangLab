@@ -181,7 +181,7 @@ uv sync
 Resolved 106 packages in 6ms
 Audited 100 packages in 0.31ms
 uv run get_root
-uv run streamlit run src/uiya/ui.py
+uv run streamlit run src/lab/ui.py
 
   You can now view your Streamlit app in your browser.
 
