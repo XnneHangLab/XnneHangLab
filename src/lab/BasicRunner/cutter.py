@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from uiya._typing import CutPoint, Sentence, Word
+    from lab._typing import CutPoint, Sentence, Word
 
 # ====
 # 根据 cutline 把单个句子拆成多个句子，如果句子停顿时间超过 cutline 。

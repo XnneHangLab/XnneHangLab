@@ -3,8 +3,8 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from uiya._dataclass import RunnerSettings
-from uiya.utils.config import load_settings_file
+from lab._dataclass import RunnerSettings
+from lab.utils.config import load_settings_file
 
 if TYPE_CHECKING:
     from pathlib import Path

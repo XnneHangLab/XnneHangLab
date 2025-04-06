@@ -3,14 +3,14 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from uiya._dataclass import RunnerSettings
-from uiya.utils.config import load_settings_file
-from uiya.utils.TxtHelper import write_txt_to_file
+from lab._dataclass import RunnerSettings
+from lab.utils.config import load_settings_file
+from lab.utils.TxtHelper import write_txt_to_file
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from uiya._typing import Sentence
+    from lab._typing import Sentence
 
 
 def ms_to_srt_time(ms: int) -> str:

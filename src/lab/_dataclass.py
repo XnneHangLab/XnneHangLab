@@ -4,7 +4,7 @@ from typing import Annotated, Literal, get_args
 
 from pydantic import BaseModel, Field
 
-from uiya._dictionary import audio_setting_dictionary
+from lab._dictionary import audio_setting_dictionary
 
 
 class RootAbsDir(BaseModel):

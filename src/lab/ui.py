@@ -5,10 +5,10 @@ from pathlib import Path
 
 import streamlit as st
 
-from uiya._dataclass import RootAbsDir
-from uiya.styles.global_style import style
-from uiya.utils.config import load_settings_file
-from uiya.utils.get_font import get_font_data
+from lab._dataclass import RootAbsDir
+from lab.styles.global_style import style
+from lab.utils.config import load_settings_file
+from lab.utils.get_font import get_font_data
 
 style(True)
 
@@ -23,9 +23,9 @@ def main():
 
     # 所有页面路径基于 ROOT_DIR 计算
     PAGE_PATHS = {
-        "home": ROOT_DIR / "src" / "uiya" / "pages" / "project" / "home.py",
-        "audio": ROOT_DIR / "src" / "uiya" / "pages" / "project" / "audio.py",
-        "settings": ROOT_DIR / "src" / "uiya" / "pages" / "setting" / "set.py",
+        "home": ROOT_DIR / "src" / "lab" / "pages" / "project" / "home.py",
+        "audio": ROOT_DIR / "src" / "lab" / "pages" / "project" / "audio.py",
+        "settings": ROOT_DIR / "src" / "lab" / "pages" / "setting" / "set.py",
         "todo": ROOT_DIR / "packages" / "todo" / "src" / "todo" / "streamlit_to_do.py",
     }
     # 检查路径是否存在

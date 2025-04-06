@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, overload
 
 if TYPE_CHECKING:
-    from uiya._dataclass import (
+    from lab._dataclass import (
         AudioSettings,
         AudioSettingsTitle,
         RootAbsDir,

@@ -4,9 +4,9 @@ from pathlib import Path
 
 import streamlit as st
 
-from uiya._dataclass import Device, RunnerSettings
-from uiya.styles.global_style import style
-from uiya.utils.config import get_setting_title, load_settings_file, write_settings_file
+from lab._dataclass import Device, RunnerSettings
+from lab.styles.global_style import style
+from lab.utils.config import get_setting_title, load_settings_file, write_settings_file
 
 # 我也很想用 st.write , 但是它存在类型未知 (> _ <)
 

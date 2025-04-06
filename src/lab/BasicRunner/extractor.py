@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from uiya._typing import ASRResponse
+    from lab._typing import ASRResponse
 
 # =======
 # 直接从 ASRResponse 或者 Sentence (经过 converter 加工过的 ASRResponse )中解析出想要的信息并且保存。

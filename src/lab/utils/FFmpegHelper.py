@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from uiya._dataclass import RunnerSettings
-from uiya.utils.config import load_settings_file
-from uiya.utils.SubprocessHelper import run_shell_command
+from lab._dataclass import RunnerSettings
+from lab.utils.config import load_settings_file
+from lab.utils.SubprocessHelper import run_shell_command
 
 if TYPE_CHECKING:
     from pathlib import Path

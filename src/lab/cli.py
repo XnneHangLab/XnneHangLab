@@ -4,20 +4,20 @@ import argparse
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from uiya._dataclass import RunnerSettings
-from uiya.BasicRunner.combiner import combine_sentences
-from uiya.BasicRunner.converter import (
+from lab._dataclass import RunnerSettings
+from lab.BasicRunner.combiner import combine_sentences
+from lab.BasicRunner.converter import (
     calculate_words_length,
     convert_asr_response_to_sentences,
 )
-from uiya.BasicRunner.cutter import cut_sentences
-from uiya.utils.config import load_settings_file
-from uiya.utils.model import FunASRModel, generate_asr_results
-from uiya.utils.SrtHelper import write_srt_from_sentences
-from uiya.utils.TxtHelper import split_text_into_sentences_by_punctuation_list
+from lab.BasicRunner.cutter import cut_sentences
+from lab.utils.config import load_settings_file
+from lab.utils.model import FunASRModel, generate_asr_results
+from lab.utils.SrtHelper import write_srt_from_sentences
+from lab.utils.TxtHelper import split_text_into_sentences_by_punctuation_list
 
 if TYPE_CHECKING:
-    from uiya._typing import ASRResponse, DebugMessage
+    from lab._typing import ASRResponse, DebugMessage
 
 
 # 定义长文本写入函数

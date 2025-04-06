@@ -6,20 +6,20 @@ from pathlib import Path
 
 import streamlit as st
 
-from uiya._dataclass import AudioSettings, RunnerSettings
-from uiya.BasicRunner.combiner import combine_sentences
-from uiya.BasicRunner.converter import convert_asr_response_to_sentences
-from uiya.BasicRunner.cutter import cut_sentences
-from uiya.BasicRunner.extractor import save_only_text_from_response
-from uiya.styles.global_style import style
-from uiya.utils.config import get_setting_title, load_settings_file, write_settings_file
-from uiya.utils.FFmpegHelper import file_to_wav
-from uiya.utils.get_font import read_font_data
-from uiya.utils.model import FunASRModel, generate_asr_results
-from uiya.utils.public import (
+from lab._dataclass import AudioSettings, RunnerSettings
+from lab.BasicRunner.combiner import combine_sentences
+from lab.BasicRunner.converter import convert_asr_response_to_sentences
+from lab.BasicRunner.cutter import cut_sentences
+from lab.BasicRunner.extractor import save_only_text_from_response
+from lab.styles.global_style import style
+from lab.utils.config import get_setting_title, load_settings_file, write_settings_file
+from lab.utils.FFmpegHelper import file_to_wav
+from lab.utils.get_font import read_font_data
+from lab.utils.model import FunASRModel, generate_asr_results
+from lab.utils.public import (
     parse_srt_file,
 )
-from uiya.utils.SrtHelper import write_srt_from_sentences
+from lab.utils.SrtHelper import write_srt_from_sentences
 
 style()
 settings: RunnerSettings = load_settings_file("global.toml", setting=RunnerSettings)

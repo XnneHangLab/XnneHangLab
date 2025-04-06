@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from uiya._dataclass import RunnerSettings
-from uiya.utils.config import load_settings_file
+from lab._dataclass import RunnerSettings
+from lab.utils.config import load_settings_file
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from funasr import AutoModel
 
-    from uiya._typing import ASRResponse
+    from lab._typing import ASRResponse
 
 
 class FunASRModel:
@@ -99,7 +99,7 @@ def generate_asr_results(model: AutoModel, input_path: Path) -> ASRResponse:
     return response
 
 
-def generate_sense_voice_results(model: AutoModel, input_path: Path, use_itn:bool=False) -> ASRResponse:
+def generate_sense_voice_results(model: AutoModel, input_path: Path, use_itn: bool = False) -> ASRResponse:
     # TODO https://github.com/FunAudioLLM/SenseVoice/issues/204
     # TODO https://github.com/FunAudioLLM/SenseVoice/issues/205
     # 在这些结束后，可以考虑把 text 拆分成 status,text.
