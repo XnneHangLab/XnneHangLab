@@ -1,8 +1,11 @@
+VERSION := `uv run scripts/get-version.py src/lab/__version__.py`
+
+
 start:
   uv lock
   uv sync
   uv run get_root
-  uv run streamlit run src/uiya/ui.py
+  uv run streamlit run src/lab/ui.py
 
 install-model:
   uv lock
@@ -19,12 +22,14 @@ install-sensevoice:
   # SenseVoiceSmall
   uv run modelscope download --model iic/SenseVoiceSmall --local_dir ./models/SenseVoiceSmall
 
+
+
 fmt:
   uv run ruff check --fix --select I . --exclude packages tests
   uv run ruff format . --exclude packages
 
 lint:
-  uv run pyright src/uiya
+  uv run pyright src/lab
   uv run ruff check . --exclude packages tests
   prettier --ignore-path .prettierignore --write '**/*.md'
 
