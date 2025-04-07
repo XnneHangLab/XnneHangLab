@@ -1670,6 +1670,7 @@ version = "0.0.2"
 source = { editable = "." }
 dependencies = [
     { name = "funasr" },
+    { name = "httpx", extra = ["http2", "socks"] },
     { name = "modelscope" },
     { name = "numpy" },
     { name = "pandas" },
@@ -1684,6 +1685,7 @@ dependencies = [
     { name = "torchaudio", version = "2.2.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
     { name = "torchaudio", version = "2.2.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')" },
     { name = "torchaudio", version = "2.2.0+cu118", source = { registry = "https://download.pytorch.org/whl/cu118" }, marker = "sys_platform == 'win32'" },
+    { name = "yutto" },
 ]
 
 [package.dev-dependencies]
@@ -1697,6 +1699,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "funasr", specifier = "==1.2.6" },
+    { name = "httpx", extras = ["http2", "socks"], specifier = ">=0.28.1" },
     { name = "modelscope", specifier = ">=1.23.1" },
     { name = "numpy", specifier = "==1.26.4" },
     { name = "pandas", specifier = "==2.2.3" },
@@ -1709,6 +1712,7 @@ requires-dist = [
     { name = "torch", marker = "sys_platform == 'win32'", specifier = "==2.2.0", index = "https://download.pytorch.org/whl/cu118" },
     { name = "torchaudio", marker = "sys_platform != 'win32'", specifier = "==2.2.0", index = "https://download.pytorch.org/whl/cpu" },
     { name = "torchaudio", marker = "sys_platform == 'win32'", specifier = "==2.2.0", index = "https://download.pytorch.org/whl/cu118" },
+    { name = "yutto", specifier = "==2.0.2" },
 ]
 
 [package.metadata.requires-dev]
