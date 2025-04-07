@@ -94,14 +94,15 @@ def style(home: bool = False):  # 定义应用自定义字体的函数
         /* 全局布局 */
         .block-container {
             padding-top: 40px;
-            padding-left: 70px;
-            padding-right: 70px;
+            padding-left: 5%;  /* ✅ 改用百分比适配不同屏幕 */
+            padding-right: 5%;
+            max-width: none !important;  /* 强制覆盖 Streamlit 默认限制 */
         }
         @media (max-width: 600px) {
             .block-container {
                 padding-top: 55px;
-                padding-left: 24px;
-                padding-right: 24px;
+                padding-left: 4vw !important;  /* ✅ 用视口单位 */
+                padding-right: 4vw !important;
             }
         }
         /* 全局按钮 */
