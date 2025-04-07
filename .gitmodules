@@ -4,3 +4,6 @@
 [submodule "packages/todo"]
 	path = packages/todo
 	url = https://github.com/MrXnneHang/Streamlit-To-Do-List.git
+[submodule "packages/yutto-uiya"]
+	path = packages/yutto-uiya
+	url = https://github.com/MrXnneHang/yutto-uiya.git
