@@ -113,7 +113,7 @@ cli-cpu 版本已经 release!
 - 改用了 uv 进行环境管理，支持两种运行方式:
 
 ```shell
-git clone https://github.com/MrXnneHang/XnneHangLab
+git clone https://github.com/XnneHangLab/XnneHangLab
 cd XnneHangLab/
 uv run acgo -i test.wav -o test.srt
 ```
@@ -122,7 +122,7 @@ uv run acgo -i test.wav -o test.srt
 
 ```shell
 uv venv
-uv pip install git+https://github.com/MrXnneHang/XnneHangLab
+uv pip install git+https://github.com/XnneHangLab/XnneHangLab
 uv run acgo -i test.wav -o test.srt
 ```
 

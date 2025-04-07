@@ -35,10 +35,10 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/MrXnneHang/XnneHangLab"
-Documentation = "https://github.com/MrXnneHang/XnneHangLab"
-Repository = "https://github.com/MrXnneHang/XnneHangLab"
-Issues = "https://github.com/MrXnneHang/XnneHangLab/issues"
+Homepage = "https://github.com/XnneHangLab/XnneHangLab"
+Documentation = "https://github.com/XnneHangLab/XnneHangLab"
+Repository = "https://github.com/XnneHangLab/XnneHangLab"
+Issues = "https://github.com/XnneHangLab/XnneHangLab/issues"
 
 [project.scripts]
 test = "lab.test:main"

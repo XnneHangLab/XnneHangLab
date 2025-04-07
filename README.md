@@ -92,11 +92,11 @@
 
 ### 1.从 Release 页面下载源码（XnneHangLab.zip）
 
-[Release 页面](https://github.com/MrXnneHang/XnneHangLab/releases)
+[Release 页面](https://github.com/XnneHangLab/XnneHangLab/releases)
 
 建议下载最新，或者根据功能需求选择。
 
-因为目前该项目处于高速开发期，我并不是以 PR 的形式提交代码，而是框框地直接 commit ，所以每天可能都有五六个甚至十几个 commit 。其中有一些新功能未成型，或者容易有一些 bug 。所以除非你想要参与到开发，不然并不建议从 [dev 分支](https://github.com/MrXnneHang/XnneHangLab) 进行构建。
+因为目前该项目处于高速开发期，我并不是以 PR 的形式提交代码，而是框框地直接 commit ，所以每天可能都有五六个甚至十几个 commit 。其中有一些新功能未成型，或者容易有一些 bug 。所以除非你想要参与到开发，不然并不建议从 [dev 分支](https://github.com/XnneHangLab/XnneHangLab) 进行构建。
 
 ### 2. 自动安装依赖并下载必要模型权重文件
 
@@ -210,6 +210,6 @@ uv run streamlit run src/lab/ui.py
 
 ## 如何参与到开发:
 
-详细参见： [CONTRIBUTING.md](https://github.com/MrXnneHang/XnneHangLab/blob/dev/CONTRIBUTING.md)
+详细参见： [CONTRIBUTING.md](https://github.com/XnneHangLab/XnneHangLab/blob/dev/CONTRIBUTING.md)
 
 非常欢迎各位以任何形式的贡献，包括， bug 反馈，使用体验优化，第三方库和模型更新提醒，合理有益的功能需求等等。
