@@ -30,3 +30,8 @@ config/root.toml
 
 # bfg
 bfg-1.15.0.jar
+
+# yutto-uiya
+
+config/yutto.toml
+downloads
