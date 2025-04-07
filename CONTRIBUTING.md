@@ -20,7 +20,18 @@
 
 ## 如何使用
 
-你只需要在你 commit 之前对你的代码进行检查和格式化:
+运行代码：
+
+```shell
+git clone https://github.com/XnneHangLab/XnneHangLab.git
+cd XnneHangLab
+git submodule update --init --recursive
+just start
+```
+
+然后你可以修改代码来实现你想要的功能，或者修复 bug。
+
+最后你只需要在你 commit 之前对你的代码进行检查和格式化:
 
 ```shell
 just fmt
