@@ -20,6 +20,16 @@ resolution-markers = [
 members = [
     "streamlib-to-do-list",
     "xnnehanglab",
+    "yutto-uiya",
+]
+
+[[package]]
+name = "aiofiles"
+version = "24.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/0b/03/a88171e277e8caa88a4c77808c20ebb04ba74cc4681bf1e9416c862de237/aiofiles-24.1.0.tar.gz", hash = "sha256:22a075c9e5a3810f0c2e48f3008c94d68c65d763b9b03857924c99e57355166c", size = 30247 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a5/45/30bb92d442636f570cb5651bc661f52b610e2eec3f891a5dc3a4c3667db0/aiofiles-24.1.0-py3-none-any.whl", hash = "sha256:b4ec55f4195e3eb5d7abd1bf7e061763e864dd4954231fb8539a0ef8bb8260e5", size = 15896 },
 ]
 
 [[package]]
@@ -76,6 +86,20 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/3e/38/7859ff46355f76f8d19459005ca000b6e7012f2f1ca597746cbcd1fbfe5e/antlr4-python3-runtime-4.9.3.tar.gz", hash = "sha256:f224469b4168294902bb1efa80a8bf7855f24c99aef99cbefc1bcd3cce77881b", size = 117034 }
 
 [[package]]
+name = "anyio"
+version = "4.9.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "idna" },
+    { name = "sniffio" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/95/7d/4c1bd541d4dffa1b52bd83fb8527089e097a106fc90b467a7313b105f840/anyio-4.9.0.tar.gz", hash = "sha256:673c0c244e15788651a4ff38710fea9675823028a6f08a5eda409e0c9840a028", size = 190949 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a1/ee/48ca1a7c89ffec8b6a0c5d02b89c305671d5ffd8d3c94acf8b8c408575bb/anyio-4.9.0-py3-none-any.whl", hash = "sha256:9f76d541cad6e36af7beb62e978876f3b41e3e04f2c1fbf0884604c0a9c4d93c", size = 100916 },
+]
+
+[[package]]
 name = "attrs"
 version = "25.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -91,6 +115,28 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/db/d2/87016ca9f083acadffb2d8da59bfa3253e4da7eeb9f71fb8e7708dc97ecd/audioread-3.0.1.tar.gz", hash = "sha256:ac5460a5498c48bdf2e8e767402583a4dcd13f4414d286f42ce4379e8b35066d", size = 116513 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/57/8d/30aa32745af16af0a9a650115fbe81bde7c610ed5c21b381fca0196f3a7f/audioread-3.0.1-py3-none-any.whl", hash = "sha256:4cdce70b8adc0da0a3c9e0d85fb10b3ace30fbdf8d1670fd443929b61d117c33", size = 23492 },
+]
+
+[[package]]
+name = "biliass"
+version = "2.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/c1/f5/0982ed1a34a9a780f360d9a3f559a861dda889b886ced4d2043cc7003fc2/biliass-2.2.0.tar.gz", hash = "sha256:94328ebc52e641516cd32d22c1fa6f2d6a5a648c8f0494802d691bb3e8175d4e", size = 31055 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/82/1f/a759d5e36e89d2a791c59e2943e7133281aeee1c3a1f58a0982b43b3076c/biliass-2.2.0-cp39-abi3-macosx_10_12_x86_64.whl", hash = "sha256:3b260e7226414d12481d208f04f1270e7fa1ed02421375b715f59ccada6d61ff", size = 889306 },
+    { url = "https://files.pythonhosted.org/packages/72/09/57c8dc2d21f4e7b6db2821c6a4685f4e22fe3c9825f5cf78cd805767ccc5/biliass-2.2.0-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:400b166c6f4a3c4b4f906944982a9274778528e61ca4eeccbb4957e732d3a51a", size = 848344 },
+    { url = "https://files.pythonhosted.org/packages/bb/53/039657ddbc0c2f279feca8daf762172f4a931105bf5771faf984200ea169/biliass-2.2.0-cp39-abi3-manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:e6e177c3512453f0ccf73f372ae17ff9e0690c8b5a158a65b82ceaae8e3a4f45", size = 942934 },
+    { url = "https://files.pythonhosted.org/packages/4f/7e/5f2dd5561734a7445d58140f76fd48e1843fc4533eef65ed91e2f61107fb/biliass-2.2.0-cp39-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:eff756c2e1efd5f6806f295ee1133c12741912b19d0eca31892990380d838b0b", size = 921124 },
+    { url = "https://files.pythonhosted.org/packages/fe/7a/242d3dab439c841914cb10b1b00a4363e3ce2bd80a8794a52391264f8a7f/biliass-2.2.0-cp39-abi3-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:5ef0133c8ff809aac6fd2f7e5fdfaba11442d3efe9459abb30139ed6e8041316", size = 915825 },
+    { url = "https://files.pythonhosted.org/packages/92/e7/36c1d7f4593c0b5efbcba618992a4ef85eb4747ec29adfac8224d32a5f66/biliass-2.2.0-cp39-abi3-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:dd9214384b67b2a624338f178af8a21b7b51639daf574cee2c2d7637a428bc00", size = 981847 },
+    { url = "https://files.pythonhosted.org/packages/02/4b/0808c5baa2e9a18b83976af5ba2de94c19aadb626fb0e2914765c7208f88/biliass-2.2.0-cp39-abi3-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:aaa4cada04ccd6cff1d6ea358dcc92a93f25f01c0cee092a9585bf787695ca48", size = 1017528 },
+    { url = "https://files.pythonhosted.org/packages/fc/24/efcdd85549a8cdbe6a2f29c00003424017669fe061d7a775b4a3e7b6f5da/biliass-2.2.0-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:2b145f699a4f1a22a6cc032a2be0fc69ef8d7af68f03ca963d80d1236e3bc03e", size = 960511 },
+    { url = "https://files.pythonhosted.org/packages/6f/6e/1699b6fd4f1b7fb474e68952f16a374ae49b39ffb90a2b75b2230a570dfd/biliass-2.2.0-cp39-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:44a18acc54a718ab87832e8aa07a30b81520c73427b773cd5900056b52cc5565", size = 1097460 },
+    { url = "https://files.pythonhosted.org/packages/5b/ba/88dd0b5e7eb923eaa37be7c95c633972e972c58cde83b7729fb063798673/biliass-2.2.0-cp39-abi3-musllinux_1_2_armv7l.whl", hash = "sha256:b1cec532ad4c146defc4b23adb24eaf0c190c616942b07b1964e70e5b8ebf7a6", size = 1177662 },
+    { url = "https://files.pythonhosted.org/packages/06/f1/71a3310171807161457ec60c3d967f099003392582a27c1ff211f3218126/biliass-2.2.0-cp39-abi3-musllinux_1_2_i686.whl", hash = "sha256:06a2b3c9986670be9ee25b07e978e282b7f7c1fc953cd79bfe1c119960434750", size = 1104291 },
+    { url = "https://files.pythonhosted.org/packages/fa/07/9e1a91c731f023a6d8bd116475b0ecde02f3e3037654a6f82bcc8391a627/biliass-2.2.0-cp39-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:b06430e977defd3712f0116e031238841fe76a4f53a49c1a4e12263351c6aa6c", size = 1130374 },
+    { url = "https://files.pythonhosted.org/packages/01/64/f689da729a0a7febb2523a22022a4e7733d8c34f3fee427181a99b42cf31/biliass-2.2.0-cp39-abi3-win32.whl", hash = "sha256:9dbb636f69b7b4e5784df23ac7265ba4904090af6f51214ad0dcaee3e6eb3f15", size = 686605 },
+    { url = "https://files.pythonhosted.org/packages/e1/fe/f57f7c8c6a40dc2c392eea31ddf3da584aaf2d0d2c239bb6d2df44a29972/biliass-2.2.0-cp39-abi3-win_amd64.whl", hash = "sha256:e0a657abe5535a482e133e0a8a6884b2a375a174fc7e7cd54a82bd9fd8223384", size = 751513 },
 ]
 
 [[package]]
@@ -241,6 +287,15 @@ wheels = [
 ]
 
 [[package]]
+name = "dict2xml"
+version = "1.7.6"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/07/b3/2db1b077f9a80d30d1729a0af69b7cef8ce5b45c77a1f0f9ebb01b9edce1/dict2xml-1.7.6.tar.gz", hash = "sha256:3e4811f4ef7fca86dede6acf382268ff9bc5735a4aa0e21b465f6eb0c4e81732", size = 15210 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/32/ad/5a193b6461c713058e3c5b6dbec7a9f92230a968650129cc46f32d3c9de2/dict2xml-1.7.6-py3-none-any.whl", hash = "sha256:841a0c1720e4bfa121e958b805f1062fccf5af2970e7a1f81d7fa056f49e5065", size = 8038 },
+]
+
+[[package]]
 name = "editdistance"
 version = "0.8.1"
 source = { registry = "https://pypi.org/simple" }
@@ -332,6 +387,73 @@ wheels = [
 ]
 
 [[package]]
+name = "h11"
+version = "0.14.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f5/38/3af3d3633a34a3316095b39c8e8fb4853a28a536e55d347bd8d8e9a14b03/h11-0.14.0.tar.gz", hash = "sha256:8f19fbbe99e72420ff35c00b27a34cb9937e902a8b810e2c88300c6f0a3b699d", size = 100418 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/95/04/ff642e65ad6b90db43e668d70ffb6736436c7ce41fcc549f4e9472234127/h11-0.14.0-py3-none-any.whl", hash = "sha256:e3fe4ac4b851c468cc8363d500db52c2ead036020723024a109d37346efaa761", size = 58259 },
+]
+
+[[package]]
+name = "h2"
+version = "4.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "hpack" },
+    { name = "hyperframe" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1b/38/d7f80fd13e6582fb8e0df8c9a653dcc02b03ca34f4d72f34869298c5baf8/h2-4.2.0.tar.gz", hash = "sha256:c8a52129695e88b1a0578d8d2cc6842bbd79128ac685463b887ee278126ad01f", size = 2150682 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d0/9e/984486f2d0a0bd2b024bf4bc1c62688fcafa9e61991f041fb0e2def4a982/h2-4.2.0-py3-none-any.whl", hash = "sha256:479a53ad425bb29af087f3458a61d30780bc818e4ebcf01f0b536ba916462ed0", size = 60957 },
+]
+
+[[package]]
+name = "hpack"
+version = "4.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/2c/48/71de9ed269fdae9c8057e5a4c0aa7402e8bb16f2c6e90b3aa53327b113f8/hpack-4.1.0.tar.gz", hash = "sha256:ec5eca154f7056aa06f196a557655c5b009b382873ac8d1e66e79e87535f1dca", size = 51276 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/07/c6/80c95b1b2b94682a72cbdbfb85b81ae2daffa4291fbfa1b1464502ede10d/hpack-4.1.0-py3-none-any.whl", hash = "sha256:157ac792668d995c657d93111f46b4535ed114f0c9c8d672271bbec7eae1b496", size = 34357 },
+]
+
+[[package]]
+name = "httpcore"
+version = "1.0.7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "certifi" },
+    { name = "h11" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6a/41/d7d0a89eb493922c37d343b607bc1b5da7f5be7e383740b4753ad8943e90/httpcore-1.0.7.tar.gz", hash = "sha256:8551cb62a169ec7162ac7be8d4817d561f60e08eaa485234898414bb5a8a0b4c", size = 85196 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/87/f5/72347bc88306acb359581ac4d52f23c0ef445b57157adedb9aee0cd689d2/httpcore-1.0.7-py3-none-any.whl", hash = "sha256:a3fff8f43dc260d5bd363d9f9cf1830fa3a458b332856f34282de498ed420edd", size = 78551 },
+]
+
+[[package]]
+name = "httpx"
+version = "0.28.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "certifi" },
+    { name = "httpcore" },
+    { name = "idna" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b1/df/48c586a5fe32a0f01324ee087459e112ebb7224f646c0b5023f5e79e9956/httpx-0.28.1.tar.gz", hash = "sha256:75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc", size = 141406 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2a/39/e50c7c3a983047577ee07d2a9e53faf5a69493943ec3f6a384bdc792deb2/httpx-0.28.1-py3-none-any.whl", hash = "sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad", size = 73517 },
+]
+
+[package.optional-dependencies]
+http2 = [
+    { name = "h2" },
+]
+socks = [
+    { name = "socksio" },
+]
+
+[[package]]
 name = "hydra-core"
 version = "1.3.2"
 source = { registry = "https://pypi.org/simple" }
@@ -343,6 +465,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/6d/8e/07e42bc434a847154083b315779b0a81d567154504624e181caf2c71cd98/hydra-core-1.3.2.tar.gz", hash = "sha256:8a878ed67216997c3e9d88a8e72e7b4767e81af37afb4ea3334b269a4390a824", size = 3263494 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c6/50/e0edd38dcd63fb26a8547f13d28f7a008bc4a3fd4eb4ff030673f22ad41a/hydra_core-1.3.2-py3-none-any.whl", hash = "sha256:fa0238a9e31df3373b35b0bfb672c34cc92718d21f81311d8996a16de1141d8b", size = 154547 },
+]
+
+[[package]]
+name = "hyperframe"
+version = "6.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/02/e7/94f8232d4a74cc99514c13a9f995811485a6903d48e5d952771ef6322e30/hyperframe-6.1.0.tar.gz", hash = "sha256:f630908a00854a7adeabd6382b43923a4c4cd4b821fcb527e6ab9e15382a3b08", size = 26566 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/48/30/47d0bf6072f7252e6521f3447ccfa40b421b6824517f82854703d0f5a98b/hyperframe-6.1.0-py3-none-any.whl", hash = "sha256:b03380493a519fce58ea5af42e4a42317bf9bd425596f7a0835ffce80f1a42e5", size = 13007 },
 ]
 
 [[package]]
@@ -745,6 +876,18 @@ wheels = [
 ]
 
 [[package]]
+name = "pyaml"
+version = "25.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyyaml" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f4/06/04b9c1907c13dc81729a9c6b4f42eab47baab7a8738ed5d2683eac215ad0/pyaml-25.1.0.tar.gz", hash = "sha256:33a93ac49218f57e020b81e280d2706cea554ac5a76445ac79add760d019c709", size = 29469 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/69/c1/ec1930bc6c01754b8baf3c99420f340b920561f0060bccbf81809db354cc/pyaml-25.1.0-py3-none-any.whl", hash = "sha256:f7b40629d2dae88035657c860f539db3525ddd0120a11e0bcb44d47d5968b3bc", size = 26074 },
+]
+
+[[package]]
 name = "pyarrow"
 version = "19.0.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1100,6 +1243,24 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/44/cd/a040c4b3119bbe532e5b0732286f805445375489fceaec1f48306068ee3b/smmap-5.0.2.tar.gz", hash = "sha256:26ea65a03958fa0c8a1c7e8c7a58fdc77221b8910f6be2131affade476898ad5", size = 22329 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/04/be/d09147ad1ec7934636ad912901c5fd7667e1c858e19d355237db0d0cd5e4/smmap-5.0.2-py3-none-any.whl", hash = "sha256:b30115f0def7d7531d22a0fb6502488d879e75b260a9db4d0819cfb25403af5e", size = 24303 },
+]
+
+[[package]]
+name = "sniffio"
+version = "1.3.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a2/87/a6771e1546d97e7e041b6ae58d80074f81b7d5121207425c964ddf5cfdbd/sniffio-1.3.1.tar.gz", hash = "sha256:f4324edc670a0f49750a81b895f35c3adb843cca46f0530f79fc1babb23789dc", size = 20372 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e9/44/75a9c9421471a6c4805dbf2356f7c181a29c1879239abab1ea2cc8f38b40/sniffio-1.3.1-py3-none-any.whl", hash = "sha256:2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2", size = 10235 },
+]
+
+[[package]]
+name = "socksio"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f8/5c/48a7d9495be3d1c651198fd99dbb6ce190e2274d0f28b9051307bdec6b85/socksio-1.0.0.tar.gz", hash = "sha256:f88beb3da5b5c38b9890469de67d0cb0f9d494b78b106ca1845f96c10b91c4ac", size = 19055 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/37/c3/6eeb6034408dac0fa653d126c9204ade96b819c936e136c5e8a6897eee9c/socksio-1.0.0-py3-none-any.whl", hash = "sha256:95dc1f15f9b34e8d7b16f06d74b8ccf48f609af32ab33c608d08761c5dcbb1f3", size = 12763 },
 ]
 
 [[package]]
@@ -1548,6 +1709,63 @@ requires-dist = [
     { name = "torch", marker = "sys_platform == 'win32'", specifier = "==2.2.0", index = "https://download.pytorch.org/whl/cu118" },
     { name = "torchaudio", marker = "sys_platform != 'win32'", specifier = "==2.2.0", index = "https://download.pytorch.org/whl/cpu" },
     { name = "torchaudio", marker = "sys_platform == 'win32'", specifier = "==2.2.0", index = "https://download.pytorch.org/whl/cu118" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pyright", specifier = ">=1.1.391" },
+    { name = "pytest", specifier = ">=8.3.4" },
+    { name = "pytest-rerunfailures", specifier = ">=15.0" },
+    { name = "ruff", specifier = ">=0.9.3" },
+]
+
+[[package]]
+name = "yutto"
+version = "2.0.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiofiles" },
+    { name = "biliass" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "dict2xml" },
+    { name = "httpx", extra = ["http2", "socks"] },
+    { name = "pydantic" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4a/17/83e856294b8aaeb83b82cb74f5f5520cf5cb5c404be8f87ae7a4e6653525/yutto-2.0.2.tar.gz", hash = "sha256:7176d7361157ab8e473a93e799cca6301bad3b35c682d8788d6f3100f4144622", size = 326042 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/73/d5/c5fc985804497af6d5430d59d20571a3a0d98981d633c68361e8501a0c34/yutto-2.0.2-py3-none-any.whl", hash = "sha256:e9ae2329b3c92830f51e4b9f0fdebe831e4374d879d3ce09f6e147690f9a0ff6", size = 103945 },
+]
+
+[[package]]
+name = "yutto-uiya"
+version = "1.0.4"
+source = { editable = "packages/yutto-uiya" }
+dependencies = [
+    { name = "httpx", extra = ["http2", "socks"] },
+    { name = "pyaml" },
+    { name = "pydantic" },
+    { name = "streamlit" },
+    { name = "tomli-w" },
+    { name = "yutto" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pyright" },
+    { name = "pytest" },
+    { name = "pytest-rerunfailures" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", extras = ["http2", "socks"], specifier = ">=0.28.1" },
+    { name = "pyaml", specifier = "==25.1.0" },
+    { name = "pydantic", specifier = "==2.10.6" },
+    { name = "streamlit", specifier = "==1.43.2" },
+    { name = "tomli-w", specifier = "==1.2.0" },
+    { name = "yutto", specifier = "==2.0.2" },
 ]
 
 [package.metadata.requires-dev]

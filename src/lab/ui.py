@@ -27,6 +27,7 @@ def main():
         "audio": ROOT_DIR / "src" / "lab" / "pages" / "project" / "audio.py",
         "settings": ROOT_DIR / "src" / "lab" / "pages" / "setting" / "set.py",
         "todo": ROOT_DIR / "packages" / "todo" / "src" / "todo" / "streamlit_to_do.py",
+        "uiya": ROOT_DIR / "packages" / "yutto-uiya" / "src" / "uiya" / "yutto_uiya.py",
     }
     # 检查路径是否存在
     for name, path in PAGE_PATHS.items():
@@ -52,6 +53,11 @@ def main():
             st.Page(
                 page=str(PAGE_PATHS["audio"]),
                 title="音频识别",
+                icon=":material/headset:",
+            ),
+            st.Page(
+                page=str(PAGE_PATHS["uiya"]),
+                title="b站视频下载",
                 icon=":material/graphic_eq:",
             ),
         ],

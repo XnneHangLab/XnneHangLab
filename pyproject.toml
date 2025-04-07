@@ -52,7 +52,7 @@ dev = [
 
 
 [tool.uv.workspace]
-members = ["packages/todo"]
+members = ["packages/todo","packages/yutto-uiya"]
 
 [[tool.uv.index]]
 name = "pytorch-cu118"
@@ -138,7 +138,7 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/lab","packages/todo/src/todo"]
+packages = ["src/lab","packages/todo/src/todo","packages/yutto-uiya/src/uiya"]
 
 [build-system]
 requires = ["hatchling"]
