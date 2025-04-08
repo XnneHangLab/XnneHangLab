@@ -20,6 +20,7 @@ dependencies = [
     # for yutto-uiya
     "httpx[http2,socks]>=0.28.1",
     "yutto==2.0.2",
+    "pexpect==4.9.0",
 ]
 authors = [{ name = "MrXnneHang", email = "XnneHang@gmail.com" }]
 keywords = []
