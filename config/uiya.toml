@@ -1,5 +1,5 @@
-as_package = true
+as_package = false
 SESS_DATA = ""
 download_dir = "./downloads"
-login_strict = false
-vip_strict = false
+login_strict = "close"
+vip_strict = "close"
