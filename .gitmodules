@@ -7,3 +7,6 @@
 [submodule "packages/yutto-uiya"]
 	path = packages/yutto-uiya
 	url = https://github.com/MrXnneHang/yutto-uiya.git
+[submodule "packages/wexpect-uv"]
+	path = packages/wexpect-uv
+	url = https://github.com/MrXnneHang/wexpect-uv.git

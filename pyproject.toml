@@ -11,7 +11,7 @@ dependencies = [
     "torch==2.2.0",
     "torchaudio==2.2.0",
     "tomli_w==1.2.0",
-    "pydantic==2.10.6",
+    "pydantic>=2.10.6",
     "setuptools==76.0.0",
     "streamlit==1.43.2",
     "streamlit-antd-components==0.3.2",
@@ -19,8 +19,10 @@ dependencies = [
 
     # for yutto-uiya
     "httpx[http2,socks]>=0.28.1",
-    "yutto==2.0.2",
-    "pexpect==4.9.0",
+    "pexpect==4.9.0;sys_platform != 'win32'",
+    "wexpect-uv; sys_platform == 'win32'",
+    "yutto",
+
 ]
 authors = [{ name = "MrXnneHang", email = "XnneHang@gmail.com" }]
 keywords = []
@@ -57,7 +59,7 @@ dev = [
 
 
 [tool.uv.workspace]
-members = ["packages/todo","packages/yutto-uiya"]
+members = ["packages/yutto-uiya","packages/todo/","packages/wexpect-uv"]
 
 [[tool.uv.index]]
 name = "pytorch-cu118"
@@ -78,6 +80,8 @@ torchaudio = [
   { index = "pytorch-cu118", marker = "sys_platform == 'win32'" },
   { index = "pytorch-cpu", marker = "sys_platform != 'win32'"}
 ]
+wexpect-uv = { workspace = true }
+yutto = { path = "./packages/yutto" }
 
 [tool.pyright]
 include = ["src/lab"]
@@ -143,7 +147,7 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/lab","packages/todo/src/todo","packages/yutto-uiya/src/uiya"]
+packages = ["src/lab","packages/todo/src/todo","packages/yutto-uiya/src/uiya","packages/wexpect-uv/src/wexpect"]
 
 [build-system]
 requires = ["hatchling"]
