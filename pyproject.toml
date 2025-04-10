@@ -17,12 +17,11 @@ dependencies = [
     "streamlit-antd-components==0.3.2",
     "pandas==2.2.3",
 
-    # for yutto-uiya
+    # special for yutto-uiya , 因为似乎不会自动检查 workspace 的成员并且安装依赖
+    "yutto==2.0.3",
     "httpx[http2,socks]>=0.28.1",
-    "pexpect==4.9.0;sys_platform != 'win32'",
-    "wexpect-uv; sys_platform == 'win32'",
-    "yutto",
-
+    "pexpect==4.9.0;sys_platform!='win32'",
+    "wexpect-uv;sys_platform=='win32'",
 ]
 authors = [{ name = "MrXnneHang", email = "XnneHang@gmail.com" }]
 keywords = []
@@ -59,7 +58,8 @@ dev = [
 
 
 [tool.uv.workspace]
-members = ["packages/yutto-uiya","packages/todo/","packages/wexpect-uv"]
+members = ["packages/yutto-uiya","packages/todo/"]
+# members = ["packages/yutto-uiya","packages/todo/","packages/wexpect-uv"]  # 本地快速开发时可用
 
 [[tool.uv.index]]
 name = "pytorch-cu118"
@@ -80,8 +80,10 @@ torchaudio = [
   { index = "pytorch-cu118", marker = "sys_platform == 'win32'" },
   { index = "pytorch-cpu", marker = "sys_platform != 'win32'"}
 ]
-wexpect-uv = { workspace = true }
-yutto = { path = "./packages/yutto" }
+wexpect-uv = { git = "https://github.com/XnneHangLab/wexpect-uv.git" , rev = "dev" } # 当快速开发调试时可以用下面那个
+
+# wexpect-uv = { workspace = true} # 不作为 workspace 成员，因为 workspace 成员 yutto-uiya 也有引用到它，嵌套的 workspace 是不被支持的。
+# yutto = { path = "./packages/yutto" } # 仅当调整 yutto 时使用，它不作为 workspace 成员，但本地构建最新分支并调整
 
 [tool.pyright]
 include = ["src/lab"]
@@ -147,7 +149,8 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/lab","packages/todo/src/todo","packages/yutto-uiya/src/uiya","packages/wexpect-uv/src/wexpect"]
+packages = ["src/lab","packages/todo/src/todo","packages/yutto-uiya/src/uiya"]
+# packages = ["src/lab","packages/todo/src/todo","packages/yutto-uiya/src/uiya","packages/wexpect-uv/src/wexpect"] # 快速开发可用
 
 [build-system]
 requires = ["hatchling"]
