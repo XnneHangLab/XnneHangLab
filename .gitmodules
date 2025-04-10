@@ -6,4 +6,4 @@
 	url = https://github.com/MrXnneHang/Streamlit-To-Do-List.git
 [submodule "packages/yutto-uiya"]
 	path = packages/yutto-uiya
-	url = https://github.com/MrXnneHang/yutto-uiya.git
+	url = https://github.com/XnneHangLab/yutto-uiya.git
