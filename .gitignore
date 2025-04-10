@@ -38,3 +38,6 @@ downloads
 
 # yutto。我希望以 release 的 yutto 作为 deps, 但在开发和调试的时候，有时候会调整 yutto 来适应特性，它不作为 uv.workspace 成员，因为它已经是独立的 uv.workspace.
 packages/yutto
+
+# wexpect
+packages/wexpect-uv
