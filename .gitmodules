@@ -1,6 +1,3 @@
-[submodule "Examples"]
-	path = tests
-	url = https://github.com/MrXnneHang/Caption-Generator-Examples.git
 [submodule "packages/todo"]
 	path = packages/todo
 	url = https://github.com/MrXnneHang/Streamlit-To-Do-List.git
