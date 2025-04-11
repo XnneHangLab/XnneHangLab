@@ -43,3 +43,9 @@ ci-install:
 
 ci-test:
   just test
+
+ci-fmt-check:
+  just fmt
+
+ci-lint:
+  just lint
