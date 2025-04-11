@@ -43,6 +43,14 @@ jobs:
         run: |
           just ci-install
 
+      - name: Verify cached files
+        run: |
+          echo "Checking cached model folders:"
+          ls ./models/SenseVoiceSmall/
+          ls ./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch/
+          ls ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch/
+          ls ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
+
       - name: cache model
         id: model-cache
         uses: actions/cache@v4
@@ -52,13 +60,13 @@ jobs:
             ./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch/
             ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch/
             ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
-          key: "model-cache-v1"
+          key: model-cache-v1
           
-      - name: Download model if needed
-        if: steps.model-cache.outputs.cache-hit != 'true'
-        run: |
-          just install-model
-          just install-sensevoice
+      # - name: Download model if needed
+      #   if: steps.model-cache.outputs.cache-hit != 'true'
+      #   run: |
+      #     just install-model
+      #     just install-sensevoice
 
       - name: Run unit tests
         run: |

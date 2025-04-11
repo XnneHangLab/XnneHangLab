@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 def main():
     print("====== testing audio ========")
-    testing_file = Path("./tests/example1.wav")
+    testing_file = Path("./examples/example1.wav")
     if not testing_file.exists():
         raise FileNotFoundError(f"File not found: {testing_file}")
 
