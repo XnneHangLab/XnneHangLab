@@ -35,3 +35,11 @@ lint:
 
 test:
   uv run test
+
+ci-install:
+  uv lock
+  uv sync
+
+
+ci-test:
+  just test
