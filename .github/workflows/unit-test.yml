@@ -43,11 +43,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ./models/SenseVoiceSmall
             ./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch
             ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch
             ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
-          key: model-cache-v1
+          key: model-cache-v2-${{ runner.os }}-${{ hashFiles('uv.lock') }}
           
       # 如果缓存未命中，则下载模型
       - name: Download model if needed
