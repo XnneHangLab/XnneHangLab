@@ -65,6 +65,10 @@ jobs:
           ls -la ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch/
           ls -la ./models/SenseVoiceSmall/
       
+      - name: install ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
       # - name: Run unit tests
       #   run: |
       #     just ci-test

@@ -29,12 +29,12 @@ fmt:
   uv run ruff format . --exclude packages
 
 lint:
-  uv run pyright src/lab
+  uv run pyright src/lab tests
   uv run ruff check . --exclude packages
   prettier --ignore-path .prettierignore --write '**/*.md'
 
 test:
-  uv run test
+  uv run pytest tests -vvv
 
 ci-install:
   uv lock
