@@ -134,3 +134,6 @@ class TestLabComponents:
 
         # 验证长度一致性
         assert original_total_length == cutted_total_length == combined_total_length
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
