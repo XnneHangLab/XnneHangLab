@@ -33,6 +33,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: pull submodules
+        run: |
+          git submodule update --init --recursive
+
       - name: Install dependencies
         run: |
           just ci-install
