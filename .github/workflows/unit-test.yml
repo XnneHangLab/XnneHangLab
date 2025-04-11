@@ -1,0 +1,75 @@
+name: Unit Test
+on:
+  push:
+    branches: [dev]
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+jobs:
+  unit-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+        architecture: ["x64"]
+    name: Python ${{ matrix.python-version }} on ${{ matrix.architecture }} unit test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Install python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: ${{ matrix.architecture }}
+      - name: Install just
+        uses: extractions/setup-just@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+      - name: pull submodules
+        run: |
+          git submodule update --init --recursive
+      - name: Install dependencies
+        run: |
+          just ci-install
+          
+      # 首先尝试恢复缓存
+      - name: cache model
+        id: model-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch
+            ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch
+            ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
+            ./models/SenseVoiceSmall
+          key: model-cache-asr-sensevoice
+          
+      # 如果缓存未命中，则下载模型
+      - name: Download model if needed
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        run: |
+          just install-model
+          just install-sensevoice
+    
+      # 然后验证模型文件
+      - name: Verify cached files
+        run: |
+          echo "Checking cached model folders:"
+          ls -la ./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch/
+          ls -la ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch/
+          ls -la ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch/
+          ls -la ./models/SenseVoiceSmall/
+      
+      - name: install ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Run unit tests
+        run: |
+          just ci-test

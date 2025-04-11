@@ -1,9 +1,9 @@
-[submodule "tests"]
-	path = tests
-	url = https://github.com/MrXnneHang/Caption-Generator-Examples.git
 [submodule "packages/todo"]
 	path = packages/todo
 	url = https://github.com/MrXnneHang/Streamlit-To-Do-List.git
 [submodule "packages/yutto-uiya"]
 	path = packages/yutto-uiya
 	url = https://github.com/XnneHangLab/yutto-uiya.git
+[submodule "examples"]
+	path = examples
+	url = https://github.com/MrXnneHang/Subtitle-Generator-Examples.git

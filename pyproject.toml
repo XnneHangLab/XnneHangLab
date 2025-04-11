@@ -1,6 +1,6 @@
 [project]
 name = "XnneHangLab"
-version = "0.0.2"
+version = "0.0.3"
 description = ""
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
@@ -85,7 +85,7 @@ torchaudio = [
 # yutto = { path = "./packages/yutto" } # 仅当调整 yutto 时使用，它不作为 workspace 成员，但本地构建最新分支并调整
 
 [tool.pyright]
-include = ["src/lab"]
+include = ["src/lab","tests"]
 pythonVersion = "3.11"
 typeCheckingMode = "strict"
 reportMissingTypeStubs = false
