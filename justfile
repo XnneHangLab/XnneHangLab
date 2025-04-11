@@ -31,6 +31,8 @@ fmt:
 lint:
   uv run pyright src/lab tests
   uv run ruff check . --exclude packages
+
+fmt-docs:
   prettier --ignore-path .prettierignore --write '**/*.md'
 
 test:
@@ -43,3 +45,9 @@ ci-install:
 
 ci-test:
   just test
+
+ci-fmt-check:
+  just fmt
+
+ci-lint:
+  just lint

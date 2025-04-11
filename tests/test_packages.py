@@ -1,9 +1,12 @@
 from __future__ import annotations
-import pytest
+
 import funasr
+import pytest
 from todo.__version__ import VERSION as TODO_VERSION
 from uiya.__version__ import VERSION as UIYA_VERSION
+
 from lab.__version__ import VERSION
+
 
 def test_package_versions():
     """测试各个包的版本号是否符合预期。"""

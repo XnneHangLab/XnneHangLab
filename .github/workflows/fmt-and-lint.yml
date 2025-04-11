@@ -1,0 +1,50 @@
+name: Lint and Format
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+
+jobs:
+  lint-and-fmt-python:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+        architecture: ["x64"]
+    name: Lint and Format (Python)
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: ${{ matrix.architecture }}
+
+      - name: Install just
+        uses: extractions/setup-just@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: pull submodules
+        run: |
+          git submodule update --init --recursive
+
+      - name: Install dependencies
+        run: |
+          just ci-install
+
+      - name: lint
+        run: |
+          just ci-lint
+
+      - name: format check
+        run: |
+          just ci-fmt-check
