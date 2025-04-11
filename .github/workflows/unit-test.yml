@@ -49,18 +49,16 @@ jobs:
             ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
           key: model-cache-v1
           
-      # # 如果缓存未命中，则下载模型
-      # - name: Download model if needed
-      #   if: steps.model-cache.outputs.cache-hit != 'true'
-      #   run: |
-      #     just install-model
-      #     just install-sensevoice
-          
+      # 如果缓存未命中，则下载模型
+      - name: Download model if needed
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        run: |
+          just install-model
+    
       # 然后验证模型文件
       - name: Verify cached files
         run: |
           echo "Checking cached model folders:"
-          ls -la ./models/SenseVoiceSmall/ || echo "SenseVoiceSmall not found"
           ls -la ./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch/ || echo "punc_ct-transformer not found"
           ls -la ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch/ || echo "speech_fsmn_vad not found"
           ls -la ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch/ || echo "speech_seaco_paraformer not found"
