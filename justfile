@@ -25,12 +25,12 @@ install-sensevoice:
 
 
 fmt:
-  uv run ruff check --fix --select I . --exclude packages tests
+  uv run ruff check --fix --select I . --exclude packages
   uv run ruff format . --exclude packages
 
 lint:
   uv run pyright src/lab
-  uv run ruff check . --exclude packages tests
+  uv run ruff check . --exclude packages
   prettier --ignore-path .prettierignore --write '**/*.md'
 
 test:
