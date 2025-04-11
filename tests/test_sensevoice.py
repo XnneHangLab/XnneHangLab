@@ -118,5 +118,6 @@ class TestSenseVoice:
         print(f"Total words with punctuation: {len(sense_text_with_punc_list)}")
         print(f"Total words without punctuation: {len(parsed_sense_voice_data['sense_text_list'])}")
 
+
 if __name__ == "__main__":
     pytest.main(["-v", __file__])
