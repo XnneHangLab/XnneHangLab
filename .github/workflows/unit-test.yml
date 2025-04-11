@@ -46,7 +46,7 @@ jobs:
             ./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch
             ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch
             ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
-          key: model-cache-v2-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+          key: model-cache-asr-sensevoice
           
       # 如果缓存未命中，则下载模型
       - name: Download model if needed
@@ -58,9 +58,9 @@ jobs:
       - name: Verify cached files
         run: |
           echo "Checking cached model folders:"
-          ls -la ./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch/ || echo "punc_ct-transformer not found"
-          ls -la ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch/ || echo "speech_fsmn_vad not found"
-          ls -la ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch/ || echo "speech_seaco_paraformer not found"
+          ls -la ./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch/
+          ls -la ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch/
+          ls -la ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch/
           
       - name: Run unit tests
         run: |
