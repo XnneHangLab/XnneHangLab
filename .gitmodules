@@ -1,4 +1,4 @@
-[submodule "tests"]
+[submodule "Examples"]
 	path = tests
 	url = https://github.com/MrXnneHang/Caption-Generator-Examples.git
 [submodule "packages/todo"]
