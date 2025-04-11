@@ -45,7 +45,8 @@ jobs:
           path: |
             ./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch
             ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch
-          # ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
+            ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
+            ./models/SenseVoiceSmall
           key: model-cache-asr-sensevoice
           
       # 如果缓存未命中，则下载模型
@@ -60,7 +61,8 @@ jobs:
           echo "Checking cached model folders:"
           ls -la ./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch/
           ls -la ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch/
-      # ls -la ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch/
+          ls -la ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch/
+          ls -la ./models/SenseVoiceSmall/
       
       # - name: Run unit tests
       #   run: |
