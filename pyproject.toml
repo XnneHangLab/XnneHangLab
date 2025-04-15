@@ -18,10 +18,11 @@ dependencies = [
     "pandas==2.2.3",
 
     # special for yutto-uiya , 因为似乎不会自动检查 workspace 的成员并且安装依赖
+    # "yutto",
     "yutto==2.0.3",
     "httpx[http2,socks]>=0.28.1",
     "pexpect==4.9.0;sys_platform!='win32'",
-    "wexpect-uv==0.0.1;sys_platform=='win32'",
+    "wexpect-uv==0.0.2;sys_platform=='win32'",
 ]
 authors = [{ name = "MrXnneHang", email = "XnneHang@gmail.com" }]
 keywords = []
@@ -81,8 +82,10 @@ torchaudio = [
   { index = "pytorch-cpu", marker = "sys_platform != 'win32'"}
 ]
 
-# wexpect-uv = { workspace = true} # 不作为 workspace 成员，因为 workspace 成员 yutto-uiya 也有引用到它，嵌套的 workspace 是不被支持的。
-# yutto = { path = "./packages/yutto" } # 仅当调整 yutto 时使用，它不作为 workspace 成员，但本地构建最新分支并调整
+
+# yutto = { git = "https://github.com/yutto-dev/yutto.git", rev = "main" }
+# yutto = { path = "./packages/yutto/dist/yutto-2.0.3-py3-none-any.whl"}
+# wexpect-uv = { path = "packages/wexpect-uv/dist/wexpect_uv-0.0.1-py3-none-any.whl" } # 不作为 workspace 成员，因为 workspace 成员 yutto-uiya 也有引用到它，嵌套的 workspace 是不被支持的。
 
 [tool.pyright]
 include = ["src/lab","tests"]
@@ -149,7 +152,6 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/lab","packages/todo/src/todo","packages/yutto-uiya/src/uiya"]
-# packages = ["src/lab","packages/todo/src/todo","packages/yutto-uiya/src/uiya","packages/wexpect-uv/src/wexpect"] # 快速开发可用
 
 [build-system]
 requires = ["hatchling"]
