@@ -98,3 +98,36 @@ class DebugMessage(TypedDict):
     segmented_text: list[str]
     total_words_num: int
     total_ts_num: int
+
+
+class AudioSessionStateKeys(TypedDict):
+    """audio.py 中用到的 st.session_state 的 key_names"""
+
+    audio_name: str  # 音频文件名(包含后缀), 用来判断是否需要 FileToWav
+    audio_file: str  # 音频文件的绝对路径
+
+    # ======= 音频文件获取方式.
+    use_upload: str  # 是否使用上传的音频
+    use_example: str  # 是否使用示例音频
+    use_bilibili: str  # 是否使用 bilibili 模块下载的音频
+
+    # ======= 音频识别
+    response_with_timestamp: str  # 带时间戳的识别结果
+    text_result: str  # 不带时间戳的识别结果, only text
+
+    # ======= 界面展示
+    preview_srt_file: str  # 实时读取并且预览的 srt 文件 Path
+
+    # ======= 信息提示
+    readme: str  # guide
+    welcome: str  # welcome
+    save: str  # 保存成功后提示信息
+    upload: str  # 上传成功后提示信息
+    guide: str  # guide
+
+    # ======= 配置文件
+    output_type: str  # 输出文件类型
+    subtitle_speed: str  # 字幕速度
+    cut_line: str
+    combine_line: str
+    max_sentence_length: str  # 最大句子长度
