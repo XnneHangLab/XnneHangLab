@@ -192,7 +192,7 @@ with tab1:
                     cache_dir = st.session_state.cache_dir
                     cache_dir.mkdir(parents=True, exist_ok=True)
                     shutil.copy(
-                        Path(f"tests/{st.session_state.audio_name}"),
+                        Path(f"examples/{st.session_state.audio_name}"),
                         cache_dir / st.session_state.audio_name,
                     )
                     if audio_last_name != "wav":
@@ -286,9 +286,11 @@ with tab1:
             @st.dialog("上传音频文件 / 选择示例文件")
             def upload_audio():
                 st.markdown("在这里上传您需要处理的音频文件，该模块一次只能处理一个，多个会互相覆盖。")
-                st.markdown("""暂时受限于我家下行带宽(90M),建议上传小文件,mp3,m4a 都可以。wav 太大了。""")
                 st.caption(
-                    """该服务用 frp 内网穿透，你看到的上传进度条只是上传到服务器，服务器还得发到我的电脑，所以会卡100%（等待电脑下载到本地，超级久），所以请上传小文件试试水（<10MB）！！！"""
+                    """该服务用 frp 内网穿透,你看到的上传进度条只是上传到服务器,服务器还得发到我的电脑,所以会卡100%，所以请上传小文件试试水(<10MB)."""
+                )
+                st.caption(
+                    """另外，如果有对德国(欧洲地区)速度较快(下载速度可以达到超过20MB/s,目前大概只有10MB/s)的代理也可以向我推荐。"""
                 )
                 st.markdown("")
 
@@ -310,37 +312,28 @@ with tab1:
                         st.rerun()
 
                 st.markdown("**PS:** 因为卡 100% 真的很影响体验，这里提供了示例文件（都存在我的电脑中，不需要上传）。")
-                st.caption("example1: [华容道迷宫 | 《20 Small Mazes》](https://www.bilibili.com/video/BV1Xzk3YPEd9)")
+                st.caption("example1: 截取了 example2 的第一句歌词， 我用来跑 CI/CD 的。")
                 st.caption(
-                    "example2: [【AI巴老师】难道看我失魂落魄，你竟然心动](https://www.bilibili.com/video/BV1314y1k73r/)"
+                    "example2: [【AI巴老师】难道看我失魂落魄,你竟然心动](https://www.bilibili.com/video/BV1314y1k73r/)"
                 )
-                st.caption("example3: AI生成的一个长音频,用于上行速度影响测试。")
                 st.markdown("")
-                st.caption("也欢迎你通知我你要补充的示例文件。")
 
                 select_file = st.selectbox(
                     "选择示例文件",
                     [
                         "example1.wav",
                         "example2.m4a",
-                        "example3.mp3",
                     ],
                 )
                 if st.button("**使用示例文件**", use_container_width=True, type="primary"):
                     if select_file == "example1.wav":
-                        st.session_state.audio_file = "tests/example1.wav"
+                        st.session_state.audio_file = "examples/example1.wav"
                         st.session_state.selected_file = select_file
                         st.session_state.use_example = True
                         st.session_state.upload = True
                         st.rerun()
                     elif select_file == "example2.m4a":
-                        st.session_state.audio_file = "tests/example2.m4a"
-                        st.session_state.selected_file = select_file
-                        st.session_state.use_example = True
-                        st.session_state.upload = True
-                        st.rerun()
-                    elif select_file == "example3.mp3":
-                        st.session_state.audio_file = "tests/example3.mp3"
+                        st.session_state.audio_file = "examples/example2.m4a"
                         st.session_state.selected_file = select_file
                         st.session_state.use_example = True
                         st.session_state.upload = True
