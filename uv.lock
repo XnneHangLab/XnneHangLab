@@ -1717,16 +1717,16 @@ wheels = [
 
 [[package]]
 name = "wexpect-uv"
-version = "0.0.1"
+version = "0.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "psutil", marker = "sys_platform == 'win32'" },
     { name = "pywin32", marker = "sys_platform == 'win32'" },
     { name = "setuptools", marker = "sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d2/b6/68710472106988963cc37732325ddaafe302eb3f6d6b74a290f619c3d87b/wexpect_uv-0.0.1.tar.gz", hash = "sha256:dd23cbf9a6f2005a876aad4e2b26991a174ca597a2cfd31f857b079ac51424d9", size = 95432 }
+sdist = { url = "https://files.pythonhosted.org/packages/9b/49/0ed9357c45f3be8dd6b177f40e9aa3c4efc922757f5bb82d004b6ac47d67/wexpect_uv-0.0.2.tar.gz", hash = "sha256:ac6d4392b681e9c2ce3c155a57e8ab1b3685a4047cf05af0bbdc6f151871edf0", size = 96026 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/95/db/05977afe90e9e20267c3fec6850271ec433cc22f7b95d97a5c8388076c04/wexpect_uv-0.0.1-py3-none-any.whl", hash = "sha256:beb0836ff68b167c59f64be02f178992bd6763399715b7a95896a90aceca8c9e", size = 46344 },
+    { url = "https://files.pythonhosted.org/packages/04/c7/8efe062f303b65c1f2b287e50bfb56f1ae363ae553ca0521c9e49dea4d51/wexpect_uv-0.0.2-py3-none-any.whl", hash = "sha256:0aa4116b3b8318193b85740468c6688a90f97a15bd45ccab55d8c8c0bc40eecb", size = 46850 },
 ]
 
 [[package]]
@@ -1780,7 +1780,7 @@ requires-dist = [
     { name = "torch", marker = "sys_platform == 'win32'", specifier = "==2.2.0", index = "https://download.pytorch.org/whl/cu118" },
     { name = "torchaudio", marker = "sys_platform != 'win32'", specifier = "==2.2.0", index = "https://download.pytorch.org/whl/cpu" },
     { name = "torchaudio", marker = "sys_platform == 'win32'", specifier = "==2.2.0", index = "https://download.pytorch.org/whl/cu118" },
-    { name = "wexpect-uv", marker = "sys_platform == 'win32'", specifier = "==0.0.1" },
+    { name = "wexpect-uv", marker = "sys_platform == 'win32'", specifier = "==0.0.2" },
     { name = "yutto", specifier = "==2.0.3" },
 ]
 
@@ -1839,7 +1839,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.10.6" },
     { name = "streamlit", specifier = "==1.43.2" },
     { name = "tomli-w", specifier = "==1.2.0" },
-    { name = "wexpect-uv", marker = "sys_platform == 'win32'", specifier = "==0.0.1" },
+    { name = "wexpect-uv", marker = "sys_platform == 'win32'", specifier = "==0.0.2" },
     { name = "yutto", specifier = "==2.0.3" },
 ]
 
