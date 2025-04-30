@@ -23,6 +23,7 @@ dependencies = [
     "httpx[http2,socks]>=0.28.1",
     "pexpect==4.9.0;sys_platform!='win32'",
     "wexpect-uv==0.0.4;sys_platform=='win32'",
+    # "wexpect-uv;sys_platform=='win32'",
     "natsort>=8.4.0",
 ]
 authors = [{ name = "MrXnneHang", email = "XnneHang@gmail.com" }]
@@ -61,7 +62,6 @@ dev = [
 
 [tool.uv.workspace]
 members = ["packages/yutto-uiya","packages/todo/"]
-# members = ["packages/yutto-uiya","packages/todo/","packages/wexpect-uv"]  # 本地快速开发时可用
 
 [[tool.uv.index]]
 name = "pytorch-cu118"
@@ -83,10 +83,10 @@ torchaudio = [
   { index = "pytorch-cpu", marker = "sys_platform != 'win32'"}
 ]
 
-
+# 这个源要与 yutto-uiya 保持一致, 要改, 得同时改
 yutto = { git = "https://github.com/MrXnneHang/yutto.git", rev = "parse" }
 # yutto = { path = "./packages/yutto/dist/yutto-2.0.3-py3-none-any.whl"}
-# wexpect-uv = { path = "packages/wexpect-uv/dist/wexpect_uv-0.0.1-py3-none-any.whl" } # 不作为 workspace 成员，因为 workspace 成员 yutto-uiya 也有引用到它，嵌套的 workspace 是不被支持的。
+# wexpect-uv = {path="./packages/wexpect-uv/dist/wexpect_uv-0.0.4-py3-none-any.whl"}
 
 [tool.pyright]
 include = ["src/lab","tests"]
