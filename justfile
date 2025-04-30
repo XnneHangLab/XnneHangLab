@@ -1,5 +1,3 @@
-VERSION := `uv run scripts/get-version.py src/lab/__version__.py`
-
 start:
   uv lock
   uv sync
@@ -12,12 +10,14 @@ dev-clean:
 
 
 dev:
-  uv build packages/yutto
-  uv build packages/wexpect-uv
-  uv sync --no-cache # 防止 hash-check 阻止同步最新源代码
-  uv run get_root
-  uv run streamlit run src/lab/ui.py --server.port 5050
-
+    # 删除所有构建产物和缓存 / 二次操作防止缓存问题恢复代码
+    rm -rf packages/*/dist
+    rm -rf packages/*/__pycache__
+    rm -rf packages/*/*.egg-info
+    uv build packages/yutto
+    uv build packages/wexpect-uv
+    uv lock --no-cache --upgrade
+    uv run streamlit run src/lab/ui.py --server.port 8000
 
 install-model:
   uv lock
