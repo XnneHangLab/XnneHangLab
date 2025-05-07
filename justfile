@@ -17,6 +17,7 @@ dev:
     uv build packages/yutto
     uv build packages/wexpect-uv
     uv lock --no-cache --upgrade
+    uv run get_root
     uv run streamlit run src/lab/ui.py --server.port 8000
 
 install-model:
