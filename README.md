@@ -60,11 +60,9 @@
 
 最近正在支持 SenseVoice 的时间检测，以及视频输入的 GUI 版本还在赶来的路上。
 
-**Building...**
-
 - [**yutto-uiya:** 一个 bilibili 视频下载器，基于 yutto 开发的 WebUI](https://github.com/MrXnneHang/yutto-uiya)
 
-正在用 Streamlit 重构 WebUI ，之后就可以直接集成进来。致力于从视频下载到音频处理以及字幕生成一条龙服务。
+使用方法类似于 Downkyi, 致力于从视频下载到音频处理以及字幕生成一条龙服务。
 
 ## 演示
 
@@ -80,6 +78,8 @@
 
 ![audio-recognize](https://fastly.jsdelivr.net/gh/MrXnneHang/blog_img/BlogHosting/img/25/02/202503312004227.png)
 
+![bilibili-parse](https://fastly.jsdelivr.net/gh/MrXnneHang/blog_img/BlogHosting/img/25/02/202505091046080.png)
+
 ## 本地部署
 
 ### 0.前置
@@ -88,7 +88,19 @@
 
 [**just**](https://github.com/casey/just) 是一款用 rust 编写的简单易用的命令执行工具，它可以让原本复杂的命令运行变得简单。安装方法请参考[它的文档](https://github.com/casey/just#installation)。该项非必须， Windows 比较难安装 just , 可以跳过。后续使用 bat 脚本替代即可。
 
-**ps:** windows 用户也可以等待网盘的整合包。
+[**rust-tool-chain**](https://www.rust-lang.org/tools/install) 是本项目的编译工具，因为本项目联调了 `yutto` 并且并不是所有特性都合入了 `yutto` 的主分支，所以目前 `yutto` 从 github 安装, 手动编译时需要 rust 工具链. 当然我也会尽量在 release 最新的 yutto-uiya 附带所用 yutto `whl` 包. 如果你使用我所 release 的 whl, 那么只需要安装 `uv` 和 `just` 即可。 但该方法需要修改 `pyproject.toml`:
+
+对于当前目录的 `pyproject.toml`:
+
+```toml
+# 这个源要与 yutto-uiya 保持一致, 要改, 得同时改
+yutto = { git = "https://github.com/MrXnneHang/yutto.git", rev = "parse" }
+# yutto = { path = "./packages/yutto/dist/yutto-2.0.3-py3-none-any.whl"}
+```
+
+把下面那行取消注释并且注释掉上面那行即可。path 指向对应的 whl 文件并且对 `packages/yutto-uiya/pyproject.toml` 做同样操作.
+
+**ps:** windows 用户也可以等待网盘的整合包。整合包双击运行,包含所有环境以及依赖.
 
 ### 1.从 Release 页面下载源码（XnneHangLab.zip）
 
@@ -199,7 +211,7 @@ uv run streamlit run src/lab/ui.py
 - [ ] 音频字幕编辑和微调
 - [ ] SenseVoice with TimeStamp 模型选项支持
 - [ ] 视频识别模块
-- [ ] yutto-uiya 的移重构 bilibili 视频下载 new package
+- [x] yutto-uiya 的移重构 bilibili 视频下载 new package
 
 ## 引用的仓库
 
