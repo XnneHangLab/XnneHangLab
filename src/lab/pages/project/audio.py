@@ -83,7 +83,7 @@ if audio_keys["upload"] in st.session_state:
 
 # ============== 2.页面布局
 
-working_tab , setting_tab = st.tabs(["**音频识别**", "**参数设置**"])
+working_tab, setting_tab = st.tabs(["**音频识别**", "**参数设置**"])
 
 
 # 2.1. 配置
@@ -367,7 +367,7 @@ with working_tab:
                     st.markdown("")
 
                 if st.session_state[audio_keys["response_with_timestamp"]]:
-                    response_with_timestamp = st.session_state.response_with_timestamp
+                    response_with_timestamp = st.session_state[audio_keys["response_with_timestamp"]]
                     sentences = convert_asr_response_to_sentences(response_with_timestamp)
                     if subtitle_speed == "慢":
                         sentences = combine_sentences(

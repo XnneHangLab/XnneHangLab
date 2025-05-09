@@ -5,6 +5,7 @@ from pathlib import Path
 import streamlit as st
 
 from lab._dataclass import Device, RunnerSettings
+from lab._session_keys import setting_keys
 from lab.styles.global_style import style
 from lab.utils.config import get_setting_title, load_settings_file, write_settings_file
 
@@ -29,35 +30,36 @@ def check_device_is_available(device: Device):
 settings = load_settings_file("global.toml", setting=RunnerSettings)
 
 # Store initial settings in session state if not already present
-if "initial_settings" not in st.session_state:
+if setting_keys["initial_settings"] not in st.session_state:
     st.session_state.initial_settings = {
         "basic": {
-            "batch_size_s": settings.batch_size_s,
-            "device": settings.device,
-            "custom_output_dir": settings.custom_output_dir,
+            setting_keys["batch_size_s"]: settings.batch_size_s,
+            setting_keys["device"]: settings.device,
+            setting_keys["custom_output_dir"]: settings.custom_output_dir,
         },
         "paths": {
-            "base_model": settings.base_model,
-            "punc_model": settings.punc_model,
-            "vad_model": settings.vad_model,
-            "hot_words_path": settings.hot_words_path,
-            "FFMPEG_PATH": settings.FFMPEG_PATH,
-            "cache_dir": settings.cache_dir,
-            "output_dir": settings.output_dir,
+            setting_keys["base_model"]: settings.base_model,
+            setting_keys["punc_model"]: settings.punc_model,
+            setting_keys["vad_model"]: settings.vad_model,
+            setting_keys["hot_words_path"]: settings.hot_words_path,
+            setting_keys["ffmpeg_path"]: settings.FFMPEG_PATH,
+            setting_keys["cache_dir"]: settings.cache_dir,
+            setting_keys["output_dir"]: settings.output_dir,
         },
     }
 
 # Initialize current values from settings or session state if available after rerun
-batch_size_s = st.session_state.get("batch_size_s", settings.batch_size_s)
-device = st.session_state.get("device", settings.device)
-base_model = st.session_state.get("base_model", settings.base_model)
-punc_model = st.session_state.get("punc_model", settings.punc_model)
-vad_model = st.session_state.get("vad_model", settings.vad_model)
-hot_words_path = st.session_state.get("hot_words_path", settings.hot_words_path)
-ffmpeg_path = st.session_state.get("ffmpeg_path", settings.FFMPEG_PATH)
-cache_dir = st.session_state.get("cache_dir", settings.cache_dir)
-custom_output_dir = st.session_state.get("custom_output_dir", settings.custom_output_dir)
-output_dir = st.session_state.get("output_dir", settings.output_dir)
+batch_size_s = st.session_state.get(setting_keys["batch_size_s"], settings.batch_size_s)
+device = st.session_state.get(setting_keys["device"], settings.device)
+base_model = st.session_state.get(setting_keys["base_model"], settings.base_model)
+punc_model = st.session_state.get(setting_keys["punc_model"], settings.punc_model)
+vad_model = st.session_state.get(setting_keys["vad_model"], settings.vad_model)
+hot_words_path = st.session_state.get(setting_keys["hot_words_path"], settings.hot_words_path)
+ffmpeg_path = st.session_state.get(setting_keys["ffmpeg_path"], settings.FFMPEG_PATH)
+cache_dir = st.session_state.get(setting_keys["cache_dir"], settings.cache_dir)
+custom_output_dir = st.session_state.get(setting_keys["custom_output_dir"], settings.custom_output_dir)
+output_dir = st.session_state.get(setting_keys["output_dir"], settings.output_dir)
+# 之所以大费周章是为了防止用户打错单词前后不一致导致 session_keys 未定义
 
 
 BOTSave = st.container()
@@ -139,7 +141,7 @@ with BOTSave:
                 },
             }
 
-            initial_settings = st.session_state.initial_settings
+            initial_settings = st.session_state[setting_keys["initial_settings"]]
 
             if current_settings != initial_settings:  # Compare dictionaries
                 settings.batch_size_s = batch_size_s
@@ -154,8 +156,9 @@ with BOTSave:
                 settings.output_dir = output_dir
                 write_settings_file(settings_name="global.toml", settings=settings)
                 message_box("保存成功！", "你也可以通过手动配置 `global.toml` 来修改配置。")
-                st.session_state.save = True
-                st.session_state.initial_settings = current_settings  # Update initial settings after save
+                st.session_state[setting_keys["initial_settings"]] = (
+                    current_settings  # Update initial settings after save
+                )
             else:
                 message_box("未检测到更改", "配置未发生任何变化，无需保存。")
 
