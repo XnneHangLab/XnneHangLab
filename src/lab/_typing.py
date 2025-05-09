@@ -131,3 +131,25 @@ class AudioSessionStateKeys(TypedDict):
     cut_line: str
     combine_line: str
     max_sentence_length: str  # 最大句子长度
+
+
+class SettingSessionSateKeys(TypedDict):
+    """pages/setting/set.py 中用到的 st.session_state 的 key_names"""
+
+    batch_size_s: str  # 批处理大小
+    device: str  # 设备
+    base_model: str  # 基础模型路径
+    punc_model: str  # 标点模型路径
+    vad_model: str  # VAD 模型路径
+    hot_words_path: str  # 热词模型路径
+    ffmpeg_path: str  # ffmpeg 路径
+    cache_dir: str  # 缓存目录
+    custom_output_dir: str  # 是否自定义输出目录
+    output_dir: str  # 输出目录
+    initial_settings: str  # 初始设置, 用来比对是否有更改
+
+
+class HomeSessionStateKeys(TypedDict):
+    """pages/project/home.py 中用到的 st.session_state 的 key_names"""
+
+    stars: str  # github stars

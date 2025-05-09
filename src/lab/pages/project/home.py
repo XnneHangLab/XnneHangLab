@@ -3,6 +3,7 @@ from __future__ import annotations
 import requests
 import streamlit as st
 
+from lab._session_keys import home_keys
 from lab.styles.global_style import style
 
 # 参数配置
@@ -31,14 +32,14 @@ GITHUB_API_URL = "https://api.github.com/repos/MrXnneHang/XnneHangLab"
 try:
     response = requests.get(GITHUB_API_URL)
     data = response.json()
-    st.session_state.stars = data["stargazers_count"]
+    st.session_state[home_keys["stars"]] = data["stargazers_count"]
 except Exception as e:
-    st.session_state.stars = ""
+    st.session_state[home_keys["stars"]] = ""
     st.toast(f"无法获取Github数据: {e}")
 
 
 st.title("XnneHangLab v0.0.3")
-st.caption(f" A Project Powered By @Xnnehang 🌟Stars {st.session_state.stars}🌟")
+st.caption(f" A Project Powered By @Xnnehang 🌟Stars {st.session_state[home_keys['stars']]}🌟")
 
 st.html(
     """
