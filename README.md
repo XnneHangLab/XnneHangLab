@@ -78,7 +78,7 @@
 
 ![audio-recognize](https://fastly.jsdelivr.net/gh/MrXnneHang/blog_img/BlogHosting/img/25/02/202503312004227.png)
 
-![bilibili-parse](https://fastly.jsdelivr.net/gh/MrXnneHang/blog_img/BlogHosting/img/25/02/202505091046080.png)
+![image-20250509114721029](https://fastly.jsdelivr.net/gh/MrXnneHang/blog_img/BlogHosting/img/25/02/202505091147732.png)
 
 ## 本地部署
 
