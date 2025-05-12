@@ -27,7 +27,7 @@
 <p align="center">
   <a href="#功能"><strong>功能</strong></a> ·
   <a href="#演示"><strong>演示</strong></a> ·
-  <a href="#本地部署运行"><strong>本地部署运行</strong></a>
+  <a href="#本地部署"><strong>本地部署</strong></a>
 </p>
 
 <br/>
@@ -60,7 +60,7 @@
 
 最近正在支持 SenseVoice 的时间检测，以及视频输入的 GUI 版本还在赶来的路上。
 
-- [**yutto-uiya:** 一个 bilibili 视频下载器，基于 yutto 开发的 WebUI](https://github.com/MrXnneHang/yutto-uiya)
+- [**yutto-uiya:** 一个 bilibili 视频下载器，基于 yutto 开发的 WebUI](https://github.com/XnneHangLab/yutto-uiya)
 
 使用方法类似于 Downkyi, 致力于从视频下载到音频处理以及字幕生成一条龙服务。
 
@@ -70,7 +70,7 @@
 
 我用 frp 和 一个外国的服务器把该项目部署到了我家的台式机并且可以通过网站访问。你可以在这里轻度体验。
 
-近期可能网站经常下线，等到开发到稳定版本了应该才会比较稳定。
+近期可能网站经常下线(比如我在家里打游戏 =-=)，等到开发到稳定版本了应该才会比较稳定。
 
 下面是一些截图。
 
@@ -78,17 +78,26 @@
 
 ![audio-recognize](https://fastly.jsdelivr.net/gh/MrXnneHang/blog_img/BlogHosting/img/25/02/202503312004227.png)
 
-![bilibili-parse](https://fastly.jsdelivr.net/gh/MrXnneHang/blog_img/BlogHosting/img/25/02/202505091046080.png)
+![image-20250509114721029](https://fastly.jsdelivr.net/gh/MrXnneHang/blog_img/BlogHosting/img/25/02/202505091147732.png)
 
 ## 本地部署
 
 ### 0.前置
 
+[**ffmpeg**](https://www.ffmpeg.org/), 本项目的依赖项 `yutto` 用到系统的 `ffmpeg`, 目前 `ffmpeg` 需要在全局可以访问, 对于 mac 和 linux 用户可以直接:
+
+```shell
+sudo apt install ffmpeg # linux
+brew install ffmpeg # mac
+```
+
+对于 windows 用户可以直接下载[ffmpeg](https://ffmpeg.org/download.html) 的压缩包，解压到你想要的目录，然后把 `bin` 目录添加到系统环境变量中。
+
 [**uv**](https://docs.astral.sh/uv/) 是本项目的包管理工具，它让你免于手动配置和调试环境。你可以从[安装指南](https://docs.astral.sh/uv/getting-started/installation/)找到合适的安装方式～
 
-[**just**](https://github.com/casey/just) 是一款用 rust 编写的简单易用的命令执行工具，它可以让原本复杂的命令运行变得简单。安装方法请参考[它的文档](https://github.com/casey/just#installation)。该项非必须， Windows 比较难安装 just , 可以跳过。后续使用 bat 脚本替代即可。
+[**just**](https://github.com/casey/just) 是一款用 rust 编写的简单易用的命令执行工具，它可以让原本复杂的命令运行变得简单。安装方法请参考[它的文档](https://github.com/casey/just#installation)。该项非必须， Windows 比较难安装 just (当然如果你有 scoop 和 git bash 可以直接 `scoop install just`), 可以跳过。后续使用 bat 脚本替代即可。
 
-[**rust-tool-chain**](https://www.rust-lang.org/tools/install) 是本项目的编译工具，因为本项目联调了 `yutto` 并且并不是所有特性都合入了 `yutto` 的主分支，所以目前 `yutto` 从 github 安装, 手动编译时需要 rust 工具链. 当然我也会尽量在 release 最新的 yutto-uiya 附带所用 yutto `whl` 包. 如果你使用我所 release 的 whl, 那么只需要安装 `uv` 和 `just` 即可。 但该方法需要修改 `pyproject.toml`:
+[**rust-tool-chain**](https://www.rust-lang.org/tools/install) 是本项目的编译工具，因为本项目联调了 `yutto` 并且并不是所有特性都合入了 `yutto` 的主分支，所以目前 `yutto` 从 github 安装, 手动编译时需要 rust 工具链. 当然我也会尽量在 release 最新的 yutto-uiya 附带所用 yutto `whl` 包. 如果你使用我所 release 的 whl, 那么只需要安装 `uv` 和 `just` 即可。 但该方法需要修改 `pyproject.toml` 使其指向你在 release 中下载的 `.whl`:
 
 对于当前目录的 `pyproject.toml`:
 
@@ -106,9 +115,8 @@ yutto = { git = "https://github.com/MrXnneHang/yutto.git", rev = "parse" }
 
 [Release 页面](https://github.com/XnneHangLab/XnneHangLab/releases)
 
-建议下载最新，或者根据功能需求选择。
-
-因为目前该项目处于高速开发期，我并不是以 PR 的形式提交代码，而是框框地直接 commit ，所以每天可能都有五六个甚至十几个 commit 。其中有一些新功能未成型，或者容易有一些 bug 。所以除非你想要参与到开发，不然并不建议从 [dev 分支](https://github.com/XnneHangLab/XnneHangLab) 进行构建。
+> 可选:
+> 下载 release 中存在的 `yutto_*.whl` 文件, 该文件是我编译好的 `yutto` 包, 你参照 `rust-tool-chain` 中的说明直接使用它. 而无需编译.
 
 ### 2. 自动安装依赖并下载必要模型权重文件
 
@@ -123,6 +131,7 @@ just install-model
 更改 pyproject.toml 的这几行即可：
 
 ```toml
+# windows 下安装 pytorch-cuda, linux 和 mac 下安装 pytorch-cpu, 你可以根据你的系统和需求任意修改
 [tool.uv.sources]
 torch = [
   { index = "pytorch-cu118", marker = "sys_platform == 'win32'" }, # sys_platform : 'win32' , 'linux' , 'Darwin'
@@ -132,6 +141,16 @@ torchaudio = [
   { index = "pytorch-cu118", marker = "sys_platform == 'win32'" },
   { index = "pytorch-cpu", marker = "sys_platform != 'win32'"}
 ]
+
+# 比如, 安装 `cpu` 版本:
+[tool.uv.sources]
+torch = { index = "pytorch-cpu"}
+torchaudio = { index = "pytorch-cpu"}
+
+# 安装 `cuda` 版本:
+[tool.uv.sources]
+torch = { index = "pytorch-cu118"}
+torchaudio = { index = "pytorch-cu118"}
 ```
 
 默认 windows 下是 pytorch-cu118 , linux 和 mac 下是 pytorch-cpu 。
@@ -201,9 +220,9 @@ uv run streamlit run src/lab/ui.py
   Network URL: http://192.168.123.109:8501
 ```
 
-## 使用手册
+## 如何使用
 
-参见那个还没出来的文档网站 =-= 。
+[使用手册](https://xnnehang.top/posts/default/XnneHangLab_v0_0_0_4_guide)。
 
 ## RoadMap
 
