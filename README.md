@@ -27,7 +27,7 @@
 <p align="center">
   <a href="#功能"><strong>功能</strong></a> ·
   <a href="#演示"><strong>演示</strong></a> ·
-  <a href="#本地部署运行"><strong>本地部署运行</strong></a>
+  <a href="#本地部署"><strong>本地部署</strong></a>
 </p>
 
 <br/>
