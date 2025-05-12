@@ -220,9 +220,9 @@ uv run streamlit run src/lab/ui.py
   Network URL: http://192.168.123.109:8501
 ```
 
-## 使用手册
+## 如何使用
 
-参见那个还没出来的文档网站 =-= 。
+[使用手册](https://xnnehang.top/posts/default/XnneHangLab_v0_0_0_4_guide)。
 
 ## RoadMap
 
