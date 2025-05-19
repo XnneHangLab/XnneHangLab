@@ -38,7 +38,7 @@ except Exception as e:
     st.toast(f"无法获取Github数据: {e}")
 
 
-st.title("XnneHangLab v0.0.4")
+st.title("XnneHangLab v0.0.5")
 st.caption(f" A Project Powered By @Xnnehang 🌟Stars {st.session_state[home_keys['stars']]}🌟")
 
 st.html(
