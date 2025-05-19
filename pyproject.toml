@@ -1,6 +1,6 @@
 [project]
 name = "XnneHangLab"
-version = "0.0.4"
+version = "0.0.5"
 description = ""
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
@@ -18,11 +18,11 @@ dependencies = [
     "pandas==2.2.3",
 
     # special for yutto-uiya , 因为似乎不会自动检查 workspace 的成员并且安装依赖
-    "yutto",
+    "uiya-yutto==0.0.2-pre",
     # "yutto==2.0.3",
     "httpx[http2,socks]>=0.28.1",
     "pexpect==4.9.0;sys_platform!='win32'",
-    "wexpect-uv==0.0.4;sys_platform=='win32'",
+    "wexpect-uv==0.0.5;sys_platform=='win32'",
     # "wexpect-uv;sys_platform=='win32'",
     "natsort>=8.4.0",
 ]
@@ -84,7 +84,7 @@ torchaudio = [
 ]
 
 # 这个源要与 yutto-uiya 保持一致, 要改, 得同时改
-yutto = { git = "https://github.com/MrXnneHang/yutto.git", rev = "parse" }
+# yutto = { git = "https://github.com/MrXnneHang/yutto.git", rev = "parse" }
 # yutto = { path = "./packages/yutto/dist/yutto-2.0.3-py3-none-any.whl"}
 # wexpect-uv = {path="./packages/wexpect-uv/dist/wexpect_uv-0.0.4-py3-none-any.whl"}
 
