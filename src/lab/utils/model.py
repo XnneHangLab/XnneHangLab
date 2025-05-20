@@ -24,6 +24,7 @@ class FunASRModel:
         self.device: str = self.settings.device
 
     def asr_full_version(self):
+        # Lazy-import
         from funasr import AutoModel
 
         model = AutoModel(
@@ -37,6 +38,7 @@ class FunASRModel:
         return model
 
     def sense_voice(self):
+        # Lazy-import
         from funasr import AutoModel
 
         model = AutoModel(
@@ -49,18 +51,21 @@ class FunASRModel:
         return model
 
     def only_vad(self):
+        # Lazy-import
         from funasr import AutoModel
 
         model = AutoModel(model=self.vad_model, device=self.device, disable_update=True)  # 也可以添加在这里
         return model
 
     def only_txt(self):
+        # Lazy-import
         from funasr import AutoModel
 
         model = AutoModel(model=self.base_model, device=self.device, disable_update=True)  # 也可以添加在这里
         return model
 
     def only_puc(self):
+        # Lazy-import
         from funasr import AutoModel
 
         model = AutoModel(model=self.punc_model, device=self.device, disable_update=True)  # 也可以添加在这里

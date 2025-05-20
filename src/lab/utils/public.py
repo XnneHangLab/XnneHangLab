@@ -13,12 +13,14 @@ if TYPE_CHECKING:
 
 
 def check_cuda_available() -> bool:
+    # Lazy-import
     import torch
 
     return torch.cuda.is_available()
 
 
 def parse_srt_file(srt_content: str) -> pd.DataFrame:
+    # Lazy-import
     import pandas as pd
 
     """
