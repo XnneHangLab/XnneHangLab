@@ -28,6 +28,7 @@ def get_font_data():
                 file.write(font + "\n")
 
     elif system_type in ["Darwin"]:
+        # Lazy-import
         import re
         import subprocess
 
@@ -39,6 +40,7 @@ def get_font_data():
                 file.write(font + "\n")
 
     elif system_type in ["Linux"]:
+        # Lazy-import
         import subprocess
 
         result = subprocess.run(["fc-list", ":", "family"], capture_output=True, text=True)
