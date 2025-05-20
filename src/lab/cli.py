@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -12,6 +13,7 @@ from lab.BasicRunner.converter import (
     convert_asr_response_to_sentences,
 )
 from lab.BasicRunner.cutter import cut_sentences
+from lab.exceptions import ErrorCode
 from lab.utils.config import load_settings_file
 from lab.utils.console.logger import Badge, Logger
 from lab.utils.model import FunASRModel, generate_asr_results
@@ -27,22 +29,25 @@ def main():
     argparser = argparse.ArgumentParser(description="将wav音频转换成srt")
     argparser.add_argument("-i", "--input_path", default="./examples/example1.wav", help="输入音频文件")
     argparser.add_argument("-o", "--output_path", default="./output/example1.srt", help="输出srt文件")
-    # argparser.add_argument("--only-text", store_true, help="是否只输出文本")
+    argparser.add_argument("--only-text", action="store_true", help="是否只输出文本")
     argparser.add_argument("--debug", action="store_true", help="是否开启debug模式")
 
     args = argparser.parse_args()
     audio_file_path = Path(args.input_path)
     srt_file_path = Path(args.output_path)
     debug = args.debug
-
+    only_text = args.only_text
     Model = FunASRModel()
-    model = Model.asr_full_version()
+    if only_text:
+        model = Model.only_txt()  # 似乎更快了一点, 但是没了标点 0.7s -> 0.55s.
+    else:
+        model = Model.asr_full_version()
 
     settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
 
     if debug:
         Logger.info("正在使用 Debug 模式, 该模式直接打印调试信息~")
-        Logger.custom(settings, badge=Badge("配置文件",  fore="black", back="cyan"))
+        Logger.custom(settings, badge=Badge("全局配置", fore="black", back="cyan"))
         start = time.time()
         response = generate_asr_results(model=model, input_path=audio_file_path)
         end = time.time()
@@ -64,15 +69,17 @@ def main():
         response: ASRResponse = generate_asr_results(model=model, input_path=audio_file_path)
         sentences = convert_asr_response_to_sentences(response)
         if settings.cut and settings.combine:
-            if settings.combine_line < settings.cut_line:
-                raise ValueError("combine_line should be greater than cut_line, or all cut will be ignored.")
+            Logger.error("并不支持既裁剪又合并噢~")
+            sys.exit(ErrorCode.COMBINE_CUT_ERROR.value)
         elif settings.cut and not settings.combine:
-            if settings.combine_line < 0:
-                raise ValueError("cut_line should be greater than 0.")
+            if settings.cut_line < 0:
+                Logger.error("cut_line 应该大于 0 ~")
+                sys.exit(ErrorCode.COMBINE_CUT_ERROR.value)
             sentences = cut_sentences(sentences=sentences, cutline=settings.combine_line)
         elif not settings.cut and settings.combine:
             if settings.combine_line < 0:
-                raise ValueError("combine_line should be greater than 0.")
+                Logger.error("combine_line 应该大于 0 ~")
+                sys.exit(ErrorCode.COMBINE_CUT_ERROR.value)
             sentences = combine_sentences(
                 sentences=sentences,
                 combine_line=settings.combine_line,
