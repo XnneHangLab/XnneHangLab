@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -12,7 +13,7 @@ from lab.BasicRunner.converter import (
 )
 from lab.BasicRunner.cutter import cut_sentences
 from lab.utils.config import load_settings_file
-from lab.utils.console.logger import Logger
+from lab.utils.console.logger import Badge, Logger
 from lab.utils.model import FunASRModel, generate_asr_results
 from lab.utils.SrtHelper import write_srt_from_sentences
 from lab.utils.TxtHelper import split_text_into_sentences_by_punctuation_list
@@ -33,19 +34,19 @@ def main():
     audio_file_path = Path(args.input_path)
     srt_file_path = Path(args.output_path)
     debug = args.debug
-    if debug:
-        Logger.info("Debug 模式不会写入 srt 文件, 而是直接打印~")
 
     Model = FunASRModel()
     model = Model.asr_full_version()
 
     settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
 
-    response: ASRResponse = generate_asr_results(model=model, input_path=audio_file_path)
-
     if debug:
-        # 应该写入，然后查找是否有除了中英文之外的符号。最后加入 config.punctuation_list
-        print(split_text_into_sentences_by_punctuation_list(response["text"]))
+        Logger.info("正在使用 Debug 模式, 该模式直接打印调试信息~")
+        Logger.custom(settings, badge=Badge("配置文件",  fore="black", back="cyan"))
+        start = time.time()
+        response = generate_asr_results(model=model, input_path=audio_file_path)
+        end = time.time()
+        Logger.info(f"ASR 实际耗时: {end - start:.2f}秒")
         segmented_text = split_text_into_sentences_by_punctuation_list(response["text"])
         total_words_num = 0
         for sentence in segmented_text:
@@ -56,10 +57,11 @@ def main():
             "total_words_num": total_words_num,
             "total_ts_num": len(response["timestamp"]),
         }
-        # 比对长度，如果不一样，说明有多余的未加入的符号。并且这个符号被计入 total_words_num 中。
+        # 比对长度，如果不一样，说明有多余的未加入的符号。并且这个符号被计入 total_words_num 中。 这时候就会出现 list index out of range 的错误。 可以通过排查该符号然后加入 punc_list 来解决。
         Logger.info(debug_message)
     else:
         # TODO: 设置 Logger 告知用户自己正在使用哪种模式.
+        response: ASRResponse = generate_asr_results(model=model, input_path=audio_file_path)
         sentences = convert_asr_response_to_sentences(response)
         if settings.cut and settings.combine:
             if settings.combine_line < settings.cut_line:
