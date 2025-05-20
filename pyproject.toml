@@ -162,5 +162,5 @@ build-backend = "hatchling.build"
 # < 3.11 不支持 *tuple 的解包。(_dataclass.py 中涉及)
 # 于是，该项目只能在 3.11 运行，3.12 及以上需要考虑手动升级 pytorch。
 
-# 因为本项目主体是用于 UI, 为了防止响应时间过长所以不少地方用到了 lazy-import 来处理 torch, funasr, pandas 等复杂库. 这些库导入在计算力比较低的库上几乎需要四五妙乃至更久的时间.
+# 因为本项目主体是用于 UI, 为了防止响应时间过长所以不少地方用到了 lazy-import 来处理 torch, funasr, pandas 等复杂库. 这些库导入在计算力比较低的库上几乎需要四五秒乃至更久的时间.
 # 如果你需要用于批处理, 或者要求响应速度比较快的, 那么可以考虑优化这些 lazy-import 的地方, 所有 lazy-import 均有用 `# Lazy-import` 标注, 你可以快速搜索.
