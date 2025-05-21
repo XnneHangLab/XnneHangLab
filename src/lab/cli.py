@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import time
 from pathlib import Path
@@ -21,7 +22,7 @@ from lab.utils.SrtHelper import write_srt_from_sentences
 from lab.utils.TxtHelper import split_text_into_sentences_by_punctuation_list
 
 if TYPE_CHECKING:
-    from lab._typing import ASRResponse, DebugMessage
+    from lab._typing import DebugMessage
 
 
 def path_from_cli(path: str) -> Path:
@@ -131,8 +132,16 @@ def main():
     group_basic.add_argument(
         "--only-text", action="store_true", help="是否使用 Model.only_txt(), 更快, 但是没有标点和停顿"
     )
-    group_basic.add_argument("--debug", action="store_true", help="是否开启debug模式")
-    group_basic.add_argument("--show-config", action="store_true", help="是否打印配置项")
+    group_debug = parser.add_argument_group("debug", "开发者 debug 使用")
+    group_debug.add_argument("--debug", action="store_true", help="是否开启debug模式")
+    group_debug.add_argument("--show-config", action="store_true", help="是否打印配置项")
+    group_debug.add_argument("--save-text", action="store_true", help="是否保存识别到的文本文件")
+    group_debug.add_argument(
+        "--save-asr-response", action="store_true", help="是否保存识别到的 asr_response 到 json 文件"
+    )
+    group_debug.add_argument(
+        "--return-asr-response", action="store_true", help="是否保存识别到的 asr_response 到 json 文件"
+    )
 
     # 读取 group_config 的参数
     args = parser.parse_args()
@@ -151,11 +160,22 @@ def main():
     else:
         model = Model.asr_full_version()
 
+    start = time.time()
+    response = generate_asr_results(model=model, input_path=args.input_path)
+    end = time.time()
+
+    if args.save_text:
+        Path("rec.txt").write_text(response["text"], encoding="utf-8")
+
+    if args.save_asr_response:
+        json_str = json.dumps(response, indent=4, ensure_ascii=False)
+        Path("asr_response.json").write_text(json_str, encoding="utf-8")
+
+    if args.return_asr_response:
+        return response
+
     if args.debug:  # TODO: 实际上这个执行的是独立任务, 如果 main() 变得过于复杂,可以把它拆到独立的 pyproject.script
         Logger.info("正在使用 Debug 模式, 该模式直接打印调试信息~")
-        start = time.time()
-        response = generate_asr_results(model=model, input_path=args.input_path)
-        end = time.time()
         Logger.info(f"ASR 实际耗时: {end - start:.2f}秒")
         segmented_text = split_text_into_sentences_by_punctuation_list(response["text"])
         total_words_num = 0
@@ -171,7 +191,6 @@ def main():
         Logger.info(debug_message)
     else:
         # TODO: 设置 Logger 告知用户自己正在使用哪种模式.
-        response: ASRResponse = generate_asr_results(model=model, input_path=args.input_path)
         sentences = convert_asr_response_to_sentences(response)
         # 参数合法性在 validate_basic_setting 中已经检查过了
         if settings.cut and not settings.combine:
