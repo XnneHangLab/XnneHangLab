@@ -30,12 +30,11 @@ class ProcessConfig(BaseModel):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 应用启动时执行：预加载模型
-    Logger.info("Preloading FunASR model at startup...")
+    Logger.info("预加载 FunASR 模型...")
     load_model(only_text=False)  # 预加载模型，确保模型在启动时初始化
-    Logger.info("FunASR model preloaded successfully.")
-    yield
-    # 应用关闭时执行：可选，清理资源
-    Logger.info("Shutting down FastAPI application.")
+    yield  # 在 asynccontextmanager 装饰的函数中，yield 是一个分界点，它将函数的执行分为两个阶段： 启动和关闭
+    # TODO 可能需要清理一下 cache
+    Logger.info("关闭程序.")
 
 
 app = FastAPI(title="Audio to SRT API", description="API for converting audio to SRT subtitles", lifespan=lifespan)

@@ -36,7 +36,7 @@ class FunASRModel:  # 对于 api 需要快速响应, 不能 lazy-import ,所以�
                 device=self.device,
                 disable_update=True,
             )
-            Logger.info("FunASR model loaded successfully.")
+            Logger.info("模型加载成功!")
         return self._model
 
 
