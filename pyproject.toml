@@ -54,6 +54,7 @@ Issues = "https://github.com/XnneHangLab/XnneHangLab/issues"
 test = "lab.test:main"
 acgo = "lab.cli:main"
 get_root = "lab.utils.get_root:main" # 获取项目所在根目录绝对路径, 防止 streamlit UI 中默认以 `.` 作为根目录而找不到一些文件.
+tmp = "lab.tmp:main" # debug 时随意写的一些脚本
 
 [dependency-groups]
 dev = [
