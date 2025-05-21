@@ -46,3 +46,5 @@ packages/wexpect-uv
 bug.opus
 asr_response.json
 rec.txt
+sentences_list
+./debug/
