@@ -23,6 +23,7 @@ from lab.utils.TxtHelper import split_text_into_sentences_by_punctuation_list
 if TYPE_CHECKING:
     from lab._typing import ASRResponse, DebugMessage
 
+
 def path_from_cli(path: str) -> Path:
     """从命令行参数获取路径，支持 ~，以便配置中使用 ~"""
     return Path(path).expanduser()
@@ -57,9 +58,11 @@ def validate_basic_setting(args: argparse.Namespace):
 
     # TODO FFmpeg 应该也得找个地方验证一下, 但是在这里运行可能耗时太长了.
 
+
 def show_args(args: argparse.Namespace):
     for key, value in vars(args).items():
         Logger.custom(value, Badge(key, fore="green"))
+
 
 # 定义长文本写入函数
 def main():
@@ -67,27 +70,67 @@ def main():
     settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
     # basic-setting
     group_config = parser.add_argument_group("setting", "配置项")
-    group_config.add_argument("--batch_size_s", type=int, default=settings.batch_size_s, help=f"批处理大小, 默认为 {settings.batch_size_s}")
-    group_config.add_argument("--device", type=str, default=settings.device, help=f"计算设备(cpu/gpu), 默认为 {settings.device}")
-    group_config.add_argument("--output-dir", type=path_from_cli, default=path_from_cli(settings.output_dir), help="输出目录")
-    group_config.add_argument("--cache_dir", type=path_from_cli, default=path_from_cli(settings.cache_dir), help="缓存目录")
+    group_config.add_argument(
+        "--batch_size_s", type=int, default=settings.batch_size_s, help=f"批处理大小, 默认为 {settings.batch_size_s}"
+    )
+    group_config.add_argument(
+        "--device", type=str, default=settings.device, help=f"计算设备(cpu/gpu), 默认为 {settings.device}"
+    )
+    group_config.add_argument(
+        "--output-dir", type=path_from_cli, default=path_from_cli(settings.output_dir), help="输出目录"
+    )
+    group_config.add_argument(
+        "--cache_dir", type=path_from_cli, default=path_from_cli(settings.cache_dir), help="缓存目录"
+    )
     group_config.add_argument("--hotwords", type=str, default=settings.hot_words_path, help="热词或者热词(txt)的路径")
     group_config.add_argument("--ffmpeg-path", type=str, default=settings.FFMPEG_PATH, help="ffmpeg的路径")
-    group_config.add_argument("--base-model", type=path_from_cli, default=path_from_cli(settings.base_model), help="基础模型的路径")
-    group_config.add_argument("--punc-model", type=path_from_cli, default=path_from_cli(settings.punc_model), help="分词模型的路径")
-    group_config.add_argument("--vad-model", type=path_from_cli, default=path_from_cli(settings.vad_model), help="VAD模型的路径")
+    group_config.add_argument(
+        "--base-model", type=path_from_cli, default=path_from_cli(settings.base_model), help="基础模型的路径"
+    )
+    group_config.add_argument(
+        "--punc-model", type=path_from_cli, default=path_from_cli(settings.punc_model), help="分词模型的路径"
+    )
+    group_config.add_argument(
+        "--vad-model", type=path_from_cli, default=path_from_cli(settings.vad_model), help="VAD模型的路径"
+    )
     group_config.add_argument("--cut", action="store_true", help="是否裁剪长句, 不可以和合并短句同时使用")
     group_config.add_argument("--combine", action="store_true", help="是否合并短句, 不可以和裁剪长句同时使用")
-    group_config.add_argument("--combine-line", type=int, default=settings.combine_line, help=f"合并短句的间隔临界值(ms), 默认为 {settings.combine_line} ")
-    group_config.add_argument("--cut-line", type=int, default=settings.cut_line, help=f"裁剪长句的间隔临界值(ms), 默认为 {settings.cut_line} ")
-    group_config.add_argument("--max-sentence-length", type=int, default=settings.max_sentence_length, help=f"最大句子长度,默认为 {settings.max_sentence_length} , 当句子超过这个长度时,就不再合并了")
+    group_config.add_argument(
+        "--combine-line",
+        type=int,
+        default=settings.combine_line,
+        help=f"合并短句的间隔临界值(ms), 默认为 {settings.combine_line} ",
+    )
+    group_config.add_argument(
+        "--cut-line", type=int, default=settings.cut_line, help=f"裁剪长句的间隔临界值(ms), 默认为 {settings.cut_line} "
+    )
+    group_config.add_argument(
+        "--max-sentence-length",
+        type=int,
+        default=settings.max_sentence_length,
+        help=f"最大句子长度,默认为 {settings.max_sentence_length} , 当句子超过这个长度时,就不再合并了",
+    )
     group_config.add_argument("--need-punc", action="store_true", help="是否需要标点符号")
     # 隐藏了 punc_list , custom_output_dir, 前者除非出现新的未知标点符号导致 list index out of range 否则不需要修改, 后者只是用于维持 WebUI 的状态的.
 
     group_basic = parser.add_argument_group("basic", "基础参数")
-    group_basic.add_argument("-i", "--input_path", type=path_from_cli, default=path_from_cli("./examples/example1.wav"), help="输入音频文件路径")
-    group_basic.add_argument("-o", "--output_path", type=path_from_cli, default=path_from_cli("./output/example1.srt"), help="输出 srt 文件路径")
-    group_basic.add_argument("--only-text", action="store_true", help="是否使用 Model.only_txt(), 更快, 但是没有标点和停顿")
+    group_basic.add_argument(
+        "-i",
+        "--input_path",
+        type=path_from_cli,
+        default=path_from_cli("./examples/example1.wav"),
+        help="输入音频文件路径",
+    )
+    group_basic.add_argument(
+        "-o",
+        "--output_path",
+        type=path_from_cli,
+        default=path_from_cli("./output/example1.srt"),
+        help="输出 srt 文件路径",
+    )
+    group_basic.add_argument(
+        "--only-text", action="store_true", help="是否使用 Model.only_txt(), 更快, 但是没有标点和停顿"
+    )
     group_basic.add_argument("--debug", action="store_true", help="是否开启debug模式")
     group_basic.add_argument("--show-config", action="store_true", help="是否打印配置项")
 
@@ -98,9 +141,7 @@ def main():
     validate_basic_setting(args)
     if args.show_config:
         cfg_keys = [a.dest for a in group_config._group_actions]
-        group_config_args = argparse.Namespace(
-            **{k: getattr(args, k) for k in cfg_keys}
-        )
+        group_config_args = argparse.Namespace(**{k: getattr(args, k) for k in cfg_keys})
         Logger.custom("加载配置项...", Badge("配置", fore="black", back="cyan"))
         show_args(group_config_args)
 
@@ -110,7 +151,7 @@ def main():
     else:
         model = Model.asr_full_version()
 
-    if args.debug: # TODO: 实际上这个执行的是独立任务, 如果 main() 变得过于复杂,可以把它拆到独立的 pyproject.script
+    if args.debug:  # TODO: 实际上这个执行的是独立任务, 如果 main() 变得过于复杂,可以把它拆到独立的 pyproject.script
         Logger.info("正在使用 Debug 模式, 该模式直接打印调试信息~")
         start = time.time()
         response = generate_asr_results(model=model, input_path=args.input_path)
@@ -141,6 +182,6 @@ def main():
                 combine_line=settings.combine_line,
                 max_sentence_length=settings.max_sentence_length,
             )
-        else: # 不裁剪也不合并
+        else:  # 不裁剪也不合并
             pass
         write_srt_from_sentences(sentences=sentences, srt_file_path=args.output_path)
