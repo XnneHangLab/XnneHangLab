@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from typing import TYPE_CHECKING
 
 from lab._dataclass import RunnerSettings
@@ -100,3 +101,38 @@ def file_to_mp3(input_path: Path, output_path: Path):
     else:
         print(f"FFmpeg 转换失败，返回码: {result.returncode}")
         return None
+
+
+def split_opus_audio(input_file: Path, output_dir: Path, start_time: int, seg_length: int) -> Path:
+    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
+    FFMPEG_PATH = settings.FFMPEG_PATH
+    # 确保输出目录存在
+    if output_dir.exists():
+        # 删除目录以及其中的所有文件
+        shutil.rmtree(str(output_dir))  # Path.rmdir 无法删除目录不为空的情况
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    end_time = start_time + seg_length
+    # 构造输出文件名，自增编号
+    output_filename = f"{input_file.stem}_{start_time}_{end_time}.opus"
+    output_path = output_dir / output_filename
+
+    # 构建 ffmpeg 命令
+    cmd = [
+        FFMPEG_PATH,
+        "-i",
+        str(input_file),  # 输入文件
+        "-ss",
+        str(start_time),  # 起始时间（秒）
+        "-t",
+        str(seg_length),  # 切片时长（秒）
+        "-c",
+        "copy",  # 直接复制，不重新编码
+        "-y",  # 覆盖输出文件（如果存在）
+        str(output_path),  # 输出文件路径
+    ]
+
+    # 执行 ffmpeg 命令
+    run_shell_command(command=cmd)
+    return output_path
