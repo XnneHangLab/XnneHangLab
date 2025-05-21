@@ -26,10 +26,25 @@ def segment_text(text: str):
     # 应对这种情况, He's a boy. 我希望`He's`被视作一个单词
     pop_list_without_single_quote = pop_list.replace("'", "")
 
-    # 使用负向先行断言和负向后行断言确保单引号左右同时为字母时不分割
+    # 单引号左右同时为字母时不分割
+    # TODO 直接把 split_into_words 改造成 seg_text, 不再维护两个逻辑.
     pattern = f"(?<![a-zA-Z])'|'(?![a-zA-Z])|([{pop_list_without_single_quote}])"
     sentences = re.split(pattern, text)
-    sentences = [s for s in sentences if s.strip()]  # 去除空白元素
+    # for index, s in enumerate(sentences):
+    #     # 去除句子两端的空格
+    #     if not s:
+    #         print("=========")
+    #         print(sentences[index-2])
+    #         print(sentences[index-1])
+    #         print(s)
+    #         print(sentences[index+1])
+    #         print("=========")
+    #         sentences.remove(s)
+    # print(len(sentences))
+    # word_num = 0
+    # for s in sentences:
+    # word_num += calculate_words_length(s)
+    # print(word_num)
     return sentences
 
 
