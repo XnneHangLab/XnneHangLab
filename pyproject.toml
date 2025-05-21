@@ -16,7 +16,7 @@ dependencies = [
     "streamlit==1.43.2",
     "streamlit-antd-components==0.3.2",
     "pandas==2.2.3",
-
+    
     # special for yutto-uiya , 因为似乎不会自动检查 workspace 的成员并且安装依赖
     "uiya-yutto==0.0.2-pre",
     # "yutto==2.0.3",
@@ -25,6 +25,11 @@ dependencies = [
     "wexpect-uv==0.0.5;sys_platform=='win32'",
     # "wexpect-uv;sys_platform=='win32'",
     "natsort>=8.4.0",
+
+    # special for fastapi
+    "fastapi>=0.115.12",
+    "uvicorn>=0.34.2",
+    "python-multipart>=0.0.20",
 ]
 authors = [{ name = "MrXnneHang", email = "XnneHang@gmail.com" }]
 keywords = []
