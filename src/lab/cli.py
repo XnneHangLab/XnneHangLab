@@ -59,6 +59,19 @@ def validate_basic_setting(args: argparse.Namespace):
 
     # TODO FFmpeg 应该也得找个地方验证一下, 但是在这里运行可能耗时太长了.
 
+def valid_model_args(args: argparse.Namespace):
+    """检查 group_model 是否存在冲突"""
+    # 只能存在一个, 多个警告
+    if int(args.only_text) + int(args.only_vad) + int(args.only_punc) + int(args.vad_and_asr) > 1:
+        Logger.error(
+            "只允许至多选择一种模型参数, 其他的会被忽略, 请检查你的参数设置~"
+            f"only_text: {args.only_text}, only_vad: {args.only_vad}, only_punc: {args.only_punc}, vad_and_asr: {args.vad_and_asr}"
+        )
+        sys.exit(ErrorCode.MODEL_SELECTION_ERROR.value)
+    if int(args.only_text) + int(args.only_vad) + int(args.only_punc) + int(args.vad_and_asr) == 0:
+        Logger.info(
+            "默认使用 asr+vad+punc 模型, 如果你希望使用其他模型, 请查看 model_args 的参数设置~"
+        )
 
 def show_args(args: argparse.Namespace):
     for key, value in vars(args).items():
@@ -129,9 +142,6 @@ def main():
         default=path_from_cli("./output/example1.srt"),
         help="输出 srt 文件路径",
     )
-    group_basic.add_argument(
-        "--only-text", action="store_true", help="是否使用 Model.only_txt(), 更快, 但是没有标点和停顿"
-    )
     group_debug = parser.add_argument_group("debug", "开发者 debug 使用")
     group_debug.add_argument("--debug", action="store_true", help="是否开启debug模式")
     group_debug.add_argument("--show-config", action="store_true", help="是否打印配置项")
@@ -143,11 +153,25 @@ def main():
         "--return-asr-response", action="store_true", help="是否保存识别到的 asr_response 到 json 文件"
     )
 
+    group_model = parser.add_argument_group("model", "模型参数")
+    group_model.add_argument(
+        "--only-text", action="store_true", help="是否使用 Model.only_txt(), 更快, 但是没有标点和停顿"
+    )
+    group_model.add_argument(
+        "--only-vad", action="store_true", help="是否使用 Model.only_vad(), 只进行语音活动检测, 不进行识别"
+    )
+    group_model.add_argument(
+        "--only-punc", action="store_true", help="是否使用 Model.only_puc(), 只进行标点检测, 不进行识别"
+    )
+    group_model.add_argument(
+        "--vad-and-asr", action="store_true", help="是否使用 Model.vad_and_asr(), 先进行语音活动检测, 再进行识别, 无标点"
+    )
     # 读取 group_config 的参数
     args = parser.parse_args()
 
     # 允许用户临时修改配置项, 但不会更改到 global.toml 中
     validate_basic_setting(args)
+    valid_model_args(args)
     if args.show_config:
         cfg_keys = [a.dest for a in group_config._group_actions]
         group_config_args = argparse.Namespace(**{k: getattr(args, k) for k in cfg_keys})
@@ -157,6 +181,12 @@ def main():
     Model = FunASRModel()
     if args.only_text:
         model = Model.only_txt()  # 似乎更快了一点, 但是没了标点 0.7s -> 0.55s.
+    elif args.only_vad:
+        model = Model.only_vad()
+    elif args.only_punc:
+        model = Model.only_puc()
+    elif args.vad_and_asr:
+        model = Model.vad_and_asr()
     else:
         model = Model.asr_full_version()
 
