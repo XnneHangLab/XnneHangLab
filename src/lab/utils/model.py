@@ -50,6 +50,18 @@ class FunASRModel:
         )
         return model
 
+    def vad_and_asr(self):
+        # Lazy-import
+        from funasr import AutoModel
+
+        model = AutoModel(
+            model=self.base_model,  # base
+            vad_model=self.vad_model,  # 检测语音活动，自动分隔
+            device=self.device,
+            disable_update=True,  # 添加在这里，禁用更新检查
+        )
+        return model
+
     def only_vad(self):
         # Lazy-import
         from funasr import AutoModel
