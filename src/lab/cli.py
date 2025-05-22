@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from lab.__version__ import VERSION
 from lab._dataclass import RunnerSettings
 from lab.BasicRunner.combiner import combine_sentences
 from lab.BasicRunner.converter import (
@@ -79,9 +80,47 @@ def show_args(args: argparse.Namespace):
 
 
 # 定义长文本写入函数
-def main():
-    parser = argparse.ArgumentParser(description="将wav音频转换成srt")
+def cli():
+    # rec mode  input_file (wav,opus..)-> asr_full_response , asr_vad_response   --     # subtitle_mode input_file(wav,opus..)->(srt , att)
+    # punc_recover_mode input_text (str)  -> punc_response
+
+    parser = argparse.ArgumentParser(description="音频转文字工具ya~")
+    parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {VERSION}", help="显示版本号")
     settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
+    subparsers = parser.add_subparsers(dest="command", help="支持的子命令")
+    rec_parser = subparsers.add_parser("rec", help="识别音频文件")
+    punc_recover_parser = subparsers.add_parser("punc_recover", help="标点恢复")
+
+    add_recognize_arguments(rec_parser, settings)
+    add_punc_recover_arguments(punc_recover_parser, settings)
+
+    # 读取 group_config 的参数
+    # args = parser.parse_args()
+
+    # # 允许用户临时修改配置项, 但不会更改到 global.toml 中
+    # validate_basic_setting(args)
+    # valid_model_args(args)
+
+    # Model = FunASRModel()
+    # if args.only_text:
+    #     model = Model.only_txt()  # 似乎更快了一点, 但是没了标点 0.7s -> 0.55s.
+    # else:
+    #     model = Model.vad_and_asr()
+
+    # response = generate_asr_results(model=model, input_path=args.input_path)
+    # if args.save_text:
+    #     Path("rec.txt").write_text(response["text"], encoding="utf-8")
+
+    # if args.save_asr_response:
+    #     json_str = json.dumps(response, indent=4, ensure_ascii=False)
+    #     Path("asr_response.json").write_text(json_str, encoding="utf-8")
+
+    # if args.return_asr_response:
+    #     return response
+    return parser
+
+
+def add_recognize_arguments(parser: argparse.ArgumentParser, settings: RunnerSettings):
     # basic-setting
     group_config = parser.add_argument_group("setting", "配置项")
     group_config.add_argument(
@@ -135,104 +174,35 @@ def main():
         default=path_from_cli("./examples/example1.wav"),
         help="输入音频文件路径",
     )
-    group_basic.add_argument(
-        "-o",
-        "--output_path",
-        type=path_from_cli,
-        default=path_from_cli("./output/example1.srt"),
-        help="输出 srt 文件路径",
-    )
     group_debug = parser.add_argument_group("debug", "开发者 debug 使用")
-    group_debug.add_argument("--debug", action="store_true", help="是否开启debug模式")
     group_debug.add_argument("--show-config", action="store_true", help="是否打印配置项")
-    group_debug.add_argument("--save-text", action="store_true", help="是否保存识别到的文本文件")
-    group_debug.add_argument(
-        "--save-asr-response", action="store_true", help="是否保存识别到的 asr_response 到 json 文件"
-    )
-    group_debug.add_argument(
-        "--return-asr-response", action="store_true", help="是否保存识别到的 asr_response 到 json 文件"
-    )
+    group_debug.add_argument("--save-response", action="store_true", help="是否保存识别到的 response 到 json 文件")
+    group_debug.add_argument("--return-response", action="store_true", help="是否返回识别到的 response 到 json 文件")
 
     group_model = parser.add_argument_group("model", "模型参数")
     group_model.add_argument(
-        "--only-text", action="store_true", help="是否使用 Model.only_txt(), 更快, 但是没有标点和停顿"
+        "--only-text", action="store_true", help="是否使用 Model.only_txt(), 更快, 但是没有标点,停顿, 时间线"
     )
-    group_model.add_argument(
-        "--only-vad", action="store_true", help="是否使用 Model.only_vad(), 只进行语音活动检测, 不进行识别"
+
+
+def add_punc_recover_arguments(parser: argparse.ArgumentParser, settings: RunnerSettings):
+    group_config = parser.add_argument_group("setting", "配置项")
+    group_config.add_argument(
+        "--batch_size_s", type=int, default=settings.batch_size_s, help=f"批处理大小, 默认为 {settings.batch_size_s}"
     )
-    group_model.add_argument(
-        "--only-punc", action="store_true", help="是否使用 Model.only_puc(), 只进行标点检测, 不进行识别"
+    group_config.add_argument(
+        "--device", type=str, default=settings.device, help=f"计算设备(cpu/gpu), 默认为 {settings.device}"
     )
-    group_model.add_argument(
-        "--vad-and-asr",
-        action="store_true",
-        help="是否使用 Model.vad_and_asr(), 先进行语音活动检测, 再进行识别, 无标点",
+    group_config.add_argument(
+        "--punc-model", type=path_from_cli, default=path_from_cli(settings.punc_model), help="分词模型的路径"
     )
-    # 读取 group_config 的参数
-    args = parser.parse_args()
+    # 这里只加入了需要的参数, 其他的都不需要了
 
-    # 允许用户临时修改配置项, 但不会更改到 global.toml 中
-    validate_basic_setting(args)
-    valid_model_args(args)
-    if args.show_config:
-        cfg_keys = [a.dest for a in group_config._group_actions]
-        group_config_args = argparse.Namespace(**{k: getattr(args, k) for k in cfg_keys})
-        Logger.custom("加载配置项...", Badge("配置", fore="black", back="cyan"))
-        show_args(group_config_args)
-
-    Model = FunASRModel()
-    if args.only_text:
-        model = Model.only_txt()  # 似乎更快了一点, 但是没了标点 0.7s -> 0.55s.
-    elif args.only_vad:
-        model = Model.only_vad()
-    elif args.only_punc:
-        model = Model.only_puc()
-    elif args.vad_and_asr:
-        model = Model.vad_and_asr()
-    else:
-        model = Model.asr_full_version()
-
-    start = time.time()
-    response = generate_asr_results(model=model, input_path=args.input_path)
-    end = time.time()
-
-    if args.save_text:
-        Path("rec.txt").write_text(response["text"], encoding="utf-8")
-
-    if args.save_asr_response:
-        json_str = json.dumps(response, indent=4, ensure_ascii=False)
-        Path("asr_response.json").write_text(json_str, encoding="utf-8")
-
-    if args.return_asr_response:
-        return response
-
-    if args.debug:  # TODO: 实际上这个执行的是独立任务, 如果 main() 变得过于复杂,可以把它拆到独立的 pyproject.script
-        Logger.info("正在使用 Debug 模式, 该模式直接打印调试信息~")
-        Logger.info(f"ASR 实际耗时: {end - start:.2f}秒")
-        segmented_text = split_text_into_sentences_by_punctuation_list(response["text"])
-        total_words_num = 0
-        for sentence in segmented_text:
-            # 把英文单词作为一个汉字长度来计算。
-            total_words_num += calculate_words_length(sentence)
-        debug_message: DebugMessage = {
-            "segmented_text": segmented_text,
-            "total_words_num": total_words_num,
-            "total_ts_num": len(response["timestamp"]),
-        }
-        # 比对长度，如果不一样，说明有多余的未加入的符号。并且这个符号被计入 total_words_num 中。 这时候就会出现 list index out of range 的错误。 可以通过排查该符号然后加入 punc_list 来解决。
-        Logger.info(debug_message)
-    else:
-        # TODO: 设置 Logger 告知用户自己正在使用哪种模式.
-        sentences = convert_asr_response_to_sentences(response)
-        # 参数合法性在 validate_basic_setting 中已经检查过了
-        if settings.cut and not settings.combine:
-            sentences = cut_sentences(sentences=sentences, cutline=settings.combine_line)
-        elif not settings.cut and settings.combine:
-            sentences = combine_sentences(
-                sentences=sentences,
-                combine_line=settings.combine_line,
-                max_sentence_length=settings.max_sentence_length,
-            )
-        else:  # 不裁剪也不合并
-            pass
-        write_srt_from_sentences(sentences=sentences, srt_file_path=args.output_path)
+    group_basic = parser.add_argument_group("basic", "基础参数")
+    group_basic.add_argument(
+        "--input-text",
+        "-i",
+        type=str,
+        default="你好世界",
+        help="待恢复标点的文本",
+    )
