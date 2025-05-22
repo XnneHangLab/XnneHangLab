@@ -15,39 +15,6 @@ if TYPE_CHECKING:
 # =====
 
 
-def segment_text(text: str):
-    """
-    将文本按照标点符号分割成句子列表
-    """
-    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
-    pop_list = settings.punctuation_list
-
-    # 移除 pop_list 中的单引号
-    # 应对这种情况, He's a boy. 我希望`He's`被视作一个单词
-    pop_list_without_single_quote = pop_list.replace("'", "")
-
-    # 单引号左右同时为字母时不分割
-    # TODO 直接把 split_into_words 改造成 seg_text, 不再维护两个逻辑.
-    pattern = f"(?<![a-zA-Z])'|'(?![a-zA-Z])|([{pop_list_without_single_quote}])"
-    sentences = re.split(pattern, text)
-    # for index, s in enumerate(sentences):
-    #     # 去除句子两端的空格
-    #     if not s:
-    #         print("=========")
-    #         print(sentences[index-2])
-    #         print(sentences[index-1])
-    #         print(s)
-    #         print(sentences[index+1])
-    #         print("=========")
-    #         sentences.remove(s)
-    # print(len(sentences))
-    # word_num = 0
-    # for s in sentences:
-    # word_num += calculate_words_length(s)
-    # print(word_num)
-    return sentences
-
-
 def split_into_words(text: str) -> list[str]:
     """
     将句子分割成单个汉字和单词，保留标点符号
