@@ -243,7 +243,7 @@ with working_tab:
                 msg_whs = st.toast("正在识别音频内容", icon=":material/troubleshoot:")
                 if audio_settings.output_type == "with_timestamp":
                     Model = FunASRModel()
-                    model = Model.asr_full_version()
+                    model = Model.vad_and_asr()
                     response_with_timestamp = generate_asr_results(
                         model=model,
                         input_path=Path(cache_dir / st.session_state[audio_keys["audio_name"]]),
@@ -264,7 +264,7 @@ with working_tab:
 
                 elif audio_settings.output_type == "without_timestamp":
                     Model = FunASRModel()
-                    model = Model.asr_full_version()
+                    model = Model.vad_and_asr()
                     response = generate_asr_results(
                         model=model,
                         input_path=cache_dir / st.session_state[audio_keys["audio_name"]],
