@@ -103,7 +103,7 @@ def file_to_mp3(input_path: Path, output_path: Path):
         return None
 
 
-def split_opus_audio(input_file: Path, output_dir: Path, start_time: int, seg_length: int) -> Path:
+def split_opus_audio(input_path: Path, output_dir: Path, start_time: int, seg_length: int) -> Path:
     settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
     FFMPEG_PATH = settings.FFMPEG_PATH
     # 确保输出目录存在
@@ -115,14 +115,14 @@ def split_opus_audio(input_file: Path, output_dir: Path, start_time: int, seg_le
 
     end_time = start_time + seg_length
     # 构造输出文件名，自增编号
-    output_filename = f"{input_file.stem}_{start_time}_{end_time}.opus"
+    output_filename = f"{input_path.stem}_{start_time}_{end_time}.opus"
     output_path = output_dir / output_filename
 
     # 构建 ffmpeg 命令
     cmd = [
         FFMPEG_PATH,
         "-i",
-        str(input_file),  # 输入文件
+        str(input_path),  # 输入文件
         "-ss",
         str(start_time),  # 起始时间（秒）
         "-t",
