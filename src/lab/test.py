@@ -9,18 +9,13 @@ import torch
 import torchaudio
 from todo.__version__ import VERSION
 
-from lab._dataclass import AudioSettings, RunnerSettings
-from lab.BasicRunner.combiner import combine_sentences
-from lab.BasicRunner.converter import convert_asr_response_to_sentences, split_into_words, split_into_words_no_punct
-from lab.BasicRunner.cutter import cut_sentences
-from lab.BasicRunner.extractor import save_only_text_from_response
-from lab.utils.config import get_setting_title, load_settings_file
-from lab.utils.FFmpegHelper import test_call_ffmpeg
+from lab._dataclass import RunnerSettings
+from lab.BasicRunner.converter import split_into_words, split_into_words_no_punct
+from lab.utils.config import load_settings_file
 from lab.utils.lazy_model import FunASRModel, generate_asr_results, generate_sense_voice_results
-from lab.utils.SrtHelper import write_srt_from_sentences
 
 if TYPE_CHECKING:
-    from lab._typing import SenseVoiceResponse, Sentence
+    from lab._typing import SenseVoiceResponse
 
 
 def main():
@@ -34,8 +29,8 @@ def main():
     print(f"torch:{torch.__version__}")
     print(f"torchaudio:{torchaudio.__version__}")
 
-    # print("====== Testing package_todo =======")
-    # print(f"todo:{VERSION}")
+    print("====== Testing package_todo =======")
+    print(f"todo:{VERSION}")
 
     # print("====== Testing fn_load_settings_file =======")
     # settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
