@@ -8,7 +8,7 @@ from funasr import AutoModel  # 导入仍然在代码顶部，但只执行一次
 from lab._dataclass import RunnerSettings
 from lab.utils.config import load_settings_file
 from lab.utils.console.logger import Logger
-from lab.utils.model import generate_asr_results
+from lab.utils.lazy_model import generate_asr_results
 
 if TYPE_CHECKING:
     from pathlib import Path

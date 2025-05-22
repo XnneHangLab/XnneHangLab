@@ -134,34 +134,43 @@ def calculate_words_length(segmented_text: str) -> int:
 
 
 def convert_asr_response_to_sentences(input_data: ASRResponse) -> list[Sentence]:
-    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
-    pop_list = settings.punctuation_list
-
-    results: list[Sentence] = []
-    text = input_data["text"]
+    sentences: list[Sentence] = []
+    words = input_data["text"].split(" ")
+    words = [w for w in words if w]  # 去除空字符串
     timestamps = input_data["timestamp"]
+    assert len(words) == len(timestamps), (
+        "text 和 timestamps 长度不一致, 请检查输入数据, 重复出现请联系开发者并且提供报错音频"
+    )
 
-    sentences = segment_text(text)
-    current_ts_idx = 0
-    for sentence in sentences:
-        if sentence in pop_list:
-            continue
-        else:
-            ts_list = timestamps[current_ts_idx : current_ts_idx + len(sentence)]
-            matched = match_timestamps_to_words(sentence, ts_list)
-            Words: list[Word] = []
-            for start, end, word in matched:
-                Word_: Word = {"start": int(start), "end": int(end), "text": str(word)}
-                Words.append(Word_)  # type:ignore
+    curr_sentence_text: list[str] = []
+    curr_Words: list[Word] = []
 
-            result_item: Sentence = {
-                "text": sentence,
-                "start": Words[0]["start"],
-                "end": Words[-1]["end"],
-                "Words": Words,
-            }
+    for i in range(len(words)):
+        curr_sentence_text.append(words[i])
+        curr_Words.append({"text": words[i], "start": timestamps[i][0], "end": timestamps[i][1]})
 
-            results.append(result_item)
-            current_ts_idx += calculate_words_length(sentence)
+        # 判断是否需要切句
+        if i < len(words) - 1:
+            gap = timestamps[i + 1][0] - timestamps[i][1]
+            if gap > 600:
+                sentence: Sentence = {
+                    "text": " ".join([w["text"] for w in curr_Words]),
+                    "start": curr_Words[0]["start"],
+                    "end": curr_Words[-1]["end"],
+                    "Words": curr_Words,
+                }
+                sentences.append(sentence)
+                curr_sentence_text = []
+                curr_Words = []
 
-    return results
+    # 处理最后一句
+    if curr_Words:
+        sentence = {
+            "text": " ".join([w["text"] for w in curr_Words]),
+            "start": curr_Words[0]["start"],
+            "end": curr_Words[-1]["end"],
+            "Words": curr_Words,
+        }
+        sentences.append(sentence)
+
+    return sentences

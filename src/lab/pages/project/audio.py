@@ -17,7 +17,7 @@ from lab.styles.global_style import style
 from lab.utils.config import get_setting_title, load_settings_file, write_settings_file
 from lab.utils.FFmpegHelper import file_to_wav
 from lab.utils.get_font import read_font_data
-from lab.utils.model import FunASRModel, generate_asr_results
+from lab.utils.lazy_model import FunASRModel, generate_asr_results
 from lab.utils.public import (
     parse_srt_file,
 )
