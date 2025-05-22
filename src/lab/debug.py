@@ -16,9 +16,9 @@ def split_audio_and_detect(input_path: Path, output_dir: Path, seg_length: int =
     output_path = split_opus_audio(
         input_path=input_path, output_dir=output_dir, seg_length=seg_length, start_time=start_time
     )
-    # 构造 sys.argv，模拟命令行参数
+    # 模拟命令行参数
     sys.argv = [
-        "",  # sys.argv[0] 通常是脚本名称，这里用空字符串占位
+        "",  # 必要的占位 solving error: unrecognized arguments:
         "--input_path",
         str(output_path),  # 输入音频文件路径
     ]
