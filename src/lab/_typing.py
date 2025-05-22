@@ -9,14 +9,10 @@ from typing import TypedDict
 class ASRResponse(TypedDict):
     """response from funasr models
        Example:
-       {'key': 'example',
-        'text':'那年，长街春意正浓，策马同游。'
-        'timestamp':[[8160, 8610], [8610, 8910], [8910, 9390], [9390, 9750], [9750, 10169], [10169, 10530], [10530, 11190], [11190, 12090], [12090, 13230], [13230, 13590], [13590, 14010], [14010, 15210]]
-     }
-
-    text 单位长度和 timestamp 的长度是相等的。
-    一个中文字符算作一个单位字符，一个完整英文单词算作一个单位字符,或者一个被独立的不成型英文单词也算是一个单位字符。
-    具体参见 function: split_into_words_no_punct, split_into_words
+    {'key': 'bug_0_30',
+    'text': '嗯 嗯  well come to the hollywood reporter actress round',
+    'timestamp': [[12590, 12830], [16460, 16700], [27950, 28170], [28170, 28290], [28290, 28390], [28390, 28470], [28470, 28890], [28890, 29290], [29290, 29690], [29690, 30000]]}
+    len(text.split(" ")) == len(timestamp), 否则出大问题
     """
 
     key: str
