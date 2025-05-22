@@ -23,6 +23,7 @@ from lab.utils.public import (
 )
 from lab.utils.SrtHelper import write_srt_from_sentences
 
+# TODO 以 sys.argv 的方式调用 basic_runner, 这里不再写入基础函数.
 # ============== 0.加载配置，配置字体
 
 style()
