@@ -59,6 +59,7 @@ def validate_basic_setting(args: argparse.Namespace):
 
     # TODO FFmpeg 应该也得找个地方验证一下, 但是在这里运行可能耗时太长了.
 
+
 def valid_model_args(args: argparse.Namespace):
     """检查 group_model 是否存在冲突"""
     # 只能存在一个, 多个警告
@@ -69,9 +70,8 @@ def valid_model_args(args: argparse.Namespace):
         )
         sys.exit(ErrorCode.MODEL_SELECTION_ERROR.value)
     if int(args.only_text) + int(args.only_vad) + int(args.only_punc) + int(args.vad_and_asr) == 0:
-        Logger.info(
-            "默认使用 asr+vad+punc 模型, 如果你希望使用其他模型, 请查看 model_args 的参数设置~"
-        )
+        Logger.info("默认使用 asr+vad+punc 模型, 如果你希望使用其他模型, 请查看 model_args 的参数设置~")
+
 
 def show_args(args: argparse.Namespace):
     for key, value in vars(args).items():
@@ -164,7 +164,9 @@ def main():
         "--only-punc", action="store_true", help="是否使用 Model.only_puc(), 只进行标点检测, 不进行识别"
     )
     group_model.add_argument(
-        "--vad-and-asr", action="store_true", help="是否使用 Model.vad_and_asr(), 先进行语音活动检测, 再进行识别, 无标点"
+        "--vad-and-asr",
+        action="store_true",
+        help="是否使用 Model.vad_and_asr(), 先进行语音活动检测, 再进行识别, 无标点",
     )
     # 读取 group_config 的参数
     args = parser.parse_args()
