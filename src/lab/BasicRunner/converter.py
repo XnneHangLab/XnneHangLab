@@ -51,7 +51,13 @@ def convert_asr_response_to_sentences(input_data: ASRResponse) -> list[Sentence]
         }
         sentences.append(sentence)
 
-    return sentences
+    new_sentences: list[Sentence] = []
+    # "它 好 像 是 inspired by de breaking 什 么 什 么 什 么 bridge 它 的 灵 感 来 自 一 座 桥 来 自 德 国 的 一 座 桥" -> 它好像是 inspired by de breaking 什么什么什么 bridge 它的灵感来自一座桥来自德国的一座桥
+    for sentence in sentences:
+        sentence["text"] = rewrite_sentence_text_by_words(sentence["Words"])
+        new_sentences.append(sentence)
+
+    return new_sentences
 
 
 def rewrite_sentence_text_by_words(words: list[Word]) -> str:

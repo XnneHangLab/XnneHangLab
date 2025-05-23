@@ -6,7 +6,7 @@ import sys
 from typing import TYPE_CHECKING
 
 from lab.BasicRunner.combiner import combine_sentences
-from lab.BasicRunner.converter import convert_asr_response_to_sentences, rewrite_sentence_text_by_words
+from lab.BasicRunner.converter import convert_asr_response_to_sentences
 from lab.BasicRunner.cutter import cut_sentences
 from lab.cli import cli, handle_default_subcommand
 
@@ -69,12 +69,7 @@ def run_recognizer(args: argparse.Namespace, Model: FunASRModel):
     if args.return_response:
         return response
 
-    seg_word_sentences: list[Sentence] = convert_asr_response_to_sentences(response)
-    sentences: list[Sentence] = []
-    # "它 好 像 是 inspired by de breaking 什 么 什 么 什 么 bridge 它 的 灵 感 来 自 一 座 桥 来 自 德 国 的 一 座 桥" -> 它好像是 inspired by de breaking 什么什么什么 bridge 它的灵感来自一座桥来自德国的一座桥
-    for sentence in seg_word_sentences:
-        sentence["text"] = rewrite_sentence_text_by_words(sentence["Words"])
-        sentences.append(sentence)
+    sentences: list[Sentence] = convert_asr_response_to_sentences(response)
 
     if args.cut:
         sentences = cut_sentences(sentences=sentences, cut_line=args.cut_line)
