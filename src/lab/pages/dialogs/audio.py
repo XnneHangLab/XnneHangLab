@@ -53,7 +53,7 @@ def upload_audio():
 
     audio_file = st.file_uploader(
         "上传您的音频文件",
-        type=["mp3", "mpga", "m4a", "wav"],
+        type=["mp3", "mpga", "m4a", "wav", "opus"],
         label_visibility="collapsed",
         accept_multiple_files=False,
     )
