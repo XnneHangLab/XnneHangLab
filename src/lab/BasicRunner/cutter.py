@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from lab.BasicRunner.converter import rewrite_sentence_text_by_words
+
 if TYPE_CHECKING:
     from lab._typing import CutPoint, Sentence, Word
 
@@ -51,7 +53,7 @@ def cut_sentences(sentences: list[Sentence], cut_line: int):
             for new_words in new_words_lists:
                 texts = ""
                 for word in new_words:
-                    texts += word["text"]
+                    texts += " " + word["text"]
 
                 new_text_lists.append(texts)
 
@@ -70,4 +72,9 @@ def cut_sentences(sentences: list[Sentence], cut_line: int):
                 }
                 all_new_sentences.append(new_sentence)
 
-    return all_new_sentences
+    sentences = []
+    for sentence in all_new_sentences:
+        sentence["text"] = rewrite_sentence_text_by_words(sentence["Words"])
+        sentences.append(sentence)
+
+    return sentences

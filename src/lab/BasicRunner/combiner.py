@@ -63,7 +63,7 @@ def combine_sentences(sentences: list[Sentence], combine_line: int, max_sentence
         new_texts = ""
         new_words: list[Word] = []
         for sentence in combine_sentence_list:
-            new_texts += sentence["text"]
+            new_texts += " " + sentence["text"]
             new_words += sentence["Words"]
 
         new_start = combine_sentence_list[0]["start"]
