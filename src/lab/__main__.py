@@ -5,13 +5,16 @@ import json
 import sys
 from typing import TYPE_CHECKING
 
+from lab.BasicRunner.combiner import combine_sentences
 from lab.BasicRunner.converter import convert_asr_response_to_sentences, rewrite_sentence_text_by_words
+from lab.BasicRunner.cutter import cut_sentences
 from lab.cli import cli, handle_default_subcommand
 
 # from lab.exceptions import ErrorCode
 from lab.utils.console.logger import Badge, Logger
 from lab.utils.lazy_model import generate_asr_results, generate_punc_results
 from lab.utils.model import FunASRModel
+from lab.utils.SrtHelper import write_srt_from_sentences
 from lab.validator import validate_recognizer_args, validate_setting_args
 
 if TYPE_CHECKING:
@@ -66,10 +69,25 @@ def run_recognizer(args: argparse.Namespace, Model: FunASRModel):
     if args.return_response:
         return response
 
-    sentences: list[Sentence] = convert_asr_response_to_sentences(response)
-    for sentence in sentences:
+    seg_word_sentences: list[Sentence] = convert_asr_response_to_sentences(response)
+    sentences: list[Sentence] = []
+    # "它 好 像 是 inspired by de breaking 什 么 什 么 什 么 bridge 它 的 灵 感 来 自 一 座 桥 来 自 德 国 的 一 座 桥" -> 它好像是 inspired by de breaking 什么什么什么 bridge 它的灵感来自一座桥来自德国的一座桥
+    for sentence in seg_word_sentences:
         sentence["text"] = rewrite_sentence_text_by_words(sentence["Words"])
-        print(sentence)
+        sentences.append(sentence)
+
+    if args.cut:
+        sentences = cut_sentences(sentences=sentences, cut_line=args.cut_line)
+    elif args.combine:
+        sentences = combine_sentences(
+            sentences=sentences, combine_line=args.combine_line, max_sentence_length=args.max_sentence_length
+        )
+    else:
+        pass
+
+    # 将 sentences 写入 srt 文件
+    srt_file_path = args.output_dir / f"{args.input_path.stem}.srt"
+    write_srt_from_sentences(sentences=sentences, srt_file_path=srt_file_path)
 
 
 if __name__ == "__main__":

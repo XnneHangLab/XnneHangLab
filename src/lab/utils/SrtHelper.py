@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING
 
-from lab._dataclass import RunnerSettings
-from lab.utils.config import load_settings_file
 from lab.utils.TxtHelper import write_txt_to_file
 
 if TYPE_CHECKING:
@@ -34,7 +31,7 @@ def convert_sentence_to_srt(sentence: Sentence) -> tuple[str, str, str]:
     return (start_time, end_time, text)
 
 
-def write_srt_from_sentences(sentences: list[Sentence], srt_file_path: Path, remove_punctuation: bool = True):
+def write_srt_from_sentences(sentences: list[Sentence], srt_file_path: Path):
     """写入最终的 SRT 文件
 
     Args:
@@ -42,7 +39,6 @@ def write_srt_from_sentences(sentences: list[Sentence], srt_file_path: Path, rem
         srt_file_path (Path): *.srt 文件路径
         remove_punctuation (bool, optional): 是否移除标点符号. Defaults to True.
     """
-    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
     srt_dir = srt_file_path.parent
     if not srt_dir.exists():
         srt_dir.mkdir(parents=True)
@@ -51,9 +47,4 @@ def write_srt_from_sentences(sentences: list[Sentence], srt_file_path: Path, rem
         start_time, end_time, text = convert_sentence_to_srt(sentence)
         srt_content += f"{index}\n{start_time} --> {end_time}\n{text}\n\n"
 
-    if remove_punctuation:
-        pattern = rf"{settings.punctuation_list}"
-        filtered_content = re.sub(pattern, "", srt_content)
-        write_txt_to_file(srt_file_path, filtered_content)
-    else:
-        write_txt_to_file(srt_file_path, srt_content)
+    write_txt_to_file(srt_file_path, srt_content)

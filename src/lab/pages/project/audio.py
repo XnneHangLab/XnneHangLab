@@ -377,7 +377,7 @@ with working_tab:
                             combine_line=combine_line,
                         )
                     elif subtitle_speed == "快":
-                        sentences = cut_sentences(sentences, cutline=cut_line)
+                        sentences = cut_sentences(sentences, cut_line=cut_line)
                     else:
                         pass
                     if st.session_state[audio_keys["preview_srt_file"]]:

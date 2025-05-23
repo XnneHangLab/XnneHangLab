@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from lab._dataclass import RunnerSettings
 from lab.utils.config import load_settings_file
+from lab.utils.console.logger import Logger
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -29,7 +30,7 @@ def write_lines_to_file(file_path: Path, lines: list[str]):
 def write_txt_to_file(file_path: Path, text: str):
     with file_path.open("w", encoding="utf-8") as file:
         file.write(text)
-        print(f"已写入文件: {file_path}.")
+        Logger.info(f"已写入文件: {file_path}.")
 
 
 # 读取文件
