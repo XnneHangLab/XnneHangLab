@@ -141,3 +141,22 @@ def convert_asr_response_to_sentences(input_data: ASRResponse) -> list[Sentence]
         sentences.append(sentence)
 
     return sentences
+
+
+def rewrite_sentence_text_by_words(words: list[Word]) -> str:
+    result: list[str] = []
+    for word in words:
+        result.append(word["text"])
+    # 合并文本，中文之间无空格，英文之间有空格，中英文之间有空格
+    combined = ""
+    for i in range(len(result)):
+        current = result[i]
+        if i > 0:
+            prev = result[i - 1]
+            # 判断是否需要加空格
+            is_current_chinese = all(ord(char) > 127 for char in current)
+            is_prev_chinese = all(ord(char) > 127 for char in prev)
+            if not is_current_chinese or not is_prev_chinese:
+                combined += " "
+        combined += current
+    return combined.strip()  # .strip() 是一个字符串方法，用于去除字符串开头和结尾的空白字符（包括空格、换行符 \n、制表符 \t 等）。它不会影响字符串中间的空白字符。

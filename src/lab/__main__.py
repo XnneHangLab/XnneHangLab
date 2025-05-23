@@ -5,7 +5,7 @@ import json
 import sys
 from typing import TYPE_CHECKING
 
-from lab.BasicRunner.converter import convert_asr_response_to_sentences
+from lab.BasicRunner.converter import convert_asr_response_to_sentences, rewrite_sentence_text_by_words
 from lab.cli import cli, handle_default_subcommand
 
 # from lab.exceptions import ErrorCode
@@ -68,6 +68,7 @@ def run_recognizer(args: argparse.Namespace, Model: FunASRModel):
 
     sentences: list[Sentence] = convert_asr_response_to_sentences(response)
     for sentence in sentences:
+        sentence["text"] = rewrite_sentence_text_by_words(sentence["Words"])
         print(sentence)
 
 

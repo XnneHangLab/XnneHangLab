@@ -9,6 +9,8 @@ from lab.utils.config import load_settings_file
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from lab._typing import Word
+
 
 def split_text_into_sentences_by_punctuation_list(text: str) -> list[str]:
     """
