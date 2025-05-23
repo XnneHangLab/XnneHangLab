@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from lab._dataclass import RunnerSettings
 from lab.utils.config import load_settings_file
+from lab.utils.console.logger import Logger
 from lab.utils.SubprocessHelper import run_shell_command
 
 if TYPE_CHECKING:
@@ -103,7 +104,46 @@ def file_to_mp3(input_path: Path, output_path: Path):
         return None
 
 
+def file_to_opus(input_path: Path, output_path: Path):
+    """
+    使用 ffmpeg 将 * 文件转换为 Opus 文件，并应用指定的参数，使用 run_shell_command 执行命令。
+    可以处理 MP4, MP3, AAC, FLAC, etc. 等 FFmpeg 支持的格式。
+    """
+    # TODO 这一步可能比较久,但是只在结束时输出, 可以考虑用 wepxct 和 pexpect
+    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
+    FFMPEG_PATH = settings.FFMPEG_PATH
+    if not input_path.exists():
+        raise FileNotFoundError(f"输入文件不存在: {input_path}")
+
+    if input_path.suffix.lower() == ".opus":
+        Logger.info("文件已经是 Opus 格式，无需转换。")
+        return input_path
+
+    command = [
+        str(FFMPEG_PATH),
+        "-y",  # 强制覆盖输出文件
+        "-i",
+        str(input_path.absolute()),
+        "-vn",  # 禁用视频流
+        "-c:a",
+        "libopus",  # 音频编码器，Opus
+        str(output_path.absolute()),
+    ]
+
+    result = run_shell_command(command)  # 使用 run_shell_command 执行命令
+
+    if result.returncode == 0:
+        Logger.info(f"'{input_path}' 成功转换为 Opus 文件 '{output_path}'")
+        return True
+    else:
+        print(f"FFmpeg 转换失败，返回码: {result.returncode}")
+        # run_shell_command 已经记录了错误信息，这里可以不再重复打印 stderr/stdout
+        return False
+
+
+# ffmpeg -i 输入文件名 -vn -c:a libopus 输出文件名.opus  # 仅提取音频为 opus
 def split_opus_audio(input_path: Path, output_dir: Path, start_time: int, seg_length: int) -> Path:
+    # 仅支持 opus
     settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
     FFMPEG_PATH = settings.FFMPEG_PATH
     # 确保输出目录存在
