@@ -13,7 +13,8 @@ class ErrorCode(Enum):
     COMBINE_CUT_ERROR = 10
     MODEL_FILE_NOT_FOUND_ERROR = 11
     FFMPEG_NOT_FOUND_ERROR = 12
-    UNSUPPORTED_TYPE_ERROR = 13
+    MODEL_SELECTION_ERROR = 13
+    UNSUPPORTED_TYPE_ERROR = 14
 
 
 class SuccessCode(Enum):
@@ -47,6 +48,11 @@ class ModelFileNotFoundError(BaseException):
 class FFmpegNotFoundError(BaseException):
     # ffmpeg 执行文件不存在
     code = ErrorCode.FFMPEG_NOT_FOUND_ERROR
+
+
+class ModelSelectionError(BaseException):
+    # 模型选择错误, 目前有 base_model, vad_model, punc_model, sense_voice_model
+    code = ErrorCode.MODEL_SELECTION_ERROR
 
 
 class UnSupportedTypeError(BaseException):

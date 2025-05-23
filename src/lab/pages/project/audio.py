@@ -17,12 +17,13 @@ from lab.styles.global_style import style
 from lab.utils.config import get_setting_title, load_settings_file, write_settings_file
 from lab.utils.FFmpegHelper import file_to_wav
 from lab.utils.get_font import read_font_data
-from lab.utils.model import FunASRModel, generate_asr_results
+from lab.utils.lazy_model import FunASRModel, generate_asr_results
 from lab.utils.public import (
     parse_srt_file,
 )
 from lab.utils.SrtHelper import write_srt_from_sentences
 
+# TODO 以 sys.argv 的方式调用 basic_runner, 这里不再写入基础函数.
 # ============== 0.加载配置，配置字体
 
 style()
@@ -242,7 +243,7 @@ with working_tab:
                 msg_whs = st.toast("正在识别音频内容", icon=":material/troubleshoot:")
                 if audio_settings.output_type == "with_timestamp":
                     Model = FunASRModel()
-                    model = Model.asr_full_version()
+                    model = Model.vad_and_asr()
                     response_with_timestamp = generate_asr_results(
                         model=model,
                         input_path=Path(cache_dir / st.session_state[audio_keys["audio_name"]]),
@@ -263,7 +264,7 @@ with working_tab:
 
                 elif audio_settings.output_type == "without_timestamp":
                     Model = FunASRModel()
-                    model = Model.asr_full_version()
+                    model = Model.vad_and_asr()
                     response = generate_asr_results(
                         model=model,
                         input_path=cache_dir / st.session_state[audio_keys["audio_name"]],
@@ -376,7 +377,7 @@ with working_tab:
                             combine_line=combine_line,
                         )
                     elif subtitle_speed == "快":
-                        sentences = cut_sentences(sentences, cutline=cut_line)
+                        sentences = cut_sentences(sentences, cut_line=cut_line)
                     else:
                         pass
                     if st.session_state[audio_keys["preview_srt_file"]]:

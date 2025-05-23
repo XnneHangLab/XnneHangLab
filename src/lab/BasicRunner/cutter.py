@@ -6,7 +6,7 @@ if TYPE_CHECKING:
     from lab._typing import CutPoint, Sentence, Word
 
 # ====
-# 根据 cutline 把单个句子拆成多个句子，如果句子停顿时间超过 cutline 。
+# 根据 cut_line 把单个句子拆成多个句子，如果句子停顿时间超过 cut_line 。
 # 可以用于调整字幕长度和速度。
 # ====
 
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 # 拆分 Sentence 为 Word 果然是对的。
 
 
-def cut_sentences(sentences: list[Sentence], cutline: int):
+def cut_sentences(sentences: list[Sentence], cut_line: int):
     all_new_sentences: list[Sentence] = []
 
     for sentence_index, sentence in enumerate(sentences):
@@ -24,9 +24,9 @@ def cut_sentences(sentences: list[Sentence], cutline: int):
         new_words_lists: list[list[Word]] = []
 
         for word_index, word in enumerate(sentence["Words"]):
-            if (word["start"] - latest_end > cutline) and (
+            if (word["start"] - latest_end > cut_line) and (
                 latest_end != 0
-            ):  # 这一个字的开始时间 - 上一个字的结束时间 > cutline
+            ):  # 这一个字的开始时间 - 上一个字的结束时间 > cut_line
                 cut_points.append({"sentence_index": sentence_index, "word_index": word_index})
             latest_end = word["end"]
 

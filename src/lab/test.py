@@ -9,18 +9,13 @@ import torch
 import torchaudio
 from todo.__version__ import VERSION
 
-from lab._dataclass import AudioSettings, RunnerSettings
-from lab.BasicRunner.combiner import combine_sentences
-from lab.BasicRunner.converter import convert_asr_response_to_sentences, split_into_words, split_into_words_no_punct
-from lab.BasicRunner.cutter import cut_sentences
-from lab.BasicRunner.extractor import save_only_text_from_response
-from lab.utils.config import get_setting_title, load_settings_file
-from lab.utils.FFmpegHelper import test_call_ffmpeg
-from lab.utils.model import FunASRModel, generate_asr_results, generate_sense_voice_results
-from lab.utils.SrtHelper import write_srt_from_sentences
+from lab._dataclass import RunnerSettings
+from lab.utils.config import load_settings_file
+from lab.utils.lazy_model import FunASRModel, generate_asr_results, generate_sense_voice_results
+from lab.utils.TxtHelper import split_into_words, split_into_words_no_punct
 
 if TYPE_CHECKING:
-    from lab._typing import SenseVoiceResponse, Sentence
+    from lab._typing import SenseVoiceResponse
 
 
 def main():
@@ -37,51 +32,51 @@ def main():
     print("====== Testing package_todo =======")
     print(f"todo:{VERSION}")
 
-    print("====== Testing fn_load_settings_file =======")
-    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
-    print(settings)
-    audio_settings: AudioSettings = load_settings_file("audio.toml", AudioSettings)
-    print(audio_settings)
+    # print("====== Testing fn_load_settings_file =======")
+    # settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
+    # print(settings)
+    # audio_settings: AudioSettings = load_settings_file("audio.toml", AudioSettings)
+    # print(audio_settings)
 
-    print("====== Testing fn_get_setting_title=======")
-    print("subtitle -> " + get_setting_title("subtitle_speed", AudioSettings))
-    print("device -> " + get_setting_title("device", RunnerSettings))
-    print("base_model -> " + get_setting_title("base_model", RunnerSettings))
+    # print("====== Testing fn_get_setting_title=======")
+    # print("subtitle -> " + get_setting_title("subtitle_speed", AudioSettings))
+    # print("device -> " + get_setting_title("device", RunnerSettings))
+    # print("base_model -> " + get_setting_title("base_model", RunnerSettings))
 
-    print("====== Testing fn_call_test_ffmpeg ======")
-    test_call_ffmpeg()
+    # print("====== Testing fn_call_test_ffmpeg ======")
+    # test_call_ffmpeg()
 
-    print("====== Testing fn_convert_asr_response_to_sentences =======")
+    # print("====== Testing fn_convert_asr_response_to_sentences =======")
 
-    Model = FunASRModel()
-    model = Model.asr_full_version()
-    response = generate_asr_results(model=model, input_path=testing_file)
-    save_only_text_from_response(response=response, output_dir=Path("./output"))
+    # Model = FunASRModel()
+    # model = Model.vad_and_asr()
+    # response = generate_asr_results(model=model, input_path=testing_file)
+    # save_only_text_from_response(response=response, output_dir=Path("./output"))
 
-    print("====== Testing fn_convert_asr_response_to_sentences =======")
-    sentences: list[Sentence] = convert_asr_response_to_sentences(response)
+    # print("====== Testing fn_convert_asr_response_to_sentences =======")
+    # sentences: list[Sentence] = convert_asr_response_to_sentences(response)
 
-    print("====== Testing fn_split_into_words =======")
-    print(split_into_words("晚安纳尼南尼nony!"))  # ['晚', '安', '纳', '尼', '南', '尼', 'nony']
-    print(split_into_words("就的真的妈a等等?"))  # ['就', '的', '真', '的', '妈', 'a', '等', '等']
-    print(split_into_words("多喜天dustin birthday."))  # ['多', '喜', '天', 'dustin', 'birthday']
-    print(split_into_words("He's 我见过的。"))  # ["He's", '我', '见', '过', '的', '。']
+    # print("====== Testing fn_split_into_words =======")
+    # print(split_into_words("晚安纳尼南尼nony!"))  # ['晚', '安', '纳', '尼', '南', '尼', 'nony']
+    # print(split_into_words("就的真的妈a等等?"))  # ['就', '的', '真', '的', '妈', 'a', '等', '等']
+    # print(split_into_words("多喜天dustin birthday."))  # ['多', '喜', '天', 'dustin', 'birthday']
+    # print(split_into_words("He's 我见过的。"))  # ["He's", '我', '见', '过', '的', '。']
 
-    print("====== Testing fn_split_into_words_no_punct =======")
-    # TODO 当到了 testing 的时候，应该对比输出的 textlist 和 timestamp 的长度
-    print(split_into_words_no_punct("晚安纳尼南尼nony!"))  # ['晚', '安', '纳', '尼', '南', '尼', 'nony']
-    print(split_into_words_no_punct("就的真的妈a等等?"))  # ['就', '的', '真', '的', '妈', 'a', '等', '等']
-    print(split_into_words_no_punct("多喜天dustin birthday."))  # ['多', '喜', '天', 'dustin', 'birthday']
-    print(split_into_words_no_punct("He's 我见过的。"))  # ["He's", '我', '见', '过', '的', '。']
+    # print("====== Testing fn_split_into_words_no_punct =======")
+    # # TODO 当到了 testing 的时候，应该对比输出的 textlist 和 timestamp 的长度
+    # print(split_into_words_no_punct("晚安纳尼南尼nony!"))  # ['晚', '安', '纳', '尼', '南', '尼', 'nony']
+    # print(split_into_words_no_punct("就的真的妈a等等?"))  # ['就', '的', '真', '的', '妈', 'a', '等', '等']
+    # print(split_into_words_no_punct("多喜天dustin birthday."))  # ['多', '喜', '天', 'dustin', 'birthday']
+    # print(split_into_words_no_punct("He's 我见过的。"))  # ["He's", '我', '见', '过', '的', '。']
 
-    print("====== Testing non-process-wav2srt =======")
-    write_srt_from_sentences(sentences=sentences, srt_file_path=Path("./output/test.srt"))
+    # print("====== Testing non-process-wav2srt =======")
+    # write_srt_from_sentences(sentences=sentences, srt_file_path=Path("./output/test.srt"))
 
-    print("====== Testing cut wav2srt")
-    cut_sentences(sentences=sentences, cutline=500)
+    # print("====== Testing cut wav2srt")
+    # cut_sentences(sentences=sentences, cutline=500)
 
-    print("====== Testing combine wav2srt")
-    combine_sentences(sentences=sentences, combine_line=500, max_sentence_length=500)
+    # print("====== Testing combine wav2srt")
+    # combine_sentences(sentences=sentences, combine_line=500, max_sentence_length=500)
 
     print("====== Testing generate_sense_voice_results =======")
     settings = load_settings_file("global.toml", RunnerSettings)
@@ -91,7 +86,7 @@ def main():
     # TODO https://github.com/FunAudioLLM/SenseVoice/issues/204
     # TODO 另外，标点符号也具有 timestamp， 所以 SenseVoice 的标点不应该被过滤掉
     Model = FunASRModel()
-    model = Model.asr_full_version()
+    model = Model.vad_and_asr()
 
     response = generate_asr_results(model=model, input_path=testing_file)
     asr_text = response["text"]

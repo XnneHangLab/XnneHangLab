@@ -40,7 +40,7 @@ install-sensevoice:
   # SenseVoiceSmall
   uv run modelscope download --model iic/SenseVoiceSmall --local_dir ./models/SenseVoiceSmall
 
-fmt:
+fmt: # 似乎不会检查被 .gitignore 忽略的文件
   uv run ruff check --fix --select I . --exclude packages
   uv run ruff format . --exclude packages
 

@@ -41,3 +41,11 @@ packages/yutto
 
 # wexpect
 packages/wexpect-uv
+
+# debug
+bug.opus
+asr_response.json
+rec.txt
+sentences_list
+debug/
+tmp.py
