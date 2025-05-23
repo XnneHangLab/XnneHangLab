@@ -60,19 +60,7 @@ def split_into_words_no_punct(text: str) -> list[str]:
     split_into_words_no_punct("It's a test.") -> ['It's', 'a', 'test']
     split_into_words_no_punct("don't stop") -> ["don't", 'stop']
     """
-    # 正则表达式解析:
-    # [a-zA-Z]+(?:'[a-zA-Z]+)? : 匹配英文单词，包括那些带有撇号的缩写 (例如 's, 't, 're 等)。
-    #    [a-zA-Z]+ : 匹配一个或多个连续的英文字母 (单词的开头或整个单词)。
-    #    (?:...) : 非捕获组，用于组合撇号和后面的字母部分。
-    #    '[a-zA-Z]+ : 匹配一个撇号跟着一个或多个英文字母。
-    #    ? : 表示前面的非捕获组 (撇号和后面的字母) 是可选的。这使得该模式能匹配像 "He" (在 "He's" 中) 或 "word" 这样没有撇号的单词。
-    # | : 或运算符，表示匹配左边或右边的模式。
-    # [\u4e00-\u9fa5] : 匹配一个中文字符（Unicode 范围 U+4E00 到 U+9FA5）。
     pattern = re.compile(r"[a-zA-Z]+(?:'[a-zA-Z]+)?|[\u4e00-\u9fa5]")
-
-    # 使用 findall 方法查找文本中所有匹配正则表达式的部分。
-    # findall 会返回一个列表，包含所有不重叠的匹配项。
-    # 由于正则表达式只匹配中文或英文单词（含缩写），标点和空格会被自动忽略。
     words = pattern.findall(text)
     return words
 
@@ -87,7 +75,6 @@ def split_into_words(text: str) -> list[str]:
     split_into_words("He's 我见过的。") -> ["He's", '我', '见', '过', '的', '。']
     """
 
-    # 正则表达式用于匹配英文单词、汉字、标点符号和英文缩写
     pattern = re.compile(r"[a-zA-Z]+(?:'[a-zA-Z]+)?|[\u4e00-\u9fa5]|[^\u4e00-\u9fa5a-zA-Z\s]")
 
     # 使用 findall 方法找到所有匹配的部分
