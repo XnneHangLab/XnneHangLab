@@ -10,9 +10,9 @@ import torchaudio
 from todo.__version__ import VERSION
 
 from lab._dataclass import RunnerSettings
-from lab.BasicRunner.converter import split_into_words, split_into_words_no_punct
 from lab.utils.config import load_settings_file
 from lab.utils.lazy_model import FunASRModel, generate_asr_results, generate_sense_voice_results
+from lab.utils.TxtHelper import split_into_words, split_into_words_no_punct
 
 if TYPE_CHECKING:
     from lab._typing import SenseVoiceResponse
