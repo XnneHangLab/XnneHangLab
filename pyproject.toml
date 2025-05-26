@@ -18,7 +18,7 @@ dependencies = [
     "pandas==2.2.3",
     
     # special for yutto-uiya , 因为似乎不会自动检查 workspace 的成员并且安装依赖
-    "uiya-yutto==0.0.2-pre",
+    "uiya-yutto==0.0.2-rc.2",
     # "yutto==2.0.3",
     "httpx[http2,socks]>=0.28.1",
     "pexpect==4.9.0;sys_platform!='win32'",

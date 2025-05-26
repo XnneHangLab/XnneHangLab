@@ -2,17 +2,17 @@ start:
   uv lock
   uv sync
   uv run get_root
-  uv run streamlit run src/lab/ui.py
+  uv run streamlit run src/lab/ui.py --server.port 8051
 
 dev-clean:
   rm packages/yutto/dist -rf
   rm packages/wexpect-uv/dist -rf
 
 server:
-  uv run uvicorn src.lab.api_server:app --reload --host 0.0.0.0 --port 8000
+  uv run uvicorn src.lab.api_server:app --reload --host localhost --port 8000
 
 test-server:
-  curl -X POST "http://127.0.0.1:8000/rec-audio" -F "file=@./examples/example3.opus"
+  curl -X POST "http://localhost:8000/rec-audio" -F "file=@./examples/example3.opus"
 
 dev:
     # 删除所有构建产物和缓存 / 二次操作防止缓存问题恢复代码
@@ -21,7 +21,7 @@ dev:
     rm -rf packages/*/*.egg-info
     uv build packages/yutto
     uv build packages/wexpect-uv
-    uv lock --no-cache --upgrade
+    uv lock --no-cache
     uv run get_root
     uv run streamlit run src/lab/ui.py --server.port 8000
 
