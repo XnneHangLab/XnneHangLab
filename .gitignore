@@ -24,7 +24,7 @@ workspace/
 # auto gen config
 config/font.txt
 config/root.toml
-
+config/todo_data_simplified.json
 # ruff
 .ruff_cache/
 
@@ -41,6 +41,7 @@ packages/yutto
 
 # wexpect
 packages/wexpect-uv
+packages/Folder-Keeper/
 
 # debug
 bug.opus
@@ -49,3 +50,4 @@ rec.txt
 sentences_list
 debug/
 tmp.py
+wexpect_log
