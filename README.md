@@ -84,30 +84,46 @@
 
 ### 0.前置
 
+> 如果你是 windows , 可以先安装 [**scoop**](https://scoop.sh/) , 这样可以更方便的安装依赖。<br>
+> 只需要打开 powershell 然后运行:<br>
+> ```shell
+> Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+> Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
+> ```
+> 之后你就可以在任何终端使用 scoop.<br>
+
+
+
 [**ffmpeg**](https://www.ffmpeg.org/), 本项目的依赖项 `yutto` 用到系统的 `ffmpeg`, 目前 `ffmpeg` 需要在全局可以访问, 对于 mac 和 linux 用户可以直接:
 
 ```shell
 sudo apt install ffmpeg # linux
 brew install ffmpeg # mac
+scoop install ffmpeg # windows
 ```
 
-对于 windows 用户可以直接下载[ffmpeg](https://ffmpeg.org/download.html) 的压缩包，解压到你想要的目录，然后把 `bin` 目录添加到系统环境变量中。
+也可以下载 ffmpeg 的可执行文件然后添加到全局设置和 `b站视频下载` 是 ffmpeg 路径设置项中.
 
 [**uv**](https://docs.astral.sh/uv/) 是本项目的包管理工具，它让你免于手动配置和调试环境。你可以从[安装指南](https://docs.astral.sh/uv/getting-started/installation/)找到合适的安装方式～
 
-[**just**](https://github.com/casey/just) 是一款用 rust 编写的简单易用的命令执行工具，它可以让原本复杂的命令运行变得简单。安装方法请参考[它的文档](https://github.com/casey/just#installation)。该项非必须， Windows 比较难安装 just (当然如果你有 scoop 和 git bash 可以直接 `scoop install just`), 可以跳过。后续使用 bat 脚本替代即可。
-
-[**rust-tool-chain**](https://www.rust-lang.org/tools/install) 是本项目的编译工具，因为本项目联调了 `yutto` 并且并不是所有特性都合入了 `yutto` 的主分支，所以目前 `yutto` 从 github 安装, 手动编译时需要 rust 工具链. 当然我也会尽量在 release 最新的 yutto-uiya 附带所用 yutto `whl` 包. 如果你使用我所 release 的 whl, 那么只需要安装 `uv` 和 `just` 即可。 但该方法需要修改 `pyproject.toml` 使其指向你在 release 中下载的 `.whl`:
-
-对于当前目录的 `pyproject.toml`:
-
-```toml
-# 这个源要与 yutto-uiya 保持一致, 要改, 得同时改
-yutto = { git = "https://github.com/MrXnneHang/yutto.git", rev = "parse" }
-# yutto = { path = "./packages/yutto/dist/yutto-2.0.3-py3-none-any.whl"}
+```shell
+curl -LsSf https://astral.sh/uv/install.sh | sh # linux / mac
+scoop install uv # windows
+# 完整完均需要新开终端
 ```
 
-把下面那行取消注释并且注释掉上面那行即可。path 指向对应的 whl 文件并且对 `packages/yutto-uiya/pyproject.toml` 做同样操作.
+
+[**just**](https://github.com/casey/just) 是一款用 rust 编写的简单易用的命令执行工具，它可以让原本复杂的命令运行变得简单。安装方法请参考[它的文档](https://github.com/casey/just#installation)。该项非必须， Windows 比较难安装 just (当然如果你有 scoop 和 git bash 可以直接 `scoop install just`), 可以跳过。后续使用 bat 脚本替代即可。
+
+```shell
+# windows
+scoop install git
+scoop install just
+
+# linux / mac
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh # rust-tool-chain , 安装完需要重启终端
+cargo install just
+```
 
 **ps:** windows 用户也可以等待网盘的整合包。整合包双击运行,包含所有环境以及依赖.
 
@@ -153,7 +169,7 @@ torch = { index = "pytorch-cu118"}
 torchaudio = { index = "pytorch-cu118"}
 ```
 
-默认 windows 下是 pytorch-cu118 , linux 和 mac 下是 pytorch-cpu 。
+默认 windows 下是 pytorch-cu118 , linux 和 mac 下是 pytorch-cpu, 你可以直接对调.
 
 你可以通过重复运行来验证模型是否下载完整:
 
