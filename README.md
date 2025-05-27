@@ -127,12 +127,13 @@ cargo install just
 
 **ps:** windows 用户也可以等待网盘的整合包。整合包双击运行,包含所有环境以及依赖.
 
-### 1.从 Release 页面下载源码（XnneHangLab.zip）
+### 1. 克隆仓库 
 
-[Release 页面](https://github.com/XnneHangLab/XnneHangLab/releases)
-
-> 可选:
-> 下载 release 中存在的 `yutto_*.whl` 文件, 该文件是我编译好的 `yutto` 包, 你参照 `rust-tool-chain` 中的说明直接使用它. 而无需编译.
+```shell
+git clone https://github.com/XnneHangLab/XnneHangLab.git
+cd XnneHangLab
+git submodule update --init --recursive packages
+```
 
 ### 2. 自动安装依赖并下载必要模型权重文件
 
