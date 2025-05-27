@@ -121,7 +121,7 @@ scoop install git
 scoop install just
 
 # linux / mac
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh # rust-tool-chain , 安装完需要重启终端
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh # rust-tool-chain, 安装新开终端
 cargo install just
 ```
 
