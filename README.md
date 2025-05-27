@@ -131,6 +131,7 @@ cargo install just
 
 ```shell
 git clone https://github.com/XnneHangLab/XnneHangLab.git
+cd XnneHangLab
 git submodule update --init --recursive packages
 ```
 
