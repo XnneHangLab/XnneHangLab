@@ -12,7 +12,7 @@ from lab.cli import cli, handle_default_subcommand
 
 # from lab.exceptions import ErrorCode
 from lab.utils.console.logger import Badge, Logger
-from lab.utils.lazy_model import generate_asr_results, generate_punc_results
+from lab.utils.lazy_model import generate_asr_results, generate_punc_results, generate_vad_results
 from lab.utils.model import FunASRModel
 from lab.utils.SrtHelper import write_srt_from_sentences
 from lab.validator import validate_recognizer_args, validate_setting_args
@@ -20,7 +20,7 @@ from lab.validator import validate_recognizer_args, validate_setting_args
 if TYPE_CHECKING:
     import argparse
 
-    from lab._typing import ASRResponse, Sentence
+    from lab._typing import ASRResponse, Sentence, VadResponse
 
 
 def main():
@@ -37,7 +37,8 @@ def main():
             #     Logger.info("已终止下载，再次运行即可继续下载～")
         case "punc_recover":
             run_punc_recover(args, Model)
-
+        case "vad":
+            run_vad(args, Model)
         case _:
             raise ValueError("Invalid command")
 
@@ -47,6 +48,13 @@ def run_punc_recover(args: argparse.Namespace, Model: FunASRModel):
     model = Model.only_puc()  # 这一步还是有点时间在的 =- =, 如果极限压缩, 那么请考虑把它作为全局变量
     res = generate_punc_results(model, args.input_text)
     print(res)
+
+
+def run_vad(args: argparse.Namespace, Model: FunASRModel):
+    Logger.custom("VAD 语音活动检测", badge=Badge("任务", fore="black", back="cyan"))
+    model = Model.only_vad()  # 这一步还是有点时间在的 =- =, 如果极限压缩, 那么请考虑把它作为全局变量
+    response: VadResponse = generate_vad_results(model, args.input_path)
+    Logger.info(response)
 
 
 def run_recognizer(args: argparse.Namespace, Model: FunASRModel):

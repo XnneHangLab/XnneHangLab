@@ -41,3 +41,11 @@ class FunASRModel:
     def only_puc(self):
         model = AutoModel(model=self.punc_model, device=self.device, disable_update=True)  # 也可以添加在这里
         return model
+
+    def only_vad(self):
+        model = AutoModel(
+            model=self.vad_model,
+            device=self.device,
+            disable_update=True,  # 添加在这里，禁用更新检查
+        )
+        return model

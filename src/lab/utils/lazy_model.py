@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
     from funasr import AutoModel
 
-    from lab._typing import ASRResponse
+    from lab._typing import ASRResponse, VadResponse
 
 
 class FunASRModel:
@@ -65,6 +65,17 @@ class FunASRModel:
         model = AutoModel(model=self.punc_model, device=self.device, disable_update=True)  # 也可以添加在这里
         return model
 
+    def only_vad(self):
+        # Lazy-import
+        from funasr import AutoModel
+
+        model = AutoModel(
+            model=self.vad_model,
+            device=self.device,
+            disable_update=True,  # 添加在这里，禁用更新检查
+        )
+        return model
+
 
 def generate_asr_results(model: AutoModel, input_path: Path) -> ASRResponse:
     # asr_and_vad 使用
@@ -104,6 +115,16 @@ def generate_punc_results(model: AutoModel, input_text: str) -> str:
     # return: 那今天的会就到这里吧，happy new year明年见。
     res = model.generate(input=input_text)  # type:ignore
     return res[0]["text"]  # type:ignore
+
+
+def generate_vad_results(model: AutoModel, input_path: Path) -> VadResponse:
+    res = model.generate(input=str(input_path))  # type:ignore
+    # res: [{'key': 'bug_0_30', 'value': [[0, 3000], [3200, 4500]]}]
+    response: VadResponse = {
+        "key": res[0].get("key", ""),  # type:ignore
+        "timestamp": res[0].get("value", []),  # type:ignore
+    }
+    return response
 
 
 def generate_sense_voice_results(model: AutoModel, input_path: Path, use_itn: bool = False) -> ASRResponse:

@@ -20,6 +20,18 @@ class ASRResponse(TypedDict):
     timestamp: list[list[int]]
 
 
+class VadResponse(TypedDict):
+    """response from vad models
+       Example:
+    {'key': 'bug_0_30',
+     'timestamp': [[0, 3000],[3200,4500]]}
+     代表的是有说话人活动的时间段, 注意这里的时间戳是毫秒级别的。
+    """
+
+    key: str
+    timestamp: list[list[int]]  # [[start, end], [start, end], ...]
+
+
 class SenseVoiceResponse(TypedDict):
     """response from sensevoice models
       Example:
