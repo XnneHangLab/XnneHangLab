@@ -14,7 +14,7 @@ def path_from_cli(path: str) -> Path:
     return Path(path).expanduser()
 
 
-SUBCOMMANDS = ["recognize", "punc_recover"]
+SUBCOMMANDS = ["recognize", "punc_recover", "vad"]
 
 
 def handle_default_subcommand(argv: list[str]) -> list[str]:
@@ -43,9 +43,11 @@ def cli():
     subparsers = parser.add_subparsers(dest="command", help="支持的子命令")
     rec_parser = subparsers.add_parser("recognize", help="识别音频文件")
     punc_recover_parser = subparsers.add_parser("punc_recover", help="标点恢复")
+    vad_parser = subparsers.add_parser("vad", help="VAD 语音活动检测")
 
     add_recognize_arguments(rec_parser, settings)
     add_punc_recover_arguments(punc_recover_parser, settings)
+    add_vad_arguments(vad_parser, settings)
     return parser
 
 
@@ -116,9 +118,6 @@ def add_recognize_arguments(parser: argparse.ArgumentParser, settings: RunnerSet
 def add_punc_recover_arguments(parser: argparse.ArgumentParser, settings: RunnerSettings):
     group_config = parser.add_argument_group("setting", "配置项")
     group_config.add_argument(
-        "--batch_size_s", type=int, default=settings.batch_size_s, help=f"批处理大小, 默认为 {settings.batch_size_s}"
-    )
-    group_config.add_argument(
         "--device", type=str, default=settings.device, help=f"计算设备(cpu/gpu), 默认为 {settings.device}"
     )
     group_config.add_argument(
@@ -132,4 +131,21 @@ def add_punc_recover_arguments(parser: argparse.ArgumentParser, settings: Runner
         "-i",
         type=str,
         help="待恢复标点的文本",
+    )
+
+
+def add_vad_arguments(parser: argparse.ArgumentParser, settings: RunnerSettings):
+    group_config = parser.add_argument_group("setting", "配置项")
+    group_config.add_argument(
+        "--device", type=str, default=settings.device, help=f"计算设备(cpu/gpu), 默认为 {settings.device}"
+    )
+    group_config.add_argument(
+        "--vad-model", type=path_from_cli, default=path_from_cli(settings.vad_model), help="VAD模型的路径"
+    )
+    group_config.add_argument(
+        "--input-path",
+        "-i",
+        type=path_from_cli,
+        default=path_from_cli("./examples/example1.wav"),
+        help="输入音频文件路径",
     )
