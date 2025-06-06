@@ -28,6 +28,7 @@
   <a href="#功能"><strong>功能</strong></a> ·
   <a href="#演示"><strong>演示</strong></a> ·
   <a href="#本地部署"><strong>本地部署</strong></a>
+  <a href="#fastapi&cli"><strong>fastapi&cli</strong></a> ·
 </p>
 
 <br/>
@@ -64,6 +65,14 @@
 
 使用方法类似于 Downkyi, 致力于从视频下载到音频处理以及字幕生成一条龙服务。
 
+## fastapi&cli
+
+你也可以把该项目作为后端, 它使用 [**FastAPI**](https://fastapi.tiangolo.com/) 提供了部分功能, 具体参考 [fastapi](./docs/fastapi.md) 文档。
+
+该项目也正在开发 cli 工具, 目前支持音频识别和语音活动检测, 具体参考 [cli](./docs/cli.md) 文档。
+
+> 写前端后端混合让我感到稀碎和结构混乱, 反而 cli 有助于理解项目结构? 简单说就是更爽.
+
 ## 演示
 
 [从我的网站访问: **lab.xnnehang.top**](https://lab.xnnehang.top)
@@ -88,13 +97,13 @@
 
 > 如果你是 windows , 可以先安装 [**scoop**](https://scoop.sh/) , 这样可以更方便的安装依赖。<br>
 > 只需要打开 powershell 然后运行:<br>
+>
 > ```shell
 > Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 > Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
 > ```
+>
 > 之后你就可以在任何终端使用 scoop.<br>
-
-
 
 [**ffmpeg**](https://www.ffmpeg.org/), 本项目的依赖项 `yutto` 用到系统的 `ffmpeg`, 目前 `ffmpeg` 需要在全局可以访问, 对于 mac 和 linux 用户可以直接:
 
@@ -114,7 +123,6 @@ scoop install uv # windows
 # 完整完均需要新开终端
 ```
 
-
 [**just**](https://github.com/casey/just) 是一款用 rust 编写的简单易用的命令执行工具，它可以让原本复杂的命令运行变得简单。安装方法请参考[它的文档](https://github.com/casey/just#installation)。该项非必须， Windows 比较难安装 just (当然如果你有 scoop 和 git bash 可以直接 `scoop install just`), 可以跳过。后续使用 bat 脚本替代即可。
 
 ```shell
@@ -129,7 +137,7 @@ cargo install just
 
 **ps:** windows 用户也可以等待网盘的整合包。整合包双击运行,包含所有环境以及依赖.
 
-### 1. 克隆仓库 
+### 1. 克隆仓库
 
 ```shell
 git clone https://github.com/XnneHangLab/XnneHangLab.git
