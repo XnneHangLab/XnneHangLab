@@ -11,8 +11,11 @@ dev-clean:
 server:
   uv run uvicorn src.lab.api_server:app --reload --host localhost --port 8000
 
-test-server:
+test-rec-audio:
   curl -X POST "http://localhost:8000/rec-audio" -F "file=@./examples/example3.opus"
+
+test-vad-audio:
+  curl -X POST "http://localhost:8000/vad-audio" -F "file=@./examples/example3.opus"
 
 dev:
     # 删除所有构建产物和缓存 / 二次操作防止缓存问题恢复代码
