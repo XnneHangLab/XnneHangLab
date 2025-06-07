@@ -21,15 +21,13 @@ class ASRResponse(TypedDict):
 
 
 class VadResponse(TypedDict):
-    """response from vad models
-       Example:
-    {'key': 'bug_0_30',
-     'timestamp': [[0, 3000],[3200,4500]]}
-     代表的是有说话人活动的时间段, 注意这里的时间戳是毫秒级别的。
+    """
+    定义 VAD 响应的类型。
     """
 
-    key: str
-    timestamp: list[list[int]]  # [[start, end], [start, end], ...]
+    key: str  # 音频文件名(不带后缀)
+    timestamp: list[list[int]]  # 时间戳列表, 每个元素是一个 [start, end] 的列表
+    audio_length: int
 
 
 class SenseVoiceResponse(TypedDict):

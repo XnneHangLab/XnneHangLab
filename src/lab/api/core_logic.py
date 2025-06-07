@@ -88,7 +88,12 @@ def rec_audio(
     response: ASRResponse = generate_asr_results(model=model, input_path=input_path)
     end = time.time()
     processing_time = end - start
-    result = {"processing_time": processing_time, "text": response["text"]}
+    result = {
+        "key": response["key"],
+        "processing_time": processing_time,
+        "text": response["text"],
+        "time_stamp": response["timestamp"],
+    }
     return result
 
 
@@ -106,5 +111,10 @@ def vad_audio(
     response: VadResponse = generate_vad_results(model=model, input_path=input_path)
     end = time.time()
     processing_time = end - start
-    result = {"processing_time": processing_time, "time_stamp": response["timestamp"]}
+    result = {
+        "key": response["key"],
+        "processing_time": processing_time,
+        "timestamp": response["timestamp"],
+        "audio_length": response["audio_length"],
+    }
     return result

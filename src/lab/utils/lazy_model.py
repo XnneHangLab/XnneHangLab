@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 from lab._dataclass import RunnerSettings
 from lab.utils.config import load_settings_file
+from lab.utils.FFmpegHelper import get_audio_duration
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -120,9 +121,11 @@ def generate_punc_results(model: AutoModel, input_text: str) -> str:
 def generate_vad_results(model: AutoModel, input_path: Path) -> VadResponse:
     res = model.generate(input=str(input_path))  # type:ignore
     # res: [{'key': 'bug_0_30', 'value': [[0, 3000], [3200, 4500]]}]
+    audio_length: int = get_audio_duration(input_path)  # 获取音频长度
     response: VadResponse = {
         "key": res[0].get("key", ""),  # type:ignore
         "timestamp": res[0].get("value", []),  # type:ignore
+        "audio_length": audio_length,
     }
     return response
 

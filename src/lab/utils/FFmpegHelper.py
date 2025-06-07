@@ -176,3 +176,37 @@ def split_opus_audio(input_path: Path, output_dir: Path, start_time: int, seg_le
     # 执行 ffmpeg 命令
     run_shell_command(command=cmd)
     return output_path
+
+
+def get_audio_duration(input_path: Path) -> int:
+    """
+    使用 FFmpeg 获取音频文件的时长（以毫秒为单位）。
+
+    支持音频格式:
+        MP3
+        WAV
+        FLAC
+        AAC
+        OGG
+        M4A
+        WMA
+        AIFF
+
+    返回:
+        时长（毫秒），如果读取失败则返回 0。
+    """
+    # 调用 ffprobe 获取时长
+    cmd = [
+        "ffprobe",  # 不对外开放, 不提供配置项
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        str(input_path),
+    ]
+    result = run_shell_command(command=cmd)
+    duration_seconds = float(result.stdout.strip())
+    duration_ms = int(duration_seconds * 1000)
+    return duration_ms
