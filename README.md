@@ -138,9 +138,9 @@ cargo install just
 ### 1. 克隆仓库
 
 ```shell
-git clone https://github.com/XnneHangLab/XnneHangLab.git
+git clone https://github.com/XnneHangLab/XnneHangLab.git --recurse-submodules
 cd XnneHangLab
-git submodule update --init --recursive packages
+git submodule update --init --recursive packages # 如果你没有使用 --recurse-submodules 参数, 或者自动拉取失败，那么需要手动更新子模块
 ```
 
 ### 2. 自动安装依赖并下载必要模型权重文件
