@@ -3,20 +3,19 @@ name = "XnneHangLab"
 version = "0.0.5"
 description = ""
 readme = "README.md"
-requires-python = ">=3.11,<3.12"
+requires-python = ">=3.12,<3.13"
 dependencies = [
     "funasr==1.2.6",
     "modelscope>=1.23.1",
     "numpy==1.26.4",
-    "torch==2.2.0",
-    "torchaudio==2.2.0",
+    "torch==2.6.0",
+    "torchaudio==2.6.0",
     "tomli_w==1.2.0",
     "pydantic>=2.10.6",
     "setuptools==76.0.0",
     "streamlit==1.43.2",
     "streamlit-antd-components==0.3.2",
     "pandas==2.2.3",
-    
     # special for yutto-uiya , 因为似乎不会自动检查 workspace 的成员并且安装依赖
     "uiya-yutto==0.0.2-rc.2",
     # "yutto==2.0.3",
@@ -25,11 +24,13 @@ dependencies = [
     "wexpect-uv==0.0.5;sys_platform=='win32'",
     # "wexpect-uv;sys_platform=='win32'",
     "natsort>=8.4.0",
-
     # special for fastapi
     "fastapi>=0.115.12",
     "uvicorn>=0.34.2",
     "python-multipart>=0.0.20",
+    # special for database
+    "pymongo>=4.13.2",
+    "beanie>=1.30.0",
 ]
 authors = [{ name = "MrXnneHang", email = "XnneHang@gmail.com" }]
 keywords = []
