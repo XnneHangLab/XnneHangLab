@@ -1,3 +1,5 @@
+# (全局的)对外部开放的 api logic 都会在这里, 而不对外开放的比如 database logic 在对应的模块里
+
 from __future__ import annotations
 
 import time
