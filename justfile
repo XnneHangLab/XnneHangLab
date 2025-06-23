@@ -11,6 +11,10 @@ dev-clean:
 server:
   uv run uvicorn src.lab.api_server:app --reload --host localhost --port 8000
 
+db-server:
+  uv run uvicorn src.lab.database.main:app --reload --host localhost --port 8000
+
+
 test-rec-audio:
   curl -X POST "http://localhost:8000/rec-audio" -F "file=@./examples/example3.opus"
 
