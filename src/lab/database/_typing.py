@@ -4,6 +4,7 @@ from typing import TypedDict
 
 
 class ProductReviewDict(TypedDict):
+    _id: str
     name: str
     product: str
     rating: float

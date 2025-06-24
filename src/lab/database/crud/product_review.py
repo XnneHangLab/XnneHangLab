@@ -10,7 +10,7 @@ from lab.utils.console.logger import Badge, Logger
 
 # FastAPI 应用程序的基准 URL
 # 如果你的 FastAPI 在本地运行，端口可能是 8000
-BASE_URL = "http://127.0.0.1:8000"  # 请根据你的实际 FastAPI 运行地址修改
+BASE_URL = "http://localhost:8000/reviews"  # 请根据你的实际 FastAPI 运行地址修改
 
 # TODO: 把 dict[str,str] 预先转为 Pydantic 模型然后转为 TypedDict
 
@@ -61,13 +61,18 @@ def get_all_reviews() -> list[ProductReviewDict] | None:
 
         parsed_reviews: list[ProductReviewDict] = []
         for review_data in reviews_json:
-            # Validate each item in the list
-            if TYPE_CHECKING:
-                _ = ProductReviewDict(**review_data)  # Type check
-
-            # Parse into Pydantic model first, then to dict for TypedDict return type
-            parsed_review = ProductReview.model_validate(review_data)
-            parsed_reviews.append(ProductReviewDict(**parsed_review.model_dump(mode="json")))
+            try:
+                if "_id" in review_data:
+                    review_data["id"] = review_data.pop(
+                        "_id"
+                    )  # _id 似乎是 MongoDB 的默认字段名，而在 python 中我们的 _id 是被占用的。所以得把它转换为 id
+                # Parse into Pydantic model first for validation, then to dict for TypedDict return type
+                parsed_review = ProductReview.model_validate(review_data)
+                parsed_reviews.append(ProductReviewDict(**parsed_review.model_dump(mode="json")))
+            except Exception as e:
+                Logger.error(f"解析单个评论时发生错误: {e} - Data: {review_data}")
+                # Continue processing other reviews even if one fails
+                continue
 
         for review in parsed_reviews:
             print(review)
@@ -78,7 +83,7 @@ def get_all_reviews() -> list[ProductReviewDict] | None:
             Logger.error(f"错误响应: {e.response.text}")
         return None
     except Exception as e:
-        Logger.error(f"解析所有评论时发生错误: {e}")
+        Logger.error(f"解析所有评论列表时发生错误: {e}")
         return None
 
 

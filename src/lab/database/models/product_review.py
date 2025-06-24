@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from beanie import Document
-from pydantic import BaseModel
+from beanie import Document, PydanticObjectId
+from pydantic import BaseModel, Field
 
 
 class ProductReview(BaseModel):
+    id: str | None = None  # This is optional for the Pydantic model, but will be set by Beanie
     name: str
     product: str
     rating: float
@@ -15,6 +16,7 @@ class ProductReview(BaseModel):
 
 
 class ProductReviewDocument(Document):
+    id: PydanticObjectId = Field(default_factory=PydanticObjectId)  # type: ignore
     name: str
     product: str
     rating: float
@@ -27,6 +29,7 @@ class ProductReviewDocument(Document):
     class Config:  # type: ignore
         json_schema_extra = {
             "example": {
+                "id": "60c72b2f9b1e8d001c8e4a2f",
                 "name": "Abdulazeez",
                 "product": "TestDriven TDD Course",
                 "rating": 4.9,
@@ -37,6 +40,7 @@ class ProductReviewDocument(Document):
 
 
 class UpdateProductReview(BaseModel):
+    # _id 不可以更新，因为它是唯一标识符
     name: str | None = None
     product: str | None = None
     rating: float | None = None
