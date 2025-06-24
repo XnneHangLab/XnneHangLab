@@ -4,7 +4,7 @@ from beanie import PydanticObjectId  # noqa: TC002
 from fastapi import APIRouter, HTTPException
 
 from lab.database._typing import MessageResponse
-from lab.database.models.product_review import ProductReviewDocument, UpdateProductReview
+from lab.database.models.product_review import ProductReview, ProductReviewDocument, UpdateProductReview
 
 router = APIRouter()
 
@@ -16,19 +16,23 @@ async def add_product_review(review: ProductReviewDocument) -> MessageResponse:
 
 
 @router.get("/{id}", response_description="Review record retrieved")
-async def get_review_record(id: PydanticObjectId) -> ProductReviewDocument | None:
+async def get_review_record(id: PydanticObjectId) -> ProductReview | None:
     review = await ProductReviewDocument.get(id)
-    return review
+    if not review:
+        raise HTTPException(status_code=404, detail="Review record not found!")
+    return ProductReview.model_validate(review.model_dump(by_alias=True, exclude_none=True))
 
 
 @router.get("/", response_description="Review records retrieved")
-async def get_reviews() -> list[ProductReviewDocument]:
+async def get_reviews() -> list[ProductReview]:
     reviews = await ProductReviewDocument.find_all().to_list()
-    return reviews
+    if not reviews:
+        raise HTTPException(status_code=404, detail="No review records found!")
+    return [ProductReview.model_validate(doc.model_dump(by_alias=True, exclude_none=True)) for doc in reviews]
 
 
 @router.patch("/{id}", response_description="Review record updated")
-async def update_student_data(id: PydanticObjectId, req: UpdateProductReview) -> ProductReviewDocument:
+async def update_student_data(id: PydanticObjectId, req: UpdateProductReview) -> ProductReview:
     # 1. 获取现有记录
     existing_review = await ProductReviewDocument.get(id)
     if not existing_review:
@@ -46,7 +50,9 @@ async def update_student_data(id: PydanticObjectId, req: UpdateProductReview) ->
     # 如果请求体为空，或者所有字段都是 None（并且 exclude_unset=True 过滤掉了它们），
     # 那么 update_fields 将是空的，无需进行数据库操作。
     if not update_fields:
-        return existing_review  # 直接返回现有记录，不做任何更新
+        return ProductReview.model_validate(
+            existing_review.model_dump(by_alias=True, exclude_none=True)
+        )  # 直接返回现有记录，不做任何更新
 
     # 4. 使用 MongoDB 的 $set 操作符进行局部更新。
     # Beanie 的 update() 方法可以直接接收一个包含 MongoDB 操作符的字典。
@@ -61,11 +67,11 @@ async def update_student_data(id: PydanticObjectId, req: UpdateProductReview) ->
     # 可以选择重新从数据库中加载一次：
     # updated_review = await ProductReviewDocument.get(id)
     # return updated_review
-    return existing_review
+    return ProductReview.model_validate(existing_review.model_dump(by_alias=True, exclude_none=True))
 
 
 @router.put("/{id}", response_description="Review record fully updated")
-async def replace_review_data(id: PydanticObjectId, review_data: ProductReviewDocument) -> ProductReviewDocument:
+async def replace_review_data(id: PydanticObjectId, review_data: ProductReviewDocument) -> ProductReview:
     """
     通过完全替换现有评论记录来进行全量更新。
     如果请求体中缺少任何必填字段，或者字段类型不匹配，将返回 422 错误。
@@ -102,7 +108,7 @@ async def replace_review_data(id: PydanticObjectId, review_data: ProductReviewDo
     await new_review.save()  # 这将根据 new_review.id(_id) 执行 replaceOne
 
     # 6. 返回更新后的记录
-    return new_review
+    return ProductReview.model_validate(new_review.model_dump(by_alias=True, exclude_none=True))
 
 
 @router.delete("/{id}", response_description="Review record deleted from the database")
