@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING
 
 import requests
 
+from lab.database._typing import MessageResponse, ProductReviewDict
 from lab.database.models.product_review import ProductReview, UpdateProductReview
-from lab.database.typing import MessageResponse, ProductReviewDict
 from lab.utils.console.logger import Badge, Logger
 
 # FastAPI 应用程序的基准 URL
