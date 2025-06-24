@@ -1,15 +1,10 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
+from beanie import PydanticObjectId  # noqa: TC002
 from fastapi import APIRouter, HTTPException
 
 from lab.database._typing import MessageResponse
 from lab.database.models.product_review import ProductReviewDocument, UpdateProductReview
-
-if TYPE_CHECKING:
-    from beanie import PydanticObjectId
-
 
 router = APIRouter()
 
