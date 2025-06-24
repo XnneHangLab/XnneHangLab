@@ -30,7 +30,7 @@ def add_product_review(
     payload = review_data.model_dump(mode="json")
     try:
         response = requests.post(url, json=payload)  # requests library automatically serializes the dictionary to JSON
-    except requests.exceptions.RequestException as e:
+    except requests.exceptions.RequestException:
         Logger.error("请检查是否运行了 just db-server, 以及 MongoDB 服务是否运行正常")
         return None
 
@@ -51,7 +51,7 @@ def get_all_reviews() -> list[ProductReviewDict] | None:
     url = f"{BASE_URL}/"
     try:
         response = requests.get(url)
-    except requests.exceptions.RequestException as e:
+    except requests.exceptions.RequestException:
         Logger.error("请检查是否运行了 just db-server, 以及 MongoDB 服务是否运行正常")
         return None
     response.raise_for_status()
@@ -74,7 +74,7 @@ def get_review_by_id(review_id: str) -> ProductReviewDict | None:
     url = f"{BASE_URL}/{review_id}"
     try:
         response = requests.get(url)
-    except requests.exceptions.RequestException as e:
+    except requests.exceptions.RequestException:
         Logger.error("请检查是否运行了 just db-server, 以及 MongoDB 服务是否运行正常")
         return None
 
@@ -103,7 +103,7 @@ def update_product_review_partial(review_id: str, updates: UpdateProductReview) 
     payload = updates.model_dump(mode="json", exclude_unset=True)
     try:
         response = requests.patch(url, json=payload)
-    except requests.exceptions.RequestException as e:
+    except requests.exceptions.RequestException:
         Logger.error("请检查是否运行了 just db-server, 以及 MongoDB 服务是否运行正常")
         return None
 
@@ -132,7 +132,7 @@ def replace_product_review_full(review_id: str, new_data: ProductReview) -> Prod
     payload = new_data.model_dump(mode="json", exclude_none=True)  # exclude_none for consistency
     try:
         response = requests.put(url, json=payload)
-    except requests.exceptions.RequestException as e:
+    except requests.exceptions.RequestException:
         Logger.error("请检查是否运行了 just db-server, 以及 MongoDB 服务是否运行正常")
         return None
 
@@ -158,7 +158,7 @@ def delete_product_review(review_id: str) -> MessageResponse | None:  # Return t
     url = f"{BASE_URL}/{review_id}"
     try:
         response = requests.delete(url)
-    except requests.exceptions.RequestException as e:
+    except requests.exceptions.RequestException:
         Logger.error("请检查是否运行了 just db-server, 以及 MongoDB 服务是否运行正常")
         return None
 
