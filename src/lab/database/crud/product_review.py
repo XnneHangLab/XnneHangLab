@@ -30,21 +30,17 @@ def add_product_review(
     payload = review_data.model_dump(mode="json")
     try:
         response = requests.post(url, json=payload)  # requests library automatically serializes the dictionary to JSON
-        response.raise_for_status()  # Raises HTTPError for bad responses (4xx or 5xx)
-        response_json = response.json()  # Get the JSON response
-        Logger.info("添加成功")
-
-        # Parse the JSON response back into a ProductReview object
-        # This will also handle datetime string parsing if the 'date' field is present and valid
-        return MessageResponse(**response_json)  # Use model_validate for parsing from dict
     except requests.exceptions.RequestException as e:
-        Logger.error(f"添加产品评论时发生错误: {e}")
-        if hasattr(e, "response") and e.response is not None:
-            Logger.error(f"错误响应: {e.response.text}")
+        Logger.error("请检查是否运行了 just db-server, 以及 MongoDB 服务是否运行正常")
         return None
-    except Exception as e:  # Catch Pydantic validation errors or other parsing issues
-        Logger.error(f"解析服务器响应时发生错误: {e}")
-        return None
+
+    response.raise_for_status()  # Raises HTTPError for bad responses (4xx or 5xx)
+    response_json = response.json()  # Get the JSON response
+    Logger.info("添加成功")
+
+    # Parse the JSON response back into a ProductReview object
+    # This will also handle datetime string parsing if the 'date' field is present and valid
+    return MessageResponse(**response_json)  # Use model_validate for parsing from dict
 
 
 def get_all_reviews() -> list[ProductReviewDict] | None:
@@ -55,36 +51,19 @@ def get_all_reviews() -> list[ProductReviewDict] | None:
     url = f"{BASE_URL}/"
     try:
         response = requests.get(url)
-        response.raise_for_status()
-        reviews_json = response.json()
-        Logger.info("所有评论:")
-
-        parsed_reviews: list[ProductReviewDict] = []
-        for review_data in reviews_json:
-            try:
-                if "_id" in review_data:
-                    review_data["id"] = review_data.pop(
-                        "_id"
-                    )  # _id 似乎是 MongoDB 的默认字段名，而在 python 中我们的 _id 是被占用的。所以得把它转换为 id
-                # Parse into Pydantic model first for validation, then to dict for TypedDict return type
-                parsed_review = ProductReview.model_validate(review_data)
-                parsed_reviews.append(ProductReviewDict(**parsed_review.model_dump(mode="json")))
-            except Exception as e:
-                Logger.error(f"解析单个评论时发生错误: {e} - Data: {review_data}")
-                # Continue processing other reviews even if one fails
-                continue
-
-        for review in parsed_reviews:
-            print(review)
-        return parsed_reviews
     except requests.exceptions.RequestException as e:
-        Logger.error(f"获取所有评论时发生错误: {e}")
-        if hasattr(e, "response") and e.response is not None:
-            Logger.error(f"错误响应: {e.response.text}")
+        Logger.error("请检查是否运行了 just db-server, 以及 MongoDB 服务是否运行正常")
         return None
-    except Exception as e:
-        Logger.error(f"解析所有评论列表时发生错误: {e}")
-        return None
+    response.raise_for_status()
+    reviews_json = response.json()
+    Logger.info("所有评论:")
+
+    parsed_reviews: list[ProductReviewDict] = []
+    for review_data in reviews_json:
+        # Parse into Pydantic model first for validation, then to dict for TypedDict return type
+        parsed_review = ProductReview.model_validate(review_data)
+        parsed_reviews.append(ProductReviewDict(**parsed_review.model_dump(mode="json")))
+    return parsed_reviews
 
 
 def get_review_by_id(review_id: str) -> ProductReviewDict | None:
@@ -95,26 +74,22 @@ def get_review_by_id(review_id: str) -> ProductReviewDict | None:
     url = f"{BASE_URL}/{review_id}"
     try:
         response = requests.get(url)
-        response.raise_for_status()
-        review_json = response.json()
-
-        # Validate the response JSON against ProductReviewDict
-        if TYPE_CHECKING:
-            _ = ProductReviewDict(**review_json)  # Type check
-
-        # Parse into Pydantic model, then to dict for TypedDict return type
-        parsed_review = ProductReview.model_validate(review_json)
-        result_dict = parsed_review.model_dump(mode="json")
-        Logger.info(f"ID 为 '{review_id}' 的评论: {result_dict}")
-        return ProductReviewDict(**result_dict)
     except requests.exceptions.RequestException as e:
-        Logger.error(f"根据 ID '{review_id}' 获取评论时发生错误: {e}")
-        if hasattr(e, "response") and e.response is not None:
-            Logger.error(f"错误响应: {e.response.text}")
+        Logger.error("请检查是否运行了 just db-server, 以及 MongoDB 服务是否运行正常")
         return None
-    except Exception as e:
-        Logger.error(f"解析 ID 为 '{review_id}' 的评论时发生错误: {e}")
-        return None
+
+    response.raise_for_status()
+    review_json = response.json()
+
+    # Validate the response JSON against ProductReviewDict
+    if TYPE_CHECKING:
+        _ = ProductReviewDict(**review_json)  # Type check
+
+    # Parse into Pydantic model, then to dict for TypedDict return type
+    parsed_review = ProductReview.model_validate(review_json)
+    result_dict = parsed_review.model_dump(mode="json")
+    Logger.info(f"ID 为 '{review_id}' 的评论: {result_dict}")
+    return ProductReviewDict(**result_dict)
 
 
 def update_product_review_partial(review_id: str, updates: UpdateProductReview) -> ProductReviewDict | None:
@@ -128,26 +103,22 @@ def update_product_review_partial(review_id: str, updates: UpdateProductReview) 
     payload = updates.model_dump(mode="json", exclude_unset=True)
     try:
         response = requests.patch(url, json=payload)
-        response.raise_for_status()
-        updated_review_json = response.json()
-
-        # Validate the response JSON against ProductReviewDict
-        if TYPE_CHECKING:
-            _ = ProductReviewDict(**updated_review_json)  # Type check
-
-        # Parse into Pydantic model, then to dict for TypedDict return type
-        parsed_review = ProductReview.model_validate(updated_review_json)
-        result_dict = parsed_review.model_dump(mode="json")
-        Logger.info(f"ID 为 '{review_id}' 的评论已更新 (局部): {result_dict}")
-        return ProductReviewDict(**result_dict)
     except requests.exceptions.RequestException as e:
-        Logger.error(f"更新 ID 为 '{review_id}' 的评论时发生错误 (局部): {e}")
-        if hasattr(e, "response") and e.response is not None:
-            Logger.error(f"错误响应: {e.response.text}")
+        Logger.error("请检查是否运行了 just db-server, 以及 MongoDB 服务是否运行正常")
         return None
-    except Exception as e:
-        Logger.error(f"解析局部更新后的评论时发生错误: {e}")
-        return None
+
+    response.raise_for_status()
+    updated_review_json = response.json()
+
+    # Validate the response JSON against ProductReviewDict
+    if TYPE_CHECKING:
+        _ = ProductReviewDict(**updated_review_json)  # Type check
+
+    # Parse into Pydantic model, then to dict for TypedDict return type
+    parsed_review = ProductReview.model_validate(updated_review_json)
+    result_dict = parsed_review.model_dump(mode="json")
+    Logger.info(f"ID 为 '{review_id}' 的评论已更新 (局部): {result_dict}")
+    return ProductReviewDict(**result_dict)
 
 
 def replace_product_review_full(review_id: str, new_data: ProductReview) -> ProductReviewDict | None:
@@ -161,26 +132,22 @@ def replace_product_review_full(review_id: str, new_data: ProductReview) -> Prod
     payload = new_data.model_dump(mode="json", exclude_none=True)  # exclude_none for consistency
     try:
         response = requests.put(url, json=payload)
-        response.raise_for_status()
-        replaced_review_json = response.json()
-
-        # Validate the response JSON against ProductReviewDict
-        if TYPE_CHECKING:
-            _ = ProductReviewDict(**replaced_review_json)  # Type check
-
-        # Parse into Pydantic model, then to dict for TypedDict return type
-        parsed_review = ProductReview.model_validate(replaced_review_json)
-        result_dict = parsed_review.model_dump(mode="json")
-        Logger.info(f"ID 为 '{review_id}' 的评论已更新 (完全替换): {result_dict}")
-        return ProductReviewDict(**result_dict)
     except requests.exceptions.RequestException as e:
-        Logger.error(f"替换 ID 为 '{review_id}' 的评论时发生错误 (完全替换): {e}")
-        if hasattr(e, "response") and e.response is not None:
-            Logger.error(f"错误响应: {e.response.text}")
+        Logger.error("请检查是否运行了 just db-server, 以及 MongoDB 服务是否运行正常")
         return None
-    except Exception as e:
-        Logger.error(f"解析完全替换后的评论时发生错误: {e}")
-        return None
+
+    response.raise_for_status()
+    replaced_review_json = response.json()
+
+    # Validate the response JSON against ProductReviewDict
+    if TYPE_CHECKING:
+        _ = ProductReviewDict(**replaced_review_json)  # Type check
+
+    # Parse into Pydantic model, then to dict for TypedDict return type
+    parsed_review = ProductReview.model_validate(replaced_review_json)
+    result_dict = parsed_review.model_dump(mode="json")
+    Logger.info(f"ID 为 '{review_id}' 的评论已更新 (完全替换): {result_dict}")
+    return ProductReviewDict(**result_dict)
 
 
 def delete_product_review(review_id: str) -> MessageResponse | None:  # Return type changed to dict | None
@@ -191,14 +158,10 @@ def delete_product_review(review_id: str) -> MessageResponse | None:  # Return t
     url = f"{BASE_URL}/{review_id}"
     try:
         response = requests.delete(url)
-        response.raise_for_status()
-        Logger.info(f"ID 为 '{review_id}' 的评论已删除")
-        return MessageResponse(**response.json())  # Backend returns {"message": "Record deleted successfully"}
     except requests.exceptions.RequestException as e:
-        Logger.error(f"删除 ID 为 '{review_id}' 的评论时发生错误: {e}")
-        if hasattr(e, "response") and e.response is not None:
-            Logger.error(f"错误响应: {e.response.text}")
+        Logger.error("请检查是否运行了 just db-server, 以及 MongoDB 服务是否运行正常")
         return None
-    except Exception as e:
-        Logger.error(f"删除评论时发生错误: {e}")
-        return None
+
+    response.raise_for_status()
+    Logger.info(f"ID 为 '{review_id}' 的评论已删除")
+    return MessageResponse(**response.json())  # Backend returns {"message": "Record deleted successfully"}
