@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from typing import List
+from typing import TYPE_CHECKING
 
-from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException
 
 from lab.database.models.product_review import ProductReview, UpdateProductReview
+
+if TYPE_CHECKING:
+    from beanie import PydanticObjectId
 
 router = APIRouter()
 
@@ -17,13 +19,13 @@ async def add_product_review(review: ProductReview) -> dict[str, str]:
 
 
 @router.get("/{id}", response_description="Review record retrieved")
-async def get_review_record(id: PydanticObjectId) -> ProductReview:
+async def get_review_record(id: PydanticObjectId) -> ProductReview | None:
     review = await ProductReview.get(id)
     return review
 
 
 @router.get("/", response_description="Review records retrieved")
-async def get_reviews() -> List[ProductReview]:
+async def get_reviews() -> list[ProductReview]:
     reviews = await ProductReview.find_all().to_list()
     return reviews
 
@@ -77,7 +79,7 @@ async def replace_review_data(id: PydanticObjectId, review_data: ProductReview) 
     # 2. 如果记录不存在，则返回 404 Not Found
     if not existing_review:
         print(f"Review with id {id} not found for PUT request.")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Review record not found!")
+        raise HTTPException(status_code=404, detail="Review record not found!")
 
     # 3. 将传入的 ProductReview 对象转换为字典。
     # 这一步会包含所有字段，因为 ProductReview 模型中的字段通常都是必填的。

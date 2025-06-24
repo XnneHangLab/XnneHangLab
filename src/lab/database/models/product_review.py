@@ -16,7 +16,7 @@ class ProductReview(Document):
     class Settings:
         name = "product_review"
 
-    class Config:
+    class Config:  # type: ignore
         json_schema_extra = {
             "example": {
                 "name": "Abdulazeez",
