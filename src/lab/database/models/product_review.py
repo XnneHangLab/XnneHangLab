@@ -6,7 +6,15 @@ from beanie import Document
 from pydantic import BaseModel
 
 
-class ProductReview(Document):
+class ProductReview(BaseModel):
+    name: str
+    product: str
+    rating: float
+    review: str
+    date: datetime = datetime.now()
+
+
+class ProductReviewDocument(Document):
     name: str
     product: str
     rating: float

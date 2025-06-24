@@ -4,36 +4,38 @@ from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, HTTPException
 
-from lab.database.models.product_review import ProductReview, UpdateProductReview
+from lab.database._typing import MessageResponse
+from lab.database.models.product_review import ProductReviewDocument, UpdateProductReview
 
 if TYPE_CHECKING:
     from beanie import PydanticObjectId
+
 
 router = APIRouter()
 
 
 @router.post("/", response_description="Review added to the database")
-async def add_product_review(review: ProductReview) -> dict[str, str]:
+async def add_product_review(review: ProductReviewDocument) -> MessageResponse:
     await review.create()
-    return {"message": "Review added successfully"}
+    return MessageResponse(**{"message": "Review added successfully"})
 
 
 @router.get("/{id}", response_description="Review record retrieved")
-async def get_review_record(id: PydanticObjectId) -> ProductReview | None:
-    review = await ProductReview.get(id)
+async def get_review_record(id: PydanticObjectId) -> ProductReviewDocument | None:
+    review = await ProductReviewDocument.get(id)
     return review
 
 
 @router.get("/", response_description="Review records retrieved")
-async def get_reviews() -> list[ProductReview]:
-    reviews = await ProductReview.find_all().to_list()
+async def get_reviews() -> list[ProductReviewDocument]:
+    reviews = await ProductReviewDocument.find_all().to_list()
     return reviews
 
 
 @router.patch("/{id}", response_description="Review record updated")
-async def update_student_data(id: PydanticObjectId, req: UpdateProductReview) -> ProductReview:
+async def update_student_data(id: PydanticObjectId, req: UpdateProductReview) -> ProductReviewDocument:
     # 1. 获取现有记录
-    existing_review = await ProductReview.get(id)
+    existing_review = await ProductReviewDocument.get(id)
     if not existing_review:
         print(f"Review with id {id} not found.")
         raise HTTPException(status_code=404, detail="Review record not found!")
@@ -62,27 +64,27 @@ async def update_student_data(id: PydanticObjectId, req: UpdateProductReview) ->
     # 所以直接返回它通常是可行的。
     # 如果需要确保返回的是数据库中的最新状态（例如，其他异步操作可能同时修改了数据），
     # 可以选择重新从数据库中加载一次：
-    # updated_review = await ProductReview.get(id)
+    # updated_review = await ProductReviewDocument.get(id)
     # return updated_review
     return existing_review
 
 
 @router.put("/{id}", response_description="Review record fully updated")
-async def replace_review_data(id: PydanticObjectId, review_data: ProductReview) -> ProductReview:
+async def replace_review_data(id: PydanticObjectId, review_data: ProductReviewDocument) -> ProductReviewDocument:
     """
     通过完全替换现有评论记录来进行全量更新。
     如果请求体中缺少任何必填字段，或者字段类型不匹配，将返回 422 错误。
     """
     # 1. 尝试从数据库中获取现有记录
-    existing_review = await ProductReview.get(id)
+    existing_review = await ProductReviewDocument.get(id)
 
     # 2. 如果记录不存在，则返回 404 Not Found
     if not existing_review:
         print(f"Review with id {id} not found for PUT request.")
         raise HTTPException(status_code=404, detail="Review record not found!")
 
-    # 3. 将传入的 ProductReview 对象转换为字典。
-    # 这一步会包含所有字段，因为 ProductReview 模型中的字段通常都是必填的。
+    # 3. 将传入的 ProductReviewDocument 对象转换为字典。
+    # 这一步会包含所有字段，因为 ProductReviewDocument 模型中的字段通常都是必填的。
     # model_dump() 在 Pydantic v2 中使用。
     # 如果是 Pydantic v1，请使用 review_data.dict()
     update_data = review_data.model_dump(by_alias=True)  # by_alias=True 如果你有别名配置
@@ -99,7 +101,7 @@ async def replace_review_data(id: PydanticObjectId, review_data: ProductReview) 
 
     # 推荐使用 save()，但要确保传入的 id 绑定到 Beanie 对象的 id 上
     # 创建一个新实例，并强制设置其 _id 为要更新的文档的 _id，然后保存
-    new_review = ProductReview(**update_data)
+    new_review = ProductReviewDocument(**update_data)
     new_review.id = id  # 确保新的文档实例知道它是对哪个 _id 进行操作
 
     await new_review.save()  # 这将根据 new_review.id(_id) 执行 replaceOne
@@ -109,11 +111,11 @@ async def replace_review_data(id: PydanticObjectId, review_data: ProductReview) 
 
 
 @router.delete("/{id}", response_description="Review record deleted from the database")
-async def delete_student_data(id: PydanticObjectId) -> dict[str, str]:
-    record = await ProductReview.get(id)
+async def delete_student_data(id: PydanticObjectId) -> MessageResponse:
+    record = await ProductReviewDocument.get(id)
 
     if not record:
         raise HTTPException(status_code=404, detail="Review record not found!")
 
     await record.delete()
-    return {"message": "Record deleted successfully"}
+    return MessageResponse(**{"message": "Review deleted successfully"})
