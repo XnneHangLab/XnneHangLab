@@ -9,11 +9,11 @@ from lab.BasicRunner.combiner import combine_sentences
 from lab.BasicRunner.converter import convert_asr_response_to_sentences
 from lab.BasicRunner.cutter import cut_sentences
 from lab.cli import cli, handle_default_subcommand
+from lab.models.lazy_model import generate_asr_results, generate_punc_results, generate_vad_results
+from lab.models.model import FunASRModel
 
 # from lab.exceptions import ErrorCode
 from lab.utils.console.logger import Badge, Logger
-from lab.utils.lazy_model import generate_asr_results, generate_punc_results, generate_vad_results
-from lab.utils.model import FunASRModel
 from lab.utils.SrtHelper import write_srt_from_sentences
 from lab.validator import validate_recognizer_args, validate_setting_args
 
