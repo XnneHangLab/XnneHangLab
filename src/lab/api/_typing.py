@@ -6,6 +6,11 @@ if TYPE_CHECKING:
     from funasr import AutoModel
 
 
+# 定义输入模型
+class TTSRequest(BaseModel):
+    text: str
+
+
 class ModelInstance(TypedDict):
     asr: AutoModel | None
     vad: AutoModel | None

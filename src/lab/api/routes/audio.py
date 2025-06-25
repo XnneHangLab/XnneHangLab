@@ -1,12 +1,20 @@
 from __future__ import annotations
 
+import io
 import shutil
+from datetime import datetime
 from pathlib import Path
+from uuid import uuid4
 
-from fastapi import APIRouter, File, Query, UploadFile
+from fastapi import APIRouter, File, Query, UploadFile, WebSocket
+from fastapi.responses import StreamingResponse
+from loguru import logger
 from pydantic import BaseModel
+from starlette.websockets import WebSocketDisconnect
+from vits.api_server import audio_to_opus_bytes, process_text
 
 from lab._dataclass import RunnerSettings
+from lab.api._typing import TTSRequest
 from lab.api.core_logic import rec_audio, vad_audio  # 导入 load_model 用于预加载
 from lab.utils.config import load_settings_file
 from lab.utils.Timedhelper import get_time_tag_with_millis
@@ -88,3 +96,66 @@ async def vad_audio_activity(
     # 清理临时文件
     temp_audio_path.unlink(missing_ok=True)
     return result
+
+
+@router.post("/tts/direct")
+async def generate_tts_direct(text, file_path: Path):
+    """
+    直接生成音频，不进行切分。
+    """
+    try:
+        sample_rate, audio_data = process_text(request.text)
+        opus_bytes = audio_to_opus_bytes(sample_rate, audio_data)
+        with file_path.open("wb") as f:
+            f.write(opus_bytes)
+        return file_path
+    except Exception as e:
+        print(f"Error in direct TTS generation: {str(e)}")
+
+
+# @router.websocket("/tts-ws")
+# async def tts_endpoint(websocket: WebSocket):
+#     """WebSocket endpoint for TTS generation"""
+#     await websocket.accept()
+#     logger.info("TTS WebSocket connection established")
+
+#     try:
+#         while True:
+#             data = await websocket.receive_json()
+#             text = data.get("text")
+#             if not text:
+#                 continue
+
+#             logger.info(f"Received text for TTS: {text}")
+
+#             # Split text into sentences
+#             sentences = [s.strip() for s in text.split(".") if s.strip()]
+
+#             try:
+#                 # Generate and send audio for each sentence
+#                 for sentence in sentences:
+#                     sentence = sentence + "."  # Add back the period
+#                     file_name = Path(f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid4())[:8]}")
+#                     audio_path = await generate_tts_direct(text=sentence, file_path=file_name)
+#                     logger.info(f"Generated audio for sentence: {sentence} at: {audio_path}")
+
+#                     await websocket.send_json(
+#                         {
+#                             "status": "partial",
+#                             "audioPath": audio_path,
+#                             "text": sentence,
+#                         }
+#                     )
+
+#                 # Send completion signal
+#                 await websocket.send_json({"status": "complete"})
+
+#             except Exception as e:
+#                 logger.error(f"Error generating TTS: {e}")
+#                 await websocket.send_json({"status": "error", "message": str(e)})
+
+#     except WebSocketDisconnect:
+#         logger.info("TTS WebSocket client disconnected")
+#     except Exception as e:
+#         logger.error(f"Error in TTS WebSocket connection: {e}")
+#         await websocket.close()

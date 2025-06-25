@@ -120,3 +120,11 @@ def vad_audio(
         "audio_length": response["audio_length"],
     }
     return result
+
+
+# def bert_vits_gen(
+#         text: str,
+#         file_name: Path):
+#     from vits.api_server import process_text
+#     audio_rate, audio_bytes = process_text(text)
+#     # 保存音频文件
