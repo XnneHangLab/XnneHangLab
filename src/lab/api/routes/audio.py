@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from lab._dataclass import RunnerSettings
 from lab.api.core_logic import rec_audio, vad_audio  # 导入 load_model 用于预加载
 from lab.utils.config import load_settings_file
-from lab.utils.timed_helper import get_time_tag_with_millis
+from lab.utils.Timedhelper import get_time_tag_with_millis
 
 # 加载配置文件
 settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)

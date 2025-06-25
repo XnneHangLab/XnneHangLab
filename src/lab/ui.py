@@ -8,14 +8,11 @@ import streamlit as st
 from lab._dataclass import RootAbsDir
 from lab.styles.global_style import style
 from lab.utils.config import load_settings_file
-from lab.utils.get_font import get_font_data
 
 style(True)
 
 
 def main():
-    get_font_data()
-
     os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 
     root_dir = load_settings_file("root.toml", RootAbsDir)

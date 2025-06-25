@@ -1,3 +1,10 @@
+"""Streamlit 用到的全局变量对应的 key
+Streamlit 的全局变量存储于 st.session_state[key] 中，不具备自动补全功能，如果字母敲错了，可能导致变量未定义或者传参错误。
+利用 TypedDict 的特性来存储这些 key, 在使用的时候可以自动补全。
+
+st.session_state[typed_keys["keyname"]]
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
