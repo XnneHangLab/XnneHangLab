@@ -17,12 +17,14 @@ dependencies = [
     "streamlit-antd-components==0.3.2",
     "pandas==2.2.3",
     # special for fastapi
-    "fastapi>=0.115.12",
-    "uvicorn>=0.34.2",
+    "fastapi[standard]>=0.115.8",
+    "uvicorn[standard]>=0.33.0",
     "python-multipart>=0.0.20",
     "websocket-client>=1.8.0",
     "loguru>=0.7.3",
     "chardet>=5.2.0",
+    "pydub>=0.25.1",
+    #"tomli>=2.2.1",
 ]
 authors = [{ name = "MrXnneHang", email = "XnneHang@gmail.com" }]
 keywords = []

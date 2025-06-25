@@ -6,7 +6,7 @@ import time
 from typing import TYPE_CHECKING, Any
 
 from funasr import AutoModel  # 导入仍然在代码顶部，但只执行一次
-
+import asyncio
 from lab._dataclass import RunnerSettings
 from lab.models.lazy_model import generate_asr_results, generate_vad_results
 from lab.utils.config import load_settings_file
@@ -128,3 +128,27 @@ def vad_audio(
 #     from vits.api_server import process_text
 #     audio_rate, audio_bytes = process_text(text)
 #     # 保存音频文件
+
+async def async_rec_audio(
+    input_path: Path,
+    # only_text: bool = False, # only_text 暂不考虑
+) -> dict[str, Any]:
+    """处理音频文件并生成 SRT,返回结果信息"""
+    # 假设 load_model 是同步函数，使用 asyncio.to_thread 在单独线程中运行
+    model_instances: ModelInstance = await asyncio.to_thread(load_model)
+    if model_instances["asr"] is not None:
+        model = model_instances["asr"]
+    else:
+        return {"error": "ASR model is not loaded."}
+    start = time.time()
+    # 假设 generate_asr_results 是同步函数，使用 asyncio.to_thread 在单独线程中运行
+    response: ASRResponse = await asyncio.to_thread(generate_asr_results, model=model, input_path=input_path)
+    end = time.time()
+    processing_time = end - start
+    result = {
+        "key": response["key"],
+        "processing_time": processing_time,
+        "text": response["text"],
+        "time_stamp": response["timestamp"],
+    }
+    return result

@@ -99,19 +99,16 @@ async def vad_audio_activity(
 
 
 @router.post("/tts/direct")
-async def generate_tts_direct(text, file_path: Path):
+async def generate_tts_direct(text, file_path: Path) -> Path:
     """
     直接生成音频，不进行切分。
     """
-    try:
-        sample_rate, audio_data = process_text(request.text)
-        opus_bytes = audio_to_opus_bytes(sample_rate, audio_data)
-        with file_path.open("wb") as f:
-            f.write(opus_bytes)
-        return file_path
-    except Exception as e:
-        print(f"Error in direct TTS generation: {str(e)}")
 
+    sample_rate, audio_data = process_text(text)
+    opus_bytes = audio_to_opus_bytes(sample_rate, audio_data)
+    with file_path.open("wb") as f:
+        f.write(opus_bytes)
+    return file_path
 
 # @router.websocket("/tts-ws")
 # async def tts_endpoint(websocket: WebSocket):

@@ -36,7 +36,7 @@ class AvatarStaticFiles(StaticFiles):
 
 class WebSocketServer:
     def __init__(self, config: Config):
-    # def __init__(self):
+        # def __init__(self):
         self.app = FastAPI()
 
         # Add CORS

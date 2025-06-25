@@ -123,7 +123,7 @@ def init_webtool_routes(default_context_cache: ServiceContext) -> APIRouter:
                     # Generate and send audio for each sentence
                     for sentence in sentences:
                         sentence = sentence + "."  # Add back the period
-                        file_name = Path(f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid4())[:8]}")
+                        file_name = Path(f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid4())[:8]}.opus")
                         audio_path = await generate_tts_direct(text=sentence, file_path=file_name)
                         logger.info(f"Generated audio for sentence: {sentence} at: {audio_path}")
 

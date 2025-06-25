@@ -172,11 +172,11 @@ class WebSocketHandler:
             system_config=self.default_context_cache.system_config.model_copy(deep=True),
             character_config=self.default_context_cache.character_config.model_copy(deep=True),
             live2d_model=self.default_context_cache.live2d_model,
-            asr_engine=self.default_context_cache.asr_engine,
-            tts_engine=self.default_context_cache.tts_engine,
-            vad_engine=self.default_context_cache.vad_engine,
-            agent_engine=self.default_context_cache.agent_engine,
-            translate_engine=self.default_context_cache.translate_engine,
+            # asr_engine=self.default_context_cache.asr_engine,
+            # tts_engine=self.default_context_cache.tts_engine,
+            # vad_engine=self.default_context_cache.vad_engine,
+            # agent_engine=self.default_context_cache.agent_engine,
+            # translate_engine=self.default_context_cache.translate_engine,
         )
         return session_service_context
 

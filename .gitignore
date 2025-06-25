@@ -1,3 +1,12 @@
+Data/
+bert/
+chat_history/
+conf.yaml
+config.yml
+config/setting.toml
+logs/
+packages/bert-vits/
+
 __pycache__/
 .venv/
 *.wav
