@@ -1,3 +1,7 @@
+"""把英文的 title 以及选项转为中文
+用户选择的是中文，实际上对应的是英文 or 数字
+"""
+
 from __future__ import annotations
 
 from typing import TypedDict
