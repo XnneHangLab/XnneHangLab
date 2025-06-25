@@ -16,7 +16,6 @@ from lab.pages.dialogs.audio import AudioReadme, upload_audio
 from lab.styles.global_style import style
 from lab.utils.config import get_setting_title, load_settings_file, write_settings_file
 from lab.utils.FFmpegHelper import file_to_wav
-from lab.utils.get_font import read_font_data
 from lab.utils.lazy_model import FunASRModel, generate_asr_results
 from lab.utils.public import (
     parse_srt_file,
@@ -29,9 +28,6 @@ from lab.utils.SrtHelper import write_srt_from_sentences
 style()
 settings: RunnerSettings = load_settings_file("global.toml", setting=RunnerSettings)
 audio_settings: AudioSettings = load_settings_file("audio.toml", setting=AudioSettings)
-fonts = read_font_data()
-if not fonts:
-    raise FileNotFoundError("Font data not found!")
 
 # ============== 1.初始化持久化参数
 
