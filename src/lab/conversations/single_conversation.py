@@ -93,8 +93,11 @@ async def process_single_conversation(
 
         # Wait for any pending TTS tasks
         if tts_manager.task_list:
+            logger.info(f"Waiting for {len(tts_manager.task_list)} TTS tasks to complete")
             await asyncio.gather(*tts_manager.task_list)
             await websocket_send(json.dumps({"type": "backend-synth-complete"}))
+        else:
+            logger.info("No TTS tasks to wait for")
 
         await finalize_conversation_turn(
             tts_manager=tts_manager,
@@ -128,6 +131,7 @@ async def process_single_conversation(
 
 async def chat(input_text: str):
     text = get_openai_response(prompt=input_text)
+    logger.info(text)
     actions = Actions()
     display = DisplayText(text)
     logger.info(display)
@@ -161,7 +165,7 @@ async def process_agent_response(
         # else:
         #     raise TypeError("batch_input must be str")
         async for output in agent_output:
-            logger.info("process agent output")
+            logger.info(output)
             response_part = await process_agent_output(
                 output=output,
                 character_config=context.character_config,

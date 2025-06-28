@@ -115,38 +115,22 @@ class WebSocketServer:
         # )
 
         # Mount static files
-        if not (ROOT_DIR / "live2d-models").exists():
-            logger.warning(f"Live2D models directory {ROOT_DIR / 'live2d-models'} does not exist.")
-        else:
-            logger.info(f"Live2D models directory {ROOT_DIR / 'live2d-models'} exists.")
         logger.info(f"Mounting static files from {ROOT_DIR}")
         self.app.mount(
             "/live2d-models",
             StaticFiles(directory=(ROOT_DIR / "live2d-models")),
             name="live2d-models",
         )
-        if not (ROOT_DIR / "backgrounds").exists():
-            logger.warning(f"Backgrounds directory {ROOT_DIR / 'backgrounds'} does not exist.")
-        else:
-            logger.info(f"Backgrounds directory {ROOT_DIR / 'backgrounds'} exists.")
         self.app.mount(
             "/bg",
             StaticFiles(directory=str(ROOT_DIR / "backgrounds")),
             name="backgrounds",
         )
-        if not (ROOT_DIR / "avatars").exists():
-            logger.warning(f"Avatars directory {ROOT_DIR / 'avatars'} does not exist.")
-        else:
-            logger.info(f"Avatars directory {ROOT_DIR / 'avatars'} exists.")
         self.app.mount(
             "/avatars",
             AvatarStaticFiles(directory=str(ROOT_DIR / "avatars")),
             name="avatars",
         )
-        if not (ROOT_DIR / "web_tool").exists():
-            logger.warning(f"Web tool directory {ROOT_DIR / 'web_tool'} does not exist.")
-        else:
-            logger.info(f"Web tool directory {ROOT_DIR / 'web_tool'} exists.")
         # Mount web tool directory separately from frontend
         self.app.mount(
             "/web-tool",

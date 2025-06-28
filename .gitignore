@@ -5,7 +5,10 @@ conf.yaml
 config.yml
 config/setting.toml
 logs/
-packages/bert-vits/
+# packages/bert-vits/
+./*.mp3
+./*.opus
+./*.json
 
 __pycache__/
 .venv/

@@ -356,14 +356,14 @@ class WebSocketHandler:
         #     conf_uid=context.character_config.conf_uid,
         #     history_uid=history_uid,
         # )
-
+        msgs = get_history(
+                context.character_config.conf_uid,
+                history_uid,
+            )
         messages = [
-            # msg
-            # for msg in get_history(
-            #     context.character_config.conf_uid,
-            #     history_uid,
-            # )
-            # if msg["role"] != "system"
+            msg
+            for msg in msgs
+            if msg["role"] != "system"
         ]
         await websocket.send_text(json.dumps({"type": "history-data", "messages": messages}))
 
@@ -477,6 +477,7 @@ class WebSocketHandler:
         logger.info(data)
         group_members = self.chat_group_manager.get_group_members(client_uid)
         if len(group_members) > 1:
+            logger.info(f"Group members: {group_members}")
             display_text = data.get("display_text")
             if display_text:
                 silent_payload = prepare_audio_payload(

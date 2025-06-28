@@ -4,8 +4,8 @@ import base64
 
 from pydub import AudioSegment
 from pydub.utils import make_chunks
-
-from ..agent.output_types import Actions, DisplayText
+from loguru import logger
+from lab.agent.output_types import Actions, DisplayText
 
 
 def _get_volume_by_chunks(audio: AudioSegment, chunk_length_ms: int) -> list:
@@ -48,7 +48,10 @@ def prepare_audio_payload(
         dict: The audio payload to be sent
     """
     if isinstance(display_text, DisplayText):
+        logger.info(f"display_text: {display_text}")
         display_text = display_text.to_dict()
+    else:
+        raise ValueError(f"display_text must be DisplayText, but got {type(display_text)}")
 
     if not audio_path:
         # Return payload for silent display
@@ -69,7 +72,10 @@ def prepare_audio_payload(
         raise ValueError(f"Error loading or converting generated audio file to wav file '{audio_path}': {e}")
     audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
     volumes = _get_volume_by_chunks(audio, chunk_length_ms)
-
+    logger.info(f"""
+    display_text: {display_text}
+    actions: {actions.to_dict() if actions else None}
+    """)
     payload = {
         "type": "audio",
         "audio": audio_base64,

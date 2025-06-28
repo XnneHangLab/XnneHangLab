@@ -71,6 +71,7 @@ async def handle_conversation_trigger(
             )
     else:
         # Use client_uid as task key for individual conversations
+        logger.info(f"Starting new single conversation for {client_uid}")
         current_conversation_tasks[client_uid] = asyncio.create_task(
             process_single_conversation(
                 context=context,

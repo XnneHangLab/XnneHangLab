@@ -16,7 +16,7 @@ from ..agent.output_types import Actions, DisplayText
 from ..live2d_model import Live2dModel
 from ..utils.stream_audio import prepare_audio_payload
 from .types import WebSocketSend
-
+from pydub import AudioSegment
 
 class TTSTaskManager:
     """Manages TTS tasks and ensures ordered delivery to frontend while allowing parallel TTS generation"""
@@ -52,7 +52,7 @@ class TTSTaskManager:
             websocket_send: WebSocket send function
         """
         if len(re.sub(r'[\s.,!?，。！？\'"』」）】\s]+', "", tts_text)) == 0:
-            logger.debug("Empty TTS text, sending silent display payload")
+            logger.info("Empty TTS text, sending silent display payload")
             # Get current sequence number for silent payload
             current_sequence = self._sequence_counter
             self._sequence_counter += 1
@@ -64,7 +64,7 @@ class TTSTaskManager:
             await self._send_silent_payload(display_text, actions, current_sequence)
             return
 
-        logger.debug(f"🏃Queuing TTS task for: '''{tts_text}''' (by {display_text.name})")
+        logger.info(f"🏃Queuing TTS task for: '''{tts_text}''' (by {display_text.name})")
 
         # Get current sequence number
         current_sequence = self._sequence_counter
@@ -93,23 +93,23 @@ class TTSTaskManager:
         Runs continuously until all payloads are processed.
         """
         buffered_payloads: Dict[int, Dict] = {}
+        logger.info("Starting TTS payload sender task...")
 
         while True:
-            try:
-                # Get payload from queue
-                payload, sequence_number = await self._payload_queue.get()
-                buffered_payloads[sequence_number] = payload
+            # try:
+            # Get payload from queue
+            payload, sequence_number = await self._payload_queue.get()
+            buffered_payloads[sequence_number] = payload
+            
 
-                # Send payloads in order
-                while self._next_sequence_to_send in buffered_payloads:
-                    next_payload = buffered_payloads.pop(self._next_sequence_to_send)
-                    await websocket_send(json.dumps(next_payload))
-                    self._next_sequence_to_send += 1
+            # Send payloads in order
+            while self._next_sequence_to_send in buffered_payloads:
+                next_payload = buffered_payloads.pop(self._next_sequence_to_send)
+                await websocket_send(json.dumps(next_payload))
+                self._next_sequence_to_send += 1
 
-                self._payload_queue.task_done()
+            self._payload_queue.task_done()
 
-            except asyncio.CancelledError:
-                break
 
     async def _send_silent_payload(
         self,
@@ -138,7 +138,6 @@ class TTSTaskManager:
         audio_file_path = None
         # try:
         audio_file_path = await self._generate_audio(tts_text)
-        logger.info(str(audio_file_path))
         if not audio_file_path:
             raise ValueError("Audio file path is None")
         payload = prepare_audio_payload(
@@ -171,7 +170,7 @@ class TTSTaskManager:
             logger.debug(f"🏃Generating audio for '''{text}'''...")
             audio_path = await generate_tts_direct(
                 text=text,
-                file_path=Path(f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}.opus"),
+                file_path=Path(f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}.mp3"),
             )
             if audio_path is None:
                 logger.error("generate_tts_direct returned None")
@@ -190,4 +189,5 @@ class TTSTaskManager:
         self._sequence_counter = 0
         self._next_sequence_to_send = 0
         # Create a new queue to clear any pending items
+        logger.info("Clearing TTS payload queue...")
         self._payload_queue = asyncio.Queue()
