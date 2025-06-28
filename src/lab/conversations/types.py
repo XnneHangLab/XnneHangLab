@@ -1,5 +1,8 @@
-from typing import List, Dict, Callable, Optional, TypedDict, Awaitable, ClassVar
+from __future__ import annotations
+
 from dataclasses import dataclass, field
+from typing import Awaitable, Callable, ClassVar, Dict, List, Optional, TypedDict
+
 from pydantic import BaseModel
 
 from ..agent.output_types import Actions, DisplayText

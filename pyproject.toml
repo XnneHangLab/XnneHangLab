@@ -25,6 +25,9 @@ dependencies = [
     "chardet>=5.2.0",
     "pydub>=0.25.1",
     #"tomli>=2.2.1",
+    "langdetect>=1.0.9",
+    "pysbd>=0.3.4",
+    "aiohttp>=3.12.13",
 ]
 authors = [{ name = "MrXnneHang", email = "XnneHang@gmail.com" }]
 keywords = []
@@ -186,6 +189,7 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 
 
 [tool.hatch.build.targets.wheel]
+
 packages = ["src/lab","packages/todo/src/todo","packages/yutto-uiya/src/uiya","packages/bert-vits/src/vits"]
 
 [build-system]

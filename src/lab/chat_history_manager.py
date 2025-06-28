@@ -1,9 +1,12 @@
+from __future__ import annotations
+
+import json
 import os
 import re
-import json
 import uuid
 from datetime import datetime
-from typing import Literal, List, TypedDict, Optional
+from typing import List, Literal, Optional, TypedDict
+
 from loguru import logger
 
 
@@ -269,9 +272,7 @@ def get_history_list(conf_uid: str) -> List[dict]:
                     messages = json.load(f)
 
                     # Filter out metadata for checking if history is empty
-                    actual_messages = [
-                        msg for msg in messages if msg["role"] != "metadata"
-                    ]
+                    actual_messages = [msg for msg in messages if msg["role"] != "metadata"]
                     if not actual_messages:
                         empty_history_uids.append(history_uid)
                         continue
@@ -280,9 +281,7 @@ def get_history_list(conf_uid: str) -> List[dict]:
                     history_info = {
                         "uid": history_uid,
                         "latest_message": latest_message,
-                        "timestamp": (
-                            latest_message["timestamp"] if latest_message else None
-                        ),
+                        "timestamp": (latest_message["timestamp"] if latest_message else None),
                     }
                     histories.append(history_info)
             except Exception as e:
@@ -298,9 +297,7 @@ def get_history_list(conf_uid: str) -> List[dict]:
                 except Exception as e:
                     logger.error(f"Failed to remove empty history file {uid}: {e}")
 
-        histories.sort(
-            key=lambda x: x["timestamp"] if x["timestamp"] else "", reverse=True
-        )
+        histories.sort(key=lambda x: x["timestamp"] if x["timestamp"] else "", reverse=True)
         return histories
 
     except Exception as e:
@@ -334,9 +331,7 @@ def modify_latest_message(
 
         latest_message = history_data[-1]
         if latest_message["role"] != role:
-            logger.warning(
-                f"Latest message role ({latest_message['role']}) doesn't match requested role ({role})"
-            )
+            logger.warning(f"Latest message role ({latest_message['role']}) doesn't match requested role ({role})")
             return False
 
         latest_message["content"] = new_content
@@ -351,9 +346,7 @@ def modify_latest_message(
         return False
 
 
-def rename_history_file(
-    conf_uid: str, old_history_uid: str, new_history_uid: str
-) -> bool:
+def rename_history_file(conf_uid: str, old_history_uid: str, new_history_uid: str) -> bool:
     """Rename a history file with a new history_uid"""
     if not conf_uid or not old_history_uid or not new_history_uid:
         logger.warning("Missing required parameters for rename")
@@ -365,9 +358,7 @@ def rename_history_file(
     try:
         if os.path.exists(old_filepath):
             os.rename(old_filepath, new_filepath)
-            logger.info(
-                f"Renamed history file from {old_history_uid} to {new_history_uid}"
-            )
+            logger.info(f"Renamed history file from {old_history_uid} to {new_history_uid}")
             return True
     except Exception as e:
         logger.error(f"Failed to rename history file: {e}")

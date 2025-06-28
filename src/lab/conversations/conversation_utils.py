@@ -1,20 +1,24 @@
-import asyncio
-import re
-from typing import Optional, Union, Any, List, Dict
-import numpy as np
-import json
-from loguru import logger
-import soundfile as sf
-from pathlib import Path
+from __future__ import annotations
 
-from ..message_handler import message_handler
-from .types import WebSocketSend, BroadcastContext
-from .tts_manager import TTSTaskManager
-from ..agent.output_types import SentenceOutput, AudioOutput
-from ..agent.input_types import BatchInput, TextData, ImageData, TextSource, ImageSource
-from ..live2d_model import Live2dModel
-from ..utils.stream_audio import prepare_audio_payload
+import asyncio
+import json
+import re
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
+
+import numpy as np
+import soundfile as sf
+from loguru import logger
+
 from lab.api.core_logic import async_rec_audio
+
+from ..agent.input_types import BatchInput, ImageData, ImageSource, TextData, TextSource
+from ..agent.output_types import AudioOutput, SentenceOutput
+from ..live2d_model import Live2dModel
+from ..message_handler import message_handler
+from ..utils.stream_audio import prepare_audio_payload
+from .tts_manager import TTSTaskManager
+from .types import BroadcastContext, WebSocketSend
 
 
 # Convert class methods to standalone functions
@@ -25,9 +29,7 @@ def create_batch_input(
 ) -> BatchInput:
     """Create batch input for agent processing"""
     return BatchInput(
-        texts=[
-            TextData(source=TextSource.INPUT, content=input_text, from_name=from_name)
-        ],
+        texts=[TextData(source=TextSource.INPUT, content=input_text, from_name=from_name)],
         images=[
             ImageData(
                 source=ImageSource(img["source"]),
@@ -48,7 +50,7 @@ async def process_agent_output(
     # tts_engine: TTSInterface,
     websocket_send: WebSocketSend,
     tts_manager: TTSTaskManager,
-    translate_engine: Optional[Any] = None,
+    # translate_engine: Optional[Any] = None,
 ) -> str:
     """Process agent output with character information and optional translation"""
     output.display_text.name = character_config.character_name
@@ -56,26 +58,24 @@ async def process_agent_output(
 
     full_response = ""
     try:
-        if isinstance(output, SentenceOutput):
-            full_response = await handle_sentence_output(
-                output,
-                live2d_model,
-                # tts_engine,
-                websocket_send,
-                tts_manager,
-                translate_engine,
-            )
-        elif isinstance(output, AudioOutput):
-            full_response = await handle_audio_output(output, websocket_send)
-        else:
-            logger.warning(f"Unknown output type: {type(output)}")
+        # if isinstance(output, SentenceOutput):
+        logger.info("SentenceOutput Detect")
+        full_response = await handle_sentence_output(
+            output,
+            live2d_model,
+            # tts_engine,
+            websocket_send,
+            tts_manager,
+            # translate_engine,
+        )
+        # elif isinstance(output, AudioOutput):
+        #     logger.info("AudioOutput Detect")
+        #     full_response = await handle_audio_output(output, websocket_send)
+        # else:
+        #     logger.warning(f"Unknown output type: {type(output)}")
     except Exception as e:
         logger.error(f"Error processing agent output: {e}")
-        await websocket_send(
-            json.dumps(
-                {"type": "error", "message": f"Error processing response: {str(e)}"}
-            )
-        )
+        await websocket_send(json.dumps({"type": "error", "message": f"Error processing response: {str(e)}"}))
 
     return full_response
 
@@ -86,19 +86,19 @@ async def handle_sentence_output(
     # tts_engine: TTSInterface,
     websocket_send: WebSocketSend,
     tts_manager: TTSTaskManager,
-    translate_engine: Optional[Any] = None,
+    # translate_engine: Optional[Any] = None,
 ) -> str:
     """Handle sentence output type with optional translation support"""
     full_response = ""
     async for display_text, tts_text, actions in output:
         logger.debug(f"🏃 Processing output: '''{tts_text}'''...")
 
-        if translate_engine:
-            if len(re.sub(r'[\s.,!?，。！？\'"』」）】\s]+', "", tts_text)):
-                tts_text = translate_engine.translate(tts_text)
-            logger.info(f"🏃 Text after translation: '''{tts_text}'''...")
-        else:
-            logger.debug("🚫 No translation engine available. Skipping translation.")
+        # if translate_engine:
+        #     if len(re.sub(r'[\s.,!?，。！？\'"』」）】\s]+', "", tts_text)):
+        #         tts_text = translate_engine.translate(tts_text)
+        #     logger.info(f"🏃 Text after translation: '''{tts_text}'''...")
+        # else:
+        logger.debug("🚫 No translation engine available. Skipping translation.")
 
         full_response += display_text.text
         await tts_manager.speak(
@@ -112,6 +112,7 @@ async def handle_sentence_output(
     return full_response
 
 
+# 支持 agent 直接返回 AudioOutput
 async def handle_audio_output(
     output: AudioOutput,
     websocket_send: WebSocketSend,
@@ -166,9 +167,7 @@ async def process_user_input(
             sf.write(audio_file_path, user_input, samplerate=16000)  # 假设采样率为 16000 Hz
             # 使用文件路径调用异步转录方法
             input_text = await async_rec_audio(audio_file_path)
-            await websocket_send(
-                json.dumps({"type": "user-input-transcription", "text": input_text})
-            )
+            await websocket_send(json.dumps({"type": "user-input-transcription", "text": input_text}))
         finally:
             # 删除临时音频文件
             if audio_file_path.exists():
@@ -188,9 +187,7 @@ async def finalize_conversation_turn(
         await asyncio.gather(*tts_manager.task_list)
         await websocket_send(json.dumps({"type": "backend-synth-complete"}))
 
-        response = await message_handler.wait_for_response(
-            client_uid, "frontend-playback-complete"
-        )
+        response = await message_handler.wait_for_response(client_uid, "frontend-playback-complete")
 
         if not response:
             logger.warning(f"No playback completion response from {client_uid}")

@@ -1,22 +1,29 @@
-from typing import Union, List, Dict, Any, Optional
+from __future__ import annotations
+
 import asyncio
 import json
-from loguru import logger
-import numpy as np
+from typing import Any, Dict, List, Optional, Union
 
-from .conversation_utils import (
-    create_batch_input,
-    process_agent_output,
-    send_conversation_start_signals,
-    process_user_input,
-    finalize_conversation_turn,
-    cleanup_conversation,
-    EMOJI_LIST,
-)
-from .types import WebSocketSend
-from .tts_manager import TTSTaskManager
+import numpy as np
+from loguru import logger
+
+from lab.agent.input_types import BatchInput
+from lab.agent.output_types import Actions, DisplayText, SentenceOutput
+from lab.api.openai import get_openai_response
+
 from ..chat_history_manager import store_message
 from ..service_context import ServiceContext
+from .conversation_utils import (
+    EMOJI_LIST,
+    cleanup_conversation,
+    create_batch_input,
+    finalize_conversation_turn,
+    process_agent_output,
+    process_user_input,
+    send_conversation_start_signals,
+)
+from .tts_manager import TTSTaskManager
+from .types import WebSocketSend
 
 
 async def process_single_conversation(
@@ -49,9 +56,12 @@ async def process_single_conversation(
         logger.info(f"New Conversation Chain {session_emoji} started!")
 
         # Process user input
-        input_text = await process_user_input(
-            user_input, context.asr_engine, websocket_send
-        )
+        if isinstance(user_input, np.ndarray):
+            input_text = await process_user_input(user_input, websocket_send)
+        else:
+            input_text = user_input
+            logger.info(f"User input: {input_text}")
+            logger.info(f"User input type: {type(input_text)}")
 
         # Create batch input
         batch_input = create_batch_input(
@@ -110,17 +120,23 @@ async def process_single_conversation(
         raise
     except Exception as e:
         logger.error(f"Error in conversation chain: {e}")
-        await websocket_send(
-            json.dumps({"type": "error", "message": f"Conversation error: {str(e)}"})
-        )
+        await websocket_send(json.dumps({"type": "error", "message": f"Conversation error: {str(e)}"}))
         raise
     finally:
         cleanup_conversation(tts_manager, session_emoji)
 
 
+async def chat(input_text: str):
+    text = get_openai_response(prompt=input_text)
+    actions = Actions()
+    display = DisplayText(text)
+    logger.info(display)
+    yield SentenceOutput(display, text, actions)
+
+
 async def process_agent_response(
     context: ServiceContext,
-    batch_input: Any,
+    batch_input: BatchInput,
     websocket_send: WebSocketSend,
     tts_manager: TTSTaskManager,
 ) -> str:
@@ -137,21 +153,28 @@ async def process_agent_response(
     """
     full_response = ""
     try:
-        agent_output = context.agent_engine.chat(batch_input)
+        # agent 记忆和输入是分开的。
+        if not batch_input:
+            raise ValueError("batch_input cannot be empty")
+        else:
+            agent_output = chat(batch_input.texts[-1].content)
+        # else:
+        #     raise TypeError("batch_input must be str")
         async for output in agent_output:
+            logger.info("process agent output")
             response_part = await process_agent_output(
                 output=output,
                 character_config=context.character_config,
                 live2d_model=context.live2d_model,
-                tts_engine=context.tts_engine,
+                # tts_engine=context.tts_engine,
                 websocket_send=websocket_send,
                 tts_manager=tts_manager,
-                translate_engine=context.translate_engine,
+                # translate_engine=context.translate_engine,
             )
             full_response += response_part
 
     except Exception as e:
         logger.error(f"Error processing agent response: {e}")
         raise
-
+    logger.info("return full_response")
     return full_response

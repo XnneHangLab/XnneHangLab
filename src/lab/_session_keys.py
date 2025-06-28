@@ -10,7 +10,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from lab._typing import AudioSessionStateKeys, HomeSessionStateKeys, SettingSessionSateKeys
+    from lab._typing import AudioSessionStateKeys, HomeSessionStateKeys, SessionKeys, SettingSessionSateKeys
+
+session_keys: SessionKeys = {"short_term_memory": "short_term_memory", "text_response": "text_response"}
 
 # 用于自动补全，防止输错 keys 导致的未初始化（这点真的挺ex的）
 audio_keys: AudioSessionStateKeys = {

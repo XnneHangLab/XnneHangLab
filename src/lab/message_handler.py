@@ -1,7 +1,10 @@
-from typing import Dict, Optional
+from __future__ import annotations
+
 import asyncio
-from loguru import logger
 from collections import defaultdict
+from typing import Dict, Optional
+
+from loguru import logger
 
 
 class MessageHandler:
@@ -53,10 +56,7 @@ class MessageHandler:
         if not msg_type:
             return
 
-        if (
-            client_uid in self._response_events
-            and msg_type in self._response_events[client_uid]
-        ):
+        if client_uid in self._response_events and msg_type in self._response_events[client_uid]:
             self._response_data[client_uid][msg_type] = message
             self._response_events[client_uid][msg_type].set()
 

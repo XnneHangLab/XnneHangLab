@@ -1,27 +1,30 @@
-from typing import Any, Dict, List, Optional, Union
+from __future__ import annotations
+
 import asyncio
 import json
-from loguru import logger
-from fastapi import WebSocket
-import numpy as np
+from typing import Any, Dict, List, Optional, Union
 
+import numpy as np
+from fastapi import WebSocket
+from loguru import logger
+
+from ..chat_history_manager import store_message
+from ..service_context import ServiceContext
 from .conversation_utils import (
+    EMOJI_LIST,
+    cleanup_conversation,
     create_batch_input,
+    finalize_conversation_turn,
     process_agent_output,
     process_user_input,
-    finalize_conversation_turn,
-    cleanup_conversation,
-    EMOJI_LIST,
 )
+from .tts_manager import TTSTaskManager
 from .types import (
+    BroadcastContext,
     BroadcastFunc,
     GroupConversationState,
-    BroadcastContext,
     WebSocketSend,
 )
-from ..service_context import ServiceContext
-from ..chat_history_manager import store_message
-from .tts_manager import TTSTaskManager
 
 
 async def process_group_conversation(
@@ -57,9 +60,7 @@ async def process_group_conversation(
             group_id=f"group_{initiator_client_uid}",  # Use same format as chat_group
             session_emoji=session_emoji,
             group_queue=list(group_members),
-            memory_index={
-                uid: 0 for uid in group_members
-            },  # Initialize memory index for each member
+            memory_index={uid: 0 for uid in group_members},  # Initialize memory index for each member
         )
 
         # Initialize group conversation context for each AI
@@ -67,11 +68,7 @@ async def process_group_conversation(
 
         # Get human name from initiator context
         initiator_context = client_contexts.get(initiator_client_uid)
-        human_name = (
-            initiator_context.character_config.human_name
-            if initiator_context
-            else "Human"
-        )
+        human_name = initiator_context.character_config.human_name if initiator_context else "Human"
 
         # Process initial input
         input_text = await process_group_input(
@@ -111,20 +108,14 @@ async def process_group_conversation(
                 )
             except Exception as e:
                 logger.error(f"Error in group member turn: {e}")
-                await handle_member_error(
-                    broadcast_func, group_members, f"Error in conversation: {str(e)}"
-                )
+                await handle_member_error(broadcast_func, group_members, f"Error in conversation: {str(e)}")
 
     except asyncio.CancelledError:
-        logger.info(
-            f"🤡👍 Group Conversation {session_emoji} cancelled because interrupted."
-        )
+        logger.info(f"🤡👍 Group Conversation {session_emoji} cancelled because interrupted.")
         raise
     except Exception as e:
         logger.error(f"Error in group conversation chain: {e}")
-        await handle_member_error(
-            broadcast_func, group_members, f"Fatal error in conversation: {str(e)}"
-        )
+        await handle_member_error(broadcast_func, group_members, f"Fatal error in conversation: {str(e)}")
         raise
     finally:
         # Cleanup all TTS managers
@@ -134,9 +125,7 @@ async def process_group_conversation(
         GroupConversationState.remove_state(state.group_id)
 
 
-def init_group_conversation_state(
-    group_members: List[str], session_emoji: str
-) -> GroupConversationState:
+def init_group_conversation_state(group_members: List[str], session_emoji: str) -> GroupConversationState:
     """Initialize group conversation state"""
     return GroupConversationState(
         conversation_history=[],
@@ -157,16 +146,9 @@ def init_group_conversation_contexts(
         if hasattr(agent, "start_group_conversation"):
             agent.start_group_conversation(
                 human_name="Human",
-                ai_participants=[
-                    name
-                    for name in ai_names
-                    if name != context.character_config.character_name
-                ],
+                ai_participants=[name for name in ai_names if name != context.character_config.character_name],
             )
-            logger.debug(
-                f"Initialized group conversation context for "
-                f"{context.character_config.character_name}"
-            )
+            logger.debug(f"Initialized group conversation context for {context.character_config.character_name}")
 
 
 async def process_group_input(
@@ -178,12 +160,8 @@ async def process_group_input(
     initiator_client_uid: str,
 ) -> str:
     """Process and broadcast user input to group"""
-    input_text = await process_user_input(
-        user_input, initiator_context.asr_engine, initiator_ws_send
-    )
-    await broadcast_transcription(
-        broadcast_func, group_members, input_text, initiator_client_uid
-    )
+    input_text = await process_user_input(user_input, initiator_context.asr_engine, initiator_ws_send)
+    await broadcast_transcription(broadcast_func, group_members, input_text, initiator_client_uid)
     return input_text
 
 
@@ -226,13 +204,10 @@ async def handle_group_member_turn(
     new_messages = state.conversation_history[state.memory_index[current_member_uid] :]
     new_context = "\n".join(new_messages) if new_messages else ""
 
-    batch_input = create_batch_input(
-        input_text=new_context, images=images, from_name="Human"
-    )
+    batch_input = create_batch_input(input_text=new_context, images=images, from_name="Human")
 
     logger.info(
-        f"AI {context.character_config.character_name} "
-        f"(client {current_member_uid}) receiving context:\n{new_context}"
+        f"AI {context.character_config.character_name} (client {current_member_uid}) receiving context:\n{new_context}"
     )
 
     full_response = await process_member_response(
@@ -282,9 +257,7 @@ async def handle_group_member_turn(
     state.current_speaker_uid = None
 
 
-async def broadcast_thinking_state(
-    broadcast_func: BroadcastFunc, group_members: List[str]
-) -> None:
+async def broadcast_thinking_state(broadcast_func: BroadcastFunc, group_members: List[str]) -> None:
     """Broadcast thinking state to group"""
     await broadcast_func(
         group_members,

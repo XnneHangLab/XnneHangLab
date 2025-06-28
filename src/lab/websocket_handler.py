@@ -351,18 +351,19 @@ class WebSocketHandler:
         context = self.client_contexts[client_uid]
         # Update history_uid in service context
         context.history_uid = history_uid
-        context.agent_engine.set_memory_from_history(
-            conf_uid=context.character_config.conf_uid,
-            history_uid=history_uid,
-        )
+        # print(context.history_uid)
+        # context.agent_engine.set_memory_from_history(
+        #     conf_uid=context.character_config.conf_uid,
+        #     history_uid=history_uid,
+        # )
 
         messages = [
-            msg
-            for msg in get_history(
-                context.character_config.conf_uid,
-                history_uid,
-            )
-            if msg["role"] != "system"
+            # msg
+            # for msg in get_history(
+            #     context.character_config.conf_uid,
+            #     history_uid,
+            # )
+            # if msg["role"] != "system"
         ]
         await websocket.send_text(json.dumps({"type": "history-data", "messages": messages}))
 
@@ -372,10 +373,10 @@ class WebSocketHandler:
         history_uid = create_new_history(context.character_config.conf_uid)
         if history_uid:
             context.history_uid = history_uid
-            context.agent_engine.set_memory_from_history(
-                conf_uid=context.character_config.conf_uid,
-                history_uid=history_uid,
-            )
+            # context.agent_engine.set_memory_from_history(
+            #     conf_uid=context.character_config.conf_uid,
+            #     history_uid=history_uid,
+            # )
             await websocket.send_text(
                 json.dumps(
                     {
@@ -473,6 +474,7 @@ class WebSocketHandler:
         """
         Handle audio playback start notification
         """
+        logger.info(data)
         group_members = self.chat_group_manager.get_group_members(client_uid)
         if len(group_members) > 1:
             display_text = data.get("display_text")

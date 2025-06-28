@@ -13,7 +13,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from lab._dataclass import RunnerSettings
 from lab.api.core_logic import rec_audio
-from lab.api.routes.audio import generate_tts_direct
+from lab.api.routes.vits import generate_tts_direct
 from lab.utils.config import load_settings_file
 from lab.utils.Timedhelper import get_time_tag_with_millis
 

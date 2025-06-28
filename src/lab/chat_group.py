@@ -1,7 +1,10 @@
-from typing import Dict, List, Optional, Set, Tuple, Callable, Any
-from dataclasses import dataclass
-from fastapi import WebSocket
+from __future__ import annotations
+
 import json
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+
+from fastapi import WebSocket
 from loguru import logger
 
 
@@ -25,9 +28,7 @@ class ChatGroupManager:
         logger.info(f"Created group {group_id} for client {client_uid}")
         return group_id
 
-    def add_client_to_group(
-        self, inviter_uid: str, invitee_uid: str
-    ) -> Tuple[bool, str]:
+    def add_client_to_group(self, inviter_uid: str, invitee_uid: str) -> Tuple[bool, str]:
         """
         Add a client to the group of the inviter
         If inviter is not in a group, create one
@@ -45,9 +46,7 @@ class ChatGroupManager:
         inviter_group_id = self.client_group_map.get(inviter_uid)
         if not inviter_group_id:
             group_id = f"group_{inviter_uid}"
-            new_group = Group(
-                group_id=group_id, owner_uid=inviter_uid, members={inviter_uid}
-            )
+            new_group = Group(group_id=group_id, owner_uid=inviter_uid, members={inviter_uid})
             self.groups[group_id] = new_group
             self.client_group_map[inviter_uid] = group_id
             inviter_group_id = group_id
@@ -61,9 +60,7 @@ class ChatGroupManager:
         logger.info(f"Added client {invitee_uid} to group {inviter_group_id}")
         return True, f"Successfully added {invitee_uid} to the group"
 
-    def remove_client_from_group(
-        self, remover_uid: str, target_uid: str
-    ) -> Tuple[bool, str]:
+    def remove_client_from_group(self, remover_uid: str, target_uid: str) -> Tuple[bool, str]:
         """
         Remove a client from their group
         Returns (success, message)
@@ -176,9 +173,7 @@ async def handle_group_operation(
         all_affected_members = set(old_members + target_old_members)
 
         if operation == "add-client-to-group":
-            success, message = chat_group_manager.add_client_to_group(
-                inviter_uid=client_uid, invitee_uid=target_uid
-            )
+            success, message = chat_group_manager.add_client_to_group(inviter_uid=client_uid, invitee_uid=target_uid)
 
             if success and target_uid in client_connections:
                 try:
@@ -238,9 +233,7 @@ async def handle_group_operation(
             for member_uid in all_affected_members:
                 if member_uid in client_connections and member_uid != target_uid:
                     try:
-                        await send_group_update(
-                            client_connections[member_uid], member_uid
-                        )
+                        await send_group_update(client_connections[member_uid], member_uid)
                         if member_uid != client_uid:
                             await client_connections[member_uid].send_text(
                                 json.dumps(

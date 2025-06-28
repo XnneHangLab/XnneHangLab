@@ -1,14 +1,28 @@
+from __future__ import annotations
+
+import argparse
+import atexit
+import gc
 import os
 import sys
-import atexit
-import argparse
+from contextlib import asynccontextmanager
 from pathlib import Path
+
 import tomli
+import torch
 import uvicorn
+from fastapi import FastAPI
 from loguru import logger
+from vits import utils
+from vits.config import config
+from vits.infer import get_net_g, latest_version
+from vits.state_manager import tts_state_manager
+
+from src.lab.api.core_logic import load_model
+from src.lab.config_manager import Config, read_yaml, validate_config
+
 # from upgrade import sync_user_config, select_language
 from src.lab.server import WebSocketServer
-from src.lab.config_manager import Config, read_yaml, validate_config
 
 os.environ["HF_HOME"] = str(Path(__file__).parent / "models")
 os.environ["MODELSCOPE_CACHE"] = str(Path(__file__).parent / "models")
@@ -45,9 +59,7 @@ def init_logger(console_log_level: str = "INFO") -> None:
 def parse_args():
     parser = argparse.ArgumentParser(description="Open-LLM-VTuber Server")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
-    parser.add_argument(
-        "--hf_mirror", action="store_true", help="Use Hugging Face mirror"
-    )
+    parser.add_argument("--hf_mirror", action="store_true", help="Use Hugging Face mirror")
     return parser.parse_args()
 
 
@@ -55,11 +67,6 @@ def parse_args():
 def run(console_log_level: str):
     init_logger(console_log_level)
     logger.info(f"Open-LLM-VTuber, version v{get_version()}")
-    # Sync user config with default config
-    # try:
-    #     sync_user_config(logger=logger, lang=select_language())
-    # except Exception as e:
-    #     logger.error(f"Error syncing user config: {e}")
 
     # atexit.register(WebSocketServer.clean_cache)
 
@@ -69,6 +76,7 @@ def run(console_log_level: str):
 
     # Initialize and run the WebSocket server
     server = WebSocketServer(config=config)
+
     uvicorn.run(
         app=server.app,
         host=server_config.host,
@@ -80,12 +88,12 @@ def run(console_log_level: str):
 if __name__ == "__main__":
     args = parse_args()
     console_log_level = "DEBUG" if args.verbose else "INFO"
-    if args.verbose:
-        logger.info("Running in verbose mode")
-    else:
-        logger.info(
-            "Running in standard mode. For detailed debug logs, use: uv run run_server.py --verbose"
-        )
+    # if args.verbose:
+    #     logger.info("Running in verbose mode")
+    # else:
+    #     logger.info(
+    #         "Running in standard mode. For detailed debug logs, use: uv run run_server.py --verbose"
+    #     )
     if args.hf_mirror:
         os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
     run(console_log_level=console_log_level)

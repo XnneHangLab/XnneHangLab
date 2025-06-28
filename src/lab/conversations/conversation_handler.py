@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import asyncio
 import json
-from typing import Dict, Optional, Callable
+from typing import Callable, Dict, Optional
 
 import numpy as np
 from fastapi import WebSocket
@@ -9,9 +11,9 @@ from loguru import logger
 from ..chat_group import ChatGroupManager
 from ..chat_history_manager import store_message
 from ..service_context import ServiceContext
+from .conversation_utils import EMOJI_LIST
 from .group_conversation import process_group_conversation
 from .single_conversation import process_single_conversation
-from .conversation_utils import EMOJI_LIST
 from .types import GroupConversationState
 
 
@@ -52,10 +54,7 @@ async def handle_conversation_trigger(
     if group and len(group.members) > 1:
         # Use group_id as task key for group conversations
         task_key = group.group_id
-        if (
-            task_key not in current_conversation_tasks
-            or current_conversation_tasks[task_key].done()
-        ):
+        if task_key not in current_conversation_tasks or current_conversation_tasks[task_key].done():
             logger.info(f"Starting new group conversation for {task_key}")
 
             current_conversation_tasks[task_key] = asyncio.create_task(

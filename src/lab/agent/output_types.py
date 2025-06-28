@@ -1,6 +1,8 @@
-from dataclasses import dataclass, asdict
-from typing import List, Optional
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
+from dataclasses import asdict, dataclass
+from typing import List, Optional
 
 
 @dataclass

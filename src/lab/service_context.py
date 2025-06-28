@@ -5,8 +5,8 @@ import os
 
 from fastapi import WebSocket
 from loguru import logger
-# from prompts import prompt_loader
 
+# from prompts import prompt_loader
 from lab._dataclass import RunnerSettings
 from lab.utils.config import load_settings_file
 
@@ -27,6 +27,7 @@ from .config_manager import (
     validate_config,
 )
 from .live2d_model import Live2dModel
+
 # from .translate.translate_factory import TranslateFactory
 # from .translate.translate_interface import TranslateInterface
 # from .tts.tts_factory import TTSFactory
@@ -166,7 +167,6 @@ class ServiceContext:
         # asr_settings = load_settings_file("global.toml", RunnerSettings)
         # self.asr_engine
         logger.info("ASR already initialized with the same config.")
-
 
     def init_tts(self, tts_config: TTSConfig) -> None:
         # if not self.tts_engine or (self.character_config.tts_config != tts_config):

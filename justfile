@@ -14,6 +14,8 @@ server:
 db-server:
   uv run uvicorn src.lab.database.main:app --reload --host localhost --port 8000
 
+test-tts:
+  curl -X POST   -H "Content-Type: application/json"   -d '{"text": "我写了两个杀人推理短篇，他们互为答案（下）鲅鱼村杀人疑案。"}'   -o output.opus   http://localhost:12393/tts/direct
 
 
 test-rec-audio:

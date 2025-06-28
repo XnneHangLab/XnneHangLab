@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 from typing import TYPE_CHECKING, Any
 
 from funasr import AutoModel  # 导入仍然在代码顶部，但只执行一次
-import asyncio
+
 from lab._dataclass import RunnerSettings
 from lab.models.lazy_model import generate_asr_results, generate_vad_results
 from lab.utils.config import load_settings_file
@@ -128,6 +129,7 @@ def vad_audio(
 #     from vits.api_server import process_text
 #     audio_rate, audio_bytes = process_text(text)
 #     # 保存音频文件
+
 
 async def async_rec_audio(
     input_path: Path,
