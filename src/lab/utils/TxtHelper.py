@@ -4,7 +4,7 @@ import re
 from typing import TYPE_CHECKING
 
 from lab._dataclass import RunnerSettings
-from lab.utils.config import load_settings_file
+from lab.config_manager.config import load_settings_file
 from lab.utils.console.logger import Logger
 
 if TYPE_CHECKING:

@@ -3,7 +3,7 @@ from __future__ import annotations
 from funasr import AutoModel
 
 from lab._dataclass import RunnerSettings
-from lab.utils.config import load_settings_file
+from lab.config_manager.config import load_settings_file
 
 
 class FunASRModel:

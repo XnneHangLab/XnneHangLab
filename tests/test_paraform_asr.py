@@ -7,7 +7,7 @@ import pytest
 
 from lab.__main__ import main as basic_runner
 from lab._dataclass import AudioSettings, RunnerSettings
-from lab.utils.config import get_setting_title, load_settings_file
+from lab.config_manager.config import get_setting_title, load_settings_file
 from lab.utils.FFmpegHelper import test_call_ffmpeg
 
 

@@ -19,7 +19,7 @@ from vits.infer import get_net_g, latest_version
 from vits.state_manager import tts_state_manager
 
 from src.lab.api.core_logic import load_model
-from src.lab.config_manager import Config, read_yaml, validate_config
+from src.lab.config_manager.vtuber import Config, read_yaml, validate_config
 
 # from upgrade import sync_user_config, select_language
 from src.lab.server import WebSocketServer
@@ -71,7 +71,7 @@ def run(console_log_level: str):
     # atexit.register(WebSocketServer.clean_cache)
 
     # Load configurations from yaml file
-    config: Config = validate_config(read_yaml("conf.yaml"))
+    config: Config = validate_config(read_yaml("config/vtuber.yaml"))
     server_config = config.system_config
 
     # Initialize and run the WebSocket server

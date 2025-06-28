@@ -6,8 +6,8 @@ import streamlit as st
 
 from lab._dataclass import Device, RunnerSettings
 from lab._session_keys import setting_keys
+from lab.config_manager.config import get_setting_title, load_settings_file, write_settings_file
 from lab.styles.global_style import style
-from lab.utils.config import get_setting_title, load_settings_file, write_settings_file
 
 # 我也很想用 st.write , 但是它存在类型未知 (> _ <)
 

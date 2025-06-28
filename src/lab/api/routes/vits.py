@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -9,8 +10,6 @@ from vits.api._typing import TTSRequest
 from vits.api.core_logic import process_text
 from vits.state_manager import tts_state_manager
 from vits.tools.ffmpeg_helper import audio_to_opus_bytes
-from pathlib import Path
-
 
 router = APIRouter()
 
@@ -25,8 +24,8 @@ async def tts_direct(request: TTSRequest):
         opus_bytes = audio_to_opus_bytes(sample_rate, audio_data)
         return StreamingResponse(
             io.BytesIO(opus_bytes),
-            media_type="audio/ogg", 
-            headers={"Content-Disposition": "attachment; filename=tts_output.opus"}
+            media_type="audio/ogg",
+            headers={"Content-Disposition": "attachment; filename=tts_output.opus"},
         )
     except Exception as e:
         logger.error(f"Error in direct TTS generation: {str(e)}")

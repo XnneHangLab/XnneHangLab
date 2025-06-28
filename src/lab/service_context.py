@@ -2,19 +2,20 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 
 from fastapi import WebSocket
 from loguru import logger
 
 # from prompts import prompt_loader
 from lab._dataclass import RunnerSettings
-from lab.utils.config import load_settings_file
+from lab.config_manager.config import load_settings_file
 
 # from .agent.agent_factory import AgentFactory
 # from .agent.agents.agent_interface import AgentInterface
 # from .asr.asr_factory import ASRFactory
 # from .asr.asr_interface import ASRInterface
-from .config_manager import (
+from lab.config_manager.vtuber import (
     AgentConfig,
     ASRConfig,
     CharacterConfig,
@@ -26,6 +27,7 @@ from .config_manager import (
     read_yaml,
     validate_config,
 )
+
 from .live2d_model import Live2dModel
 
 # from .translate.translate_factory import TranslateFactory
@@ -297,15 +299,15 @@ class ServiceContext:
         try:
             new_character_config_data = None
 
-            if config_file_name == "conf.yaml":
+            if config_file_name == "vtuber.yaml":
                 # Load base config
-                new_character_config_data = read_yaml("conf.yaml").get("character_config")
+                new_character_config_data = read_yaml("config/vtuber.yaml").get("character_config")
             else:
                 # Load alternative config and merge with base config
-                characters_dir = self.system_config.config_alts_dir
-                file_path = os.path.normpath(os.path.join(characters_dir, config_file_name))
-                if not file_path.startswith(characters_dir):
-                    raise ValueError("Invalid configuration file path")
+                characters_dir = Path(self.system_config.config_alts_dir)
+                file_path = os.path.normpath(characters_dir / config_file_name)
+                # if not file_path.startswith(characters_dir):
+                #     raise ValueError("Invalid configuration file path")
 
                 alt_config_data = read_yaml(file_path).get("character_config")
 

@@ -21,7 +21,7 @@ from .chat_history_manager import (
     get_history,
     get_history_list,
 )
-from .config_manager.utils import scan_bg_directory, scan_config_alts_directory
+from .config_manager.vtuber.utils import scan_bg_directory, scan_config_alts_directory
 from .conversations.conversation_handler import (
     handle_conversation_trigger,
     handle_group_interrupt,
@@ -357,14 +357,10 @@ class WebSocketHandler:
         #     history_uid=history_uid,
         # )
         msgs = get_history(
-                context.character_config.conf_uid,
-                history_uid,
-            )
-        messages = [
-            msg
-            for msg in msgs
-            if msg["role"] != "system"
-        ]
+            context.character_config.conf_uid,
+            history_uid,
+        )
+        messages = [msg for msg in msgs if msg["role"] != "system"]
         await websocket.send_text(json.dumps({"type": "history-data", "messages": messages}))
 
     async def _handle_create_history(self, websocket: WebSocket, client_uid: str, data: WSMessage) -> None:

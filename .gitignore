@@ -1,7 +1,6 @@
 Data/
 bert/
 chat_history/
-conf.yaml
 config.yml
 config/setting.toml
 logs/

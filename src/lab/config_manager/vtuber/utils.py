@@ -141,13 +141,13 @@ def scan_config_alts_directory(config_alts_dir: str) -> list[dict]:
     config_files = []
 
     # Add default config first
-    default_config = read_yaml("conf.yaml")
+    default_config = read_yaml("config/vtuber.yaml")
     config_files.append(
         {
-            "filename": "conf.yaml",
-            "name": default_config.get("character_config", {}).get("conf_name", "conf.yaml")
+            "filename": "vtuber.yaml",
+            "name": default_config.get("character_config", {}).get("conf_name", "vtuber.yaml")
             if default_config
-            else "conf.yaml",
+            else "vtuber.yaml",
         }
     )
 

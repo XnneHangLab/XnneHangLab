@@ -26,7 +26,7 @@ class HumeAIAgent(AgentInterface):
     def __init__(
         self,
         api_key: str,
-        host: str = "api.hume.ai", # 
+        host: str = "api.hume.ai",  #
         # config_id: Optional[str] = None,
         # idle_timeout: int = 15,
     ):
@@ -160,7 +160,6 @@ class HumeAIAgent(AgentInterface):
                     if msg_type == "assistant_message":
                         self._current_text = response_data["message"]["content"]
                         self._current_id = msg_id
-                        
 
                     # elif msg_type == "audio_output":
                     #     if msg_id == self._current_id and self._current_text:

@@ -12,10 +12,10 @@ from lab.BasicRunner.combiner import combine_sentences
 from lab.BasicRunner.converter import convert_asr_response_to_sentences
 from lab.BasicRunner.cutter import cut_sentences
 from lab.BasicRunner.extractor import save_only_text_from_response
+from lab.config_manager.config import get_setting_title, load_settings_file, write_settings_file
 from lab.models.lazy_model import FunASRModel, generate_asr_results
 from lab.pages.dialogs.audio import AudioReadme, upload_audio
 from lab.styles.global_style import style
-from lab.utils.config import get_setting_title, load_settings_file, write_settings_file
 from lab.utils.FFmpegHelper import file_to_wav
 from lab.utils.public import (
     parse_srt_file,

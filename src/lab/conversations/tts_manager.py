@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from loguru import logger
+from pydub import AudioSegment
 
 from lab.api.routes.vits import generate_tts_direct
 
@@ -16,7 +17,7 @@ from ..agent.output_types import Actions, DisplayText
 from ..live2d_model import Live2dModel
 from ..utils.stream_audio import prepare_audio_payload
 from .types import WebSocketSend
-from pydub import AudioSegment
+
 
 class TTSTaskManager:
     """Manages TTS tasks and ensures ordered delivery to frontend while allowing parallel TTS generation"""
@@ -100,7 +101,6 @@ class TTSTaskManager:
             # Get payload from queue
             payload, sequence_number = await self._payload_queue.get()
             buffered_payloads[sequence_number] = payload
-            
 
             # Send payloads in order
             while self._next_sequence_to_send in buffered_payloads:
@@ -109,7 +109,6 @@ class TTSTaskManager:
                 self._next_sequence_to_send += 1
 
             self._payload_queue.task_done()
-
 
     async def _send_silent_payload(
         self,

@@ -18,10 +18,10 @@ from vits.state_manager import tts_state_manager
 
 from lab._dataclass import RootAbsDir
 from lab.api.core_logic import load_model
-from lab.utils.config import load_settings_file
 from lab.api.routes.vits import router as vits_router
+from lab.config_manager.config import load_settings_file
+from lab.config_manager.vtuber.utils import Config
 
-from .config_manager.utils import Config
 from .routes import init_client_ws_route, init_webtool_routes
 from .service_context import ServiceContext
 

@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import base64
 
+from loguru import logger
 from pydub import AudioSegment
 from pydub.utils import make_chunks
-from loguru import logger
+
 from lab.agent.output_types import Actions, DisplayText
 
 

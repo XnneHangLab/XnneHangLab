@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from lab._dataclass import RunnerSettings
-from lab.utils.config import load_settings_file
+from lab.config_manager.config import load_settings_file
 from lab.utils.FFmpegHelper import get_audio_duration
 
 if TYPE_CHECKING:

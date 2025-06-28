@@ -18,8 +18,8 @@ from vits.infer import get_net_g, infer, infer_multilang, latest_version
 from lab._dataclass import RunnerSettings
 from lab.api.core_logic import load_model
 from lab.api.main import api_router
+from lab.config_manager.config import load_settings_file
 from lab.utils import utils
-from lab.utils.config import load_settings_file
 from lab.utils.console.logger import Logger
 
 if TYPE_CHECKING:

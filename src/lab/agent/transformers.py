@@ -5,7 +5,8 @@ from typing import AsyncIterator, Callable, List, Tuple
 
 from loguru import logger
 
-from ..config_manager import TTSPreprocessorConfig
+from lab.config_manager.vtuber import TTSPreprocessorConfig
+
 from ..live2d_model import Live2dModel
 from ..utils.sentence_divider import SentenceDivider, SentenceWithTags, TagState
 from ..utils.tts_preprocessor import tts_filter as filter_text

@@ -5,7 +5,7 @@ from pathlib import Path
 
 from lab.__version__ import VERSION
 from lab._dataclass import RunnerSettings
-from lab.utils.config import load_settings_file
+from lab.config_manager.config import load_settings_file
 from lab.utils.console.logger import Badge, Logger
 
 

@@ -8,7 +8,7 @@ from uiya.utils.config import UiyaSetting, load_settings_file as load_uiya_setti
 
 from lab._dataclass import RootAbsDir
 from lab._session_keys import audio_keys
-from lab.utils.config import load_settings_file
+from lab.config_manager.config import load_settings_file
 
 root_settings = load_settings_file("root.toml", setting=RootAbsDir)
 uiya_settings = load_uiya_settings_file("uiya.toml", setting=UiyaSetting)
