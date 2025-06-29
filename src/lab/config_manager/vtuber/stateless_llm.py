@@ -14,9 +14,9 @@ class StatelessLLMBaseConfig(I18nMixin):
     # interrupt_method. If the provider supports inserting system prompt anywhere in the chat memory, use "system". Otherwise, use "user".
     interrupt_method: Literal["system", "user"] = Field("user", alias="interrupt_method")
     DESCRIPTIONS: ClassVar[dict[str, Description]] = {
-        "interrupt_method": Description(
+        "interrupt_method": Description(  # type: ignore[arg-type]
             en="""The method to use for prompting the interruption signal.
-            If the provider supports inserting system prompt anywhere in the chat memory, use "system". 
+            If the provider supports inserting system prompt anywhere in the chat memory, use "system".
             Otherwise, use "user". You don't need to change this setting.""",
             zh="""用于表示中断信号的方法(提示词模式)。如果LLM支持在聊天记忆中的任何位置插入系统提示词，请使用“system”。
             否则，请使用“user”。您不需要更改此设置。""",
@@ -34,13 +34,13 @@ class OpenAICompatibleConfig(StatelessLLMBaseConfig):
     project_id: str | None = Field(None, alias="project_id")
     temperature: float = Field(1.0, alias="temperature")
 
-    _OPENAI_COMPATIBLE_DESCRIPTIONS: ClassVar[dict[str, Description]] = {
-        "base_url": Description(en="Base URL for the API endpoint", zh="API的URL端点"),
-        "llm_api_key": Description(en="API key for authentication", zh="API 认证密钥"),
-        "organization_id": Description(en="Organization ID for the API (Optional)", zh="组织 ID (可选)"),
-        "project_id": Description(en="Project ID for the API (Optional)", zh="项目 ID (可选)"),
-        "model": Description(en="Name of the LLM model to use", zh="LLM 模型名称"),
-        "temperature": Description(
+    _OPENAI_COMPATIBLE_DESCRIPTIONS: ClassVar[dict[str, Description]] = {  # type: ignore[var-annotated]
+        "base_url": Description(en="Base URL for the API endpoint", zh="API的URL端点"),  # type: ignore[arg-type]
+        "llm_api_key": Description(en="API key for authentication", zh="API 认证密钥"),  # type: ignore[arg-type]
+        "organization_id": Description(en="Organization ID for the API (Optional)", zh="组织 ID (可选)"),  # type: ignore[arg-type]
+        "project_id": Description(en="Project ID for the API (Optional)", zh="项目 ID (可选)"),  # type: ignore[arg-type]
+        "model": Description(en="Name of the LLM model to use", zh="LLM 模型名称"),  # type: ignore[arg-type]
+        "temperature": Description(  # type: ignore[arg-type]
             en="What sampling temperature to use, between 0 and 2.",
             zh="使用的采样温度，介于 0 和 2 之间。",
         ),
@@ -64,17 +64,17 @@ class OllamaConfig(OpenAICompatibleConfig):
     interrupt_method: Literal["system", "user"] = Field("system", alias="interrupt_method")
 
     # Ollama-specific descriptions
-    _OLLAMA_DESCRIPTIONS: ClassVar[dict[str, Description]] = {
-        "llm_api_key": Description(
+    _OLLAMA_DESCRIPTIONS: ClassVar[dict[str, Description]] = {  # type: ignore[var-annotated]
+        "llm_api_key": Description(  # type: ignore[arg-type]
             en="API key for authentication (defaults to 'default_api_key' for Ollama)",
             zh="API 认证密钥 (Ollama 默认为 'default_api_key')",
         ),
-        "keep_alive": Description(
+        "keep_alive": Description(  # type: ignore[arg-type]
             en="Keep the model loaded for this many seconds after the last request. "
             "Set to -1 to keep the model loaded indefinitely.",
             zh="在最后一个请求之后保持模型加载的秒数。设置为 -1 以无限期保持模型加载。",
         ),
-        "unload_at_exit": Description(
+        "unload_at_exit": Description(  # type: ignore[arg-type]
             en="Unload the model when the program exits.",
             zh="是否在程序退出时卸载模型。",
         ),
@@ -110,11 +110,11 @@ class StatelessLLMConfigs(I18nMixin, BaseModel):
     gemini_llm: GeminiConfig | None = Field(None, alias="gemini_llm")
 
     DESCRIPTIONS: ClassVar[dict[str, Description]] = {
-        "openai_compatible_llm": Description(
+        "openai_compatible_llm": Description(  # type: ignore[arg-type]
             en="Configuration for OpenAI-compatible LLM providers",
             zh="OpenAI兼容的语言模型提供者配置",
         ),
-        "ollama_llm": Description(en="Configuration for Ollama", zh="Ollama 配置"),
-        "openai_llm": Description(en="Configuration for Official OpenAI API", zh="官方 OpenAI API 配置"),
-        "gemini_llm": Description(en="Configuration for Gemini API", zh="Gemini API 配置"),
+        "ollama_llm": Description(en="Configuration for Ollama", zh="Ollama 配置"),  # type: ignore[arg-type]
+        "openai_llm": Description(en="Configuration for Official OpenAI API", zh="官方 OpenAI API 配置"),  # type: ignore[arg-type]
+        "gemini_llm": Description(en="Configuration for Gemini API", zh="Gemini API 配置"),  # type: ignore[arg-type]
     }

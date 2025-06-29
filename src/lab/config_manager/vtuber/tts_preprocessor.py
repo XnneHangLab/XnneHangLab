@@ -1,7 +1,7 @@
 # config_manager/translate.py
 from __future__ import annotations
 
-from typing import ClassVar, Dict, Literal, Optional
+from typing import ClassVar, Literal
 
 from pydantic import Field, ValidationInfo, model_validator
 
@@ -16,35 +16,13 @@ class DeepLXConfig(I18nMixin):
     deeplx_target_lang: str = Field(..., alias="deeplx_target_lang")
     deeplx_api_endpoint: str = Field(..., alias="deeplx_api_endpoint")
 
-    DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "deeplx_target_lang": Description(
+    DESCRIPTIONS: ClassVar[dict[str, Description]] = {
+        "deeplx_target_lang": Description( # type: ignore[arg-type]
             en="Target language code for DeepLX translation",
             zh="DeepLX 翻译的目标语言代码",
         ),
-        "deeplx_api_endpoint": Description(en="API endpoint URL for DeepLX service", zh="DeepLX 服务的 API 端点 URL"),
+        "deeplx_api_endpoint": Description(en="API endpoint URL for DeepLX service", zh="DeepLX 服务的 API 端点 URL"), # type: ignore[arg-type]
     }
-
-
-class TencentConfig(I18nMixin):
-    """Configuration for tencent translation service."""
-
-    secret_id: str = Field(..., description="Tencent Secret ID")
-    secret_key: str = Field(..., description="Tencent Secret Key")
-    region: str = Field(..., description="Region for Tencent Service")
-    source_lang: str = Field(..., description="Source language code for tencent translation")
-    target_lang: str = Field(..., description="Target language code for tencent translation")
-
-    DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "secret_id": Description(en="Tencent Secret ID", zh="腾讯服务的Secret ID"),
-        "secret_key": Description(en="Tencent Secret Key", zh="腾讯服务的Secret Key"),
-        "region": Description(en="Region for Tencent Service", zh="腾讯服务使用的区域"),
-        "source_lang": Description(en="Source language code for tencent translation", zh="腾讯翻译的源语言代码"),
-        "target_lang": Description(
-            en="Target language code for tencent translation",
-            zh="腾讯翻译的目标语言代码",
-        ),
-    }
-
 
 # --- Main TranslatorConfig model ---
 
@@ -54,21 +32,19 @@ class TranslatorConfig(I18nMixin):
 
     translate_audio: bool = Field(..., alias="translate_audio")
     translate_provider: Literal["deeplx", "tencent"] = Field(..., alias="translate_provider")
-    deeplx: Optional[DeepLXConfig] = Field(None, alias="deeplx")
-    tencent: Optional[TencentConfig] = Field(None, alias="tencent")
+    deeplx: DeepLXConfig | None = Field(None, alias="deeplx")
 
-    DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "translate_audio": Description(
+    DESCRIPTIONS: ClassVar[dict[str, Description]] = {
+        "translate_audio": Description( # type: ignore[arg-type]
             en="Enable audio translation (requires DeepLX deployment)",
             zh="启用音频翻译（需要部署 DeepLX）",
         ),
-        "translate_provider": Description(en="Translation service provider to use", zh="要使用的翻译服务提供者"),
-        "deeplx": Description(en="Configuration for DeepLX translation service", zh="DeepLX 翻译服务配置"),
-        "tencent": Description(en="Configuration for TenCent translation service", zh="腾讯 翻译服务配置"),
+        "translate_provider": Description(en="Translation service provider to use", zh="要使用的翻译服务提供者"), # type: ignore[arg-type]
+        "deeplx": Description(en="Configuration for DeepLX translation service", zh="DeepLX 翻译服务配置"), # type: ignore[arg-type]
     }
 
-    @model_validator(mode="after")
-    def check_translator_config(cls, values: "TranslatorConfig", info: ValidationInfo):
+    @model_validator(mode="after") # type: ignore[arg-type]
+    def check_translator_config(cls, values: "TranslatorConfig", info: ValidationInfo): # noqa: UP037
         translate_audio = values.translate_audio
         translate_provider = values.translate_provider
 
@@ -76,10 +52,6 @@ class TranslatorConfig(I18nMixin):
             if translate_provider == "deeplx" and values.deeplx is None:
                 raise ValueError(
                     "DeepLX configuration must be provided when translate_audio is True and translate_provider is 'deeplx'"
-                )
-            elif translate_provider == "tencent" and values.tencent is None:
-                raise ValueError(
-                    "Tencent configuration must be provided when translate_audio is True and translate_provider is 'tencent'"
                 )
 
         return values
@@ -95,10 +67,10 @@ class TTSPreprocessorConfig(I18nMixin):
     ignore_angle_brackets: bool = Field(default=True, alias="ignore_angle_brackets")
     translator_config: TranslatorConfig = Field(..., alias="translator_config")
 
-    DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "remove_special_char": Description(
+    DESCRIPTIONS: ClassVar[dict[str, Description]] = {
+        "remove_special_char": Description( # type: ignore[arg-type]
             en="Remove special characters from the input text",
             zh="从输入文本中删除特殊字符",
         ),
-        "translator_config": Description(en="Configuration for translation services", zh="翻译服务的配置"),
+        "translator_config": Description(en="Configuration for translation services", zh="翻译服务的配置"), # type: ignore[arg-type]
     }
