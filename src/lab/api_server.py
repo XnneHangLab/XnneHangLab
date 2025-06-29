@@ -15,10 +15,9 @@ from loguru import logger
 from vits import utils
 from vits.infer import get_net_g, infer, infer_multilang, latest_version
 
-from lab._dataclass import RunnerSettings
 from lab.api.core_logic import load_model
 from lab.api.main import api_router
-from lab.config_manager.config import load_settings_file
+from lab.config_manager import FunASRSettings, load_settings_file
 from lab.utils import utils
 from lab.utils.console.logger import Logger
 
@@ -36,7 +35,7 @@ if device == "mps":
     os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
 # 加载配置文件
-settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
+settings: FunASRSettings = load_settings_file("funasr.toml", FunASRSettings)
 
 # 确保输出目录和缓存目录存在
 Path(settings.output_dir).mkdir(parents=True, exist_ok=True)

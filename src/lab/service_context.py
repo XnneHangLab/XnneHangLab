@@ -8,8 +8,7 @@ from fastapi import WebSocket
 from loguru import logger
 
 # from prompts import prompt_loader
-from lab._dataclass import RunnerSettings
-from lab.config_manager.config import load_settings_file
+from lab.config_manager import FunASRSettings, load_settings_file
 
 # from .agent.agent_factory import AgentFactory
 # from .agent.agents.agent_interface import AgentInterface
@@ -166,8 +165,6 @@ class ServiceContext:
             logger.critical("Try to proceed without Live2D...")
 
     def init_asr(self, asr_config: ASRConfig) -> None:
-        # asr_settings = load_settings_file("global.toml", RunnerSettings)
-        # self.asr_engine
         logger.info("ASR already initialized with the same config.")
 
     def init_tts(self, tts_config: TTSConfig) -> None:

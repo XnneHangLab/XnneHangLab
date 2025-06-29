@@ -163,15 +163,17 @@ class TTSTaskManager:
         #     logger.debug("Audio cache file cleaned.")
         # pass
 
-    async def _generate_audio(self, text: str) -> Optional[Path]:
+    async def _generate_audio(self, text: str) -> Path | None:
         """Generate audio file from text"""
         try:
             logger.debug(f"🏃Generating audio for '''{text}'''...")
+            cache_dir = Path("cache") / "tts"
             audio_path = await generate_tts_direct(
                 text=text,
-                file_path=Path(f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}.mp3"),
+                file_path=cache_dir
+                / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}.opus",
             )
-            if audio_path is None:
+            if not audio_path.exists():
                 logger.error("generate_tts_direct returned None")
             else:
                 logger.info(f"Generated audio file at {audio_path}")

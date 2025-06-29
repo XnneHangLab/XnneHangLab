@@ -8,8 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from funasr import AutoModel  # 导入仍然在代码顶部，但只执行一次
 
-from lab._dataclass import RunnerSettings
-from lab.config_manager.config import load_settings_file
+from lab.config_manager import FunASRSettings, load_settings_file
 from lab.models.lazy_model import generate_asr_results, generate_vad_results
 from lab.utils.console.logger import Logger
 
@@ -22,7 +21,7 @@ if TYPE_CHECKING:
 
 class FunASRModel:  # 对于 api 需要快速响应, 不能 lazy-import ,所以独立出来一个版本.
     def __init__(self):
-        self.settings = load_settings_file("global.toml", RunnerSettings)
+        self.settings = load_settings_file("funasr.toml", FunASRSettings)
         self.base_model: str = str(self.settings.base_model)
         self.vad_model: str = str(self.settings.vad_model)
         self.punc_model: str = str(self.settings.punc_model)

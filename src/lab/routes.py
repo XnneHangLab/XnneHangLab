@@ -11,10 +11,9 @@ from fastapi import APIRouter, File, Response, UploadFile, WebSocket
 from loguru import logger
 from starlette.websockets import WebSocketDisconnect
 
-from lab._dataclass import RunnerSettings
 from lab.api.core_logic import rec_audio
 from lab.api.routes.vits import generate_tts_direct
-from lab.config_manager.config import load_settings_file
+from lab.config_manager import FunASRSettings, load_settings_file
 from lab.utils.Timedhelper import get_time_tag_with_millis
 
 from .service_context import ServiceContext
@@ -84,7 +83,7 @@ def init_webtool_routes(default_context_cache: ServiceContext) -> APIRouter:
         Convert uploaded audio file to SRT format.
         Returns processing information and the path to the generated SRT file.
         """
-        settings = load_settings_file("global.toml", RunnerSettings)
+        settings = load_settings_file("funasr.toml", FunASRSettings)
         # 定义临时文件路径，如果文件名不存在则使用默认值
         temp_audio_path = Path(settings.cache_dir) / (
             file.filename if file.filename else f"temp_audio_{get_time_tag_with_millis()}.wav"
@@ -123,8 +122,9 @@ def init_webtool_routes(default_context_cache: ServiceContext) -> APIRouter:
                     # Generate and send audio for each sentence
                     for sentence in sentences:
                         sentence = sentence + "."  # Add back the period
-                        file_name = Path(f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid4())[:8]}.mp3")
-                        audio_path = await generate_tts_direct(text=sentence, file_path=file_name)
+                        cache_dir = Path("cache") / "tts"
+                        file_path = cache_dir / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid4())[:8]}.opus"
+                        audio_path = await generate_tts_direct(text=sentence, file_path=file_path)
                         logger.info(f"Generated audio for sentence: {sentence} at: {audio_path}")
 
                         await websocket.send_json(

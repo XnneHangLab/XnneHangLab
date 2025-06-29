@@ -6,10 +6,16 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Annotated
 
-from lab._dataclass import RootAbsDir
+from pydantic import BaseModel, Field
+
 from lab.config_manager.config import load_settings_file, write_settings_file
 from lab.utils.console.logger import Logger
+
+
+class RootAbsDir(BaseModel):
+    root_dir: Annotated[str, Field("", title="项目根目录")]  # 项目根目录, 实时计算绝对目录。
 
 
 def main():

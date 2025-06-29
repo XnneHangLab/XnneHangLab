@@ -5,8 +5,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from lab._dataclass import RootAbsDir
-from lab.config_manager.config import load_settings_file
+from lab.config_manager import RootAbsDir, load_settings_file
 from lab.styles.global_style import style
 
 style(True)

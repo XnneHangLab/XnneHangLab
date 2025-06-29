@@ -5,17 +5,13 @@ from typing import Annotated, Literal, get_args
 from pydantic import BaseModel, Field
 
 from lab._dictionary import audio_setting_dictionary
-
-
-class RootAbsDir(BaseModel):
-    root_dir: Annotated[str, Field("", title="项目根目录")]  # 项目根目录, 实时计算绝对目录。
-
+from lab.config_manager.config import load_settings_file, search_for_settings_file
 
 # 并不是所有的配置项目都向用户开放。有 title 的是开放项。
-
+# TODO , 可以把中英文的配置项分开，然后作为切换。而不是用字典映射
 Device = Literal["cpu", "cuda"]
 # 开放的配置项
-RunnerSettingsTitle = Literal[
+FunASRSettingsTitle = Literal[
     "batch_size_s",
     "device",
     "cache_dir",
@@ -32,7 +28,7 @@ RunnerSettingsTitle = Literal[
 ]
 
 
-class RunnerSettings(BaseModel):
+class FunASRSettings(BaseModel):
     batch_size_s: Annotated[int, Field(300, title="批处理大小(默认300,只要能吃满显卡或者CPU即可)")]
     device: Annotated[Literal["cpu", "cuda"], Field("cpu", title="设备选择")]
     punctuation_list: Annotated[str, Field("，。；、？！,.;?!")]
@@ -75,75 +71,33 @@ class RunnerSettings(BaseModel):
     max_sentence_length: Annotated[int, Field(20, title="最大单句长度")]
     need_punc: Annotated[bool, Field(False)]
 
-    def get_option_list(self, key: RunnerSettingsTitle):
+    def get_option_list(self, key: FunASRSettingsTitle):
         if key == "device":
             return list(get_args(Device))
         else:
             raise ValueError(f"不支持的配置项: {key}")
 
-    def get_zh_option_list(self, key: RunnerSettingsTitle):
+    def get_zh_option_list(self, key: FunASRSettingsTitle):
         if key == "device":
             return [audio_setting_dictionary[x][1] for x in get_args(Device)]
         else:
             raise ValueError(f"不支持的配置项: {key}")
 
-    def get_index(self, key: RunnerSettingsTitle):
+    def get_index(self, key: FunASRSettingsTitle):
         if key == "device":
             return get_args(Device).index(self.device)
         else:
             raise ValueError(f"不支持的配置项: {key}")
 
-    def zh_set_value(self, key: RunnerSettingsTitle, value: str):
+    def zh_set_value(self, key: FunASRSettingsTitle, value: str):
         if key == "device":
             self.device = get_args(Device)[[audio_setting_dictionary[x][1] for x in get_args(Device)].index(value)]
         else:
             raise ValueError(f"不支持的配置项: {key}")
 
 
-# 开放的配置项
-AudioSettingsTitle = Literal["guide", "output_type", "subtitle_speed"]
-AudioGuide = Literal["open", "close"]
-AudioOutputType = Literal["with_timestamp", "without_timestamp"]
-AudioSubtitleSpeed = Literal["slow", "normal", "fast"]
-
-
-class AudioSettings(BaseModel):
-    guide: Annotated[AudioGuide, Field("open", title="指引")]
-    output_type: Annotated[
-        AudioOutputType,
-        Field("with_timestamp", title="输出类型"),
-    ]
-    subtitle_speed: Annotated[AudioSubtitleSpeed, Field("normal", title="字幕速度")]
-
-    def get_zh_option_list(self, key: AudioSettingsTitle):
-        """获取中文配置项列表"""
-        if key == "guide":
-            return [audio_setting_dictionary[x][1] for x in get_args(AudioGuide)]
-        elif key == "output_type":
-            return [audio_setting_dictionary[x][1] for x in get_args(AudioOutputType)]
-        elif key == "subtitle_speed":
-            return [audio_setting_dictionary[x][1] for x in get_args(AudioSubtitleSpeed)]
-        else:
-            raise ValueError(f"不支持的配置项: {key}")
-
-    def get_index(self, key: AudioSettingsTitle):
-        """获取配置项的索引"""
-        if key == "guide":
-            return get_args(AudioGuide).index(self.guide)
-        elif key == "output_type":
-            return get_args(AudioOutputType).index(self.output_type)
-        elif key == "subtitle_speed":
-            return get_args(AudioSubtitleSpeed).index(self.subtitle_speed)
-        else:
-            raise ValueError(f"不支持的配置项: {key}")
-
-    def zh_set_value(self, key: AudioSettingsTitle, value: str):
-        """通过中文设置配置项"""
-        if key == "guide":
-            self.guide = get_args(AudioGuide)[
-                [audio_setting_dictionary[x][1] for x in get_args(AudioGuide)].index(value)
-            ]
-        elif key == "output_type":
-            self.output_type = get_args(AudioOutputType)[
-                [audio_setting_dictionary[x][1] for x in get_args(AudioOutputType)].index(value)
-            ]
+def main():
+    config_path = search_for_settings_file("funasr.toml")
+    if config_path is not None and config_path.exists():
+        config_path.unlink()
+    load_settings_file("funasr.toml", FunASRSettings)

@@ -9,8 +9,7 @@ import torch
 import torchaudio
 from todo.__version__ import VERSION
 
-from lab._dataclass import RunnerSettings
-from lab.config_manager.config import load_settings_file
+from lab.config_manager import FunASRSettings, load_settings_file
 from lab.models.lazy_model import FunASRModel, generate_asr_results, generate_sense_voice_results
 from lab.utils.TxtHelper import split_into_words, split_into_words_no_punct
 
@@ -31,17 +30,6 @@ def main():
 
     print("====== Testing package_todo =======")
     print(f"todo:{VERSION}")
-
-    # print("====== Testing fn_load_settings_file =======")
-    # settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
-    # print(settings)
-    # audio_settings: AudioSettings = load_settings_file("audio.toml", AudioSettings)
-    # print(audio_settings)
-
-    # print("====== Testing fn_get_setting_title=======")
-    # print("subtitle -> " + get_setting_title("subtitle_speed", AudioSettings))
-    # print("device -> " + get_setting_title("device", RunnerSettings))
-    # print("base_model -> " + get_setting_title("base_model", RunnerSettings))
 
     # print("====== Testing fn_call_test_ffmpeg ======")
     # test_call_ffmpeg()
@@ -79,7 +67,7 @@ def main():
     # combine_sentences(sentences=sentences, combine_line=500, max_sentence_length=500)
 
     print("====== Testing generate_sense_voice_results =======")
-    settings = load_settings_file("global.toml", RunnerSettings)
+    settings = load_settings_file("funasr.toml", FunASRSettings)
     punctuation_list = settings.punctuation_list
 
     print("====== Testing generate_sense_voice_results =======")

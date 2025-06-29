@@ -4,8 +4,8 @@ import argparse
 from pathlib import Path
 
 from lab.__version__ import VERSION
-from lab._dataclass import RunnerSettings
-from lab.config_manager.config import load_settings_file
+from lab.config_manager import load_settings_file
+from lab.config_manager.funasr import FunASRSettings
 from lab.utils.console.logger import Badge, Logger
 
 
@@ -38,7 +38,7 @@ def cli():
 
     parser = argparse.ArgumentParser(description="音频转文字工具ya~")
     parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {VERSION}", help="显示版本号")
-    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
+    settings: FunASRSettings = load_settings_file("funasr.toml", FunASRSettings)
 
     subparsers = parser.add_subparsers(dest="command", help="支持的子命令")
     rec_parser = subparsers.add_parser("recognize", help="识别音频文件")
@@ -51,7 +51,7 @@ def cli():
     return parser
 
 
-def add_recognize_arguments(parser: argparse.ArgumentParser, settings: RunnerSettings):
+def add_recognize_arguments(parser: argparse.ArgumentParser, settings: FunASRSettings):
     # basic-setting
     group_config = parser.add_argument_group("setting", "配置项")
     group_config.add_argument(
@@ -115,7 +115,7 @@ def add_recognize_arguments(parser: argparse.ArgumentParser, settings: RunnerSet
     )
 
 
-def add_punc_recover_arguments(parser: argparse.ArgumentParser, settings: RunnerSettings):
+def add_punc_recover_arguments(parser: argparse.ArgumentParser, settings: FunASRSettings):
     group_config = parser.add_argument_group("setting", "配置项")
     group_config.add_argument(
         "--device", type=str, default=settings.device, help=f"计算设备(cpu/gpu), 默认为 {settings.device}"
@@ -134,7 +134,7 @@ def add_punc_recover_arguments(parser: argparse.ArgumentParser, settings: Runner
     )
 
 
-def add_vad_arguments(parser: argparse.ArgumentParser, settings: RunnerSettings):
+def add_vad_arguments(parser: argparse.ArgumentParser, settings: FunASRSettings):
     group_config = parser.add_argument_group("setting", "配置项")
     group_config.add_argument(
         "--device", type=str, default=settings.device, help=f"计算设备(cpu/gpu), 默认为 {settings.device}"

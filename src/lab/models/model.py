@@ -2,13 +2,12 @@ from __future__ import annotations
 
 from funasr import AutoModel
 
-from lab._dataclass import RunnerSettings
-from lab.config_manager.config import load_settings_file
+from lab.config_manager import FunASRSettings, load_settings_file
 
 
 class FunASRModel:
     def __init__(self):
-        self.settings = load_settings_file("global.toml", RunnerSettings)
+        self.settings = load_settings_file("funasr.toml", FunASRSettings)
         self.base_model: str = str(self.settings.base_model)
         self.vad_model: str = str(self.settings.vad_model)
         self.punc_model: str = str(self.settings.punc_model)
