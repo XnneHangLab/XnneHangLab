@@ -5,8 +5,6 @@ import unicodedata
 
 from loguru import logger
 
-# from ..translate.translate_interface import TranslateInterface
-
 
 def tts_filter(
     text: str,

@@ -5,7 +5,7 @@ from typing import ClassVar, Dict, Literal, Optional
 
 from pydantic import Field, ValidationInfo, model_validator
 
-from .i18n import Description, I18nMixin
+from lab.config_manager.vtuber.i18n import Description, I18nMixin
 
 # --- Sub-models for specific Translator providers ---
 

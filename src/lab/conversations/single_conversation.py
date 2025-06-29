@@ -10,10 +10,8 @@ from loguru import logger
 from lab.agent.input_types import BatchInput
 from lab.agent.output_types import Actions, DisplayText, SentenceOutput
 from lab.api.openai import get_openai_response
-
-from ..chat_history_manager import store_message
-from ..service_context import ServiceContext
-from .conversation_utils import (
+from lab.chat_history_manager import store_message
+from lab.conversations.conversation_utils import (
     EMOJI_LIST,
     cleanup_conversation,
     create_batch_input,
@@ -22,8 +20,9 @@ from .conversation_utils import (
     process_user_input,
     send_conversation_start_signals,
 )
-from .tts_manager import TTSTaskManager
-from .types import WebSocketSend
+from lab.conversations.tts_manager import TTSTaskManager
+from lab.conversations.types import WebSocketSend
+from lab.service_context import ServiceContext
 
 
 async def process_single_conversation(

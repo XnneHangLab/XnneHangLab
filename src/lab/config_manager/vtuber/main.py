@@ -5,9 +5,9 @@ from typing import ClassVar, Dict
 
 from pydantic import BaseModel, Field
 
-from .character import CharacterConfig
-from .i18n import Description, I18nMixin
-from .system import SystemConfig
+from lab.config_manager.vtuber.character import CharacterConfig
+from lab.config_manager.vtuber.i18n import Description, I18nMixin
+from lab.config_manager.vtuber.system import SystemConfig
 
 
 class Config(I18nMixin, BaseModel):

@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import Response
-from vits import utils
+from vits import utils as vits_utils
 from vits.config import config
 from vits.infer import get_net_g, latest_version  # type: ignore[import-untyped]
 from vits.state_manager import tts_state_manager
@@ -60,7 +60,7 @@ async def lifespan(app: FastAPI):
     logger.info("预加载 FunASR 模型...")
     load_model()  # 预加载模型，确保模型在启动时初始化
     logger.info("Loading TTS model...")
-    hps = utils.get_hparams_from_file(config.webui_config.config_path)  # type: ignore[no-untyped-call]
+    hps = vits_utils.get_hparams_from_file(config.webui_config.config_path)  # type: ignore[no-untyped-call]
     version = hps.version if hasattr(hps, "version") else latest_version  # type: ignore[no-untyped-call]
     net_g = get_net_g(model_path=config.webui_config.model, version=version, device=device, hps=hps)  # type: ignore[no-untyped-call]
     # 设置单例状态

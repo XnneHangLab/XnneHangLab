@@ -11,7 +11,7 @@ import yaml
 from loguru import logger
 from pydantic import BaseModel, ValidationError
 
-from .main import Config
+from lab.config_manager.vtuber.main import Config
 
 T = TypeVar("T", bound=BaseModel)
 

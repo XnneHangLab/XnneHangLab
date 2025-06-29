@@ -120,7 +120,7 @@ class WebSocketHandler:
 
         except Exception as e:
             logger.error(f"Failed to initialize connection for client {client_uid}: {e}")
-            await self._cleanup_failed_connection(client_uid) # type: ignore[return]
+            await self._cleanup_failed_connection(client_uid)  # type: ignore[return]
             raise
 
     async def _store_client_data(
@@ -132,7 +132,7 @@ class WebSocketHandler:
         """Store client data and initialize group status"""
         self.client_connections[client_uid] = websocket
         self.client_contexts[client_uid] = session_service_context
-        self.received_data_buffers[client_uid] = np.array([]) # type: ignore[return]
+        self.received_data_buffers[client_uid] = np.array([])  # type: ignore[return]
 
         self.chat_group_manager.client_group_map[client_uid] = ""
         await self.send_group_update(websocket, client_uid)

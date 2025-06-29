@@ -8,9 +8,8 @@ import numpy as np
 from fastapi import WebSocket
 from loguru import logger
 
-from ..chat_history_manager import store_message
-from ..service_context import ServiceContext
-from .conversation_utils import (
+from lab.chat_history_manager import store_message
+from lab.conversations.conversation_utils import (
     EMOJI_LIST,
     cleanup_conversation,
     create_batch_input,
@@ -18,13 +17,14 @@ from .conversation_utils import (
     process_agent_output,
     process_user_input,
 )
-from .tts_manager import TTSTaskManager
-from .types import (
+from lab.conversations.tts_manager import TTSTaskManager
+from lab.conversations.types import (
     BroadcastContext,
     BroadcastFunc,
     GroupConversationState,
     WebSocketSend,
 )
+from lab.service_context import ServiceContext
 
 
 async def process_group_conversation(

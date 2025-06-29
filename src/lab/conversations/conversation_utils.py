@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
@@ -10,15 +9,14 @@ import numpy as np
 import soundfile as sf
 from loguru import logger
 
+from lab.agent.input_types import BatchInput, ImageData, ImageSource, TextData, TextSource
+from lab.agent.output_types import AudioOutput, SentenceOutput
 from lab.api.core_logic import async_rec_audio
-
-from ..agent.input_types import BatchInput, ImageData, ImageSource, TextData, TextSource
-from ..agent.output_types import AudioOutput, SentenceOutput
-from ..live2d_model import Live2dModel
-from ..message_handler import message_handler
-from ..utils.stream_audio import prepare_audio_payload
-from .tts_manager import TTSTaskManager
-from .types import BroadcastContext, WebSocketSend
+from lab.conversations.tts_manager import TTSTaskManager
+from lab.conversations.types import BroadcastContext, WebSocketSend
+from lab.live2d_model import Live2dModel
+from lab.message_handler import message_handler
+from lab.utils.stream_audio import prepare_audio_payload
 
 
 # Convert class methods to standalone functions
@@ -68,11 +66,6 @@ async def process_agent_output(
             tts_manager,
             # translate_engine,
         )
-        # elif isinstance(output, AudioOutput):
-        #     logger.info("AudioOutput Detect")
-        #     full_response = await handle_audio_output(output, websocket_send)
-        # else:
-        #     logger.warning(f"Unknown output type: {type(output)}")
     except Exception as e:
         logger.error(f"Error processing agent output: {e}")
         await websocket_send(json.dumps({"type": "error", "message": f"Error processing response: {str(e)}"}))

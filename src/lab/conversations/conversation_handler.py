@@ -8,13 +8,13 @@ import numpy as np
 from fastapi import WebSocket
 from loguru import logger
 
-from ..chat_group import ChatGroupManager
-from ..chat_history_manager import store_message
-from ..service_context import ServiceContext
-from .conversation_utils import EMOJI_LIST
-from .group_conversation import process_group_conversation
-from .single_conversation import process_single_conversation
-from .types import GroupConversationState
+from lab.chat_group import ChatGroupManager
+from lab.chat_history_manager import store_message
+from lab.conversations.conversation_utils import EMOJI_LIST
+from lab.conversations.group_conversation import process_group_conversation
+from lab.conversations.single_conversation import process_single_conversation
+from lab.conversations.types import GroupConversationState
+from lab.service_context import ServiceContext
 
 
 async def handle_conversation_trigger(

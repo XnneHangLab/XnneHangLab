@@ -24,7 +24,6 @@ dependencies = [
     "loguru>=0.7.3",
     "chardet>=5.2.0",
     "pydub>=0.25.1",
-    #"tomli>=2.2.1",
     "langdetect>=1.0.9",
     "pysbd>=0.3.4",
     "aiohttp>=3.12.13",

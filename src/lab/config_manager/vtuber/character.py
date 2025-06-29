@@ -5,9 +5,9 @@ from typing import ClassVar, Dict
 
 from pydantic import Field, field_validator
 
-from .agent import AgentConfig
-from .i18n import Description, I18nMixin
-from .tts_preprocessor import TTSPreprocessorConfig
+from lab.config_manager.vtuber.agent import AgentConfig
+from lab.config_manager.vtuber.i18n import Description, I18nMixin
+from lab.config_manager.vtuber.tts_preprocessor import TTSPreprocessorConfig
 
 
 class CharacterConfig(I18nMixin):

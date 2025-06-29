@@ -5,7 +5,7 @@ from typing import ClassVar, Literal
 
 from pydantic import BaseModel, Field
 
-from .i18n import Description, I18nMixin
+from lab.config_manager.vtuber.i18n import Description, I18nMixin
 
 
 class StatelessLLMBaseConfig(I18nMixin):

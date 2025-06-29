@@ -5,7 +5,7 @@ from typing import Awaitable, Callable, ClassVar, Dict, List, Optional, TypedDic
 
 from pydantic import BaseModel
 
-from ..agent.output_types import Actions, DisplayText
+from lab.agent.output_types import Actions, DisplayText
 
 # Type definitions
 WebSocketSend = Callable[[str], Awaitable[None]]

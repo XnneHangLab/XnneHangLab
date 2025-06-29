@@ -10,12 +10,11 @@ from typing import Dict, List, Optional
 
 from loguru import logger
 
+from lab.agent.output_types import Actions, DisplayText
 from lab.api.routes.vits import generate_tts_direct
-
-from ..agent.output_types import Actions, DisplayText
-from ..live2d_model import Live2dModel
-from ..utils.stream_audio import prepare_audio_payload
-from .types import WebSocketSend
+from lab.conversations.types import WebSocketSend
+from lab.live2d_model import Live2dModel
+from lab.utils.stream_audio import prepare_audio_payload
 
 
 class TTSTaskManager:

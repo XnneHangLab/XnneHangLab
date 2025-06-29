@@ -5,7 +5,7 @@ from typing import ClassVar, Dict
 
 from pydantic import Field, model_validator
 
-from .i18n import Description, I18nMixin
+from lab.config_manager.vtuber.i18n import Description, I18nMixin
 
 
 class SystemConfig(I18nMixin):
