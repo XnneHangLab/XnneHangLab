@@ -17,12 +17,13 @@ class DeepLXConfig(I18nMixin):
     deeplx_api_endpoint: str = Field(..., alias="deeplx_api_endpoint")
 
     DESCRIPTIONS: ClassVar[dict[str, Description]] = {
-        "deeplx_target_lang": Description( # type: ignore[arg-type]
+        "deeplx_target_lang": Description(  # type: ignore[arg-type]
             en="Target language code for DeepLX translation",
             zh="DeepLX 翻译的目标语言代码",
         ),
-        "deeplx_api_endpoint": Description(en="API endpoint URL for DeepLX service", zh="DeepLX 服务的 API 端点 URL"), # type: ignore[arg-type]
+        "deeplx_api_endpoint": Description(en="API endpoint URL for DeepLX service", zh="DeepLX 服务的 API 端点 URL"),  # type: ignore[arg-type]
     }
+
 
 # --- Main TranslatorConfig model ---
 
@@ -35,16 +36,16 @@ class TranslatorConfig(I18nMixin):
     deeplx: DeepLXConfig | None = Field(None, alias="deeplx")
 
     DESCRIPTIONS: ClassVar[dict[str, Description]] = {
-        "translate_audio": Description( # type: ignore[arg-type]
+        "translate_audio": Description(  # type: ignore[arg-type]
             en="Enable audio translation (requires DeepLX deployment)",
             zh="启用音频翻译（需要部署 DeepLX）",
         ),
-        "translate_provider": Description(en="Translation service provider to use", zh="要使用的翻译服务提供者"), # type: ignore[arg-type]
-        "deeplx": Description(en="Configuration for DeepLX translation service", zh="DeepLX 翻译服务配置"), # type: ignore[arg-type]
+        "translate_provider": Description(en="Translation service provider to use", zh="要使用的翻译服务提供者"),  # type: ignore[arg-type]
+        "deeplx": Description(en="Configuration for DeepLX translation service", zh="DeepLX 翻译服务配置"),  # type: ignore[arg-type]
     }
 
-    @model_validator(mode="after") # type: ignore[arg-type]
-    def check_translator_config(cls, values: "TranslatorConfig", info: ValidationInfo): # noqa: UP037
+    @model_validator(mode="after")  # type: ignore[arg-type]
+    def check_translator_config(cls, values: "TranslatorConfig", info: ValidationInfo):  # noqa: UP037
         translate_audio = values.translate_audio
         translate_provider = values.translate_provider
 
@@ -68,9 +69,9 @@ class TTSPreprocessorConfig(I18nMixin):
     translator_config: TranslatorConfig = Field(..., alias="translator_config")
 
     DESCRIPTIONS: ClassVar[dict[str, Description]] = {
-        "remove_special_char": Description( # type: ignore[arg-type]
+        "remove_special_char": Description(  # type: ignore[arg-type]
             en="Remove special characters from the input text",
             zh="从输入文本中删除特殊字符",
         ),
-        "translator_config": Description(en="Configuration for translation services", zh="翻译服务的配置"), # type: ignore[arg-type]
+        "translator_config": Description(en="Configuration for translation services", zh="翻译服务的配置"),  # type: ignore[arg-type]
     }

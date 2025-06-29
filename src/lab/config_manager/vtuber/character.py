@@ -1,15 +1,15 @@
 # config_manager/character.py
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import ClassVar
 
 from pydantic import Field, field_validator
 
+from lab.config_manager.vtuber.agent import AgentConfig  # noqa: TC001
 from lab.config_manager.vtuber.i18n import Description, I18nMixin
+from lab.config_manager.vtuber.tts_preprocessor import TTSPreprocessorConfig  # noqa: TC001
 
-if TYPE_CHECKING:
-    from lab.config_manager.vtuber.agent import AgentConfig
-    from lab.config_manager.vtuber.tts_preprocessor import TTSPreprocessorConfig
+# 不能 TYPE_CHECKING 导入 AgentConfig, Pydantic 构建模型时会报错
 
 
 class CharacterConfig(I18nMixin):
