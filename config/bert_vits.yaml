@@ -4,7 +4,7 @@
 # 拟提供通用路径配置，统一存放数据，避免数据放得很乱
 # 每个数据集与其对应的模型存放至统一路径下，后续所有的路径配置均为相对于datasetPath的路径
 # 不填或者填空则路径为相对于项目根目录的路径
-dataset_path: "Data/xishi"
+dataset_path: "models/BERT-VITS/xishi"
 
 # 模型镜像源，默认huggingface，使用openi镜像源需指定openi_token
 mirror: ""

@@ -28,7 +28,7 @@ class Live2dModel:
     emo_map: dict
     emo_str: str
 
-    def __init__(self, live2d_model_name: str, model_dict_path: str = "model_dict.json"):
+    def __init__(self, live2d_model_name: str, model_dict_path: str = "static/model_dict.json"):
         self.model_dict_path: str = model_dict_path
         self.live2d_model_name: str = live2d_model_name
         self.set_model(live2d_model_name)
