@@ -5,7 +5,7 @@ different types of agents.
 
 from __future__ import annotations
 
-from typing import ClassVar, Dict, Literal, Optional
+from typing import ClassVar, Literal
 
 from pydantic import BaseModel, Field
 
@@ -31,18 +31,18 @@ class BasicMemoryAgentConfig(I18nMixin, BaseModel):
         "mistral_llm",
     ] = Field(..., alias="llm_provider")
 
-    faster_first_response: Optional[bool] = Field(True, alias="faster_first_response")
+    faster_first_response: bool | None = Field(True, alias="faster_first_response")
     segment_method: Literal["regex", "pysbd"] = Field("pysbd", alias="segment_method")
-    DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "llm_provider": Description(
+    DESCRIPTIONS: ClassVar[dict[str, Description]] = {
+        "llm_provider": Description(  # type: ignore[call-arg]
             en="LLM provider to use for this agent",
             zh="Basic Memory Agent 智能体使用的大语言模型选项",
         ),
-        "faster_first_response": Description(
+        "faster_first_response": Description(  # type: ignore[call-arg]
             en="Whether to respond as soon as encountering a comma in the first sentence to reduce latency (default: True)",
             zh="是否在第一句回应时遇上逗号就直接生成音频以减少首句延迟（默认：True）",
         ),
-        "segment_method": Description(
+        "segment_method": Description(  # type: ignore[call-arg]
             en="Method for segmenting sentences: 'regex' or 'pysbd' (default: 'pysbd')",
             zh="分割句子的方法：'regex' 或 'pysbd'（默认：'pysbd'）",
         ),
@@ -57,17 +57,17 @@ class HumeAIConfig(I18nMixin, BaseModel):
 
     api_key: str = Field(..., alias="api_key")
     host: str = Field("api.hume.ai", alias="host")
-    config_id: Optional[str] = Field(None, alias="config_id")
+    config_id: str | None = Field(None, alias="config_id")
     idle_timeout: int = Field(15, alias="idle_timeout")
 
-    DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "api_key": Description(en="API key for Hume AI service", zh="Hume AI 服务的 API 密钥"),
-        "host": Description(
+    DESCRIPTIONS: ClassVar[dict[str, Description]] = {
+        "api_key": Description(en="API key for Hume AI service", zh="Hume AI 服务的 API 密钥"),  # type: ignore[call-arg]
+        "host": Description(  # type: ignore[call-arg]
             en="Host URL for Hume AI service (default: api.hume.ai)",
             zh="Hume AI 服务的主机地址（默认：api.hume.ai）",
         ),
-        "config_id": Description(en="Configuration ID for EVI settings", zh="EVI 配置 ID"),
-        "idle_timeout": Description(
+        "config_id": Description(en="Configuration ID for EVI settings", zh="EVI 配置 ID"),  # type: ignore[call-arg]
+        "idle_timeout": Description(  # type: ignore[call-arg]
             en="Idle timeout in seconds before disconnecting (default: 15)",
             zh="空闲超时断开连接的秒数（默认：15）",
         ),
@@ -77,12 +77,12 @@ class HumeAIConfig(I18nMixin, BaseModel):
 class AgentSettings(I18nMixin, BaseModel):
     """Settings for different types of agents."""
 
-    basic_memory_agent: Optional[BasicMemoryAgentConfig] = Field(None, alias="basic_memory_agent")
-    hume_ai_agent: Optional[HumeAIConfig] = Field(None, alias="hume_ai_agent")
+    basic_memory_agent: BasicMemoryAgentConfig | None = Field(None, alias="basic_memory_agent")
+    hume_ai_agent: HumeAIConfig | None = Field(None, alias="hume_ai_agent")
 
-    DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "basic_memory_agent": Description(en="Configuration for basic memory agent", zh="基础记忆代理配置"),
-        "hume_ai_agent": Description(en="Configuration for Hume AI agent", zh="Hume AI 代理配置"),
+    DESCRIPTIONS: ClassVar[dict[str, Description]] = {
+        "basic_memory_agent": Description(en="Configuration for basic memory agent", zh="基础记忆代理配置"),  # type: ignore[call-arg]
+        "hume_ai_agent": Description(en="Configuration for Hume AI agent", zh="Hume AI 代理配置"),  # type: ignore[call-arg]
     }
 
 
@@ -95,8 +95,8 @@ class AgentConfig(I18nMixin, BaseModel):
     agent_settings: AgentSettings = Field(..., alias="agent_settings")
     llm_configs: StatelessLLMConfigs = Field(..., alias="llm_configs")
 
-    DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "conversation_agent_choice": Description(en="Type of conversation agent to use", zh="要使用的对话代理类型"),
-        "agent_settings": Description(en="Settings for different agent types", zh="不同代理类型的设置"),
-        "llm_configs": Description(en="Pool of LLM provider configurations", zh="语言模型提供者配置池"),
+    DESCRIPTIONS: ClassVar[dict[str, Description]] = {
+        "conversation_agent_choice": Description(en="Type of conversation agent to use", zh="要使用的对话代理类型"),  # type: ignore[call-arg]
+        "agent_settings": Description(en="Settings for different agent types", zh="不同代理类型的设置"),  # type: ignore[call-arg]
+        "llm_configs": Description(en="Pool of LLM provider configurations", zh="语言模型提供者配置池"),  # type: ignore[call-arg]
     }

@@ -9,7 +9,7 @@ dev-clean:
   rm packages/wexpect-uv/dist -rf
 
 server:
-  uv run uvicorn src.lab.api_server:app --reload --host localhost --port 8000
+  uv run run_server.py
 
 db-server:
   uv run uvicorn src.lab.database.main:app --reload --host localhost --port 8000
