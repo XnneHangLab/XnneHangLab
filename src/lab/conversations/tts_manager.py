@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from loguru import logger
-from pydub import AudioSegment
 
 from lab.api.routes.vits import generate_tts_direct
 
@@ -170,8 +169,7 @@ class TTSTaskManager:
             cache_dir = Path("cache") / "tts"
             audio_path = await generate_tts_direct(
                 text=text,
-                file_path=cache_dir
-                / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}.opus",
+                file_path=cache_dir / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}.opus",
             )
             if not audio_path.exists():
                 logger.error("generate_tts_direct returned None")

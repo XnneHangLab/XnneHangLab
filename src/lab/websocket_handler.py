@@ -3,33 +3,33 @@ from __future__ import annotations
 import asyncio
 import json
 from enum import Enum
-from typing import Callable, Dict, List, Optional, TypedDict
+from typing import Any, Callable, Dict, List, Optional, TypedDict
 
 import numpy as np
 from fastapi import WebSocket, WebSocketDisconnect
 from loguru import logger
 
-from .chat_group import (
+from lab.chat_group import (
     ChatGroupManager,
     broadcast_to_group,
     handle_client_disconnect,
     handle_group_operation,
 )
-from .chat_history_manager import (
+from lab.chat_history_manager import (
     create_new_history,
     delete_history,
     get_history,
     get_history_list,
 )
-from .config_manager.vtuber.utils import scan_bg_directory, scan_config_alts_directory
-from .conversations.conversation_handler import (
+from lab.config_manager.vtuber.utils import scan_bg_directory, scan_config_alts_directory
+from lab.conversations.conversation_handler import (
     handle_conversation_trigger,
     handle_group_interrupt,
     handle_individual_interrupt,
 )
-from .message_handler import message_handler
-from .service_context import ServiceContext
-from .utils.stream_audio import prepare_audio_payload
+from lab.message_handler import message_handler
+from lab.service_context import ServiceContext
+from lab.utils.stream_audio import prepare_audio_payload
 
 
 class MessageType(Enum):
@@ -74,18 +74,18 @@ class WebSocketHandler:
         self.received_data_buffers: Dict[str, np.ndarray] = {}
 
         # Message handlers mapping
-        self._message_handlers = self._init_message_handlers()
+        self._message_handlers = self._init_message_handlers()  # type: ignore[return]
 
-    def _init_message_handlers(self) -> Dict[str, Callable]:
+    def _init_message_handlers(self) -> Dict[str, Callable]:  # type: ignore[return]
         """Initialize message type to handler mapping"""
         return {
-            "add-client-to-group": self._handle_group_operation,
+            "add-client-to-group": self._handle_group_operation,  # type: ignore[return]
             "remove-client-from-group": self._handle_group_operation,
             "request-group-info": self._handle_group_info,
             "fetch-history-list": self._handle_history_list_request,
-            "fetch-and-set-history": self._handle_fetch_history,
+            "fetch-and-set-history": self._handle_fetch_history,  # type: ignore[return]
             "create-new-history": self._handle_create_history,
-            "delete-history": self._handle_delete_history,
+            "delete-history": self._handle_delete_history,  # type: ignore[return]
             "interrupt-signal": self._handle_interrupt,
             "mic-audio-data": self._handle_audio_data,
             "mic-audio-end": self._handle_conversation_trigger,
@@ -93,7 +93,7 @@ class WebSocketHandler:
             "text-input": self._handle_conversation_trigger,
             "ai-speak-signal": self._handle_conversation_trigger,
             "fetch-configs": self._handle_fetch_configs,
-            "switch-config": self._handle_config_switch,
+            "switch-config": self._handle_config_switch,  # type: ignore[return]
             "fetch-backgrounds": self._handle_fetch_backgrounds,
             "audio-play-start": self._handle_audio_play_start,
         }
@@ -120,7 +120,7 @@ class WebSocketHandler:
 
         except Exception as e:
             logger.error(f"Failed to initialize connection for client {client_uid}: {e}")
-            await self._cleanup_failed_connection(client_uid)
+            await self._cleanup_failed_connection(client_uid) # type: ignore[return]
             raise
 
     async def _store_client_data(
@@ -132,7 +132,7 @@ class WebSocketHandler:
         """Store client data and initialize group status"""
         self.client_connections[client_uid] = websocket
         self.client_contexts[client_uid] = session_service_context
-        self.received_data_buffers[client_uid] = np.array([])
+        self.received_data_buffers[client_uid] = np.array([]) # type: ignore[return]
 
         self.chat_group_manager.client_group_map[client_uid] = ""
         await self.send_group_update(websocket, client_uid)
@@ -150,9 +150,9 @@ class WebSocketHandler:
             json.dumps(
                 {
                     "type": "set-model-and-conf",
-                    "model_info": session_service_context.live2d_model.model_info,
-                    "conf_name": session_service_context.character_config.conf_name,
-                    "conf_uid": session_service_context.character_config.conf_uid,
+                    "model_info": session_service_context.live2d_model.model_info,  # type: ignore
+                    "conf_name": session_service_context.character_config.conf_name,  # type: ignore
+                    "conf_uid": session_service_context.character_config.conf_uid,  # type: ignore
                     "client_uid": client_uid,
                 }
             )
@@ -168,15 +168,10 @@ class WebSocketHandler:
         """Initialize service context for a new session by cloning the default context"""
         session_service_context = ServiceContext()
         session_service_context.load_cache(
-            config=self.default_context_cache.config.model_copy(deep=True),
-            system_config=self.default_context_cache.system_config.model_copy(deep=True),
-            character_config=self.default_context_cache.character_config.model_copy(deep=True),
-            live2d_model=self.default_context_cache.live2d_model,
-            # asr_engine=self.default_context_cache.asr_engine,
-            # tts_engine=self.default_context_cache.tts_engine,
-            # vad_engine=self.default_context_cache.vad_engine,
-            # agent_engine=self.default_context_cache.agent_engine,
-            # translate_engine=self.default_context_cache.translate_engine,
+            config=self.default_context_cache.config.model_copy(deep=True),  # type: ignore
+            system_config=self.default_context_cache.system_config.model_copy(deep=True),  # type: ignore
+            character_config=self.default_context_cache.character_config.model_copy(deep=True),  # type: ignore
+            live2d_model=self.default_context_cache.live2d_model,  # type: ignore
         )
         return session_service_context
 
@@ -232,7 +227,7 @@ class WebSocketHandler:
             if msg_type != "frontend-playback-complete":
                 logger.warning(f"Unknown message type: {msg_type}")
 
-    async def _handle_group_operation(self, websocket: WebSocket, client_uid: str, data: dict) -> None:
+    async def _handle_group_operation(self, websocket: WebSocket, client_uid: str, data: dict[str, Any]) -> None:
         """Handle group-related operations"""
         operation = data.get("type")
         target_uid = data.get("invitee_uid" if operation == "add-client-to-group" else "target_uid")

@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, TypeVar, Union
+from typing import Any, TypeVar
 
 import chardet
 import yaml
@@ -16,7 +16,7 @@ from .main import Config
 T = TypeVar("T", bound=BaseModel)
 
 
-def read_yaml(config_path: str) -> Dict[str, Any]:
+def read_yaml(config_path: str) -> dict[str, Any]:
     """
     Read the specified YAML configuration file with environment variable substitution
     and guess encoding. Return the configuration data as a dictionary.
@@ -32,21 +32,21 @@ def read_yaml(config_path: str) -> Dict[str, Any]:
         IOError: If the configuration file cannot be read.
     """
 
-    if not os.path.exists(config_path):
+    if not Path(config_path).exists():
         raise FileNotFoundError(f"Configuration file not found: {config_path}")
 
     content = load_text_file_with_guess_encoding(config_path)
     if not content:
-        raise IOError(f"Failed to read configuration file: {config_path}")
+        raise OSError(f"Failed to read configuration file: {config_path}")
 
     # Replace environment variables
     pattern = re.compile(r"\$\{(\w+)\}")
 
-    def replacer(match):
-        env_var = match.group(1)
-        return os.getenv(env_var, match.group(0))
+    def replacer(match):  # type: ignore[no-untyped-def]
+        env_var = match.group(1)  # type: ignore[no-untyped-call]
+        return os.getenv(env_var, match.group(0))  # type: ignore[no-untyped-call]
 
-    content = pattern.sub(replacer, content)
+    content = pattern.sub(replacer, content)  # type: ignore[no-untyped-call]
 
     try:
         return yaml.safe_load(content)
@@ -55,7 +55,7 @@ def read_yaml(config_path: str) -> Dict[str, Any]:
         raise e
 
 
-def validate_config(config_data: dict) -> Config:
+def validate_config(config_data: dict[Any, Any]) -> Config:
     """
     Validate configuration data against the Config model.
 
@@ -91,13 +91,13 @@ def load_text_file_with_guess_encoding(file_path: str) -> str | None:
 
     for encoding in encodings:
         try:
-            with open(file_path, "r", encoding=encoding) as file:
+            with Path(file_path).open("r", encoding=encoding) as file:
                 return file.read()
         except UnicodeDecodeError:
             continue
     # If common encodings fail, try chardet to guess the encoding
     try:
-        with open(file_path, "rb") as file:
+        with Path(file_path).open("rb") as file:
             raw_data = file.read()
         detected = chardet.detect(raw_data)
         if detected["encoding"]:
@@ -107,7 +107,7 @@ def load_text_file_with_guess_encoding(file_path: str) -> str | None:
     return None
 
 
-def save_config(config: BaseModel, config_path: Union[str, Path]):
+def save_config(config: BaseModel, config_path: str | Path):
     """
     Saves a Pydantic model to a YAML configuration file.
 
@@ -119,13 +119,13 @@ def save_config(config: BaseModel, config_path: Union[str, Path]):
     config_data = config.model_dump(by_alias=True, exclude_unset=True, exclude_none=True)
 
     try:
-        with open(config_file, "w", encoding="utf-8") as f:
+        with Path(config_file).open("w", encoding="utf-8") as f:
             yaml.dump(config_data, f, allow_unicode=True)
     except yaml.YAMLError as e:
-        raise yaml.YAMLError(f"Error writing YAML file: {e}")
+        raise yaml.YAMLError(f"Error writing YAML file: {e}") from e
 
 
-def scan_config_alts_directory(config_alts_dir: str) -> list[dict]:
+def scan_config_alts_directory(config_alts_dir: str | Path) -> list[dict[Any, Any]]:
     """
     Scan the config_alts directory and return a list of config information.
     Each config info contains the filename and its display name from the config.
@@ -142,7 +142,7 @@ def scan_config_alts_directory(config_alts_dir: str) -> list[dict]:
 
     # Add default config first
     default_config = read_yaml("config/vtuber.yaml")
-    config_files.append(
+    config_files.append(  # type: ignore[no-untyped-call]
         {
             "filename": "vtuber.yaml",
             "name": default_config.get("character_config", {}).get("conf_name", "vtuber.yaml")
@@ -155,22 +155,22 @@ def scan_config_alts_directory(config_alts_dir: str) -> list[dict]:
     for root, _, files in os.walk(config_alts_dir):
         for file in files:
             if file.endswith(".yaml"):
-                config: dict = read_yaml(os.path.join(root, file))
-                config_files.append(
+                config: dict = read_yaml(os.path.join(root, file))  # type: ignore  # noqa: PTH118
+                config_files.append(  # type: ignore[no-untyped-call]
                     {
                         "filename": file,
-                        "name": config.get("character_config", {}).get("conf_name", file) if config else file,
+                        "name": config.get("character_config", {}).get("conf_name", file) if config else file,  # type: ignore[no-untyped-call]
                     }
                 )
     logger.debug(f"Found config files: {config_files}")
-    return config_files
+    return config_files  # type: ignore[return]
 
 
 def scan_bg_directory() -> list[str]:
     bg_files = []
     bg_dir = "backgrounds"
-    for root, _, files in os.walk(bg_dir):
+    for _, _, files in os.walk(bg_dir):
         for file in files:
             if file.endswith((".jpg", ".jpeg", ".png", ".gif")):
-                bg_files.append(file)
-    return bg_files
+                bg_files.append(file)  # type: ignore[no-untyped-call]
+    return bg_files  # type: ignore[return]

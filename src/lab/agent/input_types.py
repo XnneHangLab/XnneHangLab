@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Optional
 
 
 class ImageSource(Enum):
@@ -66,7 +65,7 @@ class TextData:
 
     source: TextSource
     content: str
-    from_name: Optional[str] = None
+    from_name: str | None = None
 
 
 class BaseInput:
@@ -86,6 +85,6 @@ class BatchInput(BaseInput):
         files: Optional list of files
     """
 
-    texts: List[TextData]
-    images: Optional[List[ImageData]] = None
-    files: Optional[List[FileData]] = None
+    texts: list[TextData]
+    images: list[ImageData] | None = None
+    files: list[FileData] | None = None

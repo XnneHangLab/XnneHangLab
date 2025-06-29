@@ -2,20 +2,19 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
-from typing import List, Optional
 
 
 @dataclass
 class Actions:
     """Represents actions that can be performed alongside text output"""
 
-    expressions: Optional[List[str] | List[int]] = None
-    pictures: Optional[List[str]] = None
-    sounds: Optional[List[str]] = None
+    expressions: list[str] | list[int] | None = None
+    pictures: list[str] | None = None
+    sounds: list[str] | None = None
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict:  # type: ignore[return]
         """Convert Actions object to a dictionary for JSON serialization"""
-        return {k: v for k, v in asdict(self).items() if v is not None}
+        return {k: v for k, v in asdict(self).items() if v is not None}  # type: ignore[return]
 
 
 class BaseOutput(ABC):
@@ -32,12 +31,12 @@ class DisplayText:
     """Text to be displayed with optional metadata"""
 
     text: str
-    name: Optional[str] = "AI"  # Keep the name field for frontend display
-    avatar: Optional[str] = None
+    name: str | None = "AI"  # Keep the name field for frontend display
+    avatar: str | None = None
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, str]:
         """Convert to dictionary for JSON serialization"""
-        return {"text": self.text, "name": self.name, "avatar": self.avatar}
+        return {"text": self.text, "name": self.name, "avatar": self.avatar}  # type: ignore[return]
 
     def __str__(self) -> str:
         """String representation for logging"""
@@ -60,7 +59,7 @@ class SentenceOutput(BaseOutput):
     tts_text: str  # Text for TTS
     actions: Actions
 
-    async def __aiter__(self):
+    async def __aiter__(self):  # type: ignore[override]
         """Yield the sentence pair and actions"""
         yield self.display_text, self.tts_text, self.actions
 
@@ -74,6 +73,6 @@ class AudioOutput(BaseOutput):
     transcript: str  # Original transcript
     actions: Actions
 
-    async def __aiter__(self):
+    async def __aiter__(self):  # type: ignore[override]
         """Iterate through audio segments and their actions"""
         yield self.audio_path, self.display_text, self.transcript, self.actions

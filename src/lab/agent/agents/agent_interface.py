@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import AsyncIterator
+from typing import TYPE_CHECKING
 
 from loguru import logger
 
-from ..input_types import BaseInput
-from ..output_types import BaseOutput
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+    from lab.agent.input_types import BaseInput
+    from lab.agent.output_types import BaseOutput
 
 
 class AgentInterface(ABC):

@@ -9,8 +9,8 @@ from typing import ClassVar, Dict, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from .i18n import Description, I18nMixin
-from .stateless_llm import StatelessLLMConfigs
+from lab.config_manager.vtuber.i18n import Description, I18nMixin
+from lab.config_manager.vtuber.stateless_llm import StatelessLLMConfigs
 
 # ======== Configurations for different Agents ========
 
@@ -49,56 +49,6 @@ class BasicMemoryAgentConfig(I18nMixin, BaseModel):
     }
 
 
-class Mem0VectorStoreConfig(I18nMixin, BaseModel):
-    """Configuration for Mem0 vector store."""
-
-    provider: str = Field(..., alias="provider")
-    config: Dict = Field(..., alias="config")
-
-    DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "provider": Description(en="Vector store provider (e.g., qdrant)", zh="向量存储提供者（如 qdrant）"),
-        "config": Description(en="Provider-specific configuration", zh="提供者特定配置"),
-    }
-
-
-class Mem0LLMConfig(I18nMixin, BaseModel):
-    """Configuration for Mem0 LLM."""
-
-    provider: str = Field(..., alias="provider")
-    config: Dict = Field(..., alias="config")
-
-    DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "provider": Description(en="LLM provider name", zh="语言模型提供者名称"),
-        "config": Description(en="Provider-specific configuration", zh="提供者特定配置"),
-    }
-
-
-class Mem0EmbedderConfig(I18nMixin, BaseModel):
-    """Configuration for Mem0 embedder."""
-
-    provider: str = Field(..., alias="provider")
-    config: Dict = Field(..., alias="config")
-
-    DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "provider": Description(en="Embedder provider name", zh="嵌入模型提供者名称"),
-        "config": Description(en="Provider-specific configuration", zh="提供者特定配置"),
-    }
-
-
-class Mem0Config(I18nMixin, BaseModel):
-    """Configuration for Mem0."""
-
-    vector_store: Mem0VectorStoreConfig = Field(..., alias="vector_store")
-    llm: Mem0LLMConfig = Field(..., alias="llm")
-    embedder: Mem0EmbedderConfig = Field(..., alias="embedder")
-
-    DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "vector_store": Description(en="Vector store configuration", zh="向量存储配置"),
-        "llm": Description(en="LLM configuration", zh="语言模型配置"),
-        "embedder": Description(en="Embedder configuration", zh="嵌入模型配置"),
-    }
-
-
 # =================================
 
 
@@ -128,12 +78,10 @@ class AgentSettings(I18nMixin, BaseModel):
     """Settings for different types of agents."""
 
     basic_memory_agent: Optional[BasicMemoryAgentConfig] = Field(None, alias="basic_memory_agent")
-    mem0_agent: Optional[Mem0Config] = Field(None, alias="mem0_agent")
     hume_ai_agent: Optional[HumeAIConfig] = Field(None, alias="hume_ai_agent")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
         "basic_memory_agent": Description(en="Configuration for basic memory agent", zh="基础记忆代理配置"),
-        "mem0_agent": Description(en="Configuration for Mem0 agent", zh="Mem0代理配置"),
         "hume_ai_agent": Description(en="Configuration for Hume AI agent", zh="Hume AI 代理配置"),
     }
 

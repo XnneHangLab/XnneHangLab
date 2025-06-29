@@ -100,68 +100,6 @@ class GeminiConfig(OpenAICompatibleConfig):
     interrupt_method: Literal["system", "user"] = Field("user", alias="interrupt_method")
 
 
-class MistralConfig(OpenAICompatibleConfig):
-    """Configuration for Mistral API."""
-
-    base_url: str = Field("https://api.mistral.ai/v1", alias="base_url")
-    interrupt_method: Literal["system", "user"] = Field("user", alias="interrupt_method")
-
-
-class ZhipuConfig(OpenAICompatibleConfig):
-    """Configuration for Zhipu API."""
-
-    base_url: str = Field("https://open.bigmodel.cn/api/paas/v4/", alias="base_url")
-
-
-class DeepseekConfig(OpenAICompatibleConfig):
-    """Configuration for Deepseek API."""
-
-    base_url: str = Field("https://api.deepseek.com/v1", alias="base_url")
-
-
-class GroqConfig(OpenAICompatibleConfig):
-    """Configuration for Groq API."""
-
-    base_url: str = Field("https://api.groq.com/openai/v1", alias="base_url")
-    interrupt_method: Literal["system", "user"] = Field("system", alias="interrupt_method")
-
-
-class ClaudeConfig(StatelessLLMBaseConfig):
-    """Configuration for OpenAI Official API."""
-
-    base_url: str = Field("https://api.anthropic.com", alias="base_url")
-    llm_api_key: str = Field(..., alias="llm_api_key")
-    model: str = Field(..., alias="model")
-    interrupt_method: Literal["system", "user"] = Field("user", alias="interrupt_method")
-
-    _CLAUDE_DESCRIPTIONS: ClassVar[dict[str, Description]] = {
-        "base_url": Description(en="Base URL for Claude API", zh="Claude API 的API端点"),
-        "llm_api_key": Description(en="API key for authentication", zh="API 认证密钥"),
-        "model": Description(en="Name of the Claude model to use", zh="要使用的 Claude 模型名称"),
-    }
-
-    DESCRIPTIONS: ClassVar[dict[str, Description]] = {
-        **StatelessLLMBaseConfig.DESCRIPTIONS,
-        **_CLAUDE_DESCRIPTIONS,
-    }
-
-
-class LlamaCppConfig(StatelessLLMBaseConfig):
-    """Configuration for LlamaCpp."""
-
-    model_path: str = Field(..., alias="model_path")
-    interrupt_method: Literal["system", "user"] = Field("system", alias="interrupt_method")
-
-    _LLAMA_DESCRIPTIONS: ClassVar[dict[str, Description]] = {
-        "model_path": Description(en="Path to the GGUF model file", zh="GGUF 模型文件路径"),
-    }
-
-    DESCRIPTIONS: ClassVar[dict[str, Description]] = {
-        **StatelessLLMBaseConfig.DESCRIPTIONS,
-        **_LLAMA_DESCRIPTIONS,
-    }
-
-
 class StatelessLLMConfigs(I18nMixin, BaseModel):
     """Pool of LLM provider configurations.
     This class contains configurations for different LLM providers."""
@@ -170,12 +108,6 @@ class StatelessLLMConfigs(I18nMixin, BaseModel):
     ollama_llm: OllamaConfig | None = Field(None, alias="ollama_llm")
     openai_llm: OpenAIConfig | None = Field(None, alias="openai_llm")
     gemini_llm: GeminiConfig | None = Field(None, alias="gemini_llm")
-    zhipu_llm: ZhipuConfig | None = Field(None, alias="zhipu_llm")
-    deepseek_llm: DeepseekConfig | None = Field(None, alias="deepseek_llm")
-    groq_llm: GroqConfig | None = Field(None, alias="groq_llm")
-    claude_llm: ClaudeConfig | None = Field(None, alias="claude_llm")
-    llama_cpp_llm: LlamaCppConfig | None = Field(None, alias="llama_cpp_llm")
-    mistral_llm: MistralConfig | None = Field(None, alias="mistral_llm")
 
     DESCRIPTIONS: ClassVar[dict[str, Description]] = {
         "openai_compatible_llm": Description(
@@ -185,10 +117,4 @@ class StatelessLLMConfigs(I18nMixin, BaseModel):
         "ollama_llm": Description(en="Configuration for Ollama", zh="Ollama 配置"),
         "openai_llm": Description(en="Configuration for Official OpenAI API", zh="官方 OpenAI API 配置"),
         "gemini_llm": Description(en="Configuration for Gemini API", zh="Gemini API 配置"),
-        "mistral_llm": Description(en="Configuration for Mistral API", zh="Mistral API 配置"),
-        "zhipu_llm": Description(en="Configuration for Zhipu API", zh="Zhipu API 配置"),
-        "deepseek_llm": Description(en="Configuration for Deepseek API", zh="Deepseek API 配置"),
-        "groq_llm": Description(en="Configuration for Groq API", zh="Groq API 配置"),
-        "claude_llm": Description(en="Configuration for Claude API", zh="Claude API配置"),
-        "llama_cpp_llm": Description(en="Configuration for local Llama.cpp", zh="本地Llama.cpp配置"),
     }

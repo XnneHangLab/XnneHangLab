@@ -1,22 +1,26 @@
+# type: ignore
 from __future__ import annotations
 
 from functools import wraps
-from typing import AsyncIterator, Callable, List, Tuple
+from typing import TYPE_CHECKING
 
 from loguru import logger
 
+from lab.agent.output_types import Actions, DisplayText, SentenceOutput
 from lab.config_manager.vtuber import TTSPreprocessorConfig
+from lab.utils.sentence_divider import SentenceDivider, SentenceWithTags, TagState
+from lab.utils.tts_preprocessor import tts_filter as filter_text
 
-from ..live2d_model import Live2dModel
-from ..utils.sentence_divider import SentenceDivider, SentenceWithTags, TagState
-from ..utils.tts_preprocessor import tts_filter as filter_text
-from .output_types import Actions, DisplayText, SentenceOutput
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Callable
+
+    from lab.live2d_model import Live2dModel
 
 
 def sentence_divider(
     faster_first_response: bool = True,
     segment_method: str = "pysbd",
-    valid_tags: List[str] = None,
+    valid_tags: list[str] = None,
 ):
     """
     Decorator that transforms token stream into sentences with tags
@@ -24,7 +28,7 @@ def sentence_divider(
     Args:
         faster_first_response: bool - Whether to enable faster first response
         segment_method: str - Method for sentence segmentation
-        valid_tags: List[str] - List of valid tags to process
+        valid_tags: list[str] - list of valid tags to process
     """
 
     def decorator(
@@ -54,9 +58,9 @@ def actions_extractor(live2d_model: Live2dModel):
 
     def decorator(
         func: Callable[..., AsyncIterator[SentenceWithTags]],
-    ) -> Callable[..., AsyncIterator[Tuple[SentenceWithTags, Actions]]]:
+    ) -> Callable[..., AsyncIterator[tuple[SentenceWithTags, Actions]]]:
         @wraps(func)
-        async def wrapper(*args, **kwargs) -> AsyncIterator[Tuple[SentenceWithTags, Actions]]:
+        async def wrapper(*args, **kwargs) -> AsyncIterator[tuple[SentenceWithTags, Actions]]:
             sentence_stream = func(*args, **kwargs)
             async for sentence in sentence_stream:
                 actions = Actions()
@@ -78,10 +82,10 @@ def display_processor():
     """
 
     def decorator(
-        func: Callable[..., AsyncIterator[Tuple[SentenceWithTags, Actions]]],
-    ) -> Callable[..., AsyncIterator[Tuple[SentenceWithTags, DisplayText, Actions]]]:
+        func: Callable[..., AsyncIterator[tuple[SentenceWithTags, Actions]]],
+    ) -> Callable[..., AsyncIterator[tuple[SentenceWithTags, DisplayText, Actions]]]:
         @wraps(func)
-        async def wrapper(*args, **kwargs) -> AsyncIterator[Tuple[SentenceWithTags, DisplayText, Actions]]:
+        async def wrapper(*args, **kwargs) -> AsyncIterator[tuple[SentenceWithTags, DisplayText, Actions]]:
             stream = func(*args, **kwargs)
 
             async for sentence, actions in stream:
@@ -111,7 +115,7 @@ def tts_filter(
     """
 
     def decorator(
-        func: Callable[..., AsyncIterator[Tuple[SentenceWithTags, DisplayText, Actions]]],
+        func: Callable[..., AsyncIterator[tuple[SentenceWithTags, DisplayText, Actions]]],
     ) -> Callable[..., AsyncIterator[SentenceOutput]]:
         @wraps(func)
         async def wrapper(*args, **kwargs) -> AsyncIterator[SentenceOutput]:

@@ -2,23 +2,27 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any
 
-from fastapi import WebSocket
 from loguru import logger
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    from fastapi import WebSocket
 
 
 @dataclass
 class Group:
     group_id: str
     owner_uid: str
-    members: Set[str]  # Set of client_uids
+    members: set[str]  # set of client_uids
 
 
 class ChatGroupManager:
     def __init__(self):
-        self.client_group_map: Dict[str, str] = {}  # client_uid -> group_id
-        self.groups: Dict[str, Group] = {}  # group_id -> Group
+        self.client_group_map: dict[str, str] = {}  # client_uid -> group_id
+        self.groups: dict[str, Group] = {}  # group_id -> Group
 
     def create_group_for_client(self, client_uid: str) -> str:
         group_id = f"group_{client_uid}"
@@ -28,7 +32,7 @@ class ChatGroupManager:
         logger.info(f"Created group {group_id} for client {client_uid}")
         return group_id
 
-    def add_client_to_group(self, inviter_uid: str, invitee_uid: str) -> Tuple[bool, str]:
+    def add_client_to_group(self, inviter_uid: str, invitee_uid: str) -> tuple[bool, str]:
         """
         Add a client to the group of the inviter
         If inviter is not in a group, create one
@@ -60,7 +64,7 @@ class ChatGroupManager:
         logger.info(f"Added client {invitee_uid} to group {inviter_group_id}")
         return True, f"Successfully added {invitee_uid} to the group"
 
-    def remove_client_from_group(self, remover_uid: str, target_uid: str) -> Tuple[bool, str]:
+    def remove_client_from_group(self, remover_uid: str, target_uid: str) -> tuple[bool, str]:
         """
         Remove a client from their group
         Returns (success, message)
@@ -93,12 +97,12 @@ class ChatGroupManager:
         logger.info(f"Removed client {target_uid} from group {target_group_id}")
         return True, f"Successfully removed {target_uid} from the group"
 
-    def remove_client(self, client_uid: str) -> List[str]:
+    def remove_client(self, client_uid: str) -> list[str]:
         """
         Remove client from their group and return affected members
 
         Returns:
-            List[str]: List of remaining group members
+            list[str]: list of remaining group members
         """
         group_id = self.client_group_map.get(client_uid)
         if not group_id or group_id not in self.groups:
@@ -132,27 +136,27 @@ class ChatGroupManager:
 
         return affected_members
 
-    def cleanup_disconnected_clients(self, connected_clients: Set[str]):
+    def cleanup_disconnected_clients(self, connected_clients: set[str]):
         """Remove all disconnected clients from groups"""
         disconnected_clients = set(self.client_group_map.keys()) - connected_clients
         for client_uid in disconnected_clients:
             self.remove_client(client_uid)
 
-    def get_client_group(self, client_uid: str) -> Optional[Group]:
+    def get_client_group(self, client_uid: str) -> Group | None:
         """
         Get the group that a client belongs to
         """
         group_id = self.client_group_map.get(client_uid)
         return self.groups.get(group_id) if group_id else None
 
-    def get_group_members(self, client_uid: str) -> List[str]:
+    def get_group_members(self, client_uid: str) -> list[str]:
         """
         Get all members in the client's group
         """
         group = self.get_client_group(client_uid)
         return list(group.members) if group else []
 
-    def get_group_by_id(self, group_id: str) -> Optional[Group]:
+    def get_group_by_id(self, group_id: str) -> Group | None:
         """Get group by group ID"""
         return self.groups.get(group_id)
 
@@ -161,9 +165,9 @@ async def handle_group_operation(
     operation: str,
     client_uid: str,
     target_uid: str,
-    chat_group_manager: "ChatGroupManager",
-    client_connections: Dict[str, WebSocket],
-    send_group_update: Callable,
+    chat_group_manager: "ChatGroupManager",  # noqa: UP037
+    client_connections: dict[str, WebSocket],
+    send_group_update: Callable[[WebSocket, str], Awaitable[Any]],  # Callable[[WebSocket, str], Any]
 ) -> None:
     """Handle group-related operations"""
     if target_uid:
@@ -254,9 +258,9 @@ async def handle_group_operation(
 
 async def handle_client_disconnect(
     client_uid: str,
-    chat_group_manager: "ChatGroupManager",
-    client_connections: Dict[str, WebSocket],
-    send_group_update: Callable,
+    chat_group_manager: "ChatGroupManager",  # noqa: UP037
+    client_connections: dict[str, WebSocket],
+    send_group_update: Callable[[WebSocket, str], Awaitable[Any]],
 ) -> None:
     """Handle client disconnection from group"""
     old_group_members = chat_group_manager.get_group_members(client_uid)
@@ -278,10 +282,10 @@ async def handle_client_disconnect(
 
 
 async def broadcast_to_group(
-    group_members: List[str],
-    message: Dict[str, Any],
-    client_connections: Dict[str, WebSocket],
-    exclude_uid: Optional[str] = None,
+    group_members: list[str],
+    message: dict[str, Any],
+    client_connections: dict[str, WebSocket],
+    exclude_uid: str | None = None,
 ) -> None:
     """Broadcasts a message to all members in a group except the sender"""
     for member_uid in group_members:

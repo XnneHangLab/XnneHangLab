@@ -4,6 +4,7 @@ import gc
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import torch
 from fastapi import FastAPI
@@ -13,16 +14,17 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 from vits import utils
 from vits.config import config
-from vits.infer import get_net_g, latest_version
+from vits.infer import get_net_g, latest_version  # type: ignore[import-untyped]
 from vits.state_manager import tts_state_manager
 
 from lab.api.core_logic import load_model
 from lab.api.routes.vits import router as vits_router
+from lab.api.routes.vtuber import init_client_ws_route, router as vtuber_router
 from lab.config_manager import RootAbsDir, load_settings_file
-from lab.config_manager.vtuber.utils import Config
+from lab.service_context import ServiceContext
 
-from .routes import init_client_ws_route, init_webtool_routes
-from .service_context import ServiceContext
+if TYPE_CHECKING:
+    from lab.config_manager.vtuber.utils import Config as vtuber_config
 
 RootSettings: RootAbsDir = load_settings_file("root.toml", RootAbsDir)
 ROOT_DIR = Path(RootSettings.root_dir) / "static"
@@ -37,7 +39,7 @@ if not ROOT_DIR.exists():
 
 
 class CustomStaticFiles(StaticFiles):
-    async def get_response(self, path, scope):
+    async def get_response(self, path, scope):  # type: ignore[override]
         response = await super().get_response(path, scope)
         if path.endswith(".js"):
             response.headers["Content-Type"] = "application/javascript"
@@ -45,7 +47,7 @@ class CustomStaticFiles(StaticFiles):
 
 
 class AvatarStaticFiles(StaticFiles):
-    async def get_response(self, path: str, scope):
+    async def get_response(self, path: str, scope):  # type: ignore[override]
         allowed_extensions = (".jpg", ".jpeg", ".png", ".gif", ".svg")
         if not any(path.lower().endswith(ext) for ext in allowed_extensions):
             return Response("Forbidden file type", status_code=403)
@@ -58,27 +60,27 @@ async def lifespan(app: FastAPI):
     logger.info("预加载 FunASR 模型...")
     load_model()  # 预加载模型，确保模型在启动时初始化
     logger.info("Loading TTS model...")
-    hps = utils.get_hparams_from_file(config.webui_config.config_path)
-    version = hps.version if hasattr(hps, "version") else latest_version
-    net_g = get_net_g(model_path=config.webui_config.model, version=version, device=device, hps=hps)
+    hps = utils.get_hparams_from_file(config.webui_config.config_path)  # type: ignore[no-untyped-call]
+    version = hps.version if hasattr(hps, "version") else latest_version  # type: ignore[no-untyped-call]
+    net_g = get_net_g(model_path=config.webui_config.model, version=version, device=device, hps=hps)  # type: ignore[no-untyped-call]
     # 设置单例状态
-    tts_state_manager.set_state(net_g, hps)
+    tts_state_manager.set_state(net_g, hps)  # type: ignore[no-untyped-call]
     logger.info("TTS model loaded successfully.")
     yield
     logger.info("Unloading TTS model...")
-    net_g = tts_state_manager.get_net_g()
+    net_g = tts_state_manager.get_net_g()  # type: ignore[no-untyped-call]
     if net_g is not None:
         del net_g
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
     gc.collect()
     # 重置单例状态
-    tts_state_manager.set_state(None, None)
+    tts_state_manager.set_state(None, None)  # type: ignore[no-untyped-call]
     logger.info("TTS model unloaded.")
 
 
 class WebSocketServer:
-    def __init__(self, config: Config):
+    def __init__(self, config: vtuber_config):
         # def __init__(self):
         self.app = FastAPI(lifespan=lifespan)
 
@@ -99,19 +101,8 @@ class WebSocketServer:
         self.app.include_router(
             init_client_ws_route(default_context_cache=default_context_cache),
         )
-        self.app.include_router(
-            init_webtool_routes(default_context_cache=default_context_cache),
-        )
+        self.app.include_router(vtuber_router)
         self.app.include_router(vits_router)
-
-        # Mount cache directory first (to ensure audio file access)
-        # if not os.path.exists("cache"):
-        # os.makedirs("cache")
-        # self.app.mount(
-        #     "/cache",
-        #     StaticFiles(directory="cache"),
-        #     name="cache",
-        # )
 
         # Mount static files
         logger.info(f"Mounting static files from {ROOT_DIR}")
@@ -137,20 +128,5 @@ class WebSocketServer:
             name="web_tool",
         )
 
-        # Mount main frontend last (as catch-all)
-        # self.app.mount(
-        #     "/",
-        #     CustomStaticFiles(directory="frontend", html=True),
-        #     name="frontend",
-        # )
-
     def run(self):
         pass
-
-    # @staticmethod
-    # def clean_cache():
-    #     """Clean the cache directory by removing and recreating it."""
-    #     cache_dir = "cache"
-    #     if os.path.exists(cache_dir):
-    #         shutil.rmtree(cache_dir)
-    #         os.makedirs(cache_dir)

@@ -1,6 +1,10 @@
+# type: ignore[no-redef]
+# copyright@https://github.com/Open-LLM-VTuber/Open-LLM-VTuber
+
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import chardet
 from loguru import logger
@@ -58,14 +62,14 @@ class Live2dModel:
 
         for encoding in encodings:
             try:
-                with open(file_path, "r", encoding=encoding) as file:
+                with Path(file_path).open("r", encoding=encoding) as file:
                     return file.read()
             except UnicodeDecodeError:
                 continue
 
         # If all common encodings fail, try to detect encoding
         try:
-            with open(file_path, "rb") as file:
+            with Path(file_path).open("rb") as file:
                 raw_data = file.read()
             detected = chardet.detect(raw_data)
             detected_encoding = detected["encoding"]

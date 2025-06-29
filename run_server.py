@@ -17,7 +17,7 @@ os.environ["MODELSCOPE_CACHE"] = str(Path(__file__).parent / "models")
 
 
 def get_version() -> str:
-    with open("pyproject.toml", "rb") as f:
+    with Path("pyproject.toml").open("rb") as f:
         pyproject = tomli.load(f)
     return pyproject["project"]["version"]
 
@@ -54,8 +54,6 @@ def parse_args():
 def run(console_log_level: str):
     init_logger(console_log_level)
     logger.info(f"Open-LLM-VTuber, version v{get_version()}")
-
-    # atexit.register(WebSocketServer.clean_cache)
 
     # Load configurations from yaml file
     config: Config = validate_config(read_yaml("config/vtuber.yaml"))
