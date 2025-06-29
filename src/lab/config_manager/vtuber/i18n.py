@@ -1,7 +1,7 @@
 # config_manager/i18n.py
 from __future__ import annotations
 
-from typing import ClassVar, Dict
+from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -59,7 +59,7 @@ class Description(MultiLingualString):
         return self.notes.get(lang_code) if self.notes else None
 
     @classmethod
-    def from_str(cls, text: str, notes: str | None = None) -> "Description":
+    def from_str(cls, text: str, notes: str | None = None) -> "Description":  # noqa: UP037
         """
         Creates a Description instance from plain strings, assuming English as the default language.
 
@@ -84,7 +84,7 @@ class I18nMixin(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
-    DESCRIPTIONS: ClassVar[Dict[str, Description]] = {}
+    DESCRIPTIONS: ClassVar[dict[str, Description]] = {}
 
     @classmethod
     def get_field_description(cls, field_name: str, lang_code: str = "en") -> str | None:
@@ -121,7 +121,7 @@ class I18nMixin(BaseModel):
         return None
 
     @classmethod
-    def get_field_options(cls, field_name: str) -> list | Dict | None:
+    def get_field_options(cls, field_name: str) -> list | dict | None:  # type: ignore[override]
         """
         Retrieves the options for a field, if any are defined.
 
@@ -134,5 +134,5 @@ class I18nMixin(BaseModel):
         field = cls.model_fields.get(field_name)
         if field:
             if hasattr(field, "options"):
-                return field.options
+                return field.options  # type: ignore[attr-defined]
         return None

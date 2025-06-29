@@ -1,13 +1,15 @@
 # config_manager/character.py
 from __future__ import annotations
 
-from typing import ClassVar, Dict
+from typing import TYPE_CHECKING, ClassVar
 
 from pydantic import Field, field_validator
 
-from lab.config_manager.vtuber.agent import AgentConfig
 from lab.config_manager.vtuber.i18n import Description, I18nMixin
-from lab.config_manager.vtuber.tts_preprocessor import TTSPreprocessorConfig
+
+if TYPE_CHECKING:
+    from lab.config_manager.vtuber.agent import AgentConfig
+    from lab.config_manager.vtuber.tts_preprocessor import TTSPreprocessorConfig
 
 
 class CharacterConfig(I18nMixin):
@@ -23,35 +25,35 @@ class CharacterConfig(I18nMixin):
     agent_config: AgentConfig = Field(..., alias="agent_config")
     tts_preprocessor_config: TTSPreprocessorConfig = Field(..., alias="tts_preprocessor_config")
 
-    DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "conf_name": Description(en="Name of the character configuration", zh="角色配置名称"),
-        "conf_uid": Description(
+    DESCRIPTIONS: ClassVar[dict[str, Description]] = {
+        "conf_name": Description(en="Name of the character configuration", zh="角色配置名称"),  # type: ignore[call-arg]
+        "conf_uid": Description(  # type: ignore[call-arg]
             en="Unique identifier for the character configuration",
             zh="角色配置唯一标识符",
         ),
-        "live2d_model_name": Description(en="Name of the Live2D model to use", zh="使用的Live2D模型名称"),
-        "character_name": Description(en="Name of the AI character in conversation", zh="对话中AI角色的名字"),
-        "persona_prompt": Description(en="Persona prompt. The persona of your character.", zh="角色人设提示词"),
-        "agent_config": Description(en="Configuration for the conversation agent", zh="对话代理配置"),
+        "live2d_model_name": Description(en="Name of the Live2D model to use", zh="使用的Live2D模型名称"),  # type: ignore[call-arg]
+        "character_name": Description(en="Name of the AI character in conversation", zh="对话中AI角色的名字"),  # type: ignore[call-arg]
+        "persona_prompt": Description(en="Persona prompt. The persona of your character.", zh="角色人设提示词"),  # type: ignore[call-arg]
+        "agent_config": Description(en="Configuration for the conversation agent", zh="对话代理配置"),  # type: ignore[call-arg]
         # "asr_config": Description(en="Configuration for Automatic Speech Recognition", zh="语音识别配置"),
         # "tts_config": Description(en="Configuration for Text-to-Speech", zh="语音合成配置"),
         # "vad_config": Description(en="Configuration for Voice Activity Detection", zh="语音活动检测配置"),
-        "tts_preprocessor_config": Description(
+        "tts_preprocessor_config": Description(  # type: ignore[call-arg]
             en="Configuration for Text-to-Speech Preprocessor",
             zh="语音合成预处理器配置",
         ),
-        "human_name": Description(en="Name of the human user in conversation", zh="对话中人类用户的名字"),
-        "avatar": Description(en="Avatar image path for the character", zh="角色头像图片路径"),
+        "human_name": Description(en="Name of the human user in conversation", zh="对话中人类用户的名字"),  # type: ignore[call-arg]
+        "avatar": Description(en="Avatar image path for the character", zh="角色头像图片路径"),  # type: ignore[call-arg]
     }
 
     @field_validator("persona_prompt")
-    def check_default_persona_prompt(cls, v):
+    def check_default_persona_prompt(cls, v: str) -> str:  # god what is this!  # type: ignore[override]
         if not v:
             raise ValueError("Persona_prompt cannot be empty. Please provide a persona prompt.")
         return v
 
-    @field_validator("character_name")
-    def set_default_character_name(cls, v, values):
+    @field_validator("character_name")  # type: ignore[override]
+    def set_default_character_name(cls, v: str, values: dict[str, str]) -> str:  # type: ignore[override]
         if not v and "conf_name" in values:
             return values["conf_name"]
         return v
