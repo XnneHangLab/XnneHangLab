@@ -94,7 +94,7 @@ bert-vits = [
 ]
 
 [tool.uv]
-default-groups = ["dev","yutto-uiya","bert-vits"]
+default-groups = ["dev","yutto-uiya","bert-vits","database"] # 还得考虑如果缺少库时的 lint 兼容，如果 list 改变了，那么需要忽略对应部分的 lint.
 
 
 [tool.uv.workspace]
