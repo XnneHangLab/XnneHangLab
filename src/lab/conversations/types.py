@@ -52,9 +52,9 @@ class GroupConversationState:
     _states: ClassVar[dict[str, "GroupConversationState"]] = {}  # noqa: UP037
 
     group_id: str
-    conversation_history: list[str] = field(default_factory=list)
-    memory_index: dict[str, int] = field(default_factory=dict)
-    group_queue: list[str] = field(default_factory=list)
+    conversation_history: list[str] = field(default_factory=list[str])
+    memory_index: dict[str, int] = field(default_factory=dict[str, int])
+    group_queue: list[str] = field(default_factory=list[str])
     session_emoji: str = ""
     current_speaker_uid: str | None = None
 

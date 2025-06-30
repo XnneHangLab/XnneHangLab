@@ -3,6 +3,7 @@ from __future__ import annotations
 import shutil
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from fastapi import APIRouter, File, Response, UploadFile, WebSocket
@@ -12,9 +13,11 @@ from starlette.websockets import WebSocketDisconnect
 from lab.api.core_logic import rec_audio
 from lab.api.routes.vits import generate_tts_direct
 from lab.config_manager import FunASRSettings, load_settings_file
-from lab.service_context import ServiceContext
 from lab.utils.Timedhelper import get_time_tag_with_millis
 from lab.websocket_handler import WebSocketHandler
+
+if TYPE_CHECKING:
+    from lab.service_context import ServiceContext
 
 
 def init_client_ws_route(default_context_cache: ServiceContext) -> APIRouter:
