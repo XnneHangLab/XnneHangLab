@@ -114,8 +114,8 @@ def _filter_nested(text: str, left: str, right: str) -> str:
     Returns:
         str: The filtered text.
     """
-    if not isinstance(text, str):
-        raise TypeError("Input must be a string")
+    # if not isinstance(text, str):
+    #     raise TypeError("Input must be a string")
     if not text:
         return text
 

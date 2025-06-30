@@ -6,28 +6,29 @@ import re
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING
 
 from loguru import logger
 
-from lab.agent.output_types import Actions, DisplayText
 from lab.api.routes.vits import generate_tts_direct
-from lab.conversations.types import WebSocketSend
-from lab.live2d_model import Live2dModel
 from lab.utils.stream_audio import prepare_audio_payload
+
+if TYPE_CHECKING:
+    from lab.agent.output_types import Actions, DisplayText
+    from lab.conversations.types import WebSocketSend
+    from lab.live2d_model import Live2dModel
 
 
 class TTSTaskManager:
     """Manages TTS tasks and ensures ordered delivery to frontend while allowing parallel TTS generation"""
 
     def __init__(self) -> None:
-        self.task_list: List[asyncio.Task] = []
+        self.task_list: list[asyncio.Task] = []  # type: ignore
         self._lock = asyncio.Lock()
         # Queue to store ordered payloads
-        self._payload_queue: asyncio.Queue[Dict] = asyncio.Queue()
+        self._payload_queue: asyncio.Queue[dict] = asyncio.Queue()  # type: ignore
         # Task to handle sending payloads in order
-        self._sender_task: Optional[asyncio.Task] = None
-        # Counter for maintaining order
+        self._sender_task: asyncio.Task | None = None  # type: ignore
         self._sequence_counter = 0
         self._next_sequence_to_send = 0
 
@@ -35,7 +36,7 @@ class TTSTaskManager:
         self,
         tts_text: str,
         display_text: DisplayText,
-        actions: Optional[Actions],
+        actions: Actions | None,
         live2d_model: Live2dModel,
         websocket_send: WebSocketSend,
     ) -> None:
@@ -57,7 +58,7 @@ class TTSTaskManager:
             self._sequence_counter += 1
 
             # Start sender task if not running
-            if not self._sender_task or self._sender_task.done():
+            if not self._sender_task or self._sender_task.done():  # type: ignore
                 self._sender_task = asyncio.create_task(self._process_payload_queue(websocket_send))
 
             await self._send_silent_payload(display_text, actions, current_sequence)
@@ -70,7 +71,7 @@ class TTSTaskManager:
         self._sequence_counter += 1
 
         # Start sender task if not running
-        if not self._sender_task or self._sender_task.done():
+        if not self._sender_task or self._sender_task.done():  # type: ignore
             self._sender_task = asyncio.create_task(self._process_payload_queue(websocket_send))
 
         # Create and queue the TTS task
@@ -84,14 +85,14 @@ class TTSTaskManager:
                 sequence_number=current_sequence,
             )
         )
-        self.task_list.append(task)
+        self.task_list.append(task)  # type: ignore
 
     async def _process_payload_queue(self, websocket_send: WebSocketSend) -> None:
         """
         Process and send payloads in correct order.
         Runs continuously until all payloads are processed.
         """
-        buffered_payloads: Dict[int, Dict] = {}
+        buffered_payloads: dict[int, dict] = {}  # type: ignore
         logger.info("Starting TTS payload sender task...")
 
         while True:
@@ -111,7 +112,7 @@ class TTSTaskManager:
     async def _send_silent_payload(
         self,
         display_text: DisplayText,
-        actions: Optional[Actions],
+        actions: Actions | None,
         sequence_number: int,
     ) -> None:
         """Queue a silent audio payload"""
@@ -126,7 +127,7 @@ class TTSTaskManager:
         self,
         tts_text: str,
         display_text: DisplayText,
-        actions: Optional[Actions],
+        actions: Actions | None,
         live2d_model: Live2dModel,
         # tts_engine: TTSInterface,
         sequence_number: int,

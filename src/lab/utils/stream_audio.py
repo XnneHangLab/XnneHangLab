@@ -1,15 +1,26 @@
 from __future__ import annotations
 
 import base64
+from typing import TypedDict
 
 from loguru import logger
 from pydub import AudioSegment
-from pydub.utils import make_chunks
+from pydub.utils import make_chunks  # type: ignore[import-untyped]
 
-from lab.agent.output_types import Actions, DisplayText
+from lab.agent.output_types import Actions, ActionsDict, DisplayText, DisplayTextDict
 
 
-def _get_volume_by_chunks(audio: AudioSegment, chunk_length_ms: int) -> list:
+class AudioPayload(TypedDict):
+    type: str
+    audio: str | None
+    volumes: list[float]
+    slice_length: int
+    display_text: DisplayTextDict
+    actions: ActionsDict | None
+    forwarded: bool
+
+
+def _get_volume_by_chunks(audio: AudioSegment, chunk_length_ms: int) -> list[float]:
     """
     Calculate the normalized volume (RMS) for each chunk of the audio.
 
@@ -18,10 +29,10 @@ def _get_volume_by_chunks(audio: AudioSegment, chunk_length_ms: int) -> list:
         chunk_length_ms (int): The length of each audio chunk in milliseconds.
 
     Returns:
-        list: Normalized volumes for each chunk.
+        list[float]: Normalized volumes for each chunk.
     """
-    chunks = make_chunks(audio, chunk_length_ms)
-    volumes = [chunk.rms for chunk in chunks]
+    chunks: list[AudioSegment] = make_chunks(audio, chunk_length_ms)  # type: ignore[call-arg]
+    volumes: list[float] = [chunk.rms for chunk in chunks]
     max_volume = max(volumes)
     if max_volume == 0:
         raise ValueError("Audio is empty or all zero.")
@@ -31,10 +42,10 @@ def _get_volume_by_chunks(audio: AudioSegment, chunk_length_ms: int) -> list:
 def prepare_audio_payload(
     audio_path: str | None,
     chunk_length_ms: int = 20,
-    display_text: DisplayText = None,
-    actions: Actions = None,
+    display_text: DisplayText | None = None,
+    actions: Actions | None = None,
     forwarded: bool = False,
-) -> dict[str, any]:
+) -> AudioPayload:
     """
     Prepares the audio payload for sending to a broadcast endpoint.
     If audio_path is None, returns a payload with audio=None for silent display.
@@ -50,7 +61,7 @@ def prepare_audio_payload(
     """
     if isinstance(display_text, DisplayText):
         logger.info(f"display_text: {display_text}")
-        display_text = display_text.to_dict()
+        display: DisplayTextDict = display_text.to_dict()
     else:
         raise ValueError(f"display_text must be DisplayText, but got {type(display_text)}")
 
@@ -59,30 +70,30 @@ def prepare_audio_payload(
         return {
             "type": "audio",
             "audio": None,
-            "volumes": [],
+            "volumes": [0.0],  # No audio, so volume is zero
             "slice_length": chunk_length_ms,
-            "display_text": display_text,
+            "display_text": display,
             "actions": actions.to_dict() if actions else None,
             "forwarded": forwarded,
         }
 
     try:
-        audio = AudioSegment.from_file(audio_path)
-        audio_bytes = audio.export(format="wav").read()
+        audio: AudioSegment | None = AudioSegment.from_file(audio_path)  # type: ignore[assignment]
+        if not isinstance(audio, AudioSegment):
+            raise TypeError(f"Expected audio to be AudioSegment, got {type(audio)}")  # type: ignore[unreachable]
+        audio_bytes: bytes = audio.export(format="wav").read()  # type: ignore[union-attr]
+        if not isinstance(audio_bytes, bytes):
+            raise TypeError(f"Expected audio_bytes to be bytes, got {type(audio_bytes)}")  # type: ignore[unreachable]
     except Exception as e:
-        raise ValueError(f"Error loading or converting generated audio file to wav file '{audio_path}': {e}")
+        raise ValueError(f"Error loading or converting generated audio file to wav file '{audio_path}': {e}") from e
     audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
     volumes = _get_volume_by_chunks(audio, chunk_length_ms)
-    logger.info(f"""
-    display_text: {display_text}
-    actions: {actions.to_dict() if actions else None}
-    """)
-    payload = {
+    payload: AudioPayload = {
         "type": "audio",
         "audio": audio_base64,
         "volumes": volumes,
         "slice_length": chunk_length_ms,
-        "display_text": display_text,
+        "display_text": display,
         "actions": actions.to_dict() if actions else None,
         "forwarded": forwarded,
     }

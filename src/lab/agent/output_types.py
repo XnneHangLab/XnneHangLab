@@ -2,6 +2,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
+from typing import TypedDict
+
+
+class ActionsDict(TypedDict):
+    expressions: list[str] | list[int] | None
+    pictures: list[str] | None
+    sounds: list[str] | None
 
 
 @dataclass
@@ -12,9 +19,9 @@ class Actions:
     pictures: list[str] | None = None
     sounds: list[str] | None = None
 
-    def to_dict(self) -> dict:  # type: ignore[return]
+    def to_dict(self) -> ActionsDict:
         """Convert Actions object to a dictionary for JSON serialization"""
-        return {k: v for k, v in asdict(self).items() if v is not None}  # type: ignore[return]
+        return ActionsDict(**asdict(self))
 
 
 class BaseOutput(ABC):
@@ -26,6 +33,12 @@ class BaseOutput(ABC):
         pass
 
 
+class DisplayTextDict(TypedDict):
+    text: str
+    name: str | None
+    avatar: str | None
+
+
 @dataclass
 class DisplayText:
     """Text to be displayed with optional metadata"""
@@ -34,9 +47,9 @@ class DisplayText:
     name: str | None = "AI"  # Keep the name field for frontend display
     avatar: str | None = None
 
-    def to_dict(self) -> dict[str, str]:
+    def to_dict(self) -> DisplayTextDict:
         """Convert to dictionary for JSON serialization"""
-        return {"text": self.text, "name": self.name, "avatar": self.avatar}  # type: ignore[return]
+        return DisplayTextDict(**asdict(self))
 
     def __str__(self) -> str:
         """String representation for logging"""
