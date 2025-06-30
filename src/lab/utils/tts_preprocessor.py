@@ -119,7 +119,7 @@ def _filter_nested(text: str, left: str, right: str) -> str:
     if not text:
         return text
 
-    result = []
+    result: list[str] = []
     depth = 0
     for char in text:
         if char == left:

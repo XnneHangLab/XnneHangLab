@@ -11,7 +11,6 @@ from loguru import logger
 from lab.chat_group import ChatGroupManager
 from lab.chat_history_manager import store_message
 from lab.conversations.conversation_utils import EMOJI_LIST
-from lab.conversations.group_conversation import process_group_conversation
 from lab.conversations.single_conversation import process_single_conversation
 from lab.conversations.types import GroupConversationState
 from lab.service_context import ServiceContext
@@ -50,38 +49,17 @@ async def handle_conversation_trigger(
     images = data.get("images")
     session_emoji = np.random.choice(EMOJI_LIST)
 
-    group = chat_group_manager.get_client_group(client_uid)
-    if group and len(group.members) > 1:
-        # Use group_id as task key for group conversations
-        task_key = group.group_id
-        if task_key not in current_conversation_tasks or current_conversation_tasks[task_key].done():
-            logger.info(f"Starting new group conversation for {task_key}")
-
-            current_conversation_tasks[task_key] = asyncio.create_task(
-                process_group_conversation(
-                    client_contexts=client_contexts,
-                    client_connections=client_connections,
-                    broadcast_func=broadcast_to_group,
-                    group_members=group.members,
-                    initiator_client_uid=client_uid,
-                    user_input=user_input,
-                    images=images,
-                    session_emoji=session_emoji,
-                )
-            )
-    else:
-        # Use client_uid as task key for individual conversations
-        logger.info(f"Starting new single conversation for {client_uid}")
-        current_conversation_tasks[client_uid] = asyncio.create_task(
-            process_single_conversation(
-                context=context,
-                websocket_send=websocket.send_text,
-                client_uid=client_uid,
-                user_input=user_input,
-                images=images,
-                session_emoji=session_emoji,
-            )
+    logger.info(f"Starting new single conversation for {client_uid}")
+    current_conversation_tasks[client_uid] = asyncio.create_task(
+        process_single_conversation(
+            context=context,
+            websocket_send=websocket.send_text,
+            client_uid=client_uid,
+            user_input=user_input,
+            images=images,
+            session_emoji=session_emoji,
         )
+    )
 
 
 async def handle_individual_interrupt(

@@ -147,7 +147,6 @@ class TTSTaskManager:
         # Queue the payload with its sequence number
         await self._payload_queue.put((payload, sequence_number))
 
-
     async def _generate_audio(self, text: str) -> Path | None:
         """Generate audio file from text"""
         try:
@@ -168,9 +167,9 @@ class TTSTaskManager:
 
     def clear(self) -> None:
         """Clear all pending tasks and reset state"""
-        self.task_list.clear() # type: ignore
-        if self._sender_task: # type: ignore
-            self._sender_task.cancel() # type: ignore
+        self.task_list.clear()  # type: ignore
+        if self._sender_task:  # type: ignore
+            self._sender_task.cancel()  # type: ignore
         self._sequence_counter = 0
         self._next_sequence_to_send = 0
         # Create a new queue to clear any pending items
