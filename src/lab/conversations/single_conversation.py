@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from loguru import logger
 
-from lab.agent.input_types import BatchInput
 from lab.agent.output_types import Actions, DisplayText, SentenceOutput
 from lab.api.openai import get_openai_response
 from lab.chat_history_manager import store_message
@@ -21,8 +20,11 @@ from lab.conversations.conversation_utils import (
     send_conversation_start_signals,
 )
 from lab.conversations.tts_manager import TTSTaskManager
-from lab.conversations.types import WebSocketSend
-from lab.service_context import ServiceContext
+
+if TYPE_CHECKING:
+    from lab.agent.input_types import BatchInput
+    from lab.conversations.types import WebSocketSend
+    from lab.service_context import ServiceContext
 
 
 async def process_single_conversation(
@@ -30,7 +32,7 @@ async def process_single_conversation(
     websocket_send: WebSocketSend,
     client_uid: str,
     user_input: str | np.ndarray[Any, Any],
-    images: Optional[List[Dict[str, Any]]] = None,
+    images: list[dict[str, Any]] | None = None,
     session_emoji: str = np.random.choice(EMOJI_LIST),
 ) -> str:
     """Process a single-user conversation turn
@@ -59,6 +61,10 @@ async def process_single_conversation(
         input_text = await process_user_input(user_input, websocket_send)
 
         # Create batch input
+        # TODO: 检查 context 的初始化，并且提前做好默认值
+        if context.character_config is None:
+            logger.error("character_config is None, cannot create batch input")
+            raise ValueError("character_config cannot be None")
         batch_input = create_batch_input(
             input_text=input_text,
             images=images,
@@ -87,9 +93,9 @@ async def process_single_conversation(
         )
 
         # Wait for any pending TTS tasks
-        if tts_manager.task_list:
-            logger.info(f"Waiting for {len(tts_manager.task_list)} TTS tasks to complete")
-            await asyncio.gather(*tts_manager.task_list)
+        if tts_manager.task_list:  #  type: ignore
+            logger.info(f"Waiting for {len(tts_manager.task_list)} TTS tasks to complete")  #  type: ignore
+            await asyncio.gather(*tts_manager.task_list)  #  type: ignore
             await websocket_send(json.dumps({"type": "backend-synth-complete"}))
         else:
             logger.info("No TTS tasks to wait for")
@@ -161,6 +167,9 @@ async def process_agent_response(
         #     raise TypeError("batch_input must be str")
         async for output in agent_output:
             logger.info(output)
+            if context.live2d_model is None:
+                logger.error("live2d_model is None, cannot process agent output")
+                raise ValueError("live2d_model cannot be None")
             response_part = await process_agent_output(
                 output=output,
                 character_config=context.character_config,
