@@ -1,13 +1,21 @@
+# type:ignore
+# copyright@https://github.com/Open-LLM-VTuber/Open-LLM-VTuber
+# 该文件和 Live2d 的代码一样暂时不修改。但其实我应该只会搞英文和日文。后续适配日文的时候才会尝试大修
+
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import AsyncIterator, List, Optional, Tuple
+from typing import TYPE_CHECKING
 
 import pysbd
 from langdetect import detect
 from loguru import logger
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
 
 # Constants for additional checks
 COMMAS = [
@@ -122,7 +130,7 @@ def contains_comma(text: str) -> bool:
     return any(comma in text for comma in COMMAS)
 
 
-def comma_splitter(text: str) -> Tuple[str, str]:
+def comma_splitter(text: str) -> tuple[str, str]:
     """
     Process text and split it at the first comma.
     Returns the split text (including the comma) and the remaining text.
@@ -131,7 +139,7 @@ def comma_splitter(text: str) -> Tuple[str, str]:
         text: Text to split
 
     Returns:
-        Tuple[str, str]: (split text with comma, remaining text)
+        tuple[str, str]: (split text with comma, remaining text)
     """
     if not text:
         return [], ""
@@ -173,7 +181,7 @@ def contains_end_punctuation(text: str) -> bool:
     return any(punct in text for punct in END_PUNCTUATIONS)
 
 
-def segment_text_by_regex(text: str) -> Tuple[List[str], str]:
+def segment_text_by_regex(text: str) -> tuple[list[str], str]:
     """
     Segment text into complete sentences using regex pattern matching.
     More efficient but less accurate than pysbd.
@@ -182,7 +190,7 @@ def segment_text_by_regex(text: str) -> Tuple[List[str], str]:
         text: Text to segment into sentences
 
     Returns:
-        Tuple[List[str], str]: (list of complete sentences, remaining incomplete text)
+        tuple[list[str], str]: (list of complete sentences, remaining incomplete text)
     """
     if not text:
         return [], ""
@@ -213,7 +221,7 @@ def segment_text_by_regex(text: str) -> Tuple[List[str], str]:
     return complete_sentences, remaining_text
 
 
-def segment_text_by_pysbd(text: str) -> Tuple[List[str], str]:
+def segment_text_by_pysbd(text: str) -> tuple[list[str], str]:
     """
     Segment text into complete sentences and remaining text.
     Uses pysbd for supported languages, falls back to regex for others.
@@ -222,7 +230,7 @@ def segment_text_by_pysbd(text: str) -> Tuple[List[str], str]:
         text: Text to segment into sentences
 
     Returns:
-        Tuple[List[str], str]: (list of complete sentences, remaining incomplete text)
+        tuple[list[str], str]: (list of complete sentences, remaining incomplete text)
     """
     if not text:
         return [], ""
@@ -296,7 +304,7 @@ class SentenceWithTags:
     """A sentence with its tag information, supporting nested tags"""
 
     text: str
-    tags: List[TagInfo]  # List of tags from outermost to innermost
+    tags: list[TagInfo]  # list of tags from outermost to innermost
 
 
 class SentenceDivider:
@@ -304,7 +312,7 @@ class SentenceDivider:
         self,
         faster_first_response: bool = True,
         segment_method: str = "pysbd",
-        valid_tags: List[str] = None,
+        valid_tags: list[str] = None,
     ):
         """
         Initialize the SentenceDivider.
@@ -312,7 +320,7 @@ class SentenceDivider:
         Args:
             faster_first_response: Whether to split first sentence at commas
             segment_method: Method for segmenting sentences
-            valid_tags: List of valid tag names to detect
+            valid_tags: list of valid tag names to detect
         """
         self.faster_first_response = faster_first_response
         self.segment_method = segment_method
@@ -322,16 +330,16 @@ class SentenceDivider:
         # Replace active_tags dict with a stack to handle nesting
         self._tag_stack = []
 
-    def _get_current_tags(self) -> List[TagInfo]:
+    def _get_current_tags(self) -> list[TagInfo]:
         """
         Get all current active tags from outermost to innermost.
 
         Returns:
-            List[TagInfo]: List of active tags
+            list[TagInfo]: list of active tags
         """
         return [TagInfo(tag.name, TagState.INSIDE) for tag in self._tag_stack]
 
-    def _get_current_tag(self) -> Optional[TagInfo]:
+    def _get_current_tag(self) -> TagInfo | None:
         """
         Get the current innermost active tag.
 
@@ -340,7 +348,7 @@ class SentenceDivider:
         """
         return self._tag_stack[-1] if self._tag_stack else None
 
-    def _extract_tag(self, text: str) -> Tuple[Optional[TagInfo], str]:
+    def _extract_tag(self, text: str) -> tuple[TagInfo | None, str]:
         """
         Extract the first tag from text if present.
         Handles nested tags by maintaining a tag stack.
@@ -349,7 +357,7 @@ class SentenceDivider:
             text: Text to check for tags
 
         Returns:
-            Tuple of (TagInfo if tag found else None, remaining text)
+            tuple of (TagInfo if tag found else None, remaining text)
         """
         # Find the first occurrence of any tag
         first_tag = None
@@ -403,13 +411,13 @@ class SentenceDivider:
 
         return (TagInfo(matched_tag, tag_type), text[first_tag.end() :].lstrip())
 
-    async def _process_buffer(self) -> List[SentenceWithTags]:
+    async def _process_buffer(self) -> list[SentenceWithTags]:
         """
         Process the current buffer and return complete sentences with tags.
         Handles tags that may appear anywhere in the buffer.
 
         Returns:
-            List[SentenceWithTags]: List of sentences with their tag information
+            list[SentenceWithTags]: list of sentences with their tag information
         """
         result = []
 
@@ -576,7 +584,7 @@ class SentenceDivider:
         """Get the complete response accumulated so far"""
         return "".join(self._full_response)
 
-    def _segment_text(self, text: str) -> Tuple[List[str], str]:
+    def _segment_text(self, text: str) -> tuple[list[str], str]:
         """Segment text using the configured method"""
         if self.segment_method == "regex":
             return segment_text_by_regex(text)
