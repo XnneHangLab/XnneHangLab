@@ -114,7 +114,7 @@ async def tts_endpoint(websocket: WebSocket):  # type: ignore[no-untyped-def]
                     sentence = sentence + "."  # Add back the period
                     cache_dir = Path("cache") / "tts"
                     file_path = cache_dir / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid4())[:8]}.opus"
-                    audio_path = await generate_tts_direct(text=sentence, file_path=file_path)
+                    audio_path = await generate_tts_direct(text=sentence, file_path=str(file_path))
                     logger.info(f"Generated audio for sentence: {sentence} at: {audio_path}")
 
                     await websocket.send_json(
