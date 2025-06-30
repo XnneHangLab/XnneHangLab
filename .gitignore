@@ -8,6 +8,7 @@ logs/
 ./*.mp3
 ./*.opus
 ./*.json
+hub/
 
 __pycache__/
 .venv/
