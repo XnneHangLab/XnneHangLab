@@ -2,19 +2,19 @@ from __future__ import annotations
 
 import asyncio
 from collections import defaultdict
-from typing import Dict, Optional
+from typing import Any
 
 from loguru import logger
 
 
 class MessageHandler:
     def __init__(self):
-        self._response_events: Dict[str, Dict[str, asyncio.Event]] = defaultdict(dict)
-        self._response_data: Dict[str, Dict[str, dict]] = defaultdict(dict)
+        self._response_events: dict[str, dict[str, asyncio.Event]] = defaultdict(dict)
+        self._response_data: dict[str, dict[str, dict[Any, Any]]] = defaultdict(dict)
 
     async def wait_for_response(
         self, client_uid: str, response_type: str, timeout: float | None = None
-    ) -> Optional[dict]:
+    ) -> dict[Any, Any] | None:
         """
         Wait for a response of specific type from a client.
 
@@ -38,13 +38,13 @@ class MessageHandler:
                 await event.wait()
 
             return self._response_data[client_uid].pop(response_type, None)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(f"Timeout waiting for {response_type} from {client_uid}")
             return None
         finally:
             self._response_events[client_uid].pop(response_type, None)
 
-    def handle_message(self, client_uid: str, message: dict) -> None:
+    def handle_message(self, client_uid: str, message: dict[Any, Any]) -> None:
         """
         Process an incoming message with a response event waiting.
 
