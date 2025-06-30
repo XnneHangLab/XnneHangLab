@@ -435,12 +435,12 @@ class WebSocketHandler:
             client_uid=client_uid,
             context=self.client_contexts[client_uid],
             websocket=websocket,
-            client_contexts=self.client_contexts,
-            client_connections=self.client_connections,
-            chat_group_manager=self.chat_group_manager,
+            # client_contexts=self.client_contexts,
+            # client_connections=self.client_connections,
+            # chat_group_manager=self.chat_group_manager,
             received_data_buffers=self.received_data_buffers,
             current_conversation_tasks=self.current_conversation_tasks,
-            broadcast_to_group=self.broadcast_to_group,
+            # broadcast_to_group=self.broadcast_to_group,
         )
 
     async def _handle_fetch_configs(self, websocket: WebSocket, client_uid: str, data: WSMessage) -> None:

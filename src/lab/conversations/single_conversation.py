@@ -29,7 +29,7 @@ async def process_single_conversation(
     context: ServiceContext,
     websocket_send: WebSocketSend,
     client_uid: str,
-    user_input: Union[str, np.ndarray],
+    user_input: str | np.ndarray[Any, Any],
     images: Optional[List[Dict[str, Any]]] = None,
     session_emoji: str = np.random.choice(EMOJI_LIST),
 ) -> str:
@@ -55,12 +55,8 @@ async def process_single_conversation(
         logger.info(f"New Conversation Chain {session_emoji} started!")
 
         # Process user input
-        if isinstance(user_input, np.ndarray):
-            input_text = await process_user_input(user_input, websocket_send)
-        else:
-            input_text = user_input
-            logger.info(f"User input: {input_text}")
-            logger.info(f"User input type: {type(input_text)}")
+
+        input_text = await process_user_input(user_input, websocket_send)
 
         # Create batch input
         batch_input = create_batch_input(

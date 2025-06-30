@@ -3,26 +3,27 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import soundfile as sf
 from loguru import logger
 
 from lab.agent.input_types import BatchInput, ImageData, ImageSource, TextData, TextSource
-from lab.agent.output_types import AudioOutput, SentenceOutput
 from lab.api.core_logic import async_rec_audio
-from lab.conversations.tts_manager import TTSTaskManager
-from lab.conversations.types import BroadcastContext, WebSocketSend
-from lab.live2d_model import Live2dModel
 from lab.message_handler import message_handler
-from lab.utils.stream_audio import prepare_audio_payload
+
+if TYPE_CHECKING:
+    from lab.agent.output_types import SentenceOutput
+    from lab.conversations.tts_manager import TTSTaskManager
+    from lab.conversations.types import BroadcastContext, WebSocketSend
+    from lab.live2d_model import Live2dModel
 
 
 # Convert class methods to standalone functions
 def create_batch_input(
     input_text: str,
-    images: Optional[List[Dict[str, Any]]],
+    images: list[dict[str, Any]] | None,
     from_name: str,
 ) -> BatchInput:
     """Create batch input for agent processing"""
@@ -42,7 +43,7 @@ def create_batch_input(
 
 
 async def process_agent_output(
-    output: Union[AudioOutput, SentenceOutput],
+    output: SentenceOutput,  # 我们不使用 human ai ，所以仅有 SentenceOutput, voice 通过 tts 生成
     character_config: Any,
     live2d_model: Live2dModel,
     # tts_engine: TTSInterface,
@@ -105,24 +106,6 @@ async def handle_sentence_output(
     return full_response
 
 
-# 支持 agent 直接返回 AudioOutput
-async def handle_audio_output(
-    output: AudioOutput,
-    websocket_send: WebSocketSend,
-) -> str:
-    """Process and send AudioOutput directly to the client"""
-    full_response = ""
-    async for audio_path, display_text, transcript, actions in output:
-        full_response += transcript
-        audio_payload = prepare_audio_payload(
-            audio_path=audio_path,
-            display_text=display_text,
-            actions=actions.to_dict() if actions else None,
-        )
-        await websocket_send(json.dumps(audio_payload))
-    return full_response
-
-
 async def send_conversation_start_signals(websocket_send: WebSocketSend) -> None:
     """Send initial conversation signals"""
     await websocket_send(
@@ -137,7 +120,7 @@ async def send_conversation_start_signals(websocket_send: WebSocketSend) -> None
 
 
 async def process_user_input(
-    user_input: Union[str, np.ndarray],
+    user_input: str | np.ndarray[Any, Any],  #  text, 或者 mico
     # asr_engine: Any,  # 假设 asr_engine 存在，修正注释中的类型提示
     websocket_send: WebSocketSend,
 ) -> str:
@@ -157,30 +140,34 @@ async def process_user_input(
 
         try:
             # 将音频数据写入文件
-            sf.write(audio_file_path, user_input, samplerate=16000)  # 假设采样率为 16000 Hz
+            sf.write(audio_file_path, user_input, samplerate=16000)  # 假设采样率为 16000 Hz # type: ignore
             # 使用文件路径调用异步转录方法
-            input_text = await async_rec_audio(audio_file_path)
-            await websocket_send(json.dumps({"type": "user-input-transcription", "text": input_text}))
+            response = await async_rec_audio(audio_file_path)
+            await websocket_send(json.dumps({"type": "user-input-transcription", "text": response["text"]}))
         finally:
             # 删除临时音频文件
             if audio_file_path.exists():
                 audio_file_path.unlink()
 
-        return input_text
+        return response["text"]  # TODO, 规范化我们的 routes 输出，以 TypedDict 约束
+    else:
+        logger.info(f"User input: {user_input}")
+        # await websocket_send(json.dumps({"type": "user-input-text", "text": user_input}))
+        return user_input
 
 
 async def finalize_conversation_turn(
     tts_manager: TTSTaskManager,
     websocket_send: WebSocketSend,
     client_uid: str,
-    broadcast_ctx: Optional[BroadcastContext] = None,
+    broadcast_ctx: BroadcastContext | None = None,
 ) -> None:
     """Finalize a conversation turn"""
-    if tts_manager.task_list:
-        await asyncio.gather(*tts_manager.task_list)
+    if tts_manager.task_list:  # type: ignore
+        await asyncio.gather(*tts_manager.task_list)  # type: ignore
         await websocket_send(json.dumps({"type": "backend-synth-complete"}))
 
-        response = await message_handler.wait_for_response(client_uid, "frontend-playback-complete")
+        response = await message_handler.wait_for_response(client_uid, "frontend-playback-complete")  # type: ignore
 
         if not response:
             logger.warning(f"No playback completion response from {client_uid}")
@@ -188,9 +175,9 @@ async def finalize_conversation_turn(
 
     await websocket_send(json.dumps({"type": "force-new-message"}))
 
-    if broadcast_ctx and broadcast_ctx.broadcast_func:
-        await broadcast_ctx.broadcast_func(
-            broadcast_ctx.group_members,
+    if broadcast_ctx and broadcast_ctx.broadcast_func:  # type: ignore
+        await broadcast_ctx.broadcast_func(  # type: ignore
+            broadcast_ctx.group_members,  # type: ignore
             {"type": "force-new-message"},
             broadcast_ctx.current_client_uid,
         )
@@ -200,7 +187,7 @@ async def finalize_conversation_turn(
 
 async def send_conversation_end_signal(
     websocket_send: WebSocketSend,
-    broadcast_ctx: Optional[BroadcastContext],
+    broadcast_ctx: BroadcastContext | None,
     session_emoji: str = "😊",
 ) -> None:
     """Send conversation chain end signal"""
@@ -211,8 +198,8 @@ async def send_conversation_end_signal(
 
     await websocket_send(json.dumps(chain_end_msg))
 
-    if broadcast_ctx and broadcast_ctx.broadcast_func and broadcast_ctx.group_members:
-        await broadcast_ctx.broadcast_func(
+    if broadcast_ctx and broadcast_ctx.broadcast_func and broadcast_ctx.group_members:  # type: ignore
+        await broadcast_ctx.broadcast_func(  # type: ignore
             broadcast_ctx.group_members,
             chain_end_msg,
         )

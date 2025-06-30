@@ -22,12 +22,8 @@ async def handle_conversation_trigger(
     client_uid: str,
     context: ServiceContext,
     websocket: WebSocket,
-    client_contexts: Dict[str, ServiceContext],
-    client_connections: Dict[str, WebSocket],
-    chat_group_manager: ChatGroupManager,
     received_data_buffers: Dict[str, np.ndarray],
     current_conversation_tasks: Dict[str, Optional[asyncio.Task]],
-    broadcast_to_group: Callable,
 ) -> None:
     """Handle triggers that start a conversation"""
     if msg_type == "ai-speak-signal":
