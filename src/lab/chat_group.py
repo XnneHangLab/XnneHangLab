@@ -279,18 +279,3 @@ async def handle_client_disconnect(
                     }
                 )
             )
-
-
-async def broadcast_to_group(
-    group_members: list[str],
-    message: dict[str, Any],
-    client_connections: dict[str, WebSocket],
-    exclude_uid: str | None = None,
-) -> None:
-    """Broadcasts a message to all members in a group except the sender"""
-    for member_uid in group_members:
-        if member_uid != exclude_uid and member_uid in client_connections:
-            try:
-                await client_connections[member_uid].send_text(json.dumps(message))
-            except Exception as e:
-                logger.error(f"Failed to broadcast to {member_uid}: {e}")

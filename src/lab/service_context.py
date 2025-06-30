@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
-from fastapi import WebSocket
 from loguru import logger
 
 from lab.config_manager.vtuber import (
@@ -17,6 +17,9 @@ from lab.config_manager.vtuber import (
     validate_config,
 )
 from lab.live2d_model import Live2dModel
+
+if TYPE_CHECKING:
+    from fastapi import WebSocket
 
 
 class ServiceContext:
@@ -115,6 +118,9 @@ class ServiceContext:
 
     def init_live2d(self, live2d_model_name: str) -> None:
         logger.info(f"Initializing Live2D: {live2d_model_name}")
+        if self.character_config is None:
+            logger.error("character_config is None, cannot initialize live2d")
+            raise ValueError("character_config cannot be None")
         try:
             self.live2d_model = Live2dModel(live2d_model_name)
             self.character_config.live2d_model_name = live2d_model_name
@@ -145,6 +151,15 @@ class ServiceContext:
         - config_file_name (str): The name of the configuration file.
         """
         try:
+            if self.character_config is None:
+                logger.error("character_config is None, cannot switch configuration")
+                raise ValueError("character_config cannot be None")
+            if self.system_config is None:
+                logger.error("system_config is None, cannot switch configuration")
+                raise ValueError("system_config cannot be None")
+            if self.config is None:
+                logger.error("character_config is None, cannot switch configuration")
+                raise ValueError("character_config cannot be None")
             new_character_config_data = None
 
             if config_file_name == "vtuber.yaml":
@@ -160,7 +175,7 @@ class ServiceContext:
                 alt_config_data = read_yaml(file_path).get("character_config")
 
                 # Start with original config data and perform a deep merge
-                new_character_config_data = deep_merge(self.config.character_config.model_dump(), alt_config_data)
+                new_character_config_data = deep_merge(self.config.character_config.model_dump(), alt_config_data)  # type: ignore
 
             if new_character_config_data:
                 new_config = {
@@ -173,11 +188,12 @@ class ServiceContext:
                 logger.debug(f"New character config: {self.character_config.model_dump()}")
 
                 # Send responses to client
+
                 await websocket.send_text(
                     json.dumps(
                         {
                             "type": "set-model-and-conf",
-                            "model_info": self.live2d_model.model_info,
+                            "model_info": self.live2d_model.model_info,  # type: ignore
                             "conf_name": self.character_config.conf_name,
                             "conf_uid": self.character_config.conf_uid,
                         }
@@ -211,14 +227,14 @@ class ServiceContext:
             raise e
 
 
-def deep_merge(dict1, dict2):
+def deep_merge(dict1: dict[Any, Any], dict2: dict[Any, Any]) -> dict[Any, Any]:
     """
     Recursively merges dict2 into dict1, prioritizing values from dict2.
     """
     result = dict1.copy()
     for key, value in dict2.items():
         if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-            result[key] = deep_merge(result[key], value)
+            result[key] = deep_merge(result[key], value)  # type: ignore
         else:
             result[key] = value
     return result

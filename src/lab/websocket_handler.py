@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import asyncio
 import json
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, TypedDict
+from typing import TYPE_CHECKING, Any, Optional, TypedDict
 
 import numpy as np
 from fastapi import WebSocket, WebSocketDisconnect
@@ -11,7 +10,6 @@ from loguru import logger
 
 from lab.chat_group import (
     ChatGroupManager,
-    broadcast_to_group,
     handle_client_disconnect,
     handle_group_operation,
 )
@@ -19,17 +17,22 @@ from lab.chat_history_manager import (
     create_new_history,
     delete_history,
     get_history,
-    get_history_list,
+    get_history_list,  # type: ignore[import]
 )
 from lab.config_manager.vtuber.utils import scan_bg_directory, scan_config_alts_directory
 from lab.conversations.conversation_handler import (
-    handle_conversation_trigger,
+    handle_conversation_trigger,  # type: ignore[import]
     handle_group_interrupt,
-    handle_individual_interrupt,
+    handle_individual_interrupt,  # type: ignore[import]
 )
 from lab.message_handler import message_handler
 from lab.service_context import ServiceContext
-from lab.utils.stream_audio import prepare_audio_payload
+
+if TYPE_CHECKING:
+    import asyncio
+    from collections.abc import Callable
+
+    from lab.agent.output_types import DisplayTextDict
 
 
 class MessageType(Enum):
@@ -52,13 +55,13 @@ class WSMessage(TypedDict, total=False):
     """Type definition for WebSocket messages"""
 
     type: str
-    action: Optional[str]
-    text: Optional[str]
-    audio: Optional[List[float]]
-    images: Optional[List[str]]
-    history_uid: Optional[str]
-    file: Optional[str]
-    display_text: Optional[dict]
+    action: str | None
+    text: str | None
+    audio: list[float] | None
+    images: list[str] | None
+    history_uid: str | None
+    file: str | None
+    display_text: DisplayTextDict | None
 
 
 class WebSocketHandler:
@@ -66,17 +69,17 @@ class WebSocketHandler:
 
     def __init__(self, default_context_cache: ServiceContext):
         """Initialize the WebSocket handler with default context"""
-        self.client_connections: Dict[str, WebSocket] = {}
-        self.client_contexts: Dict[str, ServiceContext] = {}
+        self.client_connections: dict[str, WebSocket] = {}
+        self.client_contexts: dict[str, ServiceContext] = {}
         self.chat_group_manager = ChatGroupManager()
-        self.current_conversation_tasks: Dict[str, Optional[asyncio.Task]] = {}
+        self.current_conversation_tasks: dict[str, Optional[asyncio.Task]] = {}  # noqa: UP045 # type: ignore
         self.default_context_cache = default_context_cache
-        self.received_data_buffers: Dict[str, np.ndarray] = {}
+        self.received_data_buffers: dict[str, np.ndarray[Any, Any]] = {}
 
         # Message handlers mapping
         self._message_handlers = self._init_message_handlers()  # type: ignore[return]
 
-    def _init_message_handlers(self) -> Dict[str, Callable]:  # type: ignore[return]
+    def _init_message_handlers(self) -> dict[str, Callable]:  # type: ignore[return]
         """Initialize message type to handler mapping"""
         return {
             "add-client-to-group": self._handle_group_operation,  # type: ignore[return]
@@ -187,7 +190,7 @@ class WebSocketHandler:
             while True:
                 try:
                     data = await websocket.receive_json()
-                    message_handler.handle_message(client_uid, data)
+                    message_handler.handle_message(client_uid, data)  # type: ignore[return]
                     await self._route_message(websocket, client_uid, data)
                 except WebSocketDisconnect:
                     raise
@@ -215,12 +218,12 @@ class WebSocketHandler:
             client_uid: Client identifier
             data: Message data
         """
-        msg_type = data.get("type")
+        msg_type = data.get("type")  # type: ignore[return]
         if not msg_type:
             logger.warning("Message received without type")
             return
 
-        handler = self._message_handlers.get(msg_type)
+        handler = self._message_handlers.get(msg_type)  # type: ignore[return]
         if handler:
             await handler(websocket, client_uid, data)
         else:
@@ -230,12 +233,12 @@ class WebSocketHandler:
     async def _handle_group_operation(self, websocket: WebSocket, client_uid: str, data: dict[str, Any]) -> None:
         """Handle group-related operations"""
         operation = data.get("type")
-        target_uid = data.get("invitee_uid" if operation == "add-client-to-group" else "target_uid")
+        target_uid = data.get("invitee_uid" if operation == "add-client-to-group" else "target_uid")  # type: ignore[return]
 
         await handle_group_operation(
-            operation=operation,
-            client_uid=client_uid,
-            target_uid=target_uid,
+            operation=operation,  # type: ignore[return]
+            client_uid=client_uid,  # type: ignore[return]
+            target_uid=target_uid,  # type: ignore[return]
             chat_group_manager=self.chat_group_manager,
             client_connections=self.client_connections,
             send_group_update=self.send_group_update,
@@ -259,24 +262,15 @@ class WebSocketHandler:
         # Clean up other client data
         self.client_connections.pop(client_uid, None)
         self.client_contexts.pop(client_uid, None)
-        self.received_data_buffers.pop(client_uid, None)
-        if client_uid in self.current_conversation_tasks:
-            task = self.current_conversation_tasks[client_uid]
-            if task and not task.done():
-                task.cancel()
-            self.current_conversation_tasks.pop(client_uid, None)
+        self.received_data_buffers.pop(client_uid, None)  # type: ignore[return]
+        if client_uid in self.current_conversation_tasks:  # type: ignore[return]
+            task = self.current_conversation_tasks[client_uid]  # type: ignore[return]
+            if task and not task.done():  # type: ignore[return]
+                task.cancel()  # type: ignore[return]
+            self.current_conversation_tasks.pop(client_uid, None)  # type: ignore[return]
 
         logger.info(f"Client {client_uid} disconnected")
         message_handler.cleanup_client(client_uid)
-
-    async def broadcast_to_group(self, group_members: list[str], message: dict, exclude_uid: str = None) -> None:
-        """Broadcasts a message to group members"""
-        await broadcast_to_group(
-            group_members=group_members,
-            message=message,
-            client_connections=self.client_connections,
-            exclude_uid=exclude_uid,
-        )
 
     async def send_group_update(self, websocket: WebSocket, client_uid: str):
         """Sends group information to a client"""
@@ -305,7 +299,7 @@ class WebSocketHandler:
 
     async def _handle_interrupt(self, websocket: WebSocket, client_uid: str, data: WSMessage) -> None:
         """Handle conversation interruption"""
-        heard_response = data.get("text", "")
+        heard_response = data.get("text", "")  # type: ignore[return]
         context = self.client_contexts[client_uid]
         group = self.chat_group_manager.get_client_group(client_uid)
 
@@ -316,20 +310,23 @@ class WebSocketHandler:
         else:
             await handle_individual_interrupt(
                 client_uid=client_uid,
-                current_conversation_tasks=self.current_conversation_tasks,
+                current_conversation_tasks=self.current_conversation_tasks,  # type: ignore[return]
                 context=context,
-                heard_response=heard_response,
+                heard_response=heard_response,  # type: ignore[return]
             )
 
     async def _handle_history_list_request(self, websocket: WebSocket, client_uid: str, data: WSMessage) -> None:
         """Handle request for chat history list"""
         context = self.client_contexts[client_uid]
-        histories = get_history_list(context.character_config.conf_uid)
+        if context.character_config is None:
+            logger.error("character_config is None, cannot create new history")
+            raise ValueError("character_config cannot be None")
+        histories = get_history_list(context.character_config.conf_uid)  # type: ignore[return]
         await websocket.send_text(json.dumps({"type": "history-list", "histories": histories}))
 
-    async def _handle_fetch_history(self, websocket: WebSocket, client_uid: str, data: dict):
+    async def _handle_fetch_history(self, websocket: WebSocket, client_uid: str, data: dict[Any, Any]):
         """Handle fetching and setting specific chat history"""
-        history_uid = data.get("history_uid")
+        history_uid = data.get("history_uid")  # type: ignore[return]
         if not history_uid:
             return
 
@@ -341,9 +338,12 @@ class WebSocketHandler:
         #     conf_uid=context.character_config.conf_uid,
         #     history_uid=history_uid,
         # )
+        if context.character_config is None:
+            logger.error("character_config is None, cannot create new history")
+            raise ValueError("character_config cannot be None")
         msgs = get_history(
             context.character_config.conf_uid,
-            history_uid,
+            history_uid,  # type: ignore[return]
         )
         messages = [msg for msg in msgs if msg["role"] != "system"]
         await websocket.send_text(json.dumps({"type": "history-data", "messages": messages}))
@@ -351,6 +351,9 @@ class WebSocketHandler:
     async def _handle_create_history(self, websocket: WebSocket, client_uid: str, data: WSMessage) -> None:
         """Handle creation of new chat history"""
         context = self.client_contexts[client_uid]
+        if context.character_config is None:
+            logger.error("character_config is None, cannot create new history")
+            raise ValueError("character_config cannot be None")
         history_uid = create_new_history(context.character_config.conf_uid)
         if history_uid:
             context.history_uid = history_uid
@@ -367,16 +370,18 @@ class WebSocketHandler:
                 )
             )
 
-    async def _handle_delete_history(self, websocket: WebSocket, client_uid: str, data: dict):
+    async def _handle_delete_history(self, websocket: WebSocket, client_uid: str, data: dict[Any, Any]) -> None:
         """Handle deletion of chat history"""
-        history_uid = data.get("history_uid")
+        history_uid = data.get("history_uid")  # type: ignore[return]
         if not history_uid:
             return
-
         context = self.client_contexts[client_uid]
+        if context.character_config is None:
+            logger.error("character_config is None, cannot create new history")
+            raise ValueError("character_config cannot be None")
         success = delete_history(
             context.character_config.conf_uid,
-            history_uid,
+            history_uid,  # type: ignore[return]
         )
         await websocket.send_text(
             json.dumps(
@@ -388,58 +393,58 @@ class WebSocketHandler:
             )
         )
         if history_uid == context.history_uid:
-            context.history_uid = None
+            context.history_uid = None  # type: ignore[return]
 
     async def _handle_audio_data(self, websocket: WebSocket, client_uid: str, data: WSMessage) -> None:
         """Handle incoming audio data"""
-        audio_data = data.get("audio", [])
+        audio_data = data.get("audio", [])  # type: ignore[return]
         if audio_data:
-            self.received_data_buffers[client_uid] = np.append(
-                self.received_data_buffers[client_uid],
+            self.received_data_buffers[client_uid] = np.append(  # type: ignore[return]
+                self.received_data_buffers[client_uid],  # type: ignore[return]
                 np.array(audio_data, dtype=np.float32),
             )
 
     async def _handle_raw_audio_data(self, websocket: WebSocket, client_uid: str, data: WSMessage) -> None:
         """Handle incoming raw audio data for VAD processing"""
-        context = self.client_contexts[client_uid]
-        chunk = data.get("audio", [])
-        if chunk:
-            for audio_bytes in context.vad_engine.detect_speech(chunk):
-                if audio_bytes == b"<|PAUSE|>":
-                    await websocket.send_text(json.dumps({"type": "control", "text": "interrupt"}))
-                elif audio_bytes == b"<|RESUME|>":
-                    pass
-                elif len(audio_bytes) > 1024:
-                    # Detected audio activity (voice)
-                    self.received_data_buffers[client_uid] = np.append(
-                        self.received_data_buffers[client_uid],
-                        np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32),
-                    )
-                    await websocket.send_text(json.dumps({"type": "control", "text": "mic-audio-end"}))
+        # context = self.client_contexts[client_uid]
+        logger.info(f"Received raw audio data for client {client_uid}")
+        # chunk = data.get("audio", [])  # type: ignore[return]
+        # if chunk:
+        #     for audio_bytes in context.vad_engine.detect_speech(chunk):
+        #         if audio_bytes == b"<|PAUSE|>":
+        #             await websocket.send_text(json.dumps({"type": "control", "text": "interrupt"}))
+        #         elif audio_bytes == b"<|RESUME|>":
+        #             pass
+        #         elif len(audio_bytes) > 1024:
+        #             # Detected audio activity (voice)
+        #             self.received_data_buffers[client_uid] = np.append(
+        #                 self.received_data_buffers[client_uid],
+        #                 np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32),
+        #             )
+        #             await websocket.send_text(json.dumps({"type": "control", "text": "mic-audio-end"}))
 
     async def _handle_conversation_trigger(self, websocket: WebSocket, client_uid: str, data: WSMessage) -> None:
         """Handle triggers that start a conversation"""
         await handle_conversation_trigger(
-            msg_type=data.get("type", ""),
-            data=data,
+            msg_type=data.get("type", ""),  # type: ignore[return]
+            data=data,  # type: ignore[return]
             client_uid=client_uid,
             context=self.client_contexts[client_uid],
             websocket=websocket,
-            # client_contexts=self.client_contexts,
-            # client_connections=self.client_connections,
-            # chat_group_manager=self.chat_group_manager,
-            received_data_buffers=self.received_data_buffers,
-            current_conversation_tasks=self.current_conversation_tasks,
-            # broadcast_to_group=self.broadcast_to_group,
+            received_data_buffers=self.received_data_buffers,  # type: ignore[return]
+            current_conversation_tasks=self.current_conversation_tasks,  # type: ignore[return]
         )
 
     async def _handle_fetch_configs(self, websocket: WebSocket, client_uid: str, data: WSMessage) -> None:
         """Handle fetching available configurations"""
         context = self.client_contexts[client_uid]
+        if context.system_config is None:
+            logger.error("system_config is None, cannot fetch config files")
+            raise ValueError("system_config cannot be None")
         config_files = scan_config_alts_directory(context.system_config.config_alts_dir)
         await websocket.send_text(json.dumps({"type": "config-files", "configs": config_files}))
 
-    async def _handle_config_switch(self, websocket: WebSocket, client_uid: str, data: dict):
+    async def _handle_config_switch(self, websocket: WebSocket, client_uid: str, data: dict[Any, Any]):
         """Handle switching to a different configuration"""
         config_file_name = data.get("file")
         if config_file_name:
@@ -456,18 +461,6 @@ class WebSocketHandler:
         Handle audio playback start notification
         """
         logger.info(data)
-        group_members = self.chat_group_manager.get_group_members(client_uid)
-        if len(group_members) > 1:
-            logger.info(f"Group members: {group_members}")
-            display_text = data.get("display_text")
-            if display_text:
-                silent_payload = prepare_audio_payload(
-                    audio_path=None,
-                    display_text=display_text,
-                    actions=None,
-                    forwarded=True,
-                )
-                await self.broadcast_to_group(group_members, silent_payload, exclude_uid=client_uid)
 
     async def _handle_group_info(self, websocket: WebSocket, client_uid: str, data: WSMessage) -> None:
         """Handle group info request"""

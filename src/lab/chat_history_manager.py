@@ -11,7 +11,7 @@ from loguru import logger
 
 
 class HistoryMessage(TypedDict):
-    role: Literal["human", "ai"]
+    role: Literal["human", "ai", "system"]
     timestamp: str
     content: str
     # Optional display information for the message
