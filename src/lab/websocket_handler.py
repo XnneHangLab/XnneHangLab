@@ -247,11 +247,6 @@ class WebSocketHandler:
         if group:
             await handle_group_interrupt(
                 group_id=group.group_id,
-                heard_response="",
-                current_conversation_tasks=self.current_conversation_tasks,
-                chat_group_manager=self.chat_group_manager,
-                client_contexts=self.client_contexts,
-                broadcast_to_group=self.broadcast_to_group,
             )
 
         await handle_client_disconnect(
@@ -317,11 +312,6 @@ class WebSocketHandler:
         if group and len(group.members) > 1:
             await handle_group_interrupt(
                 group_id=group.group_id,
-                heard_response=heard_response,
-                current_conversation_tasks=self.current_conversation_tasks,
-                chat_group_manager=self.chat_group_manager,
-                client_contexts=self.client_contexts,
-                broadcast_to_group=self.broadcast_to_group,
             )
         else:
             await handle_individual_interrupt(

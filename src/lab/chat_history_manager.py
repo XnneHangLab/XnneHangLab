@@ -96,7 +96,7 @@ def create_new_history(conf_uid: str) -> str:
 def store_message(
     conf_uid: str,
     history_uid: str,
-    role: Literal["human", "ai"],
+    role: Literal["human", "ai", "system"],
     content: str,
     name: str | None = None,
     avatar: str | None = None,
