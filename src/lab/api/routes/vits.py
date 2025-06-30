@@ -29,10 +29,10 @@ async def tts_direct(request: TTSRequest):
         )
     except Exception as e:
         logger.error(f"Error in direct TTS generation: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error generating audio: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating audio: {str(e)}") from e
 
 
-async def generate_tts_direct(text: str, file_path: Path):
+async def generate_tts_direct(text: str, file_path: str):
     """
     直接生成音频，不进行切分，并保存为 Opus 文件。
 
@@ -44,14 +44,15 @@ async def generate_tts_direct(text: str, file_path: Path):
         str: 保存的音频文件路径。
     """
     try:
+        path = Path(file_path)
         sample_rate, audio_data = process_text(text)
         opus_bytes = audio_to_opus_bytes(sample_rate, audio_data)
         # 确保文件目录存在
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        with file_path.open("wb") as f:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("wb") as f:
             f.write(opus_bytes)
         logger.info(f"Audio file saved successfully at {file_path}")
-        return file_path
+        return path
     except Exception as e:
         logger.error(f"Error in generating and saving TTS audio: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error generating and saving audio: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating and saving audio: {str(e)}") from e

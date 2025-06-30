@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from loguru import logger
 
 from lab.api.routes.vits import generate_tts_direct
-from lab.utils.stream_audio import prepare_audio_payload
+from lab.utils.stream_audio import AudioPayload, prepare_audio_payload
 
 if TYPE_CHECKING:
     from lab.agent.output_types import Actions, DisplayText
@@ -26,7 +26,7 @@ class TTSTaskManager:
         self.task_list: list[asyncio.Task] = []  # type: ignore
         self._lock = asyncio.Lock()
         # Queue to store ordered payloads
-        self._payload_queue: asyncio.Queue[dict] = asyncio.Queue()  # type: ignore
+        self._payload_queue: asyncio.Queue[tuple[AudioPayload, int]] = asyncio.Queue()  # type: ignore
         # Task to handle sending payloads in order
         self._sender_task: asyncio.Task | None = None  # type: ignore
         self._sequence_counter = 0
@@ -92,13 +92,14 @@ class TTSTaskManager:
         Process and send payloads in correct order.
         Runs continuously until all payloads are processed.
         """
-        buffered_payloads: dict[int, dict] = {}  # type: ignore
+        buffered_payloads: dict[int, AudioPayload] = {}
         logger.info("Starting TTS payload sender task...")
 
         while True:
             # try:
             # Get payload from queue
             payload, sequence_number = await self._payload_queue.get()
+            sequence_number = int(sequence_number)  # Ensure sequence number is an integer
             buffered_payloads[sequence_number] = payload
 
             # Send payloads in order
@@ -146,21 +147,6 @@ class TTSTaskManager:
         # Queue the payload with its sequence number
         await self._payload_queue.put((payload, sequence_number))
 
-        # except Exception as e:
-        #     logger.error(f"Error preparing audio payload: {e}")
-        #     # Queue silent payload for error case
-        #     payload = prepare_audio_payload(
-        #         audio_path=None,
-        #         display_text=display_text,
-        #         actions=actions,
-        #     )
-        #     await self._payload_queue.put((payload, sequence_number))
-
-        # finally:
-        # if isinstance(audio_file_path,Path):
-        #     audio_file_path.unlink()
-        #     logger.debug("Audio cache file cleaned.")
-        # pass
 
     async def _generate_audio(self, text: str) -> Path | None:
         """Generate audio file from text"""
@@ -169,7 +155,7 @@ class TTSTaskManager:
             cache_dir = Path("cache") / "tts"
             audio_path = await generate_tts_direct(
                 text=text,
-                file_path=cache_dir / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}.opus",
+                file_path=str(cache_dir / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}.opus"),
             )
             if not audio_path.exists():
                 logger.error("generate_tts_direct returned None")
@@ -182,9 +168,9 @@ class TTSTaskManager:
 
     def clear(self) -> None:
         """Clear all pending tasks and reset state"""
-        self.task_list.clear()
-        if self._sender_task:
-            self._sender_task.cancel()
+        self.task_list.clear() # type: ignore
+        if self._sender_task: # type: ignore
+            self._sender_task.cancel() # type: ignore
         self._sequence_counter = 0
         self._next_sequence_to_send = 0
         # Create a new queue to clear any pending items
