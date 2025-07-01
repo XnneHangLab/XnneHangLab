@@ -335,13 +335,19 @@ class WebSocketHandler:
         # Update history_uid in service context
         context.history_uid = history_uid
         # print(context.history_uid)
+        if context.agent_engine is None:
+            logger.error("agent_engine is None, cannot set memory from history")
+            raise ValueError("agent_engine cannot be None")
+        if context.character_config is None:
+            logger.error("character_config is None, cannot set memory from history")
+            raise ValueError("character_config cannot be None")
         context.agent_engine.set_memory_from_history(
             conf_uid=context.character_config.conf_uid,
             history_uid=history_uid,
         )
-        if context.character_config is None:
-            logger.error("character_config is None, cannot create new history")
-            raise ValueError("character_config cannot be None")
+        # if context.character_config is None:
+        #     logger.error("character_config is None, cannot create new history")
+        #     raise ValueError("character_config cannot be None")
         msgs = get_history(
             context.character_config.conf_uid,
             history_uid,  # type: ignore[return]
@@ -355,6 +361,9 @@ class WebSocketHandler:
         if context.character_config is None:
             logger.error("character_config is None, cannot create new history")
             raise ValueError("character_config cannot be None")
+        if context.agent_engine is None:
+            logger.error("agent_engine is None, cannot create new history")
+            raise ValueError("agent_engine cannot be None")
         history_uid = create_new_history(context.character_config.conf_uid)
         if history_uid:
             context.history_uid = history_uid
