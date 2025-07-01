@@ -175,7 +175,7 @@ class WebSocketHandler:
             system_config=self.default_context_cache.system_config.model_copy(deep=True),  # type: ignore
             character_config=self.default_context_cache.character_config.model_copy(deep=True),  # type: ignore
             live2d_model=self.default_context_cache.live2d_model,  # type: ignore
-            agent_engine= self.default_context_cache.agent_engine,  # type: ignore
+            agent_engine=self.default_context_cache.agent_engine,  # type: ignore
         )
         return session_service_context
 

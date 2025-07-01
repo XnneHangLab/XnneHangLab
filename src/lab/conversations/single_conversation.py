@@ -128,15 +128,6 @@ async def process_single_conversation(
         cleanup_conversation(tts_manager, session_emoji)
 
 
-# async def chat(input_text: str):
-#     text = get_openai_response(prompt=input_text)
-#     logger.info(text)
-#     actions = Actions()
-#     display = DisplayText(text)
-#     logger.info(display)
-#     yield SentenceOutput(display, text, actions)
-
-
 async def process_agent_response(
     context: ServiceContext,
     batch_input: BatchInput,
@@ -161,13 +152,13 @@ async def process_agent_response(
             logger.error("agent_engine is None, cannot process agent response")
             raise ValueError("agent_engine cannot be None")
         agent_output = context.agent_engine.chat(batch_input)
-        async for output in agent_output: # type: ignore
-            logger.info(output) # type: ignore
+        async for output in agent_output:  # type: ignore
+            logger.info(output)  # type: ignore
             if context.live2d_model is None:
                 logger.error("live2d_model is None, cannot process agent output")
                 raise ValueError("live2d_model cannot be None")
             response_part = await process_agent_output(
-                output=output, # type: ignore
+                output=output,  # type: ignore
                 character_config=context.character_config,
                 live2d_model=context.live2d_model,
                 # tts_engine=context.tts_engine,
