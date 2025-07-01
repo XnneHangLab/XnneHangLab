@@ -74,5 +74,5 @@ def run(console_log_level: str):
 
 if __name__ == "__main__":
     args = parse_args()
-    console_log_level = "DEBUG" if args.verbose else "INFO"
+    console_log_level = "DEBUG"  # if args.verbose else "INFO"
     run(console_log_level=console_log_level)
