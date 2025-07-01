@@ -263,12 +263,12 @@ def get_history_list(conf_uid: str) -> list[dict[str, Any]]:
     empty_history_uids: list[str] = []
 
     try:
-        for filename in conf_dir.iterdir():
-            if not filename.suffix == ".json":
+        for file_path in conf_dir.iterdir():
+            if not file_path.suffix == ".json":
                 continue
 
-            history_uid = filename.stem
-            filepath = conf_dir / filename
+            history_uid = file_path.stem
+            filepath = conf_dir / file_path.name
 
             try:
                 with filepath.open("r", encoding="utf-8") as f:
@@ -288,7 +288,7 @@ def get_history_list(conf_uid: str) -> list[dict[str, Any]]:
                     }
                     histories.append(history_info)
             except Exception as e:
-                logger.error(f"Error reading history file {filename}: {e}")
+                logger.error(f"Error reading history file {file_path.name}: {e}")
                 continue
 
         # Clean up empty histories if there are other non-empty ones
