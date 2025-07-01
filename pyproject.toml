@@ -11,8 +11,9 @@ dependencies = [
     "torch==2.6.0",
     "torchaudio==2.6.0",
     "tomli_w==1.2.0",
+    "tomli>=2.2.1",
     "pydantic>=2.10.6",
-    "setuptools==76.0.0",
+    "setuptools==76.0.0", # for install funasr
     "streamlit==1.43.2",
     "streamlit-antd-components==0.3.2",
     "pandas==2.2.3",
@@ -22,12 +23,6 @@ dependencies = [
     "python-multipart>=0.0.20",
     "websocket-client>=1.8.0",
     "loguru>=0.7.3",
-    "chardet>=5.2.0",
-    "pydub>=0.25.1",
-    "langdetect>=1.0.9",
-    "pysbd>=0.3.4",
-    "aiohttp>=3.12.13",
-    "tomli>=2.2.1",
 ]
 authors = [{ name = "MrXnneHang", email = "XnneHang@gmail.com" }]
 keywords = []
@@ -93,9 +88,17 @@ bert-vits = [
   "mecab-python3==1.0.8",
 ]
 
-[tool.uv]
-default-groups = ["dev","yutto-uiya","bert-vits","database"] # 还得考虑如果缺少库时的 lint 兼容，如果 list 改变了，那么需要忽略对应部分的 lint.
+vtuber = [
+  "chardet>=5.2.0",
+  "pydub>=0.25.1",
+  "langdetect>=1.0.9",
+  "pysbd>=0.3.4",
+  "aiohttp>=3.12.13",
+  "openai>=1.93.0",
+]
 
+[tool.uv]
+default-groups = ["dev","yutto-uiya","bert-vits","database","vtuber"] # 还得考虑如果缺少库时的 lint 兼容，如果 list 改变了，那么需要忽略对应部分的 lint.
 
 [tool.uv.workspace]
 members = ["packages/yutto-uiya","packages/todo/","packages/bert-vits"]
