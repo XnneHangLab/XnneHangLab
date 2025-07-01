@@ -7,8 +7,9 @@ from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
+from lab.agent.agent_factory import AgentFactory
+from lab.config_manager import AgentSettings, RootAbsDir, load_settings_file
 from lab.config_manager.vtuber import (
-    AgentConfig,
     CharacterConfig,
     Config,
     SystemConfig,
@@ -21,6 +22,8 @@ from lab.live2d_model import Live2dModel
 if TYPE_CHECKING:
     from fastapi import WebSocket
 
+    from lab.agent.agents.agent_interface import AgentInterface
+
 
 class ServiceContext:
     """Initializes, stores, and updates the asr, tts, and llm instances and other
@@ -32,6 +35,7 @@ class ServiceContext:
         self.character_config: CharacterConfig | None = None
 
         self.live2d_model: Live2dModel | None = None
+        self.agent_engine: AgentInterface | None = None  # type: ignore
 
         # the system prompt is a combination of the persona prompt and live2d expression prompt
         self.system_prompt: str | None = None
@@ -55,6 +59,7 @@ class ServiceContext:
         system_config: SystemConfig,
         character_config: CharacterConfig,
         live2d_model: Live2dModel,
+        agent_engine: AgentInterface,
     ) -> None:
         """
         Load the ServiceContext with the reference of the provided instances.
@@ -69,6 +74,7 @@ class ServiceContext:
         self.system_config = system_config
         self.character_config = character_config
         self.live2d_model = live2d_model
+        self.agent_engine = agent_engine
 
         logger.debug(f"Loaded service context with cache: {character_config}")
 
@@ -104,10 +110,7 @@ class ServiceContext:
         # self.init_vad(config.character_config.vad_config)
 
         # init agent from character config
-        self.init_agent(
-            config.character_config.agent_config,
-            config.character_config.persona_prompt,
-        )
+        self.init_agent()
 
         self.init_translate(config.character_config.tts_preprocessor_config.translator_config)
 
@@ -128,9 +131,35 @@ class ServiceContext:
             logger.critical(f"Error initializing Live2D: {e}")
             logger.critical("Try to proceed without Live2D...")
 
-    def init_agent(self, agent_config: AgentConfig, persona_prompt: str) -> None:
+    def init_agent(self) -> None:
         """Initialize or update the LLM engine based on agent configuration."""
-        logger.info(f"Initializing Agent: {agent_config.conversation_agent_choice}")
+        # agent 暂时不需要多次启动模型，所以不需要自检是否初始化。
+        root_dir_settings = load_settings_file("root.toml", RootAbsDir)
+        agent_settings = load_settings_file("agent.toml", AgentSettings)
+        root_dir = Path(root_dir_settings.root_dir)
+        system_prompt = (root_dir / "prompts" / "paimeng.txt").read_text(encoding="utf-8").strip()
+        if self.live2d_model is None:
+            logger.error("Live2D model is not initialized, cannot create agent.")
+            raise ValueError("Live2D model must be initialized before creating agent.")
+        if self.character_config is None:
+            logger.error("character_config is None, cannot create agent.")
+            raise ValueError("character_config cannot be None")
+
+        # Pass avatar to agent factory
+        # avatar = self.character_config.avatar or ""  # Get avatar from config
+
+        self.agent_engine = AgentFactory.create_agent(  # type: ignore
+            agent_settings=agent_settings,
+            system_prompt=system_prompt,
+            live2d_model=self.live2d_model,
+            tts_preprocessor_config=self.character_config.tts_preprocessor_config,
+            # character_avatar=avatar,  # Add avatar parameter
+        )
+
+        logger.debug(f"System prompt: {system_prompt}")
+
+        # Save the current configuration
+        self.system_prompt = system_prompt
 
     def init_translate(self, translator_config: TranslatorConfig) -> None:
         """Initialize or update the translation engine based on the configuration."""

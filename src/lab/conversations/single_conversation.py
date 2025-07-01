@@ -7,8 +7,6 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from loguru import logger
 
-from lab.agent.output_types import Actions, DisplayText, SentenceOutput
-from lab.api.openai import get_openai_response
 from lab.chat_history_manager import store_message
 from lab.conversations.conversation_utils import (
     EMOJI_LIST,
@@ -130,13 +128,13 @@ async def process_single_conversation(
         cleanup_conversation(tts_manager, session_emoji)
 
 
-async def chat(input_text: str):
-    text = get_openai_response(prompt=input_text)
-    logger.info(text)
-    actions = Actions()
-    display = DisplayText(text)
-    logger.info(display)
-    yield SentenceOutput(display, text, actions)
+# async def chat(input_text: str):
+#     text = get_openai_response(prompt=input_text)
+#     logger.info(text)
+#     actions = Actions()
+#     display = DisplayText(text)
+#     logger.info(display)
+#     yield SentenceOutput(display, text, actions)
 
 
 async def process_agent_response(
@@ -159,19 +157,17 @@ async def process_agent_response(
     full_response = ""
     try:
         # agent 记忆和输入是分开的。
-        if not batch_input:
-            raise ValueError("batch_input cannot be empty")
-        else:
-            agent_output = chat(batch_input.texts[-1].content)
-        # else:
-        #     raise TypeError("batch_input must be str")
-        async for output in agent_output:
-            logger.info(output)
+        if context.agent_engine is None:
+            logger.error("agent_engine is None, cannot process agent response")
+            raise ValueError("agent_engine cannot be None")
+        agent_output = context.agent_engine.chat(batch_input)
+        async for output in agent_output: # type: ignore
+            logger.info(output) # type: ignore
             if context.live2d_model is None:
                 logger.error("live2d_model is None, cannot process agent output")
                 raise ValueError("live2d_model cannot be None")
             response_part = await process_agent_output(
-                output=output,
+                output=output, # type: ignore
                 character_config=context.character_config,
                 live2d_model=context.live2d_model,
                 # tts_engine=context.tts_engine,

@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, overload
 
 if TYPE_CHECKING:
     from lab.config_manager.abs_root import RootAbsDir
+    from lab.config_manager.agent import AgentSettings
     from lab.config_manager.audio_recognize import AudioRecognizeSettings, AudioRecognizeSettingsTitle
     from lab.config_manager.funasr import FunASRSettings, FunASRSettingsTitle
 
@@ -57,10 +58,14 @@ def load_settings_file(setting_name: str, setting: type[AudioRecognizeSettings])
 def load_settings_file(setting_name: str, setting: type[RootAbsDir]) -> RootAbsDir: ...
 
 
+@overload
+def load_settings_file(setting_name: str, setting: type[AgentSettings]) -> AgentSettings: ...
+
+
 def load_settings_file(
     setting_name: str,
-    setting: (type[FunASRSettings | AudioRecognizeSettings | RootAbsDir]),
-) -> FunASRSettings | AudioRecognizeSettings | RootAbsDir:
+    setting: (type[FunASRSettings | AudioRecognizeSettings | RootAbsDir | AgentSettings]),
+) -> FunASRSettings | AudioRecognizeSettings | RootAbsDir | AgentSettings:
     """加载配置文件，如果不存在则创建默认配置文件在当前工作目录。"""
     settings_file = search_for_settings_file(setting_name=setting_name)
     if settings_file is None:
@@ -79,7 +84,7 @@ def load_settings_file(
 
 def write_settings_file(
     settings_name: str,
-    settings: FunASRSettings | AudioRecognizeSettings | RootAbsDir,
+    settings: FunASRSettings | AudioRecognizeSettings | RootAbsDir | AgentSettings,
 ) -> None:
     """将 Setting 对象写入 TOML 文件。"""
     settings_file = search_for_settings_file(setting_name=settings_name)
