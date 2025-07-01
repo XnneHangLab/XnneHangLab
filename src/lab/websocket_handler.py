@@ -335,10 +335,10 @@ class WebSocketHandler:
         # Update history_uid in service context
         context.history_uid = history_uid
         # print(context.history_uid)
-        # context.agent_engine.set_memory_from_history(
-        #     conf_uid=context.character_config.conf_uid,
-        #     history_uid=history_uid,
-        # )
+        context.agent_engine.set_memory_from_history(
+            conf_uid=context.character_config.conf_uid,
+            history_uid=history_uid,
+        )
         if context.character_config is None:
             logger.error("character_config is None, cannot create new history")
             raise ValueError("character_config cannot be None")
@@ -358,10 +358,10 @@ class WebSocketHandler:
         history_uid = create_new_history(context.character_config.conf_uid)
         if history_uid:
             context.history_uid = history_uid
-            # context.agent_engine.set_memory_from_history(
-            #     conf_uid=context.character_config.conf_uid,
-            #     history_uid=history_uid,
-            # )
+            context.agent_engine.set_memory_from_history(
+                conf_uid=context.character_config.conf_uid,
+                history_uid=history_uid,
+            )
             await websocket.send_text(
                 json.dumps(
                     {

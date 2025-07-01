@@ -54,7 +54,7 @@ async def generate_tts_direct(text: str, file_path: str):
         with path.open("wb") as f:
             f.write(opus_bytes)
         logger.info(f"Audio file saved successfully at {file_path}")
-        return path
+        return str(path)
     except Exception as e:
         logger.error(f"Error in generating and saving TTS audio: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error generating and saving audio: {str(e)}") from e

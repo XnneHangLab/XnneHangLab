@@ -156,6 +156,7 @@ class TTSTaskManager:
                 text=text,
                 file_path=str(cache_dir / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}.opus"),
             )
+            audio_path = Path(audio_path)
             if not audio_path.exists():
                 logger.error("generate_tts_direct returned None")
             else:
