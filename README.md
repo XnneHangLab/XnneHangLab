@@ -59,7 +59,7 @@
 
 - [**字幕生成（本地运行）:** 基于 Funasr, 支持热词，支持字幕速度调节和编辑](https://xnnehang.top/posts/software/Auto_Caption_Generater_Offline_v2_4)
 
-最近正在支持 SenseVoice 的时间检测，以及视频输入的 GUI 版本还在赶来的路上。
+- [**VTuberLab BackEnd**: Live2d + LLM + ASR + TTS 的对话引擎。](docs/vtuber.md)
 
 - [**yutto-uiya:** 一个 bilibili 视频下载器，基于 yutto 开发的 WebUI](https://github.com/XnneHangLab/yutto-uiya)
 
@@ -75,7 +75,7 @@
 
 ## 演示
 
-[从我的网站访问: **lab.xnnehang.top**](https://lab.xnnehang.top)
+[从我的网站访问: **fast.xnnehang.top**](https://fast.xnnehang.top)
 
 > 如果你发现网站不在线,那么可能是节假日我在家打游戏把它关了 =-=.
 
@@ -83,171 +83,21 @@
 
 下面是一些截图。
 
-![todo](https://fastly.jsdelivr.net/gh/MrXnneHang/blog_img/BlogHosting/img/25/02/202503312105787.png)
-
 ![audio-recognize](https://fastly.jsdelivr.net/gh/MrXnneHang/blog_img/BlogHosting/img/25/02/202503312004227.png)
 
 ![image-20250509114721029](https://fastly.jsdelivr.net/gh/MrXnneHang/blog_img/BlogHosting/img/25/02/202505091147732.png)
 
+### 实验性:
+
+![vtuber_window](./assets/img/vtuber_window.png)
+
+VtuberLab 的内容正在开发中。目前已经兼容 Open-LLM-VTuber 的前端。
+
+具体内容和更新参见: [vtuber.md](./docs/vtuber.md)
+
 ## 本地部署
 
-### 0.前置
-
-> 如果你是 windows , 可以先安装 [**scoop**](https://scoop.sh/) , 这样可以更方便的安装依赖。<br>
-> 只需要打开 powershell 然后运行:<br>
->
-> ```shell
-> Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-> Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
-> ```
->
-> 之后你就可以在任何终端使用 scoop.<br>
-
-[**ffmpeg**](https://www.ffmpeg.org/), 本项目的依赖项 `yutto` 用到系统的 `ffmpeg`, 目前 `ffmpeg` 需要在全局可以访问, 对于 mac 和 linux 用户可以直接:
-
-```shell
-sudo apt install ffmpeg # linux
-brew install ffmpeg # mac
-scoop install ffmpeg # windows
-```
-
-也可以下载 ffmpeg 的可执行文件然后添加到全局设置和 `b站视频下载` 是 ffmpeg 路径设置项中.
-
-[**uv**](https://docs.astral.sh/uv/) 是本项目的包管理工具，它让你免于手动配置和调试环境。你可以从[安装指南](https://docs.astral.sh/uv/getting-started/installation/)找到合适的安装方式～
-
-```shell
-curl -LsSf https://astral.sh/uv/install.sh | sh # linux / mac
-scoop install uv # windows
-# 完整完均需要新开终端
-```
-
-[**just**](https://github.com/casey/just) 是一款用 rust 编写的简单易用的命令执行工具，它可以让原本复杂的命令运行变得简单。安装方法请参考[它的文档](https://github.com/casey/just#installation)。该项非必须， Windows 比较难安装 just (当然如果你有 scoop 和 git bash 可以直接 `scoop install just`), 可以跳过。后续使用 bat 脚本替代即可。
-
-```shell
-# windows
-scoop install git
-scoop install just
-
-# linux / mac
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh # rust-tool-chain, 安装新开终端
-cargo install just
-```
-
-**ps:** windows 用户也可以等待网盘的整合包。整合包双击运行,包含所有环境以及依赖.
-
-### 1. 克隆仓库
-
-```shell
-git clone https://github.com/XnneHangLab/XnneHangLab.git --recurse-submodules
-cd XnneHangLab
-git submodule update --init --recursive packages # 如果你没有使用 --recurse-submodules 参数, 或者自动拉取失败，那么需要手动更新子模块
-```
-
-### 2. 自动安装依赖并下载必要模型权重文件
-
-如果你有 just:
-
-```shell
-just install-model
-```
-
-过程可能较久，因为需要先安装 python 环境，然后再下载模型， 模型和环境都不小, 建议可以先构建 cpu 版本进行功能预览，等有性能和批处理需求了再构建 gpu 版本的 torch。
-
-更改 pyproject.toml 的这几行即可：
-
-```toml
-# windows 下安装 pytorch-cuda, linux 和 mac 下安装 pytorch-cpu, 你可以根据你的系统和需求任意修改
-[tool.uv.sources]
-torch = [
-  { index = "pytorch-cu118", marker = "sys_platform == 'win32'" }, # sys_platform : 'win32' , 'linux' , 'Darwin'
-  { index = "pytorch-cpu", marker = "sys_platform != 'win32'"}
-]
-torchaudio = [
-  { index = "pytorch-cu118", marker = "sys_platform == 'win32'" },
-  { index = "pytorch-cpu", marker = "sys_platform != 'win32'"}
-]
-
-# 比如, 安装 `cpu` 版本:
-[tool.uv.sources]
-torch = { index = "pytorch-cpu"}
-torchaudio = { index = "pytorch-cpu"}
-
-# 安装 `cuda` 版本:
-[tool.uv.sources]
-torch = { index = "pytorch-cu118"}
-torchaudio = { index = "pytorch-cu118"}
-```
-
-默认 windows 下是 pytorch-cu118 , linux 和 mac 下是 pytorch-cpu, 你可以直接对调.
-
-你可以通过重复运行来验证模型是否下载完整:
-
-```shell
-(xnnehanglab) xnne@xnne-PC:~/code/XnneHangLab$ just install-model
-uv lock
-Resolved 106 packages in 5ms
-uv sync
-Resolved 106 packages in 6ms
-Audited 100 packages in 0.49ms
-# ASR with hotwords
-uv run modelscope download --model iic/punc_ct-transformer_zh-cn-common-vocab272727-pytorch --local_dir ./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch
-Downloading Model from https://www.modelscope.cn to directory: /home/xnne/code/XnneHangLab/models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch
-2025-03-31 20:41:31,448 - modelscope - WARNING - Model revision not specified, use revision: v2.0.4
-uv run modelscope download --model iic/speech_fsmn_vad_zh-cn-16k-common-pytorch --local_dir ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch
-Downloading Model from https://www.modelscope.cn to directory: /home/xnne/code/XnneHangLab/models/speech_fsmn_vad_zh-cn-16k-common-pytorch
-2025-03-31 20:41:34,048 - modelscope - WARNING - Model revision not specified, use revision: v2.0.4
-uv run modelscope download --model iic/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch --local_dir ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
-Downloading Model from https://www.modelscope.cn to directory: /home/xnne/code/XnneHangLab/models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
-2025-03-31 20:41:36,349 - modelscope - WARNING - Model revision not specified, use revision: v2.0.9
-# SenseVoiceSmall
-uv run modelscope download --model iic/SenseVoiceSmall --local_dir ./models/SenseVoiceSmall
-Downloading Model from https://www.modelscope.cn to directory: /home/xnne/code/XnneHangLab/models/SenseVoiceSmall
-```
-
-如果你是 Windows 并且没有 just , 那么也可以通过手动运行下列命令来安装模型:
-
-```shell
-uv lock
-uv sync
-
-# ASR with hotwords
-uv run modelscope download --model iic/punc_ct-transformer_zh-cn-common-vocab272727-pytorch --local_dir ./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch
-uv run modelscope download --model iic/speech_fsmn_vad_zh-cn-16k-common-pytorch --local_dir ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch
-uv run modelscope download --model iic/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch --local_dir ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
-
-# SenseVoiceSmall
-uv run modelscope download --model iic/SenseVoiceSmall --local_dir ./models/SenseVoiceSmall
-```
-
-可以通过阅读 `justfile` 得到。
-
-### 3.运行程序
-
-```shell
-just start
-```
-
-之后进入弹出的 URL 即可:
-
-```shell
-(xnnehanglab) xnne@xnne-PC:~/code/XnneHangLab$ just start
-uv lock
-Resolved 106 packages in 6ms
-uv sync
-Resolved 106 packages in 6ms
-Audited 100 packages in 0.31ms
-uv run get_root
-uv run streamlit run src/lab/ui.py
-
-  You can now view your Streamlit app in your browser.
-
-  Local URL: http://localhost:8501
-  Network URL: http://192.168.123.109:8501
-```
-
-## 如何使用
-
-[使用手册](https://xnnehang.top/posts/default/XnneHangLab_v0_0_0_4_guide)。
+参见 [deploy.md](./docs/deploy.md)
 
 ## RoadMap
 
@@ -257,8 +107,11 @@ uv run streamlit run src/lab/ui.py
 - [ ] 视频识别模块
 - [x] yutto-uiya 的移重构 bilibili 视频下载 new package
 
+> 最近 all in vtuberlab 了。
+
 ## 引用的仓库
 
+- [**Open-LLM-VTuber-Web**:The Web/Electron frontend for Open-LLM-VTuber Project](https://github.com/Open-LLM-VTuber/Open-LLM-VTuber-Web)
 - [**FunASR:** A Fundamental End-to-End Speech Recognition Toolkit and Open Source SOTA Pretrained Models, Supporting Speech Recognition, Voice Activity Detection, Text Post-processing etc.](https://github.com/modelscope/FunASR?tab=readme-ov-file)
 - [**Streamlit** — A faster way to build and share data apps.](https://github.com/streamlit/streamlit)
 - [**yutto:** 🧊 一个可爱且任性的 B 站视频下载器](https://github.com/yutto-dev/yutto)

@@ -9,13 +9,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, overload
 
 if TYPE_CHECKING:
-    from lab._dataclass import (
-        AudioSettings,
-        AudioSettingsTitle,
-        RootAbsDir,
-        RunnerSettings,
-        RunnerSettingsTitle,
-    )
+    from lab.config_manager.abs_root import RootAbsDir
+    from lab.config_manager.agent import AgentSettings
+    from lab.config_manager.audio_recognize import AudioRecognizeSettings, AudioRecognizeSettingsTitle
+    from lab.config_manager.funasr import FunASRSettings, FunASRSettingsTitle
 
 
 import tomli_w as tomlw  # 安装 tomli_w 用于写入
@@ -50,21 +47,25 @@ def search_for_settings_file(setting_name: str) -> Path | None:
 
 
 @overload
-def load_settings_file(setting_name: str, setting: type[RunnerSettings]) -> RunnerSettings: ...
+def load_settings_file(setting_name: str, setting: type[FunASRSettings]) -> FunASRSettings: ...
 
 
 @overload
-def load_settings_file(setting_name: str, setting: type[AudioSettings]) -> AudioSettings: ...
+def load_settings_file(setting_name: str, setting: type[AudioRecognizeSettings]) -> AudioRecognizeSettings: ...
 
 
 @overload
 def load_settings_file(setting_name: str, setting: type[RootAbsDir]) -> RootAbsDir: ...
 
 
+@overload
+def load_settings_file(setting_name: str, setting: type[AgentSettings]) -> AgentSettings: ...
+
+
 def load_settings_file(
     setting_name: str,
-    setting: (type[RunnerSettings | AudioSettings | RootAbsDir]),
-) -> RunnerSettings | AudioSettings | RootAbsDir:
+    setting: (type[FunASRSettings | AudioRecognizeSettings | RootAbsDir | AgentSettings]),
+) -> FunASRSettings | AudioRecognizeSettings | RootAbsDir | AgentSettings:
     """加载配置文件，如果不存在则创建默认配置文件在当前工作目录。"""
     settings_file = search_for_settings_file(setting_name=setting_name)
     if settings_file is None:
@@ -83,7 +84,7 @@ def load_settings_file(
 
 def write_settings_file(
     settings_name: str,
-    settings: RunnerSettings | AudioSettings | RootAbsDir,
+    settings: FunASRSettings | AudioRecognizeSettings | RootAbsDir | AgentSettings,
 ) -> None:
     """将 Setting 对象写入 TOML 文件。"""
     settings_file = search_for_settings_file(setting_name=settings_name)
@@ -100,23 +101,23 @@ def write_settings_file(
 
 @overload
 def get_setting_title(
-    name: RunnerSettingsTitle,
-    setting: type[RunnerSettings],
+    name: FunASRSettingsTitle,
+    setting: type[FunASRSettings],
 ) -> str:
     return str(setting.model_fields[name].field_info.title)  # type: ignore
 
 
 @overload
 def get_setting_title(
-    name: AudioSettingsTitle,
-    setting: type[AudioSettings],
+    name: AudioRecognizeSettingsTitle,
+    setting: type[AudioRecognizeSettings],
 ) -> str:
     return str(setting.model_fields[name].field_info.title)  # type: ignore
 
 
 def get_setting_title(
-    name: RunnerSettingsTitle | AudioSettingsTitle,
-    setting: type[RunnerSettings | AudioSettings],
+    name: FunASRSettingsTitle | AudioRecognizeSettingsTitle,
+    setting: type[FunASRSettings | AudioRecognizeSettings],
 ) -> str:
     """获取配置项(英文)的标题。（中文）
 

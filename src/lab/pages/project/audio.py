@@ -6,16 +6,21 @@ from pathlib import Path
 
 import streamlit as st
 
-from lab._dataclass import AudioSettings, RunnerSettings
 from lab._session_keys import audio_keys
 from lab.BasicRunner.combiner import combine_sentences
 from lab.BasicRunner.converter import convert_asr_response_to_sentences
 from lab.BasicRunner.cutter import cut_sentences
 from lab.BasicRunner.extractor import save_only_text_from_response
+from lab.config_manager import (
+    AudioRecognizeSettings,
+    FunASRSettings,
+    get_setting_title,
+    load_settings_file,
+    write_settings_file,
+)
 from lab.models.lazy_model import FunASRModel, generate_asr_results
 from lab.pages.dialogs.audio import AudioReadme, upload_audio
 from lab.styles.global_style import style
-from lab.utils.config import get_setting_title, load_settings_file, write_settings_file
 from lab.utils.FFmpegHelper import file_to_wav
 from lab.utils.public import (
     parse_srt_file,
@@ -26,8 +31,8 @@ from lab.utils.SrtHelper import write_srt_from_sentences
 # ============== 0.加载配置，配置字体
 
 style()
-settings: RunnerSettings = load_settings_file("global.toml", setting=RunnerSettings)
-audio_settings: AudioSettings = load_settings_file("audio.toml", setting=AudioSettings)
+settings: FunASRSettings = load_settings_file("funasr.toml", setting=FunASRSettings)
+audio_settings: AudioRecognizeSettings = load_settings_file("audio.toml", setting=AudioRecognizeSettings)
 
 # ============== 1.初始化持久化参数
 
@@ -91,12 +96,12 @@ with setting_tab:
 
     with AudioSetting:
         guide = st.selectbox(
-            get_setting_title("guide", AudioSettings),
+            get_setting_title("guide", AudioRecognizeSettings),
             audio_settings.get_zh_option_list("guide"),
             index=audio_settings.get_index("guide"),
         )
         output_type = st.selectbox(
-            get_setting_title("output_type", AudioSettings),
+            get_setting_title("output_type", AudioRecognizeSettings),
             audio_settings.get_zh_option_list("output_type"),
             index=audio_settings.get_index("output_type"),
         )
@@ -325,7 +330,7 @@ with working_tab:
             if st.toggle("自定义字幕", False, key="custom_subtitle"):
                 st.caption("所有自定义行为均在生成字幕后操作，请先生成字幕。")
                 subtitle_speed = st.selectbox(
-                    get_setting_title("subtitle_speed", AudioSettings),
+                    get_setting_title("subtitle_speed", AudioRecognizeSettings),
                     audio_settings.get_zh_option_list("subtitle_speed"),
                     index=audio_settings.get_index("subtitle_speed"),
                 )
@@ -333,7 +338,7 @@ with working_tab:
                 st.markdown("")
                 if subtitle_speed == "快":
                     cut_line = st.slider(
-                        get_setting_title("cut_line", RunnerSettings),
+                        get_setting_title("cut_line", FunASRSettings),
                         min_value=100,
                         max_value=1000,
                         value=cut_line,
@@ -344,7 +349,7 @@ with working_tab:
                     st.markdown("")
                 if subtitle_speed == "慢":
                     combine_line = st.slider(
-                        get_setting_title("combine_line", RunnerSettings),
+                        get_setting_title("combine_line", FunASRSettings),
                         min_value=100,
                         max_value=1000,
                         value=combine_line,
@@ -353,7 +358,7 @@ with working_tab:
                     )
                     st.caption("两个字间隔时长小于这个值合并为一句。")
                     max_sentence_length = st.slider(
-                        get_setting_title("max_sentence_length", RunnerSettings),
+                        get_setting_title("max_sentence_length", FunASRSettings),
                         min_value=5,
                         max_value=40,
                         value=max_sentence_length,

@@ -3,7 +3,7 @@ name = "XnneHangLab"
 version = "0.0.5"
 description = ""
 readme = "README.md"
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.11,<3.12"
 dependencies = [
     "funasr==1.2.6",
     "modelscope>=1.23.1",
@@ -11,26 +11,18 @@ dependencies = [
     "torch==2.6.0",
     "torchaudio==2.6.0",
     "tomli_w==1.2.0",
+    "tomli>=2.2.1",
     "pydantic>=2.10.6",
-    "setuptools==76.0.0",
+    "setuptools==76.0.0", # for install funasr
     "streamlit==1.43.2",
     "streamlit-antd-components==0.3.2",
     "pandas==2.2.3",
-    # special for yutto-uiya , 因为似乎不会自动检查 workspace 的成员并且安装依赖
-    "uiya-yutto==0.0.2-rc.2",
-    # "yutto==2.0.3",
-    "httpx[http2,socks]>=0.28.1",
-    "pexpect==4.9.0;sys_platform!='win32'",
-    "wexpect-uv==0.0.5;sys_platform=='win32'",
-    # "wexpect-uv;sys_platform=='win32'",
-    "natsort>=8.4.0",
     # special for fastapi
-    "fastapi>=0.115.12",
-    "uvicorn>=0.34.2",
+    "fastapi[standard]>=0.115.8",
+    "uvicorn[standard]>=0.33.0",
     "python-multipart>=0.0.20",
-    # special for database
-    "pymongo>=4.13.2",
-    "beanie>=1.30.0",
+    "websocket-client>=1.8.0",
+    "loguru>=0.7.3",
 ]
 authors = [{ name = "MrXnneHang", email = "XnneHang@gmail.com" }]
 keywords = []
@@ -54,7 +46,7 @@ Issues = "https://github.com/XnneHangLab/XnneHangLab/issues"
 [project.scripts]
 test = "lab.test:main"
 acgo = "lab.__main__:main"
-get_root = "lab.utils.get_root:main" # 获取项目所在根目录绝对路径, 防止 streamlit UI 中默认以 `.` 作为根目录而找不到一些文件.
+get_root = "lab.config_manager.abs_root:main" # 获取项目所在根目录绝对路径, 防止 streamlit UI 中默认以 `.` 作为根目录而找不到一些文件.
 tmp = "lab.tmp:main" # debug 时随意写的一些脚本
 debug = "lab.debug:main"
 test-database="lab.database.test:main"
@@ -67,9 +59,49 @@ dev = [
   "pytest-rerunfailures>=15.0",
 ]
 
+database = [
+  "pymongo>=4.13.2",
+  "beanie>=1.30.0",
+]
+
+yutto-uiya = [
+  "uiya-yutto==0.0.2-rc.2",
+  # "yutto==2.0.3",
+  "httpx[http2,socks]>=0.28.1",
+  "pexpect==4.9.0;sys_platform!='win32'",
+  "wexpect-uv==0.0.5;sys_platform=='win32'",
+  # "wexpect-uv;sys_platform=='win32'",
+  "natsort>=8.4.0",
+]
+
+bert-vits = [
+  "librosa==0.9.2",
+  "regex>=2024.11.6",
+  "huggingface-hub>=0.32.2",
+  "pypinyin>=0.54.0",
+  "cn2an>=0.5.23",
+  "transformers==4.36.2",
+  "num2words>=0.5.14",
+  "pyopenjtalk>=0.4.1",
+  "g2p-en>=2.1.0",
+  "vector-quantize-pytorch>=1.22.16",
+  "mecab-python3==1.0.8",
+]
+
+vtuber = [
+  "chardet>=5.2.0",
+  "pydub>=0.25.1",
+  "langdetect>=1.0.9",
+  "pysbd>=0.3.4",
+  "aiohttp>=3.12.13",
+  "openai>=1.93.0",
+]
+
+[tool.uv]
+default-groups = ["dev","yutto-uiya","bert-vits","database","vtuber"] # 还得考虑如果缺少库时的 lint 兼容，如果 list 改变了，那么需要忽略对应部分的 lint.
 
 [tool.uv.workspace]
-members = ["packages/yutto-uiya","packages/todo/"]
+members = ["packages/yutto-uiya","packages/todo/","packages/bert-vits"]
 
 [[tool.uv.index]]
 name = "pytorch-cu118"
@@ -160,7 +192,8 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/lab","packages/todo/src/todo","packages/yutto-uiya/src/uiya"]
+
+packages = ["src/lab","packages/todo/src/todo","packages/yutto-uiya/src/uiya","packages/bert-vits/src/vits"]
 
 [build-system]
 requires = ["hatchling"]

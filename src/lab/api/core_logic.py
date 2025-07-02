@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 from typing import TYPE_CHECKING, Any
 
 from funasr import AutoModel  # 导入仍然在代码顶部，但只执行一次
+from loguru import logger  # 保持 loguru 在代码顶部导入
 
-from lab._dataclass import RunnerSettings
+from lab.config_manager import FunASRSettings, load_settings_file
 from lab.models.lazy_model import generate_asr_results, generate_vad_results
-from lab.utils.config import load_settings_file
-from lab.utils.console.logger import Logger
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 class FunASRModel:  # 对于 api 需要快速响应, 不能 lazy-import ,所以独立出来一个版本.
     def __init__(self):
-        self.settings = load_settings_file("global.toml", RunnerSettings)
+        self.settings = load_settings_file("funasr.toml", FunASRSettings)
         self.base_model: str = str(self.settings.base_model)
         self.vad_model: str = str(self.settings.vad_model)
         self.punc_model: str = str(self.settings.punc_model)
@@ -39,7 +39,7 @@ class FunASRModel:  # 对于 api 需要快速响应, 不能 lazy-import ,所以�
 
     def asr_full_version(self):
         if self._model["asr"] is None:  # 第一次加载时初始化模型
-            Logger.info("Loading FunASR model...")
+            logger.info("Loading FunASR model...")
             self._model["asr"] = AutoModel(
                 model=self.base_model,
                 vad_model=self.vad_model,
@@ -47,19 +47,19 @@ class FunASRModel:  # 对于 api 需要快速响应, 不能 lazy-import ,所以�
                 device=self.device,
                 disable_update=True,
             )
-            Logger.info("模型加载成功!")
+            logger.info("ASR 模型加载成功!")
         return self._model["asr"]
 
     def only_vad(self):
         """仅加载 VAD 模型"""
         if self._model["vad"] is None:  # 第一次加载时初始化模型
-            Logger.info("Loading VAD model...")
+            logger.info("Loading VAD model...")
             self._model["vad"] = AutoModel(
                 model=self.vad_model,
                 device=self.device,
                 disable_update=True,
             )
-            Logger.info("VAD 模型加载成功!")
+            logger.info("VAD 模型加载成功!")
             return self._model["vad"]
 
 
@@ -118,5 +118,38 @@ def vad_audio(
         "processing_time": processing_time,
         "timestamp": response["timestamp"],
         "audio_length": response["audio_length"],
+    }
+    return result
+
+
+# def bert_vits_gen(
+#         text: str,
+#         file_name: Path):
+#     from vits.api_server import process_text
+#     audio_rate, audio_bytes = process_text(text)
+#     # 保存音频文件
+
+
+async def async_rec_audio(
+    input_path: Path,
+    # only_text: bool = False, # only_text 暂不考虑
+) -> dict[str, Any]:
+    """处理音频文件并生成 SRT,返回结果信息"""
+    # 假设 load_model 是同步函数，使用 asyncio.to_thread 在单独线程中运行
+    model_instances: ModelInstance = await asyncio.to_thread(load_model)
+    if model_instances["asr"] is not None:
+        model = model_instances["asr"]
+    else:
+        return {"error": "ASR model is not loaded."}
+    start = time.time()
+    # 假设 generate_asr_results 是同步函数，使用 asyncio.to_thread 在单独线程中运行
+    response: ASRResponse = await asyncio.to_thread(generate_asr_results, model=model, input_path=input_path)
+    end = time.time()
+    processing_time = end - start
+    result = {
+        "key": response["key"],
+        "processing_time": processing_time,
+        "text": response["text"],
+        "time_stamp": response["timestamp"],
     }
     return result

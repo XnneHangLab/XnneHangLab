@@ -1,9 +1,24 @@
+Data/
+bert/
+chat_history/
+config.yml
+config/setting.toml
+logs/
+# packages/bert-vits/
+./*.mp3
+./*.opus
+./*.json
+hub/
+.obsidian
+output.opus
+
 __pycache__/
 .venv/
 *.wav
 punc_ct-transformer_zh-cn-common-vocab272727-pytorch/
 speech_fsmn_vad_zh-cn-16k-common-pytorch/
 speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch/
+BERT-VITS2.3
 SenseVoiceSmall/
 output.txt
 *.srt

@@ -3,8 +3,7 @@ from __future__ import annotations
 import shutil
 from typing import TYPE_CHECKING
 
-from lab._dataclass import RunnerSettings
-from lab.utils.config import load_settings_file
+from lab.config_manager import FunASRSettings, load_settings_file
 from lab.utils.console.logger import Logger
 from lab.utils.SubprocessHelper import run_shell_command
 
@@ -13,7 +12,7 @@ if TYPE_CHECKING:
 
 
 def test_call_ffmpeg():
-    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
+    settings: FunASRSettings = load_settings_file("funasr.toml", FunASRSettings)
     FFMPEG_PATH = settings.FFMPEG_PATH
     command = [FFMPEG_PATH, "-version"]
     result = run_shell_command(command=command)
@@ -32,7 +31,7 @@ def file_to_wav(input_path: Path, output_wav_path: Path):
     可以处理 MP4, MP3, AAC, FLAC, etc. 等 FFmpeg 支持的格式。
     """
 
-    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
+    settings: FunASRSettings = load_settings_file("funasr.toml", FunASRSettings)
     FFMPEG_PATH = settings.FFMPEG_PATH
     if not input_path.exists():
         raise FileNotFoundError(f"输入文件不存在: {input_path}")
@@ -70,7 +69,7 @@ def file_to_wav(input_path: Path, output_wav_path: Path):
 
 
 def file_to_mp3(input_path: Path, output_path: Path):
-    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
+    settings: FunASRSettings = load_settings_file("funasr.toml", FunASRSettings)
     FFMPEG_PATH = settings.FFMPEG_PATH
     if not input_path.exists():
         raise FileNotFoundError(f"输入文件不存在: {input_path}")
@@ -110,7 +109,7 @@ def file_to_opus(input_path: Path, output_path: Path):
     可以处理 MP4, MP3, AAC, FLAC, etc. 等 FFmpeg 支持的格式。
     """
     # TODO 这一步可能比较久,但是只在结束时输出, 可以考虑用 wepxct 和 pexpect
-    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
+    settings: FunASRSettings = load_settings_file("funasr.toml", FunASRSettings)
     FFMPEG_PATH = settings.FFMPEG_PATH
     if not input_path.exists():
         raise FileNotFoundError(f"输入文件不存在: {input_path}")
@@ -144,7 +143,7 @@ def file_to_opus(input_path: Path, output_path: Path):
 # ffmpeg -i 输入文件名 -vn -c:a libopus 输出文件名.opus  # 仅提取音频为 opus
 def split_opus_audio(input_path: Path, output_dir: Path, start_time: int, seg_length: int) -> Path:
     # 仅支持 opus
-    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
+    settings: FunASRSettings = load_settings_file("funasr.toml", FunASRSettings)
     FFMPEG_PATH = settings.FFMPEG_PATH
     # 确保输出目录存在
     if output_dir.exists():

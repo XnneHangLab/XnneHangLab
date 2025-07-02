@@ -7,3 +7,9 @@
 [submodule "examples"]
 	path = examples
 	url = https://github.com/MrXnneHang/Subtitle-Generator-Examples.git
+[submodule "static"]
+	path = static
+	url = https://github.com/XnneHangLab/VtuberLabStatic.git
+[submodule "packages/bert-vits"]
+	path = packages/bert-vits
+	url = https://github.com/XnneHangLab/Bert-VITS2.3-Inference.git

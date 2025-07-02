@@ -159,3 +159,10 @@ class HomeSessionStateKeys(TypedDict):
     """pages/project/home.py 中用到的 st.session_state 的 key_names"""
 
     stars: str  # github stars
+
+
+class SessionKeys(TypedDict):
+    """所有 session_state 的 key_names"""
+
+    short_term_memory: str
+    text_response: str

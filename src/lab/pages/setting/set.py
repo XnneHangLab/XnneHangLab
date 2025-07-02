@@ -4,10 +4,9 @@ from pathlib import Path
 
 import streamlit as st
 
-from lab._dataclass import Device, RunnerSettings
 from lab._session_keys import setting_keys
+from lab.config_manager import Device, FunASRSettings, get_setting_title, load_settings_file, write_settings_file
 from lab.styles.global_style import style
-from lab.utils.config import get_setting_title, load_settings_file, write_settings_file
 
 # 我也很想用 st.write , 但是它存在类型未知 (> _ <)
 
@@ -27,7 +26,7 @@ def check_device_is_available(device: Device):
     return True  # Assume device is available for now, replace with actual check
 
 
-settings = load_settings_file("global.toml", setting=RunnerSettings)
+settings = load_settings_file("funasr.toml", setting=FunASRSettings)
 
 # Store initial settings in session state if not already present
 if setting_keys["initial_settings"] not in st.session_state:
@@ -69,7 +68,7 @@ with BOTSetting:
     st.markdown("###### 基础配置")
     st.markdown("")
     batch_size_s = st.number_input(
-        get_setting_title("batch_size_s", RunnerSettings),
+        get_setting_title("batch_size_s", FunASRSettings),
         value=batch_size_s,
         placeholder="Batch Size",
         key="batch_size_s",
@@ -79,38 +78,38 @@ with BOTSetting:
     st.markdown("###### 路径配置")
     st.caption("所有路径都与你的运行程序的工作目录相对应")
     hot_words_path = st.text_input(
-        get_setting_title("hot_words_path", RunnerSettings),
+        get_setting_title("hot_words_path", FunASRSettings),
         value=hot_words_path,
         placeholder="Hot Words Path",
         key="hot_words_path",
     )  # Add key
     ffmpeg_path = st.text_input(
-        get_setting_title("FFMPEG_PATH", RunnerSettings),
+        get_setting_title("FFMPEG_PATH", FunASRSettings),
         value=ffmpeg_path,
         placeholder="FFMPEG Path",
         key="ffmpeg_path",
     )  # Add key
     base_model = st.text_input(
-        get_setting_title("base_model", RunnerSettings),
+        get_setting_title("base_model", FunASRSettings),
         value=base_model,
         placeholder="Base Model Path",
         key="base_model",
     )  # Add key
     vad_model = st.text_input(
-        get_setting_title("vad_model", RunnerSettings),
+        get_setting_title("vad_model", FunASRSettings),
         value=vad_model,
         placeholder="VAD Model Path",
         key="vad_model",
     )  # Add key
     punc_model = st.text_input(
-        get_setting_title("punc_model", RunnerSettings),
+        get_setting_title("punc_model", FunASRSettings),
         value=punc_model,
         placeholder="Punctuation Model Path",
         key="punc_model",
     )  # Add key
     if st.toggle("自定义输出目录", custom_output_dir, key="custom_output_dir"):
         output_dir = st.text_input(
-            get_setting_title("output_dir", RunnerSettings),
+            get_setting_title("output_dir", FunASRSettings),
             value=output_dir,
             placeholder="Output Directory",
             key="output_dir",
@@ -154,8 +153,8 @@ with BOTSave:
                 settings.FFMPEG_PATH = ffmpeg_path
                 settings.cache_dir = cache_dir
                 settings.output_dir = output_dir
-                write_settings_file(settings_name="global.toml", settings=settings)
-                message_box("保存成功！", "你也可以通过手动配置 `global.toml` 来修改配置。")
+                write_settings_file(settings_name="funasr.toml", settings=settings)
+                message_box("保存成功！", "你也可以通过手动配置 `funasr.toml` 来修改配置。")
                 st.session_state[setting_keys["initial_settings"]] = (
                     current_settings  # Update initial settings after save
                 )
@@ -163,9 +162,9 @@ with BOTSave:
                 message_box("未检测到更改", "配置未发生任何变化，无需保存。")
 
         if st.button("**恢复默认设置**", type="secondary", use_container_width=True):
-            settings = Path("config") / "global.toml"
+            settings = Path("config") / "funasr.toml"
             settings.unlink()
-            load_settings_file("global.toml", RunnerSettings)
+            load_settings_file("funasr.toml", FunASRSettings)
             message_box("恢复成功！", "配置已恢复为默认设置。刷新页面即可查看更改。")
 
     with col1:

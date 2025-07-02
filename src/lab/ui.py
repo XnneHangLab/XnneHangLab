@@ -5,9 +5,8 @@ from pathlib import Path
 
 import streamlit as st
 
-from lab._dataclass import RootAbsDir
+from lab.config_manager import RootAbsDir, load_settings_file
 from lab.styles.global_style import style
-from lab.utils.config import load_settings_file
 
 style(True)
 
@@ -25,6 +24,7 @@ def main():
         "settings": ROOT_DIR / "src" / "lab" / "pages" / "setting" / "set.py",
         "todo": ROOT_DIR / "packages" / "todo" / "src" / "todo" / "streamlit_to_do.py",
         "uiya": ROOT_DIR / "packages" / "yutto-uiya" / "src" / "uiya" / "yutto_uiya.py",
+        "bert-vits": ROOT_DIR / "packages" / "bert-vits" / "src" / "vits" / "st_webui.py",
     }
     # 检查路径是否存在
     for name, path in PAGE_PATHS.items():
@@ -57,6 +57,11 @@ def main():
                 title="b站视频下载",
                 icon=":material/graphic_eq:",
             ),
+            # st.Page( # TODO: 分离 UI 和其他代码。另外，在开启时初始化模型
+            #     page=str(PAGE_PATHS["bert-vits"]),
+            #     title="BERT-VITS",
+            #     icon=":material/robot:",
+            # ),
         ],
     }
     pg = st.navigation(pages, position="sidebar")

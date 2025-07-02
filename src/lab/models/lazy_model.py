@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from lab._dataclass import RunnerSettings
-from lab.utils.config import load_settings_file
+from lab.config_manager import FunASRSettings, load_settings_file
 from lab.utils.FFmpegHelper import get_audio_duration
 
 if TYPE_CHECKING:
@@ -20,7 +19,7 @@ class FunASRModel:
     # 所以我还需要一个 Non-Lazy import 版本的. 参见 model.py
     # 而把模型调用放在这里的原因是, 如果我不初始化模型, 那么这个文件的导入就是极快的
     def __init__(self):
-        self.settings = load_settings_file("global.toml", RunnerSettings)
+        self.settings = load_settings_file("funasr.toml", FunASRSettings)
         self.base_model: str = str(self.settings.base_model)
         self.vad_model: str = str(self.settings.vad_model)
         self.punc_model: str = str(self.settings.punc_model)
@@ -86,7 +85,7 @@ def generate_asr_results(model: AutoModel, input_path: Path) -> ASRResponse:
     # 'text': '嗯 嗯  well come to the hollywood reporter actress round',
     # 'timestamp': [[12590, 12830], [16460, 16700], [27950, 28170], [28170, 28290], [28290, 28390], [28390, 28470], [28470, 28890], [28890, 29290], [29290, 29690], [29690, 30000]]}]
 
-    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
+    settings: FunASRSettings = load_settings_file("funasr.toml", FunASRSettings)
     batch_size_s = settings.batch_size_s
     hot_word_path = settings.hot_words_path
     # 原本 AutoModel 支持 input_path 是 list 的情况，但这里我忽略了它，我只需要写一个BasicRunner，多任务自己处理。
@@ -135,7 +134,7 @@ def generate_sense_voice_results(model: AutoModel, input_path: Path, use_itn: bo
     # TODO https://github.com/FunAudioLLM/SenseVoice/issues/205
     # 在这些结束后，可以考虑把 text 拆分成 status,text.
     # 目前先返回 full_text
-    settings: RunnerSettings = load_settings_file("global.toml", RunnerSettings)
+    settings: FunASRSettings = load_settings_file("funasr.toml", FunASRSettings)
     if not input_path.exists():
         raise FileNotFoundError(f"File not found: {input_path}")
     res: list[dict[str, Any]] = model.generate(  # type: ignore
