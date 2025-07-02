@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import base64
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from loguru import logger
 from pydub import AudioSegment
 from pydub.utils import make_chunks  # type: ignore[import-untyped]
 
-from lab.agent.output_types import Actions, ActionsDict, DisplayText, DisplayTextDict
+if TYPE_CHECKING:
+    from lab.agent.output_types import Actions, ActionsDict, DisplayText, DisplayTextDict
 
 
 class AudioPayload(TypedDict):
@@ -41,9 +42,9 @@ def _get_volume_by_chunks(audio: AudioSegment, chunk_length_ms: int) -> list[flo
 
 def prepare_audio_payload(
     audio_path: str | None,
-    chunk_length_ms: int = 20,
-    display_text: DisplayText | None = None,
+    display_text: DisplayText,
     actions: Actions | None = None,
+    chunk_length_ms: int = 20,
     forwarded: bool = False,
 ) -> AudioPayload:
     """
@@ -59,11 +60,8 @@ def prepare_audio_payload(
     Returns:
         dict: The audio payload to be sent
     """
-    if isinstance(display_text, DisplayText):
-        logger.info(f"display_text: {display_text}")
-        display: DisplayTextDict = display_text.to_dict()
-    else:
-        raise ValueError(f"display_text must be DisplayText, but got {type(display_text)}")
+
+    logger.info(f"display_text: {display_text}")
 
     if not audio_path:
         # Return payload for silent display
@@ -72,7 +70,7 @@ def prepare_audio_payload(
             "audio": None,
             "volumes": [0.0],  # No audio, so volume is zero
             "slice_length": chunk_length_ms,
-            "display_text": display,
+            "display_text": display_text.to_dict(),
             "actions": actions.to_dict() if actions else None,
             "forwarded": forwarded,
         }
@@ -88,17 +86,15 @@ def prepare_audio_payload(
         raise ValueError(f"Error loading or converting generated audio file to wav file '{audio_path}': {e}") from e
     audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
     volumes = _get_volume_by_chunks(audio, chunk_length_ms)
-    payload: AudioPayload = {
+    return {
         "type": "audio",
         "audio": audio_base64,
         "volumes": volumes,
         "slice_length": chunk_length_ms,
-        "display_text": display,
+        "display_text": display_text.to_dict(),
         "actions": actions.to_dict() if actions else None,
         "forwarded": forwarded,
     }
-
-    return payload
 
 
 # Example usage:
