@@ -13,7 +13,7 @@ from lab.utils.Timedhelper import get_time_tag_with_millis
 # 加载配置文件
 settings: FunASRSettings = load_settings_file("funasr.toml", FunASRSettings)
 
-router = APIRouter(prefix="/items", tags=["audio"])
+router = APIRouter(prefix="/audio")
 
 
 # 确保输出目录和缓存目录存在

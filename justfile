@@ -18,11 +18,11 @@ test-tts:
   curl -X POST   -H "Content-Type: application/json"   -d '{"text": "我写了两个杀人推理短篇，他们互为答案（下）鲅鱼村杀人疑案。"}'   -o output.opus   http://localhost:12393/tts/direct
 
 
-test-rec-audio:
-  curl -X POST "http://localhost:8000/rec-audio" -F "file=@./examples/example3.opus"
+test-asr:
+  curl -X POST "http://localhost:12393/audio/asr" -F "file=@./examples/example3.opus"
 
-test-vad-audio:
-  curl -X POST "http://localhost:8000/vad-audio" -F "file=@./examples/example3.opus"
+test-vad:
+  curl -X POST "http://localhost:12393/audio/vad" -F "file=@./examples/example3.opus"
 
 dev:
     # 删除所有构建产物和缓存 / 二次操作防止缓存问题恢复代码

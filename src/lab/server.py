@@ -18,6 +18,7 @@ from vits.infer import get_net_g, latest_version  # type: ignore[import-untyped]
 from vits.state_manager import tts_state_manager
 
 from lab.api.core_logic import load_model
+from lab.api.routes.audio import router as audio_router
 from lab.api.routes.vits import router as vits_router
 from lab.api.routes.vtuber import init_client_ws_route, router as vtuber_router
 from lab.config_manager import RootAbsDir, load_settings_file
@@ -103,6 +104,7 @@ class WebSocketServer:
         )
         self.app.include_router(vtuber_router)
         self.app.include_router(vits_router)
+        self.app.include_router(audio_router)
 
         # Mount static files
         logger.info(f"Mounting static files from {ROOT_DIR}")
