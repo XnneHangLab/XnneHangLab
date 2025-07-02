@@ -4,6 +4,8 @@
 
 ![vtuber_window](../assets/img/vtuber_window.png)
 
+![vtuber_pet_mode](../assets/img/vtuber_pet_mode.png)
+
 ## 启动
 
 **对于后端**:
