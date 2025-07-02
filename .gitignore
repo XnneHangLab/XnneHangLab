@@ -9,6 +9,8 @@ logs/
 ./*.opus
 ./*.json
 hub/
+.obsidian
+output.opus
 
 __pycache__/
 .venv/
