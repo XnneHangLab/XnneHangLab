@@ -50,7 +50,7 @@ def _ensure_conf_dir(conf_uid: str) -> str:
     safe_conf_uid = _sanitize_path_component(conf_uid)
     history_dir = Path("chat_history")
     base_dir = history_dir / safe_conf_uid
-    base_dir.mkdir(exist_ok=True)
+    base_dir.mkdir(exist_ok=True, parents=True)
     return str(base_dir)
 
 
