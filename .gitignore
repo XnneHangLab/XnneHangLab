@@ -11,6 +11,7 @@ logs/
 hub/
 .obsidian
 output.opus
+key
 
 __pycache__/
 .venv/
