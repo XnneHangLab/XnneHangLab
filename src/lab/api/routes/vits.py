@@ -2,27 +2,27 @@ from __future__ import annotations
 
 import io
 from pathlib import Path
-from typing import TYPE_CHECKING
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from loguru import logger
 from vits.api.core_logic import process_text  # type: ignore
 from vits.tools.ffmpeg_helper import audio_to_opus_bytes  # type: ignore
 
-if TYPE_CHECKING:
-    from vits.api._typing import TTSRequest
+from lab.api._typing import TTSRequest
 
 router = APIRouter()
 
 
 @router.post("/tts/direct")
-async def tts_direct(request: TTSRequest):
+async def tts_direct(request: Request) -> StreamingResponse:
     """
     直接生成音频，不进行切分。
     """
     try:
-        sample_rate, audio_data = process_text(request.text)  # type: ignore
+        request = await request.json()
+        request = TTSRequest(**request)  # type: ignore[call-arg]
+        sample_rate, audio_data = process_text(request["text"])  # type: ignore
         opus_bytes = audio_to_opus_bytes(sample_rate, audio_data)  # type: ignore
         return StreamingResponse(
             io.BytesIO(opus_bytes),
