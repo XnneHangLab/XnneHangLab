@@ -7,10 +7,10 @@ import time
 from typing import TYPE_CHECKING, Any
 
 from funasr import AutoModel  # 导入仍然在代码顶部，但只执行一次
+from loguru import logger  # 保持 loguru 在代码顶部导入
 
 from lab.config_manager import FunASRSettings, load_settings_file
 from lab.models.lazy_model import generate_asr_results, generate_vad_results
-from lab.utils.console.logger import Logger
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -39,7 +39,7 @@ class FunASRModel:  # 对于 api 需要快速响应, 不能 lazy-import ,所以�
 
     def asr_full_version(self):
         if self._model["asr"] is None:  # 第一次加载时初始化模型
-            Logger.info("Loading FunASR model...")
+            logger.info("Loading FunASR model...")
             self._model["asr"] = AutoModel(
                 model=self.base_model,
                 vad_model=self.vad_model,
@@ -47,19 +47,19 @@ class FunASRModel:  # 对于 api 需要快速响应, 不能 lazy-import ,所以�
                 device=self.device,
                 disable_update=True,
             )
-            Logger.info("模型加载成功!")
+            logger.info("ASR 模型加载成功!")
         return self._model["asr"]
 
     def only_vad(self):
         """仅加载 VAD 模型"""
         if self._model["vad"] is None:  # 第一次加载时初始化模型
-            Logger.info("Loading VAD model...")
+            logger.info("Loading VAD model...")
             self._model["vad"] = AutoModel(
                 model=self.vad_model,
                 device=self.device,
                 disable_update=True,
             )
-            Logger.info("VAD 模型加载成功!")
+            logger.info("VAD 模型加载成功!")
             return self._model["vad"]
 
 
