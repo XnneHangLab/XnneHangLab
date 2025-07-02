@@ -91,7 +91,7 @@
 
 ![vtuber_window](./assets/img/vtuber_window.png)
 
-![vtuber_pet_mode](../assets/img/vtuber_pet_mode.png)
+![vtuber_pet_mode](./assets/img/vtuber_pet_mode.png)
 
 VtuberLab 的内容正在开发中。目前已经兼容 Open-LLM-VTuber 的前端。
 
