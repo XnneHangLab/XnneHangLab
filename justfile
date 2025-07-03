@@ -14,7 +14,7 @@ server:
 db-server:
   uv run uvicorn src.lab.database.main:app --reload --host localhost --port 8000
 
-test-tts:
+test-bert-vits:
   curl -X POST "http://localhost:12393/tts/bert_vits" \
        -H "Content-Type: application/json" \
        -d '{"text": "我写了两个杀人推理短篇，他们互为答案（下）鲅鱼村杀人疑案。","audio_type":"opus"}' \
