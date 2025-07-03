@@ -14,9 +14,15 @@ server:
 db-server:
   uv run uvicorn src.lab.database.main:app --reload --host localhost --port 8000
 
-test-tts:
-  curl -X POST   -H "Content-Type: application/json"   -d '{"text": "我写了两个杀人推理短篇，他们互为答案（下）鲅鱼村杀人疑案。"}'   -o output.opus   http://localhost:12393/tts/direct
-
+test-bert-vits:
+  curl -X POST "http://localhost:12393/tts/bert_vits" \
+       -H "Content-Type: application/json" \
+       -d '{"text": "我写了两个杀人推理短篇，他们互为答案（下）鲅鱼村杀人疑案。","audio_type":"opus"}' \
+       -o response.json
+  # 第二步：提取并解码音频数据
+  python -c "import json, base64; data=json.load(open('response.json')); open('output.opus', 'wb').write(base64.b64decode(data['audio_byte']))"
+  # 清理中间文件
+  rm response.json
 
 test-asr:
   curl -X POST "http://localhost:12393/audio/asr" -F "file=@./examples/example3.opus"

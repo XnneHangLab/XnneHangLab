@@ -94,7 +94,7 @@ def rec_audio(
         "key": response["key"],
         "processing_time": processing_time,
         "text": response["text"],
-        "time_stamp": response["timestamp"],
+        "timestamp": response["timestamp"],
     }
     return result
 

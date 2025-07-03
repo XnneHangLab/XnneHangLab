@@ -3,14 +3,14 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
+from uuid import uuid4
 
 from loguru import logger
 
-from lab.api.routes.vits import generate_tts_direct
+from lab.api.clients import BERTVITSRequest, BERVITSClient
 from lab.utils.stream_audio import AudioPayload, prepare_audio_payload
 
 if TYPE_CHECKING:
@@ -152,15 +152,17 @@ class TTSTaskManager:
         try:
             logger.debug(f"🏃Generating audio for '''{text}'''...")
             cache_dir = Path("cache") / "tts"
-            audio_path = await generate_tts_direct(
-                text=text,
-                file_path=str(cache_dir / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}.opus"),
+            bert_vits_client = BERVITSClient()
+            response = await bert_vits_client.asyncpost(BERTVITSRequest(text=text, audio_type="opus"))
+            if response is None:
+                logger.error("Failed to get a valid response from BERT-VITS client")
+                return None
+            audio_path = (
+                cache_dir / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid4())[:8]}.{response['audio_type']}"
             )
+            with audio_path.open("wb") as f:
+                f.write(response["audio_byte"])
             audio_path = Path(audio_path)
-            if not audio_path.exists():
-                logger.error("generate_tts_direct returned None")
-            else:
-                logger.info(f"Generated audio file at {audio_path}")
             return audio_path
         except Exception as e:
             logger.error(f"Error generating audio: {e}", exc_info=True)
