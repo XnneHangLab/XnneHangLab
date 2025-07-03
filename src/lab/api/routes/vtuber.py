@@ -10,8 +10,8 @@ from fastapi import APIRouter, File, Response, UploadFile, WebSocket
 from loguru import logger
 from starlette.websockets import WebSocketDisconnect
 
+from lab.api.clients import BERTVITSRequest, BERVITSClient
 from lab.api.core_logic import rec_audio
-from lab.api.routes.vits import generate_tts_direct
 from lab.config_manager import FunASRSettings, load_settings_file
 from lab.utils.Timedhelper import get_time_tag_with_millis
 from lab.websocket_handler import WebSocketHandler
@@ -116,14 +116,23 @@ async def tts_endpoint(websocket: WebSocket):  # type: ignore[no-untyped-def]
                 for sentence in sentences:
                     sentence = sentence + "."  # Add back the period
                     cache_dir = Path("cache") / "tts"
-                    file_path = cache_dir / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid4())[:8]}.opus"
-                    audio_path = await generate_tts_direct(text=sentence, file_path=str(file_path))
-                    logger.info(f"Generated audio for sentence: {sentence} at: {audio_path}")
+                    bert_vits_client = BERVITSClient()
+                    response = await bert_vits_client.asyncpost(BERTVITSRequest(text=sentence, audio_type="opus"))
+                    if response is None:
+                        logger.error("Failed to get a valid response from BERT-VITS client")
+                        raise ValueError("Failed to generate audio response")
+                    file_path = (
+                        cache_dir
+                        / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid4())[:8]}.{response['audio_type']}"
+                    )
+                    with file_path.open("wb") as f:
+                        f.write(response["audio_byte"])
+                    logger.info(f"Generated audio for sentence: {sentence} at: {file_path}")
 
                     await websocket.send_json(
                         {
                             "status": "partial",
-                            "audioPath": audio_path,
+                            "audioPath": file_path,
                             "text": sentence,
                         }
                     )

@@ -43,3 +43,25 @@ class BERVITSClient(BaseClientInterface):
         except Exception as e:
             logger.error(f"Failed to parse VAD response: {e}")
             return None
+
+    async def asyncpost(self, request: BERTVITSRequest) -> BERTVITSResponse | None:  # type: ignore[override]
+        """
+        Asynchronous wrapper for the post method.
+        """
+        # bert-vits 的请求通常很久。所以生产环境应该异步。
+        self.async_session = await self.get_async_session()
+        async with self.async_session.post(self.base_url, json=request.model_dump()) as response:
+            if response.status != 200:
+                logger.error(f"Failed to get a valid response: {response.status}")
+                return None
+            response_data = await response.json()
+            try:
+                response = BERTVITSResponseModel.model_validate(response_data)  # 转换为 Pydantic 模型
+                if response.audio_type != request.audio_type:
+                    raise ValueError(f"Expected audio type {request.audio_type}, but got {response.audio_type}")
+                return response.to_dict()
+            except Exception as e:
+                logger.error(f"Failed to parse VAD response: {e}")
+                return None
+            finally:
+                await self.async_session.close()

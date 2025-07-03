@@ -44,3 +44,23 @@ class VADClient(BaseClientInterface):
             except Exception as e:
                 logger.error(f"Failed to parse VAD response: {e}")
                 return None
+
+    async def asyncpost(self, request: VADRequest) -> VadResponse | None:  # type: ignore[override]
+        """封装语音活动检测接口的异步版本"""
+        self.async_session = await self.get_async_session()
+        if not request.file_path.exists():
+            logger.error(f"File not found: {request.file_path}")
+            return None
+        with request.file_path.open("rb") as f:
+            async with self.async_session.post(self.base_url, data={"file": f}) as response:
+                if response.status != 200:
+                    logger.error(f"Failed to get a valid response: {response.status}")
+                    return None
+                response_data = await response.json()
+                try:
+                    return VADResponseModel.model_validate(response_data).to_dict()  # 转换为 Pydantic 模型
+                except Exception as e:
+                    logger.error(f"Failed to parse VAD response: {e}")
+                    return None
+                finally:
+                    await self.async_session.close()

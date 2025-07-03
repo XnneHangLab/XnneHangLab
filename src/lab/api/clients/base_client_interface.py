@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any
 
+import aiohttp
 import requests
 from loguru import logger
 from pydantic import BaseModel, Field
@@ -28,6 +29,8 @@ class BaseClientInterface(ABC):
 
     base_url = "http://localhost:12393"
     session = requests.Session()
+    async_session: aiohttp.ClientSession | None = None
+
     session.headers.update({"Accept": "application/json"})
 
     @abstractmethod
@@ -48,3 +51,17 @@ class BaseClientInterface(ABC):
         """
         logger.critical("BaseClient: No chat function set.")
         raise ValueError("BaseClient: No chat function set.")
+
+    @classmethod
+    async def get_async_session(cls) -> aiohttp.ClientSession:
+        if cls.async_session is None or cls.async_session.closed:
+            cls._async_session = aiohttp.ClientSession(headers={"Accept": "application/json"})
+        return cls._async_session
+
+    @abstractmethod
+    async def asyncpost(self, request: BaseRequest) -> dict[Any, Any] | None:
+        """
+        Asynchronous wrapper for the post method.
+        """
+        logger.warning("BaseClient: asyncpost is not implemented, using post instead.")
+        return self.post(request)
