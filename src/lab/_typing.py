@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TypedDict
+from typing import Literal, TypedDict
 
 # 两条线，一条是直接 mp4 输入。(需要考虑mp4->wav和音视频长度对齐)。
 # 一种是音频(wav)直接输入。或者考虑自动转换aac,mp3,m4a->wav.
@@ -28,6 +28,12 @@ class VadResponse(TypedDict):
     key: str  # 音频文件名(不带后缀)
     timestamp: list[list[int]]  # 时间戳列表, 每个元素是一个 [start, end] 的列表
     audio_length: int
+
+
+class BERTVITSResponse(TypedDict):
+    audio_type: Literal["opus"]  # 音频类型, 固定为 "opus"
+    audio_rate: int
+    audio_byte: bytes  # base64.b64encode(opus_bytes).decode("utf-8")
 
 
 class SenseVoiceResponse(TypedDict):
