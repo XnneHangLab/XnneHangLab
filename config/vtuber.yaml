@@ -18,11 +18,11 @@ system_config:
 
 # 默认角色的配置
 character_config:
-  conf_name: 'shizuku-local' # 角色配置文件的名称
-  conf_uid: 'shizuku-local-001' # 角色配置的唯一标识符
-  live2d_model_name: 'shizuku-local' # Live2D 模型名称
-  character_name: 'Shizuku' # 将在群聊中使用，并显示为 AI 的名称。
-  avatar: 'shizuku.png' # 建议使用正方形图像作为头像。将其保存到 avatars 文件夹中。留空则使用角色名称的首字母作为头像。
+  conf_name: 'elaina-local' # 角色配置文件的名称
+  conf_uid: 'elaina-local-001' # 角色配置的唯一标识符
+  live2d_model_name: 'Elaina' # Live2D 模型名称
+  character_name: 'Elaina' # 将在群聊中使用，并显示为 AI 的名称。
+  avatar: 'ico_lss.png' # 建议使用正方形图像作为头像。将其保存到 avatars 文件夹中。留空则使用角色名称的首字母作为头像。
   human_name: 'Human' # 将在群聊中使用，并显示为人类的名称。
 
   # ============== 提示词 ==============
