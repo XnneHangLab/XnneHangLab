@@ -70,3 +70,7 @@ class ASRClient(BaseClientInterface):
                     return None
                 finally:
                     await self.async_session.close()
+
+
+# asr_client = ASRClient()
+# result = asr_client.post(ASRRequest(file_path=Path("examples/example1.wav")))

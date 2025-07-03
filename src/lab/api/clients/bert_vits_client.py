@@ -65,3 +65,7 @@ class BERVITSClient(BaseClientInterface):
                 return None
             finally:
                 await self.async_session.close()
+
+
+# bert_vits_client = BERVITSClient()
+# result = await bert_vits_client.asyncpost(BERTVITSRequest(text="你好，世界！", audio_type="opus"))

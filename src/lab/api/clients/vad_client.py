@@ -64,3 +64,7 @@ class VADClient(BaseClientInterface):
                     return None
                 finally:
                     await self.async_session.close()
+
+
+# vad_client = VADClient()
+# result = vad_client.post(VADRequest(file_path=Path("examples/example1.wav")))
