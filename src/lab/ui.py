@@ -57,7 +57,7 @@ def main():
                 title="b站视频下载",
                 icon=":material/graphic_eq:",
             ),
-            st.Page( # TODO: 分离 UI 和其他代码。另外，在开启时初始化模型
+            st.Page(  # TODO: 分离 UI 和其他代码。另外，在开启时初始化模型
                 page=str(PAGE_PATHS["bert-vits"]),
                 title="BERT-VITS",
                 icon=":material/robot:",

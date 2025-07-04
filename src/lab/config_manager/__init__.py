@@ -6,6 +6,7 @@ from .agent import AgentSettings
 from .audio_recognize import AudioRecognizeSettings
 from .config import get_setting_title, load_settings_file, write_settings_file
 from .funasr import Device, FunASRSettings
+from .package import PackagesSettings
 
 __all__ = [
     "RootAbsDir",
@@ -16,4 +17,5 @@ __all__ = [
     "get_setting_title",
     "Device",
     "AgentSettings",
+    "PackagesSettings",
 ]
