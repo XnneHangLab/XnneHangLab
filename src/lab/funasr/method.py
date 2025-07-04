@@ -24,7 +24,7 @@ def generate_asr_results(model: AutoModel, input_path: Path) -> ASRResponse:
     settings: FunASRSettings = load_settings_file("funasr.toml", FunASRSettings)
     batch_size_s = settings.batch_size_s
     hot_word_path = settings.hot_words_path
-    # 原本 AutoModel 支持 input_path 是 list 的情况，但这里我忽略了它，我只需要写一个BasicRunner，多任务自己处理。
+    # 原本 AutoModel 支持 input_path 是 list 的情况，但这里我忽略了它，我只需要写一个asr，多任务自己处理。
     if not input_path.exists():
         raise FileNotFoundError(f"{input_path} not found.")
     else:

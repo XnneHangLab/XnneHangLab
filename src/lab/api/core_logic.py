@@ -10,7 +10,7 @@ from funasr import AutoModel  # 导入仍然在代码顶部，但只执行一次
 from loguru import logger  # 保持 loguru 在代码顶部导入
 
 from lab.config_manager import FunASRSettings, load_settings_file
-from lab.models.lazy_model import generate_asr_results, generate_vad_results
+from lab.funasr.method import generate_asr_results, generate_vad_results
 
 if TYPE_CHECKING:
     from pathlib import Path

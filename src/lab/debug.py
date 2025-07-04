@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# from lab.BasicRunner.converter import split_into_words
+# from lab.funasr.converter import split_into_words
 from lab.__main__ import main as basic_runner
 from lab.utils.console.logger import Logger
 from lab.utils.FFmpegHelper import file_to_opus, split_opus_audio
