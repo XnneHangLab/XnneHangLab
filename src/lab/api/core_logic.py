@@ -27,7 +27,7 @@ class FunASRModel:  # 对于 api 需要快速响应, 不能 lazy-import ,所以�
         self.punc_model: str = str(self.settings.punc_model)
         self.sense_voice_model: str = str(self.settings.sense_voice_model)
         self.device: str = self.settings.device
-        self._model: ModelInstance = {"asr": None, "vad": None}  # 存储模型实例
+        self._model: ModelInstance = {"asr": None, "vad": None, "asr_no_punc": None}  # 存储模型实例
 
     def init_model(self):
         """初始化模型"""
@@ -35,10 +35,12 @@ class FunASRModel:  # 对于 api 需要快速响应, 不能 lazy-import ,所以�
             self._model["asr"] = self.asr_full_version()
         if self._model["vad"] is None:
             self._model["vad"] = self.only_vad()
+        if self._model["asr_no_punc"] is None:
+            self._model["asr_no_punc"] = self.asr_no_punc_version()
         return self._model
 
     def reload_model(self):
-        self._model = {"asr": None, "vad": None}
+        self._model = {"asr": None, "vad": None, "asr_no_punc": None}  # 重置模型实例
         self.init_model()
 
     def asr_full_version(self):
@@ -53,6 +55,17 @@ class FunASRModel:  # 对于 api 需要快速响应, 不能 lazy-import ,所以�
             )
             logger.info("ASR 模型加载成功!")
         return self._model["asr"]
+
+    def asr_no_punc_version(self):
+        if self._model["asr_no_punc"] is None:  # 第一次加载时初始化模型
+            logger.info("Loading ASR no punc model...")
+            self._model["asr_no_punc"] = AutoModel(
+                model=self.base_model,
+                device=self.device,
+                disable_update=True,
+            )
+            logger.info("ASR no punc 模型加载成功!")
+        return self._model["asr_no_punc"]
 
     def only_vad(self):
         """仅加载 VAD 模型"""
@@ -89,7 +102,6 @@ def reload_model() -> Any:
 
 def rec_audio(
     input_path: Path,
-    # only_text: bool = False, # only_text 暂不考虑
 ) -> dict[str, Any]:
     """处理音频文件并生成 SRT,返回结果信息"""
     model_instances: ModelInstance = load_model()
@@ -110,6 +122,27 @@ def rec_audio(
     }
     return result
 
+def rec_audio_no_punc(
+    input_path: Path,
+) -> dict[str, Any]:
+    """处理音频文件并生成 SRT,返回结果信息"""
+    model_instances: ModelInstance = load_model()
+    if model_instances["asr_no_punc"] is not None:
+        model: AutoModel = model_instances["asr_no_punc"]
+    else:
+        return {"error": "ASR model is not loaded."}
+    start = time.time()
+    # 生成 ASR 结果
+    response: ASRResponse = generate_asr_results(model=model, input_path=input_path)
+    end = time.time()
+    processing_time = end - start
+    result = {
+        "key": response["key"],
+        "processing_time": processing_time,
+        "text": response["text"],
+        "timestamp": response["timestamp"],
+    }
+    return result
 
 def vad_audio(
     input_path: Path,

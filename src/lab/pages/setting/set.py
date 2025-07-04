@@ -5,6 +5,7 @@ from pathlib import Path
 import streamlit as st
 
 from lab._session_keys import setting_keys
+from lab.api.clients import ReloadClient
 from lab.config_manager import Device, FunASRSettings, get_setting_title, load_settings_file, write_settings_file
 from lab.styles.global_style import style
 
@@ -143,6 +144,15 @@ with BOTSave:
             initial_settings = st.session_state[setting_keys["initial_settings"]]
 
             if current_settings != initial_settings:  # Compare dictionaries
+                if (
+                    current_settings["basic"]["device"] != initial_settings["basic"]["device"]
+                    or current_settings["paths"]["base_model"] != initial_settings["paths"]["base_model"]
+                    or current_settings["paths"]["punc_model"] != initial_settings["paths"]["punc_model"]
+                    or current_settings["paths"]["vad_model"] != initial_settings["paths"]["vad_model"]
+                ):
+                    # 需要重新加载模型
+                    reload_client = ReloadClient("audio")
+                    reload_client.post()
                 settings.batch_size_s = batch_size_s
                 settings.device = device if check_device_is_available(device=device) else "cpu"  # type: ignore
                 settings.custom_output_dir = custom_output_dir

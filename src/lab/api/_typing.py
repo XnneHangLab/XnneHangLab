@@ -9,3 +9,4 @@ if TYPE_CHECKING:
 class ModelInstance(TypedDict):
     asr: AutoModel | None
     vad: AutoModel | None
+    asr_no_punc: AutoModel | None

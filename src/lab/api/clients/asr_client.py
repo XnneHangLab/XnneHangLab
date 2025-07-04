@@ -29,8 +29,11 @@ class ASRResponseModel(BaseResponse):
 
 # TODO 考虑封装为 ASRClient , VADClient ,然后以一个 interface 定义一个通用的模板。以 post 作为通用的接口。
 class ASRClient(BaseClientInterface):
-    def __init__(self):
-        self.base_url = self.base_url + "/audio/asr"
+    def __init__(self,no_punc: bool = False):
+        if no_punc:
+            self.base_url = self.base_url + "/audio/asr_no_punc"
+        else:
+            self.base_url = self.base_url + "/audio/asr"
 
     def post(self, request: ASRRequest) -> ASRResponse | None:  # type: ignore[override]
         """封装语音识别接口"""

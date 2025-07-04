@@ -27,6 +27,9 @@ test-bert-vits:
 test-asr:
   curl -X POST "http://localhost:12393/audio/asr" -F "file=@./examples/example3.opus"
 
+test-asr-no-punc:
+  curl -X POST "http://localhost:12393/audio/asr_no_punc" -F "file=@./examples/example3.opus"
+
 test-vad:
   curl -X POST "http://localhost:12393/audio/vad" -F "file=@./examples/example3.opus"
 
