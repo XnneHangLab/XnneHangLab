@@ -7,10 +7,7 @@ from pathlib import Path
 import streamlit as st
 
 from lab._session_keys import audio_keys
-from lab.BasicRunner.combiner import combine_sentences
-from lab.BasicRunner.converter import convert_asr_response_to_sentences
-from lab.BasicRunner.cutter import cut_sentences
-from lab.BasicRunner.extractor import save_only_text_from_response
+from lab.api.clients import ASRClient, ASRRequest
 from lab.config_manager import (
     AudioRecognizeSettings,
     FunASRSettings,
@@ -18,7 +15,9 @@ from lab.config_manager import (
     load_settings_file,
     write_settings_file,
 )
-from lab.models.lazy_model import FunASRModel, generate_asr_results
+from lab.funasr.combiner import combine_sentences
+from lab.funasr.converter import convert_asr_response_to_sentences
+from lab.funasr.cutter import cut_sentences
 from lab.pages.dialogs.audio import AudioReadme, upload_audio
 from lab.styles.global_style import style
 from lab.utils.FFmpegHelper import file_to_wav
@@ -243,38 +242,33 @@ with working_tab:
 
                 msg_whs = st.toast("正在识别音频内容", icon=":material/troubleshoot:")
                 if audio_settings.output_type == "with_timestamp":
-                    Model = FunASRModel()
-                    model = Model.vad_and_asr()
-                    response_with_timestamp = generate_asr_results(
-                        model=model,
-                        input_path=Path(cache_dir / st.session_state[audio_keys["audio_name"]]),
+                    asr_client = ASRClient(no_punc=True)
+                    response_with_timestamp = asr_client.post(
+                        ASRRequest(
+                            file_path=Path(cache_dir / st.session_state[audio_keys["audio_name"]]),
+                        )
                     )
-                    # 保存 response 到 json 文件
-                    st.session_state[audio_keys["response_with_timestamp"]] = response_with_timestamp
-                    sentences = convert_asr_response_to_sentences(response_with_timestamp)
-                    # 保存字幕
-                    print("\n\033[1;35m*** 正在生成 SRT 字幕文件 ***\033[0m\n")
-                    st.session_state[audio_keys["preview_srt_file"]] = (
-                        Path(settings.output_dir) / "audio" / (audio_first_name + ".srt")
-                    )
-                    write_srt_from_sentences(
-                        sentences,
-                        st.session_state[audio_keys["preview_srt_file"]],
-                    )
-                    print("\033[1;34m🎉 字幕生成成功！\033[0m")
+                    if response_with_timestamp is None:
+                        st.error(
+                            "识别失败，请检查音频文件格式是否正确，或尝试使用其他音频文件。", icon=":material/error:"
+                        )
+                    else:
+                        # 保存 response 到 json 文件
+                        st.session_state[audio_keys["response_with_timestamp"]] = response_with_timestamp
+                        sentences = convert_asr_response_to_sentences(response_with_timestamp)
+                        # 保存字幕
+                        print("\n\033[1;35m*** 正在生成 SRT 字幕文件 ***\033[0m\n")
+                        st.session_state[audio_keys["preview_srt_file"]] = (
+                            Path(settings.output_dir) / "audio" / (audio_first_name + ".srt")
+                        )
+                        write_srt_from_sentences(
+                            sentences,
+                            st.session_state[audio_keys["preview_srt_file"]],
+                        )
+                        print("\033[1;34m🎉 字幕生成成功！\033[0m")
 
                 elif audio_settings.output_type == "without_timestamp":
-                    Model = FunASRModel()
-                    model = Model.vad_and_asr()
-                    response = generate_asr_results(
-                        model=model,
-                        input_path=cache_dir / st.session_state[audio_keys["audio_name"]],
-                    )
-                    msg_srt = st.toast("正在生成 txt 文件", icon=":material/edit_note:")
-                    print("\n\033[1;35m*** 正在生成 txt 文件 ***\033[0m\n")
-                    result = save_only_text_from_response(response, output_dir=Path(settings.output_dir) / "audio")
-                    st.session_state[audio_keys["text_result"]] = result
-                    msg_srt.toast("txt 文件生成完成", icon=":material/edit_note:")
+                    st.error("暂时不支持无时间戳的字幕生成，请选择带时间戳的字幕。", icon=":material/error:")
                 print("\033[1;34m🎉 FunASR 识别成功！\033[0m")
                 msg_whs.toast("音频内容识别完成", icon=":material/colorize:")
                 print("\033[1;34m🎉 任务成功结束！\033[0m")

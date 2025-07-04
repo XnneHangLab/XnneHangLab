@@ -32,7 +32,7 @@ class BERVITSClient(BaseClientInterface):
         self.base_url = self.base_url + "/tts/bert_vits"
 
     def post(self, request: BERTVITSRequest) -> BERTVITSResponse | None:  # type: ignore[override]
-        response = self.session.post(self.base_url, json=request.model_dump(), timeout=10)
+        response = self.session.post(self.base_url, json=request.model_dump())
         response.raise_for_status()
         response = response.json()
         try:
@@ -41,7 +41,7 @@ class BERVITSClient(BaseClientInterface):
                 raise ValueError(f"Expected audio type {request.audio_type}, but got {response.audio_type}")
             return response.to_dict()
         except Exception as e:
-            logger.error(f"Failed to parse VAD response: {e}")
+            logger.error(f"Failed to parse BERT_VITS response: {e}, {response}")
             return None
 
     async def asyncpost(self, request: BERTVITSRequest) -> BERTVITSResponse | None:  # type: ignore[override]
@@ -61,7 +61,7 @@ class BERVITSClient(BaseClientInterface):
                     raise ValueError(f"Expected audio type {request.audio_type}, but got {response.audio_type}")
                 return response.to_dict()
             except Exception as e:
-                logger.error(f"Failed to parse VAD response: {e}")
+                logger.error(f"Failed to parse BERT_VITS response: {e}, {response}")
                 return None
             finally:
                 await self.async_session.close()
