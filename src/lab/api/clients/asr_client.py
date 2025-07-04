@@ -46,7 +46,7 @@ class ASRClient(BaseClientInterface):
             try:
                 return ASRResponseModel.model_validate(response).to_dict()  # 转换为 Pydantic 模型
             except Exception as e:
-                logger.error(f"Failed to parse ASR response: {e}")
+                logger.error(f"Failed to parse ASR response: {e}, {response}")
                 return None
 
     async def asyncpost(self, request: ASRRequest) -> ASRResponse | None:  # type: ignore[override]
@@ -66,7 +66,7 @@ class ASRClient(BaseClientInterface):
                 try:
                     return ASRResponseModel.model_validate(response_data).to_dict()  # 转换为 Pydantic 模型
                 except Exception as e:
-                    logger.error(f"Failed to parse ASR response: {e}")
+                    logger.error(f"Failed to parse ASR response: {e}, {response_data}")
                     return None
                 finally:
                     await self.async_session.close()

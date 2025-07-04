@@ -36,13 +36,12 @@ class VADClient(BaseClientInterface):
             logger.error(f"File not found: {request.file_path}")
             return None
         with request.file_path.open("rb") as f:
-            response = self.session.post(self.base_url, files={"file": f}, timeout=10)
+            response = self.session.post(self.base_url, files={"file": f})
             response.raise_for_status()
-            response = response.json()
             try:
-                return VADResponseModel.model_validate(response).to_dict()  # 转换为 Pydantic 模型
+                return VADResponseModel.model_validate(response.json()).to_dict()  # 转换为 Pydantic 模型
             except Exception as e:
-                logger.error(f"Failed to parse VAD response: {e}")
+                logger.error(f"Failed to parse VAD response: {e}, {response}")
                 return None
 
     async def asyncpost(self, request: VADRequest) -> VadResponse | None:  # type: ignore[override]
@@ -53,14 +52,11 @@ class VADClient(BaseClientInterface):
             return None
         with request.file_path.open("rb") as f:
             async with self.async_session.post(self.base_url, data={"file": f}) as response:
-                if response.status != 200:
-                    logger.error(f"Failed to get a valid response: {response.status}")
-                    return None
                 response_data = await response.json()
                 try:
                     return VADResponseModel.model_validate(response_data).to_dict()  # 转换为 Pydantic 模型
                 except Exception as e:
-                    logger.error(f"Failed to parse VAD response: {e}")
+                    logger.error(f"Failed to parse VAD response: {e}, {response_data}")
                     return None
                 finally:
                     await self.async_session.close()
