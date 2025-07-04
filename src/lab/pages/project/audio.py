@@ -249,7 +249,9 @@ with working_tab:
                         )
                     )
                     if response_with_timestamp is None:
-                        st.error("识别失败，请检查音频文件格式是否正确，或尝试使用其他音频文件。", icon=":material/error:")
+                        st.error(
+                            "识别失败，请检查音频文件格式是否正确，或尝试使用其他音频文件。", icon=":material/error:"
+                        )
                     else:
                         # 保存 response 到 json 文件
                         st.session_state[audio_keys["response_with_timestamp"]] = response_with_timestamp

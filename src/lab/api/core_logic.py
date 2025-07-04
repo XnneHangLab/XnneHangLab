@@ -122,6 +122,7 @@ def rec_audio(
     }
     return result
 
+
 def rec_audio_no_punc(
     input_path: Path,
 ) -> dict[str, Any]:
@@ -143,6 +144,7 @@ def rec_audio_no_punc(
         "timestamp": response["timestamp"],
     }
     return result
+
 
 def vad_audio(
     input_path: Path,

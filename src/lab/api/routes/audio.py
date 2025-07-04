@@ -83,6 +83,7 @@ async def asr_full(
 # user	0m0.011s
 # sys	0m0.015s
 
+
 @router.post("/asr_no_punc", response_model=dict)
 async def asr_no_punc(
     file: UploadFile = file_default,
@@ -116,7 +117,8 @@ async def asr_no_punc(
 # 加了 punc 后看不出来 word_num, 必须不加才能看出来。 # TODO , 可能 generate 本身直接支持 no_punc 而无需初始化两个模型。
 # xnnehanglab➜  VtuberLab git:(use-asr-fastapi-in-webui) ✗ just test-asr-no-punc
 # curl -X POST "http://localhost:12393/audio/asr_no_punc" -F "file=@./examples/example3.opus"
-# {"key":"example3","processing_time":0.5810887813568115,"text":"那 年 长 街 春 意 正 浓 策 马 同 游","timestamp":[[890,1130],[1170,1410],[1490,1730],[1930,2170],[2370,2610],[2670,2910],[3070,3310],[3830,4070],[5430,5670],[5730,5970],[6110,6350],[6450,6775]],"code":"200","message":"ASR processed successfully"}%   
+# {"key":"example3","processing_time":0.5810887813568115,"text":"那 年 长 街 春 意 正 浓 策 马 同 游","timestamp":[[890,1130],[1170,1410],[1490,1730],[1930,2170],[2370,2610],[2670,2910],[3070,3310],[3830,4070],[5430,5670],[5730,5970],[6110,6350],[6450,6775]],"code":"200","message":"ASR processed successfully"}%
+
 
 @router.post("/vad", response_model=dict)
 async def vad_audio_activity(
