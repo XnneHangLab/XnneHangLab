@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, File, Query, UploadFile
 from pydantic import BaseModel
 
-from lab.api.core_logic import rec_audio, vad_audio  # 导入 load_model 用于预加载
+from lab.api.core_logic import rec_audio, reload_model, vad_audio  # 导入 load_model 用于预加载
 from lab.config_manager import FunASRSettings, load_settings_file
 from lab.utils.Timedhelper import get_time_tag_with_millis
 
@@ -31,11 +32,25 @@ class ProcessConfig(BaseModel):
 file_default = File(...)
 
 
+@router.post("/reload", response_model=dict)
+async def reload():
+    """
+    Reload the FunASR model.
+    Returns a message indicating the model has been reloaded.
+    """
+    try:
+        reload_model()
+    except Exception as e:
+        return {"code": 500, "message": f"Failed to reload FunASR model: {str(e)}"}
+
+    return {"code": 200, "message": "FunASR model has been reloaded successfully!"}
+
+
 @router.post("/asr", response_model=dict)
 async def recognize_audio(
     file: UploadFile = file_default,
     only_text: bool = Query(False, description="Whether to use only text mode (faster, no punctuation)"),
-):
+) -> dict[str, Any]:
     """
     Convert uploaded audio file to SRT format.
     Returns processing information and the path to the generated SRT file.
@@ -51,7 +66,12 @@ async def recognize_audio(
         shutil.copyfileobj(file.file, buffer)
     # TODO 检查文件完整性
     # 处理音频文件
-    result = rec_audio(input_path=temp_audio_path)
+    try:
+        result = rec_audio(input_path=temp_audio_path)
+    except Exception as e:
+        return {"code": "500", "message": f"ASR processing failed: {str(e)}"}
+    result["code"] = "200"
+    result["message"] = "ASR processed successfully"
     # 清理临时文件
     temp_audio_path.unlink(missing_ok=True)
     return result
@@ -83,7 +103,12 @@ async def vad_audio_activity(
         shutil.copyfileobj(file.file, buffer)
     # TODO 检查文件完整性
     # 处理音频文件
-    result = vad_audio(input_path=temp_audio_path)
+    try:
+        result = vad_audio(input_path=temp_audio_path)
+    except Exception as e:
+        return {"code": "500", "message": f"VAD processing failed: {str(e)}"}
     # 清理临时文件
+    result["code"] = "200"
+    result["message"] = "VAD processed successfully"
     temp_audio_path.unlink(missing_ok=True)
     return result

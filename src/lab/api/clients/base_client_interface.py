@@ -19,6 +19,8 @@ class BaseRequest(BaseModel):
 
 class BaseResponse(BaseModel):
     datetime: str = Field(default=str(datetime.now()))  # 响应时间，default, 显式无需手动填写
+    code: int = Field(default=200, description="响应状态码")
+    message: str = Field(default="OK", description="响应消息")
 
     class Config:
         extra = "ignore"  # 兼容额外字段

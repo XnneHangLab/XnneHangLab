@@ -37,6 +37,10 @@ class FunASRModel:  # 对于 api 需要快速响应, 不能 lazy-import ,所以�
             self._model["vad"] = self.only_vad()
         return self._model
 
+    def reload_model(self):
+        self._model = {"asr": None, "vad": None}
+        self.init_model()
+
     def asr_full_version(self):
         if self._model["asr"] is None:  # 第一次加载时初始化模型
             logger.info("Loading FunASR model...")
@@ -73,6 +77,14 @@ def load_model() -> Any:
     if _model_instance is None:
         _model_instance = FunASRModel()
     return _model_instance.init_model()
+
+
+def reload_model() -> Any:
+    """重新加载 FunASR 模型"""
+    global _model_instance
+    if _model_instance is not None:
+        _model_instance.reload_model()
+    return _model_instance
 
 
 def rec_audio(
