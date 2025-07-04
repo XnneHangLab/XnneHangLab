@@ -52,7 +52,7 @@ default-groups = ["dev","yutto-uiya","bert-vits","database","vtuber"]
 
 ### `agent.toml`
 
-均用于 VtuberLab
+均用于 VtuberLab, 如果你不需要该功能那么可以不管这些配置。
 
 **openai_base_url**
 - 描述: openai base url

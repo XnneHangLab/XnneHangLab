@@ -151,12 +151,16 @@ xnnehanglab➜  BERT-VITS2.3 git:(copy-open-llm-vtuber) ✗ tree
 just start
 ```
 
-启动 Vtuber 后端:
+启动后端:
 
 ```shell
 just server
 ```
 
+如果你只想要使用部分功能，那么请参考 [关于 packages.toml](settings.md#packagetoml) 进行配置。
+
+默认开启所有功能，你需要下载所有模型和依赖。
+
 如果你需要进行对话，记得要先在 `config/agent.toml` 中配置你的使用的 openai 模型与 api key。
 
-配置相关详细参见: [setting.md](./settings.md)
+配置相关详细参见: [关于 agnet.toml](./settings.md#agenttoml)
