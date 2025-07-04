@@ -23,6 +23,33 @@
 
 运行 `uv run get_root` 时生成的记录项目根目录绝对路径的配置文件。
 
+### package.toml
+
+如果你只想允许本项目的部分功能，那么可以考虑调整它。并且跟随调整 pyproject.toml 中的:
+
+```shell
+default-groups = ["dev","yutto-uiya","bert-vits","database","vtuber"] 
+```
+
+可以起到项目瘦身的效果。当然目前的方案还是有局限性，如果你存在更好的管理方案欢迎提出。
+
+**to_do_list**
+- 描述：运行时是否包含待办事项，为 false 则 WebUI 中不再有`代办事项`页面
+- 默认值：true
+- 特性：仅影响 WebUI
+
+**yutto_uiya** 
+- 描述: 运行时是否包含 `b 站视频下载`模块
+- 默认值: true
+- 特性：仅影响 WebUI
+
+**bert_vits**
+- 描述: 运行时是否包含 `bert-vits` 模块, 以及 fastapi 的 lifespan 是否加载 BERT-VITS 模型。
+- 默认值: true
+- 特性：影响 WebUI 和 fastapi
+
+如果你希望使用 Vtuber 功能则需要至少开启 `bert-vits`。
+
 ### `agent.toml`
 
 均用于 VtuberLab

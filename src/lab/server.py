@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import gc
-import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -12,16 +11,12 @@ from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import Response
-from vits import utils as vits_utils
-from vits.config import config
-from vits.infer import get_net_g, latest_version  # type: ignore[import-untyped]
-from vits.state_manager import tts_state_manager
 
 from lab.api.core_logic import load_model
 from lab.api.routes.audio import router as audio_router
-from lab.api.routes.vits import router as vits_router
 from lab.api.routes.vtuber import init_client_ws_route, router as vtuber_router
 from lab.config_manager import RootAbsDir, load_settings_file
+from lab.config_manager.package import packages
 from lab.service_context import ServiceContext
 
 if TYPE_CHECKING:
@@ -30,10 +25,6 @@ if TYPE_CHECKING:
 RootSettings: RootAbsDir = load_settings_file("root.toml", RootAbsDir)
 ROOT_DIR = Path(RootSettings.root_dir) / "static"
 
-# 全局变量，用于存储模型和配置
-device = config.webui_config.device
-if device == "mps":
-    os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
 if not ROOT_DIR.exists():
     raise FileNotFoundError(f"Static root directory {ROOT_DIR} does not exist.")
@@ -60,24 +51,35 @@ class AvatarStaticFiles(StaticFiles):
 async def lifespan(app: FastAPI):
     logger.info("预加载 FunASR 模型...")
     load_model()  # 预加载模型，确保模型在启动时初始化
-    logger.info("Loading TTS model...")
-    hps = vits_utils.get_hparams_from_file(config.webui_config.config_path)  # type: ignore[no-untyped-call]
-    version = hps.version if hasattr(hps, "version") else latest_version  # type: ignore[no-untyped-call]
-    net_g = get_net_g(model_path=config.webui_config.model, version=version, device=device, hps=hps)  # type: ignore[no-untyped-call]
-    # 设置单例状态
-    tts_state_manager.set_state(net_g, hps)  # type: ignore[no-untyped-call]
-    logger.info("TTS model loaded successfully.")
+    if packages["bert_vits"]:
+        from vits import utils as vits_utils
+        from vits.config import config
+        from vits.infer import get_net_g, latest_version  # type: ignore[import-untyped]
+        from vits.state_manager import tts_state_manager
+
+        # 全局变量，用于存储模型和配置
+        device = config.webui_config.device
+        logger.info("Loading TTS model...")
+        hps = vits_utils.get_hparams_from_file(config.webui_config.config_path)  # type: ignore[no-untyped-call]
+        version = hps.version if hasattr(hps, "version") else latest_version  # type: ignore[no-untyped-call]
+        net_g = get_net_g(model_path=config.webui_config.model, version=version, device=device, hps=hps)  # type: ignore[no-untyped-call]
+        # 设置单例状态
+        tts_state_manager.set_state(net_g, hps)  # type: ignore[no-untyped-call]
+        logger.info("TTS model loaded successfully.")
+
     yield
+
     logger.info("Unloading TTS model...")
-    net_g = tts_state_manager.get_net_g()  # type: ignore[no-untyped-call]
-    if net_g is not None:
-        del net_g
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-    gc.collect()
-    # 重置单例状态
-    tts_state_manager.set_state(None, None)  # type: ignore[no-untyped-call]
-    logger.info("TTS model unloaded.")
+    if packages["bert_vits"]:
+        net_g = tts_state_manager.get_net_g()  # type: ignore[no-untyped-call]
+        if net_g is not None:
+            del net_g
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        gc.collect()
+        # 重置单例状态
+        tts_state_manager.set_state(None, None)  # type: ignore[no-untyped-call]
+        logger.info("TTS model unloaded.")
 
 
 class WebSocketServer:
@@ -103,8 +105,11 @@ class WebSocketServer:
             init_client_ws_route(default_context_cache=default_context_cache),
         )
         self.app.include_router(vtuber_router)
-        self.app.include_router(vits_router)
         self.app.include_router(audio_router)
+        if packages["bert_vits"]:
+            from lab.api.routes.vits import router as vits_router
+
+            self.app.include_router(vits_router)
 
         # Mount static files
         logger.info(f"Mounting static files from {ROOT_DIR}")

@@ -112,6 +112,12 @@ class DebugMessage(TypedDict):
     total_ts_num: int
 
 
+class Packages(TypedDict):
+    to_do_list: bool
+    yutto_uiya: bool
+    bert_vits: bool
+
+
 class AudioSessionStateKeys(TypedDict):
     """audio.py 中用到的 st.session_state 的 key_names"""
 

@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from lab.config_manager.agent import AgentSettings
     from lab.config_manager.audio_recognize import AudioRecognizeSettings, AudioRecognizeSettingsTitle
     from lab.config_manager.funasr import FunASRSettings, FunASRSettingsTitle
+    from lab.config_manager.package import PackagesSettings
 
 
 import tomli_w as tomlw  # 安装 tomli_w 用于写入
@@ -62,10 +63,14 @@ def load_settings_file(setting_name: str, setting: type[RootAbsDir]) -> RootAbsD
 def load_settings_file(setting_name: str, setting: type[AgentSettings]) -> AgentSettings: ...
 
 
+@overload
+def load_settings_file(setting_name: str, setting: type[PackagesSettings]) -> PackagesSettings: ...
+
+
 def load_settings_file(
     setting_name: str,
-    setting: (type[FunASRSettings | AudioRecognizeSettings | RootAbsDir | AgentSettings]),
-) -> FunASRSettings | AudioRecognizeSettings | RootAbsDir | AgentSettings:
+    setting: (type[FunASRSettings | AudioRecognizeSettings | RootAbsDir | AgentSettings | PackagesSettings]),
+) -> FunASRSettings | AudioRecognizeSettings | RootAbsDir | AgentSettings | PackagesSettings:
     """加载配置文件，如果不存在则创建默认配置文件在当前工作目录。"""
     settings_file = search_for_settings_file(setting_name=setting_name)
     if settings_file is None:
@@ -84,7 +89,7 @@ def load_settings_file(
 
 def write_settings_file(
     settings_name: str,
-    settings: FunASRSettings | AudioRecognizeSettings | RootAbsDir | AgentSettings,
+    settings: FunASRSettings | AudioRecognizeSettings | RootAbsDir | AgentSettings | PackagesSettings,
 ) -> None:
     """将 Setting 对象写入 TOML 文件。"""
     settings_file = search_for_settings_file(setting_name=settings_name)
