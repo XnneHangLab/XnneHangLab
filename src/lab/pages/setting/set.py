@@ -144,15 +144,6 @@ with BOTSave:
             initial_settings = st.session_state[setting_keys["initial_settings"]]
 
             if current_settings != initial_settings:  # Compare dictionaries
-                if (
-                    current_settings["basic"]["device"] != initial_settings["basic"]["device"]
-                    or current_settings["paths"]["base_model"] != initial_settings["paths"]["base_model"]
-                    or current_settings["paths"]["punc_model"] != initial_settings["paths"]["punc_model"]
-                    or current_settings["paths"]["vad_model"] != initial_settings["paths"]["vad_model"]
-                ):
-                    # 需要重新加载模型
-                    reload_client = ReloadClient("audio")
-                    reload_client.post()
                 settings.batch_size_s = batch_size_s
                 settings.device = device if check_device_is_available(device=device) else "cpu"  # type: ignore
                 settings.custom_output_dir = custom_output_dir
@@ -164,10 +155,20 @@ with BOTSave:
                 settings.cache_dir = cache_dir
                 settings.output_dir = output_dir
                 write_settings_file(settings_name="funasr.toml", settings=settings)
-                message_box("保存成功！", "你也可以通过手动配置 `funasr.toml` 来修改配置。")
+                if (
+                    current_settings["basic"]["device"] != initial_settings["basic"]["device"]
+                    or current_settings["paths"]["base_model"] != initial_settings["paths"]["base_model"]
+                    or current_settings["paths"]["punc_model"] != initial_settings["paths"]["punc_model"]
+                    or current_settings["paths"]["vad_model"] != initial_settings["paths"]["vad_model"]
+                ):
+                    # 需要重新加载模型
+                    reload_client = ReloadClient("audio")
+                    st.toast("正在重新加载模型，请稍候...")
+                    reload_client.post()
                 st.session_state[setting_keys["initial_settings"]] = (
                     current_settings  # Update initial settings after save
                 )
+                message_box("保存成功！", "你也可以通过手动配置 `funasr.toml` 来修改配置。")
             else:
                 message_box("未检测到更改", "配置未发生任何变化，无需保存。")
 
