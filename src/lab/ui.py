@@ -27,9 +27,9 @@ def main():
     if packages["bert_vits"]:
         PAGE_PATHS["bert-vits"] = ROOT_DIR / "packages" / "bert-vits" / "src" / "vits" / "bert_vits.py"
     if packages["to_do_list"]:
-        PAGE_PATHS["todo"] = ROOT_DIR / "src" / "lab" / "pages" / "project" / "todo.py"
+        PAGE_PATHS["todo"] = ROOT_DIR / "packages" / "todo" / "src" / "todo" / "streamlit_to_do.py"
     if packages["yutto_uiya"]:
-        PAGE_PATHS["uiya"] = ROOT_DIR / "src" / "lab" / "pages" / "project" / "uiya.py"
+        PAGE_PATHS["uiya"] = ROOT_DIR / "packages" / "yutto-uiya" / "src" / "uiya" / "yutto_uiya.py"
     # 检查路径是否存在
     for name, path in PAGE_PATHS.items():
         if not path.exists():
