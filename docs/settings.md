@@ -67,6 +67,25 @@ default-groups = ["dev","yutto-uiya","bert-vits","database","vtuber"]
 - 描述: 使用的模型的 model name. 比如 gpt-4o
 - 默认值:"yi-lightning"
 
+**system_prompt_name**
+- 描述: 角色 system_prompt 所在的位置，对应路径 `./prompt/{system_prompt_name}.txt`
+- 默认值: "elaina"
+- 可选: ["elaina", "paimeng", "neko"] # 你也可以自己替换或者新增提示词。
+
+**speaker_lang**
+- 描述: TTS 模型生成的目标语言
+- 默认值: "ZH"
+- 可选: ["ZH", "JA", "EN"]
+- 注意点： bert_vits 目前只推理中文。
+
+**speaker_model**
+- 描述: 使用的 TTS 模型名称
+- 默认值: "gpt_sovits"
+- 可选: ["bert_vits", "gpt_sovits"]
+- 注意点:
+  - bert_vits 的推理设备需要更改 `config/bert_vits.yaml` 中的 `device` 字段，可以全部替换。
+  - gpt_sovits 配置位于 `config/gsv_config.yaml` 自动加载显卡如果可用。
+
 **faster_first_response** 
 
 - 描述: 是否每生成一句话就开始异步生成 tts 而不是等待所有段落生成后再生成 tts
