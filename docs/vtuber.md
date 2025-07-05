@@ -34,7 +34,8 @@ npm run dev
 新增:
  - 增加了 BERT-VITS2.3 推理中文。
  - 使用 [fast_gsv](https://github.com/XnneHangLab/GPT-SoVITS-Inference#) 推理 GPT-SoVITS, 模型使用的是 [b 站某个佬训练的](https://www.bilibili.com/video/BV1Df421m7bm/).
-![elaina_voice](../assets/audio/elaina.mp3)
+  
+<audio src="../assets/audio/elaina.mp3" controls></audio>
 
 阉割:
 - group chat 功能, 因为会需要维护很多我用不到的代码
