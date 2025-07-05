@@ -16,6 +16,7 @@ class AgentSettings(BaseModel):
     openai_base_url: Annotated[str, Field("", title="OpenAI API Base URL")]
     openai_api_key: Annotated[str, Field("", title="OpenAI API Key")]
     openai_model: Annotated[str, Field("", title="OpenAI Model Name")]
+    deeplx_api_key: Annotated[str, Field("", title="DeepLX API Key, 用于跨语言对话时将大模型回复翻译成中文")]
     faster_first_response: Annotated[bool, Field(True, title="Enable Faster First Response")]
     segment_method: Literal["regex", "pysbd"] = Field(
         "pysbd",

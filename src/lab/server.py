@@ -14,6 +14,7 @@ from starlette.responses import Response
 
 from lab.api.core_logic import load_model
 from lab.api.routes.audio import router as audio_router
+from lab.api.routes.deeplx import router as deeplx_router
 from lab.api.routes.vtuber import init_client_ws_route, router as vtuber_router
 from lab.config_manager import RootAbsDir, load_settings_file
 from lab.config_manager.package import packages
@@ -124,6 +125,7 @@ class WebSocketServer:
         )
         self.app.include_router(vtuber_router)
         self.app.include_router(audio_router)
+        self.app.include_router(deeplx_router)
         if packages["bert_vits"]:
             from lab.api.routes.vits import router as vits_router
 

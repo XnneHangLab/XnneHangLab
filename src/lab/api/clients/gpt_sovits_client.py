@@ -5,15 +5,20 @@ from pathlib import Path
 from typing import Literal
 
 from loguru import logger
+from pydantic import Field
 
 from lab._typing import GPTSoVITSResponse
 from lab.api.clients.base_client_interface import BaseClientInterface, BaseRequest, BaseResponse
 
 
 class GPTSoVITSRequest(BaseRequest):
-    audio_type: Literal["mp3"]
-    text: str
+    text: str  # 必须传入
     ref_audio_path: str  # 不传入 ref 约束的 gptsovits 在 fast_gsv 推理中简直一团糟，所以我们必须约束他
+    # character: str = Field(default="elaina") # 暂时不支持多角色
+    audio_type: Literal["mp3"] = Field(default="mp3")
+    text_language: str = Field(default="ja")  # 默认日语
+    speed: float = Field(default=1.0)  # 语速
+    temperature: float = Field(default=1.0)  # 温度
 
 
 class GPTSoVITSResponseModel(BaseResponse):
