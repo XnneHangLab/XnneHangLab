@@ -57,3 +57,42 @@ xnnehanglab➜  VtuberLab git:(rest-api-design) ✗ just test-bert-vits
 xnnehanglab➜  VtuberLab git:(rest-api-design) ✗ ls output.opus 
 output.opus
 ```
+
+## `/tts/gpt-sovits`
+
+```shell
+xnnehanglab➜  VtuberLab git:(add-gpt-sovits) ✗ just test-gsv
+curl -X POST "http://127.0.0.1:12393/tts/gptsovits" -H "Content-Type: application/json" -d '{ "text": "それでは問題です。澄み渡った青空をゆく、そこに人がいたのなら間違いなく誰もが振り返り、ため息をこぼしてしまうほどの美貌の魔女は、いったい誰でしょう？", "character": "elaina", "text_language": "ja", "ref_audio_path": "/home/xnne/code/Chatter/VtuberLab/models/gptsovits/elaina/elaina.wav" }' -o response.json && python -c "import json, base64; data=json.load(open('response.json')); open('output.mp3', 'wb').write(base64.b64decode(data['audio_byte']))"
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  729k  100  729k  100   372  46126     22  0:00:16  0:00:16 --:--:--  174k
+rm response.json
+
+xnnehanglab➜  VtuberLab git:(add-gpt-sovits) ✗ ls output.mp3 
+output.mp3
+```
+
+support json body:
+
+```json
+{
+    "method": "POST",
+    "body": {
+        "character": "${chaName}",
+        "emotion": "${Emotion}",
+        "text": "${speakText}",
+        "ref_audio_path": "${refAudioPath}",
+        "text_language": "${textLanguage}",
+        "batch_size": ${batch_size},
+        "speed": ${speed},
+        "top_k": ${topK},
+        "top_p": ${topP},
+        "temperature": ${temperature},
+        "stream": "${stream}",
+        "format": "${Format}",
+        "save_temp": "${saveTemp}"
+    }
+}
+```
+
+其中 stream 不建议使用。

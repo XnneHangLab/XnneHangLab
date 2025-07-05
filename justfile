@@ -37,7 +37,7 @@ test-gsv:
 	curl -X POST "http://127.0.0.1:12393/tts/gptsovits" \
 	-H "Content-Type: application/json" \
 	-d '{ \
-		"text": "筆者はすでにエッセイの序論、本文、結論を紹介する記事を書いたが、この記事では英文エッセイの書き方の全体的な考え方をおさらいする。", \
+		"text": "それでは問題です。澄み渡った青空をゆく、そこに人がいたのなら間違いなく誰もが振り返り、ため息をこぼしてしまうほどの美貌の魔女は、いったい誰でしょう？", \
 		"character": "elaina", \
 		"text_language": "ja", \
 		"ref_audio_path": "/home/xnne/code/Chatter/VtuberLab/models/gptsovits/elaina/elaina.wav" \
