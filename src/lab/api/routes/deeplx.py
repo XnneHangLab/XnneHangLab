@@ -23,7 +23,10 @@ async def sentence_translate(request: Request):
     """
     agent_settings = load_settings_file("agent.toml", AgentSettings)
     deeplx_api_key = agent_settings.deeplx_api_key
-    _request = DeepLXRequest.model_validate(await request.json())
+    try:
+        _request = DeepLXRequest.model_validate(await request.json())
+    except ValueError as e:
+        return {"code": 400, "message": f"Failed to parse request data: {e}"}
     if not deeplx_api_key:
         return {"code": 500, "message": "deeplx_api_key is not set in agent.toml"}
 

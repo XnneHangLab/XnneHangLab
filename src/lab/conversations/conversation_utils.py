@@ -10,7 +10,9 @@ import soundfile as sf
 from loguru import logger
 
 from lab.agent.input_types import BatchInput, ImageData, ImageSource, TextData, TextSource
+from lab.api.clients import DeepLXClient, DeepLXRequest
 from lab.api.core_logic import async_rec_audio
+from lab.config_manager import AgentSettings, load_settings_file
 from lab.message_handler import message_handler
 
 if TYPE_CHECKING:
@@ -84,6 +86,7 @@ async def handle_sentence_output(
 ) -> str:
     """Handle sentence output type with optional translation support"""
     full_response = ""
+    agent_settings = load_settings_file("agent.toml", AgentSettings)
     async for display_text, tts_text, actions in output:
         logger.info(f"🏃 Processing output: '''{tts_text}'''...")
 
@@ -92,7 +95,15 @@ async def handle_sentence_output(
         #         tts_text = translate_engine.translate(tts_text)
         #     logger.info(f"🏃 Text after translation: '''{tts_text}'''...")
         # else:
-        logger.info("🚫 No translation engine available. Skipping translation.")
+        # logger.info("🚫 No translation engine available. Skipping translation.")
+        if agent_settings.speaker_lang != "ZH":
+            logger.info(f"🏃 Translating text to {agent_settings.speaker_lang}...")
+            deeplx_client = DeepLXClient()
+            response = await deeplx_client.asyncpost(
+                DeepLXRequest(text=tts_text, source_language="ZH", target_language=agent_settings.speaker_lang)
+            )
+            tts_text = response["target_text"] if response else tts_text
+            logger.info(f"🏃 Text after translation: '''{tts_text}'''...")
 
         full_response += display_text.text
         await tts_manager.speak(

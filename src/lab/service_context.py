@@ -137,7 +137,7 @@ class ServiceContext:
         root_dir_settings = load_settings_file("root.toml", RootAbsDir)
         agent_settings = load_settings_file("agent.toml", AgentSettings)
         root_dir = Path(root_dir_settings.root_dir)
-        system_prompt = (root_dir / "prompts" / "paimeng.txt").read_text(encoding="utf-8").strip()
+        system_prompt = (root_dir / "prompts" / f"{agent_settings.system_prompt_name}.txt").read_text(encoding="utf-8").strip()
         if self.live2d_model is None:
             logger.error("Live2D model is not initialized, cannot create agent.")
             raise ValueError("Live2D model must be initialized before creating agent.")
