@@ -127,7 +127,7 @@ class WebSocketServer:
         self.app.include_router(audio_router)
         self.app.include_router(deeplx_router)
         if packages["bert_vits"]:
-            from lab.api.routes.vits import router as vits_router
+            from lab.api.routes.bert_vits import router as vits_router
 
             self.app.include_router(vits_router)
         if packages["gpt_sovits"]:
