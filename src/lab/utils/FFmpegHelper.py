@@ -131,11 +131,11 @@ def file_to_opus(input_path: Path, output_path: Path):
         "-ar",
         "48000",  # Opus推荐使用48000Hz
         "-b:a",
-        "64k",   # 推荐64k比特率
-        "-vbr",   # 添加可变比特率参数
-        "on",     # 开启VBR模式
+        "64k",  # 推荐64k比特率
+        "-vbr",  # 添加可变比特率参数
+        "on",  # 开启VBR模式
         "-application",  # 指定编码应用场景
-        "voip",   # 针对语音优化（可选值：voip/audio/restricted_lowdelay）
+        "voip",  # 针对语音优化（可选值：voip/audio/restricted_lowdelay）
         str(output_path),  # 修改输出扩展名为ogg
     ]
 
