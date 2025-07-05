@@ -116,6 +116,7 @@ async def tts_endpoint(websocket: WebSocket):  # type: ignore[no-untyped-def]
                 for sentence in sentences:
                     sentence = sentence + "."  # Add back the period
                     cache_dir = Path("cache") / "tts"
+                    cache_dir.mkdir(parents=True, exist_ok=True)
                     bert_vits_client = BERVITSClient()
                     response = await bert_vits_client.asyncpost(BERTVITSRequest(text=sentence, audio_type="opus"))
                     if response is None:

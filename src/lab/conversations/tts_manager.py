@@ -153,6 +153,7 @@ class TTSTaskManager:
             logger.debug(f"🏃Generating audio for '''{text}'''...")
             agent_settings = load_settings_file("agent.toml", AgentSettings)
             cache_dir = Path("cache") / "tts"
+            cache_dir.mkdir(parents=True, exist_ok=True)
             if agent_settings.speaker_model == "bert_vits":
                 from lab.api.clients import BERTVITSRequest, BERVITSClient
 
