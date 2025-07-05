@@ -67,3 +67,9 @@ sentences_list
 debug/
 tmp.py
 wexpect_log
+
+# gpt_sovits
+
+gptsovits/
+output.mp3
+tmp_audio/

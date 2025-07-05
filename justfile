@@ -33,6 +33,19 @@ test-asr-no-punc:
 test-vad:
   curl -X POST "http://localhost:12393/audio/vad" -F "file=@./examples/example3.opus"
 
+test-gsv:
+	curl -X POST "http://127.0.0.1:12393/tts/gptsovits" \
+	-H "Content-Type: application/json" \
+	-d '{ \
+		"text": "それでは問題です。澄み渡った青空をゆく、そこに人がいたのなら間違いなく誰もが振り返り、ため息をこぼしてしまうほどの美貌の魔女は、いったい誰でしょう？", \
+		"character": "elaina", \
+		"text_language": "ja", \
+		"ref_audio_path": "/home/xnne/code/Chatter/VtuberLab/models/gptsovits/elaina/elaina.wav" \
+	}' \
+	-o response.json \
+	&& python -c "import json, base64; data=json.load(open('response.json')); open('output.mp3', 'wb').write(base64.b64decode(data['audio_byte']))"
+	rm response.json
+
 dev:
     # 删除所有构建产物和缓存 / 二次操作防止缓存问题恢复代码
     rm -rf packages/*/dist

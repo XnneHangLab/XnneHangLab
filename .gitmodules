@@ -13,3 +13,6 @@
 [submodule "packages/bert-vits"]
 	path = packages/bert-vits
 	url = https://github.com/XnneHangLab/Bert-VITS2.3-Inference.git
+[submodule "packages/gpt_sovits"]
+	path = packages/gpt_sovits
+	url = https://github.com/XnneHangLab/GPT-SoVITS-Inference.git

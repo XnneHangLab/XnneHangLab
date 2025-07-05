@@ -110,13 +110,30 @@ Downloading Model from https://www.modelscope.cn to directory: /home/xnne/code/X
 uv run modelscope download --model iic/speech_fsmn_vad_zh-cn-16k-common-pytorch --local_dir ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch
 ...
 ```
+### 3. 准备 bert 预训练模型 (如果你希望使用 VTuber 功能)
 
-### 3. 手动下载 BertVITS2.3 的模型。
+```shell
+xnnehanglab➜  VtuberLab git:(add-gpt-sovits) ✗ ls bert 
+chinese-hubert-base  chinese-roberta-wwm-ext-large  deberta-v2-large-japanese-char-wwm  deberta-v3-large
+```
+
+其中 gpt_sovits 仅用到 `chinese-hubert-base  chinese-roberta-wwm-ext-large `
+
+BERT_VITS 几乎全用到了。
+
+你可以选择从 hugging face 上下载。或者一样从我的网盘下载:
+
+```shell
+链接: https://pan.baidu.com/s/1BkrkAc7QvrJeYL6MfEizZQ?pwd=fdri 提取码: fdri 
+```
+
+
+### 4. 手动下载 BertVITS2.3 的模型。(如果你希望使用 VTuber 功能)
 
 有几种下载途径：
 
 - 直接从 hugging face 上下官方的底模: https://huggingface.co/OedoSoldier/Bert-VITS2-2.3/tree/main
-- 从我的网盘上下，好像也是底模: 
+- 从我的网盘上下: 
 ```shell
 链接: https://pan.baidu.com/s/1ItMmGUAnqlD7FhvqkUnvCQ?pwd=h22x
 提取码: h22x 
@@ -140,6 +157,31 @@ xnnehanglab➜  BERT-VITS2.3 git:(copy-open-llm-vtuber) ✗ tree
         ├── DUR_0.pth
         ├── G_0.pth
         └── train.log
+```
+
+## 5.手动下载 GPTSoVITS 模型(如果你希望使用 VTuber功能)
+
+原作者@[基于GPT-SoVITS的伊蕾娜自恋语音合集（附模型）](https://www.bilibili.com/video/BV1Df421m7bm/?spm_id_from=333.337.search-card.all.click&vd_source=d7601f0fc447d708fff71aa75186ea10)
+
+```shell
+链接: https://pan.baidu.com/s/1TlvFGx3bzOdZh2RydVAfpQ?pwd=hbfc 提取码: hbfc 
+```
+
+你应该把它这样放置:
+
+```shell
+xnnehanglab➜  VtuberLab git:(add-gpt-sovits) ✗ ls models 
+BERT-VITS2.3  gptsovits     hub                                                   speech_fsmn_vad_zh-cn-16k-common-pytorch
+download.md   gptsovits.7z  punc_ct-transformer_zh-cn-common-vocab272727-pytorch  speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
+xnnehanglab➜  VtuberLab git:(add-gpt-sovits) ✗ tree models/gptsovits 
+models/gptsovits
+└── elaina
+    ├── elaina_e10_s490.pth
+    ├── elaina-e25.ckpt
+    ├── elaina.wav
+    └── infer_config.json
+
+1 directory, 4 files
 ```
 
 

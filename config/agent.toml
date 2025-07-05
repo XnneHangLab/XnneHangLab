@@ -1,5 +1,5 @@
 openai_base_url = "https://api.lingyiwanwu.com/v1"
-openai_api_key = ""
+openai_api_key = "d3f9935e076142b3afcc47a6a0cab84d"
 openai_model = "yi-lightning"
 faster_first_response = true
 segment_method = "pysbd"
