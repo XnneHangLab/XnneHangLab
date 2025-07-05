@@ -1,20 +1,6 @@
 ## 模型下载
 
-asr, vad:
-
-```shell
-just install-model
-```
-
-bert-vits:
-
-建议手动下载:
-
-```shell
-xnnehanglab➜  VtuberLab git:(copy-open-llm-vtuber) ✗ ls models 
-BERT-VITS2.3
-```
-
+参见 [./deploy.md](./deploy.md) 文档。
 
 ## 运行
 
@@ -60,6 +46,8 @@ output.opus
 
 ## `/tts/gpt-sovits`
 
+- 描述: 调用 GPT-SoVITS 合成音频, 需要开启 packages.toml 中的 `gpt-sovits` 功能.
+- 方法&&响应示例:
 ```shell
 xnnehanglab➜  VtuberLab git:(add-gpt-sovits) ✗ just test-gsv
 curl -X POST "http://127.0.0.1:12393/tts/gptsovits" -H "Content-Type: application/json" -d '{ "text": "それでは問題です。澄み渡った青空をゆく、そこに人がいたのなら間違いなく誰もが振り返り、ため息をこぼしてしまうほどの美貌の魔女は、いったい誰でしょう？", "character": "elaina", "text_language": "ja", "ref_audio_path": "/home/xnne/code/Chatter/VtuberLab/models/gptsovits/elaina/elaina.wav" }' -o response.json && python -c "import json, base64; data=json.load(open('response.json')); open('output.mp3', 'wb').write(base64.b64decode(data['audio_byte']))"
@@ -78,21 +66,17 @@ support json body:
 {
     "method": "POST",
     "body": {
-        "character": "${chaName}",
-        "emotion": "${Emotion}",
         "text": "${speakText}",
         "ref_audio_path": "${refAudioPath}",
         "text_language": "${textLanguage}",
-        "batch_size": ${batch_size},
         "speed": ${speed},
-        "top_k": ${topK},
-        "top_p": ${topP},
         "temperature": ${temperature},
-        "stream": "${stream}",
-        "format": "${Format}",
-        "save_temp": "${saveTemp}"
     }
 }
 ```
 
-其中 stream 不建议使用。
+## `translate/deeplx`
+
+- 描述: 使用 deeplx 翻译文本,需要预先在 agent.toml 里填写 API KEY.
+- 方法: `curl -X POST "http://127.0.0.1:12393/translate/deeplx" -H "Content-Type: application/json" -d '{ "text": "それでは問題です。澄み渡った青空をゆく、そこに人がいたのなら間違いなく誰もが振り返り、ため息をこぼしてしまうほどの美貌の魔女は、いったい誰でしょう？", "source_language": "JA", "target_language": "ZH" }'`
+- 响应示例: `{"code":200,"message":"success","source_text":"JA","target_text":"现在问题来了。在湛蓝的天空中穿行的美丽女巫是谁，如果有一个人在那里，一定会让所有人回首叹息？"}%     `

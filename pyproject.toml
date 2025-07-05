@@ -48,6 +48,7 @@ test = "lab.test:main"
 acgo = "lab.__main__:main"
 get_root = "lab.config_manager.abs_root:main" # 获取项目所在根目录绝对路径, 防止 streamlit UI 中默认以 `.` 作为根目录而找不到一些文件.
 package = "lab.config_manager.package:main"
+agent_setting = "lab.config_manager.agent:main"
 tmp = "lab.tmp:main" # debug 时随意写的一些脚本
 test-database="lab.database.test:main"
 

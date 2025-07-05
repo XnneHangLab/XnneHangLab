@@ -42,6 +42,11 @@ class GPTSoVITSResponse(TypedDict):
     audio_byte: bytes  # base64.b64encode(opus_bytes).decode("utf-8")
 
 
+class DeepLXResponse(TypedDict):
+    source_text: str  # 源文本
+    target_text: str  # 目标文本
+
+
 class SenseVoiceResponse(TypedDict):
     """response from sensevoice models
       Example:

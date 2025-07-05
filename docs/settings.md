@@ -9,11 +9,11 @@
 
 所有配置文件均位于 `config/` 下。
 
-其中， `.toml` 文件均是我自己的， `yaml` 文件则不是我的。
+其中， `.toml` 文件均是我自己的， `yaml` 和 `json` 文件则不是我的。
 
 ## toml
 
-### `funasr.toml` / `audio.toml` /  `uiya.toml`
+### `funasr.toml` / `uiya.toml`
 
 你在运行 just start 后就可以在 UI 的设置中看到它们。这里一般在 UI 中更改。或者你要使用 cli 时可以了解部分。
 
@@ -72,12 +72,16 @@ default-groups = ["dev","yutto-uiya","bert-vits","database","vtuber"]
 - 描述: 是否每生成一句话就开始异步生成 tts 而不是等待所有段落生成后再生成 tts
 - 默认值:true
 
+**deeplx_api_key**
+- 描述: deeplx 翻译的 api key
+- 默认值: "peach"
+
 这两个我不建议你更改。
 
 **segment_method**
 **interrupt_method**
 
-### `setting.toml` / `todo.toml` / `video.toml`
+### `yutto.toml` / `todo.toml` / `audio.toml`
 
 无需修改和注意的文件。
 
@@ -101,3 +105,23 @@ dataset_path: "models/BERT-VITS2.3/xishi"  | speaker 路径配置。
 device: "cpu" / "cuda" | bert-vits 推理使用的设备, 如果你希望使用 cpu 或者 cuda, 把每处都替换了即可。
 
 model: "models/G_0.pth"  | 模型路径，只需要更改 G_XX 即可，模型具体路径由 dataset_path 也就是 speaker 路径决定。
+
+
+## json
+
+### `gsv_config.json`
+
+```json
+{
+  "device": "auto",
+  "is_half": "auto",
+
+  "models_path": "models/gptsovits",
+  "cnhubert_base_path": "bert/chinese-hubert-base",
+  "bert_base_path": "bert/chinese-roberta-wwm-ext-large",
+  "save_prompt_cache": true,
+  "prompt_cache_dir": "cache/prompt_cache"
+}
+```
+
+用来配置模型路径用的。一般不必更改。
