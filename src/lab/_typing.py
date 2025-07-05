@@ -36,6 +36,12 @@ class BERTVITSResponse(TypedDict):
     audio_byte: bytes  # base64.b64encode(opus_bytes).decode("utf-8")
 
 
+class GPTSoVITSResponse(TypedDict):
+    audio_type: Literal["mp3"]
+    audio_rate: int
+    audio_byte: bytes  # base64.b64encode(opus_bytes).decode("utf-8")
+
+
 class SenseVoiceResponse(TypedDict):
     """response from sensevoice models
       Example:
