@@ -56,6 +56,9 @@ test-deeplx:
 		"target_language": "ZH" \
 	}' \
 
+install-nltk:
+  python -c "import nltk; nltk.download('averaged_perceptron_tagger_eng')"
+
 dev:
     # 删除所有构建产物和缓存 / 二次操作防止缓存问题恢复代码
     rm -rf packages/*/dist
@@ -75,6 +78,7 @@ install-model:
   uv run modelscope download --model iic/punc_ct-transformer_zh-cn-common-vocab272727-pytorch --local_dir ./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch
   uv run modelscope download --model iic/speech_fsmn_vad_zh-cn-16k-common-pytorch --local_dir ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch
   uv run modelscope download --model iic/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch --local_dir ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
+  just install-nltk
 
 install-sensevoice:
   uv lock
