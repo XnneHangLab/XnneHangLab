@@ -73,6 +73,7 @@ git submodule update --init --recursive examples
 
 ```shell
 just install-model
+just install-nltk # 安装 nltk 依赖
 ```
 
 过程可能较久，因为需要先安装 python 环境，然后再下载模型， 模型和环境都不小, 建议可以先构建 cpu 版本进行功能预览，等有性能和批处理需求了再构建 gpu 版本的 torch。
@@ -124,7 +125,8 @@ BERT_VITS 几乎全用到了。
 你可以选择从 hugging face 上下载。或者一样从我的网盘下载:
 
 ```shell
-链接: https://pan.baidu.com/s/1BkrkAc7QvrJeYL6MfEizZQ?pwd=fdri 提取码: fdri 
+通过网盘分享的文件：bert.7z等2个文件
+链接: https://pan.baidu.com/s/1LGcyc9habnUcjeehNc18Pw?pwd=6ghj 提取码: 6ghj 
 ```
 
 
@@ -206,3 +208,10 @@ just server
 如果你需要进行对话，记得要先在 `config/agent.toml` 中配置你的使用的 openai 模型与 api key。
 
 配置相关详细参见: [关于 agnet.toml](./settings.md#agenttoml)
+
+
+## 如果出现问题！！！
+
+请参考 [issue.md](./issue.md) 进行排查，如果不在 issue 中，请联系我。
+
+我会尽快回复你。
