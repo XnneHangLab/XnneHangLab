@@ -1,0 +1,10 @@
+{
+  "device": "auto",
+  "is_half": "auto",
+
+  "models_path": "models/gptsovits",
+  "cnhubert_base_path": "bert/chinese-hubert-base",
+  "bert_base_path": "bert/chinese-roberta-wwm-ext-large",
+  "save_prompt_cache": true,
+  "prompt_cache_dir": "cache/prompt_cache"
+}

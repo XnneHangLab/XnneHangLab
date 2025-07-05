@@ -120,13 +120,23 @@ def file_to_opus(input_path: Path, output_path: Path):
 
     command = [
         str(FFMPEG_PATH),
-        "-y",  # 强制覆盖输出文件
+        "-y",
         "-i",
         str(input_path.absolute()),
-        "-vn",  # 禁用视频流
+        "-vn",
         "-c:a",
-        "libopus",  # 音频编码器，Opus
-        str(output_path.absolute()),
+        "libopus",
+        "-f",
+        "ogg",  # 使用ogg容器格式（标准opus封装）
+        "-ar",
+        "48000",  # Opus推荐使用48000Hz
+        "-b:a",
+        "64k",   # 推荐64k比特率
+        "-vbr",   # 添加可变比特率参数
+        "on",     # 开启VBR模式
+        "-application",  # 指定编码应用场景
+        "voip",   # 针对语音优化（可选值：voip/audio/restricted_lowdelay）
+        str(output_path),  # 修改输出扩展名为ogg
     ]
 
     result = run_shell_command(command)  # 使用 run_shell_command 执行命令

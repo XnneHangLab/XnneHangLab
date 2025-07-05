@@ -4,6 +4,8 @@ import base64
 
 from fastapi import APIRouter, HTTPException, Request
 from loguru import logger
+
+# 从 packages/bert_vits 导入，实际上对应包里已经有了相关路由，只不过，再次定义是为了更清晰地看到和修改我们使用了哪些路由，以及方便定义 Client.
 from vits.api.core_logic import process_text  # type: ignore
 from vits.tools.ffmpeg_helper import audio_to_opus_bytes  # type: ignore
 

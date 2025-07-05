@@ -116,6 +116,7 @@ class Packages(TypedDict):
     to_do_list: bool
     yutto_uiya: bool
     bert_vits: bool
+    gpt_sovits: bool
 
 
 class AudioSessionStateKeys(TypedDict):

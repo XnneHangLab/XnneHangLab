@@ -33,6 +33,19 @@ test-asr-no-punc:
 test-vad:
   curl -X POST "http://localhost:12393/audio/vad" -F "file=@./examples/example3.opus"
 
+test-gsv:
+	curl -X POST "http://127.0.0.1:12393/tts/gptsovits" \
+	-H "Content-Type: application/json" \
+	-d '{ \
+		"text": "筆者はすでにエッセイの序論、本文、結論を紹介する記事を書いたが、この記事では英文エッセイの書き方の全体的な考え方をおさらいする。", \
+		"character": "elaina", \
+		"text_language": "ja", \
+		"ref_audio_path": "/home/xnne/code/Chatter/VtuberLab/models/gptsovits/elaina/elaina.wav" \
+	}' \
+	-o response.json \
+	&& python -c "import json, base64; data=json.load(open('response.json')); open('output.mp3', 'wb').write(base64.b64decode(data['audio_byte']))"
+	rm response.json
+
 dev:
     # 删除所有构建产物和缓存 / 二次操作防止缓存问题恢复代码
     rm -rf packages/*/dist
