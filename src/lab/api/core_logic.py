@@ -6,7 +6,7 @@ import asyncio
 import time
 from typing import TYPE_CHECKING, Any
 
-from funasr import AutoModel  # 导入仍然在代码顶部，但只执行一次
+from funasr import AutoModel
 from loguru import logger  # 保持 loguru 在代码顶部导入
 
 from lab.config_manager import FunASRSettings, load_settings_file

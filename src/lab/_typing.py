@@ -124,6 +124,7 @@ class DebugMessage(TypedDict):
 
 
 class Packages(TypedDict):
+    funasr: bool  # 是否包含 funasr 模块
     to_do_list: bool
     yutto_uiya: bool
     bert_vits: bool

@@ -10,8 +10,7 @@ import soundfile as sf
 from loguru import logger
 
 from lab.agent.input_types import BatchInput, ImageData, ImageSource, TextData, TextSource
-from lab.api.clients import DeepLXClient, DeepLXRequest
-from lab.api.core_logic import async_rec_audio
+from lab.api.clients import ASRClient, ASRRequest, DeepLXClient, DeepLXRequest
 from lab.config_manager import AgentSettings, load_settings_file
 from lab.message_handler import message_handler
 
@@ -153,7 +152,10 @@ async def process_user_input(
             # 将音频数据写入文件
             sf.write(audio_file_path, user_input, samplerate=16000)  # 假设采样率为 16000 Hz # type: ignore
             # 使用文件路径调用异步转录方法
-            response = await async_rec_audio(audio_file_path)
+            asr_client = ASRClient()
+            response = await asr_client.asyncpost(ASRRequest(file_path=audio_file_path))
+            if response is None:
+                raise ValueError("ASR response is None")
             await websocket_send(json.dumps({"type": "user-input-transcription", "text": response["text"]}))
         finally:
             # 删除临时音频文件
