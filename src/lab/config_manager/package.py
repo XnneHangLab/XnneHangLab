@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
 
 class PackagesSettings(BaseModel):
+    funasr: Annotated[bool, Field(True, title="是否包含 funasr")]
     to_do_list: Annotated[bool, Field(True, title="是否包含 todo_list")]
     yutto_uiya: Annotated[
         bool,
@@ -26,6 +27,7 @@ class PackagesSettings(BaseModel):
             "yutto_uiya": self.yutto_uiya,
             "bert_vits": self.bert_vits,
             "gpt_sovits": self.gpt_sovits,
+            "funasr": self.funasr,
         }
 
 

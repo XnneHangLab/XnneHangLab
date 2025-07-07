@@ -5,15 +5,12 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import torch
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 
-from lab.api.core_logic import load_model
-from lab.api.routes.audio import router as audio_router
 from lab.api.routes.deeplx import router as deeplx_router
 from lab.api.routes.vtuber import init_client_ws_route, router as vtuber_router
 from lab.config_manager import RootAbsDir, load_settings_file
@@ -50,8 +47,12 @@ class AvatarStaticFiles(StaticFiles):
 # 应用生命周期管理
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("预加载 FunASR 模型...")
-    load_model()  # 预加载模型，确保模型在启动时初始化
+    # 之所以做这些 packages 的区分，是因为我们的 Base_URL 可以调用远程，不一定要运行在本地。
+    if packages["funasr"]:
+        from lab.api.core_logic import load_model
+
+        logger.info("预加载 FunASR 模型...")
+        load_model()  # 预加载模型，确保模型在启动时初始化
     if packages["bert_vits"]:
         from vits import utils as vits_utils
         from vits.config import config
@@ -90,6 +91,8 @@ async def lifespan(app: FastAPI):
 
     logger.info("Unloading TTS model...")
     if packages["bert_vits"]:
+        import torch
+
         net_g = tts_state_manager.get_net_g()  # type: ignore[no-untyped-call]
         if net_g is not None:
             del net_g
@@ -124,8 +127,11 @@ class WebSocketServer:
             init_client_ws_route(default_context_cache=default_context_cache),
         )
         self.app.include_router(vtuber_router)
-        self.app.include_router(audio_router)
         self.app.include_router(deeplx_router)
+        if packages["funasr"]:
+            from lab.api.routes.audio import router as audio_router
+
+            self.app.include_router(audio_router)
         if packages["bert_vits"]:
             from lab.api.routes.bert_vits import router as vits_router
 

@@ -497,6 +497,10 @@ class SentenceDivider:
             # Handle first sentence with comma if enabled
             if self._is_first_sentence and self.faster_first_response and contains_comma(self._buffer):
                 sentence, remaining = comma_splitter(self._buffer)
+                if len(sentence) < 10:
+                    self._is_first_sentence = False
+                    logger.info(f"First sentence is too short: {sentence}")
+                    continue
                 if sentence.strip():
                     result.append(
                         SentenceWithTags(
@@ -537,6 +541,7 @@ class SentenceDivider:
             SentenceWithTags: Complete sentences with their tag information
         """
         self._full_response = []
+        logger.info("Starting sentence processing stream...")
 
         async for segment in segment_stream:
             self._buffer += segment

@@ -215,3 +215,85 @@ just server
 请参考 [issue.md](./issue.md) 进行排查，如果不在 issue 中，请联系我。
 
 我会尽快回复你。
+
+
+# 服务器部署：
+
+分享一下我自己的服务器部署方案。
+
+这个服务器部署的目标是一个无 GPU 的服务器，甚至可以是 2 GB 内存的服务器。
+
+原理是利用 frp 穿透本地的 fastapi server 到公网。这样你可以把你的 api 给任何人使用，只需要修改 `src/lab/api/client/base_client_interface.py` 中的 base_url 从 `http://localhost:12393" 到你自己穿透和反代的地址，你也可以为它加上 SSL 证书。
+
+## 1. 在电脑完成本地部署并且穿透到公网以及可选配置自定义域名和 SSL 证书
+
+可以略微参考这个: [frp 基础教程](https://www.xbfast.com/22/)
+
+你可以修改 justfile 来测试你的部署是否成功。
+
+比如:
+
+```shell
+test-vad:
+  curl -X POST "https://domain.xnnehang.top/audio/vad" -F "file=@./examples/example3.opus"
+```
+
+如果部署成功，应该会和你本地运行一致，就是速度上慢一点。
+
+## 2. 在服务器上运行一个无额外依赖的服务
+
+这里也本地部署类似，不过不需要额外下载任何模型之类的文件，模型调用完全使用第一步里的 API. 只需要克隆完整 submodule 即可。
+
+关键修改：
+
+1.`pyproject.toml`:
+
+```shell
+[tool.uv]
+default-groups = ["vtuber"]
+```
+
+仅保留 vtuber 依赖因为我们的 live2d 什么的都是使用服务器上的。
+
+2.`config/pacakages.toml`:
+
+```shell
+funasr = false
+to_do_list = false
+yutto_uiya = false
+bert_vits = false
+gpt_sovits = false
+```
+
+所有包均不启动，还是得感谢 Open-LLM-VTuber 的仓库让我下定决心要分离前后端。这样自由度相当高。我可以任意组合前后端。
+
+
+3.`src/lab/api/clients/base_client_interface.py`
+
+```python
+base_url = "https://domain.xnnehang.top"
+```
+
+## 3. 启动后端
+
+```shell
+just server
+```
+
+## 4. 启动前端
+
+```shell
+npm run dev
+```
+
+这里需要注意的是你需要保证两个端口均对外开放，可以先用 ip:port 来测通。
+
+以及需要注意的是，如果你的前端使用了域名并且开启了 HTTPS ，那么后端也应该这么做，不然会出现跨域问题。（前后端分离为数不多的槽点）
+
+然后再前端中的设置里，把 base_url 改为你运行在服务器上的后端的地址。
+
+比如: `https://api.xnnehang.top`, `wss://api.xnnehang.top/ws-client`，
+
+这里并不填写你模型运行后的穿透地址。
+
+wss 似乎不需要额外配置，我在 1pannel 上用 openresty 反代 http 然后开启 https 就可以使用 wss 了。

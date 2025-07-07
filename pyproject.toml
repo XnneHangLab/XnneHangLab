@@ -5,15 +5,9 @@ description = ""
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
 dependencies = [
-    "funasr==1.2.6",
-    "modelscope>=1.23.1",
-    "numpy==1.26.4",
-    "torch==2.6.0",
-    "torchaudio==2.6.0",
     "tomli_w>=1.2.0",
     "tomli>=2.2.1",
     "pydantic>=2.10.6",
-    "setuptools>=76.0.0", # for install funasr
     "streamlit>=1.43.2",
     "streamlit-antd-components>=0.3.2",
     "pandas==2.2.3",
@@ -22,6 +16,7 @@ dependencies = [
     "uvicorn[standard]>=0.33.0",
     "python-multipart>=0.0.20",
     "websocket-client>=1.8.0",
+    "socksio>=1.0.0",
     "loguru>=0.7.3",
 ]
 authors = [{ name = "MrXnneHang", email = "XnneHang@gmail.com" }]
@@ -53,6 +48,15 @@ tmp = "lab.tmp:main" # debug 时随意写的一些脚本
 test-database="lab.database.test:main"
 
 [dependency-groups]
+base = [
+  "funasr==1.2.6",
+  "modelscope>=1.23.1",
+  "numpy==1.26.4",
+  "torch==2.6.0",
+  "torchaudio==2.6.0",
+  "setuptools>=76.0.0", # for install funasr
+]
+
 dev = [
   "pyright>=1.1.391",
   "ruff>=0.9.3",
@@ -110,16 +114,18 @@ gpt_sovits = [
 ]
 
 vtuber = [
+  "socksio>=1.0.0",
   "chardet>=5.2.0",
   "pydub>=0.25.1",
   "langdetect>=1.0.9",
   "pysbd>=0.3.4",
   "aiohttp>=3.12.13",
   "openai>=1.93.0",
+  "soundfile>=0.13.1",
 ]
 
 [tool.uv]
-default-groups = ["dev","yutto-uiya","database","vtuber","tts_base","gpt_sovits","bert-vits"]
+default-groups = ["base","dev","database","yutto-uiya","tts_base","bert-vits","gpt_sovits","vtuber"]
 
 [tool.uv.workspace]
 members = ["packages/yutto-uiya","packages/todo/","packages/bert-vits","packages/gpt_sovits"]
