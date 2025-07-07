@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -89,12 +90,6 @@ async def handle_sentence_output(
     async for display_text, tts_text, actions in output:
         logger.info(f"🏃 Processing output: '''{tts_text}'''...")
 
-        # if translate_engine:
-        #     if len(re.sub(r'[\s.,!?，。！？\'"』」）】\s]+', "", tts_text)):
-        #         tts_text = translate_engine.translate(tts_text)
-        #     logger.info(f"🏃 Text after translation: '''{tts_text}'''...")
-        # else:
-        # logger.info("🚫 No translation engine available. Skipping translation.")
         if agent_settings.speaker_lang != "ZH":
             logger.info(f"🏃 Translating text to {agent_settings.speaker_lang}...")
             deeplx_client = DeepLXClient()
@@ -142,11 +137,9 @@ async def process_user_input(
         cache_dir.mkdir(parents=True, exist_ok=True)
 
         # 生成唯一的文件名
-        audio_file_path = cache_dir / "temp_audio.wav"
-        unique_suffix = 1
-        while audio_file_path.exists():
-            audio_file_path = cache_dir / f"temp_audio_{unique_suffix}.wav"
-            unique_suffix += 1
+        audio_dir = cache_dir / "asr"
+        audio_dir.mkdir(parents=True, exist_ok=True)
+        audio_file_path = audio_dir / f"{datetime.now().strftime('%Y%m%d%H%M%S')}.wav"
 
         try:
             # 将音频数据写入文件

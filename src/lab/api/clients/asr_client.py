@@ -41,9 +41,7 @@ class ASRClient(BaseClientInterface):
             logger.error(f"File not found: {request.file_path}")
             return None
         with request.file_path.open("rb") as f:
-            response = self.session.post(
-                self.base_url, files={"file": f}, params={"only_text": request.only_text}, timeout=10
-            )
+            response = self.session.post(self.base_url, files={"file": f})
             response.raise_for_status()
             response = response.json()
             try:
@@ -59,9 +57,7 @@ class ASRClient(BaseClientInterface):
             logger.error(f"File not found: {request.file_path}")
             return None
         with request.file_path.open("rb") as f:
-            async with self.async_session.post(
-                self.base_url, data={"file": f}, params={"only_text": request.only_text}
-            ) as response:
+            async with self.async_session.post(self.base_url, data={"file": f}) as response:
                 if response.status != 200:
                     logger.error(f"Failed to get a valid response: {response.status}")
                     return None
