@@ -520,7 +520,7 @@ class SentenceDivider:
                 self._buffer = remaining
                 for index, sentence in enumerate(sentences):
                     if sentence.strip():
-                        if display_sentence is "":
+                        if display_sentence == "":
                             display_sentence = sentence
                         elif len(display_sentence) < 10 and index != len(sentences) - 1:
                             display_sentence += sentence
