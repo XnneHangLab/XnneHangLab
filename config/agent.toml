@@ -5,6 +5,6 @@ deeplx_api_key = ""
 system_prompt_name = "elaina"
 speaker_lang = "ZH"
 speaker_model = "gpt_sovits"
-faster_first_response = true
+faster_first_response = false
 segment_method = "pysbd"
 interrupt_method = "user"
