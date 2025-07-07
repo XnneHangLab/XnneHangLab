@@ -2,9 +2,9 @@
 
 ## 演示
 
-![vtuber_window](../assets/img/vtuber_window.png)
+![vtuber_window](../assets/img/vtuber_window_elaina_1.png)
 
-![vtuber_pet_mode](../assets/img/vtuber_pet_mode.png)
+![vtuber_pet_mode](../assets/img/vtuber_window_elaina_2.png)
 
 ## 启动
 

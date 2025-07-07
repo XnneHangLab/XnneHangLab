@@ -514,17 +514,24 @@ class SentenceDivider:
 
             # Process normal sentences
             if contains_end_punctuation(self._buffer):
+                display_sentence = ""
                 sentences, remaining = self._segment_text(self._buffer)
-                self._buffer = remaining
                 self._is_first_sentence = False
-                for sentence in sentences:
+                self._buffer = remaining
+                for index, sentence in enumerate(sentences):
                     if sentence.strip():
+                        if display_sentence == "":
+                            display_sentence = sentence
+                        elif len(display_sentence) < 10 and index != len(sentences) - 1:
+                            display_sentence += sentence
+                            continue
                         result.append(
                             SentenceWithTags(
-                                text=sentence.strip(),
+                                text=display_sentence.strip(),
                                 tags=current_tags or [TagInfo("", TagState.NONE)],
                             )
                         )
+                        display_sentence = ""
             break
 
         return result
