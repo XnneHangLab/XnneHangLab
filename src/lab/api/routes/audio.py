@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, File, Query, UploadFile
+from fastapi import APIRouter, File, UploadFile
 from pydantic import BaseModel
 
 from lab.api.core_logic import rec_audio, rec_audio_no_punc, reload_model, vad_audio  # 导入 load_model 用于预加载
@@ -47,10 +47,7 @@ async def reload():
 
 
 @router.post("/asr", response_model=dict)
-async def asr_full(
-    file: UploadFile = file_default,
-    only_text: bool = Query(False, description="Whether to use only text mode (faster, no punctuation)"),
-) -> dict[str, Any]:
+async def asr_full(file: UploadFile = file_default) -> dict[str, Any]:
     """
     Convert uploaded audio file to SRT format.
     Returns processing information and the path to the generated SRT file.

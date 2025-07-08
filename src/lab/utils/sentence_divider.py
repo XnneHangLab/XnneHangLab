@@ -497,10 +497,6 @@ class SentenceDivider:
             # Handle first sentence with comma if enabled
             if self._is_first_sentence and self.faster_first_response and contains_comma(self._buffer):
                 sentence, remaining = comma_splitter(self._buffer)
-                if len(sentence) < 10:
-                    self._is_first_sentence = False
-                    logger.info(f"First sentence is too short: {sentence}")
-                    continue
                 if sentence.strip():
                     result.append(
                         SentenceWithTags(
@@ -522,8 +518,16 @@ class SentenceDivider:
                     if sentence.strip():
                         if display_sentence == "":
                             display_sentence = sentence
-                        elif len(display_sentence) < 10 and index != len(sentences) - 1:
+                        elif len(display_sentence) < 10:
                             display_sentence += sentence
+                            if index == len(sentences) - 1:
+                                result.append(
+                                    SentenceWithTags(
+                                        text=display_sentence.strip(),
+                                        tags=current_tags or [TagInfo("", TagState.NONE)],
+                                    )
+                                )
+                                break
                             continue
                         result.append(
                             SentenceWithTags(
