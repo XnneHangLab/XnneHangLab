@@ -168,7 +168,10 @@ class TTSTaskManager:
                 gpt_sovits_client = GPTSoVITSClient()
                 response = await gpt_sovits_client.asyncpost(
                     GPTSoVITSRequest(
-                        text=text, audio_type="mp3", ref_audio_path="./models/gptsovits/elaina/elaina.wav"
+                        text=text,
+                        audio_type="mp3",
+                        ref_audio_path="./models/gptsovits/elaina/elaina.wav",
+                        text_language=agent_settings.speaker_lang,
                     )  # TODO ,暂时这么做因为我们只有一个模型。但是这个实际上可以用来控制情感，值得放入 agent.toml。
                 )
                 if response is None:
