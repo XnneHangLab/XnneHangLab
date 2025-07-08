@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, File, Query, UploadFile
+from fastapi import APIRouter, File, UploadFile
 from pydantic import BaseModel
 
 from lab.api.core_logic import rec_audio, rec_audio_no_punc, reload_model, vad_audio  # 导入 load_model 用于预加载
