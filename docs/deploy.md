@@ -205,9 +205,9 @@ just server
 
 默认开启所有功能，你需要下载所有模型和依赖。
 
-如果你需要进行对话，记得要先在 `config/agent.toml` 中配置你的使用的 openai 模型与 api key。
+如果你需要进行对话，记得要先在 `config/lab.toml` 中配置你的使用的 openai 模型与 api key。
 
-配置相关详细参见: [关于 agnet.toml](./settings.md#agenttoml)
+配置相关详细参见: [关于 lab.toml](./settings.md#labtoml)
 
 
 ## 如果出现问题！！！

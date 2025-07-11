@@ -40,15 +40,15 @@ class LLMSettings(BaseModel):
 
 
 class AgentSettings(BaseModel):
-    llm_provider: Annotated[Literal["openai", "lingyi", "gemini"], Field("openai", title="LLM Provider")]
+    llm_provider: Annotated[Literal["openai", "lingyi", "gemini"], Field("lingyi", title="LLM Provider")]
     llm: Annotated[LLMSettings, Field(LLMSettings())]  # pyright: ignore[reportCallIssue]
     system_prompt_name: Annotated[
         str, Field("elaina", title="比如 elaina, paimeng, 等, 对应 ./prompts/elaina.txt, ./prompts/paimeng.txt 等")
     ]
     deeplx_api_key: Annotated[str, Field("", title="DeepLX API Key, 用于跨语言对话时将大模型回复翻译成中文")]
-    speaker_lang: Annotated[Literal["ZH", "EN", "JA"], Field("ZH", title="Speaker Language")]
+    speaker_lang: Annotated[Literal["ZH", "EN", "JA"], Field("EN", title="Speaker Language")]
     speaker_model: Annotated[Literal["bert_vits", "gpt_sovits"], Field("gpt_sovits", title="选择使用什么模型合成语音")]
-    faster_first_response: Annotated[bool, Field(True, title="Enable Faster First Response")]
+    faster_first_response: Annotated[bool, Field(False, title="Enable Faster First Response")]
     segment_method: Literal["regex", "pysbd"] = Field(
         "pysbd",
         title="Segment Method",

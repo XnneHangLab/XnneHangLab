@@ -77,6 +77,6 @@ support json body:
 
 ## `translate/deeplx`
 
-- 描述: 使用 deeplx 翻译文本,需要预先在 agent.toml 里填写 API KEY.
+- 描述: 使用 deeplx 翻译文本,需要预先在 lab.toml 里填写 API KEY.
 - 方法: `curl -X POST "http://127.0.0.1:12393/translate/deeplx" -H "Content-Type: application/json" -d '{ "text": "それでは問題です。澄み渡った青空をゆく、そこに人がいたのなら間違いなく誰もが振り返り、ため息をこぼしてしまうほどの美貌の魔女は、いったい誰でしょう？", "source_language": "JA", "target_language": "ZH" }'`
 - 响应示例: `{"code":200,"message":"success","source_text":"JA","target_text":"现在问题来了。在湛蓝的天空中穿行的美丽女巫是谁，如果有一个人在那里，一定会让所有人回首叹息？"}%     `
