@@ -37,13 +37,14 @@ def main():
         search_for_settings_file,
         write_settings_file,
     )
+
     package_settings_path = search_for_settings_file("package.toml")
     if package_settings_path is not None and package_settings_path.exists():
-        package_settings_path.unlink() # ensure load default
+        package_settings_path.unlink()  # ensure load default
     package_settings = load_settings_file("package.toml", PackagesSettings)
     lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
     lab_settings.package = package_settings
     write_settings_file("lab.toml", lab_settings)
     package_path = search_for_settings_file("package.toml")
     if package_path is not None and package_path.exists():
-        package_path.unlink() # remove package.toml
+        package_path.unlink()  # remove package.toml

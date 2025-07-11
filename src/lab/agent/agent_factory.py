@@ -31,11 +31,26 @@ class AgentFactory:
             tts_preprocessor_config: Configuration for TTS preprocessing
             **kwargs: Additional arguments
         """
-        llm = StatelessLLMFactory.create_llm(
-            model=agent_settings.openai_model,
-            base_url=agent_settings.openai_base_url,
-            llm_api_key=agent_settings.openai_api_key,
-        )
+        if agent_settings.llm_provider == "lingyi":
+            llm = StatelessLLMFactory.create_llm(
+                model=agent_settings.llm.lingyi.llm_model_name,
+                base_url=agent_settings.llm.lingyi.llm_base_url,
+                llm_api_key=agent_settings.llm.lingyi.llm_api_key,
+            )
+        elif agent_settings.llm_provider == "gemini":
+            llm = StatelessLLMFactory.create_llm(
+                model=agent_settings.llm.gemini.llm_model_name,
+                base_url=agent_settings.llm.gemini.llm_base_url,
+                llm_api_key=agent_settings.llm.gemini.llm_api_key,
+            )
+        elif agent_settings.llm_provider == "openai":
+            llm = StatelessLLMFactory.create_llm(
+                model=agent_settings.llm.openai.llm_model_name,
+                base_url=agent_settings.llm.openai.llm_base_url,
+                llm_api_key=agent_settings.llm.openai.llm_api_key,
+            )
+        else:
+            raise ValueError(f"Unknown LLM provider: {agent_settings.llm_provider}")
 
         # Create the agent with the LLM and live2d_model
         return BasicMemoryAgent(  # type: ignore[call-arg]
