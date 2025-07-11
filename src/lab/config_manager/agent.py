@@ -37,6 +37,7 @@ class LLMSettings(BaseModel):
 
 
 class AgentSettings(BaseModel):
+    llm_provider: Annotated[Literal["openai", "lingyi", "gemini"], Field("openai", title="LLM Provider")]
     llm: Annotated[LLMSettings, Field(LLMSettings())]  # pyright: ignore[reportCallIssue]
     deeplx_api_key: Annotated[str, Field("", title="DeepLX API Key, 用于跨语言对话时将大模型回复翻译成中文")]
     speaker_lang: Annotated[Literal["ZH", "EN", "JA"], Field("ZH", title="Speaker Language")]

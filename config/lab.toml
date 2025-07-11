@@ -24,6 +24,7 @@ output_type = "with_timestamp"
 subtitle_speed = "normal"
 
 [agent]
+llm_provider = "openai"
 deeplx_api_key = ""
 speaker_lang = "ZH"
 speaker_model = "gpt_sovits"
