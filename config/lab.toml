@@ -24,12 +24,12 @@ output_type = "with_timestamp"
 subtitle_speed = "normal"
 
 [agent]
-llm_provider = "openai"
+llm_provider = "lingyi"
 system_prompt_name = "elaina"
 deeplx_api_key = ""
-speaker_lang = "ZH"
+speaker_lang = "EN"
 speaker_model = "gpt_sovits"
-faster_first_response = true
+faster_first_response = false
 segment_method = "pysbd"
 interrupt_method = "user"
 
