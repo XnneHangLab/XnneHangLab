@@ -85,7 +85,7 @@ train_ms:
     repo_id: "Stardust_minus/Bert-VITS2"
     model_image: "Bert-VITS2_2.3底模" # openi网页的模型名
   # 训练模型存储目录：与旧版本的区别，原先数据集是存放在logs/model_name下的，现在改为统一存放在Data/你的数据集/models下
-  model: "models/G_8000.pth"
+  model: "models/G_0.pth"
   # 配置文件路径
   config_path: "configs/config.json"
   # 训练使用的worker，不建议超过CPU核心数

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Request
 from lab.api.clients import DeepLXRequest
 
 # from loguru import logger
-from lab.config_manager import AgentSettings, load_settings_file
+from lab.config_manager import XnneHangLabSettings, load_settings_file
 
 router = APIRouter()
 
@@ -21,14 +21,14 @@ async def sentence_translate(request: Request):
     创建./key.yml，写入:
     deeplx:XXXXX
     """
-    agent_settings = load_settings_file("agent.toml", AgentSettings)
-    deeplx_api_key = agent_settings.deeplx_api_key
+    agent_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+    deeplx_api_key = agent_settings.agent.deeplx_api_key
     try:
         _request = DeepLXRequest.model_validate(await request.json())
     except ValueError as e:
         return {"code": 400, "message": f"Failed to parse request data: {e}"}
     if not deeplx_api_key:
-        return {"code": 500, "message": "deeplx_api_key is not set in agent.toml"}
+        return {"code": 500, "message": "deeplx_api_key is not set in lab.toml"}
 
     url = f"https://api.deeplx.org/{deeplx_api_key}/translate"
     headers = {"Content-Type": "application/json"}

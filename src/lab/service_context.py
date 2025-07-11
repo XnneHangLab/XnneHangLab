@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 from loguru import logger
 
 from lab.agent.agent_factory import AgentFactory
-from lab.config_manager import AgentSettings, RootAbsDir, load_settings_file
+from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.config_manager.vtuber import (
     CharacterConfig,
     Config,
@@ -134,11 +134,10 @@ class ServiceContext:
     def init_agent(self) -> None:
         """Initialize or update the LLM engine based on agent configuration."""
         # agent 暂时不需要多次启动模型，所以不需要自检是否初始化。
-        root_dir_settings = load_settings_file("root.toml", RootAbsDir)
-        agent_settings = load_settings_file("agent.toml", AgentSettings)
-        root_dir = Path(root_dir_settings.root_dir)
+        lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+        root_dir = Path(lab_settings.root.root_dir)
         system_prompt = (
-            (root_dir / "prompts" / f"{agent_settings.system_prompt_name}.txt").read_text(encoding="utf-8").strip()
+            (root_dir / "prompts" / f"{lab_settings.agent.system_prompt_name}.txt").read_text(encoding="utf-8").strip()
         )
         if self.live2d_model is None:
             logger.error("Live2D model is not initialized, cannot create agent.")
@@ -151,7 +150,7 @@ class ServiceContext:
         # avatar = self.character_config.avatar or ""  # Get avatar from config
 
         self.agent_engine = AgentFactory.create_agent(  # type: ignore
-            agent_settings=agent_settings,
+            agent_settings=lab_settings.agent,
             system_prompt=system_prompt,
             live2d_model=self.live2d_model,
             tts_preprocessor_config=self.character_config.tts_preprocessor_config,

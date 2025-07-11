@@ -4,8 +4,6 @@ from typing import TYPE_CHECKING, Annotated
 
 from pydantic import BaseModel, Field
 
-from lab.config_manager.config import load_settings_file, search_for_settings_file
-
 if TYPE_CHECKING:
     from lab._typing import Packages
 
@@ -33,21 +31,20 @@ class PackagesSettings(BaseModel):
 
 # 运行 uv run package 可以恢复默认
 def main():
-    path = search_for_settings_file("package.toml")
-    if path is not None:
-        path.unlink()
-    load_settings_file("package.toml", PackagesSettings)
+    from lab.config_manager.config import (
+        XnneHangLabSettings,
+        load_settings_file,
+        search_for_settings_file,
+        write_settings_file,
+    )
 
-
-# 单例模式, 用于其余代码获取配置
-class PackagesSettingsSingleton:
-    _instance: PackagesSettings | None = None
-
-    @classmethod
-    def instance(cls) -> PackagesSettings:
-        if cls._instance is None:
-            cls._instance = load_settings_file("package.toml", PackagesSettings)
-        return cls._instance
-
-
-packages = PackagesSettingsSingleton.instance().to_dict()
+    package_settings_path = search_for_settings_file("package.toml")
+    if package_settings_path is not None and package_settings_path.exists():
+        package_settings_path.unlink()  # ensure load default
+    package_settings = load_settings_file("package.toml", PackagesSettings)
+    lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+    lab_settings.package = package_settings
+    write_settings_file("lab.toml", lab_settings)
+    package_path = search_for_settings_file("package.toml")
+    if package_path is not None and package_path.exists():
+        package_path.unlink()  # remove package.toml

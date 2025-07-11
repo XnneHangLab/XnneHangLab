@@ -9,7 +9,7 @@ import torch
 import torchaudio
 from todo.__version__ import VERSION
 
-from lab.config_manager import FunASRSettings, load_settings_file
+from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.funasr.method import generate_asr_results, generate_sense_voice_results
 from lab.funasr.model import FunASRModel
 from lab.utils.TxtHelper import split_into_words, split_into_words_no_punct
@@ -68,8 +68,8 @@ def main():
     # combine_sentences(sentences=sentences, combine_line=500, max_sentence_length=500)
 
     print("====== Testing generate_sense_voice_results =======")
-    settings = load_settings_file("funasr.toml", FunASRSettings)
-    punctuation_list = settings.punctuation_list
+    settings = load_settings_file("lab.toml", XnneHangLabSettings)
+    punctuation_list = settings.funasr.punctuation_list
 
     print("====== Testing generate_sense_voice_results =======")
     # TODO https://github.com/FunAudioLLM/SenseVoice/issues/204

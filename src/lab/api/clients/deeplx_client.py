@@ -38,7 +38,7 @@ class DeepLXClient(BaseClientInterface):
             response = DeepLXResponseModel.model_validate(response)  # 转换为 Pydantic 模型
             return response.to_dict()
         except Exception as e:
-            logger.error(f"Failed to parse GPTSoVITS response: {e}, {response}")
+            logger.error(f"Failed to parse DeepLX response: {e}, {response}")
             return None
 
     async def asyncpost(self, request: DeepLXRequest) -> DeepLXResponse | None:  # type: ignore[override]
@@ -56,7 +56,7 @@ class DeepLXClient(BaseClientInterface):
                 response = DeepLXResponseModel.model_validate(response_data)  # 转换为 Pydantic 模型
                 return response.to_dict()
             except Exception as e:
-                logger.error(f"Failed to parse BERT_VITS response: {e}, {response}")
+                logger.error(f"Failed to parse DeepLX response: {e}, {response}")
                 return None
             finally:
                 await self.async_session.close()

@@ -8,18 +8,18 @@ from fastapi import APIRouter, File, UploadFile
 from pydantic import BaseModel
 
 from lab.api.core_logic import rec_audio, rec_audio_no_punc, reload_model, vad_audio  # 导入 load_model 用于预加载
-from lab.config_manager import FunASRSettings, load_settings_file
+from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.utils.Timedhelper import get_time_tag_with_millis
 
 # 加载配置文件
-settings: FunASRSettings = load_settings_file("funasr.toml", FunASRSettings)
+lab_settings: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSettings)
 
 router = APIRouter(prefix="/audio")
 
 
 # 确保输出目录和缓存目录存在
-Path(settings.output_dir).mkdir(parents=True, exist_ok=True)
-Path(settings.cache_dir).mkdir(parents=True, exist_ok=True)
+Path(lab_settings.funasr.output_dir).mkdir(parents=True, exist_ok=True)
+Path(lab_settings.funasr.cache_dir).mkdir(parents=True, exist_ok=True)
 
 
 class ProcessConfig(BaseModel):
@@ -53,7 +53,7 @@ async def asr_full(file: UploadFile = file_default) -> dict[str, Any]:
     Returns processing information and the path to the generated SRT file.
     """
     # 定义临时文件路径，如果文件名不存在则使用默认值
-    temp_audio_path = Path(settings.cache_dir) / (
+    temp_audio_path = Path(lab_settings.funasr.cache_dir) / (
         file.filename if file.filename else f"temp_audio_{get_time_tag_with_millis()}.wav"
     )
     # 确保缓存目录存在
@@ -90,7 +90,7 @@ async def asr_no_punc(
     Returns processing information and the path to the generated SRT file.
     """
     # 定义临时文件路径，如果文件名不存在则使用默认值
-    temp_audio_path = Path(settings.cache_dir) / (
+    temp_audio_path = Path(lab_settings.funasr.cache_dir) / (
         file.filename if file.filename else f"temp_audio_{get_time_tag_with_millis()}.wav"
     )
     # 确保缓存目录存在
@@ -126,7 +126,7 @@ async def vad_audio_activity(
     Returns processing information and the path to the generated VAD results.
     """
     # 定义临时文件路径，如果文件名不存在则使用默认值
-    temp_audio_path = Path(settings.cache_dir) / (
+    temp_audio_path = Path(lab_settings.funasr.cache_dir) / (
         file.filename if file.filename else f"temp_audio_{get_time_tag_with_millis()}.wav"
     )
     # 确保缓存目录存在

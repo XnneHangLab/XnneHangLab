@@ -10,7 +10,7 @@ from uuid import uuid4
 
 from loguru import logger
 
-from lab.config_manager import AgentSettings, load_settings_file
+from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.utils.stream_audio import AudioPayload, prepare_audio_payload
 
 if TYPE_CHECKING:
@@ -151,10 +151,10 @@ class TTSTaskManager:
         """Generate audio file from text"""
         try:
             logger.debug(f"🏃Generating audio for '''{text}'''...")
-            agent_settings = load_settings_file("agent.toml", AgentSettings)
+            lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
             cache_dir = Path("cache") / "tts"
             cache_dir.mkdir(parents=True, exist_ok=True)
-            if agent_settings.speaker_model == "bert_vits":
+            if lab_settings.agent.speaker_model == "bert_vits":
                 from lab.api.clients import BERTVITSRequest, BERVITSClient
 
                 bert_vits_client = BERVITSClient()
@@ -162,7 +162,7 @@ class TTSTaskManager:
                 if response is None:
                     logger.error("Failed to get a valid response from BERT-VITS client")
                     return None
-            elif agent_settings.speaker_model == "gpt_sovits":
+            elif lab_settings.agent.speaker_model == "gpt_sovits":
                 from lab.api.clients import GPTSoVITSClient, GPTSoVITSRequest
 
                 gpt_sovits_client = GPTSoVITSClient()
@@ -171,14 +171,14 @@ class TTSTaskManager:
                         text=text,
                         audio_type="mp3",
                         ref_audio_path="./models/gptsovits/elaina/elaina.wav",
-                        text_language=agent_settings.speaker_lang,
+                        text_language=lab_settings.agent.speaker_lang,
                     )  # TODO ,暂时这么做因为我们只有一个模型。但是这个实际上可以用来控制情感，值得放入 agent.toml。
                 )
                 if response is None:
                     logger.error("Failed to get a valid response from GPT-SoVITS client")
                     return None
             else:
-                logger.error(f"Unsupported speaker model: {agent_settings.speaker_model}")
+                logger.error(f"Unsupported speaker model: {lab_settings.agent.speaker_model}")
                 return None
             audio_path = (
                 cache_dir / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid4())[:8]}.{response['audio_type']}"

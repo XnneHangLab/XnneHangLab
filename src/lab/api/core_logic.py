@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 from funasr import AutoModel
 from loguru import logger  # 保持 loguru 在代码顶部导入
 
-from lab.config_manager import FunASRSettings, load_settings_file
+from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.funasr.method import generate_asr_results, generate_vad_results
 
 if TYPE_CHECKING:
@@ -21,12 +21,12 @@ if TYPE_CHECKING:
 
 class FunASRModel:  # 对于 api 需要快速响应, 不能 lazy-import ,所以独立出来一个版本.
     def __init__(self):
-        self.settings = load_settings_file("funasr.toml", FunASRSettings)
-        self.base_model: str = str(self.settings.base_model)
-        self.vad_model: str = str(self.settings.vad_model)
-        self.punc_model: str = str(self.settings.punc_model)
-        self.sense_voice_model: str = str(self.settings.sense_voice_model)
-        self.device: str = self.settings.device
+        self.settings = load_settings_file("lab.toml", XnneHangLabSettings)
+        self.base_model: str = str(self.settings.funasr.base_model)
+        self.vad_model: str = str(self.settings.funasr.vad_model)
+        self.punc_model: str = str(self.settings.funasr.punc_model)
+        self.sense_voice_model: str = str(self.settings.funasr.sense_voice_model)
+        self.device: str = self.settings.funasr.device
         self._model: ModelInstance = {"asr": None, "vad": None, "asr_no_punc": None}  # 存储模型实例
 
     def init_model(self):

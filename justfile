@@ -40,7 +40,7 @@ test-gsv:
 		"text": "それでは問題です。澄み渡った青空をゆく、そこに人がいたのなら間違いなく誰もが振り返り、ため息をこぼしてしまうほどの美貌の魔女は、いったい誰でしょう？", \
 		"character": "elaina", \
 		"text_language": "ja", \
-		"ref_audio_path": "/home/xnne/code/Chatter/VtuberLab/models/gptsovits/elaina/elaina.wav" \
+		"ref_audio_path": "./models/gptsovits/elaina/elaina.wav" \
 	}' \
 	-o response.json \
 	&& python -c "import json, base64; data=json.load(open('response.json')); open('output.mp3', 'wb').write(base64.b64decode(data['audio_byte']))"

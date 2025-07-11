@@ -12,7 +12,7 @@ from loguru import logger
 
 from lab.agent.input_types import BatchInput, ImageData, ImageSource, TextData, TextSource
 from lab.api.clients import ASRClient, ASRRequest, DeepLXClient, DeepLXRequest
-from lab.config_manager import AgentSettings, load_settings_file
+from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.message_handler import message_handler
 
 if TYPE_CHECKING:
@@ -86,15 +86,15 @@ async def handle_sentence_output(
 ) -> str:
     """Handle sentence output type with optional translation support"""
     full_response = ""
-    agent_settings = load_settings_file("agent.toml", AgentSettings)
+    lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
     async for display_text, tts_text, actions in output:
         logger.info(f"🏃 Processing output: '''{tts_text}'''...")
 
-        if agent_settings.speaker_lang != "ZH":
-            logger.info(f"🏃 Translating text to {agent_settings.speaker_lang}...")
+        if lab_settings.agent.speaker_lang != "ZH":
+            logger.info(f"🏃 Translating text to {lab_settings.agent.speaker_lang}...")
             deeplx_client = DeepLXClient()
             response = await deeplx_client.asyncpost(
-                DeepLXRequest(text=tts_text, source_language="ZH", target_language=agent_settings.speaker_lang)
+                DeepLXRequest(text=tts_text, source_language="ZH", target_language=lab_settings.agent.speaker_lang)
             )
             tts_text = response["target_text"] if response else tts_text
             logger.info(f"🏃 Text after translation: '''{tts_text}'''...")

@@ -4,14 +4,12 @@ import os
 from pathlib import Path
 
 import streamlit as st
-from uiya.utils.config import UiyaSetting, load_settings_file as load_uiya_settings_file
 
 from lab._session_keys import audio_keys
-from lab.config_manager import RootAbsDir, load_settings_file
+from lab.config_manager import XnneHangLabSettings, load_settings_file
 
-root_settings = load_settings_file("root.toml", setting=RootAbsDir)
-uiya_settings = load_uiya_settings_file("uiya.toml", setting=UiyaSetting)
-ROOT_DIR = root_settings.root_dir
+lab_settings = load_settings_file("lab.toml", setting=XnneHangLabSettings)
+ROOT_DIR = lab_settings.root.root_dir
 
 
 # 函数内部应该避免以 st.session_state 为判断条件，除非，它是一个完整模块，从初始化到结束都在这个模块中。

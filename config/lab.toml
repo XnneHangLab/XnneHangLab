@@ -1,0 +1,59 @@
+[funasr]
+batch_size_s = 300
+device = "cpu"
+punctuation_list = "，。；、？！,.;?!"
+custom_output_dir = false
+cache_dir = "./cache"
+output_dir = "./output"
+hot_words_path = "./hot_words.txt"
+FFMPEG_PATH = "ffmpeg"
+base_model = "./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch"
+vad_model = "./models/speech_fsmn_vad_zh-cn-16k-common-pytorch"
+punc_model = "./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch"
+sense_voice_model = "./models/SenseVoiceSmall"
+cut = false
+cut_line = 400
+combine = false
+combine_line = 400
+max_sentence_length = 20
+need_punc = false
+
+[webui]
+guide = "open"
+output_type = "with_timestamp"
+subtitle_speed = "normal"
+
+[agent]
+llm_provider = "lingyi"
+system_prompt_name = "elaina"
+deeplx_api_key = ""
+speaker_lang = "EN"
+speaker_model = "gpt_sovits"
+faster_first_response = false
+segment_method = "pysbd"
+interrupt_method = "user"
+
+[agent.llm.openai]
+llm_api_key = ""
+llm_base_url = "https://api.openai.com/v1"
+llm_model_name = "gpt-4o"
+
+[agent.llm.lingyi]
+llm_api_key = ""
+llm_base_url = "https://api.lingyiwanwu.com/v1"
+llm_model_name = "yi-lightning"
+
+[agent.llm.gemini]
+llm_api_key = ""
+llm_base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
+llm_model_name = "gemini-2.5-flash"
+
+[package]
+funasr = true
+to_do_list = true
+yutto_uiya = true
+bert_vits = true
+gpt_sovits = true
+
+[root]
+root_dir = "D:\\tmp\\XnneHangLab"

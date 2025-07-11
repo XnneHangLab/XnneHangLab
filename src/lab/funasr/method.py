@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from lab.config_manager import FunASRSettings, load_settings_file
+from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.utils.FFmpegHelper import get_audio_duration
 
 if TYPE_CHECKING:
@@ -21,9 +21,9 @@ def generate_asr_results(model: AutoModel, input_path: Path) -> ASRResponse:
     # 'text': '嗯 嗯  well come to the hollywood reporter actress round',
     # 'timestamp': [[12590, 12830], [16460, 16700], [27950, 28170], [28170, 28290], [28290, 28390], [28390, 28470], [28470, 28890], [28890, 29290], [29290, 29690], [29690, 30000]]}]
 
-    settings: FunASRSettings = load_settings_file("funasr.toml", FunASRSettings)
-    batch_size_s = settings.batch_size_s
-    hot_word_path = settings.hot_words_path
+    lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+    batch_size_s = lab_settings.funasr.batch_size_s
+    hot_word_path = lab_settings.funasr.hot_words_path
     # 原本 AutoModel 支持 input_path 是 list 的情况，但这里我忽略了它，我只需要写一个asr，多任务自己处理。
     if not input_path.exists():
         raise FileNotFoundError(f"{input_path} not found.")
@@ -70,7 +70,7 @@ def generate_sense_voice_results(model: AutoModel, input_path: Path, use_itn: bo
     # TODO https://github.com/FunAudioLLM/SenseVoice/issues/205
     # 在这些结束后，可以考虑把 text 拆分成 status,text.
     # 目前先返回 full_text
-    settings: FunASRSettings = load_settings_file("funasr.toml", FunASRSettings)
+    lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
     if not input_path.exists():
         raise FileNotFoundError(f"File not found: {input_path}")
     res: list[dict[str, Any]] = model.generate(  # type: ignore
@@ -78,7 +78,7 @@ def generate_sense_voice_results(model: AutoModel, input_path: Path, use_itn: bo
         cache={},
         language="auto",  # "zn", "en", "yue", "ja", "ko", "nospeech"
         use_itn=use_itn,
-        batch_size_s=settings.batch_size_s,
+        batch_size_s=lab_settings.funasr.batch_size_s,
         output_timestamp=True,  # 修复前 当同时开启vad和输出时间戳时model.py中会报错
     )
     if not res:

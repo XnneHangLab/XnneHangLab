@@ -1,4 +1,0 @@
-as_package = false
-bert_vits_host = "localhost"
-bert_vits_port = 12393
-ffmpeg_path = "ffmpeg"

@@ -4,8 +4,7 @@ import argparse
 from pathlib import Path
 
 from lab.__version__ import VERSION
-from lab.config_manager import load_settings_file
-from lab.config_manager.funasr import FunASRSettings
+from lab.config_manager import FunASRSettings, XnneHangLabSettings, load_settings_file
 from lab.utils.console.logger import Badge, Logger
 
 
@@ -38,16 +37,16 @@ def cli():
 
     parser = argparse.ArgumentParser(description="音频转文字工具ya~")
     parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {VERSION}", help="显示版本号")
-    settings: FunASRSettings = load_settings_file("funasr.toml", FunASRSettings)
+    settings: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSettings)
 
     subparsers = parser.add_subparsers(dest="command", help="支持的子命令")
     rec_parser = subparsers.add_parser("recognize", help="识别音频文件")
     punc_recover_parser = subparsers.add_parser("punc_recover", help="标点恢复")
     vad_parser = subparsers.add_parser("vad", help="VAD 语音活动检测")
 
-    add_recognize_arguments(rec_parser, settings)
-    add_punc_recover_arguments(punc_recover_parser, settings)
-    add_vad_arguments(vad_parser, settings)
+    add_recognize_arguments(rec_parser, settings.funasr)
+    add_punc_recover_arguments(punc_recover_parser, settings.funasr)
+    add_vad_arguments(vad_parser, settings.funasr)
     return parser
 
 
