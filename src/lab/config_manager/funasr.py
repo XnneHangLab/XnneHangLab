@@ -5,7 +5,6 @@ from typing import Annotated, Literal, get_args
 from pydantic import BaseModel, Field
 
 from lab._dictionary import audio_setting_dictionary
-from lab.config_manager.config import load_settings_file, search_for_settings_file
 
 # 并不是所有的配置项目都向用户开放。有 title 的是开放项。
 # TODO , 可以把中英文的配置项分开，然后作为切换。而不是用字典映射
@@ -97,7 +96,18 @@ class FunASRSettings(BaseModel):
 
 
 def main():
-    config_path = search_for_settings_file("funasr.toml")
-    if config_path is not None and config_path.exists():
-        config_path.unlink()
-    load_settings_file("funasr.toml", FunASRSettings)
+    # 恢复默认配置
+    from lab.config_manager.config import (
+        XnneHangLabSettings,
+        load_settings_file,
+        search_for_settings_file,
+        write_settings_file,
+    )
+
+    funasr_settings = load_settings_file("funasr.toml", FunASRSettings)
+    lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+    lab_settings.funasr = funasr_settings
+    write_settings_file("lab.toml", lab_settings)
+    funasr_path = search_for_settings_file("funasr.toml")
+    if funasr_path is not None and funasr_path.exists():
+        funasr_path.unlink()

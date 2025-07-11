@@ -1,3 +1,4 @@
+[funasr]
 batch_size_s = 300
 device = "cpu"
 punctuation_list = "，。；、？！,.;?!"
@@ -16,3 +17,30 @@ combine = false
 combine_line = 400
 max_sentence_length = 20
 need_punc = false
+
+[webui]
+guide = "open"
+output_type = "with_timestamp"
+subtitle_speed = "normal"
+
+[agent]
+openai_base_url = ""
+openai_api_key = ""
+openai_model = ""
+deeplx_api_key = ""
+system_prompt_name = "elaina"
+speaker_lang = "ZH"
+speaker_model = "gpt_sovits"
+faster_first_response = true
+segment_method = "pysbd"
+interrupt_method = "user"
+
+[package]
+funasr = true
+to_do_list = true
+yutto_uiya = true
+bert_vits = true
+gpt_sovits = true
+
+[root]
+root_dir = "D:\\tmp\\XnneHangLab"

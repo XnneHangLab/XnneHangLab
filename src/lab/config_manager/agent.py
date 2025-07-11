@@ -9,8 +9,6 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
-from lab.config_manager.config import load_settings_file, search_for_settings_file
-
 
 class AgentSettings(BaseModel):
     openai_base_url: Annotated[str, Field("", title="OpenAI API Base URL")]
@@ -36,6 +34,8 @@ class AgentSettings(BaseModel):
 
 
 def main():
+    from lab.config_manager.config import load_settings_file, search_for_settings_file
+
     config_path = search_for_settings_file("agent.toml")
     if config_path is not None and config_path.exists():
         config_path.unlink()

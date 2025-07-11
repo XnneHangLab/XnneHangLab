@@ -6,17 +6,16 @@ import platform
 # if sys.version_info >= (3, 11):
 import tomllib  # Python 3.11+ 自带
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, overload
-
-if TYPE_CHECKING:
-    from lab.config_manager.abs_root import RootAbsDir
-    from lab.config_manager.agent import AgentSettings
-    from lab.config_manager.audio_recognize import AudioRecognizeSettings, AudioRecognizeSettingsTitle
-    from lab.config_manager.funasr import FunASRSettings, FunASRSettingsTitle
-    from lab.config_manager.package import PackagesSettings
-
+from typing import Annotated, Any, overload
 
 import tomli_w as tomlw  # 安装 tomli_w 用于写入
+from pydantic import BaseModel, Field
+
+from lab.config_manager.abs_root import RootAbsDir
+from lab.config_manager.agent import AgentSettings
+from lab.config_manager.audio_recognize import AudioRecognizeSettings, AudioRecognizeSettingsTitle
+from lab.config_manager.funasr import FunASRSettings, FunASRSettingsTitle
+from lab.config_manager.package import PackagesSettings
 
 toml_loads = tomllib.loads
 toml_dumps = tomlw.dumps  # 使用 tomlw.dumps
@@ -67,10 +66,31 @@ def load_settings_file(setting_name: str, setting: type[AgentSettings]) -> Agent
 def load_settings_file(setting_name: str, setting: type[PackagesSettings]) -> PackagesSettings: ...
 
 
+@overload
+def load_settings_file(setting_name: str, setting: type[XnneHangLabSettings]) -> XnneHangLabSettings: ...
+
+
+class XnneHangLabSettings(BaseModel):
+    funasr: Annotated[FunASRSettings, Field(FunASRSettings())]  # pyright: ignore[reportCallIssue]
+    webui: Annotated[AudioRecognizeSettings, Field(AudioRecognizeSettings())]  # pyright: ignore[reportCallIssue]
+    agent: Annotated[AgentSettings, Field(AgentSettings())]  # pyright: ignore[reportCallIssue]
+    package: Annotated[PackagesSettings, Field(PackagesSettings())]  # pyright: ignore[reportCallIssue]
+    root: Annotated[RootAbsDir, Field(RootAbsDir())]  # pyright: ignore[reportCallIssue]
+
+
 def load_settings_file(
     setting_name: str,
-    setting: (type[FunASRSettings | AudioRecognizeSettings | RootAbsDir | AgentSettings | PackagesSettings]),
-) -> FunASRSettings | AudioRecognizeSettings | RootAbsDir | AgentSettings | PackagesSettings:
+    setting: (
+        type[
+            FunASRSettings
+            | AudioRecognizeSettings
+            | RootAbsDir
+            | AgentSettings
+            | PackagesSettings
+            | XnneHangLabSettings
+        ]
+    ),
+) -> FunASRSettings | AudioRecognizeSettings | RootAbsDir | AgentSettings | PackagesSettings | XnneHangLabSettings:
     """加载配置文件，如果不存在则创建默认配置文件在当前工作目录。"""
     settings_file = search_for_settings_file(setting_name=setting_name)
     if settings_file is None:
@@ -89,7 +109,12 @@ def load_settings_file(
 
 def write_settings_file(
     settings_name: str,
-    settings: FunASRSettings | AudioRecognizeSettings | RootAbsDir | AgentSettings | PackagesSettings,
+    settings: FunASRSettings
+    | AudioRecognizeSettings
+    | RootAbsDir
+    | AgentSettings
+    | PackagesSettings
+    | XnneHangLabSettings,
 ) -> None:
     """将 Setting 对象写入 TOML 文件。"""
     settings_file = search_for_settings_file(setting_name=settings_name)

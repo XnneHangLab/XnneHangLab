@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from lab.config_manager import FunASRSettings, load_settings_file
+from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.utils.console.logger import Logger
 
 if TYPE_CHECKING:
@@ -14,8 +14,8 @@ def split_text_into_sentences_by_punctuation_list(text: str) -> list[str]:
     """
     测试移除文本中的指定标点符号(参见 config)
     """
-    settings: FunASRSettings = load_settings_file("funasr.toml", FunASRSettings)
-    return re.split(f"([{settings.punctuation_list}])", text)
+    lab_settings: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSettings)
+    return re.split(f"([{lab_settings.funasr.punctuation_list}])", text)
     # 如果后续碰到 list out of index,可以打印一下看一下文本中出现了什么没有见过的符号然后加入 pop_list。
 
 
@@ -87,10 +87,10 @@ def calculate_words_length(segmented_text: str) -> int:
     """
     计算分割后单词和汉字的长度
     """
-    settings: FunASRSettings = load_settings_file("funasr.toml", FunASRSettings)
+    lab_settings: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSettings)
     words = split_into_words(segmented_text)
     length = 0
     for word in words:
-        if word not in settings.punctuation_list:
+        if word not in lab_settings.funasr.punctuation_list:
             length += 1
     return length

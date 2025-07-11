@@ -10,7 +10,6 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field
 
-from lab.config_manager.config import load_settings_file, write_settings_file
 from lab.utils.console.logger import Logger
 
 
@@ -19,9 +18,11 @@ class RootAbsDir(BaseModel):
 
 
 def main():
-    ROOT_DIR = Path(__file__).parent.parent.parent.parent
-    settings = load_settings_file("root.toml", RootAbsDir)
-    settings.root_dir = str(ROOT_DIR)
-    Logger.info(f"Set root directory to {settings.root_dir}")
+    from lab.config_manager.config import XnneHangLabSettings, load_settings_file, write_settings_file
 
-    write_settings_file("root.toml", settings)
+    ROOT_DIR = Path(__file__).parent.parent.parent.parent
+    settings = load_settings_file("lab.toml", XnneHangLabSettings)
+    settings.root.root_dir = str(ROOT_DIR)
+    Logger.info(f"Set root directory to {settings.root.root_dir}")
+
+    write_settings_file("lab.toml", settings)
