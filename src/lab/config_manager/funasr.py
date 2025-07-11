@@ -103,7 +103,9 @@ def main():
         search_for_settings_file,
         write_settings_file,
     )
-
+    funasr_path = search_for_settings_file("funasr.toml")
+    if funasr_path is not None and funasr_path.exists():
+        funasr_path.unlink() # ensure load default
     funasr_settings = load_settings_file("funasr.toml", FunASRSettings)
     lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
     lab_settings.funasr = funasr_settings

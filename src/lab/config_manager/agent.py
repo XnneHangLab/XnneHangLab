@@ -10,14 +10,35 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, Field
 
 
-class AgentSettings(BaseModel):
-    openai_base_url: Annotated[str, Field("", title="OpenAI API Base URL")]
-    openai_api_key: Annotated[str, Field("", title="OpenAI API Key")]
-    openai_model: Annotated[str, Field("", title="OpenAI Model Name")]
-    deeplx_api_key: Annotated[str, Field("", title="DeepLX API Key, 用于跨语言对话时将大模型回复翻译成中文")]
+class LLMSettingBase(BaseModel):
+    llm_api_key: Annotated[str, Field("", title="OpenAI API Key")]
     system_prompt_name: Annotated[
         str, Field("elaina", title="比如 elaina, paimeng, 等, 对应 ./prompts/elaina.txt, ./prompts/paimeng.txt 等")
     ]
+    llm_base_url: Annotated[str, Field("", title="OpenAI API Base URL")]
+    llm_model_name: Annotated[str, Field("", title="OpenAI Model Name")]
+
+class LingyiSetting(LLMSettingBase):
+    llm_base_url: Annotated[str, Field("https://api.lingyiwanwu.com/v1", title="Lingyi API Base URL")]
+    llm_model_name: Annotated[str, Field("yi-lightning", title="Lingyi Model Name")]
+
+class GeminiSetting(LLMSettingBase):
+    llm_base_url: Annotated[str, Field("https://generativelanguage.googleapis.com/v1beta/openai/", title="Gemini API Base URL")]
+    llm_model_name: Annotated[str, Field("gemini-2.5-flash", title="Gemini Model Name")]
+
+class OpenAISetting(LLMSettingBase):
+    llm_base_url: Annotated[str, Field("https://api.openai.com/v1", title="ChatGPT API Base URL")]
+    llm_model_name: Annotated[str, Field("gpt-4o", title="ChatGPT Model Name")]
+
+class LLMSettings(BaseModel):
+    openai: Annotated[OpenAISetting, Field(OpenAISetting())]  # pyright: ignore[reportCallIssue]
+    lingyi: Annotated[LingyiSetting, Field(LingyiSetting())]  # pyright: ignore[reportCallIssue]
+    gemini: Annotated[GeminiSetting, Field(GeminiSetting())]  # pyright: ignore[reportCallIssue]
+
+
+class AgentSettings(BaseModel):
+    llm: Annotated[LLMSettings, Field(LLMSettings())]  # pyright: ignore[reportCallIssue]
+    deeplx_api_key: Annotated[str, Field("", title="DeepLX API Key, 用于跨语言对话时将大模型回复翻译成中文")]
     speaker_lang: Annotated[Literal["ZH", "EN", "JA"], Field("ZH", title="Speaker Language")]
     speaker_model: Annotated[Literal["bert_vits", "gpt_sovits"], Field("gpt_sovits", title="选择使用什么模型合成语音")]
     faster_first_response: Annotated[bool, Field(True, title="Enable Faster First Response")]
@@ -34,9 +55,14 @@ class AgentSettings(BaseModel):
 
 
 def main():
-    from lab.config_manager.config import load_settings_file, search_for_settings_file
-
-    config_path = search_for_settings_file("agent.toml")
-    if config_path is not None and config_path.exists():
-        config_path.unlink()
-    load_settings_file("agent.toml", AgentSettings)
+    from lab.config_manager.config import load_settings_file, search_for_settings_file, XnneHangLabSettings, write_settings_file
+    agent_settings_path = search_for_settings_file("agent.toml")
+    if agent_settings_path is not None and agent_settings_path.exists():
+        agent_settings_path.unlink() # ensure load default
+    agent_settings = load_settings_file("agent.toml", AgentSettings)
+    lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+    lab_settings.agent = agent_settings
+    write_settings_file("lab.toml", lab_settings)
+    agent_path = search_for_settings_file("agent.toml")
+    if agent_path is not None and agent_path.exists():
+        agent_path.unlink() # remove agent.toml

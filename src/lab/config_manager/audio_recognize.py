@@ -56,9 +56,14 @@ class AudioRecognizeSettings(BaseModel):
 
 
 def main():
-    from lab.config_manager.config import load_settings_file, search_for_settings_file
-
+    from lab.config_manager.config import load_settings_file, search_for_settings_file, write_settings_file, XnneHangLabSettings
     config_path = search_for_settings_file("audio_recognize.toml")
     if config_path is not None and config_path.exists():
-        config_path.unlink()
-    load_settings_file("audio_recognize.toml", AudioRecognizeSettings)
+        config_path.unlink() # ensure load default
+    audio_recognize_settings = load_settings_file("audio_recognize.toml", AudioRecognizeSettings)
+    lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+    lab_settings.webui = audio_recognize_settings
+    write_settings_file("lab.toml", lab_settings)
+    config_path = search_for_settings_file("audio_recognize.toml")
+    if config_path is not None and config_path.exists():
+        config_path.unlink() # remove audio_recognize.toml

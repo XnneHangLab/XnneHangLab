@@ -24,16 +24,30 @@ output_type = "with_timestamp"
 subtitle_speed = "normal"
 
 [agent]
-openai_base_url = ""
-openai_api_key = ""
-openai_model = ""
 deeplx_api_key = ""
-system_prompt_name = "elaina"
 speaker_lang = "ZH"
 speaker_model = "gpt_sovits"
 faster_first_response = true
 segment_method = "pysbd"
 interrupt_method = "user"
+
+[agent.llm.openai]
+llm_api_key = ""
+system_prompt_name = "elaina"
+llm_base_url = "https://api.openai.com/v1"
+llm_model_name = "gpt-4o"
+
+[agent.llm.lingyi]
+llm_api_key = ""
+system_prompt_name = "elaina"
+llm_base_url = "https://api.lingyiwanwu.com/v1"
+llm_model_name = "yi-lightning"
+
+[agent.llm.gemini]
+llm_api_key = ""
+system_prompt_name = "elaina"
+llm_base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
+llm_model_name = "gemini-2.5-flash"
 
 [package]
 funasr = true

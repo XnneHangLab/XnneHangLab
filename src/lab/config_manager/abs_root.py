@@ -19,7 +19,7 @@ class RootAbsDir(BaseModel):
 
 def main():
     from lab.config_manager.config import XnneHangLabSettings, load_settings_file, write_settings_file
-
+    # it don't need to be default, always get abs root dir now.
     ROOT_DIR = Path(__file__).parent.parent.parent.parent
     settings = load_settings_file("lab.toml", XnneHangLabSettings)
     settings.root.root_dir = str(ROOT_DIR)
