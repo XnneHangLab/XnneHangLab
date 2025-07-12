@@ -45,7 +45,7 @@ class AgentSettings(BaseModel):
     system_prompt_name: Annotated[
         str, Field("elaina", title="比如 elaina, paimeng, 等, 对应 ./prompts/elaina.txt, ./prompts/paimeng.txt 等")
     ]
-    deeplx_api_key: Annotated[str, Field("", title="DeepLX API Key, 用于跨语言对话时(user_lang != speaker lang)将大模型回复翻译成 user language")]
+    deeplx_api_key: Annotated[str, Field("", title="DeepLX API Key, 用于跨语言对话时(user_lang != speaker lang)将大模型回复翻译成 speaker language 然后再合成语音")]
     user_lang: Annotated[Literal["ZH", "EN", "JA"], Field("ZH", title="User Language, 用户使用的语言，也决定大模型回复的语言")]
     speaker_lang: Annotated[Literal["ZH", "EN", "JA"], Field("EN", title="Speaker Language, speaker 合成语音时使用的语言")]
     speaker_model: Annotated[Literal["bert_vits", "gpt_sovits"], Field("gpt_sovits", title="选择使用什么模型合成语音")]
