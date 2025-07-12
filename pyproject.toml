@@ -18,6 +18,8 @@ dependencies = [
     "websocket-client>=1.8.0",
     "socksio>=1.0.0",
     "loguru>=0.7.3",
+    "fastmcp>=2.10.4",
+    "google-genai>=1.25.0",
 ]
 authors = [{ name = "MrXnneHang", email = "XnneHang@gmail.com" }]
 keywords = []
