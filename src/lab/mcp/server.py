@@ -1,4 +1,3 @@
-# copyright@https://github.com/yutto-dev/yutto
 from __future__ import annotations
 
 import random
