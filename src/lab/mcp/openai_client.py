@@ -6,6 +6,8 @@ from contextlib import AsyncExitStack
 from typing import Optional
 
 from dotenv import load_dotenv
+from pathlib import Path
+
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from openai import (
@@ -41,9 +43,10 @@ class MCPClient:
         await self.session.initialize()
 
     async def chat(self, query: str) -> str:
-        system_prompt = (
-            "You are a helpful assistant with access to tools. Use tools when needed but maintain natural conversation."
-        )
+        system_prompt_path = Path("prompts") / f"{self.config.agent.system_prompt_name}.txt"
+        with system_prompt_path.open("r",encoding="utf-8") as f:
+            system_prompt = f.read()
+
 
         messages = [{"role": "system", "content": system_prompt}]
 
@@ -96,6 +99,13 @@ class MCPClient:
                     messages.append({"role": "user", "content": convert_prompt.messages[0].content.text})
                     print("=======convert_prompt========")
                     print(convert_prompt)
+                if tool_name == "roll_dice":
+                    convert_prompt = await self.session.get_prompt(
+                        "convert_list_int_readable", {"numbers": result.content[0].text}
+                    )
+                    messages.append({"role": "user", "content": convert_prompt.messages[0].content.text})
+                    print("=======convert_prompt========")
+                    print(convert_prompt)
 
                 # 将结果添加到消息历史
                 messages.append(response_message)
@@ -117,7 +127,7 @@ class MCPClient:
 
         except (APIConnectionError, APIError, RateLimitError) as e:
             # 处理API错误
-            return f"Sorry, I encountered an error: {str(e)}"
+            return f"error: {str(e)}, 请检查网络连接或者 api key 与 base url"
 
     async def cleanup(self):
         """Clean up resources"""
@@ -128,7 +138,9 @@ async def main():
     client = MCPClient()
     try:
         await client.connect_to_server()
-        response = await client.chat("明天是几月几号？")
+        response = await client.chat("昨天几号？")
+        print(response)
+        response = await client.chat("今、何時ですか？")
         print(response)
         response = await client.chat("我晚上九点就后就该去打游戏了，现在几点？")
         print(response)
