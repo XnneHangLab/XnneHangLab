@@ -5,9 +5,8 @@ import json
 from contextlib import AsyncExitStack
 from typing import Optional
 
-from dotenv import load_dotenv
 from pathlib import Path
-
+from typing import Any
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from openai import (
@@ -21,7 +20,30 @@ from openai import (
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 
-load_dotenv()
+def read_prompt_from_text_file(system_prompt_name:str) -> str:
+    prompt_text_path = Path("prompts") / f"{system_prompt_name}.txt"
+    if not prompt_text_path.exists():
+        raise ValueError(f"prompt file {prompt_text_path} not exists")
+    with prompt_text_path.open("r",encoding="utf-8") as f:
+        prompt_text = f.read()
+    return prompt_text
+
+
+# 避免反復地添加 type: ignore, 僅能處理 str 返回。
+def read_prompt_from_mcp_prompt_template(response:Any) -> str:
+    try:
+        return response.messages[0].content.text # type: ignore
+    except Exception as e:
+        print(response)
+        return f"parse prompt template error: {e}"
+
+    
+def read_result_from_mcp_tool_response(response:Any) ->str:
+    try:
+        return response.content[0].text # type: ignore
+    except Exception as e:
+        print(response)
+        return f"parse tool response error: {e}"
 
 
 class MCPClient:
@@ -42,7 +64,9 @@ class MCPClient:
 
         await self.session.initialize()
 
-    async def chat(self, query: str) -> str:
+    async def chat(self, user_input: str) -> str:
+        print("====== user_input ======")
+        print(user_input)
         system_prompt_path = Path("prompts") / f"{self.config.agent.system_prompt_name}.txt"
         with system_prompt_path.open("r",encoding="utf-8") as f:
             system_prompt = f.read()
@@ -51,7 +75,7 @@ class MCPClient:
         messages = [{"role": "system", "content": system_prompt}]
 
         # 添加用户消息
-        messages.append({"role": "user", "content": query})
+        messages.append({"role": "user", "content": user_input})
 
         # 获取可用工具列表
         if self.session is None:
@@ -73,10 +97,10 @@ class MCPClient:
                 base_url=self.config.agent.llm.gemini.llm_base_url, api_key=self.config.agent.llm.gemini.llm_api_key
             )
 
-            response = await client.chat.completions.create(
+            response = await client.chat.completions.create( # type: ignore[return-value]
                 model=self.config.agent.llm.gemini.llm_model_name,
-                messages=messages,
-                tools=available_tools,
+                messages=messages, # type: ignore[assignment]
+                tools=available_tools, # type: ignore[assignment]
                 tool_choice="auto",  # 让模型自行决定是否调用工具
             )
 
@@ -90,40 +114,50 @@ class MCPClient:
                 tool_args = json.loads(tool_call.function.arguments)
 
                 # 执行工具
-                result = await self.session.call_tool(tool_name, tool_args)
+                tool_response = await self.session.call_tool(tool_name, tool_args)
+                # 添加一些提示词:
+                # TODO 在实际应用场景中，要考虑清理这些 prompt 不留在长期记忆中占 token 数量
                 if tool_name == "get_date_and_time":
-                    # 添加一些提示词:
-                    convert_prompt = await self.session.get_prompt(
-                        "convert_time_readable", {"time_str": str(result.content[0].text)}
+                    prompt_response = await self.session.get_prompt(
+                        "convert_time_readable", {"time_str": read_result_from_mcp_tool_response(tool_response)}
+
                     )
-                    messages.append({"role": "user", "content": convert_prompt.messages[0].content.text})
-                    print("=======convert_prompt========")
-                    print(convert_prompt)
+                    messages.append({"role": "user", "content": read_prompt_from_mcp_prompt_template(prompt_response)})
+                    print("======= add_prompt ========")
+                    print(read_prompt_from_mcp_prompt_template(prompt_response))
                 if tool_name == "roll_dice":
-                    convert_prompt = await self.session.get_prompt(
-                        "convert_list_int_readable", {"numbers": result.content[0].text}
+                    prompt_response = await self.session.get_prompt(
+                        "convert_list_int_readable", {"numbers": read_result_from_mcp_tool_response(tool_response)}
+
                     )
-                    messages.append({"role": "user", "content": convert_prompt.messages[0].content.text})
-                    print("=======convert_prompt========")
-                    print(convert_prompt)
+                    messages.append({"role": "user", "content": read_prompt_from_mcp_prompt_template(prompt_response)})
+                    print("======= add_prompt ========")
+                    print(read_prompt_from_mcp_prompt_template(prompt_response))
+
 
                 # 将结果添加到消息历史
-                messages.append(response_message)
+                messages.append(response_message) # type: ignore
                 messages.append(
                     {
                         "role": "tool",
-                        "content": result.content[0].text,
+                        "content": read_result_from_mcp_tool_response(tool_response),
                         "tool_call_id": tool_call.id,
                     }
                 )
 
                 # 获取最终响应
-                second_response = await client.chat.completions.create(
-                    model=self.config.agent.llm.gemini.llm_model_name, messages=messages
+                second_response = await client.chat.completions.create( 
+                    model=self.config.agent.llm.gemini.llm_model_name, messages=messages # type: ignore[assignment]
                 )
-                return second_response.choices[0].message.content
+                if second_response.choices[0].message.content:
+                    return second_response.choices[0].message.content
+                else:
+                    return "second call tool return None"
+            if response_message.content:
+                return response_message.content
+            else:
+                return "response content return None"
 
-            return response_message.content
 
         except (APIConnectionError, APIError, RateLimitError) as e:
             # 处理API错误

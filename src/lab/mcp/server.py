@@ -6,13 +6,12 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
 
-from fastmcp import Context, FastMCP
+from fastmcp import FastMCP
 
-if TYPE_CHECKING:
-    from mcp.server.session import ServerSession
-    from mcp.shared.context import RequestContext
+# if TYPE_CHECKING:
+#     from mcp.server.session import ServerSession
+#     from mcp.shared.context import RequestContext
 
 
 @dataclass
@@ -54,23 +53,23 @@ async def get_date_and_time(
 def convert_isoformat_time_to_tts_text(time_str: str) -> str:
     """Convert ISO timestamp to spoken format based on response language."""
     return f"""
-            如果回复是中文，请参照此转换规则：
-            (2004-10-14 12:21:41 → 二零零四年十月十四日，十二时二十一分四十一秒)
-            将以下时间转换为中文读音格式：\n{time_str}
+    如果回复是中文，请参照此转换规则：
+    (2004-10-14 12:21:41 → 二零零四年十月十四日，十二时二十一分四十一秒)
+    将以下时间转换为中文读音格式：{time_str}
 
-            If the response is in English, follow this format:
-            (2004-10-14 12:21:41 → October 14, 2004, twelve twenty-one forty-one)
-            Convert the time to English spoken format：\n{time_str}
+    If the response is in English, follow this format:
+    (2004-10-14 12:21:41 → October 14, 2004, twelve twenty-one forty-one)
+    Convert the time to English spoken format：{time_str}
 
-            もし返信が日本語の場合、この形式に従ってください：
-            (2004-10-14 12:21:41 → にせんよねん じゅうがつ じゅうよっか じゅうにじ にじゅういっぷん よんじゅういちびょう)
-            以下の時間を平仮名で変換してください：\n{time_str},
-            
-            只需要返回和用户语言相同的格式即可,你转换得到的时间是**现在这个时刻的时间**。
-            当用户问你几点时，你只需要回答十二时二十一分，不需要回答秒,当然你可以加上上午，下午，晚上,傍晚等修饰语。
-            当用户问你今天是几号时，你可以选择回答 二零零四年十月十四日 或者 十月十四日,尽量选择后者，因为比较短。
-            你也需要自己应付用户刁钻的回答比如昨天，明天，大后天，一个小时前。甚至问你时区时差问题。
-            """
+    もし返信が日本語の場合、この形式に従ってください：
+    (2004-10-14 12:21:41 → にせんよねん じゅうがつ じゅうよっか じゅうにじ にじゅういっぷん よんじゅういちびょう)
+    以下の時間を平仮名で変換してください：{time_str},
+
+    只需要返回和用户语言相同的格式即可,你转换得到的时间是**现在这个时刻的时间**。
+    当用户问你几点时，你只需要回答十二时二十一分，不需要回答秒,当然你可以加上上午，下午，晚上,傍晚等修饰语。
+    当用户问你今天是几号时，你可以选择回答 二零零四年十月十四日 或者 十月十四日,尽量选择后者，因为比较短。
+    你也需要自己应付用户刁钻的回答比如昨天，明天，大后天，一个小时前。甚至问你时区时差问题。
+    """
 
 
 @mcp.tool
@@ -81,10 +80,18 @@ def roll_dice(n_dice: int) -> list[int]:
 @mcp.prompt("convert_list_int_readable")
 def convert_list_int_to_readable_text(numbers: list[int]) -> str:
     """Convert a list of numbers to a readable text."""
-    return f"""你需要一串列表中的数字转为用户看得懂且容易读出来的文字，
-               比如[1,2,3,4,5,6]转为一、二、三、四、五、六。
-               接下来请转换一下内容: {numbers},
-               请以用户的语言回答"""
+    return f"""
+    你需要将数字列表转换为用户易读的文字：
+    示例输入: [1,2,3,4,5,6]
+
+    转换规则：
+    中文 → 一、二、三、四、五、六
+    English → One, Two, Three, Four, Five, Six
+    日本語 → いち、に、さん、よん、ご、ろく
+
+    当前需要转换的数字列表：{', '.join(map(str, numbers))}
+    请根据用户语言返回对应格式
+    """
 
 
 
