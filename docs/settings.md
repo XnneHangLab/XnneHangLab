@@ -71,6 +71,11 @@ default-groups = ["dev","yutto-uiya","bert-vits","database","vtuber"]
 - 可选: ["ZH", "JA", "EN"]
 - 注意点： bert_vits 目前只推理中文。
 
+**user_lang**
+- 描述: 用户使用的主要语言，决定你看到的模型回复的语言。
+- 默认值: "ZH"
+- 可选: ["ZH", "JA", "EN"]
+
 **speaker_model**
 - 描述: 使用的 TTS 模型名称
 - 默认值: "gpt_sovits"
@@ -81,8 +86,8 @@ default-groups = ["dev","yutto-uiya","bert-vits","database","vtuber"]
 
 **faster_first_response** 
 
-- 描述: 是否每生成一句话就开始异步生成 tts 而不是等待所有段落生成后再生成 tts
-- 默认值:true
+- 描述: 是否生成第一句话的","时就开始异步生成 tts 而不是等待完整句子生成后再开始 tts
+- 默认值:false
 
 **deeplx_api_key**
 - 描述: deeplx 翻译的 api key
