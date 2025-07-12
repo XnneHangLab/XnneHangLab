@@ -2,16 +2,17 @@
 from __future__ import annotations
 
 import random
-from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from fastmcp import FastMCP
 
-# if TYPE_CHECKING:
-#     from mcp.server.session import ServerSession
-#     from mcp.shared.context import RequestContext
+if TYPE_CHECKING:
+    #     from mcp.server.session import ServerSession
+    #     from mcp.shared.context import RequestContext
+    from collections.abc import AsyncIterator
 
 
 @dataclass
@@ -34,8 +35,7 @@ mcp = FastMCP("timeemi", lifespan=app_lifespan)
 
 
 @mcp.tool()
-async def get_date_and_time(
-) -> str:
+async def get_date_and_time() -> str:
     """
     Use this tool to get current date time with format YYYY-MM-DD HH:MM:SS.
 
@@ -77,6 +77,7 @@ def roll_dice(n_dice: int) -> list[int]:
     """Roll `n_dice` 6-sided dice and return the results."""
     return [random.randint(1, 6) for _ in range(n_dice)]
 
+
 @mcp.prompt("convert_list_int_readable")
 def convert_list_int_to_readable_text(numbers: list[int]) -> str:
     """Convert a list of numbers to a readable text."""
@@ -89,11 +90,9 @@ def convert_list_int_to_readable_text(numbers: list[int]) -> str:
     English → One, Two, Three, Four, Five, Six
     日本語 → いち、に、さん、よん、ご、ろく
 
-    当前需要转换的数字列表：{', '.join(map(str, numbers))}
+    当前需要转换的数字列表：{", ".join(map(str, numbers))}
     请根据用户语言返回对应格式
     """
-
-
 
 
 def run_mcp():

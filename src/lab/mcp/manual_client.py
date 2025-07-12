@@ -37,7 +37,7 @@ async def main():
             print(prompt_1)
             prompt_2 = await session.get_prompt(
                 "limit_time_response",
-                {"time_str": str("二零零四年十月十四日，十二时二十一分四十一秒"), "ask": "现在几点了？"},
+                {"time_str": "二零零四年十月十四日，十二时二十一分四十一秒", "ask": "现在几点了？"},
             )
             print(prompt_2)
 

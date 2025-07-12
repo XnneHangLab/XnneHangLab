@@ -3,10 +3,9 @@ from __future__ import annotations
 import asyncio
 import json
 from contextlib import AsyncExitStack
-from typing import Optional
-
 from pathlib import Path
 from typing import Any
+
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from openai import (
@@ -20,27 +19,28 @@ from openai import (
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 
-def read_prompt_from_text_file(system_prompt_name:str) -> str:
+
+def read_prompt_from_text_file(system_prompt_name: str) -> str:
     prompt_text_path = Path("prompts") / f"{system_prompt_name}.txt"
     if not prompt_text_path.exists():
         raise ValueError(f"prompt file {prompt_text_path} not exists")
-    with prompt_text_path.open("r",encoding="utf-8") as f:
+    with prompt_text_path.open("r", encoding="utf-8") as f:
         prompt_text = f.read()
     return prompt_text
 
 
 # 避免反復地添加 type: ignore, 僅能處理 str 返回。
-def read_prompt_from_mcp_prompt_template(response:Any) -> str:
+def read_prompt_from_mcp_prompt_template(response: Any) -> str:
     try:
-        return response.messages[0].content.text # type: ignore
+        return response.messages[0].content.text  # type: ignore
     except Exception as e:
         print(response)
         return f"parse prompt template error: {e}"
 
-    
-def read_result_from_mcp_tool_response(response:Any) ->str:
+
+def read_result_from_mcp_tool_response(response: Any) -> str:
     try:
-        return response.content[0].text # type: ignore
+        return response.content[0].text  # type: ignore
     except Exception as e:
         print(response)
         return f"parse tool response error: {e}"
@@ -49,7 +49,7 @@ def read_result_from_mcp_tool_response(response:Any) ->str:
 class MCPClient:
     def __init__(self):
         self.config = load_settings_file("lab.toml", XnneHangLabSettings)
-        self.session: Optional[ClientSession] = None
+        self.session: ClientSession | None = None
         self.exit_stack = AsyncExitStack()
         self.client = OpenAI(
             base_url=self.config.agent.llm.gemini.llm_base_url, api_key=self.config.agent.llm.gemini.llm_api_key
@@ -68,9 +68,8 @@ class MCPClient:
         print("====== user_input ======")
         print(user_input)
         system_prompt_path = Path("prompts") / f"{self.config.agent.system_prompt_name}.txt"
-        with system_prompt_path.open("r",encoding="utf-8") as f:
+        with system_prompt_path.open("r", encoding="utf-8") as f:
             system_prompt = f.read()
-
 
         messages = [{"role": "system", "content": system_prompt}]
 
@@ -97,10 +96,10 @@ class MCPClient:
                 base_url=self.config.agent.llm.gemini.llm_base_url, api_key=self.config.agent.llm.gemini.llm_api_key
             )
 
-            response = await client.chat.completions.create( # type: ignore[return-value]
+            response = await client.chat.completions.create(  # type: ignore[return-value]
                 model=self.config.agent.llm.gemini.llm_model_name,
-                messages=messages, # type: ignore[assignment]
-                tools=available_tools, # type: ignore[assignment]
+                messages=messages,  # type: ignore[assignment]
+                tools=available_tools,  # type: ignore[assignment]
                 tool_choice="auto",  # 让模型自行决定是否调用工具
             )
 
@@ -120,7 +119,6 @@ class MCPClient:
                 if tool_name == "get_date_and_time":
                     prompt_response = await self.session.get_prompt(
                         "convert_time_readable", {"time_str": read_result_from_mcp_tool_response(tool_response)}
-
                     )
                     messages.append({"role": "user", "content": read_prompt_from_mcp_prompt_template(prompt_response)})
                     print("======= add_prompt ========")
@@ -128,15 +126,13 @@ class MCPClient:
                 if tool_name == "roll_dice":
                     prompt_response = await self.session.get_prompt(
                         "convert_list_int_readable", {"numbers": read_result_from_mcp_tool_response(tool_response)}
-
                     )
                     messages.append({"role": "user", "content": read_prompt_from_mcp_prompt_template(prompt_response)})
                     print("======= add_prompt ========")
                     print(read_prompt_from_mcp_prompt_template(prompt_response))
 
-
                 # 将结果添加到消息历史
-                messages.append(response_message) # type: ignore
+                messages.append(response_message)  # type: ignore
                 messages.append(
                     {
                         "role": "tool",
@@ -146,8 +142,9 @@ class MCPClient:
                 )
 
                 # 获取最终响应
-                second_response = await client.chat.completions.create( 
-                    model=self.config.agent.llm.gemini.llm_model_name, messages=messages # type: ignore[assignment]
+                second_response = await client.chat.completions.create(
+                    model=self.config.agent.llm.gemini.llm_model_name,
+                    messages=messages,  # type: ignore[assignment]
                 )
                 if second_response.choices[0].message.content:
                     return second_response.choices[0].message.content
@@ -157,7 +154,6 @@ class MCPClient:
                 return response_message.content
             else:
                 return "response content return None"
-
 
         except (APIConnectionError, APIError, RateLimitError) as e:
             # 处理API错误
@@ -179,6 +175,8 @@ async def main():
         response = await client.chat("我晚上九点就后就该去打游戏了，现在几点？")
         print(response)
         response = await client.chat("帮我随便roll三个点数")
+        print(response)
+        response = await client.chat("你今天真可爱")
         print(response)
     finally:
         await client.cleanup()
