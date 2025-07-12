@@ -88,20 +88,21 @@ async def handle_sentence_output(
     full_response = ""
     lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
     async for display_text, tts_text, actions in output:
-        logger.info(f"🏃 Processing output: '''{tts_text}'''...")
-
-        if lab_settings.agent.speaker_lang != "ZH":
+        if lab_settings.agent.speaker_lang != lab_settings.agent.user_lang:
+            logger.info(f"🏃 Processing output: '''{tts_text}'''...")
             logger.info(f"🏃 Translating text to {lab_settings.agent.speaker_lang}...")
             deeplx_client = DeepLXClient()
             response = await deeplx_client.asyncpost(
-                DeepLXRequest(text=tts_text, source_language="ZH", target_language=lab_settings.agent.speaker_lang)
+                DeepLXRequest(text=tts_text, source_language=lab_settings.agent.user_lang, target_language=lab_settings.agent.speaker_lang)
             )
-            tts_text = response["target_text"] if response else tts_text
+            tts_text = response["target_text"] if response else tts_text # 我打算用 MCP 实现表情播放，看看能不能简化一下复杂度？
             logger.info(f"🏃 Text after translation: '''{tts_text}'''...")
+        tts_text.replace("*","")
+        display_text.text = display_text.text.replace("*","")
 
         full_response += display_text.text
         await tts_manager.speak(
-            tts_text=tts_text,
+            tts_text=tts_text, # 直接使用大模型回復作為 TTS Text
             display_text=display_text,
             actions=actions,
             live2d_model=live2d_model,

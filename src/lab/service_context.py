@@ -139,6 +139,15 @@ class ServiceContext:
         system_prompt = (
             (root_dir / "prompts" / f"{lab_settings.agent.system_prompt_name}.txt").read_text(encoding="utf-8").strip()
         )
+        if lab_settings.agent.user_lang == "ZH":
+            system_prompt += "\n**请回复中文。**"
+        elif lab_settings.agent.user_lang == "EN":
+            system_prompt += "\n**Please reply in English.**"
+        elif lab_settings.agent.user_lang == "JA":
+            system_prompt += "\n**日本語で返信してください。**"
+        else:
+            raise ValueError(f"speaker_lang {lab_settings.agent.user_lang} not supported")
+
         if self.live2d_model is None:
             logger.error("Live2D model is not initialized, cannot create agent.")
             raise ValueError("Live2D model must be initialized before creating agent.")
