@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import asyncio
 from copy import deepcopy
+from typing import TYPE_CHECKING
 
-from mcp.types import CallToolResult
 from openai import AsyncOpenAI
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
@@ -12,6 +12,9 @@ from lab.mcp.client.base_mcp_interface import MCPHandlerInterface
 from lab.mcp.client.timeemi import TimeemiMCPHandler
 from lab.mcp.connect import MCPConnection
 from lab.mcp.util import read_prompt_from_text_file
+
+if TYPE_CHECKING:
+    from mcp.types import CallToolResult
 
 
 class VirtualMCPHandler(MCPHandlerInterface):

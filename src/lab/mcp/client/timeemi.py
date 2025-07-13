@@ -3,9 +3,7 @@ from __future__ import annotations
 # from typing import Any
 import json
 from copy import deepcopy
-
-from mcp.types import CallToolResult
-from openai.types.chat.chat_completion_message import ChatCompletionMessage
+from typing import TYPE_CHECKING
 
 from lab.mcp._typing import CommonMessage, ToolMessage
 from lab.mcp.client.base_mcp_interface import MCPHandlerInterface
@@ -13,6 +11,10 @@ from lab.mcp.example.openai_client import (
     read_prompt_from_mcp_prompt_template,
     read_result_from_mcp_tool_response,
 )
+
+if TYPE_CHECKING:
+    from mcp.types import CallToolResult
+    from openai.types.chat.chat_completion_message import ChatCompletionMessage
 
 
 class TimeemiMCPHandler(MCPHandlerInterface):

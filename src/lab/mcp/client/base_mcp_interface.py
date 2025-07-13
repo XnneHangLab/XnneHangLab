@@ -2,15 +2,19 @@ from __future__ import annotations
 
 # from typing import Any
 from abc import ABC, abstractmethod
-from typing import AsyncIterator
+from typing import TYPE_CHECKING
 
-from mcp import ClientSession
-from mcp.types import CallToolResult
 from openai import AsyncOpenAI
-from openai.types.chat.chat_completion_message import ChatCompletionMessage
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.mcp._typing import CommonMessage, ToolMessage
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+    from mcp import ClientSession
+    from mcp.types import CallToolResult
+    from openai.types.chat.chat_completion_message import ChatCompletionMessage
 
 
 class MCPHandlerInterface(ABC):
