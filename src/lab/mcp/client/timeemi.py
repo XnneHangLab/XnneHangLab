@@ -41,15 +41,21 @@ class TimeemiMCPHandler(MCPHandlerInterface):
                 prompt_response = await client.get_prompt(  # type: ignore
                     "convert_time_readable", {"time_str": read_result_from_mcp_tool_response(tool_response)}
                 )
-                messages.append(CommonMessage(role="user", content=read_prompt_from_mcp_prompt_template(prompt_response)))
+                messages.append(
+                    CommonMessage(role="user", content=read_prompt_from_mcp_prompt_template(prompt_response))
+                )
                 prompt_response = await client.get_prompt("limit_time_response", {"user_input": user_input})  # type: ignore
-                messages.append(CommonMessage(role="user", content=read_prompt_from_mcp_prompt_template(prompt_response)))
+                messages.append(
+                    CommonMessage(role="user", content=read_prompt_from_mcp_prompt_template(prompt_response))
+                )
 
             if tool_name == "roll_dice":
                 prompt_response = await client.get_prompt(  # type: ignore
                     "convert_list_int_readable", {"numbers": read_result_from_mcp_tool_response(tool_response)}
                 )
-                messages.append(CommonMessage(role="user", content=read_prompt_from_mcp_prompt_template(prompt_response)))
+                messages.append(
+                    CommonMessage(role="user", content=read_prompt_from_mcp_prompt_template(prompt_response))
+                )
         return messages
 
     async def process(  # type: ignore[override]

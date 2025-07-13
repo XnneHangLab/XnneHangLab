@@ -177,6 +177,7 @@ class WebSocketHandler:
             live2d_model=self.default_context_cache.live2d_model,  # type: ignore
             agent_engine=self.default_context_cache.agent_engine,  # type: ignore
         )
+        # await session_service_context.init_mcp_client()
         return session_service_context
 
     async def handle_websocket_communication(self, websocket: WebSocket, client_uid: str) -> None:

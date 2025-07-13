@@ -38,7 +38,7 @@ class MCPHandlerInterface(ABC):
         if not await Path(server_path).exists():
             raise ValueError(f"Server path {server_path} does not exist")
         self.mcp_client = Client(server_path)
-        async with self.mcp_client as client: # type: ignore
+        async with self.mcp_client as client:  # type: ignore
             tool_list = await client.list_tools()
             # print(tool_list)
         self.available_tools = [
@@ -48,7 +48,6 @@ class MCPHandlerInterface(ABC):
             }
             for tool in tool_list
         ]
-
 
     @abstractmethod
     async def process(
