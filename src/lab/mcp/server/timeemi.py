@@ -65,8 +65,9 @@ def convert_isoformat_time_to_tts_text(time_str: str) -> str:
     以下の時間を平仮名で変換してください：{time_str},
     """
 
+
 @mcp.prompt("limit_time_response")
-def limit_time_response(user_input:str) -> str:
+def limit_time_response(user_input: str) -> str:
     return f"""
     只需要返回和用户语言相同的格式即可,你转换得到的时间是**现在这个时刻的时间**。
     当用户问你几点时，你只需要回答十二时二十一分，不需要回答秒,当然你可以加上上午，下午，晚上,傍晚等修饰语。
@@ -74,6 +75,7 @@ def limit_time_response(user_input:str) -> str:
     你也需要自己应付用户刁钻的回答比如昨天，明天，大后天，一个小时前。甚至问你时区时差问题。
     现在用户问的是:{user_input}
     """
+
 
 @mcp.tool
 def roll_dice(n_dice: int) -> list[int]:

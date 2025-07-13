@@ -11,7 +11,7 @@ server_params = StdioServerParameters(
     # 服务器执行的命令，这里我们使用 uv 来运行 web_search.py
     command="uv",
     # 运行的参数
-    args=["run", "src/lab/mcp/server.py"],
+    args=["run", "src/lab/mcp/server/timeemi.py"],
     # 环境变量，默认为 None，表示使用当前环境变量
     # env=None
 )

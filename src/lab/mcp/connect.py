@@ -1,8 +1,10 @@
 from __future__ import annotations
+
 from contextlib import AsyncExitStack
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+
 
 class MCPConnection:
     def __init__(self, server_path: str):
