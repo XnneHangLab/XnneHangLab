@@ -1,3 +1,4 @@
+# as an example for openai client, 不在实际环境中使用, 但这个是我们最终使用的方案。
 from __future__ import annotations
 
 import asyncio
@@ -72,7 +73,7 @@ class MCPClient:
             system_prompt = f.read()
         system_prompt = "\n**請使用和用戶相同的語言**"
 
-        messages = [{"role": "system", "content": system_prompt}]
+        messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
 
         # 添加用户消息
         messages.append({"role": "user", "content": user_input})
@@ -133,7 +134,7 @@ class MCPClient:
                     print(read_prompt_from_mcp_prompt_template(prompt_response))
 
                 # 将结果添加到消息历史
-                messages.append(response_message)  # type: ignore
+                messages.append(response_message.to_dict())
                 messages.append(
                     {
                         "role": "tool",

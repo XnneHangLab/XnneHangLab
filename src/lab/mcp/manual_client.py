@@ -1,3 +1,4 @@
+# as an example for manual call tools, 不在实际环境中使用。
 from __future__ import annotations
 
 import asyncio

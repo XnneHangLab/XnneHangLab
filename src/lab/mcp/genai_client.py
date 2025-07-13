@@ -1,3 +1,4 @@
+# As an example for genai, 我们并不在实际环境中使用。
 from __future__ import annotations
 
 import asyncio
