@@ -10,7 +10,6 @@ from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.mcp._typing import CommonMessage, ToolMessage
 from lab.mcp.client.base_mcp_interface import MCPHandlerInterface
 from lab.mcp.client.timeemi import TimeemiMCPHandler
-from lab.mcp.connect import MCPConnection
 from lab.mcp.util import read_prompt_from_text_file
 
 if TYPE_CHECKING:
@@ -60,6 +59,7 @@ class VirtualMCPHandler(MCPHandlerInterface):
         response_message = response.choices[0].message
 
         if not response_message.tool_calls:  # 对于 tool call stream response 的屈服。宁可多调用一次也不能放弃 stream。
+            print("no tool call")
             self.messages = deepcopy(
                 memory
             )  # 防止 memory 被篡改,我们不希望在 memory 中加入 tool 上下文。 # type:ignore
@@ -74,6 +74,7 @@ class VirtualMCPHandler(MCPHandlerInterface):
                     chunk.choices[0].delta.content = ""  # type: ignore[assignment]
                 yield chunk.choices[0].delta.content  # type: ignore[assignment]
         else:
+            print("tool call")
             self.messages = deepcopy(
                 memory
             )  # 防止 memory 被篡改,我们不希望在 memory 中加入 tool 上下文。 # type:ignore
@@ -89,21 +90,21 @@ class VirtualMCPHandler(MCPHandlerInterface):
 
 # example usage:
 async def main():
-    async with MCPConnection("src/lab/mcp/server/timeemi.py") as timeemi_session:
-        timeemi_mcp_handler = await TimeemiMCPHandler.create(timeemi_session)
-        virtual_mcp_handler = VirtualMCPHandler(handlers=[timeemi_mcp_handler])
-        virtual_mcp_handler.available_tools.extend(timeemi_mcp_handler.available_tools)
-        memory = [CommonMessage(role="system", content=read_prompt_from_text_file("elaina"))]
-        message = CommonMessage(role="user", content="你今天真可爱")
-        print(f"user input: {message}")
-        async for chunk in virtual_mcp_handler.process(message=message, memory=memory):  # type: ignore
-            print(chunk)  # type: ignore
-        print(virtual_mcp_handler.messages)
-        message = CommonMessage(role="user", content="现在几点了？")
-        print(f"user input: {message}")
-        async for chunk in virtual_mcp_handler.process(message=message, memory=memory):  # type: ignore
-            print(chunk)  # type: ignore
-        print(virtual_mcp_handler.messages)
+    # async with MCPConnection("src/lab/mcp/server/timeemi.py") as timeemi_session:
+    timeemi_mcp_handler = await TimeemiMCPHandler.create(server_path="src/lab/mcp/server/timeemi.py")
+    virtual_mcp_handler = VirtualMCPHandler(handlers=[timeemi_mcp_handler])
+    virtual_mcp_handler.available_tools.extend(timeemi_mcp_handler.available_tools)
+    memory = [CommonMessage(role="system", content=read_prompt_from_text_file("elaina"))]
+    message = CommonMessage(role="user", content="你今天真可爱")
+    print(f"user input: {message}")
+    async for chunk in virtual_mcp_handler.process(message=message, memory=memory):  # type: ignore
+        print(chunk)  # type: ignore
+    print(virtual_mcp_handler.messages)
+    message = CommonMessage(role="user", content="现在几点了？")
+    print(f"user input: {message}")
+    async for chunk in virtual_mcp_handler.process(message=message, memory=memory):  # type: ignore
+        print(chunk)  # type: ignore
+    print(virtual_mcp_handler.messages)
 
 
 if __name__ == "__main__":

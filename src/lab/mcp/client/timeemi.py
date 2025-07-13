@@ -33,20 +33,23 @@ class TimeemiMCPHandler(MCPHandlerInterface):
     async def generate_prompt_template(
         self, tool_name: str, tool_response: CallToolResult, user_input: str
     ) -> list[CommonMessage]:
+        if self.mcp_client is None:  # type: ignore
+            raise ValueError("mcp client is None")
         messages: list[CommonMessage] = []
-        if tool_name == "get_date_and_time":
-            prompt_response = await self.mcp_client.get_prompt(
-                "convert_time_readable", {"time_str": read_result_from_mcp_tool_response(tool_response)}
-            )
-            messages.append(CommonMessage(role="user", content=read_prompt_from_mcp_prompt_template(prompt_response)))
-            prompt_response = await self.mcp_client.get_prompt("limit_time_response", {"user_input": user_input})
-            messages.append(CommonMessage(role="user", content=read_prompt_from_mcp_prompt_template(prompt_response)))
+        async with self.mcp_client as client:  # type: ignore
+            if tool_name == "get_date_and_time":
+                prompt_response = await client.get_prompt(  # type: ignore
+                    "convert_time_readable", {"time_str": read_result_from_mcp_tool_response(tool_response)}
+                )
+                messages.append(CommonMessage(role="user", content=read_prompt_from_mcp_prompt_template(prompt_response)))
+                prompt_response = await client.get_prompt("limit_time_response", {"user_input": user_input})  # type: ignore
+                messages.append(CommonMessage(role="user", content=read_prompt_from_mcp_prompt_template(prompt_response)))
 
-        if tool_name == "roll_dice":
-            prompt_response = await self.mcp_client.get_prompt(
-                "convert_list_int_readable", {"numbers": read_result_from_mcp_tool_response(tool_response)}
-            )
-            messages.append(CommonMessage(role="user", content=read_prompt_from_mcp_prompt_template(prompt_response)))
+            if tool_name == "roll_dice":
+                prompt_response = await client.get_prompt(  # type: ignore
+                    "convert_list_int_readable", {"numbers": read_result_from_mcp_tool_response(tool_response)}
+                )
+                messages.append(CommonMessage(role="user", content=read_prompt_from_mcp_prompt_template(prompt_response)))
         return messages
 
     async def process(  # type: ignore[override]
@@ -55,13 +58,18 @@ class TimeemiMCPHandler(MCPHandlerInterface):
         # 生成Prompt模板并且加入 messages
         if not response_message.tool_calls:
             raise ValueError("No tool call in response")
+        if self.mcp_client is None:  # type: ignore
+            raise ValueError("mcp client is None")
         tool_name = response_message.tool_calls[
             0
         ].function.name  # TODO 也许能实现多个 tool 的功能？但是可能过于复杂暂时不考虑
         tool_args = json.loads(response_message.tool_calls[0].function.arguments)
-        tool_response = await self.mcp_client.call_tool(tool_name, tool_args)
+        async with self.mcp_client as client:  # type: ignore
+            tool_response = await client.call_tool(tool_name, tool_args)  # type: ignore
         prompt_messages = await self.generate_prompt_template(
-            response_message.tool_calls[0].function.name, tool_response, user_input=message["content"]
+            response_message.tool_calls[0].function.name,
+            tool_response,  # type: ignore
+            user_input=message["content"],  # type: ignore
         )
         # 加入 prompt
         self.messages = deepcopy(memory)  # 在记忆中隔离 tool 上下文。 # type: ignore[assignment]

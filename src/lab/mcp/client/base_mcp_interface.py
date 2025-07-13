@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-# from typing import Any
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
+from anyio import Path
+from fastmcp import Client
 from openai import AsyncOpenAI
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
@@ -12,40 +13,59 @@ from lab.mcp._typing import CommonMessage, ToolMessage
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from mcp import ClientSession
     from mcp.types import CallToolResult
     from openai.types.chat.chat_completion_message import ChatCompletionMessage
 
 
 class MCPHandlerInterface(ABC):
-    def __init__(self, mcp_client: ClientSession):
+    def __init__(self):
         self.config = load_settings_file("lab.toml", XnneHangLabSettings)
-        self.mcp_client = mcp_client
         self.openai_client = AsyncOpenAI(
-            base_url=self.config.agent.llm.gemini.llm_base_url, api_key=self.config.agent.llm.gemini.llm_api_key
+            base_url=self.config.agent.llm.gemini.llm_base_url,
+            api_key=self.config.agent.llm.gemini.llm_api_key,
         )
         self.messages: list[dict[str, object] | ToolMessage | CommonMessage] = self.reset_messages()
         self.available_tools: list[dict[str, object]] = []
+        self.mcp_client: Client | None = None  # type: ignore
 
     @classmethod
-    async def create(cls, mcp_client: ClientSession):
-        instance = cls(mcp_client)
-        await instance._async_init()
+    async def create(cls, server_path: str):
+        instance = cls()
+        await instance._async_init(server_path)
         return instance
 
-    def add_messages(self, message: ToolMessage | CommonMessage):
-        self.messages.append(message)  # 从 basic memory 处得到记忆更新，防止回复断层丢失上下文。
-
-    async def _async_init(self):
-        self.tool_list = await self.mcp_client.list_tools()
-        # 转换为OpenAI格式的工具描述
+    async def _async_init(self, server_path: str):
+        if not await Path(server_path).exists():
+            raise ValueError(f"Server path {server_path} does not exist")
+        self.mcp_client = Client(server_path)
+        async with self.mcp_client as client: # type: ignore
+            tool_list = await client.list_tools()
+            # print(tool_list)
         self.available_tools = [
             {
                 "type": "function",
                 "function": {"name": tool.name, "description": tool.description, "parameters": tool.inputSchema},
             }
-            for tool in self.tool_list.tools
+            for tool in tool_list
         ]
+
+
+    @abstractmethod
+    async def process(
+        self, response_message: ChatCompletionMessage, memory: list[CommonMessage], message: CommonMessage
+    ) -> AsyncIterator[CommonMessage]:
+        """处理消息并返回流式响应"""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def generate_prompt_template(
+        self, tool_name: str, tool_response: CallToolResult, user_input: str
+    ) -> list[CommonMessage]:
+        """为 tool 选择、组合生成Prompt模板"""
+        raise NotImplementedError
+
+    def add_messages(self, message: ToolMessage | CommonMessage):
+        self.messages.append(message)  # 从 basic memory 处得到记忆更新，防止回复断层丢失上下文。
 
     def reset_messages(
         self,
@@ -65,17 +85,3 @@ class MCPHandlerInterface(ABC):
         else:
             raise ValueError("Unknown user lang")
         return messages  # type: ignore[return-value]
-
-    @abstractmethod
-    async def process(
-        self, response_message: ChatCompletionMessage, memory: list[CommonMessage], message: CommonMessage
-    ) -> AsyncIterator[CommonMessage]:
-        """处理消息并返回流式响应"""
-        raise NotImplementedError
-
-    @abstractmethod
-    async def generate_prompt_template(
-        self, tool_name: str, tool_response: CallToolResult, user_input: str
-    ) -> list[CommonMessage]:
-        """为 tool 选择、组合生成Prompt模板"""
-        raise NotImplementedError
