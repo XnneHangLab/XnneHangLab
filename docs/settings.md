@@ -65,6 +65,11 @@ default-groups = ["dev","yutto-uiya","bert-vits","database","vtuber"]
 - 默认值: "lingyi"
 - 可选: ["openai", "lingyi", "gemini"]
 
+**enable_mcp**
+- 描述: 是否启用 MCP 功能
+- 默认值: True
+- 注意点: 不是所有模型都支持 function call，比如零一万物的大部分模型都不支持, 所以它无法使用 MCP 功能。
+
 **speaker_lang**
 - 描述: TTS 模型生成的目标语言
 - 默认值: "EN"

@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING
 
 from fastmcp import FastMCP
 
+from lab.config_manager import XnneHangLabSettings, load_settings_file
+
 if TYPE_CHECKING:
     #     from mcp.server.session import ServerSession
     #     from mcp.shared.context import RequestContext
@@ -101,12 +103,13 @@ def convert_list_int_to_readable_text(numbers: list[int]) -> str:
 
 
 def run_mcp():
+    lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
     mcp.run(
-        transport="http",
-        host="127.0.0.1",
-        port=4200,
-        path="/",
-        log_level="debug",
+        transport=lab_settings.mcp.timeemi.transport,
+        host=lab_settings.mcp.timeemi.host,
+        port=lab_settings.mcp.timeemi.port,
+        path=lab_settings.mcp.timeemi.path,
+        log_level=lab_settings.mcp.timeemi.log_level,
     )
 
 

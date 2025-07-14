@@ -87,7 +87,10 @@ class VirtualMCPHandler(MCPHandlerInterface):
 
 
 async def get_virtual_mcp_handler():
-    timeemi_mcp_handler = await TimeemiMCPHandler.create(server_url="http://127.0.0.1:4200")
+    lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+    timeemi_mcp_handler = await TimeemiMCPHandler.create(
+        server_url=f"http://{lab_settings.mcp.timeemi.host}:{lab_settings.mcp.timeemi.port}"
+    )
     if timeemi_mcp_handler is None:
         logger.warning("skip create virtual mcp handler, run in non-mcp environment")
         return None

@@ -1,13 +1,13 @@
 # 我们这里所有的 MCP server 均用 streamable-http 连接不使用 stdio.
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
 
 class MCPServerSettingBase(BaseModel):
-    transport: Annotated[str, Field("http", title="MCP Transport")]
+    transport: Annotated[Literal["http"], Field("http", title="MCP Transport")]
     host: Annotated[str, Field("127.0.0.1", title="MCP Host")]
     port: Annotated[int, Field(8080, title="MCP Port")]
     path: Annotated[str, Field("/", title="MCP Path")]
@@ -41,6 +41,7 @@ def main():
     mcp_path = search_for_settings_file("mcp.toml")
     if mcp_path is not None and mcp_path.exists():
         mcp_path.unlink()  # remove agent.toml
+
 
 if __name__ == "__main__":
     main()
