@@ -11,7 +11,7 @@ from loguru import logger
 from openai import AsyncOpenAI
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
-from lab.mcp._typing import CommonMessage, ToolMessage
+from lab.mcp._typing import CommonMessage, ImageMessage, ToolMessage
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -24,7 +24,7 @@ class MCPHandlerInterface(ABC):
     def __init__(self):
         self.config = load_settings_file("lab.toml", XnneHangLabSettings)
         self.openai_client = self.init_openai_client()
-        self.messages: list[dict[str, object] | ToolMessage | CommonMessage] = self.reset_messages()
+        self.messages: list[dict[str, object] | ToolMessage | CommonMessage | ImageMessage] = self.reset_messages()
         self.available_tools: list[dict[str, object]] = []
         # Basic connection
         # self.transport = StreamableHttpTransport(url="https://api.example.com/mcp")
@@ -113,7 +113,9 @@ class MCPHandlerInterface(ABC):
 
     def reset_messages(
         self,
-    ) -> list[CommonMessage | ToolMessage | dict[str, object]]:  # 创建一个无上下文的 mcp handler 判断要不要调用工具.
+    ) -> list[
+        CommonMessage | ToolMessage | dict[str, object] | ImageMessage
+    ]:  # 创建一个无上下文的 mcp handler 判断要不要调用工具.
         messages = [
             CommonMessage(
                 role="system",

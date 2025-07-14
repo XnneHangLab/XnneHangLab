@@ -19,8 +19,14 @@ class TimeEmiServerSetting(MCPServerSettingBase):
     port: Annotated[int, Field(4200, title="MCP Port")]
 
 
+class VisionServerSetting(MCPServerSettingBase):
+    # 存储文件持久特殊变量.
+    port: Annotated[int, Field(4201, title="MCP Port")]
+
+
 class MCPSettings(BaseModel):
     timeemi: Annotated[TimeEmiServerSetting, Field(TimeEmiServerSetting())]  # pyright: ignore[reportCallIssue]
+    vision: Annotated[VisionServerSetting, Field(VisionServerSetting())]  # pyright: ignore[reportCallIssue]
 
 
 def main():

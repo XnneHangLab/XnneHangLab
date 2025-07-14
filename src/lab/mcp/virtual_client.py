@@ -7,9 +7,10 @@ from typing import TYPE_CHECKING
 from loguru import logger
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
-from lab.mcp._typing import CommonMessage, ToolMessage
+from lab.mcp._typing import CommonMessage, ToolMessage, ImageMessage
 from lab.mcp.client.base_mcp_interface import MCPHandlerInterface
 from lab.mcp.client.timeemi import TimeemiMCPHandler
+from lab.mcp.client.vision import VisionMCPHandler
 from lab.mcp.util import read_prompt_from_text_file
 
 if TYPE_CHECKING:
@@ -23,7 +24,7 @@ class VirtualMCPHandler(MCPHandlerInterface):
         self.config = load_settings_file("lab.toml", XnneHangLabSettings)
         # self.mcp_client = mcp_client 本身是不具有 mcp_client 的
         self.openai_client = self.init_openai_client()
-        self.messages: list[dict[str, object] | ToolMessage | CommonMessage] = self.reset_messages()
+        self.messages: list[dict[str, object] | ToolMessage | CommonMessage | ImageMessage] = self.reset_messages()
         self.handlers: list[MCPHandlerInterface] = handlers
         if len(self.handlers) == 0:
             raise ValueError("未初始化任何 MCPHandler")
@@ -91,11 +92,14 @@ async def get_virtual_mcp_handler():
     timeemi_mcp_handler = await TimeemiMCPHandler.create(
         server_url=f"http://{lab_settings.mcp.timeemi.host}:{lab_settings.mcp.timeemi.port}"
     )
-    if timeemi_mcp_handler is None:
+    vision_mcp_handler = await VisionMCPHandler.create(
+        server_url=f"http://{lab_settings.mcp.vision.host}:{lab_settings.mcp.vision.port}"
+    )
+    if timeemi_mcp_handler is None or vision_mcp_handler is None:
         logger.warning("skip create virtual mcp handler, run in non-mcp environment")
         return None
-    virtual_mcp_handler = VirtualMCPHandler(handlers=[timeemi_mcp_handler])
-    virtual_mcp_handler.available_tools.extend(timeemi_mcp_handler.available_tools)
+    virtual_mcp_handler = VirtualMCPHandler(handlers=[timeemi_mcp_handler, vision_mcp_handler])
+    print(virtual_mcp_handler.available_tools)
     return virtual_mcp_handler
 
 
@@ -103,13 +107,18 @@ async def get_virtual_mcp_handler():
 async def test_virtual_mcp_handler(virtual_mcp_handler: VirtualMCPHandler):
     # async with MCPConnection("src/lab/mcp/server/timeemi.py") as timeemi_session:
     memory = [CommonMessage(role="system", content=read_prompt_from_text_file("elaina"))]
-    message = CommonMessage(role="user", content="你今天真可爱")
-    print(f"user input: {message}")
-    async for chunk in virtual_mcp_handler.process(message=message, memory=memory):  # type: ignore
-        print(chunk)  # type: ignore
-    print(virtual_mcp_handler.messages)
-    message = CommonMessage(role="user", content="现在几点了？")
-    print(f"user input: {message}")
+    # message = CommonMessage(role="user", content="你今天真可爱")
+    # print(f"=========== {message['content']} ===========")
+    # async for chunk in virtual_mcp_handler.process(message=message, memory=memory):  # type: ignore
+    #     print(chunk)  # type: ignore
+    # print(virtual_mcp_handler.messages)
+    # message = CommonMessage(role="user", content="现在几点了？")
+    # print(f"=========== {message['content']} ===========")
+    # async for chunk in virtual_mcp_handler.process(message=message, memory=memory):  # type: ignore
+    #     print(chunk)  # type: ignore
+    # print(virtual_mcp_handler.messages)
+    message = CommonMessage(role="user", content="你能看到我电脑屏幕吗?")
+    print(f"=========== {message['content']} ===========")
     async for chunk in virtual_mcp_handler.process(message=message, memory=memory):  # type: ignore
         print(chunk)  # type: ignore
     print(virtual_mcp_handler.messages)
