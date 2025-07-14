@@ -17,6 +17,7 @@ from openai import (
 )
 
 from lab.agent.stateless_llm.stateless_llm_interface import StatelessLLMInterface
+from lab.mcp import CommonMessage, VirtualMCPHandler
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -57,7 +58,9 @@ class AsyncLLM(StatelessLLMInterface):
 
         logger.info(f"Initialized AsyncLLM with the parameters: {self.base_url}, {self.model}")
 
-    async def chat_completion(self, messages: list[dict[str, Any]], system: str | None = None) -> AsyncIterator[str]:  # type: ignore[override]
+    async def chat_completion(  # type: ignore[override]
+        self, messages: list[dict[str, Any]], system: str | None = None, mcp_client: VirtualMCPHandler | None = None
+    ) -> AsyncIterator[str]:
         """
         Generates a chat completion using the OpenAI API asynchronously.
 
@@ -84,16 +87,31 @@ class AsyncLLM(StatelessLLMInterface):
                     *messages,
                 ]
 
-            stream: AsyncStream[ChatCompletionChunk] = await self.client.chat.completions.create(  # type: ignore[return-value]
-                messages=messages_with_system,  # type: ignore[assignment]
-                model=self.model,
-                stream=True,
-                temperature=self.temperature,
-            )
-            async for chunk in stream:  # type: ignore[assignment]
-                if chunk.choices[0].delta.content is None:  # type: ignore[assignment]
-                    chunk.choices[0].delta.content = ""  # type: ignore[assignment]
-                yield chunk.choices[0].delta.content  # type: ignore[assignment]
+            if mcp_client is None:
+                logger.info("mcp is not enable, directly async llm")
+                stream: AsyncStream[ChatCompletionChunk] = await self.client.chat.completions.create(  # type: ignore[return-value]
+                    messages=messages_with_system,  # type: ignore[assignment]
+                    model=self.model,
+                    stream=True,
+                    temperature=self.temperature,
+                )
+                async for chunk in stream:  # type: ignore[assignment]
+                    if chunk.choices[0].delta.content is None:  # type: ignore[assignment]
+                        chunk.choices[0].delta.content = ""  # type: ignore[assignment]
+                    yield chunk.choices[0].delta.content  # type: ignore[assignment]
+            else:
+                logger.info("mcp is enable, use mcp")
+                if len(messages_with_system) == 0:
+                    raise ValueError("messages_with_system is empty")
+                if messages_with_system[-1]["role"] != "user":
+                    raise ValueError("messages_with_system[-1] is not user message")
+                async for chunk in mcp_client.process(  # type: ignore[return-value]
+                    message=CommonMessage(
+                        role=messages_with_system[-1]["role"], content=messages_with_system[-1]["content"]
+                    ),
+                    memory=messages_with_system,  # type: ignore[assignment]
+                ):
+                    yield chunk
 
         except APIConnectionError as e:
             logger.error(

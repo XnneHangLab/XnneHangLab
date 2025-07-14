@@ -10,13 +10,14 @@ if TYPE_CHECKING:
 
     from lab.agent.input_types import BaseInput
     from lab.agent.output_types import BaseOutput
+    from lab.mcp import VirtualMCPHandler
 
 
 class AgentInterface(ABC):
     """Base interface for all agent implementations"""
 
     @abstractmethod
-    async def chat(self, input_data: BaseInput) -> AsyncIterator[BaseOutput]:
+    async def chat(self, input_data: BaseInput, mcp_client: VirtualMCPHandler | None) -> AsyncIterator[BaseOutput]:
         """
         Chat with the agent asynchronously.
 
