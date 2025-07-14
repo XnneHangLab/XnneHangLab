@@ -50,6 +50,13 @@ llm_api_key = ""
 llm_base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
 llm_model_name = "gemini-2.5-flash"
 
+[mcp.timeemi]
+transport = "http"
+host = "127.0.0.1"
+port = 4200
+path = "/"
+log_level = "debug"
+
 [package]
 funasr = true
 to_do_list = true
