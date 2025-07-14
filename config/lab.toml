@@ -57,6 +57,13 @@ port = 4200
 path = "/"
 log_level = "debug"
 
+[mcp.vision]
+transport = "http"
+host = "127.0.0.1"
+port = 4201
+path = "/"
+log_level = "debug"
+
 [package]
 funasr = true
 to_do_list = true
