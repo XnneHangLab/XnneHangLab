@@ -89,7 +89,7 @@ class VirtualMCPHandler(MCPHandlerInterface):
 
 
 async def get_virtual_mcp_handler():
-    timeemi_mcp_handler = await TimeemiMCPHandler.create(server_path="src/lab/mcp/server/timeemi.py")
+    timeemi_mcp_handler = await TimeemiMCPHandler.create(server_url="http://127.0.0.1:4200")
     virtual_mcp_handler = VirtualMCPHandler(handlers=[timeemi_mcp_handler])
     virtual_mcp_handler.available_tools.extend(timeemi_mcp_handler.available_tools)
     return virtual_mcp_handler

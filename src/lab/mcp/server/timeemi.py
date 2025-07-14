@@ -101,7 +101,13 @@ def convert_list_int_to_readable_text(numbers: list[int]) -> str:
 
 
 def run_mcp():
-    mcp.run(transport="stdio")
+    mcp.run(
+        transport="http",
+        host="127.0.0.1",
+        port=4200,
+        path="/",
+        log_level="debug",
+    )
 
 
 if __name__ == "__main__":

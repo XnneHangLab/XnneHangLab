@@ -3,11 +3,10 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-from anyio import Path
-
 # from mcp import ClientSession, StdioServerParameters
 # from mcp.client.stdio import stdio_client
 from fastmcp import Client
+from fastmcp.client.transports import StreamableHttpTransport
 from openai import AsyncOpenAI
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
@@ -29,26 +28,29 @@ class MCPHandlerInterface(ABC):
         )
         self.messages: list[dict[str, object] | ToolMessage | CommonMessage] = self.reset_messages()
         self.available_tools: list[dict[str, object]] = []
-        self.mcp_client: Client | None = None  # type: ignore
+        # Basic connection
+        # self.transport = StreamableHttpTransport(url="https://api.example.com/mcp")
+        # self.mcp_client = Client(self.transport)
+        self.transport: StreamableHttpTransport = None  # type: ignore
+        self.mcp_client: Client = None  # type: ignore
+        # With custom headers for authentication
+        # transport = StreamableHttpTransport(
+        #     url="https://api.example.com/mcp",
+        #     headers={
+        #         "Authorization": "Bearer your-token-here",
+        #         "X-Custom-Header": "value"
+        #     }
+        # )
 
     @classmethod
-    async def create(cls, server_path: str):
+    async def create(cls, server_url: str):
         instance = cls()
-        await instance._async_init(server_path)
+        await instance._async_init(server_url)
         return instance
 
-    async def _async_init(self, server_path: str):
-        if not await Path(server_path).exists():
-            raise ValueError(f"Server path {server_path} does not exist")
-        # self.mcp_client = Client(server_path)
-        # server_params = StdioServerParameters(command="uv", args=["run", server_path], env=None)
-        # async with (
-        #     stdio_client(server_params) as (read, write),
-        #     ClientSession(read, write) as session,
-        # ):
-        # Initialize the connection
-        # await session.initialize()
-        self.mcp_client = Client(server_path)
+    async def _async_init(self, server_url: str):
+        self.transport = StreamableHttpTransport(url=server_url)
+        self.mcp_client = Client(self.transport)
         async with self.mcp_client:  # type: ignore
             tool_list = await self.mcp_client.list_tools()  # type: ignore
         # print(tool_list)
