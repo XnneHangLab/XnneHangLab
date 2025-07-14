@@ -124,6 +124,35 @@ llm 相关配置。你需要至少填写一个。
 - 默认值: "elaina"
 - 可选: ["elaina", "paimeng", "neko"] # 你也可以自己替换或者新增提示词。
 
+### lab.toml `[mcp.*]`
+
+仅在 `agent.enable_mcp=True` 时工作:
+
+一般不需要手动配置，开发者使用。
+
+**transport**
+- 描述: MCP 服务器的 transport 类型
+- 默认值: "http"
+- 可选: ["http"]
+
+**host**
+- 描述: MCP 服务器的 host
+- 默认值: "127.0.0.1"
+
+**port**
+- 描述: MCP 服务器的 port
+- 默认值: 4200
+
+**path**
+- 描述: MCP 服务器的 path
+- 默认值: "/"
+
+**log_level**
+- 描述: MCP 服务器的 log_level
+- 默认值: "info"
+
+
+
 ### `yutto.toml` / `todo.toml` / `uiya.toml`
 
 无需修改和注意的文件, 和 package 对应。均在 WebUI 中使用。
