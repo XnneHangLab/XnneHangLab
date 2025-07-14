@@ -4,6 +4,9 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 from anyio import Path
+
+# from mcp import ClientSession, StdioServerParameters
+# from mcp.client.stdio import stdio_client
 from fastmcp import Client
 from openai import AsyncOpenAI
 
@@ -37,10 +40,18 @@ class MCPHandlerInterface(ABC):
     async def _async_init(self, server_path: str):
         if not await Path(server_path).exists():
             raise ValueError(f"Server path {server_path} does not exist")
+        # self.mcp_client = Client(server_path)
+        # server_params = StdioServerParameters(command="uv", args=["run", server_path], env=None)
+        # async with (
+        #     stdio_client(server_params) as (read, write),
+        #     ClientSession(read, write) as session,
+        # ):
+        # Initialize the connection
+        # await session.initialize()
         self.mcp_client = Client(server_path)
-        async with self.mcp_client as client:  # type: ignore
-            tool_list = await client.list_tools()
-            # print(tool_list)
+        async with self.mcp_client:  # type: ignore
+            tool_list = await self.mcp_client.list_tools()  # type: ignore
+        # print(tool_list)
         self.available_tools = [
             {
                 "type": "function",

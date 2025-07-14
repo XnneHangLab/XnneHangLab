@@ -36,21 +36,21 @@ class TimeemiMCPHandler(MCPHandlerInterface):
         if self.mcp_client is None:  # type: ignore
             raise ValueError("mcp client is None")
         messages: list[CommonMessage] = []
-        async with self.mcp_client as client:  # type: ignore
+        async with self.mcp_client:  # type: ignore
             if tool_name == "get_date_and_time":
-                prompt_response = await client.get_prompt(  # type: ignore
+                prompt_response = await self.mcp_client.get_prompt(  # type: ignore
                     "convert_time_readable", {"time_str": read_result_from_mcp_tool_response(tool_response)}
                 )
                 messages.append(
                     CommonMessage(role="user", content=read_prompt_from_mcp_prompt_template(prompt_response))
                 )
-                prompt_response = await client.get_prompt("limit_time_response", {"user_input": user_input})  # type: ignore
+                prompt_response = await self.mcp_client.get_prompt("limit_time_response", {"user_input": user_input})  # type: ignore
                 messages.append(
                     CommonMessage(role="user", content=read_prompt_from_mcp_prompt_template(prompt_response))
                 )
 
             if tool_name == "roll_dice":
-                prompt_response = await client.get_prompt(  # type: ignore
+                prompt_response = await self.mcp_client.get_prompt(  # type: ignore
                     "convert_list_int_readable", {"numbers": read_result_from_mcp_tool_response(tool_response)}
                 )
                 messages.append(
@@ -70,8 +70,8 @@ class TimeemiMCPHandler(MCPHandlerInterface):
             0
         ].function.name  # TODO 也许能实现多个 tool 的功能？但是可能过于复杂暂时不考虑
         tool_args = json.loads(response_message.tool_calls[0].function.arguments)
-        async with self.mcp_client as client:  # type: ignore
-            tool_response = await client.call_tool(tool_name, tool_args)  # type: ignore
+        async with self.mcp_client:  # type: ignore
+            tool_response = await self.mcp_client.call_tool(tool_name, tool_args)  # type: ignore
         prompt_messages = await self.generate_prompt_template(
             response_message.tool_calls[0].function.name,
             tool_response,  # type: ignore

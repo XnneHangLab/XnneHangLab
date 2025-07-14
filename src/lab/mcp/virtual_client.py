@@ -88,12 +88,16 @@ class VirtualMCPHandler(MCPHandlerInterface):
                 yield chunk
 
 
-# example usage:
-async def main():
-    # async with MCPConnection("src/lab/mcp/server/timeemi.py") as timeemi_session:
+async def get_virtual_mcp_handler():
     timeemi_mcp_handler = await TimeemiMCPHandler.create(server_path="src/lab/mcp/server/timeemi.py")
     virtual_mcp_handler = VirtualMCPHandler(handlers=[timeemi_mcp_handler])
     virtual_mcp_handler.available_tools.extend(timeemi_mcp_handler.available_tools)
+    return virtual_mcp_handler
+
+
+# example usage:
+async def test_virtual_mcp_handler(virtual_mcp_handler: VirtualMCPHandler):
+    # async with MCPConnection("src/lab/mcp/server/timeemi.py") as timeemi_session:
     memory = [CommonMessage(role="system", content=read_prompt_from_text_file("elaina"))]
     message = CommonMessage(role="user", content="你今天真可爱")
     print(f"user input: {message}")
@@ -105,6 +109,11 @@ async def main():
     async for chunk in virtual_mcp_handler.process(message=message, memory=memory):  # type: ignore
         print(chunk)  # type: ignore
     print(virtual_mcp_handler.messages)
+
+
+async def main():
+    virtual_mcp_handler = await get_virtual_mcp_handler()
+    await test_virtual_mcp_handler(virtual_mcp_handler)
 
 
 if __name__ == "__main__":
