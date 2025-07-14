@@ -18,6 +18,7 @@ from lab.config_manager.vtuber import (
     validate_config,
 )
 from lab.live2d_model import Live2dModel
+from lab.mcp import VirtualMCPHandler, get_virtual_mcp_handler
 
 if TYPE_CHECKING:
     from fastapi import WebSocket
@@ -39,7 +40,8 @@ class ServiceContext:
 
         # the system prompt is a combination of the persona prompt and live2d expression prompt
         self.system_prompt: str | None = None
-
+        self.mcp_client: VirtualMCPHandler | None = None
+        # self.mcp_handlers: list[MCPHandlerInterface]
         self.history_uid: str = ""  # Add history_uid field
 
     def __str__(self):
@@ -75,7 +77,6 @@ class ServiceContext:
         self.character_config = character_config
         self.live2d_model = live2d_model
         self.agent_engine = agent_engine
-
         logger.debug(f"Loaded service context with cache: {character_config}")
 
     def load_from_config(self, config: Config) -> None:
@@ -175,6 +176,15 @@ class ServiceContext:
         """Initialize or update the translation engine based on the configuration."""
 
         logger.info("Translation already initialized with the same config.")
+
+    async def init_mcp_client(self) -> None:
+        """Initialize or update the MCP client based on the configuration."""
+        lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+        if lab_settings.agent.enable_mcp:
+            self.mcp_client = await get_virtual_mcp_handler()
+            logger.info("MCP client already initialized with the same config.")
+        else:
+            logger.info("enable_mcp is False, skip initialize MCP, use basic chat mode.")
 
     async def handle_config_switch(
         self,

@@ -65,6 +65,11 @@ default-groups = ["dev","yutto-uiya","bert-vits","database","vtuber"]
 - 默认值: "lingyi"
 - 可选: ["openai", "lingyi", "gemini"]
 
+**enable_mcp**
+- 描述: 是否启用 MCP 功能
+- 默认值: True
+- 注意点: 不是所有模型都支持 function call，比如零一万物的大部分模型都不支持, 所以它无法使用 MCP 功能。
+
 **speaker_lang**
 - 描述: TTS 模型生成的目标语言
 - 默认值: "EN"
@@ -118,6 +123,35 @@ llm 相关配置。你需要至少填写一个。
 - 描述: 角色 system_prompt 所在的位置，对应路径 `./prompt/{system_prompt_name}.txt`
 - 默认值: "elaina"
 - 可选: ["elaina", "paimeng", "neko"] # 你也可以自己替换或者新增提示词。
+
+### lab.toml `[mcp.*]`
+
+仅在 `agent.enable_mcp=True` 时工作:
+
+一般不需要手动配置，开发者使用。
+
+**transport**
+- 描述: MCP 服务器的 transport 类型
+- 默认值: "http"
+- 可选: ["http"]
+
+**host**
+- 描述: MCP 服务器的 host
+- 默认值: "127.0.0.1"
+
+**port**
+- 描述: MCP 服务器的 port
+- 默认值: 4200
+
+**path**
+- 描述: MCP 服务器的 path
+- 默认值: "/"
+
+**log_level**
+- 描述: MCP 服务器的 log_level
+- 默认值: "info"
+
+
 
 ### `yutto.toml` / `todo.toml` / `uiya.toml`
 

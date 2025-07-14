@@ -41,6 +41,7 @@ class LLMSettings(BaseModel):
 
 class AgentSettings(BaseModel):
     llm_provider: Annotated[Literal["openai", "lingyi", "gemini"], Field("lingyi", title="LLM Provider")]
+    enable_mcp: Annotated[bool, Field(True, title="Enable MCP")]
     llm: Annotated[LLMSettings, Field(LLMSettings())]  # pyright: ignore[reportCallIssue]
     system_prompt_name: Annotated[
         str, Field("elaina", title="比如 elaina, paimeng, 等, 对应 ./prompts/elaina.txt, ./prompts/paimeng.txt 等")

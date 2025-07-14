@@ -1,3 +1,4 @@
+# As an example for genai, 我们并不在实际环境中使用。
 from __future__ import annotations
 
 import asyncio
@@ -9,7 +10,7 @@ from lab.config_manager import XnneHangLabSettings, load_settings_file
 
 lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
 
-mcp_client = Client("./src/lab/mcp/server.py")
+mcp_client = Client("./src/lab/mcp/server/timeemi.py")
 print("mcp_client", mcp_client)
 gemini_client = genai.Client(api_key=lab_settings.agent.llm.gemini.llm_api_key)
 print("gemini_client", gemini_client)

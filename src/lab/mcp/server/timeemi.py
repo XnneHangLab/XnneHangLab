@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING
 
 from fastmcp import FastMCP
 
+from lab.config_manager import XnneHangLabSettings, load_settings_file
+
 if TYPE_CHECKING:
     #     from mcp.server.session import ServerSession
     #     from mcp.shared.context import RequestContext
@@ -63,11 +65,17 @@ def convert_isoformat_time_to_tts_text(time_str: str) -> str:
     もし返信が日本語の場合、この形式に従ってください：
     (2004-10-14 12:21:41 → にせんよねん じゅうがつ じゅうよっか じゅうにじ にじゅういっぷん よんじゅういちびょう)
     以下の時間を平仮名で変換してください：{time_str},
+    """
 
+
+@mcp.prompt("limit_time_response")
+def limit_time_response(user_input: str) -> str:
+    return f"""
     只需要返回和用户语言相同的格式即可,你转换得到的时间是**现在这个时刻的时间**。
     当用户问你几点时，你只需要回答十二时二十一分，不需要回答秒,当然你可以加上上午，下午，晚上,傍晚等修饰语。
     当用户问你今天是几号时，你可以选择回答 二零零四年十月十四日 或者 十月十四日,尽量选择后者，因为比较短。
     你也需要自己应付用户刁钻的回答比如昨天，明天，大后天，一个小时前。甚至问你时区时差问题。
+    现在用户问的是:{user_input}
     """
 
 
@@ -95,7 +103,14 @@ def convert_list_int_to_readable_text(numbers: list[int]) -> str:
 
 
 def run_mcp():
-    mcp.run(transport="stdio")
+    lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+    mcp.run(
+        transport=lab_settings.mcp.timeemi.transport,
+        host=lab_settings.mcp.timeemi.host,
+        port=lab_settings.mcp.timeemi.port,
+        path=lab_settings.mcp.timeemi.path,
+        log_level=lab_settings.mcp.timeemi.log_level,
+    )
 
 
 if __name__ == "__main__":

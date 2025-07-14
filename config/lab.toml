@@ -25,6 +25,7 @@ subtitle_speed = "normal"
 
 [agent]
 llm_provider = "lingyi"
+enable_mcp = true
 system_prompt_name = "elaina"
 deeplx_api_key = ""
 user_lang = "ZH"
@@ -49,6 +50,13 @@ llm_api_key = ""
 llm_base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
 llm_model_name = "gemini-2.5-flash"
 
+[mcp.timeemi]
+transport = "http"
+host = "127.0.0.1"
+port = 4200
+path = "/"
+log_level = "debug"
+
 [package]
 funasr = true
 to_do_list = true
@@ -57,4 +65,4 @@ bert_vits = true
 gpt_sovits = true
 
 [root]
-root_dir = ""
+root_dir = "D:\\tmp\\XnneHangLab"

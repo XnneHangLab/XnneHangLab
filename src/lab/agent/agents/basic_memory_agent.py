@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from lab.agent.stateless_llm.stateless_llm_interface import StatelessLLMInterface
     from lab.config_manager.vtuber import TTSPreprocessorConfig
     from lab.live2d_model import Live2dModel
+    from lab.mcp import VirtualMCPHandler
 
 
 class BasicMemoryAgent(AgentInterface):
@@ -216,7 +217,7 @@ class BasicMemoryAgent(AgentInterface):
         return messages
 
     def _chat_function_factory(
-        self, chat_func: Callable[[list[dict[str, Any]], str], AsyncIterator[str]]
+        self, chat_func: Callable[[list[dict[str, Any]], str, VirtualMCPHandler | None], AsyncIterator[str]]
     ) -> Callable[..., AsyncIterator[SentenceOutput]]:
         """
         Create the chat pipeline with transformers
@@ -233,7 +234,7 @@ class BasicMemoryAgent(AgentInterface):
             segment_method=self._segment_method,
             valid_tags=["think"],
         )
-        async def chat_with_memory(input_data: BatchInput) -> AsyncIterator[str]:
+        async def chat_with_memory(input_data: BatchInput, mcp_client: VirtualMCPHandler | None) -> AsyncIterator[str]:
             """
             Chat implementation with memory and processing pipeline
 
@@ -247,7 +248,7 @@ class BasicMemoryAgent(AgentInterface):
             messages = self._to_messages(input_data)
 
             # Get token stream from LLM
-            token_stream = chat_func(messages, self._system)
+            token_stream = chat_func(messages, self._system, mcp_client)
             complete_response = ""
 
             async for token in token_stream:
@@ -259,9 +260,9 @@ class BasicMemoryAgent(AgentInterface):
 
         return chat_with_memory
 
-    async def chat(self, input_data: BatchInput) -> AsyncIterator[SentenceOutput]:  # type: ignore[override]
+    async def chat(self, input_data: BatchInput, mcp_client: VirtualMCPHandler | None) -> AsyncIterator[SentenceOutput]:  # type: ignore[override]
         """Placeholder chat method that will be replaced at runtime"""
-        return self.chat(input_data)  # type: ignore[return-value]
+        return self.chat(input_data, mcp_client)  # type: ignore[return-value]
 
     def reset_interrupt(self) -> None:
         """

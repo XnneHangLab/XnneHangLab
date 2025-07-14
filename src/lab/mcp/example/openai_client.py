@@ -1,3 +1,4 @@
+# as an example for openai client, 不在实际环境中使用, 但这个是我们最终使用的方案。
 from __future__ import annotations
 
 import asyncio
@@ -18,32 +19,7 @@ from openai import (
 )
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
-
-
-def read_prompt_from_text_file(system_prompt_name: str) -> str:
-    prompt_text_path = Path("prompts") / f"{system_prompt_name}.txt"
-    if not prompt_text_path.exists():
-        raise ValueError(f"prompt file {prompt_text_path} not exists")
-    with prompt_text_path.open("r", encoding="utf-8") as f:
-        prompt_text = f.read()
-    return prompt_text
-
-
-# 避免反復地添加 type: ignore, 僅能處理 str 返回。
-def read_prompt_from_mcp_prompt_template(response: Any) -> str:
-    try:
-        return response.messages[0].content.text  # type: ignore
-    except Exception as e:
-        print(response)
-        return f"parse prompt template error: {e}"
-
-
-def read_result_from_mcp_tool_response(response: Any) -> str:
-    try:
-        return response.content[0].text  # type: ignore
-    except Exception as e:
-        print(response)
-        return f"parse tool response error: {e}"
+from lab.mcp.util import read_prompt_from_mcp_prompt_template, read_result_from_mcp_tool_response
 
 
 class MCPClient:
@@ -56,7 +32,7 @@ class MCPClient:
         )
 
     async def connect_to_server(self):
-        server_params = StdioServerParameters(command="uv", args=["run", "src/lab/mcp/server.py"], env=None)
+        server_params = StdioServerParameters(command="uv", args=["run", "src/lab/mcp/server/timeemi.py"], env=None)
 
         stdio_transport = await self.exit_stack.enter_async_context(stdio_client(server_params))
         stdio, write = stdio_transport
@@ -72,7 +48,7 @@ class MCPClient:
             system_prompt = f.read()
         system_prompt = "\n**請使用和用戶相同的語言**"
 
-        messages = [{"role": "system", "content": system_prompt}]
+        messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
 
         # 添加用户消息
         messages.append({"role": "user", "content": user_input})
@@ -133,7 +109,7 @@ class MCPClient:
                     print(read_prompt_from_mcp_prompt_template(prompt_response))
 
                 # 将结果添加到消息历史
-                messages.append(response_message)  # type: ignore
+                messages.append(response_message.to_dict())
                 messages.append(
                     {
                         "role": "tool",

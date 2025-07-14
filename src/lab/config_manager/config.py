@@ -15,6 +15,7 @@ from lab.config_manager.abs_root import RootAbsDir
 from lab.config_manager.agent import AgentSettings
 from lab.config_manager.audio_recognize import AudioRecognizeSettings, AudioRecognizeSettingsTitle
 from lab.config_manager.funasr import FunASRSettings, FunASRSettingsTitle
+from lab.config_manager.mcp import MCPSettings
 from lab.config_manager.package import PackagesSettings
 
 toml_loads = tomllib.loads
@@ -70,12 +71,18 @@ def load_settings_file(setting_name: str, setting: type[PackagesSettings]) -> Pa
 def load_settings_file(setting_name: str, setting: type[XnneHangLabSettings]) -> XnneHangLabSettings: ...
 
 
+@overload
+def load_settings_file(setting_name: str, setting: type[MCPSettings]) -> MCPSettings: ...
+
+
 class XnneHangLabSettings(BaseModel):
     funasr: Annotated[FunASRSettings, Field(FunASRSettings())]  # pyright: ignore[reportCallIssue]
     webui: Annotated[AudioRecognizeSettings, Field(AudioRecognizeSettings())]  # pyright: ignore[reportCallIssue]
     agent: Annotated[AgentSettings, Field(AgentSettings())]  # pyright: ignore[reportCallIssue]
+    mcp: Annotated[MCPSettings, Field(MCPSettings())]  # pyright: ignore[reportCallIssue]
     package: Annotated[PackagesSettings, Field(PackagesSettings())]  # pyright: ignore[reportCallIssue]
     root: Annotated[RootAbsDir, Field(RootAbsDir())]  # pyright: ignore[reportCallIssue]
+    mcp: Annotated[MCPSettings, Field(MCPSettings())]  # pyright: ignore[reportCallIssue]
 
 
 def load_settings_file(
@@ -88,9 +95,18 @@ def load_settings_file(
             | AgentSettings
             | PackagesSettings
             | XnneHangLabSettings
+            | MCPSettings
         ]
     ),
-) -> FunASRSettings | AudioRecognizeSettings | RootAbsDir | AgentSettings | PackagesSettings | XnneHangLabSettings:
+) -> (
+    FunASRSettings
+    | AudioRecognizeSettings
+    | RootAbsDir
+    | AgentSettings
+    | PackagesSettings
+    | XnneHangLabSettings
+    | MCPSettings
+):
     """加载配置文件，如果不存在则创建默认配置文件在当前工作目录。"""
     settings_file = search_for_settings_file(setting_name=setting_name)
     if settings_file is None:
@@ -114,7 +130,8 @@ def write_settings_file(
     | RootAbsDir
     | AgentSettings
     | PackagesSettings
-    | XnneHangLabSettings,
+    | XnneHangLabSettings
+    | MCPSettings,
 ) -> None:
     """将 Setting 对象写入 TOML 文件。"""
     settings_file = search_for_settings_file(setting_name=settings_name)
