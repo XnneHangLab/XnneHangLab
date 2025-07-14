@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from loguru import logger
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
-from lab.mcp._typing import CommonMessage, ToolMessage, ImageMessage
+from lab.mcp._typing import CommonMessage, ImageMessage, ToolMessage
 from lab.mcp.client.base_mcp_interface import MCPHandlerInterface
 from lab.mcp.client.timeemi import TimeemiMCPHandler
 from lab.mcp.client.vision import VisionMCPHandler
@@ -107,16 +107,21 @@ async def get_virtual_mcp_handler():
 async def test_virtual_mcp_handler(virtual_mcp_handler: VirtualMCPHandler):
     # async with MCPConnection("src/lab/mcp/server/timeemi.py") as timeemi_session:
     memory = [CommonMessage(role="system", content=read_prompt_from_text_file("elaina"))]
-    # message = CommonMessage(role="user", content="你今天真可爱")
-    # print(f"=========== {message['content']} ===========")
-    # async for chunk in virtual_mcp_handler.process(message=message, memory=memory):  # type: ignore
-    #     print(chunk)  # type: ignore
-    # print(virtual_mcp_handler.messages)
-    # message = CommonMessage(role="user", content="现在几点了？")
-    # print(f"=========== {message['content']} ===========")
-    # async for chunk in virtual_mcp_handler.process(message=message, memory=memory):  # type: ignore
-    #     print(chunk)  # type: ignore
-    # print(virtual_mcp_handler.messages)
+    message = CommonMessage(role="user", content="你今天真可爱")
+    print(f"=========== {message['content']} ===========")
+    async for chunk in virtual_mcp_handler.process(message=message, memory=memory):  # type: ignore
+        print(chunk)  # type: ignore
+    print(virtual_mcp_handler.messages)
+    message = CommonMessage(role="user", content="现在几点了？")
+    print(f"=========== {message['content']} ===========")
+    async for chunk in virtual_mcp_handler.process(message=message, memory=memory):  # type: ignore
+        print(chunk)  # type: ignore
+    print(virtual_mcp_handler.messages)
+    message = CommonMessage(role="user", content="你能看到我电脑屏幕吗?")
+    print(f"=========== {message['content']} ===========")
+    async for chunk in virtual_mcp_handler.process(message=message, memory=memory):  # type: ignore
+        print(chunk)  # type: ignore
+    print(virtual_mcp_handler.messages)
     message = CommonMessage(role="user", content="你能看到我电脑屏幕吗?")
     print(f"=========== {message['content']} ===========")
     async for chunk in virtual_mcp_handler.process(message=message, memory=memory):  # type: ignore
