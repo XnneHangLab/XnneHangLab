@@ -87,10 +87,10 @@ async def lifespan(app: FastAPI):
         gen = tts_synthesizer.generate(tts_synthesizer.params_parser({"text": "筆者はすでにエッセイの序論"}))
         next(gen)
 
-    from lab.mcp import get_virtual_mcp_handler, test_virtual_mcp_handler
+    # from lab.mcp import get_virtual_mcp_handler, test_virtual_mcp_handler
 
-    virtual_mcp_handler = await get_virtual_mcp_handler()
-    await test_virtual_mcp_handler(virtual_mcp_handler)
+    # virtual_mcp_handler = await get_virtual_mcp_handler()
+    # await test_virtual_mcp_handler(virtual_mcp_handler)
 
     yield
 
