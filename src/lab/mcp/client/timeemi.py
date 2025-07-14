@@ -93,7 +93,7 @@ class TimeemiMCPHandler(MCPHandlerInterface):
             )
         )
         stream = await self.openai_client.chat.completions.create(  # type: ignore[return-value]
-            model=self.config.agent.llm.gemini.llm_model_name,
+            model=self.get_openai_model_name(),
             messages=self.messages,  # type: ignore[assignment]
             stream=True,
         )

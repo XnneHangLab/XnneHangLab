@@ -4,7 +4,7 @@ import asyncio
 from copy import deepcopy
 from typing import TYPE_CHECKING
 
-from openai import AsyncOpenAI
+from loguru import logger
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.mcp._typing import CommonMessage, ToolMessage
@@ -22,9 +22,7 @@ class VirtualMCPHandler(MCPHandlerInterface):
     def __init__(self, handlers: list[MCPHandlerInterface]):
         self.config = load_settings_file("lab.toml", XnneHangLabSettings)
         # self.mcp_client = mcp_client 本身是不具有 mcp_client 的
-        self.openai_client = AsyncOpenAI(
-            base_url=self.config.agent.llm.gemini.llm_base_url, api_key=self.config.agent.llm.gemini.llm_api_key
-        )
+        self.openai_client = self.init_openai_client()
         self.messages: list[dict[str, object] | ToolMessage | CommonMessage] = self.reset_messages()
         self.handlers: list[MCPHandlerInterface] = handlers
         if len(self.handlers) == 0:
@@ -51,7 +49,7 @@ class VirtualMCPHandler(MCPHandlerInterface):
         self.messages.append(message)
         # print(self.messages)
         response = await self.openai_client.chat.completions.create(  # type: ignore[return-value]
-            model=self.config.agent.llm.gemini.llm_model_name,
+            model=self.get_openai_model_name(),
             messages=self.messages,  # type: ignore[assignment]
             tools=self.available_tools,  # type: ignore[assignment]
             tool_choice="auto",  # 让模型自行决定是否调用工具
@@ -65,7 +63,7 @@ class VirtualMCPHandler(MCPHandlerInterface):
             )  # 防止 memory 被篡改,我们不希望在 memory 中加入 tool 上下文。 # type:ignore
             self.messages.append(message)
             stream = await self.openai_client.chat.completions.create(  # type: ignore[return-value]
-                model=self.config.agent.llm.gemini.llm_model_name,
+                model=self.get_openai_model_name(),
                 messages=self.messages,  # type: ignore[assignment]
                 stream=True,
             )
@@ -90,6 +88,9 @@ class VirtualMCPHandler(MCPHandlerInterface):
 
 async def get_virtual_mcp_handler():
     timeemi_mcp_handler = await TimeemiMCPHandler.create(server_url="http://127.0.0.1:4200")
+    if timeemi_mcp_handler is None:
+        logger.warning("skip create virtual mcp handler, run in non-mcp environment")
+        return None
     virtual_mcp_handler = VirtualMCPHandler(handlers=[timeemi_mcp_handler])
     virtual_mcp_handler.available_tools.extend(timeemi_mcp_handler.available_tools)
     return virtual_mcp_handler
@@ -113,6 +114,9 @@ async def test_virtual_mcp_handler(virtual_mcp_handler: VirtualMCPHandler):
 
 async def main():
     virtual_mcp_handler = await get_virtual_mcp_handler()
+    if virtual_mcp_handler is None:
+        logger.warning("skip test virtual mcp handler, run in non-mcp environment")
+        return
     await test_virtual_mcp_handler(virtual_mcp_handler)
 
 

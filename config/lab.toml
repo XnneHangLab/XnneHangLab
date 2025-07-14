@@ -25,6 +25,7 @@ subtitle_speed = "normal"
 
 [agent]
 llm_provider = "lingyi"
+enable_mcp = true
 system_prompt_name = "elaina"
 deeplx_api_key = ""
 user_lang = "ZH"
@@ -57,4 +58,4 @@ bert_vits = true
 gpt_sovits = true
 
 [root]
-root_dir = ""
+root_dir = "D:\\tmp\\XnneHangLab"

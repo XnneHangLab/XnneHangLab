@@ -179,8 +179,12 @@ class ServiceContext:
 
     async def init_mcp_client(self) -> None:
         """Initialize or update the MCP client based on the configuration."""
-        self.mcp_client = await get_virtual_mcp_handler()
-        logger.info("MCP client already initialized with the same config.")
+        lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+        if lab_settings.agent.enable_mcp:
+            self.mcp_client = await get_virtual_mcp_handler()
+            logger.info("MCP client already initialized with the same config.")
+        else:
+            logger.info("enable_mcp is False, skip initialize MCP, use basic chat mode.")
 
     async def handle_config_switch(
         self,

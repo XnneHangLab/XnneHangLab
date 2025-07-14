@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 # from mcp.client.stdio import stdio_client
 from fastmcp import Client
 from fastmcp.client.transports import StreamableHttpTransport
+from loguru import logger
 from openai import AsyncOpenAI
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
@@ -22,10 +23,7 @@ if TYPE_CHECKING:
 class MCPHandlerInterface(ABC):
     def __init__(self):
         self.config = load_settings_file("lab.toml", XnneHangLabSettings)
-        self.openai_client = AsyncOpenAI(
-            base_url=self.config.agent.llm.gemini.llm_base_url,
-            api_key=self.config.agent.llm.gemini.llm_api_key,
-        )
+        self.openai_client = self.init_openai_client()
         self.messages: list[dict[str, object] | ToolMessage | CommonMessage] = self.reset_messages()
         self.available_tools: list[dict[str, object]] = []
         # Basic connection
@@ -45,8 +43,42 @@ class MCPHandlerInterface(ABC):
     @classmethod
     async def create(cls, server_url: str):
         instance = cls()
+        if instance.config.agent.llm_provider == "lingyi":
+            logger.warning("Lingyi LLM is not supported in MCP Tool Call")
+            return None
         await instance._async_init(server_url)
         return instance
+
+    def init_openai_client(self):
+        if self.config.agent.llm_provider == "gemini":
+            self.openai_client = AsyncOpenAI(
+                base_url=self.config.agent.llm.gemini.llm_base_url,
+                api_key=self.config.agent.llm.gemini.llm_api_key,
+            )
+        elif self.config.agent.llm_provider == "lingyi":
+            self.openai_client = AsyncOpenAI(
+                base_url=self.config.agent.llm.lingyi.llm_base_url,
+                api_key=self.config.agent.llm.lingyi.llm_api_key,
+            )
+        elif self.config.agent.llm_provider == "openai":
+            self.openai_client = AsyncOpenAI(
+                base_url=self.config.agent.llm.openai.llm_base_url,
+                api_key=self.config.agent.llm.openai.llm_api_key,
+            )
+        else:
+            raise ValueError("Unknown llm provider")
+
+        return self.openai_client
+
+    def get_openai_model_name(self):
+        if self.config.agent.llm_provider == "gemini":
+            return self.config.agent.llm.gemini.llm_model_name
+        elif self.config.agent.llm_provider == "lingyi":
+            return self.config.agent.llm.lingyi.llm_model_name
+        elif self.config.agent.llm_provider == "openai":
+            return self.config.agent.llm.openai.llm_model_name
+        else:
+            raise ValueError("Unknown llm provider")
 
     async def _async_init(self, server_url: str):
         self.transport = StreamableHttpTransport(url=server_url)
