@@ -8,8 +8,13 @@ dev-clean:
   rm packages/yutto/dist -rf
   rm packages/wexpect-uv/dist -rf
 
+mcp-server:
+  uv run src/lab/mcp/server/timeemi.py & \
+  uv run src/lab/mcp/server/vision.py & \
+
 server:
   uv run run_server.py
+
 
 db-server:
   uv run uvicorn src.lab.database.main:app --reload --host localhost --port 8000
