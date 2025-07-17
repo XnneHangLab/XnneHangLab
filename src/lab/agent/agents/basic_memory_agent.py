@@ -17,7 +17,7 @@ from lab.chat_history_manager import get_history
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable
 
-    from lab.agent.output_types import DisplayText, SentenceOutput
+    from lab.agent.output_types import AudioOutput, DisplayText, SentenceOutput
     from lab.agent.stateless_llm.stateless_llm_interface import StatelessLLMInterface
     from lab.config_manager.vtuber import TTSPreprocessorConfig
     from lab.live2d_model import Live2dModel
@@ -218,7 +218,7 @@ class BasicMemoryAgent(AgentInterface):
 
     def _chat_function_factory(
         self, chat_func: Callable[[list[dict[str, Any]], str, VirtualMCPHandler | None], AsyncIterator[str]]
-    ) -> Callable[..., AsyncIterator[SentenceOutput]]:
+    ) -> Callable[..., AsyncIterator[SentenceOutput | AudioOutput]]:
         """
         Create the chat pipeline with transformers
 
@@ -234,7 +234,9 @@ class BasicMemoryAgent(AgentInterface):
             segment_method=self._segment_method,
             valid_tags=["think"],
         )
-        async def chat_with_memory(input_data: BatchInput, mcp_client: VirtualMCPHandler | None) -> AsyncIterator[str]:
+        async def chat_with_memory(
+            input_data: BatchInput, mcp_client: VirtualMCPHandler | None
+        ) -> AsyncIterator[str | AudioOutput]:
             """
             Chat implementation with memory and processing pipeline
 
