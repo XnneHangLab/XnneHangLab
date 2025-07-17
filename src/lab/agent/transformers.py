@@ -46,6 +46,7 @@ def sentence_divider(
             async for sentence in divider.process_stream(token_stream):
                 yield sentence
                 logger.debug(f"sentence_divider: {sentence}")
+
         return wrapper
 
     return decorator

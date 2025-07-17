@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 import pysbd
 from langdetect import detect
 from loguru import logger
+
 from lab.agent.output_types import AudioOutput
 
 if TYPE_CHECKING:
@@ -557,7 +558,7 @@ class SentenceDivider:
         async for segment in segment_stream:
             if isinstance(segment, AudioOutput):
                 yield segment
-                continue # yield 似乎不会像 return 一样终止下面所有的代码。需要手动 continue
+                continue  # yield 似乎不会像 return 一样终止下面所有的代码。需要手动 continue
             self._buffer += segment
             self._full_response.append(segment)
 
