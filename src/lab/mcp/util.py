@@ -1,16 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
-
-
-def read_prompt_from_text_file(system_prompt_name: str) -> str:
-    prompt_text_path = Path("prompts") / f"{system_prompt_name}.txt"
-    if not prompt_text_path.exists():
-        raise ValueError(f"prompt file {prompt_text_path} not exists")
-    with prompt_text_path.open("r", encoding="utf-8") as f:
-        prompt_text = f.read()
-    return prompt_text
 
 
 # 避免反復地添加 type: ignore, 僅能處理 str 返回。

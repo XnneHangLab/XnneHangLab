@@ -1,13 +1,10 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.utils.console.logger import Logger
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 def split_text_into_sentences_by_punctuation_list(text: str) -> list[str]:
@@ -94,3 +91,12 @@ def calculate_words_length(segmented_text: str) -> int:
         if word not in lab_settings.funasr.punctuation_list:
             length += 1
     return length
+
+
+def read_prompt_from_text_file(system_prompt_name: str) -> str:
+    prompt_text_path = Path("prompts") / f"{system_prompt_name}.txt"
+    if not prompt_text_path.exists():
+        raise ValueError(f"prompt file {prompt_text_path} not exists")
+    with prompt_text_path.open("r", encoding="utf-8") as f:
+        prompt_text = f.read()
+    return prompt_text
