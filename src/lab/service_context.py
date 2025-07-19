@@ -140,6 +140,7 @@ class ServiceContext:
         system_prompt = (
             (root_dir / "prompts" / f"{lab_settings.agent.system_prompt_name}.txt").read_text(encoding="utf-8").strip()
         )
+        system_prompt += "这是你的 Emotion 列表，请在合适的时候使用它们：\n" + str(self.live2d_model.emo_key) + "\n"  # type: ignore
         if lab_settings.agent.user_lang == "ZH":
             system_prompt += "\n**请回复中文。**"
         elif lab_settings.agent.user_lang == "EN":
