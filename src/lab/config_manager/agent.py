@@ -9,6 +9,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
+# LLM
+
 
 class LLMSettingBase(BaseModel):
     llm_api_key: Annotated[str, Field("", title="OpenAI API Key")]
@@ -31,6 +33,59 @@ class GeminiSetting(LLMSettingBase):
 class OpenAISetting(LLMSettingBase):
     llm_base_url: Annotated[str, Field("https://api.openai.com/v1", title="ChatGPT API Base URL")]
     llm_model_name: Annotated[str, Field("gpt-4o", title="ChatGPT Model Name")]
+
+
+# Long Term Memory
+
+
+# 我们的长期记忆完全借用了 Moechat 的暴力 RAG 结合时序日记系统想法和做法: https://github.com/AlfreScarlet/MoeChat
+class LongTermMemorySettings(BaseModel):
+    embedding_model_path: Annotated[
+        str, Field("./models/nlp_gte_sentence-embedding_chinese-base", title="Embedding Model Path")
+    ]  # 目前只支持中文
+    books_thresholds: Annotated[
+        float, Field(0.5, title="Books Thresholds", description="知识库检索阈值。")
+    ]  # 控制知识库搜索相似度的阈值参数， > 0.5 时才保留
+    mem_thresholds: Annotated[
+        float,
+        Field(
+            0.38,
+            title="Memory Thresholds",
+            description="日记内容搜索阈值，启用日志检索加强是需要，用于判断匹配程度。过高可能会丢失数据，过低则过滤少量无用记忆。",
+        ),
+    ]
+    scan_depth: Annotated[
+        int,
+        Field(
+            4,
+            title="Scan Depth",
+            description="知识库搜索深度，返回知识的数量，但相似度低于检索阈值的知识不会被返回，所以返回结果数量也可能小于设定的数值。",
+        ),
+    ]
+    enable_check_memorys: Annotated[
+        bool,
+        Field(
+            True,
+            title="Enable Check Memorys",
+            description="启用日记检索加强，使用嵌入模型对检索到的信息做提取，去除与用户提问不相关的内容。",
+        ),
+    ]
+    enable_core_memmorys: Annotated[
+        bool,
+        Field(
+            True,
+            title="Enable Core Memorys",
+            description="是否启用核心记忆功能，核心记忆主要储存关于用户重要信息，如：用户的住址、爱好、喜欢的东西等等。区别于日记，使用嵌入模型进行语义匹配（模糊搜索），不能根据时间检索，但记忆带有记录时间。。",
+        ),
+    ]
+    lore_books: Annotated[
+        bool,
+        Field(
+            True,
+            title="Enable Lore Books",
+            description="是否启用世界书（知识库），用于给大模型添加知识，如：人物、物品、事件等等，强化ai的能力，也可用于强化角色扮演。",
+        ),
+    ]
 
 
 class LLMSettings(BaseModel):
@@ -59,6 +114,8 @@ class AgentSettings(BaseModel):
     speaker_lang: Annotated[
         Literal["ZH", "EN", "JA"], Field("EN", title="Speaker Language, speaker 合成语音时使用的语言")
     ]
+    enable_longterm_memory: Annotated[bool, Field(True, title="Enable Long-term Memory")]
+    memory: Annotated[LongTermMemorySettings, Field(LongTermMemorySettings())]  # pyright: ignore[reportCallIssue]
     speaker_model: Annotated[Literal["bert_vits", "gpt_sovits"], Field("gpt_sovits", title="选择使用什么模型合成语音")]
     faster_first_response: Annotated[bool, Field(False, title="Enable Faster First Response")]
     segment_method: Literal["regex", "pysbd"] = Field(
