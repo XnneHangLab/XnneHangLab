@@ -85,6 +85,11 @@ install-model:
   uv run modelscope download --model iic/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch --local_dir ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
   just install-nltk
 
+install-embedding-model:
+  uv lock
+  uv sync
+  modelscope download --model iic/nlp_gte_sentence-embedding_chinese-base --local_dir ./models/nlp_gte_sentence-embedding_chinese-base
+
 install-sensevoice:
   uv lock
   uv sync
