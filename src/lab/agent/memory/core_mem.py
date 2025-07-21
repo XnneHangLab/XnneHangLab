@@ -313,7 +313,7 @@ def main() -> None:
     retrieved_results_cat = memory.find_memory("猫", retrieval_limit=1)
     print("检索'猫'的结果:")
     for res in retrieved_results_cat:
-        print(f" - {res[:30]}...")  # 打印部分内容，避免过长输出
+        print(f" - {res}")  # 打印部分内容，避免过长输出
     assert len(retrieved_results_cat) > 0, "检索'猫'应返回结果"
     assert any("小花的猫" in r for r in retrieved_results_cat), "检索'猫'未返回预期的猫相关记忆"
     assert isinstance(retrieved_results_cat[0], str), "检索结果的元素类型应为字符串"
@@ -324,7 +324,7 @@ def main() -> None:
     retrieved_results_color = memory.find_memory("颜色偏好", retrieval_limit=1)
     print("检索'颜色偏好'的结果:")
     for res in retrieved_results_color:
-        print(f" - {res[:30]}...")
+        print(f" - {res}")
     assert len(retrieved_results_color) > 0, "检索'颜色偏好'应返回结果"
     assert any("蓝色和绿色" in r for r in retrieved_results_color), "检索'颜色偏好'未返回预期的颜色相关记忆"
 
