@@ -338,6 +338,37 @@ class LongTermMemory:
 
 ## ==================== 测试程序 ====================
 
+## ==================== 新增的独立测试函数 ====================
+
+
+def test_jionlp_time_parsing_directly() -> None:
+    """
+    独立测试 jionlp.parse_time 函数，验证其对相对时间的解析是否符合预期。
+    此测试不依赖 LongTermMemory 类。
+    """
+    print("\n--- 开始独立测试 jionlp 时间解析功能 ---")
+
+    # 定义一个固定的时间基点，以确保测试结果的可重复性
+    base_time_str = "2025-07-21 20:00:00"
+    print(f"测试基准时间: {base_time_str}")
+    base_time_ts = time.mktime(time.strptime(base_time_str, "%Y-%m-%d %H:%M:%S"))
+    # --- 测试用例1: "昨天" ---
+    # jionlp 会将“昨天”解析为一整天的时间范围
+    parsed_yesterday = jio.parse_time("昨天", time_base=base_time_ts)["time"]  # type: ignore {'type': 'time_point', 'definition': 'accurate', 'time': ['2025-07-20 00:00:00', '2025-07-20 23:59:59']}
+    expected_yesterday = ["2025-07-20 00:00:00", "2025-07-20 23:59:59"]
+    print(f"输入 '昨天' -> 输出: {parsed_yesterday}")
+    assert parsed_yesterday == expected_yesterday, f"“昨天”的解析结果不符合预期！, {parsed_yesterday}"
+    print("√ “昨天”解析正确")
+    # --- 测试用例2: "前天" ---
+    # jionlp 会将“前天”解析为一整天的时间范围
+    parsed_day_before = jio.parse_time("前天", time_base=base_time_ts)["time"]  # type: ignore
+    expected_day_before = ["2025-07-19 00:00:00", "2025-07-19 23:59:59"]
+    print(f"输入 '前天' -> 输出: {parsed_day_before}")
+    assert parsed_day_before == expected_day_before, f"“前天”的解析结果不符合预期！,{parsed_day_before}"
+    print("√ “前天”解析正确")
+
+    print("--- jionlp 时间解析功能独立测试通过 ---")
+
 
 def main() -> None:
     """LongTermMemory 功能的完整测试程序。"""
@@ -448,22 +479,6 @@ def main() -> None:
     print("\n子测试4.2: 语义检索")
     lt_memory2.enable_semantic_check = True
 
-    # 模拟 embedding 函数，使得查询和特定文档有高相似度
-    # def selective_t2vect(texts: list[str]) -> NDArray[np.float32]:
-    #     vectors = []
-    #     for text in texts:
-    #         # 修复：将维度从 128 修改为 768
-    #         vec = np.random.rand(1, 768).astype(np.float32)
-    #         if "宠物" in text:
-    #             vec[0, :10] = 0.9  # 为“宠物”相关的查询和文档设置高相似度特征
-    #         else:
-    #             vec[0, :10] = 0.1
-    #         vectors.append(vec)
-    #     return np.vstack(vectors)
-
-    # 用我们的选择性模拟函数替换全局模拟函数
-    # embedding.t2vect.side_effect = selective_t2vect
-    # 重新加载记忆以应用新的 embedding 逻辑
     del lt_memory2
     lt_memory3 = LongTermMemory(config=settings_mock)
 
@@ -485,6 +500,9 @@ def main() -> None:
     assert len(results_semantic) > 0, "语义检索应返回结果"
     assert "机器狗" in results_semantic[0], "语义检索应找到关于宠物的记忆"
     print("√ 语义检索成功")
+
+    # === 新增测试5：验证 jionlp 真实功能 ===
+    test_jionlp_time_parsing_directly()
 
     print("\n===== 所有测试通过! =====")
 
