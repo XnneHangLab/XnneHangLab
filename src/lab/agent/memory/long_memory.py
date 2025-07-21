@@ -379,7 +379,7 @@ def main() -> None:
     print("===== 开始 LongTermMemory 功能测试 =====")
 
     # --- 测试准备：确保测试目录存在并清理旧数据 ---
-    test_char_name = "test_longterm_char"
+    test_char_name = "test_character"
     test_memory_dir = Path(f"./chat_history/{test_char_name}")
     if test_memory_dir.exists():
         print(f"清理旧的测试目录: {test_memory_dir}")
@@ -507,10 +507,10 @@ def main() -> None:
     print("\n===== 所有测试通过! =====")
 
     # --- 清理测试环境 ---
-    print("\n清理测试环境...")
-    if test_memory_dir.exists():
-        shutil.rmtree(test_memory_dir)
-    print("√ 测试环境清理完毕")
+    # print("\n清理测试环境...")
+    # if test_memory_dir.exists():
+    #     shutil.rmtree(test_memory_dir)
+    # print("√ 测试环境清理完毕")
 
 
 if __name__ == "__main__":
