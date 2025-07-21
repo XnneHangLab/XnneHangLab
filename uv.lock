@@ -3356,22 +3356,14 @@ name = "xnnehanglab"
 version = "0.0.5"
 source = { editable = "." }
 dependencies = [
-    { name = "addict" },
-    { name = "datasets" },
-    { name = "faiss-cpu" },
     { name = "fastapi", extra = ["standard"] },
     { name = "fastmcp" },
     { name = "google-genai" },
-    { name = "jionlp" },
     { name = "loguru" },
     { name = "pandas" },
     { name = "pydantic" },
     { name = "python-multipart" },
-    { name = "ruamel-yaml" },
-    { name = "shortuuid" },
-    { name = "simplejson" },
     { name = "socksio" },
-    { name = "sortedcontainers" },
     { name = "streamlit" },
     { name = "streamlit-antd-components" },
     { name = "tomli" },
@@ -3425,6 +3417,16 @@ gpt-sovits = [
     { name = "tqdm" },
     { name = "wordsegment" },
 ]
+longterm-memory = [
+    { name = "addict" },
+    { name = "datasets" },
+    { name = "faiss-cpu" },
+    { name = "jionlp" },
+    { name = "ruamel-yaml" },
+    { name = "shortuuid" },
+    { name = "simplejson" },
+    { name = "sortedcontainers" },
+]
 tts-base = [
     { name = "cn2an" },
     { name = "g2p-en" },
@@ -3452,22 +3454,14 @@ yutto-uiya = [
 
 [package.metadata]
 requires-dist = [
-    { name = "addict", specifier = ">=2.4.0" },
-    { name = "datasets", specifier = "<=2.18.0" },
-    { name = "faiss-cpu", specifier = ">=1.11.0.post1" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.115.8" },
     { name = "fastmcp", specifier = ">=2.10.4" },
     { name = "google-genai", specifier = ">=1.25.0" },
-    { name = "jionlp", specifier = ">=1.5.24" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "pandas", specifier = "==2.2.3" },
     { name = "pydantic", specifier = ">=2.10.6" },
     { name = "python-multipart", specifier = ">=0.0.20" },
-    { name = "ruamel-yaml", specifier = ">=0.18.14" },
-    { name = "shortuuid", specifier = ">=1.0.13" },
-    { name = "simplejson", specifier = ">=3.20.1" },
     { name = "socksio", specifier = ">=1.0.0" },
-    { name = "sortedcontainers", specifier = ">=2.4.0" },
     { name = "streamlit", specifier = ">=1.43.2" },
     { name = "streamlit-antd-components", specifier = ">=0.3.2" },
     { name = "tomli", specifier = ">=2.2.1" },
@@ -3518,6 +3512,16 @@ gpt-sovits = [
     { name = "soundfile", specifier = ">=0.13.1" },
     { name = "tqdm", specifier = ">=4.67.1" },
     { name = "wordsegment", specifier = ">=1.3.1" },
+]
+longterm-memory = [
+    { name = "addict", specifier = ">=2.4.0" },
+    { name = "datasets", specifier = "<=2.18.0" },
+    { name = "faiss-cpu", specifier = ">=1.11.0.post1" },
+    { name = "jionlp", specifier = ">=1.5.24" },
+    { name = "ruamel-yaml", specifier = ">=0.18.14" },
+    { name = "shortuuid", specifier = ">=1.0.13" },
+    { name = "simplejson", specifier = ">=3.20.1" },
+    { name = "sortedcontainers", specifier = ">=2.4.0" },
 ]
 tts-base = [
     { name = "cn2an", specifier = ">=0.5.23" },
