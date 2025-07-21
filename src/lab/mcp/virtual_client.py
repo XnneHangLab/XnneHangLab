@@ -11,7 +11,7 @@ from lab.mcp._typing import CommonMessage, ImageMessage, ToolMessage
 from lab.mcp.client.base_mcp_interface import MCPHandlerInterface
 from lab.mcp.client.timeemi import TimeemiMCPHandler
 from lab.mcp.client.vision import VisionMCPHandler
-from lab.mcp.util import read_prompt_from_text_file
+from lab.utils.TxtHelper import read_prompt_from_text_file
 
 if TYPE_CHECKING:
     from mcp.types import CallToolResult
