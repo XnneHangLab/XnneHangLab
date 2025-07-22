@@ -81,6 +81,11 @@ default-groups = ["dev","yutto-uiya","bert-vits","database","vtuber"]
 - 默认值: "ZH"
 - 可选: ["ZH", "JA", "EN"]
 
+**character_name**
+- 描述: 角色 system_prompt 所在的位置，对应路径 `./prompt/characters/{character_name}.txt`
+- 默认值: "elaina"
+- 可选: ["elaina", "paimeng", "neko"] # 你也可以自己替换或者新增提示词。
+
 **speaker_model**
 - 描述: 使用的 TTS 模型名称
 - 默认值: "gpt_sovits"
@@ -119,10 +124,7 @@ llm 相关配置。你需要至少填写一个。
 - 描述: 调用 llm api 时需要的模型名称
 - 默认值: "yi-lightning"
 
-**system_prompt_name**
-- 描述: 角色 system_prompt 所在的位置，对应路径 `./prompt/{system_prompt_name}.txt`
-- 默认值: "elaina"
-- 可选: ["elaina", "paimeng", "neko"] # 你也可以自己替换或者新增提示词。
+
 
 ### lab.toml `[mcp.*]`
 

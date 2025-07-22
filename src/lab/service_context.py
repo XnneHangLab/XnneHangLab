@@ -19,6 +19,7 @@ from lab.config_manager.vtuber import (
 )
 from lab.live2d_model import Live2dModel
 from lab.mcp import VirtualMCPHandler, get_virtual_mcp_handler
+from lab.utils.TxtHelper import read_prompt_from_text_file
 
 if TYPE_CHECKING:
     from fastapi import WebSocket
@@ -136,10 +137,7 @@ class ServiceContext:
         """Initialize or update the LLM engine based on agent configuration."""
         # agent 暂时不需要多次启动模型，所以不需要自检是否初始化。
         lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
-        root_dir = Path(lab_settings.root.root_dir)
-        system_prompt = (
-            (root_dir / "prompts" / f"{lab_settings.agent.system_prompt_name}.txt").read_text(encoding="utf-8").strip()
-        )
+        system_prompt = read_prompt_from_text_file(lab_settings.agent.character_name)
         system_prompt += "这是你的 Emotion 列表，请在合适的时候使用它们：\n" + str(self.live2d_model.emo_key) + "\n"  # type: ignore
         if lab_settings.agent.user_lang == "ZH":
             system_prompt += "\n**请回复中文。**"

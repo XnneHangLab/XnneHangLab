@@ -75,7 +75,7 @@ class CoreMemory:
     def _load_configuration(self) -> None:
         """从配置文件中加载并更新记忆系统的相关设置。"""
         # 从已加载的配置对象中获取角色名称和用户名称
-        self.character_name: str = self.config.agent.system_prompt_name
+        self.character_name: str = self.config.agent.character_name
         # 假设用户名为固定值，或者也可以从配置中加载
         self.user_name: str = "xnnehang"
         # 记忆检索的相似度阈值，低于此阈值的记忆将被过滤
@@ -272,7 +272,7 @@ def main() -> None:
     # 创建一个模拟的XnneHangLabSettings对象
     settings_mock = XnneHangLabSettings()  # type: ignore 加载默认配置
     # 确保角色名称与测试目录名称匹配
-    settings_mock.agent.system_prompt_name = "test_character"
+    settings_mock.agent.character_name = "test_character"
     settings_mock.agent.memory.books_thresholds = 0.5  # 设定一个阈值用于测试
     settings_mock.agent.memory.scan_depth = 5  # 设定扫描深度
 

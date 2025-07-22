@@ -57,7 +57,7 @@ class LongTermMemory:
 
     def _init_memory_attributes(self) -> None:
         """从配置对象中加载和设置记忆系统的属性。"""
-        self.char_name: str = self.config.agent.system_prompt_name  # AI角色名称
+        self.char_name: str = self.config.agent.character_name  # AI角色名称
         self.user_name: str = "xnnehang"  # 默认的用户名
         self.similarity_threshold: float = self.config.agent.memory.mem_thresholds  # 语义搜索的相似度阈值
         self.enable_semantic_check: bool = self.config.agent.memory.enable_check_memorys  # 是否启用语义相似度检查
@@ -388,7 +388,7 @@ def main() -> None:
 
     # --- 模拟配置加载 ---
     settings_mock = XnneHangLabSettings()  # type: ignore
-    settings_mock.agent.system_prompt_name = test_char_name
+    settings_mock.agent.character_name = test_char_name
 
     # === 测试1：初始化空的记忆系统 ===
     print("\n--- 测试1：初始化空的记忆系统 ---")

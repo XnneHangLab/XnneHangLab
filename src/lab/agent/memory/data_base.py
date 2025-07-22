@@ -84,7 +84,7 @@ class KnowledgeDataBase:
         # Type conversion for configuration values
         self.similarity_threshold = float(self.settings.agent.memory.books_thresholds)
         self.max_retrieve_count = int(self.settings.agent.memory.scan_depth)
-        character_name = self.settings.agent.system_prompt_name
+        character_name = self.settings.agent.character_name
         # Set the directory where knowledge base files are expected
         self.data_directory = Path(f"./chat_history/{character_name}/data_base")
 
@@ -285,7 +285,7 @@ def main() -> None:
     settings_mock = XnneHangLabSettings()  # type: ignore
     settings_mock.agent.memory.books_thresholds = 0.7  # Set a test similarity threshold
     settings_mock.agent.memory.scan_depth = 4  # Set a test maximum retrieval count
-    settings_mock.agent.system_prompt_name = "test_character"
+    settings_mock.agent.character_name = "test_character"
 
     # 1. Setup the test environment
     # Define a temporary directory for test knowledge base files

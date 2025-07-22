@@ -43,7 +43,7 @@ class MCPClient:
     async def chat(self, user_input: str) -> str:
         print("====== user_input ======")
         print(user_input)
-        system_prompt_path = Path("prompts") / f"{self.config.agent.system_prompt_name}.txt"
+        system_prompt_path = Path("prompts") / "characters" / f"{self.config.agent.character_name}.txt"
         with system_prompt_path.open("r", encoding="utf-8") as f:
             system_prompt = f.read()
         system_prompt = "\n**請使用和用戶相同的語言**"
