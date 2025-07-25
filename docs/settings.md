@@ -103,12 +103,16 @@ default-groups = ["dev","yutto-uiya","bert-vits","database","vtuber"]
 - 描述: deeplx 翻译的 api key
 - 默认值: "peach"
 
+**enable_longterm_memory**
+- 描述: 是否启用长期记忆功能
+- 默认值: true
+
 这两个我不建议你更改。
 
 **segment_method**
 **interrupt_method**
 
-#### `[llm.*]`
+#### lab.toml `[agent.llm.*]`
 
 llm 相关配置。你需要至少填写一个。
 
@@ -125,6 +129,21 @@ llm 相关配置。你需要至少填写一个。
 - 默认值: "yi-lightning"
 
 
+### lab.toml `[agent.memory]`
+**embedding_model_path**
+- 描述: 嵌入模型路径(目前仅支持这个模型，而这个模型仅支持中文 =-=，后续得加个英文的或者通用的。)
+- 默认值: "./models/nlp_gte_sentence-embedding_chinese-base"
+**books_thresholds**
+- 描述: 世界书搜索阈值，低于这个阈值的世界书将被过滤掉。专业点叫知识库
+- 默认值: 0.5
+**mem_thresholds**
+- 描述: 核心记忆搜索阈值，低于这个阈值的记忆将被过滤掉。
+- 默认值: 0.38
+**scan_depth**
+- 描述: 扫描深度，扫描记忆的深度。
+- 默认值: 4
+
+还有几个暂时没用到
 
 ### lab.toml `[mcp.*]`
 
