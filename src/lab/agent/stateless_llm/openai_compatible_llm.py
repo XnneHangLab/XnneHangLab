@@ -24,6 +24,8 @@ if TYPE_CHECKING:
 
     from openai.types.chat import ChatCompletionChunk
 
+    from lab.agent.memory.manager import MemoryManager
+
 
 class AsyncLLM(StatelessLLMInterface):
     def __init__(
@@ -59,7 +61,11 @@ class AsyncLLM(StatelessLLMInterface):
         logger.info(f"Initialized AsyncLLM with the parameters: {self.base_url}, {self.model}")
 
     async def chat_completion(  # type: ignore[override]
-        self, messages: list[dict[str, Any]], system: str | None = None, mcp_client: VirtualMCPHandler | None = None
+        self,
+        messages: list[dict[str, Any]],
+        system: str | None = None,
+        mcp_client: VirtualMCPHandler | None = None,
+        memory_manager: MemoryManager | None = None,
     ) -> AsyncIterator[str]:
         """
         Generates a chat completion using the OpenAI API asynchronously.
@@ -77,6 +83,8 @@ class AsyncLLM(StatelessLLMInterface):
         - APIError: For other API-related errors
         """
         logger.debug(f"Messages: {messages}")
+        logger.debug(f"user message: {messages[-1]}")
+        origin_user_message = messages[-1]["content"]
         stream = None  # type: ignore[assignment]
         try:
             # If system prompt is provided, add it to the messages
@@ -89,12 +97,19 @@ class AsyncLLM(StatelessLLMInterface):
 
             if mcp_client is None:
                 logger.info("mcp is not enable, directly async llm")
+                if memory_manager is not None:
+                    # 在这里插入用户提示词
+                    logger.info("insert knowledge base and memory into user prompt")
+                    messages_with_system[-1]["content"] = await memory_manager.process_user_message(origin_user_message)
+                else:
+                    logger.info("memory_manager is None, directly async llm")
                 stream: AsyncStream[ChatCompletionChunk] = await self.client.chat.completions.create(  # type: ignore[return-value]
                     messages=messages_with_system,  # type: ignore[assignment]
                     model=self.model,
                     stream=True,
                     temperature=self.temperature,
                 )
+                messages_with_system[-1]["content"] = origin_user_message
                 async for chunk in stream:  # type: ignore[assignment]
                     if chunk.choices[0].delta.content is None:  # type: ignore[assignment]
                         chunk.choices[0].delta.content = ""  # type: ignore[assignment]
@@ -110,6 +125,7 @@ class AsyncLLM(StatelessLLMInterface):
                         role=messages_with_system[-1]["role"], content=messages_with_system[-1]["content"]
                     ),
                     memory=messages_with_system,  # type: ignore[assignment]
+                    memory_manager=memory_manager,
                 ):
                     yield chunk
 

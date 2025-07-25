@@ -16,6 +16,8 @@ from lab.utils.TxtHelper import read_prompt_from_text_file
 if TYPE_CHECKING:
     from mcp.types import CallToolResult
 
+    from lab.agent.memory.manager import MemoryManager
+
 
 class VirtualMCPHandler(MCPHandlerInterface):
     # 本身不带有任何 method, 只是用于整合各个 MCPHandler 的 available tools 然后判断是否需要 tool call, 具体不同功能，位于 server, 每个 server 使用不同 handler 进行隔离。
@@ -45,7 +47,9 @@ class VirtualMCPHandler(MCPHandlerInterface):
                     return handler
         raise ValueError(f"未找到工具 {tool_name} 对应的 handler")
 
-    async def process(self, message: CommonMessage, memory: list[CommonMessage]):  # type: ignore[override]
+    async def process(  # type: ignore[override]
+        self, message: CommonMessage, memory: list[CommonMessage], memory_manager: MemoryManager | None = None
+    ):
         self.messages = self.reset_messages()
         self.messages.append(message)
         # print(self.messages)
@@ -56,28 +60,27 @@ class VirtualMCPHandler(MCPHandlerInterface):
             tool_choice="auto",  # 让模型自行决定是否调用工具
         )
         response_message = response.choices[0].message
-
+        self.messages = deepcopy(memory)  # 防止 memory 被篡改,我们不希望在 memory 中加入 tool 上下文。 # type:ignore
+        # self.messages.append(message)
+        if memory_manager is not None:
+            logger.info("insert core memory and knowledge base while tool calling")
+            self.messages[-1]["content"] = await memory_manager.process_user_message(message["content"])  # type: ignore[assignment]
+        else:
+            logger.info("no memory manager, skip insert core memory and knowledge base")
         if not response_message.tool_calls:  # 对于 tool call stream response 的屈服。宁可多调用一次也不能放弃 stream。
-            print("no tool call")
-            self.messages = deepcopy(
-                memory
-            )  # 防止 memory 被篡改,我们不希望在 memory 中加入 tool 上下文。 # type:ignore
-            self.messages.append(message)
+            logger.info("no tool call")
             stream = await self.openai_client.chat.completions.create(  # type: ignore[return-value]
                 model=self.get_openai_model_name(),
                 messages=self.messages,  # type: ignore[assignment]
                 stream=True,
             )
+            # 无需还原 self.messages, 因为下次会重置
             async for chunk in stream:  # type: ignore[assignment]
                 if chunk.choices[0].delta.content is None:  # type: ignore[assignment]
                     chunk.choices[0].delta.content = ""  # type: ignore[assignment]
                 yield chunk.choices[0].delta.content  # type: ignore[assignment]
         else:
-            print("tool call")
-            self.messages = deepcopy(
-                memory
-            )  # 防止 memory 被篡改,我们不希望在 memory 中加入 tool 上下文。 # type:ignore
-            self.messages.append(message)
+            logger.info("tool call")
             tool_name = response_message.tool_calls[
                 0
             ].function.name  # TODO 也许能实现多个 tool 的功能？但是可能过于复杂暂时不考虑

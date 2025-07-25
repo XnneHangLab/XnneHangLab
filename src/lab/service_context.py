@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from loguru import logger
 
 from lab.agent.agent_factory import AgentFactory
+from lab.agent.memory.manager import MemoryManager
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.config_manager.vtuber import (
     CharacterConfig,
@@ -44,6 +45,7 @@ class ServiceContext:
         self.mcp_client: VirtualMCPHandler | None = None
         # self.mcp_handlers: list[MCPHandlerInterface]
         self.history_uid: str = ""  # Add history_uid field
+        self.memory_manager: MemoryManager | None = None
 
     def __str__(self):
         return (
@@ -115,7 +117,6 @@ class ServiceContext:
         self.init_agent()
 
         self.init_translate(config.character_config.tts_preprocessor_config.translator_config)
-
         # store typed config references
         self.config = config
         self.system_config = config.system_config or self.system_config
@@ -173,8 +174,16 @@ class ServiceContext:
 
     def init_translate(self, translator_config: TranslatorConfig) -> None:
         """Initialize or update the translation engine based on the configuration."""
-
         logger.info("Translation already initialized with the same config.")
+
+    def init_memory_manager(self) -> None:
+        lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+        if lab_settings.agent.enable_longterm_memory:
+            logger.info("enable_longterm_memory is True, initialize memory manager.")
+            self.memory_manager = MemoryManager(config=lab_settings)
+        else:
+            logger.info("enable_longterm_memory is False, skip initialize memory manager.")
+            return
 
     async def init_mcp_client(self) -> None:
         """Initialize or update the MCP client based on the configuration."""
