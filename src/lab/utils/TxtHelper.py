@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Literal
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.utils.console.logger import Logger
@@ -93,8 +94,20 @@ def calculate_words_length(segmented_text: str) -> int:
     return length
 
 
-def read_prompt_from_text_file(system_prompt_name: str) -> str:
-    prompt_text_path = Path("prompts") / f"{system_prompt_name}.txt"
+def read_prompt_from_text_file(character_name: str) -> str:
+    prompt_text_path = Path("prompts") / "characters" / f"{character_name}.txt"
+    if not prompt_text_path.exists():
+        raise ValueError(f"prompt file {prompt_text_path} not exists")
+    with prompt_text_path.open("r", encoding="utf-8") as f:
+        prompt_text = f.read()
+    return prompt_text
+
+
+ToolNameList = Literal["core_memory_writer", "core_memory_reader", "knowledge_base_reader", "long_term_memory_reader"]
+
+
+def read_tool_prompt_from_text_file(tool_name: ToolNameList) -> str:
+    prompt_text_path = Path("prompts") / "tools" / f"{tool_name}.txt"
     if not prompt_text_path.exists():
         raise ValueError(f"prompt file {prompt_text_path} not exists")
     with prompt_text_path.open("r", encoding="utf-8") as f:

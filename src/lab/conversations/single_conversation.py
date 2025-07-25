@@ -151,7 +151,9 @@ async def process_agent_response(
         if context.agent_engine is None:
             logger.error("agent_engine is None, cannot process agent response")
             raise ValueError("agent_engine cannot be None")
-        agent_output = context.agent_engine.chat(batch_input, context.mcp_client)
+        if context.memory_manager is None:
+            logger.info("memory_manager is None")
+        agent_output = context.agent_engine.chat(batch_input, context.mcp_client, context.memory_manager)
         async for output in agent_output:  # type: ignore
             logger.info(output)  # type: ignore
             if context.live2d_model is None:

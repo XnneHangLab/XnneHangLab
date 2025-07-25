@@ -75,3 +75,4 @@ wexpect_log
 gptsovits/
 output.mp3
 tmp_audio/
+.openmcp

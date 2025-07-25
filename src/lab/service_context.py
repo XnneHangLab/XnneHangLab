@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from loguru import logger
 
 from lab.agent.agent_factory import AgentFactory
+from lab.agent.memory.manager import MemoryManager
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.config_manager.vtuber import (
     CharacterConfig,
@@ -19,6 +20,7 @@ from lab.config_manager.vtuber import (
 )
 from lab.live2d_model import Live2dModel
 from lab.mcp import VirtualMCPHandler, get_virtual_mcp_handler
+from lab.utils.TxtHelper import read_prompt_from_text_file
 
 if TYPE_CHECKING:
     from fastapi import WebSocket
@@ -43,6 +45,7 @@ class ServiceContext:
         self.mcp_client: VirtualMCPHandler | None = None
         # self.mcp_handlers: list[MCPHandlerInterface]
         self.history_uid: str = ""  # Add history_uid field
+        self.memory_manager: MemoryManager | None = None
 
     def __str__(self):
         return (
@@ -114,7 +117,6 @@ class ServiceContext:
         self.init_agent()
 
         self.init_translate(config.character_config.tts_preprocessor_config.translator_config)
-
         # store typed config references
         self.config = config
         self.system_config = config.system_config or self.system_config
@@ -136,10 +138,7 @@ class ServiceContext:
         """Initialize or update the LLM engine based on agent configuration."""
         # agent 暂时不需要多次启动模型，所以不需要自检是否初始化。
         lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
-        root_dir = Path(lab_settings.root.root_dir)
-        system_prompt = (
-            (root_dir / "prompts" / f"{lab_settings.agent.system_prompt_name}.txt").read_text(encoding="utf-8").strip()
-        )
+        system_prompt = read_prompt_from_text_file(lab_settings.agent.character_name)
         system_prompt += "这是你的 Emotion 列表，请在合适的时候使用它们：\n" + str(self.live2d_model.emo_key) + "\n"  # type: ignore
         if lab_settings.agent.user_lang == "ZH":
             system_prompt += "\n**请回复中文。**"
@@ -175,8 +174,16 @@ class ServiceContext:
 
     def init_translate(self, translator_config: TranslatorConfig) -> None:
         """Initialize or update the translation engine based on the configuration."""
-
         logger.info("Translation already initialized with the same config.")
+
+    def init_memory_manager(self) -> None:
+        lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+        if lab_settings.agent.enable_longterm_memory:
+            logger.info("enable_longterm_memory is True, initialize memory manager.")
+            self.memory_manager = MemoryManager(config=lab_settings)
+        else:
+            logger.info("enable_longterm_memory is False, skip initialize memory manager.")
+            return
 
     async def init_mcp_client(self) -> None:
         """Initialize or update the MCP client based on the configuration."""

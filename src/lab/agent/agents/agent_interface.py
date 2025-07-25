@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
     from lab.agent.input_types import BaseInput
+    from lab.agent.memory.manager import MemoryManager
     from lab.agent.output_types import BaseOutput
     from lab.mcp import VirtualMCPHandler
 
@@ -17,7 +18,12 @@ class AgentInterface(ABC):
     """Base interface for all agent implementations"""
 
     @abstractmethod
-    async def chat(self, input_data: BaseInput, mcp_client: VirtualMCPHandler | None) -> AsyncIterator[BaseOutput]:
+    async def chat(
+        self,
+        input_data: BaseInput,
+        mcp_client: VirtualMCPHandler | None = None,
+        memory_manager: MemoryManager | None = None,
+    ) -> AsyncIterator[BaseOutput]:
         """
         Chat with the agent asynchronously.
 
@@ -28,6 +34,8 @@ class AgentInterface(ABC):
 
         Args:
             input_data: BaseInput - User input data
+            mcp_client: VirtualMCPHandler | None - MCP client for handling MCP messages
+            memory_manager: MemoryManager - Memory manager for managing agent's working memory
 
         Returns:
             AsyncIterator[BaseOutput] - Stream of agent outputs

@@ -26,10 +26,11 @@ subtitle_speed = "normal"
 [agent]
 llm_provider = "lingyi"
 enable_mcp = true
-system_prompt_name = "elaina"
+character_name = "elaina"
 deeplx_api_key = ""
 user_lang = "ZH"
 speaker_lang = "EN"
+enable_longterm_memory = true
 speaker_model = "gpt_sovits"
 faster_first_response = false
 segment_method = "pysbd"
@@ -50,6 +51,15 @@ llm_api_key = ""
 llm_base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
 llm_model_name = "gemini-2.5-flash"
 
+[agent.memory]
+embedding_model_path = "./models/nlp_gte_sentence-embedding_chinese-base"
+books_thresholds = 0.5
+mem_thresholds = 0.38
+scan_depth = 4
+enable_check_memorys = true
+enable_core_memmorys = true
+lore_books = true
+
 [mcp.timeemi]
 transport = "http"
 host = "127.0.0.1"
@@ -65,10 +75,10 @@ path = "/"
 log_level = "debug"
 
 [package]
-funasr = true
+funasr = false
 to_do_list = true
 yutto_uiya = true
-bert_vits = true
+bert_vits = false
 gpt_sovits = true
 
 [root]

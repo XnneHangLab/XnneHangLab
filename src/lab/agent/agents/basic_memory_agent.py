@@ -17,6 +17,7 @@ from lab.chat_history_manager import get_history
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable
 
+    from lab.agent.memory.manager import MemoryManager
     from lab.agent.output_types import AudioOutput, DisplayText, SentenceOutput
     from lab.agent.stateless_llm.stateless_llm_interface import StatelessLLMInterface
     from lab.config_manager.vtuber import TTSPreprocessorConfig
@@ -217,7 +218,10 @@ class BasicMemoryAgent(AgentInterface):
         return messages
 
     def _chat_function_factory(
-        self, chat_func: Callable[[list[dict[str, Any]], str, VirtualMCPHandler | None], AsyncIterator[str]]
+        self,
+        chat_func: Callable[
+            [list[dict[str, Any]], str, VirtualMCPHandler | None, MemoryManager | None], AsyncIterator[str]
+        ],
     ) -> Callable[..., AsyncIterator[SentenceOutput | AudioOutput]]:
         """
         Create the chat pipeline with transformers
@@ -235,7 +239,7 @@ class BasicMemoryAgent(AgentInterface):
             valid_tags=["think"],
         )
         async def chat_with_memory(
-            input_data: BatchInput, mcp_client: VirtualMCPHandler | None
+            input_data: BatchInput, mcp_client: VirtualMCPHandler | None, memory_manager: MemoryManager | None
         ) -> AsyncIterator[str | AudioOutput]:
             """
             Chat implementation with memory and processing pipeline
@@ -250,7 +254,7 @@ class BasicMemoryAgent(AgentInterface):
             messages = self._to_messages(input_data)
 
             # Get token stream from LLM
-            token_stream = chat_func(messages, self._system, mcp_client)
+            token_stream = chat_func(messages, self._system, mcp_client, memory_manager)
             complete_response = ""
 
             async for token in token_stream:
