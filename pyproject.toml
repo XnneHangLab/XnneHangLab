@@ -93,11 +93,11 @@ tts_base = [
 
 bert-vits = [
   "regex>=2024.11.6",
-  "huggingface-hub>=0.32.2",
   "num2words>=0.5.14",
   "pyopenjtalk>=0.4.1",
   "vector-quantize-pytorch>=1.22.16",
   "mecab-python3==1.0.8",
+  "huggingface-hub==0.32.2",
 ]
 
 gpt_sovits = [
@@ -128,7 +128,7 @@ vtuber = [
 
 longterm_memory = [
   "addict>=2.4.0",
-  "datasets<=2.18.0",
+  "datasets>=3.2.0",
   "simplejson>=3.20.1",
   "sortedcontainers>=2.4.0",
   "faiss-cpu>=1.11.0.post1",
@@ -138,7 +138,13 @@ longterm_memory = [
 ]
 
 [tool.uv]
-default-groups = ["base","dev","database","yutto-uiya","tts_base","bert-vits","gpt_sovits","vtuber","longterm_memory"]
+default-groups = ["base","dev","database","yutto-uiya","tts_base","gpt_sovits","vtuber","longterm_memory"]
+conflicts = [
+    [
+        { group = "bert_vits" },
+        { group = "longterm_memory" },
+    ], # huggingface-hub and transformers 冲突未解决
+]
 
 [tool.uv.workspace]
 members = ["packages/yutto-uiya","packages/todo/","packages/bert-vits","packages/gpt_sovits"]
