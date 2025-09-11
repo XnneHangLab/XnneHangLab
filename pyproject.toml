@@ -138,7 +138,7 @@ longterm_memory = [
 ]
 
 [tool.uv]
-default-groups = ["base","dev", "funasr", "tts_base", "gpt_sovits", "vtuber","longterm_memory"]
+default-groups = ["base","dev", "yutto-uiya", "tts_base", "gpt_sovits", "vtuber","longterm_memory"]
 conflicts = [
     [
         { group = "bert_vits" },
