@@ -83,7 +83,7 @@ class VirtualMCPHandler(MCPHandlerInterface):
             logger.info("tool call")
             tool_name: str = response_message.tool_calls[0].function.name  # type: ignore
             # tool_args = json.loads(response_message.tool_calls[0].function.arguments)
-            handler = self.find_handler_by_tool(tool_name, self.handlers) # type: ignore
+            handler = self.find_handler_by_tool(tool_name, self.handlers)  # type: ignore
             async for chunk in handler.process(response_message=response_message, memory=memory, message=message):  # type:ignore
                 yield chunk
 
