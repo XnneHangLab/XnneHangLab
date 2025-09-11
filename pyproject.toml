@@ -70,6 +70,7 @@ dev = [
 database = [
   "pymongo>=4.13.2",
   "beanie>=1.30.0",
+  "motor>=3.3.2",
 ]
 
 yutto-uiya = [
@@ -138,7 +139,7 @@ longterm_memory = [
 ]
 
 [tool.uv]
-default-groups = ["base","dev", "yutto-uiya", "tts_base", "gpt_sovits", "vtuber","longterm_memory"]
+default-groups = ["base","dev", "yutto-uiya", "tts_base", "gpt_sovits", "vtuber","longterm_memory", "database"]
 conflicts = [
     [
         { group = "bert_vits" },
