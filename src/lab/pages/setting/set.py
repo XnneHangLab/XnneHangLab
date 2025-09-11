@@ -146,14 +146,18 @@ with BOTSave:
             if current_settings != initial_settings:  # Compare dictionaries
                 settings.batch_size_s = batch_size_s
                 settings.device = device if check_device_is_available(device=device) else "cpu"  # type: ignore
-                settings.custom_output_dir = custom_output_dir
-                settings.base_model = base_model
-                settings.punc_model = punc_model
-                settings.vad_model = vad_model
-                settings.hot_words_path = hot_words_path
-                settings.FFMPEG_PATH = ffmpeg_path
-                settings.cache_dir = cache_dir
-                settings.output_dir = output_dir
+                settings.custom_output_dir = (
+                    custom_output_dir if custom_output_dir else initial_settings["basic"]["custom_output_dir"]
+                )
+                settings.base_model = base_model if base_model else initial_settings["paths"]["base_model"]
+                settings.punc_model = punc_model if punc_model else initial_settings["paths"]["punc_model"]
+                settings.vad_model = vad_model if vad_model else initial_settings["paths"]["vad_model"]
+                settings.hot_words_path = (
+                    hot_words_path if hot_words_path else initial_settings["paths"]["hot_words_path"]
+                )
+                settings.FFMPEG_PATH = ffmpeg_path if ffmpeg_path else initial_settings["paths"]["FFMPEG_PATH"]
+                settings.cache_dir = cache_dir if cache_dir else initial_settings["paths"]["cache_dir"]
+                settings.output_dir = output_dir if output_dir else initial_settings["paths"]["output_dir"]
                 write_settings_file(settings_name="funasr.toml", settings=settings)
                 if (
                     current_settings["basic"]["device"] != initial_settings["basic"]["device"]

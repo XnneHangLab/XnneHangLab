@@ -81,11 +81,9 @@ class VirtualMCPHandler(MCPHandlerInterface):
                 yield chunk.choices[0].delta.content  # type: ignore[assignment]
         else:
             logger.info("tool call")
-            tool_name = response_message.tool_calls[
-                0
-            ].function.name  # TODO 也许能实现多个 tool 的功能？但是可能过于复杂暂时不考虑
+            tool_name: str = response_message.tool_calls[0].function.name  # type: ignore
             # tool_args = json.loads(response_message.tool_calls[0].function.arguments)
-            handler = self.find_handler_by_tool(tool_name, self.handlers)
+            handler = self.find_handler_by_tool(tool_name, self.handlers)  # type: ignore
             async for chunk in handler.process(response_message=response_message, memory=memory, message=message):  # type:ignore
                 yield chunk
 

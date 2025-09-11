@@ -40,9 +40,9 @@ audio_settings: AudioRecognizeSettings = load_settings_file("audio.toml", settin
 guide = st.session_state.get(audio_keys["guide"], audio_settings.guide)
 output_type = st.session_state.get(audio_keys["output_type"], audio_settings.output_type)
 subtitle_speed = st.session_state.get(audio_keys["subtitle_speed"], audio_settings.subtitle_speed)
-cut_line = st.session_state.get(audio_keys["cut_line"], settings.cut_line)
-combine_line = st.session_state.get(audio_keys["combine_line"], settings.combine_line)
-max_sentence_length = st.session_state.get(audio_keys["max_sentence_length"], settings.max_sentence_length)
+cut_line: int = st.session_state.get(audio_keys["cut_line"], settings.cut_line)
+combine_line: int = st.session_state.get(audio_keys["combine_line"], settings.combine_line)
+max_sentence_length: int = st.session_state.get(audio_keys["max_sentence_length"], settings.max_sentence_length)
 
 # 用于音频上传
 if audio_keys["audio_name"] not in st.session_state:
