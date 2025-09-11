@@ -13,6 +13,7 @@ mcp-server:
   uv run src/lab/mcp/server/vision.py & \
 
 server:
+  uv run get_root
   uv run run_server.py
 
 
@@ -25,7 +26,7 @@ test-bert-vits:
        -d '{"text": "我写了两个杀人推理短篇，他们互为答案（下）鲅鱼村杀人疑案。","audio_type":"opus"}' \
        -o response.json
   # 第二步：提取并解码音频数据
-  python -c "import json, base64; data=json.load(open('response.json')); open('output.opus', 'wb').write(base64.b64decode(data['audio_byte']))"
+  uv run python -c "import json, base64; data=json.load(open('response.json')); open('output.opus', 'wb').write(base64.b64decode(data['audio_byte']))"
   # 清理中间文件
   rm response.json
 
@@ -48,7 +49,7 @@ test-gsv:
 		"ref_audio_path": "./models/gptsovits/elaina/elaina.wav" \
 	}' \
 	-o response.json \
-	&& python -c "import json, base64; data=json.load(open('response.json')); open('output.mp3', 'wb').write(base64.b64decode(data['audio_byte']))"
+	&& uv run python -c "import json, base64; data=json.load(open('response.json')); open('output.mp3', 'wb').write(base64.b64decode(data['audio_byte']))"
 	rm response.json
 
 
@@ -62,7 +63,7 @@ test-deeplx:
 	}' \
 
 install-nltk:
-  python -c "import nltk; nltk.download('averaged_perceptron_tagger_eng')"
+  uv run python -c "import nltk; nltk.download('averaged_perceptron_tagger_eng')"
 
 dev:
     # 删除所有构建产物和缓存 / 二次操作防止缓存问题恢复代码
