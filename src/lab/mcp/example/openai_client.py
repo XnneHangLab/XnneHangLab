@@ -86,11 +86,11 @@ class MCPClient:
             if response_message.tool_calls:
                 # 处理工具调用
                 tool_call = response_message.tool_calls[0]
-                tool_name = tool_call.function.name
-                tool_args = json.loads(tool_call.function.arguments)
+                tool_name: str = tool_call.function.name  # type: ignore
+                tool_args: dict[str, Any] = json.loads(tool_call.function.arguments)  # type: ignore
 
                 # 执行工具
-                tool_response = await self.session.call_tool(tool_name, tool_args)
+                tool_response = await self.session.call_tool(tool_name, tool_args)  # type: ignore
                 # 添加一些提示词:
                 # TODO 在实际应用场景中，要考虑清理这些 prompt 不留在长期记忆中占 token 数量
                 if tool_name == "get_date_and_time":

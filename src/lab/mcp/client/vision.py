@@ -52,14 +52,12 @@ class VisionMCPHandler(MCPHandlerInterface):
             raise ValueError("No tool call in response")
         if self.mcp_client is None:  # type: ignore
             raise ValueError("mcp client is None")
-        tool_name = response_message.tool_calls[
-            0
-        ].function.name  # TODO 也许能实现多个 tool 的功能？但是可能过于复杂暂时不考虑
-        tool_args = json.loads(response_message.tool_calls[0].function.arguments)
+        tool_name = response_message.tool_calls[0].function.name  # type: ignore
+        tool_args = json.loads(response_message.tool_calls[0].function.arguments) # type: ignore
         async with self.mcp_client:  # type: ignore
             tool_response = await self.mcp_client.call_tool(tool_name, tool_args)  # type: ignore
         prompt_messages = await self.generate_prompt_template(
-            response_message.tool_calls[0].function.name,
+            response_message.tool_calls[0].function.name,  # type: ignore
             tool_response,  # type: ignore
             user_input=message["content"],  # type: ignore
         )
