@@ -142,7 +142,7 @@ default-groups = ["base","dev", "yutto-uiya", "tts_base", "gpt_sovits", "vtuber"
 conflicts = [
     [
         { group = "bert_vits" },
-        { group = "longterm_memory" },
+        { group = "base" },
     ], # huggingface-hub and transformers 冲突未解决
 ]
 
