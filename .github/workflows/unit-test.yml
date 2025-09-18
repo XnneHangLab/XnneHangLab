@@ -56,6 +56,7 @@ jobs:
         run: |
           just install-model
           just install-sensevoice
+          just install-embedding-model
     
       # 然后验证模型文件
       - name: Verify cached files
