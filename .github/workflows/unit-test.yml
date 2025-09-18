@@ -56,7 +56,6 @@ jobs:
         run: |
           just install-model
           just install-sensevoice
-          just install-embedding-model
     
       # 然后验证模型文件
       - name: Verify cached files
@@ -66,7 +65,6 @@ jobs:
           ls -la ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch/
           ls -la ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch/
           ls -la ./models/SenseVoiceSmall/
-          ls -la ./models/nlp_gte_sentence-embedding_chinese-base/
       
       - name: Cache FFmpeg
         id: cache-ffmpeg
