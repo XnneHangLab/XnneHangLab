@@ -47,6 +47,7 @@ jobs:
             ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch
             ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
             ./models/SenseVoiceSmall
+            ./models/nlp_gte_sentence-embedding_chinese-base
           key: model-cache-asr-sensevoice
           
       # 如果缓存未命中，则下载模型
@@ -64,11 +65,29 @@ jobs:
           ls -la ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch/
           ls -la ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch/
           ls -la ./models/SenseVoiceSmall/
+          ls -la ./models/nlp_gte_sentence-embedding_chinese-base/
       
-      - name: install ffmpeg
+      - name: Cache FFmpeg
+        id: cache-ffmpeg
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/bin/ffmpeg
+          key: ${{ runner.os }}-ffmpeg-static-6.0 # 使用一个清晰的键，例如包含版本号
+
+      - name: Download FFmpeg if not cached
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          FFMPEG_URL="https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
+          mkdir -p ~/.local/bin
+          curl -L $FFMPEG_URL | tar -xJ -C ~/.local/bin --strip-components=1 ffmpeg-*-amd64-static/ffmpeg
+
+      - name: Add FFmpeg to PATH
+        run: |
+          echo "~/.local/bin" >> $GITHUB_PATH
+
+      - name: Verify FFmpeg
+        run: |
+          ffmpeg -version
 
       - name: Run unit tests
         run: |
