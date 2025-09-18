@@ -54,3 +54,4 @@ def t2vect(text: list[str]) -> NDArray[np.float32]:
 # TODO
 # 实际上这个无约束的 embedding 是非常操蛋的,它不利于后续的规范化和拓展.
 # 应该做的是增加一个中间层,按照一定规则约束 embedding 的输入和输出.这样有利于后续新增其他的 embedding 模型.毕竟这个模型似乎只能处理中文.
+# 比如我现在实际上还有好多 ollama 的 embedding model
