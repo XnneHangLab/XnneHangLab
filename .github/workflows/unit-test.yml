@@ -43,32 +43,51 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
+            ./models/nlp_gte_sentence-embedding_chinese-base
             ./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch
             ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch
             ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
             ./models/SenseVoiceSmall
-          key: model-cache-asr-sensevoice
+          key: model-cache
           
       # 如果缓存未命中，则下载模型
       - name: Download model if needed
         if: steps.model-cache.outputs.cache-hit != 'true'
         run: |
+          just install-embedding-model
           just install-model
           just install-sensevoice
-    
       # 然后验证模型文件
       - name: Verify cached files
         run: |
           echo "Checking cached model folders:"
+          ls -la ./models/nlp_gte_sentence-embedding_chinese-base/
           ls -la ./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch/
           ls -la ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch/
           ls -la ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch/
           ls -la ./models/SenseVoiceSmall/
-      
-      - name: install ffmpeg
+      - name: Cache FFmpeg
+        id: cache-ffmpeg
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/bin/ffmpeg
+          key: ${{ runner.os }}-ffmpeg-static-6.0 # 使用一个清晰的键，例如包含版本号
+
+      - name: Download FFmpeg if not cached
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          FFMPEG_URL="https://github.com/eugeneware/ffmpeg-static/releases/download/b6.0/ffmpeg-linux-x64"
+          mkdir -p ~/.local/bin
+          curl -L $FFMPEG_URL -o ~/.local/bin/ffmpeg
+          chmod +x ~/.local/bin/ffmpeg
+
+      - name: Add FFmpeg to PATH
+        run: |
+          echo "~/.local/bin" >> $GITHUB_PATH
+
+      - name: Verify FFmpeg
+        run: |
+          ffmpeg -version
 
       - name: Run unit tests
         run: |
