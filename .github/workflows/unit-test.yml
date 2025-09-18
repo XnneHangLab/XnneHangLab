@@ -42,13 +42,13 @@ jobs:
         id: model-cache
         uses: actions/cache@v4
         with:
+            # ./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch
+            # ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch
+            # ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
+            # ./models/SenseVoiceSmall
           path: |
-            ./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch
-            ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch
-            ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
-            ./models/SenseVoiceSmall
             ./models/nlp_gte_sentence-embedding_chinese-base
-          key: model-cache-asr-sensevoice
+          key: model-cache
           
       # 如果缓存未命中，则下载模型
       - name: Download model if needed
@@ -59,12 +59,13 @@ jobs:
     
       # 然后验证模型文件
       - name: Verify cached files
+          # ls -la ./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch/
+          # ls -la ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch/
+          # ls -la ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch/
+          # ls -la ./models/SenseVoiceSmall/
         run: |
           echo "Checking cached model folders:"
-          ls -la ./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch/
-          ls -la ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch/
-          ls -la ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch/
-          ls -la ./models/SenseVoiceSmall/
+          ls -la ./models/nlp_gte_sentence-embedding_chinese-base/
       
       - name: Cache FFmpeg
         id: cache-ffmpeg
