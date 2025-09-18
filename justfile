@@ -88,7 +88,7 @@ install-model:
 install-embedding-model:
   uv lock
   uv sync
-  modelscope download --model iic/nlp_gte_sentence-embedding_chinese-base --local_dir ./models/nlp_gte_sentence-embedding_chinese-base
+  uv run modelscope download --model iic/nlp_gte_sentence-embedding_chinese-base --local_dir ./models/nlp_gte_sentence-embedding_chinese-base
 
 install-sensevoice:
   uv lock
