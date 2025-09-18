@@ -53,9 +53,10 @@ jobs:
       # 如果缓存未命中，则下载模型
       - name: Download model if needed
         if: steps.model-cache.outputs.cache-hit != 'true'
+          # just install-model
+          # just install-sensevoice
         run: |
-          just install-model
-          just install-sensevoice
+          just install-embedding-model
     
       # 然后验证模型文件
       - name: Verify cached files
