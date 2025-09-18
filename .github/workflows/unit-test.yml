@@ -80,7 +80,10 @@ jobs:
         run: |
           FFMPEG_URL="https://github.com/eugeneware/ffmpeg-static/releases/download/b6.0/ffmpeg-linux-x64"
           mkdir -p ~/.local/bin
-          curl -L $FFMPEG_URL | tar -xJ -C ~/.local/bin --strip-components=1 ffmpeg-*-amd64-static/ffmpeg
+          # Use the -o flag to save the output to a file
+          curl -L $FFMPEG_URL -o ~/.local/bin/ffmpeg
+          # Make the downloaded file executable
+          chmod +x ~/.local/bin/ffmpeg
 
       - name: Add FFmpeg to PATH
         run: |
