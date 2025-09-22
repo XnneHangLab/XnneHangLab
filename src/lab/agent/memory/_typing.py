@@ -8,7 +8,9 @@ if TYPE_CHECKING:
 
 
 class SentenceEmbeddingCompareInput(TypedDict):
-    source_sentence: str  # 即使函数接受一个 list[str]，但在比较时会将其视为一个整体进行处理，至于为什么请参见 SentenceEmbeddingCompareResponse 的说明
+    source_sentence: list[
+        str
+    ]  # 建议 list 长度为 1, 即使函数接受一个 list[str]，但在比较时会将其视为一个整体进行处理，至于为什么请参见 SentenceEmbeddingCompareResponse 的说明
     sentences_to_compare: list[str]
 
 

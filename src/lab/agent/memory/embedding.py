@@ -47,18 +47,10 @@ def t2vect(text: list[str]) -> NDArray[np.float32]:
     return embedding_model(input={"source_sentence": text})["text_embedding"]  # type: ignore[reportCallIssue]
 
 
-def test(msg: str, memorys: list[str], thresholds: float):
-    input = {"source_sentence": [msg], "sentences_to_compare": memorys}
-    response = embedding_model(input=input)  # type: ignore[reportCallIssue]
-    res_msg = ""
-    for i in range(len(response["scores"])):  # type: ignore[reportCallIssue]
-        if response["scores"][i] > thresholds:  # type: ignore[reportCallIssue]
-            print(f"[提示]检索到相关记忆，分数：{response['scores'][i]}")  # type: ignore[reportCallIssue]
-            print(response)  # type: ignore[reportCallIssue]
-            res_msg += str(memorys[i]) + "\n\n"
-    if res_msg:
-        return res_msg
+# Test Case
+# uv run pytest tests/test_nlp_gte_sentence_embedding.py -vvv -s
 
 
-if __name__ == "__main__":
-    print(test("测试消息22", ["测试消息2", "测试记忆2"], 0.5))
+# TODO
+# 实际上这个无约束的 embedding 是非常操蛋的,它不利于后续的规范化和拓展.
+# 应该做的是增加一个中间层,按照一定规则约束 embedding 的输入和输出.这样有利于后续新增其他的 embedding 模型.毕竟这个模型似乎只能处理中文.
