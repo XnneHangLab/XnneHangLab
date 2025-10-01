@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, Literal, get_args
+from typing import Annotated, Any, Literal, get_args
 
 from pydantic import BaseModel, Field
 
@@ -8,6 +8,9 @@ from lab._dictionary import audio_setting_dictionary
 
 # 开放的配置项
 AudioRecognizeSettingsTitle = Literal["guide", "output_type", "subtitle_speed"]
+# 下拉式配置项
+AudioRecognizeDropdownSetting = Literal["guide", "output_type", "subtitle_speed"]
+# 下拉选项定义
 AudioRecognizeGuide = Literal["open", "close"]
 AudioRecognizeOutputType = Literal["with_timestamp", "without_timestamp"]
 AudioRecognizeSubtitleSpeed = Literal["slow", "normal", "fast"]
@@ -21,38 +24,95 @@ class AudioRecognizeSettings(BaseModel):
     ]
     subtitle_speed: Annotated[AudioRecognizeSubtitleSpeed, Field("normal", title="字幕速度")]
 
-    def get_zh_option_list(self, key: AudioRecognizeSettingsTitle):
-        """获取中文配置项列表"""
-        if key == "guide":
-            return [audio_setting_dictionary[x][1] for x in get_args(AudioRecognizeGuide)]
-        elif key == "output_type":
-            return [audio_setting_dictionary[x][1] for x in get_args(AudioRecognizeOutputType)]
-        elif key == "subtitle_speed":
-            return [audio_setting_dictionary[x][1] for x in get_args(AudioRecognizeSubtitleSpeed)]
-        else:
-            raise ValueError(f"不支持的配置项: {key}")
+    # 集中映射避免重复 if-elif-else
+    _FIELD_TO_LITERAL = {
+        "guide": AudioRecognizeGuide,
+        "output_type": AudioRecognizeOutputType,
+        "subtitle_speed": AudioRecognizeSubtitleSpeed,
+    }
 
-    def get_index(self, key: AudioRecognizeSettingsTitle):
-        """获取配置项的索引"""
-        if key == "guide":
-            return get_args(AudioRecognizeGuide).index(self.guide)
-        elif key == "output_type":
-            return get_args(AudioRecognizeOutputType).index(self.output_type)
-        elif key == "subtitle_speed":
-            return get_args(AudioRecognizeSubtitleSpeed).index(self.subtitle_speed)
-        else:
+    def _get_options_for_field(
+        self, key: AudioRecognizeDropdownSetting
+    ) -> tuple[
+        Any, ...
+    ]:  # ... 似乎等同于 tuple[Any], 代表任意长度，所有元素均为 Any，不过如果这样会约束 tuple 长度为 2: tuple[int,str], 且顺序为 (索引, 中文名)
+        """获取字段对应的所有 Literal 选项"""
+        LiteralType = self._FIELD_TO_LITERAL.get(key)
+        if LiteralType is None:
             raise ValueError(f"不支持的配置项: {key}")
+        return get_args(LiteralType)
 
-    def zh_set_value(self, key: AudioRecognizeSettingsTitle, value: str):
-        """通过中文设置配置项"""
-        if key == "guide":
-            self.guide = get_args(AudioRecognizeGuide)[
-                [audio_setting_dictionary[x][1] for x in get_args(AudioRecognizeGuide)].index(value)
-            ]
-        elif key == "output_type":
-            self.output_type = get_args(AudioRecognizeOutputType)[
-                [audio_setting_dictionary[x][1] for x in get_args(AudioRecognizeOutputType)].index(value)
-            ]
+    def _get_indexed_options_for_field(self, key: AudioRecognizeSettingsTitle) -> list[tuple[str, str, int]]:
+        """
+        内部方法：获取字段所有选项，并按索引排序。
+        返回格式: [(代码值, 中文名, 索引), ...]
+        """
+        options = self._get_options_for_field(key)
+        indexed_options: list[tuple[str, str, int]] = []
+        for code_value in options:
+            try:
+                index, zh_name = audio_setting_dictionary[code_value]
+                indexed_options.append((code_value, zh_name, index))
+            except KeyError as e:
+                raise KeyError(f"在 audio_setting_dictionary 中找不到代码值: {code_value}") from e
+        # 确保选项列表是按索引排序的 (Streamlit 需要这个顺序)
+        return sorted(indexed_options, key=lambda x: x[2])
+
+    def get_zh_option_list(self, key: AudioRecognizeSettingsTitle) -> list[str]:
+        """
+        获取中文配置项列表，**顺序与索引一致**。
+        用于 Streamlit 的 st.selectbox 的 options。
+        """
+        indexed_options = self._get_indexed_options_for_field(key)
+        # 提取排序后的中文名
+        return [zh_name for _, zh_name, _ in indexed_options]
+
+    def get_index(self, key: AudioRecognizeSettingsTitle) -> int:
+        """
+        获取当前配置项值对应的索引。
+        用于 Streamlit 的 st.selectbox 的 index。
+        """
+        current_value = getattr(self, key)
+        try:
+            # 直接从字典中获取当前值的索引
+            index, _ = audio_setting_dictionary[current_value]
+            return index
+        except KeyError as e:
+            raise ValueError(f"当前配置值 '{current_value}' 在字典中找不到索引。") from e
+
+    def zh_set_value(self, key: AudioRecognizeSettingsTitle, zh_value: str):
+        """
+        通过中文名设置配置项。
+        """
+        indexed_options = self._get_indexed_options_for_field(key)
+
+        # 找到匹配中文名的代码值
+        for code_value, zh_name, _ in indexed_options:
+            if zh_name == zh_value:
+                setattr(self, key, code_value)
+                return
+
+        raise ValueError(f"配置项 '{key}' 不支持中文值: {zh_value}")
+
+    def index_set_value(self, key: AudioRecognizeSettingsTitle, index: int):
+        """
+        通过索引设置配置项值。
+        用于处理 Streamlit st.selectbox 返回的 index。
+        """
+        indexed_options = self._get_indexed_options_for_field(key)
+
+        # 找到匹配索引的代码值
+        for code_value, _, option_index in indexed_options:
+            if option_index == index:
+                setattr(self, key, code_value)
+                return
+
+        # 检查索引是否越界
+        if index < 0 or index >= len(indexed_options):
+            raise IndexError(f"配置项 '{key}' 的索引 {index} 超出范围。")
+
+        # 理论上不会走到这里，除非索引不连续
+        raise ValueError(f"无法找到配置项 '{key}' 对应的索引: {index}")
 
 
 def main():

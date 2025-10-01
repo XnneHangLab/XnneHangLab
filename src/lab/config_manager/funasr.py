@@ -7,8 +7,6 @@ from pydantic import BaseModel, Field
 from lab._dictionary import audio_setting_dictionary
 
 # 并不是所有的配置项目都向用户开放。有 title 的是开放项。
-# TODO , 可以把中英文的配置项分开，然后作为切换。而不是用字典映射
-Device = Literal["cpu", "cuda"]
 # 开放的配置项
 FunASRSettingsTitle = Literal[
     "batch_size_s",
@@ -25,6 +23,10 @@ FunASRSettingsTitle = Literal[
     "cut_line",
     "max_sentence_length",
 ]
+# 下拉式配置项
+FunASRSelectionSetting = Literal["device"]
+# 下拉选项定义
+Device = Literal["cpu", "cuda"]
 
 
 class FunASRSettings(BaseModel):
