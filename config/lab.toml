@@ -20,11 +20,11 @@ need_punc = false
 
 [webui]
 guide = "open"
-output_type = "with_timestamp"
+include_timestamp = "with_timestamp"
 subtitle_speed = "normal"
 
 [agent]
-llm_provider = "lingyi"
+llm_provider = "gemini"
 enable_mcp = true
 character_name = "elaina"
 deeplx_api_key = ""
@@ -79,7 +79,7 @@ funasr = false
 to_do_list = true
 yutto_uiya = true
 bert_vits = false
-gpt_sovits = true
+gpt_sovits = false
 
 [root]
-root_dir = "D:\\tmp\\XnneHangLab"
+root_dir = "/home/xnne/tmp/XnneHangLab"

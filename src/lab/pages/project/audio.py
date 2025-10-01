@@ -38,7 +38,7 @@ audio_settings: AudioRecognizeSettings = load_settings_file("audio.toml", settin
 # 参数说明参见 _session_keys.py
 
 guide = st.session_state.get(audio_keys["guide"], audio_settings.guide)
-output_type = st.session_state.get(audio_keys["output_type"], audio_settings.output_type)
+include_timestamp = st.session_state.get(audio_keys["include_timestamp"], audio_settings.include_timestamp)
 subtitle_speed = st.session_state.get(audio_keys["subtitle_speed"], audio_settings.subtitle_speed)
 cut_line: int = st.session_state.get(audio_keys["cut_line"], settings.cut_line)
 combine_line: int = st.session_state.get(audio_keys["combine_line"], settings.combine_line)
@@ -99,10 +99,10 @@ with setting_tab:
             audio_settings.get_zh_option_list("guide"),
             index=audio_settings.get_index("guide"),
         )
-        output_type = st.selectbox(
-            get_setting_title("output_type", AudioRecognizeSettings),
-            audio_settings.get_zh_option_list("output_type"),
-            index=audio_settings.get_index("output_type"),
+        include_timestamp = st.selectbox(
+            get_setting_title("include_timestamp", AudioRecognizeSettings),
+            audio_settings.get_zh_option_list("include_timestamp"),
+            index=audio_settings.get_index("include_timestamp"),
         )
         st.caption("只有带时间戳的字幕才支持自定义字幕速度。")
     with AudioSave:
@@ -113,7 +113,7 @@ with setting_tab:
             st.markdown("")
             if st.button("**保存更改**", use_container_width=True, type="primary"):
                 audio_settings.zh_set_value("guide", guide)
-                audio_settings.zh_set_value("output_type", output_type)
+                audio_settings.zh_set_value("include_timestamp", include_timestamp)
                 write_settings_file("audio.toml", audio_settings)
                 st.session_state[audio_keys["save"]] = True
                 st.rerun()
@@ -241,7 +241,7 @@ with working_tab:
                 print("\033[1;33m⚠️ 请不要在任务运行期间切换菜单或修改参数！\033[0m")
 
                 msg_whs = st.toast("正在识别音频内容", icon=":material/troubleshoot:")
-                if audio_settings.output_type == "with_timestamp":
+                if audio_settings.include_timestamp == "with_timestamp":
                     asr_client = ASRClient(no_punc=True)
                     response_with_timestamp = asr_client.post(
                         ASRRequest(
@@ -267,7 +267,7 @@ with working_tab:
                         )
                         print("\033[1;34m🎉 字幕生成成功！\033[0m")
 
-                elif audio_settings.output_type == "without_timestamp":
+                elif audio_settings.include_timestamp == "without_timestamp":
                     st.error("暂时不支持无时间戳的字幕生成，请选择带时间戳的字幕。", icon=":material/error:")
                 print("\033[1;34m🎉 FunASR 识别成功！\033[0m")
                 msg_whs.toast("音频内容识别完成", icon=":material/colorize:")
