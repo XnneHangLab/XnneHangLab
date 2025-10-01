@@ -7,12 +7,12 @@ from __future__ import annotations
 from typing import TypedDict
 
 
-class AudioSettingDictionary(TypedDict):
+class i18nDictionary(TypedDict):
     # guide
     open: tuple[str, int]
     close: tuple[str, int]
 
-    # output_type
+    # include_timestamp
     with_timestamp: tuple[str, int]
     without_timestamp: tuple[str, int]
 
@@ -22,7 +22,7 @@ class AudioSettingDictionary(TypedDict):
     fast: tuple[str, int]
 
 
-audio_setting_dictionary: AudioSettingDictionary = {
+i18n_dictionary: i18nDictionary = {
     "open": ("开启", 0),
     "close": ("关闭", 1),
     "with_timestamp": ("带时间戳", 0),
