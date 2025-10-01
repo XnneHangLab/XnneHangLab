@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import Annotated, Literal, get_args
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
-from lab._dictionary import audio_setting_dictionary
+from lab.config_manager.webui_i18n_model import Device, WebUIi18nSettings
 
 # 并不是所有的配置项目都向用户开放。有 title 的是开放项。
 # 开放的配置项
@@ -25,11 +25,9 @@ FunASRSettingsTitle = Literal[
 ]
 # 下拉式配置项
 FunASRSelectionSetting = Literal["device"]
-# 下拉选项定义
-Device = Literal["cpu", "cuda"]
 
 
-class FunASRSettings(BaseModel):
+class FunASRSettings(WebUIi18nSettings):
     batch_size_s: Annotated[int, Field(300, title="批处理大小(默认300,只要能吃满显卡或者CPU即可)")]
     device: Annotated[Literal["cpu", "cuda"], Field("cpu", title="设备选择")]
     punctuation_list: Annotated[str, Field("，。；、？！,.;?!")]
@@ -72,29 +70,9 @@ class FunASRSettings(BaseModel):
     max_sentence_length: Annotated[int, Field(20, title="最大单句长度")]
     need_punc: Annotated[bool, Field(False)]
 
-    def get_option_list(self, key: FunASRSettingsTitle):
-        if key == "device":
-            return list(get_args(Device))
-        else:
-            raise ValueError(f"不支持的配置项: {key}")
-
-    def get_zh_option_list(self, key: FunASRSettingsTitle):
-        if key == "device":
-            return [audio_setting_dictionary[x][1] for x in get_args(Device)]
-        else:
-            raise ValueError(f"不支持的配置项: {key}")
-
-    def get_index(self, key: FunASRSettingsTitle):
-        if key == "device":
-            return get_args(Device).index(self.device)
-        else:
-            raise ValueError(f"不支持的配置项: {key}")
-
-    def zh_set_value(self, key: FunASRSettingsTitle, value: str):
-        if key == "device":
-            self.device = get_args(Device)[[audio_setting_dictionary[x][1] for x in get_args(Device)].index(value)]
-        else:
-            raise ValueError(f"不支持的配置项: {key}")
+    _FIELD_TO_LITERAL = {
+        "device": Device,
+    }
 
 
 def main():
