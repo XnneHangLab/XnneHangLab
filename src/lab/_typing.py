@@ -157,7 +157,7 @@ class AudioSessionStateKeys(TypedDict):
     guide: str  # guide
 
     # ======= 配置文件
-    output_type: str  # 输出文件类型
+    include_timestamp: str  # 是否包含时间戳
     subtitle_speed: str  # 字幕速度
     cut_line: str
     combine_line: str
