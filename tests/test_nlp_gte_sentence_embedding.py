@@ -37,6 +37,7 @@ def test_embedding_model_with_compare_query(query: str, memorys: list[str], thre
     else:
         assert found_num == 0, f"期望没有找到相关记忆，但是找到 {found_num} 个。检索到的记忆：{res_msg}"
 
+
 @pytest.mark.parametrize(
     "sentence",
     [

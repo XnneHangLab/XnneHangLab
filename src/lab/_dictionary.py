@@ -7,53 +7,27 @@ from __future__ import annotations
 from typing import TypedDict
 
 
-class AudioSettingDictionary(TypedDict):
+class i18nDictionary(TypedDict):
     # guide
-    open: tuple[int, str]
-    close: tuple[int, str]
+    open: tuple[str, int]
+    close: tuple[str, int]
 
-    # output_type
-    with_timestamp: tuple[int, str]
-    without_timestamp: tuple[int, str]
+    # include_timestamp
+    with_timestamp: tuple[str, int]
+    without_timestamp: tuple[str, int]
 
     # subtitle_speed
-    slow: tuple[int, str]
-    normal: tuple[int, str]
-    fast: tuple[int, str]
+    slow: tuple[str, int]
+    normal: tuple[str, int]
+    fast: tuple[str, int]
 
 
-audio_setting_dictionary: AudioSettingDictionary = {
-    "open": (0, "开启"),
-    "close": (1, "关闭"),
-    "with_timestamp": (0, "带时间戳"),
-    "without_timestamp": (1, "不带时间戳"),
-    "slow": (0, "慢"),
-    "normal": (1, "正常"),
-    "fast": (2, "快"),
-}
-
-
-class VideoSettingDictionary(TypedDict):
-    # guide
-    open: tuple[int, str]
-    close: tuple[int, str]
-
-    # output_type
-    with_timestamp: tuple[int, str]
-    without_timestamp: tuple[int, str]
-
-    # subtitle_speed
-    slow: tuple[int, str]
-    normal: tuple[int, str]
-    fast: tuple[int, str]
-
-
-video_setting_dictionary: VideoSettingDictionary = {
-    "open": (0, "开启"),
-    "close": (1, "关闭"),
-    "with_timestamp": (0, "带时间戳"),
-    "without_timestamp": (1, "不带时间戳"),
-    "slow": (0, "慢"),
-    "normal": (1, "正常"),
-    "fast": (2, "快"),
+i18n_dictionary: i18nDictionary = {
+    "open": ("开启", 0),
+    "close": ("关闭", 1),
+    "with_timestamp": ("带时间戳", 0),
+    "without_timestamp": ("不带时间戳", 1),
+    "slow": ("慢", 0),
+    "normal": ("正常", 1),
+    "fast": ("快", 2),
 }

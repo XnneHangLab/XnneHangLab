@@ -30,7 +30,7 @@ audio_keys: AudioSessionStateKeys = {
     "save": "save",
     "upload": "upload",
     "cut_line": "cut_line",
-    "output_type": "output_type",
+    "include_timestamp": "include_timestamp",
     "combine_line": "combine_line",
     "subtitle_speed": "subtitle_speed",
     "max_sentence_length": "max_sentence_length",
