@@ -45,16 +45,16 @@ class AudioRecognizeSettings(BaseModel):
     def _get_indexed_options_for_field(self, key: AudioRecognizeSettingsTitle) -> list[tuple[str, str, int]]:
         """
         内部方法：获取字段所有选项，并按索引排序。
-        返回格式: [(代码值, 中文名, 索引), ...]
+        返回格式: [(英文值, 中文名, 索引), ...]
         """
         options = self._get_options_for_field(key)
         indexed_options: list[tuple[str, str, int]] = []
-        for code_value in options:
+        for en_value in options:
             try:
-                index, zh_name = audio_setting_dictionary[code_value]
-                indexed_options.append((code_value, zh_name, index))
+                zh_name, index = audio_setting_dictionary[en_value]
+                indexed_options.append((en_value, zh_name, index))
             except KeyError as e:
-                raise KeyError(f"在 audio_setting_dictionary 中找不到代码值: {code_value}") from e
+                raise KeyError(f"在 audio_setting_dictionary 中找不到英文值: {en_value}") from e
         # 确保选项列表是按索引排序的 (Streamlit 需要这个顺序)
         return sorted(indexed_options, key=lambda x: x[2])
 
@@ -65,7 +65,9 @@ class AudioRecognizeSettings(BaseModel):
         """
         indexed_options = self._get_indexed_options_for_field(key)
         # 提取排序后的中文名
-        return [zh_name for _, zh_name, _ in indexed_options]
+        zh_names = [zh_name for _, zh_name, _ in indexed_options]
+        print(zh_names)
+        return zh_names
 
     def get_index(self, key: AudioRecognizeSettingsTitle) -> int:
         """
@@ -75,7 +77,7 @@ class AudioRecognizeSettings(BaseModel):
         current_value = getattr(self, key)
         try:
             # 直接从字典中获取当前值的索引
-            index, _ = audio_setting_dictionary[current_value]
+            _, index = audio_setting_dictionary[current_value]
             return index
         except KeyError as e:
             raise ValueError(f"当前配置值 '{current_value}' 在字典中找不到索引。") from e
