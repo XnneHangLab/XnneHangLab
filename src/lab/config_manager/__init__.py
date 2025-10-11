@@ -7,6 +7,7 @@ from .audio_recognize import AudioRecognizeSettings
 from .config import XnneHangLabSettings, get_setting_title, load_settings_file, write_settings_file
 from .funasr import Device, FunASRSettings
 from .package import PackagesSettings
+from .whisper import WhisperSettings
 
 __all__ = [
     "RootAbsDir",
@@ -19,4 +20,5 @@ __all__ = [
     "AgentSettings",
     "PackagesSettings",
     "XnneHangLabSettings",
+    "WhisperSettings",
 ]

@@ -17,6 +17,7 @@ from lab.config_manager.audio_recognize import AudioRecognizeSettings, AudioReco
 from lab.config_manager.funasr import FunASRSettings, FunASRSettingsTitle
 from lab.config_manager.mcp import MCPSettings
 from lab.config_manager.package import PackagesSettings
+from lab.config_manager.whisper import WhisperSettings, WhisperSettingsTitle
 
 toml_loads = tomllib.loads
 toml_dumps = tomlw.dumps  # 使用 tomlw.dumps
@@ -52,6 +53,10 @@ def load_settings_file(setting_name: str, setting: type[FunASRSettings]) -> FunA
 
 
 @overload
+def load_settings_file(setting_name: str, setting: type[WhisperSettings]) -> WhisperSettings: ...
+
+
+@overload
 def load_settings_file(setting_name: str, setting: type[AudioRecognizeSettings]) -> AudioRecognizeSettings: ...
 
 
@@ -77,6 +82,7 @@ def load_settings_file(setting_name: str, setting: type[MCPSettings]) -> MCPSett
 
 class XnneHangLabSettings(BaseModel):
     funasr: Annotated[FunASRSettings, Field(FunASRSettings())]  # pyright: ignore[reportCallIssue]
+    whisper: Annotated[WhisperSettings, Field(WhisperSettings())]  # pyright: ignore[reportCallIssue]
     webui: Annotated[AudioRecognizeSettings, Field(AudioRecognizeSettings())]  # pyright: ignore[reportCallIssue]
     agent: Annotated[AgentSettings, Field(AgentSettings())]  # pyright: ignore[reportCallIssue]
     mcp: Annotated[MCPSettings, Field(MCPSettings())]  # pyright: ignore[reportCallIssue]
@@ -90,6 +96,7 @@ def load_settings_file(
     setting: (
         type[
             FunASRSettings
+            | WhisperSettings
             | AudioRecognizeSettings
             | RootAbsDir
             | AgentSettings
@@ -100,6 +107,7 @@ def load_settings_file(
     ),
 ) -> (
     FunASRSettings
+    | WhisperSettings
     | AudioRecognizeSettings
     | RootAbsDir
     | AgentSettings
@@ -126,6 +134,7 @@ def load_settings_file(
 def write_settings_file(
     settings_name: str,
     settings: FunASRSettings
+    | WhisperSettings
     | AudioRecognizeSettings
     | RootAbsDir
     | AgentSettings
@@ -162,9 +171,17 @@ def get_setting_title(
     return str(setting.model_fields[name].field_info.title)  # type: ignore
 
 
+@overload
 def get_setting_title(
-    name: FunASRSettingsTitle | AudioRecognizeSettingsTitle,
-    setting: type[FunASRSettings | AudioRecognizeSettings],
+    name: WhisperSettingsTitle,
+    setting: type[WhisperSettings],
+) -> str:
+    return str(setting.model_fields[name].field_info.title)  # type: ignore
+
+
+def get_setting_title(
+    name: FunASRSettingsTitle | AudioRecognizeSettingsTitle | WhisperSettingsTitle,
+    setting: type[FunASRSettings | AudioRecognizeSettings | WhisperSettings],
 ) -> str:
     """获取配置项(英文)的标题。（中文）
 

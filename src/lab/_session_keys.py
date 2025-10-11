@@ -34,6 +34,7 @@ audio_keys: AudioSessionStateKeys = {
     "combine_line": "combine_line",
     "subtitle_speed": "subtitle_speed",
     "max_sentence_length": "max_sentence_length",
+    "asr_model_provider": "asr_model_provider",
 }
 
 setting_keys: SettingSessionSateKeys = {

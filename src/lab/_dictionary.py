@@ -21,6 +21,10 @@ class i18nDictionary(TypedDict):
     normal: tuple[str, int]
     fast: tuple[str, int]
 
+    # asr_model_provider
+    funasr: tuple[str, int]
+    whisper: tuple[str, int]
+
 
 i18n_dictionary: i18nDictionary = {
     "open": ("开启", 0),
@@ -30,4 +34,6 @@ i18n_dictionary: i18nDictionary = {
     "slow": ("慢", 0),
     "normal": ("正常", 1),
     "fast": ("快", 2),
+    "funasr": ("FunASR", 0),
+    "whisper": ("Whisper", 1),
 }

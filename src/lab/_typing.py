@@ -162,6 +162,7 @@ class AudioSessionStateKeys(TypedDict):
     cut_line: str
     combine_line: str
     max_sentence_length: str  # 最大句子长度
+    asr_model_provider: str  # ASR 模型系列 FunASR | Whisper
 
 
 class SettingSessionSateKeys(TypedDict):
