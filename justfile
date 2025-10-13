@@ -85,6 +85,11 @@ install-model:
   uv run modelscope download --model iic/speech_fsmn_vad_zh-cn-16k-common-pytorch --local_dir ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch
   uv run modelscope download --model iic/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch --local_dir ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
 
+install-whisper:
+  uv lock
+  uv sync
+  huggingface-cli download openai/whisper-tiny --local-dir ./models/whisper/tiny --local-dir-use-symlinks False
+
 install-embedding-model:
   uv lock
   uv sync

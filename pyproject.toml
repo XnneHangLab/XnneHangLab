@@ -58,6 +58,7 @@ base = [
   "torchaudio==2.6.0",
   "setuptools>=76.0.0", # for install funasr
   "transformers==4.36.2",
+  "huggingface-hub>=0.32.2",
 ]
 
 dev = [
