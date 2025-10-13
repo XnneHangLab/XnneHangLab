@@ -9,6 +9,7 @@ import streamlit as st
 from lab._session_keys import audio_keys
 from lab.api.clients import ASRClient, ASRRequest
 from lab.config_manager import (
+    ASRSettings,
     AudioRecognizeSettings,
     FunASRSettings,
     WhisperSettings,
@@ -33,15 +34,15 @@ from lab.utils.SrtHelper import write_srt_from_sentences
 
 style()
 lab_settings: XnneHangLabSettings = load_settings_file("lab.toml", setting=XnneHangLabSettings)
-funasr_setting: FunASRSettings = lab_settings.funasr
+asr_setting: ASRSettings = lab_settings.asr
 webui_setting: AudioRecognizeSettings = lab_settings.webui
-whisper_setting: WhisperSettings = lab_settings.whisper
+funasr_setting: FunASRSettings = lab_settings.asr.funasr
+whisper_setting: WhisperSettings = lab_settings.asr.whisper
 
 # ============== 1.初始化持久化参数
 
 # 参数说明参见 _session_keys.py
 
-asr_model_provider = st.session_state.get(audio_keys["asr_model_provider"], webui_setting.asr_model_provider)
 guide = st.session_state.get(audio_keys["guide"], webui_setting.guide)
 include_timestamp = st.session_state.get(audio_keys["include_timestamp"], webui_setting.include_timestamp)
 subtitle_speed = st.session_state.get(audio_keys["subtitle_speed"], webui_setting.subtitle_speed)
@@ -99,13 +100,6 @@ with setting_tab:
     AudioSetting = st.container(border=True)
 
     with AudioSetting:
-        # ASR 模型系列
-        asr_model_provider = st.selectbox(
-            get_setting_title("asr_model_provider", AudioRecognizeSettings),
-            webui_setting.get_zh_option_list("asr_model_provider"),
-            index=webui_setting.get_index("asr_model_provider"),
-        )
-        st.caption("FunASR 仅支持中英文, Whisper 支持多语言。")
         guide = st.selectbox(
             get_setting_title("guide", AudioRecognizeSettings),
             webui_setting.get_zh_option_list("guide"),
@@ -124,7 +118,6 @@ with setting_tab:
             st.markdown("")
             st.markdown("")
             if st.button("**保存更改**", use_container_width=True, type="primary"):
-                webui_setting.zh_set_value("asr_model_provider", asr_model_provider)
                 webui_setting.zh_set_value("guide", guide)
                 webui_setting.zh_set_value("include_timestamp", include_timestamp)
                 write_settings_file("audio.toml", webui_setting)
@@ -177,7 +170,7 @@ with working_tab:
                     audio_first_name = audio_file.name.split(".")[0]
                     audio_last_name = audio_file.name.split(".")[-1]
                     st.session_state[audio_keys["audio_name"]] = audio_file.name
-                    cache_dir = Path(funasr_setting.cache_dir) / audio_first_name / current_time
+                    cache_dir = Path(asr_setting.cache_dir) / audio_first_name / current_time
                     cache_dir.mkdir(parents=True, exist_ok=True)
                     # TODO 这里只是复制到了 cache_Dir ,实际上， 我们需要把它处理成 wav.
                     with (cache_dir / st.session_state[audio_keys["audio_name"]]).open("wb") as file:
@@ -201,7 +194,7 @@ with working_tab:
                     else:
                         st.toast("请先选择示例文件", icon=":material/error:")
                         st.stop()
-                    cache_dir = Path(funasr_setting.cache_dir) / audio_first_name / current_time
+                    cache_dir = Path(asr_setting.cache_dir) / audio_first_name / current_time
                     cache_dir.mkdir(parents=True, exist_ok=True)
                     shutil.copy(
                         Path(f"examples/{st.session_state[audio_keys['audio_name']]}"),
@@ -227,7 +220,7 @@ with working_tab:
                         st.toast("请先选择音频文件", icon=":material/error:")
                         st.stop()
 
-                    cache_dir = Path(funasr_setting.cache_dir) / audio_first_name / current_time
+                    cache_dir = Path(asr_setting.cache_dir) / audio_first_name / current_time
                     cache_dir.mkdir(parents=True, exist_ok=True)
                     shutil.copy(
                         Path(st.session_state[audio_keys["audio_file"]]),
@@ -272,7 +265,7 @@ with working_tab:
                         # 保存字幕
                         print("\n\033[1;35m*** 正在生成 SRT 字幕文件 ***\033[0m\n")
                         st.session_state[audio_keys["preview_srt_file"]] = (
-                            Path(funasr_setting.output_dir) / "audio" / (audio_first_name + ".srt")
+                            Path(asr_setting.output_dir) / "audio" / (audio_first_name + ".srt")
                         )
                         write_srt_from_sentences(
                             sentences,

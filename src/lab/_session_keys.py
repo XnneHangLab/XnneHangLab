@@ -34,7 +34,6 @@ audio_keys: AudioSessionStateKeys = {
     "combine_line": "combine_line",
     "subtitle_speed": "subtitle_speed",
     "max_sentence_length": "max_sentence_length",
-    "asr_model_provider": "asr_model_provider",
 }
 
 setting_keys: SettingSessionSateKeys = {
@@ -49,6 +48,9 @@ setting_keys: SettingSessionSateKeys = {
     "output_dir": "output_dir",
     "ffmpeg_path": "ffmpeg_path",
     "initial_settings": "initial_settings",
+    "whisper_models_base_dir": "whisper_models_base_dir",
+    "whisper_model_size": "whisper_model_size",
+    "asr_model_provider": "asr_model_provider",
 }
 
 

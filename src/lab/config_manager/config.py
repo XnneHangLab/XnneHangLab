@@ -13,11 +13,17 @@ from pydantic import BaseModel, Field
 
 from lab.config_manager.abs_root import RootAbsDir
 from lab.config_manager.agent import AgentSettings
+from lab.config_manager.asr import (
+    ASRSettings,
+    ASRSettingsTitle,
+    FunASRSettings,
+    FunASRSettingsTitle,
+    WhisperSettings,
+    WhisperSettingsTitle,
+)
 from lab.config_manager.audio_recognize import AudioRecognizeSettings, AudioRecognizeSettingsTitle
-from lab.config_manager.funasr import FunASRSettings, FunASRSettingsTitle
 from lab.config_manager.mcp import MCPSettings
 from lab.config_manager.package import PackagesSettings
-from lab.config_manager.whisper import WhisperSettings, WhisperSettingsTitle
 
 toml_loads = tomllib.loads
 toml_dumps = tomlw.dumps  # 使用 tomlw.dumps
@@ -80,8 +86,12 @@ def load_settings_file(setting_name: str, setting: type[XnneHangLabSettings]) ->
 def load_settings_file(setting_name: str, setting: type[MCPSettings]) -> MCPSettings: ...
 
 
+@overload
+def load_settings_file(setting_name: str, setting: type[ASRSettings]) -> ASRSettings: ...
+
+
 class XnneHangLabSettings(BaseModel):
-    funasr: Annotated[FunASRSettings, Field(FunASRSettings())]  # pyright: ignore[reportCallIssue]
+    asr: Annotated[ASRSettings, Field(ASRSettings())]  # pyright: ignore[reportCallIssue]
     whisper: Annotated[WhisperSettings, Field(WhisperSettings())]  # pyright: ignore[reportCallIssue]
     webui: Annotated[AudioRecognizeSettings, Field(AudioRecognizeSettings())]  # pyright: ignore[reportCallIssue]
     agent: Annotated[AgentSettings, Field(AgentSettings())]  # pyright: ignore[reportCallIssue]
@@ -103,6 +113,7 @@ def load_settings_file(
             | PackagesSettings
             | XnneHangLabSettings
             | MCPSettings
+            | ASRSettings
         ]
     ),
 ) -> (
@@ -114,6 +125,7 @@ def load_settings_file(
     | PackagesSettings
     | XnneHangLabSettings
     | MCPSettings
+    | ASRSettings
 ):
     """加载配置文件，如果不存在则创建默认配置文件在当前工作目录。"""
     settings_file = search_for_settings_file(setting_name=setting_name)
@@ -140,7 +152,8 @@ def write_settings_file(
     | AgentSettings
     | PackagesSettings
     | XnneHangLabSettings
-    | MCPSettings,
+    | MCPSettings
+    | ASRSettings,
 ) -> None:
     """将 Setting 对象写入 TOML 文件。"""
     settings_file = search_for_settings_file(setting_name=settings_name)
@@ -179,9 +192,17 @@ def get_setting_title(
     return str(setting.model_fields[name].field_info.title)  # type: ignore
 
 
+@overload
 def get_setting_title(
-    name: FunASRSettingsTitle | AudioRecognizeSettingsTitle | WhisperSettingsTitle,
-    setting: type[FunASRSettings | AudioRecognizeSettings | WhisperSettings],
+    name: ASRSettingsTitle,
+    setting: type[ASRSettings],
+) -> str:
+    return str(setting.model_fields[name].field_info.title)  # type: ignore
+
+
+def get_setting_title(
+    name: FunASRSettingsTitle | AudioRecognizeSettingsTitle | WhisperSettingsTitle | ASRSettingsTitle,
+    setting: type[FunASRSettings | AudioRecognizeSettings | WhisperSettings | ASRSettings],
 ) -> str:
     """获取配置项(英文)的标题。（中文）
 

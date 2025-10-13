@@ -162,7 +162,6 @@ class AudioSessionStateKeys(TypedDict):
     cut_line: str
     combine_line: str
     max_sentence_length: str  # 最大句子长度
-    asr_model_provider: str  # ASR 模型系列 FunASR | Whisper
 
 
 class SettingSessionSateKeys(TypedDict):
@@ -179,6 +178,9 @@ class SettingSessionSateKeys(TypedDict):
     custom_output_dir: str  # 是否自定义输出目录
     output_dir: str  # 输出目录
     initial_settings: str  # 初始设置, 用来比对是否有更改
+    whisper_models_base_dir: str  # Whisper 模型存放的基础目录
+    whisper_model_size: str  # Whisper 模型规格
+    asr_model_provider: str  # ASR 模型系列 FunASR | Whisper
 
 
 class HomeSessionStateKeys(TypedDict):

@@ -7,10 +7,13 @@ from pydantic import Field
 from lab.config_manager.webui_i18n_model import Guide, IncludeTimestamp, SubtitleSpeed, WebUIi18nSettings
 
 # 开放的配置项
-AudioRecognizeSettingsTitle = Literal["guide", "include_timestamp", "subtitle_speed", "asr_model_provider"]
+AudioRecognizeSettingsTitle = Literal[
+    "guide",
+    "include_timestamp",
+    "subtitle_speed",
+]
 # 下拉式配置项
-AudioRecognizeDropdownSetting = Literal["guide", "include_timestamp", "subtitle_speed", "asr_model_provider"]
-ASRModelProvider = Literal["funasr", "whisper"]
+AudioRecognizeDropdownSetting = Literal["guide", "include_timestamp", "subtitle_speed"]
 
 
 class AudioRecognizeSettings(WebUIi18nSettings):
@@ -20,17 +23,12 @@ class AudioRecognizeSettings(WebUIi18nSettings):
         Field("with_timestamp", title="是否包含时间戳"),
     ]
     subtitle_speed: Annotated[SubtitleSpeed, Field("normal", title="字幕速度")]
-    asr_model_provider: Annotated[
-        ASRModelProvider,
-        Field("funasr", title="ASR 模型系列"),
-    ]
 
     # 集中映射避免重复 if-elif-else
     _FIELD_TO_LITERAL = {
         "guide": Guide,
         "include_timestamp": IncludeTimestamp,
         "subtitle_speed": SubtitleSpeed,
-        "asr_model_provider": ASRModelProvider,  # 虽然不需要 i18n 功能, 但为了保持一致性, 这里依然采用这个逻辑
     }
 
 
