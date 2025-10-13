@@ -25,6 +25,14 @@ class i18nDictionary(TypedDict):
     funasr: tuple[str, int]
     whisper: tuple[str, int]
 
+    # Device
+    cpu: tuple[str, int]
+    cuda: tuple[str, int]
+
+    # whisper model size
+    tiny: tuple[str, int]
+    large_v3_turbo: tuple[str, int]
+
 
 i18n_dictionary: i18nDictionary = {
     "open": ("开启", 0),
@@ -36,4 +44,8 @@ i18n_dictionary: i18nDictionary = {
     "fast": ("快", 2),
     "funasr": ("FunASR", 0),
     "whisper": ("Whisper", 1),
+    "cpu": ("cpu", 0),
+    "cuda": ("gpu", 1),
+    "tiny": ("tiny", 0),
+    "large_v3_turbo": ("large_v3_turbo", 1),
 }

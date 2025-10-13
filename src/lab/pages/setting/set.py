@@ -133,7 +133,7 @@ with BOTSetting:
         asr_settings.get_zh_option_list("asr_model_provider"),
         index=asr_settings.get_index("asr_model_provider"),
     )
-    st.caption("FunASR 仅支持中英文, Whisper 支持多语言。")
+    st.caption("FunASR 仅支持中英文(但支持单词级的时间戳调整), Whisper 支持多语言。")
     if st.toggle("自定义输出目录", custom_output_dir, key="custom_output_dir"):
         output_dir = st.text_input(
             get_setting_title("output_dir", ASRSettings),
@@ -188,6 +188,13 @@ with BOTSetting:
         placeholder="Whisper Models Base Directory",
         key="whisper_models_base_dir",
     )  # Add key
+    whisper_model_size = st.selectbox(
+        get_setting_title("whisper_model_size", WhisperSettings),
+        whisper_settings.get_zh_option_list("whisper_model_size"),
+        index=whisper_settings.get_index("whisper_model_size"),
+        key="whisper_model_size",
+    )  # Add key
+    st.caption("请确保下载的模型文件夹存放于 whisper_models_base_dir 下方且命名与选项，如 whisper_models_base_dir/large_v3_turbo")
 
     st.markdown("")
 
@@ -246,7 +253,11 @@ with BOTSave:
                     whisper_model_size if whisper_model_size else initial_settings["paths"]["whisper_model_size"]
                 )
 
-                write_settings_file(settings_name="funasr.toml", settings=funasr_settings)
+                asr_settings.whisper = whisper_settings
+                asr_settings.funasr = funasr_settings
+                lab_settings.asr = asr_settings
+
+                write_settings_file(settings_name="lab.toml", settings=lab_settings)
                 if (
                     current_settings["basic"]["device"] != initial_settings["basic"]["device"]
                     or current_settings["funasr"]["base_model"] != initial_settings["paths"]["base_model"]
@@ -265,9 +276,13 @@ with BOTSave:
                 message_box("未检测到更改", "配置未发生任何变化，无需保存。")
 
         if st.button("**恢复默认设置**", type="secondary", use_container_width=True):
-            settings = Path("config") / "funasr.toml"
-            settings.unlink()
-            load_settings_file("funasr.toml", FunASRSettings)
+            asr_setting_path = Path("config") / "asr.toml"
+            if asr_setting_path.exists():
+                asr_setting_path.unlink()
+            asr_settings = load_settings_file("asr.toml", ASRSettings)
+            lab_settings.asr = asr_settings
+            asr_setting_path.unlink()
+            write_settings_file("lab.toml", lab_settings)
             reload_client = ReloadClient("audio")
             st.toast("正在重新加载模型，请稍候...")
             message_box("恢复成功！", "配置已恢复为默认设置。刷新页面即可查看更改。")

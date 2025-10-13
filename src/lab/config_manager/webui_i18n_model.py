@@ -57,7 +57,7 @@ class WebUIi18nSettings(BaseModel):
                 zh_name, index = i18n_dictionary[en_value]
                 indexed_options.append((en_value, zh_name, index))
             except KeyError as e:
-                raise KeyError(f"在 audio_setting_dictionary 中找不到英文值: {en_value}") from e
+                raise KeyError(f"在 WebUIi18nSettings 中找不到英文值: {en_value}") from e
         # 确保选项列表是按索引排序的 (Streamlit 需要这个顺序)
         return sorted(indexed_options, key=lambda x: x[2])
 

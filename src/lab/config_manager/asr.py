@@ -67,12 +67,12 @@ class FunASRSettings(WebUIi18nSettings):
 WhisperSettingsTitle = Literal["whisper_models_base_dir", "whisper_model_size"]
 # 下拉式配置项
 WhisperDropDownSetting = Literal["whisper_model_size"]
-WhisperModelSize = Literal["whisper-tiny", "whisper-large-v3-turbo"]
+WhisperModelSize = Literal["tiny", "large_v3_turbo"]
 
 
 class WhisperSettings(WebUIi18nSettings):
     whisper_models_base_dir: Annotated[str, Field("./models/whisper/", title="Whisper 模型存放列表目录")]
-    whisper_model_size: Annotated[str, Field("whisper-large-v3-turbo", title="Whisper 模型规格")]
+    whisper_model_size: Annotated[str, Field("large_v3_turbo", title="Whisper 模型规格")]
 
     _FIELD_TO_LITERAL = {
         "whisper_model_size": WhisperModelSize,

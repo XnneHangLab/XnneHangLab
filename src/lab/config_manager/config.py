@@ -92,7 +92,6 @@ def load_settings_file(setting_name: str, setting: type[ASRSettings]) -> ASRSett
 
 class XnneHangLabSettings(BaseModel):
     asr: Annotated[ASRSettings, Field(ASRSettings())]  # pyright: ignore[reportCallIssue]
-    whisper: Annotated[WhisperSettings, Field(WhisperSettings())]  # pyright: ignore[reportCallIssue]
     webui: Annotated[AudioRecognizeSettings, Field(AudioRecognizeSettings())]  # pyright: ignore[reportCallIssue]
     agent: Annotated[AgentSettings, Field(AgentSettings())]  # pyright: ignore[reportCallIssue]
     mcp: Annotated[MCPSettings, Field(MCPSettings())]  # pyright: ignore[reportCallIssue]
