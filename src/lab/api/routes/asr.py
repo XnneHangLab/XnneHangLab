@@ -7,14 +7,19 @@ from typing import Any
 from fastapi import APIRouter, File, UploadFile
 from pydantic import BaseModel
 
-from lab.api.core_logic import rec_audio, rec_audio_no_punc, reload_model, vad_audio  # 导入 load_model 用于预加载
+from lab.api.core_logic import (  # 导入 load_model 用于预加载
+    funasr_rec_audio,
+    funasr_rec_audio_no_punc,
+    reload_model,
+    vad_audio,
+)
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.utils.Timedhelper import get_time_tag_with_millis
 
 # 加载配置文件
 lab_settings: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSettings)
 
-router = APIRouter(prefix="/audio")
+router = APIRouter(prefix="/asr")
 
 
 # 确保输出目录和缓存目录存在
@@ -46,7 +51,7 @@ async def reload():
     return {"code": 200, "message": "FunASR model has been reloaded successfully!"}
 
 
-@router.post("/asr", response_model=dict)
+@router.post("/funasr", response_model=dict)
 async def asr_full(file: UploadFile = file_default) -> dict[str, Any]:
     """
     Convert uploaded audio file to SRT format.
@@ -64,7 +69,7 @@ async def asr_full(file: UploadFile = file_default) -> dict[str, Any]:
     # TODO 检查文件完整性
     # 处理音频文件
     try:
-        result = rec_audio(input_path=temp_audio_path)
+        result = funasr_rec_audio(input_path=temp_audio_path)
     except Exception as e:
         return {"code": "500", "message": f"ASR processing failed: {str(e)}"}
     result["code"] = "200"
@@ -81,7 +86,7 @@ async def asr_full(file: UploadFile = file_default) -> dict[str, Any]:
 # sys	0m0.015s
 
 
-@router.post("/asr_no_punc", response_model=dict)
+@router.post("/funasr_no_punc", response_model=dict)
 async def asr_no_punc(
     file: UploadFile = file_default,
 ) -> dict[str, Any]:
@@ -101,7 +106,7 @@ async def asr_no_punc(
     # TODO 检查文件完整性
     # 处理音频文件
     try:
-        result = rec_audio_no_punc(input_path=temp_audio_path)
+        result = funasr_rec_audio_no_punc(input_path=temp_audio_path)
     except Exception as e:
         return {"code": "500", "message": f"ASR processing failed: {str(e)}"}
     result["code"] = "200"
