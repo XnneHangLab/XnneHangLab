@@ -52,15 +52,15 @@ class BasicSettingsDict(TypedDict):
 
 
 class FunASRSettingsDict(TypedDict):
-    base_model: str
-    punc_model: str
-    vad_model: str
-    hot_words_path: str
+    base_model: str | None
+    punc_model: str | None
+    vad_model: str | None
+    hot_words_path: str | None
     batch_size_s: int
 
 
 class WhisperSettingsDict(TypedDict):
-    whisper_models_base_dir: str
+    whisper_models_base_dir: str | None
     whisper_model_size: str
 
 
@@ -120,7 +120,9 @@ with BOTSetting:
     st.markdown("")
     st.markdown("###### 基础配置")
     st.markdown("")
-    device = st.selectbox("设备选择", asr_settings.get_zh_option_list("device"), index=asr_settings.get_index("device"), key="device")  # Add key
+    device = st.selectbox(
+        "设备选择", asr_settings.get_zh_option_list("device"), index=asr_settings.get_index("device"), key="device"
+    )  # Add key
     ffmpeg_path = st.text_input(
         get_setting_title("FFMPEG_PATH", ASRSettings),
         value=ffmpeg_path,
@@ -194,7 +196,9 @@ with BOTSetting:
         index=whisper_settings.get_index("whisper_model_size"),
         key="whisper_model_size",
     )  # Add key
-    st.caption("请确保下载的模型文件夹存放于 whisper_models_base_dir 下方且命名与选项，如 whisper_models_base_dir/large_v3_turbo")
+    st.caption(
+        "请确保下载的模型文件夹存放于 whisper_models_base_dir 下方且命名与选项，如 whisper_models_base_dir/large_v3_turbo"
+    )
 
     st.markdown("")
 
@@ -220,7 +224,8 @@ with BOTSave:
                     batch_size_s=batch_size_s,
                 ),
                 whisper=WhisperSettingsDict(
-                    whisper_models_base_dir=whisper_models_base_dir, whisper_model_size=whisper_model_size
+                    whisper_models_base_dir=whisper_models_base_dir,
+                    whisper_model_size=whisper_model_size,
                 ),
             )
 
@@ -285,6 +290,7 @@ with BOTSave:
             write_settings_file("lab.toml", lab_settings)
             reload_client = ReloadClient("audio")
             st.toast("正在重新加载模型，请稍候...")
+            reload_client.post()
             message_box("恢复成功！", "配置已恢复为默认设置。刷新页面即可查看更改。")
 
     with col1:

@@ -22,11 +22,11 @@ if TYPE_CHECKING:
 class FunASRModel:  # 对于 api 需要快速响应, 不能 lazy-import ,所以独立出来一个版本.
     def __init__(self):
         self.settings = load_settings_file("lab.toml", XnneHangLabSettings)
-        self.base_model: str = str(self.settings.funasr.base_model)
-        self.vad_model: str = str(self.settings.funasr.vad_model)
-        self.punc_model: str = str(self.settings.funasr.punc_model)
-        self.sense_voice_model: str = str(self.settings.funasr.sense_voice_model)
-        self.device: str = self.settings.funasr.device
+        self.base_model: str = str(self.settings.asr.funasr.base_model)
+        self.vad_model: str = str(self.settings.asr.funasr.vad_model)
+        self.punc_model: str = str(self.settings.asr.funasr.punc_model)
+        self.sense_voice_model: str = str(self.settings.asr.funasr.sense_voice_model)
+        self.device: str = self.settings.asr.device
         self._model: ModelInstance = {"asr": None, "vad": None, "asr_no_punc": None}  # 存储模型实例
 
     def init_model(self):
@@ -84,7 +84,7 @@ class FunASRModel:  # 对于 api 需要快速响应, 不能 lazy-import ,所以�
 _model_instance = None
 
 
-def load_model() -> Any:
+def load_model(lab_settings: XnneHangLabSettings) -> Any:
     """加载或获取 FunASR 模型（单例模式）"""
     global _model_instance
     if _model_instance is None:
@@ -104,7 +104,8 @@ def rec_audio(
     input_path: Path,
 ) -> dict[str, Any]:
     """处理音频文件并生成 SRT,返回结果信息"""
-    model_instances: ModelInstance = load_model()
+    lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+    model_instances: ModelInstance = load_model(lab_settings)
     if model_instances["asr"] is not None:
         model: AutoModel = model_instances["asr"]
     else:
@@ -127,7 +128,8 @@ def rec_audio_no_punc(
     input_path: Path,
 ) -> dict[str, Any]:
     """处理音频文件并生成 SRT,返回结果信息"""
-    model_instances: ModelInstance = load_model()
+    lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+    model_instances: ModelInstance = load_model(lab_settings)
     if model_instances["asr_no_punc"] is not None:
         model: AutoModel = model_instances["asr_no_punc"]
     else:
@@ -150,7 +152,8 @@ def vad_audio(
     input_path: Path,
 ):
     """处理音频文件并生成 SRT,返回结果信息"""
-    model_instances: ModelInstance = load_model()
+    lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+    model_instances: ModelInstance = load_model(lab_settings)
     if model_instances["vad"] is not None:
         model: AutoModel = model_instances["vad"]
     else:
@@ -183,7 +186,8 @@ async def async_rec_audio(
 ) -> dict[str, Any]:
     """处理音频文件并生成 SRT,返回结果信息"""
     # 假设 load_model 是同步函数，使用 asyncio.to_thread 在单独线程中运行
-    model_instances: ModelInstance = await asyncio.to_thread(load_model)
+    lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+    model_instances: ModelInstance = await asyncio.to_thread(load_model, lab_settings)
     if model_instances["asr"] is not None:
         model = model_instances["asr"]
     else:

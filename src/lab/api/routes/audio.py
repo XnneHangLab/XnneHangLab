@@ -18,8 +18,8 @@ router = APIRouter(prefix="/audio")
 
 
 # 确保输出目录和缓存目录存在
-Path(lab_settings.funasr.output_dir).mkdir(parents=True, exist_ok=True)
-Path(lab_settings.funasr.cache_dir).mkdir(parents=True, exist_ok=True)
+Path(lab_settings.asr.output_dir).mkdir(parents=True, exist_ok=True)
+Path(lab_settings.asr.cache_dir).mkdir(parents=True, exist_ok=True)
 
 
 class ProcessConfig(BaseModel):
@@ -53,7 +53,7 @@ async def asr_full(file: UploadFile = file_default) -> dict[str, Any]:
     Returns processing information and the path to the generated SRT file.
     """
     # 定义临时文件路径，如果文件名不存在则使用默认值
-    temp_audio_path = Path(lab_settings.funasr.cache_dir) / (
+    temp_audio_path = Path(lab_settings.asr.cache_dir) / (
         file.filename if file.filename else f"temp_audio_{get_time_tag_with_millis()}.wav"
     )
     # 确保缓存目录存在
@@ -90,7 +90,7 @@ async def asr_no_punc(
     Returns processing information and the path to the generated SRT file.
     """
     # 定义临时文件路径，如果文件名不存在则使用默认值
-    temp_audio_path = Path(lab_settings.funasr.cache_dir) / (
+    temp_audio_path = Path(lab_settings.asr.cache_dir) / (
         file.filename if file.filename else f"temp_audio_{get_time_tag_with_millis()}.wav"
     )
     # 确保缓存目录存在
@@ -126,7 +126,7 @@ async def vad_audio_activity(
     Returns processing information and the path to the generated VAD results.
     """
     # 定义临时文件路径，如果文件名不存在则使用默认值
-    temp_audio_path = Path(lab_settings.funasr.cache_dir) / (
+    temp_audio_path = Path(lab_settings.asr.cache_dir) / (
         file.filename if file.filename else f"temp_audio_{get_time_tag_with_millis()}.wav"
     )
     # 确保缓存目录存在

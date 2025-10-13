@@ -52,7 +52,7 @@ async def lifespan(app: FastAPI):
         from lab.api.core_logic import load_model
 
         logger.info("预加载 FunASR 模型...")
-        load_model()  # 预加载模型，确保模型在启动时初始化
+        load_model(lab_settings)  # 预加载模型，确保模型在启动时初始化
     if lab_settings.package.bert_vits:
         from vits import utils as vits_utils
         from vits.config import config

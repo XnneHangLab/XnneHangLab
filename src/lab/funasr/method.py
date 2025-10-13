@@ -22,8 +22,8 @@ def generate_asr_results(model: AutoModel, input_path: Path) -> ASRResponse:
     # 'timestamp': [[12590, 12830], [16460, 16700], [27950, 28170], [28170, 28290], [28290, 28390], [28390, 28470], [28470, 28890], [28890, 29290], [29290, 29690], [29690, 30000]]}]
 
     lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
-    batch_size_s = lab_settings.funasr.batch_size_s
-    hot_word_path = lab_settings.funasr.hot_words_path
+    batch_size_s = lab_settings.asr.funasr.batch_size_s
+    hot_word_path = lab_settings.asr.funasr.hot_words_path
     # 原本 AutoModel 支持 input_path 是 list 的情况，但这里我忽略了它，我只需要写一个asr，多任务自己处理。
     if not input_path.exists():
         raise FileNotFoundError(f"{input_path} not found.")
@@ -78,7 +78,7 @@ def generate_sense_voice_results(model: AutoModel, input_path: Path, use_itn: bo
         cache={},
         language="auto",  # "zn", "en", "yue", "ja", "ko", "nospeech"
         use_itn=use_itn,
-        batch_size_s=lab_settings.funasr.batch_size_s,
+        batch_size_s=lab_settings.asr.funasr.batch_size_s,
         output_timestamp=True,  # 修复前 当同时开启vad和输出时间戳时model.py中会报错
     )
     if not res:

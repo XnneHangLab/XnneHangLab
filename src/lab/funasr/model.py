@@ -8,11 +8,11 @@ from lab.config_manager import XnneHangLabSettings, load_settings_file
 class FunASRModel:
     def __init__(self):
         self.settings = load_settings_file("lab.toml", XnneHangLabSettings)
-        self.base_model: str = str(self.settings.funasr.base_model)
-        self.vad_model: str = str(self.settings.funasr.vad_model)
-        self.punc_model: str = str(self.settings.funasr.punc_model)
-        self.sense_voice_model: str = str(self.settings.funasr.sense_voice_model)
-        self.device: str = self.settings.funasr.device
+        self.base_model: str = str(self.settings.asr.funasr.base_model)
+        self.vad_model: str = str(self.settings.asr.funasr.vad_model)
+        self.punc_model: str = str(self.settings.asr.funasr.punc_model)
+        self.sense_voice_model: str = str(self.settings.asr.funasr.sense_voice_model)
+        self.device: str = self.settings.asr.device
 
     def sense_voice(self):
         model = AutoModel(

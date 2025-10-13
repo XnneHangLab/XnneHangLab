@@ -82,7 +82,7 @@ path = "/"
 log_level = "debug"
 
 [package]
-funasr = false
+funasr = true
 to_do_list = true
 yutto_uiya = true
 bert_vits = false

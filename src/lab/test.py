@@ -69,7 +69,7 @@ def main():
 
     print("====== Testing generate_sense_voice_results =======")
     settings = load_settings_file("lab.toml", XnneHangLabSettings)
-    punctuation_list = settings.funasr.punctuation_list
+    punctuation_list = settings.asr.funasr.punctuation_list
 
     print("====== Testing generate_sense_voice_results =======")
     # TODO https://github.com/FunAudioLLM/SenseVoice/issues/204
