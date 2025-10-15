@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from funasr import AutoModel
 from loguru import logger  # 保持 loguru 在代码顶部导入
 
+from lab.api.asr_base_model import ASRBaseModel
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.funasr.method import generate_asr_results, generate_vad_results
 
@@ -18,7 +19,7 @@ if TYPE_CHECKING:
     from lab.api._typing import ModelInstance
 
 
-class FunASRModel:  # 对于 api 需要快速响应, 不能 lazy-import ,所以独立出来一个版本.
+class FunASRModel(ASRBaseModel):  # 对于 api 需要快速响应, 不能 lazy-import ,所以独立出来一个版本.
     def __init__(self):
         self.settings = load_settings_file("lab.toml", XnneHangLabSettings)
         self.base_model: str = str(self.settings.asr.funasr.base_model)
