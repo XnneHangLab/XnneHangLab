@@ -3,20 +3,24 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import whisper
 from funasr import AutoModel
 from loguru import logger  # 保持 loguru 在代码顶部导入
 
-from lab.api.asr_base_model import ASRBaseModel
+from lab.asr.asr_base_model import ASRBaseModel
+from lab.asr.funasr.method import generate_asr_results, generate_vad_results
 from lab.config_manager import XnneHangLabSettings, load_settings_file
-from lab.funasr.method import generate_asr_results, generate_vad_results
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from whisper.model import Whisper
+
     from lab._typing import ASRResponse, VadResponse
-    from lab.api._typing import ModelInstance
+    from lab.api._typing import FunASRModels, GlobalModelContainer
 
 
 class FunASRModel(ASRBaseModel):  # 对于 api 需要快速响应, 不能 lazy-import ,所以独立出来一个版本.
@@ -27,14 +31,14 @@ class FunASRModel(ASRBaseModel):  # 对于 api 需要快速响应, 不能 lazy-i
         self.punc_model: str = str(self.settings.asr.funasr.punc_model)
         self.sense_voice_model: str = str(self.settings.asr.funasr.sense_voice_model)
         self.device: str = self.settings.asr.device
-        self._model: ModelInstance = {"asr": None, "vad": None, "asr_no_punc": None}  # 存储模型实例
+        self._model: FunASRModels = {"asr": None, "vad": None, "asr_no_punc": None}  # 存储模型实例
 
     def init_model(self):
         """初始化模型"""
         if self._model["asr"] is None:
             self._model["asr"] = self.asr_full_version()
         if self._model["vad"] is None:
-            self._model["vad"] = self.only_vad()
+            self._model["vad"] = self.only_vad_version()
         if self._model["asr_no_punc"] is None:
             self._model["asr_no_punc"] = self.asr_no_punc_version()
         return self._model
@@ -42,6 +46,43 @@ class FunASRModel(ASRBaseModel):  # 对于 api 需要快速响应, 不能 lazy-i
     def reload_model(self):
         self._model = {"asr": None, "vad": None, "asr_no_punc": None}  # 重置模型实例
         self.init_model()
+
+    def forward(self, input_path: Path, use_punc: bool = True) -> dict[str, Any]:
+        if self._model["asr"] is None or self._model["asr_no_punc"] is None:
+            logger.error("punc 模型与 base 模型未初始化，请考虑模型文件路径配置是否正确。")
+            raise ValueError("模型未初始化，请考虑模型文件路径配置是否正确。")
+
+        start = time.time()
+        response: ASRResponse = generate_asr_results(
+            input_path=input_path,
+            model=self._model["asr"] if use_punc else self._model["asr_no_punc"],
+        )
+        process_time = time.time() - start
+
+        return {
+            "key": response["key"],
+            "text": response["text"],
+            "timestamp": response["timestamp"],
+            "process_time": process_time,
+        }
+
+    def vad_audio(self, input_path: Path) -> dict[str, Any]:
+        if self._model["vad"] is None:  # 第一次加载时初始化模型
+            logger.error("VAD 模型未初始化，请考虑模型文件路径配置是否正确。")
+            raise ValueError("VAD 模型未初始化，请考虑模型文件路径配置是否正确。")
+        start = time.time()
+        response: VadResponse = generate_vad_results(
+            input_path=input_path,
+            model=self._model["vad"],
+        )
+        process_time = time.time() - start
+        result = {
+            "key": response["key"],
+            "process_time": process_time,
+            "timestamp": response["timestamp"],
+            "audio_length": response["audio_length"],
+        }
+        return result
 
     def asr_full_version(self):
         if self._model["asr"] is None:  # 第一次加载时初始化模型
@@ -67,7 +108,7 @@ class FunASRModel(ASRBaseModel):  # 对于 api 需要快速响应, 不能 lazy-i
             logger.info("ASR no punc 模型加载成功!")
         return self._model["asr_no_punc"]
 
-    def only_vad(self):
+    def only_vad_version(self):
         """仅加载 VAD 模型"""
         if self._model["vad"] is None:  # 第一次加载时初始化模型
             logger.info("Loading VAD model...")
@@ -81,92 +122,91 @@ class FunASRModel(ASRBaseModel):  # 对于 api 需要快速响应, 不能 lazy-i
 
 
 # 全局模型实例（单例模式）
-_model_instance = None
+_model_instance: GlobalModelContainer | None = None
 
 
-def load_model(lab_settings: XnneHangLabSettings) -> Any:
-    """加载或获取 FunASR 模型（单例模式）"""
+def load_model():
+    """加载或获取 FunASR 和 Whisper 模型（单例模式）"""
     global _model_instance
+    lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
     if _model_instance is None:
-        _model_instance = FunASRModel()
-    return _model_instance.init_model()
+        _model_instance = {"funasr": None, "whisper": None}
+        if lab_settings.package.funasr:
+            _model_instance["funasr"] = FunASRModel().init_model()
+        if lab_settings.package.whisper:
+            _model_instance["whisper"] = WhisperModel().init_model()
+        # 两种情况，一种是用户忘记配置，一种是用户故意不配置。
+        # 可以故意不配置模型加载直接使用远程部署好的 api, 所以这里给个提示就好
+        if not lab_settings.package.funasr and not lab_settings.package.whisper:
+            logger.warning(
+                "lab.toml 中未启用 whisper 和 funasr 模块，跳过模型本地加载,你可以通过修改 [package] 部分来启用它们。"
+            )
+            logger.info(
+                "如需本地加载，请设置 [package] 部分中的 funasr 或 whisper 为 true, 并且确保 pyproject.toml 中 default-groups 中包含 'funasr' 或 'whisper'。"
+            )
+            logger.info("如果你只想使用远程 API 服务，可以忽略此警告。")
+        return _model_instance
 
 
 def reload_model() -> Any:
     """重新加载 FunASR 模型"""
+    lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
     global _model_instance
     if _model_instance is not None:
-        _model_instance.reload_model()
+        if "funasr" in _model_instance and lab_settings.package.funasr:
+            if isinstance(_model_instance["funasr"], FunASRModel):
+                _model_instance["funasr"].reload_model()
+        if "whisper" in _model_instance and lab_settings.package.whisper:
+            if isinstance(_model_instance["whisper"], WhisperModel):
+                _model_instance["whisper"].reload_model()
+    else:
+        _model_instance = load_model()  # 如果模型尚未加载，则调用加载函数
     return _model_instance
 
 
-def funasr_rec_audio(
-    input_path: Path,
-) -> dict[str, Any]:
-    """处理音频文件并生成 SRT,返回结果信息"""
-    lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
-    model_instances: ModelInstance = load_model(lab_settings)
-    if model_instances["asr"] is not None:
-        model: AutoModel = model_instances["asr"]
-    else:
-        return {"error": "ASR model is not loaded."}
-    start = time.time()
-    # 生成 ASR 结果
-    response: ASRResponse = generate_asr_results(model=model, input_path=input_path)
-    end = time.time()
-    processing_time = end - start
-    result = {
-        "key": response["key"],
-        "processing_time": processing_time,
-        "text": response["text"],
-        "timestamp": response["timestamp"],
-    }
-    return result
+class WhisperModel(ASRBaseModel):
+    def __init__(self):
+        # 假设配置管理器和配置路径正确
+        self.settings = load_settings_file("lab.toml", XnneHangLabSettings)
+        self.model_name: str = self.settings.asr.whisper.whisper_model_size
+        self.device: str = self.settings.asr.device
+        # Whisper 只需要一个 ASR 模型实例
+        self._model: Whisper | None = None
 
+    def init_model(self) -> Any:
+        """初始化模型：如果模型未加载，则调用加载函数。"""
+        if self._model is None:
+            self._model = self._load_whisper_model()
+        # 注意：这里我们返回模型实例字典以匹配 FunASR 的 init_model 签名，但主要目的是加载模型。
+        return self._model
 
-def funasr_rec_audio_no_punc(
-    input_path: Path,
-) -> dict[str, Any]:
-    """处理音频文件并生成 SRT,返回结果信息"""
-    lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
-    model_instances: ModelInstance = load_model(lab_settings)
-    if model_instances["asr_no_punc"] is not None:
-        model: AutoModel = model_instances["asr_no_punc"]
-    else:
-        return {"error": "ASR model is not loaded."}
-    start = time.time()
-    # 生成 ASR 结果
-    response: ASRResponse = generate_asr_results(model=model, input_path=input_path)
-    end = time.time()
-    processing_time = end - start
-    result = {
-        "key": response["key"],
-        "processing_time": processing_time,
-        "text": response["text"],
-        "timestamp": response["timestamp"],
-    }
-    return result
+    def reload_model(self):
+        """重新加载模型实例。"""
+        self._model = None  # 重置模型实例
+        self.init_model()
 
+    def _load_whisper_model(self):
+        """模型加载的具体实现"""
+        logger.info(f"Loading Whisper model: {self.model_name} on device: {self.device}...")
+        # 加载模型，可以根据配置调整精度
+        model = whisper.load_model(
+            self.model_name, device=self.device, download_root=self.settings.asr.whisper.whisper_models_base_dir
+        )
+        return model
 
-def vad_audio(
-    input_path: Path,
-):
-    """处理音频文件并生成 SRT,返回结果信息"""
-    lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
-    model_instances: ModelInstance = load_model(lab_settings)
-    if model_instances["vad"] is not None:
-        model: AutoModel = model_instances["vad"]
-    else:
-        return {"error": "VAD model is not loaded."}
-    start = time.time()
-    # 生成 ASR 结果
-    response: VadResponse = generate_vad_results(model=model, input_path=input_path)
-    end = time.time()
-    processing_time = end - start
-    result = {
-        "key": response["key"],
-        "processing_time": processing_time,
-        "timestamp": response["timestamp"],
-        "audio_length": response["audio_length"],
-    }
-    return result
+    # ---------------------- 核心推理方法 ----------------------
+    def forward(
+        self,
+        input_path: Path,
+    ) -> dict[str, Any]:
+        """
+        执行 ASR 推理 (使用 Whisper)。
+        """
+        # 1. 确保模型已加载 (如果 init_model 尚未被调用)
+        if self._model is None:
+            logger.error("Whisper ASR 模型未加载或初始化失败。")
+            raise ValueError("Whisper ASR 模型未加载或初始化失败。")
+
+        model = self._model
+        response = model.transcribe(str(input_path), word_timestamps=True)  # type: ignore
+        return response  # type: ignore

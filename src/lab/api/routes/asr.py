@@ -8,10 +8,8 @@ from fastapi import APIRouter, File, UploadFile
 from pydantic import BaseModel
 
 from lab.api.core_logic import (  # 导入 load_model 用于预加载
-    funasr_rec_audio,
-    funasr_rec_audio_no_punc,
+    load_model,
     reload_model,
-    vad_audio,
 )
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.utils.Timedhelper import get_time_tag_with_millis

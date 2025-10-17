@@ -24,11 +24,7 @@ class ASRBaseModel(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def forward(
-        self,
-        input_path: Path,
-        use_punc: bool = True,
-    ) -> dict[str, Any]:
+    def forward(self, input_path: Path) -> dict[str, Any]:
         """
         执行 ASR 任务的核心推理逻辑（类似于 PyTorch 中的 forward）。
 

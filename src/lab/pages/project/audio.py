@@ -8,6 +8,9 @@ import streamlit as st
 
 from lab._session_keys import audio_keys
 from lab.api.clients import ASRClient, ASRRequest
+from lab.asr.funasr.combiner import combine_sentences
+from lab.asr.funasr.converter import convert_asr_response_to_sentences
+from lab.asr.funasr.cutter import cut_sentences
 from lab.config_manager import (
     ASRSettings,
     AudioRecognizeSettings,
@@ -18,9 +21,6 @@ from lab.config_manager import (
     load_settings_file,
     write_settings_file,
 )
-from lab.funasr.combiner import combine_sentences
-from lab.funasr.converter import convert_asr_response_to_sentences
-from lab.funasr.cutter import cut_sentences
 from lab.pages.dialogs.audio import AudioReadme, upload_audio
 from lab.styles.global_style import style
 from lab.utils.FFmpegHelper import file_to_wav

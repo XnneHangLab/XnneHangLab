@@ -9,9 +9,9 @@ import torch
 import torchaudio
 from todo.__version__ import VERSION
 
+from lab.asr.funasr.method import generate_asr_results, generate_sense_voice_results
+from lab.asr.funasr.model import FunASRModel
 from lab.config_manager import XnneHangLabSettings, load_settings_file
-from lab.funasr.method import generate_asr_results, generate_sense_voice_results
-from lab.funasr.model import FunASRModel
 from lab.utils.TxtHelper import split_into_words, split_into_words_no_punct
 
 if TYPE_CHECKING:
