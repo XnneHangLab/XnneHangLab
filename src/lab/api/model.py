@@ -31,31 +31,31 @@ class FunASRModel(ASRBaseModel):  # 对于 api 需要快速响应, 不能 lazy-i
         self.punc_model: str = str(self.settings.asr.funasr.punc_model)
         self.sense_voice_model: str = str(self.settings.asr.funasr.sense_voice_model)
         self.device: str = self.settings.asr.device
-        self._model: FunASRModels = {"asr": None, "vad": None, "asr_no_punc": None}  # 存储模型实例
+        self.model: FunASRModels = {"asr": None, "vad": None, "asr_no_punc": None}  # 存储模型实例
 
     def init_model(self):
         """初始化模型"""
-        if self._model["asr"] is None:
-            self._model["asr"] = self.asr_full_version()
-        if self._model["vad"] is None:
-            self._model["vad"] = self.only_vad_version()
-        if self._model["asr_no_punc"] is None:
-            self._model["asr_no_punc"] = self.asr_no_punc_version()
-        return self._model
+        if self.model["asr"] is None:
+            self.model["asr"] = self.asr_full_version()
+        if self.model["vad"] is None:
+            self.model["vad"] = self.only_vad_version()
+        if self.model["asr_no_punc"] is None:
+            self.model["asr_no_punc"] = self.asr_no_punc_version()
+        return self.model
 
     def reload_model(self):
-        self._model = {"asr": None, "vad": None, "asr_no_punc": None}  # 重置模型实例
+        self.model = {"asr": None, "vad": None, "asr_no_punc": None}  # 重置模型实例
         self.init_model()
 
     def forward(self, input_path: Path, use_punc: bool = True) -> dict[str, Any]:
-        if self._model["asr"] is None or self._model["asr_no_punc"] is None:
+        if self.model["asr"] is None or self.model["asr_no_punc"] is None:
             logger.error("punc 模型与 base 模型未初始化，请考虑模型文件路径配置是否正确。")
             raise ValueError("模型未初始化，请考虑模型文件路径配置是否正确。")
 
         start = time.time()
         response: ASRResponse = generate_asr_results(
             input_path=input_path,
-            model=self._model["asr"] if use_punc else self._model["asr_no_punc"],
+            model=self.model["asr"] if use_punc else self.model["asr_no_punc"],
         )
         process_time = time.time() - start
 
@@ -67,13 +67,13 @@ class FunASRModel(ASRBaseModel):  # 对于 api 需要快速响应, 不能 lazy-i
         }
 
     def vad_audio(self, input_path: Path) -> dict[str, Any]:
-        if self._model["vad"] is None:  # 第一次加载时初始化模型
+        if self.model["vad"] is None:  # 第一次加载时初始化模型
             logger.error("VAD 模型未初始化，请考虑模型文件路径配置是否正确。")
             raise ValueError("VAD 模型未初始化，请考虑模型文件路径配置是否正确。")
         start = time.time()
         response: VadResponse = generate_vad_results(
             input_path=input_path,
-            model=self._model["vad"],
+            model=self.model["vad"],
         )
         process_time = time.time() - start
         result = {
@@ -85,9 +85,9 @@ class FunASRModel(ASRBaseModel):  # 对于 api 需要快速响应, 不能 lazy-i
         return result
 
     def asr_full_version(self):
-        if self._model["asr"] is None:  # 第一次加载时初始化模型
+        if self.model["asr"] is None:  # 第一次加载时初始化模型
             logger.info("Loading FunASR model...")
-            self._model["asr"] = AutoModel(
+            self.model["asr"] = AutoModel(
                 model=self.base_model,
                 vad_model=self.vad_model,
                 punc_model=self.punc_model,
@@ -95,30 +95,30 @@ class FunASRModel(ASRBaseModel):  # 对于 api 需要快速响应, 不能 lazy-i
                 disable_update=True,
             )
             logger.info("ASR 模型加载成功!")
-        return self._model["asr"]
+        return self.model["asr"]
 
     def asr_no_punc_version(self):
-        if self._model["asr_no_punc"] is None:  # 第一次加载时初始化模型
+        if self.model["asr_no_punc"] is None:  # 第一次加载时初始化模型
             logger.info("Loading ASR no punc model...")
-            self._model["asr_no_punc"] = AutoModel(
+            self.model["asr_no_punc"] = AutoModel(
                 model=self.base_model,
                 device=self.device,
                 disable_update=True,
             )
             logger.info("ASR no punc 模型加载成功!")
-        return self._model["asr_no_punc"]
+        return self.model["asr_no_punc"]
 
     def only_vad_version(self):
         """仅加载 VAD 模型"""
-        if self._model["vad"] is None:  # 第一次加载时初始化模型
+        if self.model["vad"] is None:  # 第一次加载时初始化模型
             logger.info("Loading VAD model...")
-            self._model["vad"] = AutoModel(
+            self.model["vad"] = AutoModel(
                 model=self.vad_model,
                 device=self.device,
                 disable_update=True,
             )
             logger.info("VAD 模型加载成功!")
-            return self._model["vad"]
+            return self.model["vad"]
 
 
 class WhisperModel(ASRBaseModel):
@@ -128,18 +128,18 @@ class WhisperModel(ASRBaseModel):
         self.model_name: str = self.settings.asr.whisper.whisper_model_size
         self.device: str = self.settings.asr.device
         # Whisper 只需要一个 ASR 模型实例
-        self._model: Whisper | None = None
+        self.model: Whisper | None = None
 
     def init_model(self) -> Any:
         """初始化模型：如果模型未加载，则调用加载函数。"""
-        if self._model is None:
-            self._model = self._load_whisper_model()
+        if self.model is None:
+            self.model = self._load_whisper_model()
         # 注意：这里我们返回模型实例字典以匹配 FunASR 的 init_model 签名，但主要目的是加载模型。
-        return self._model
+        return self.model
 
     def reload_model(self):
         """重新加载模型实例。"""
-        self._model = None  # 重置模型实例
+        self.model = None  # 重置模型实例
         self.init_model()
 
     def _load_whisper_model(self):
@@ -160,10 +160,10 @@ class WhisperModel(ASRBaseModel):
         执行 ASR 推理 (使用 Whisper)。
         """
         # 1. 确保模型已加载 (如果 init_model 尚未被调用)
-        if self._model is None:
+        if self.model is None:
             logger.error("Whisper ASR 模型未加载或初始化失败。")
             raise ValueError("Whisper ASR 模型未加载或初始化失败。")
 
-        model = self._model
+        model = self.model
         response = model.transcribe(str(input_path), word_timestamps=True)  # type: ignore
         return response  # type: ignore

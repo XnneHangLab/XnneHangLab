@@ -10,8 +10,9 @@ from lab.api.model import FunASRModel, WhisperModel
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 
 if TYPE_CHECKING:
-    from lab.api._typing import GlobalModelContainer
+    from pathlib import Path
 
+    from lab.api._typing import FunASRModels, GlobalModelContainer
 
 # 全局模型实例（单例模式）
 _model_instance: GlobalModelContainer | None = None
@@ -54,3 +55,35 @@ def reload_model() -> Any:
     else:
         _model_instance = load_model()  # 如果模型尚未加载，则调用加载函数
     return _model_instance
+
+
+def funasr_vad_audio(input_path: Path) -> dict[str, Any]:
+    """
+    Perform Voice Activity Detection (VAD) on the uploaded audio file.
+    """
+    _model_instance = load_model()
+    if _model_instance is None:
+        raise ValueError("FunASR model instance is None. Please load the model first.")
+    if _model_instance["funasr"] is None:
+        raise ValueError("FunASR model instance is None. Please load the model first.")
+    funasr_model: FunASRModels = _model_instance["funasr"]
+    Model = FunASRModel()
+    Model.model = funasr_model
+    result = Model.vad_audio(input_path)
+    return result
+
+
+def funasr_asr_audio(input_path: Path, need_punc: bool = True) -> dict[str, Any]:
+    """
+    Perform Automatic Speech Recognition (ASR) on the uploaded audio file.
+    """
+    _model_instance = load_model()
+    if _model_instance is None:
+        raise ValueError("FunASR model instance is None. Please load the model first.")
+    if _model_instance["funasr"] is None:
+        raise ValueError("FunASR model instance is None. Please load the model first.")
+    funasr_model: FunASRModels = _model_instance["funasr"]
+    Model = FunASRModel()
+    Model.model = funasr_model
+    result = Model.forward(input_path, use_punc=need_punc)
+    return result
