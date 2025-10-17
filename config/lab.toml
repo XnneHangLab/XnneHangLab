@@ -83,10 +83,11 @@ log_level = "debug"
 
 [package]
 funasr = true
+whisper = true
 to_do_list = true
 yutto_uiya = true
-bert_vits = false
-gpt_sovits = false
+bert_vits = true
+gpt_sovits = true
 
 [root]
 root_dir = "/home/xnne/tmp/XnneHangLab"
