@@ -86,8 +86,8 @@ funasr = true
 whisper = true
 to_do_list = true
 yutto_uiya = true
-bert_vits = true
-gpt_sovits = true
+bert_vits = false
+gpt_sovits = false
 
 [root]
 root_dir = "/home/xnne/tmp/XnneHangLab"
