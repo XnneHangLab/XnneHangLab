@@ -88,8 +88,9 @@ install-model:
 install-whisper:
   uv lock
   uv sync
-  huggingface-cli download openai/whisper-tiny --local-dir ./models/whisper/tiny --local-dir-use-symlinks False
-
+  # tiny.pt
+  uv run scripts/download.py --url https://openaipublic.azureedge.net/main/whisper/models/65147644a518d12f04e32d6f3b26facc3f8dd46e5390956a9424a650c0ce22b9/tiny.pt --filename tiny.pt --output-dir ./models/whisper
+  
 install-embedding-model:
   uv lock
   uv sync

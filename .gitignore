@@ -77,3 +77,4 @@ output.mp3
 tmp_audio/
 .openmcp
 whipser/
+*.pt
