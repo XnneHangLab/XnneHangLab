@@ -210,29 +210,28 @@ with BOTSave:
         st.markdown("")
         st.markdown("")
         if st.button("**保存更改**", type="primary", use_container_width=True):
+            initial_settings: GlobalSettings = st.session_state[setting_keys["initial_settings"]]
             current_settings: GlobalSettings = GlobalSettings(
                 basic=BasicSettingsDict(
                     device=device,  # type: ignore
                     custom_output_dir=custom_output_dir,
-                    ffmpeg_path=ffmpeg_path,
-                    cache_dir=cache_dir,
-                    output_dir=output_dir,
+                    ffmpeg_path=ffmpeg_path if ffmpeg_path else initial_settings["basic"]["ffmpeg_path"],
+                    cache_dir=cache_dir if cache_dir else initial_settings["basic"]["cache_dir"],
+                    output_dir=output_dir if output_dir else initial_settings["basic"]["output_dir"],
                     asr_model_provider=asr_model_provider,
                 ),
                 funasr=FunASRSettingsDict(
-                    base_model=base_model,
-                    punc_model=punc_model,
-                    vad_model=vad_model,
-                    hot_words_path=hot_words_path,
+                    base_model=base_model if base_model else initial_settings["funasr"]["base_model"],
+                    punc_model=punc_model if punc_model else initial_settings["funasr"]["punc_model"],
+                    vad_model=vad_model if vad_model else initial_settings["funasr"]["vad_model"],
+                    hot_words_path=hot_words_path if hot_words_path else initial_settings["funasr"]["hot_words_path"],
                     batch_size_s=batch_size_s,
                 ),
                 whisper=WhisperSettingsDict(
-                    whisper_models_base_dir=whisper_models_base_dir,
+                    whisper_models_base_dir=whisper_models_base_dir if whisper_models_base_dir else initial_settings["whisper"]["whisper_models_base_dir"],
                     whisper_model_size=whisper_model_size,
                 ),
             )
-
-            initial_settings: GlobalSettings = st.session_state[setting_keys["initial_settings"]]
 
             if current_settings != initial_settings:  # Compare dictionaries
                 asr_settings.zh_set_value("device", device)
