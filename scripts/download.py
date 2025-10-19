@@ -36,11 +36,16 @@ def download_file_with_path(url: str, output_dir: Path, filename: str | None = N
 
         # 3. 创建输出目录 (如果不存在)
         output_dir.mkdir(parents=True, exist_ok=True)
+        # 4. 检查文件是否已存在
+        if save_path.exists():
+            print(f"警告: 文件已存在，跳过下载: {save_path.resolve()}", file=sys.stderr)
+            return
 
+        # 5. 显示下载信息
         print(f"开始下载: {url}")
         print(f"保存到: {save_path.resolve()}")  # resolve() 打印完整的绝对路径
 
-        # 4. 执行下载
+        # 6. 执行下载
         # 使用 requests 库进行流式下载，处理大文件
         with requests.get(url, stream=True) as r:
             r.raise_for_status()  # 检查 HTTP 状态码，非 200 则抛出异常
@@ -48,7 +53,7 @@ def download_file_with_path(url: str, output_dir: Path, filename: str | None = N
             total_size = int(r.headers.get("content-length", 0))
             chunk_size = 8192  # 8KB
 
-            # 5. 写入文件
+            # 7. 写入文件
             with save_path.open("wb") as f:
                 downloaded_size = 0
                 for chunk in tqdm(r.iter_content(chunk_size=chunk_size), total=total_size // chunk_size, unit="KB"):
