@@ -5,9 +5,9 @@ import json
 import sys
 from typing import TYPE_CHECKING
 
-from lab.asr.funasr.combiner import combine_sentences
+from lab.asr.combiner import combine_sentences
+from lab.asr.cutter import cut_sentences
 from lab.asr.funasr.converter import convert_asr_response_to_sentences
-from lab.asr.funasr.cutter import cut_sentences
 from lab.asr.funasr.method import generate_asr_results, generate_punc_results, generate_vad_results
 from lab.asr.funasr.model import FunASRModel
 from lab.cli import cli, handle_default_subcommand
