@@ -11,6 +11,7 @@ from lab.api.core_logic import (  # 导入 load_model 用于预加载
     funasr_asr_audio,
     funasr_vad_audio,
     reload_model,
+    whisper_asr_audio,
 )
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.utils.Timedhelper import get_time_tag_with_millis
@@ -147,5 +148,35 @@ async def funasr_vad_audio_activity(
     # 清理临时文件
     result["code"] = "200"
     result["message"] = "VAD processed successfully"
+    temp_audio_path.unlink(missing_ok=True)
+    return result
+
+
+@router.post("/whisper", response_model=dict)
+async def whisper_with_punc(
+    file: UploadFile = file_default,
+) -> dict[str, Any]:
+    """
+    Convert uploaded audio file to SRT format.
+    Returns processing information and the path to the generated SRT file.
+    """
+    # 定义临时文件路径，如果文件名不存在则使用默认值
+    temp_audio_path = Path(lab_settings.asr.cache_dir) / (
+        file.filename if file.filename else f"temp_audio_{get_time_tag_with_millis()}.wav"
+    )
+    # 确保缓存目录存在
+    temp_audio_path.parent.mkdir(parents=True, exist_ok=True)
+    # 以二进制写入模式打开文件，并将上传的文件内容写入
+    with temp_audio_path.open("wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    # TODO 检查文件完整性
+    # 处理音频文件
+    try:
+        result = whisper_asr_audio(input_path=temp_audio_path)
+    except Exception as e:
+        return {"code": "500", "message": f"ASR processing failed: {str(e)}"}
+    result["code"] = "200"
+    result["message"] = "ASR processed successfully"
+    # 清理临时文件
     temp_audio_path.unlink(missing_ok=True)
     return result
