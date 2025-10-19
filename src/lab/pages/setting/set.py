@@ -53,15 +53,15 @@ class BasicSettingsDict(TypedDict):
 
 
 class FunASRSettingsDict(TypedDict):
-    base_model: str | None
-    punc_model: str | None
-    vad_model: str | None
-    hot_words_path: str | None
+    base_model: str
+    punc_model: str
+    vad_model: str
+    hot_words_path: str
     batch_size_s: int
 
 
 class WhisperSettingsDict(TypedDict):
-    whisper_models_base_dir: str | None
+    whisper_models_base_dir: str
     whisper_model_size: str
 
 
@@ -212,7 +212,7 @@ with BOTSave:
         if st.button("**保存更改**", type="primary", use_container_width=True):
             current_settings: GlobalSettings = GlobalSettings(
                 basic=BasicSettingsDict(
-                    device=device, # type: ignore
+                    device=device,  # type: ignore
                     custom_output_dir=custom_output_dir,
                     ffmpeg_path=ffmpeg_path,
                     cache_dir=cache_dir,
@@ -232,33 +232,33 @@ with BOTSave:
                 ),
             )
 
-            initial_settings = st.session_state[setting_keys["initial_settings"]]
+            initial_settings: GlobalSettings = st.session_state[setting_keys["initial_settings"]]
 
             if current_settings != initial_settings:  # Compare dictionaries
                 asr_settings.zh_set_value("device", device)
                 asr_settings.custom_output_dir = (
                     custom_output_dir if custom_output_dir else initial_settings["basic"]["custom_output_dir"]
                 )
-                asr_settings.FFMPEG_PATH = ffmpeg_path if ffmpeg_path else initial_settings["paths"]["FFMPEG_PATH"]
-                asr_settings.cache_dir = cache_dir if cache_dir else initial_settings["paths"]["cache_dir"]
-                asr_settings.output_dir = output_dir if output_dir else initial_settings["paths"]["output_dir"]
+                asr_settings.FFMPEG_PATH = ffmpeg_path if ffmpeg_path else initial_settings["basic"]["ffmpeg_path"]
+                asr_settings.cache_dir = cache_dir if cache_dir else initial_settings["basic"]["cache_dir"]
+                asr_settings.output_dir = output_dir if output_dir else initial_settings["basic"]["output_dir"]
                 asr_settings.zh_set_value("asr_model_provider", asr_model_provider)  # type: ignore
 
                 funasr_settings.batch_size_s = batch_size_s
-                funasr_settings.base_model = base_model if base_model else initial_settings["paths"]["base_model"]
-                funasr_settings.punc_model = punc_model if punc_model else initial_settings["paths"]["punc_model"]
-                funasr_settings.vad_model = vad_model if vad_model else initial_settings["paths"]["vad_model"]
+                funasr_settings.base_model = base_model if base_model else initial_settings["funasr"]["base_model"]
+                funasr_settings.punc_model = punc_model if punc_model else initial_settings["funasr"]["punc_model"]
+                funasr_settings.vad_model = vad_model if vad_model else initial_settings["funasr"]["vad_model"]
                 funasr_settings.hot_words_path = (
-                    hot_words_path if hot_words_path else initial_settings["paths"]["hot_words_path"]
+                    hot_words_path if hot_words_path else initial_settings["funasr"]["hot_words_path"]
                 )
 
                 whisper_settings.whisper_models_base_dir = (
                     whisper_models_base_dir
                     if whisper_models_base_dir
-                    else initial_settings["paths"]["whisper_models_base_dir"]
+                    else initial_settings["whisper"]["whisper_models_base_dir"]
                 )
                 whisper_settings.whisper_model_size = (
-                    whisper_model_size if whisper_model_size else initial_settings["paths"]["whisper_model_size"]
+                    whisper_model_size if whisper_model_size else initial_settings["whisper"]["whisper_model_size"]
                 )
 
                 asr_settings.whisper = whisper_settings
@@ -268,9 +268,9 @@ with BOTSave:
                 write_settings_file(settings_name="lab.toml", settings=lab_settings)
                 if (
                     current_settings["basic"]["device"] != initial_settings["basic"]["device"]
-                    or current_settings["funasr"]["base_model"] != initial_settings["paths"]["base_model"]
-                    or current_settings["funasr"]["punc_model"] != initial_settings["paths"]["punc_model"]
-                    or current_settings["funasr"]["vad_model"] != initial_settings["paths"]["vad_model"]
+                    or current_settings["funasr"]["base_model"] != initial_settings["funasr"]["base_model"]
+                    or current_settings["funasr"]["punc_model"] != initial_settings["funasr"]["punc_model"]
+                    or current_settings["funasr"]["vad_model"] != initial_settings["funasr"]["vad_model"]
                 ):
                     # 需要重新加载模型
                     reload_client = ReloadClient("asr")
