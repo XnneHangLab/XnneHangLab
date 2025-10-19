@@ -11,6 +11,8 @@ def convert_whisper_response_to_sentences(input_data: WhisperResponse) -> list[S
     for segment in input_data["segments"]:
         Words: list[Word] = []
         text = segment["text"]
+        if len(segment["words"]) == 0:
+            continue
         start = segment["words"][0]["start"]
         end = segment["words"][-1]["end"]
         for word in segment["words"]:
