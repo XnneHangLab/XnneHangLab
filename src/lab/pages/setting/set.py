@@ -49,6 +49,7 @@ class BasicSettingsDict(TypedDict):
     cache_dir: str
     output_dir: str
     ffmpeg_path: str
+    asr_model_provider: str
 
 
 class FunASRSettingsDict(TypedDict):
@@ -79,6 +80,7 @@ if setting_keys["initial_settings"] not in st.session_state:
             cache_dir=asr_settings.cache_dir,
             output_dir=asr_settings.output_dir,
             ffmpeg_path=asr_settings.FFMPEG_PATH,
+            asr_model_provider=asr_settings.asr_model_provider,
         ),
         funasr=FunASRSettingsDict(
             base_model=funasr_settings.base_model,
@@ -210,10 +212,11 @@ with BOTSave:
         if st.button("**保存更改**", type="primary", use_container_width=True):
             current_settings: GlobalSettings = GlobalSettings(
                 basic=BasicSettingsDict(
-                    device=device,  # type: ignore
+                    device=device, # type: ignore
                     custom_output_dir=custom_output_dir,
                     ffmpeg_path=ffmpeg_path,
                     cache_dir=cache_dir,
+                    output_dir=output_dir,
                     asr_model_provider=asr_model_provider,
                 ),
                 funasr=FunASRSettingsDict(
