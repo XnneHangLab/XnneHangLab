@@ -19,7 +19,7 @@ dependencies = [
     "socksio>=1.0.0",
     "loguru>=0.7.3",
     "fastmcp>=2.10.4",
-    "google-genai>=1.25.0",
+    # "google-genai>=1.25.0",
 ]
 authors = [{ name = "MrXnneHang", email = "XnneHang@gmail.com" }]
 keywords = []
@@ -51,14 +51,20 @@ test-database="lab.database.test:main"
 
 [dependency-groups]
 base = [
-  "funasr==1.2.6",
-  "modelscope>=1.23.1",
   "numpy==1.26.4",
   "torch==2.6.0",
   "torchaudio==2.6.0",
-  "setuptools>=76.0.0", # for install funasr
   "transformers==4.36.2",
-  "huggingface-hub>=0.32.2",
+]
+
+funasr = [
+  "funasr==1.2.6",
+  "modelscope>=1.23.1",
+  "setuptools>=76.0.0", # for install funasr
+]
+
+whisper = [
+  "openai-whisper>=20250625",
 ]
 
 dev = [
@@ -140,7 +146,7 @@ longterm_memory = [
 ]
 
 [tool.uv]
-default-groups = ["base","dev", "yutto-uiya", "tts_base", "gpt_sovits", "vtuber","longterm_memory", "database"]
+default-groups = ["base","funasr","whisper","dev", "yutto-uiya", "tts_base", "gpt_sovits", "vtuber","longterm_memory", "database"]
 conflicts = [
     [
         { group = "bert_vits" },
