@@ -21,7 +21,7 @@ audio_keys: AudioSessionStateKeys = {
     "use_upload": "use_upload",
     "use_example": "use_example",
     "use_bilibili": "use_bilibili",
-    "response_with_timestamp": "response_with_timestamp",
+    "sentences": "sentences",
     "text_result": "text_result",
     "preview_srt_file": "preview_srt_file",
     "guide": "guide",
@@ -30,10 +30,11 @@ audio_keys: AudioSessionStateKeys = {
     "save": "save",
     "upload": "upload",
     "cut_line": "cut_line",
-    "include_timestamp": "include_timestamp",
     "combine_line": "combine_line",
     "subtitle_speed": "subtitle_speed",
     "max_sentence_length": "max_sentence_length",
+    "asr_model_provider": "asr_model_provider",
+    "whisper_model_size": "whisper_model_size",
 }
 
 setting_keys: SettingSessionSateKeys = {
@@ -48,6 +49,9 @@ setting_keys: SettingSessionSateKeys = {
     "output_dir": "output_dir",
     "ffmpeg_path": "ffmpeg_path",
     "initial_settings": "initial_settings",
+    "whisper_models_base_dir": "whisper_models_base_dir",
+    "whisper_model_size": "whisper_model_size",
+    "asr_model_provider": "asr_model_provider",
 }
 
 

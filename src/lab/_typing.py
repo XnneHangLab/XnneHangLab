@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import Literal, TypedDict
+from typing import Literal
+
+from typing_extensions import TypedDict
 
 # 两条线，一条是直接 mp4 输入。(需要考虑mp4->wav和音视频长度对齐)。
 # 一种是音频(wav)直接输入。或者考虑自动转换aac,mp3,m4a->wav.
@@ -18,6 +20,39 @@ class ASRResponse(TypedDict):
     key: str
     text: str
     timestamp: list[list[int]]
+
+
+class WhisperResponse(TypedDict):
+    """
+    {'text': '那年长街神一正脑怎么动用',
+     'segments': [{'id': 0, 'seek': 0, 'start': 0.0, 'end': 4.48, 'text': '那年长街神一正脑', 'tokens': [50365, 4184, 5157, 32271, 42529, 20432, 2257, 15789, 27067, 239, 50589], 'temperature': 0.0, 'avg_logprob': -0.751380583819221, 'compression_ratio': 0.7659574468085106, 'no_speech_prob': 2.6149443721479315e-11, 'words': [{'word': '那', 'start': 0.0, 'end': 1.12, 'probability': 0.8232907056808472}, {'word': '年', 'start': 1.12, 'end': 1.4, 'probability': 0.9747777581214905}, {'word': '长', 'start': 1.4, 'end': 1.84, 'probability': 0.5218478441238403}, {'word': '街', 'start': 1.84, 'end': 2.28, 'probability': 0.4228086471557617}, {'word': '神', 'start': 2.28, 'end': 2.6, 'probability': 0.1317637413740158}, {'word': '一', 'start': 2.6, 'end': 2.98, 'probability': 0.5581172108650208}, {'word': '正', 'start': 2.98, 'end': 3.68, 'probability': 0.37552937865257263}, {'word': '脑', 'start': 3.68, 'end': 4.48, 'probability': 0.5948238521814346}]},
+     {'id': 1, 'seek': 0, 'start': 5.0, 'end': 6.92, 'text': '怎么动用', 'tokens': [50589, 15282, 34961, 9254, 50715], 'temperature': 0.0, 'avg_logprob': -0.751380583819221, 'compression_ratio': 0.7659574468085106, 'no_speech_prob': 2.6149443721479315e-11, 'words': [{'word': '怎么', 'start': 5.0, 'end': 5.84, 'probability': 0.7823060750961304}, {'word': '动', 'start': 5.84, 'end': 6.38, 'probability': 0.42099398374557495}, {'word': '用', 'start': 6.38, 'end': 6.92, 'probability': 0.44825148582458496}]}], 'language': 'zh'}
+    """
+
+    # 和 Sentence 几乎一致，只不过有一点不同,它的 Word 不一定是单字，可能是多字，但是共用一个 timestamp
+    text: str
+    segments: list[WhisperSegment]
+
+
+class WhisperSegment(TypedDict):
+    id: int
+    seek: int
+    start: float
+    end: float
+    text: str
+    tokens: list[int]
+    temperature: float
+    avg_logprob: float
+    compression_ratio: float
+    no_speech_prob: float
+    words: list[WhisperWord]
+
+
+class WhisperWord(TypedDict):
+    word: str
+    start: float
+    end: float
+    probability: float
 
 
 class VadResponse(TypedDict):
@@ -143,7 +178,7 @@ class AudioSessionStateKeys(TypedDict):
     use_bilibili: str  # 是否使用 bilibili 模块下载的音频
 
     # ======= 音频识别
-    response_with_timestamp: str  # 带时间戳的识别结果
+    sentences: str  # 带时间戳的识别结果
     text_result: str  # 不带时间戳的识别结果, only text
 
     # ======= 界面展示
@@ -157,11 +192,12 @@ class AudioSessionStateKeys(TypedDict):
     guide: str  # guide
 
     # ======= 配置文件
-    include_timestamp: str  # 是否包含时间戳
     subtitle_speed: str  # 字幕速度
     cut_line: str
     combine_line: str
     max_sentence_length: str  # 最大句子长度
+    asr_model_provider: str  # ASR 模型系列 FunASR | Whisper
+    whisper_model_size: str  # Whisper 模型规格
 
 
 class SettingSessionSateKeys(TypedDict):
@@ -178,6 +214,9 @@ class SettingSessionSateKeys(TypedDict):
     custom_output_dir: str  # 是否自定义输出目录
     output_dir: str  # 输出目录
     initial_settings: str  # 初始设置, 用来比对是否有更改
+    whisper_models_base_dir: str  # Whisper 模型存放的基础目录
+    whisper_model_size: str  # Whisper 模型规格
+    asr_model_provider: str  # ASR 模型系列 FunASR | Whisper
 
 
 class HomeSessionStateKeys(TypedDict):

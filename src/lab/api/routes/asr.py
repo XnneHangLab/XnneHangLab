@@ -7,19 +7,24 @@ from typing import Any
 from fastapi import APIRouter, File, UploadFile
 from pydantic import BaseModel
 
-from lab.api.core_logic import rec_audio, rec_audio_no_punc, reload_model, vad_audio  # 导入 load_model 用于预加载
+from lab.api.core_logic import (  # 导入 load_model 用于预加载
+    funasr_asr_audio,
+    funasr_vad_audio,
+    reload_model,
+    whisper_asr_audio,
+)
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.utils.Timedhelper import get_time_tag_with_millis
 
 # 加载配置文件
 lab_settings: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSettings)
 
-router = APIRouter(prefix="/audio")
+router = APIRouter(prefix="/asr")
 
 
 # 确保输出目录和缓存目录存在
-Path(lab_settings.funasr.output_dir).mkdir(parents=True, exist_ok=True)
-Path(lab_settings.funasr.cache_dir).mkdir(parents=True, exist_ok=True)
+Path(lab_settings.asr.output_dir).mkdir(parents=True, exist_ok=True)
+Path(lab_settings.asr.cache_dir).mkdir(parents=True, exist_ok=True)
 
 
 class ProcessConfig(BaseModel):
@@ -46,14 +51,14 @@ async def reload():
     return {"code": 200, "message": "FunASR model has been reloaded successfully!"}
 
 
-@router.post("/asr", response_model=dict)
-async def asr_full(file: UploadFile = file_default) -> dict[str, Any]:
+@router.post("/funasr/with_punc", response_model=dict)
+async def funasr_with_punc(file: UploadFile = file_default) -> dict[str, Any]:
     """
     Convert uploaded audio file to SRT format.
     Returns processing information and the path to the generated SRT file.
     """
     # 定义临时文件路径，如果文件名不存在则使用默认值
-    temp_audio_path = Path(lab_settings.funasr.cache_dir) / (
+    temp_audio_path = Path(lab_settings.asr.cache_dir) / (
         file.filename if file.filename else f"temp_audio_{get_time_tag_with_millis()}.wav"
     )
     # 确保缓存目录存在
@@ -64,7 +69,7 @@ async def asr_full(file: UploadFile = file_default) -> dict[str, Any]:
     # TODO 检查文件完整性
     # 处理音频文件
     try:
-        result = rec_audio(input_path=temp_audio_path)
+        result = funasr_asr_audio(input_path=temp_audio_path, need_punc=True)
     except Exception as e:
         return {"code": "500", "message": f"ASR processing failed: {str(e)}"}
     result["code"] = "200"
@@ -81,8 +86,8 @@ async def asr_full(file: UploadFile = file_default) -> dict[str, Any]:
 # sys	0m0.015s
 
 
-@router.post("/asr_no_punc", response_model=dict)
-async def asr_no_punc(
+@router.post("/funasr/no_punc", response_model=dict)
+async def funasr_no_punc(
     file: UploadFile = file_default,
 ) -> dict[str, Any]:
     """
@@ -90,7 +95,7 @@ async def asr_no_punc(
     Returns processing information and the path to the generated SRT file.
     """
     # 定义临时文件路径，如果文件名不存在则使用默认值
-    temp_audio_path = Path(lab_settings.funasr.cache_dir) / (
+    temp_audio_path = Path(lab_settings.asr.cache_dir) / (
         file.filename if file.filename else f"temp_audio_{get_time_tag_with_millis()}.wav"
     )
     # 确保缓存目录存在
@@ -101,7 +106,7 @@ async def asr_no_punc(
     # TODO 检查文件完整性
     # 处理音频文件
     try:
-        result = rec_audio_no_punc(input_path=temp_audio_path)
+        result = funasr_asr_audio(input_path=temp_audio_path, need_punc=False)
     except Exception as e:
         return {"code": "500", "message": f"ASR processing failed: {str(e)}"}
     result["code"] = "200"
@@ -117,8 +122,8 @@ async def asr_no_punc(
 # {"key":"example3","processing_time":0.5810887813568115,"text":"那 年 长 街 春 意 正 浓 策 马 同 游","timestamp":[[890,1130],[1170,1410],[1490,1730],[1930,2170],[2370,2610],[2670,2910],[3070,3310],[3830,4070],[5430,5670],[5730,5970],[6110,6350],[6450,6775]],"code":"200","message":"ASR processed successfully"}%
 
 
-@router.post("/vad", response_model=dict)
-async def vad_audio_activity(
+@router.post("/funasr/vad", response_model=dict)
+async def funasr_vad_audio_activity(
     file: UploadFile = file_default,
 ):
     """
@@ -126,7 +131,7 @@ async def vad_audio_activity(
     Returns processing information and the path to the generated VAD results.
     """
     # 定义临时文件路径，如果文件名不存在则使用默认值
-    temp_audio_path = Path(lab_settings.funasr.cache_dir) / (
+    temp_audio_path = Path(lab_settings.asr.cache_dir) / (
         file.filename if file.filename else f"temp_audio_{get_time_tag_with_millis()}.wav"
     )
     # 确保缓存目录存在
@@ -137,11 +142,41 @@ async def vad_audio_activity(
     # TODO 检查文件完整性
     # 处理音频文件
     try:
-        result = vad_audio(input_path=temp_audio_path)
+        result = funasr_vad_audio(input_path=temp_audio_path)
     except Exception as e:
         return {"code": "500", "message": f"VAD processing failed: {str(e)}"}
     # 清理临时文件
     result["code"] = "200"
     result["message"] = "VAD processed successfully"
+    temp_audio_path.unlink(missing_ok=True)
+    return result
+
+
+@router.post("/whisper", response_model=dict)
+async def whisper_with_punc(
+    file: UploadFile = file_default,
+) -> dict[str, Any]:
+    """
+    Convert uploaded audio file to SRT format.
+    Returns processing information and the path to the generated SRT file.
+    """
+    # 定义临时文件路径，如果文件名不存在则使用默认值
+    temp_audio_path = Path(lab_settings.asr.cache_dir) / (
+        file.filename if file.filename else f"temp_audio_{get_time_tag_with_millis()}.wav"
+    )
+    # 确保缓存目录存在
+    temp_audio_path.parent.mkdir(parents=True, exist_ok=True)
+    # 以二进制写入模式打开文件，并将上传的文件内容写入
+    with temp_audio_path.open("wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    # TODO 检查文件完整性
+    # 处理音频文件
+    try:
+        result = whisper_asr_audio(input_path=temp_audio_path)
+    except Exception as e:
+        return {"code": "500", "message": f"ASR processing failed: {str(e)}"}
+    result["code"] = "200"
+    result["message"] = "ASR processed successfully"
+    # 清理临时文件
     temp_audio_path.unlink(missing_ok=True)
     return result

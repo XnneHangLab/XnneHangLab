@@ -5,12 +5,12 @@ import json
 import sys
 from typing import TYPE_CHECKING
 
+from lab.asr.combiner import combine_sentences
+from lab.asr.cutter import cut_sentences
+from lab.asr.funasr.converter import convert_asr_response_to_sentences
+from lab.asr.funasr.method import generate_asr_results, generate_punc_results, generate_vad_results
+from lab.asr.funasr.model import FunASRModel
 from lab.cli import cli, handle_default_subcommand
-from lab.funasr.combiner import combine_sentences
-from lab.funasr.converter import convert_asr_response_to_sentences
-from lab.funasr.cutter import cut_sentences
-from lab.funasr.method import generate_asr_results, generate_punc_results, generate_vad_results
-from lab.funasr.model import FunASRModel
 
 # from lab.exceptions import ErrorCode
 from lab.utils.console.logger import Badge, Logger

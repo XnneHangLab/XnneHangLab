@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 def test_call_ffmpeg():
     lab_settings: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSettings)
-    FFMPEG_PATH = lab_settings.funasr.FFMPEG_PATH
+    FFMPEG_PATH = lab_settings.asr.FFMPEG_PATH
     command = [FFMPEG_PATH, "-version"]
     result = run_shell_command(command=command)
 
@@ -32,7 +32,7 @@ def file_to_wav(input_path: Path, output_wav_path: Path):
     """
 
     lab_settings: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSettings)
-    FFMPEG_PATH = lab_settings.funasr.FFMPEG_PATH
+    FFMPEG_PATH = lab_settings.asr.FFMPEG_PATH
     if not input_path.exists():
         raise FileNotFoundError(f"输入文件不存在: {input_path}")
 
@@ -70,7 +70,7 @@ def file_to_wav(input_path: Path, output_wav_path: Path):
 
 def file_to_mp3(input_path: Path, output_path: Path):
     lab_settings: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSettings)
-    FFMPEG_PATH = lab_settings.funasr.FFMPEG_PATH
+    FFMPEG_PATH = lab_settings.asr.FFMPEG_PATH
     if not input_path.exists():
         raise FileNotFoundError(f"输入文件不存在: {input_path}")
 
@@ -110,7 +110,7 @@ def file_to_opus(input_path: Path, output_path: Path):
     """
     # TODO 这一步可能比较久,但是只在结束时输出, 可以考虑用 wepxct 和 pexpect
     lab_settings: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSettings)
-    FFMPEG_PATH = lab_settings.funasr.FFMPEG_PATH
+    FFMPEG_PATH = lab_settings.asr.FFMPEG_PATH
     if not input_path.exists():
         raise FileNotFoundError(f"输入文件不存在: {input_path}")
 
@@ -154,7 +154,7 @@ def file_to_opus(input_path: Path, output_path: Path):
 def split_opus_audio(input_path: Path, output_dir: Path, start_time: int, seg_length: int) -> Path:
     # 仅支持 opus
     lab_settings: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSettings)
-    FFMPEG_PATH = lab_settings.funasr.FFMPEG_PATH
+    FFMPEG_PATH = lab_settings.asr.FFMPEG_PATH
     # 确保输出目录存在
     if output_dir.exists():
         # 删除目录以及其中的所有文件

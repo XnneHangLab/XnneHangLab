@@ -5,8 +5,11 @@ from pathlib import Path  # noqa: TC003
 
 from loguru import logger
 
-from lab._typing import ASRResponse
+from lab._typing import ASRResponse, Sentence, WhisperResponse, WhisperSegment
 from lab.api.clients.base_client_interface import BaseClientInterface, BaseRequest, BaseResponse
+from lab.asr.funasr.converter import convert_asr_response_to_sentences
+from lab.asr.whisper.converter import convert_whisper_response_to_sentences
+from lab.config_manager import XnneHangLabSettings, load_settings_file
 
 
 class ASRRequest(BaseRequest):
@@ -27,15 +30,29 @@ class ASRResponseModel(BaseResponse):
         )
 
 
+class WhisperASRResponseModel(BaseResponse):
+    segments: list[WhisperSegment]
+    text: str
+
+    def to_dict(self) -> WhisperResponse:
+        return WhisperResponse(
+            text=self.text,
+            segments=self.segments,
+        )
+
+
 # TODO 考虑封装为 ASRClient , VADClient ,然后以一个 interface 定义一个通用的模板。以 post 作为通用的接口。
 class ASRClient(BaseClientInterface):
-    def __init__(self, no_punc: bool = False):
-        if no_punc:
-            self.base_url = self.base_url + "/audio/asr_no_punc"
-        else:
-            self.base_url = self.base_url + "/audio/asr"
+    def __init__(self):
+        lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+        self.config = lab_settings.asr
+        if lab_settings.asr.asr_model_provider == "funasr":
+            self.base_url = self.base_url + "/asr/funasr/no_punc"
 
-    def post(self, request: ASRRequest) -> ASRResponse | None:  # type: ignore[override]
+        else:
+            self.base_url = self.base_url + "/asr/whisper"
+
+    def post(self, request: ASRRequest) -> list[Sentence] | None:  # type: ignore[override]
         """封装语音识别接口"""
         if not request.file_path.exists():
             logger.error(f"File not found: {request.file_path}")
@@ -45,7 +62,17 @@ class ASRClient(BaseClientInterface):
             response.raise_for_status()
             response = response.json()
             try:
-                return ASRResponseModel.model_validate(response).to_dict()  # 转换为 Pydantic 模型
+                if self.config.asr_model_provider == "funasr":
+                    funasr_response: ASRResponse = ASRResponseModel.model_validate(response).to_dict()
+                    return convert_asr_response_to_sentences(funasr_response)
+                elif self.config.asr_model_provider == "whisper":
+                    whisper_response: WhisperResponse = WhisperASRResponseModel.model_validate(
+                        response
+                    ).to_dict()  # 转换为 Pydantic 模型
+                    return convert_whisper_response_to_sentences(whisper_response)
+                else:
+                    logger.error(f"Unknown ASR model provider: {self.config.asr_model_provider}")
+                    return None
             except Exception as e:
                 logger.error(f"Failed to parse ASR response: {e}, {response}")
                 return None

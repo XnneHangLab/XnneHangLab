@@ -3,9 +3,9 @@ from __future__ import annotations
 
 from .abs_root import RootAbsDir
 from .agent import AgentSettings
+from .asr import ASRSettings, Device, FunASRSettings, WhisperSettings
 from .audio_recognize import AudioRecognizeSettings
 from .config import XnneHangLabSettings, get_setting_title, load_settings_file, write_settings_file
-from .funasr import Device, FunASRSettings
 from .package import PackagesSettings
 
 __all__ = [
@@ -19,4 +19,6 @@ __all__ = [
     "AgentSettings",
     "PackagesSettings",
     "XnneHangLabSettings",
+    "WhisperSettings",
+    "ASRSettings",
 ]

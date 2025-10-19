@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from lab._dictionary import i18n_dictionary
 
 if TYPE_CHECKING:
+    from lab.config_manager.asr import ASRDropdownSetting, WhisperDropDownSetting
     from lab.config_manager.audio_recognize import AudioRecognizeDropdownSetting
 
 # 在 webdui 中开放的配置项
@@ -20,7 +21,6 @@ WebUIDropdownSetting = Literal["device", "guide"]
 # 下拉选项定义 / 要不要隔离定义域，比如不同页面的 device. or 直接在一个文件定义然后导入。
 Device = Literal["cpu", "cuda"]
 Guide = Literal["open", "close"]
-IncludeTimestamp = Literal["with_timestamp", "without_timestamp"]
 SubtitleSpeed = Literal["slow", "normal", "fast"]
 
 
@@ -32,7 +32,7 @@ class WebUIi18nSettings(BaseModel):
     }
 
     def _get_options_for_field(
-        self, key: WebUIDropdownSetting | AudioRecognizeDropdownSetting
+        self, key: WebUIDropdownSetting | AudioRecognizeDropdownSetting | ASRDropdownSetting | WhisperDropDownSetting
     ) -> tuple[
         Any, ...
     ]:  # ... 似乎等同于 tuple[Any], 代表任意长度，所有元素均为 Any，不过如果这样会约束 tuple 长度为 2: tuple[int,str], 且顺序为 (索引, 中文名)
@@ -43,7 +43,7 @@ class WebUIi18nSettings(BaseModel):
         return get_args(LiteralType)
 
     def _get_indexed_options_for_field(
-        self, key: WebUIDropdownSetting | AudioRecognizeDropdownSetting
+        self, key: WebUIDropdownSetting | AudioRecognizeDropdownSetting | ASRDropdownSetting | WhisperDropDownSetting
     ) -> list[tuple[str, str, int]]:
         """
         内部方法：获取字段所有选项，并按索引排序。
@@ -56,11 +56,13 @@ class WebUIi18nSettings(BaseModel):
                 zh_name, index = i18n_dictionary[en_value]
                 indexed_options.append((en_value, zh_name, index))
             except KeyError as e:
-                raise KeyError(f"在 audio_setting_dictionary 中找不到英文值: {en_value}") from e
+                raise KeyError(f"在 WebUIi18nSettings 中找不到英文值: {en_value}") from e
         # 确保选项列表是按索引排序的 (Streamlit 需要这个顺序)
         return sorted(indexed_options, key=lambda x: x[2])
 
-    def get_zh_option_list(self, key: WebUIDropdownSetting | AudioRecognizeDropdownSetting) -> list[str]:
+    def get_zh_option_list(
+        self, key: WebUIDropdownSetting | AudioRecognizeDropdownSetting | ASRDropdownSetting | WhisperDropDownSetting
+    ) -> list[str]:
         """
         获取中文配置项列表，**顺序与索引一致**。
         用于 Streamlit 的 st.selectbox 的 options。
@@ -70,7 +72,9 @@ class WebUIi18nSettings(BaseModel):
         zh_names = [zh_name for _, zh_name, _ in indexed_options]
         return zh_names
 
-    def get_index(self, key: WebUIDropdownSetting | AudioRecognizeDropdownSetting) -> int:
+    def get_index(
+        self, key: WebUIDropdownSetting | AudioRecognizeDropdownSetting | ASRDropdownSetting | WhisperDropDownSetting
+    ) -> int:
         """
         获取当前配置项值对应的索引。
         用于 Streamlit 的 st.selectbox 的 index。
@@ -83,7 +87,11 @@ class WebUIi18nSettings(BaseModel):
         except KeyError as e:
             raise ValueError(f"当前配置值 '{current_value}' 在字典中找不到索引。") from e
 
-    def zh_set_value(self, key: WebUIDropdownSetting | AudioRecognizeDropdownSetting, zh_value: str):
+    def zh_set_value(
+        self,
+        key: WebUIDropdownSetting | AudioRecognizeDropdownSetting | ASRDropdownSetting | WhisperDropDownSetting,
+        zh_value: str,
+    ):
         """
         通过中文名设置配置项。
         """
@@ -97,7 +105,11 @@ class WebUIi18nSettings(BaseModel):
 
         raise ValueError(f"配置项 '{key}' 不支持中文值: {zh_value}")
 
-    def index_set_value(self, key: WebUIDropdownSetting | AudioRecognizeDropdownSetting, index: int):
+    def index_set_value(
+        self,
+        key: WebUIDropdownSetting | AudioRecognizeDropdownSetting | ASRDropdownSetting | WhisperDropDownSetting,
+        index: int,
+    ):
         """
         通过索引设置配置项值。
         用于处理 Streamlit st.selectbox 返回的 index。

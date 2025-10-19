@@ -8,16 +8,18 @@ import streamlit as st
 
 from lab._session_keys import audio_keys
 from lab.api.clients import ASRClient, ASRRequest
+from lab.asr.combiner import combine_sentences
+from lab.asr.cutter import cut_sentences
 from lab.config_manager import (
+    ASRSettings,
     AudioRecognizeSettings,
     FunASRSettings,
+    WhisperSettings,
+    XnneHangLabSettings,
     get_setting_title,
     load_settings_file,
     write_settings_file,
 )
-from lab.funasr.combiner import combine_sentences
-from lab.funasr.converter import convert_asr_response_to_sentences
-from lab.funasr.cutter import cut_sentences
 from lab.pages.dialogs.audio import AudioReadme, upload_audio
 from lab.styles.global_style import style
 from lab.utils.FFmpegHelper import file_to_wav
@@ -30,19 +32,24 @@ from lab.utils.SrtHelper import write_srt_from_sentences
 # ============== 0.加载配置，配置字体
 
 style()
-settings: FunASRSettings = load_settings_file("funasr.toml", setting=FunASRSettings)
-audio_settings: AudioRecognizeSettings = load_settings_file("audio.toml", setting=AudioRecognizeSettings)
+lab_settings: XnneHangLabSettings = load_settings_file("lab.toml", setting=XnneHangLabSettings)
+asr_setting: ASRSettings = lab_settings.asr
+webui_setting: AudioRecognizeSettings = lab_settings.webui
+funasr_setting: FunASRSettings = lab_settings.asr.funasr
+whisper_setting: WhisperSettings = lab_settings.asr.whisper
 
 # ============== 1.初始化持久化参数
 
 # 参数说明参见 _session_keys.py
 
-guide = st.session_state.get(audio_keys["guide"], audio_settings.guide)
-include_timestamp = st.session_state.get(audio_keys["include_timestamp"], audio_settings.include_timestamp)
-subtitle_speed = st.session_state.get(audio_keys["subtitle_speed"], audio_settings.subtitle_speed)
-cut_line: int = st.session_state.get(audio_keys["cut_line"], settings.cut_line)
-combine_line: int = st.session_state.get(audio_keys["combine_line"], settings.combine_line)
-max_sentence_length: int = st.session_state.get(audio_keys["max_sentence_length"], settings.max_sentence_length)
+guide = st.session_state.get(audio_keys["guide"], webui_setting.guide)
+subtitle_speed = st.session_state.get(audio_keys["subtitle_speed"], webui_setting.subtitle_speed)
+cut_line: int = st.session_state.get(audio_keys["cut_line"], funasr_setting.cut_line)
+combine_line: int = st.session_state.get(audio_keys["combine_line"], funasr_setting.combine_line)
+max_sentence_length: int = st.session_state.get(audio_keys["max_sentence_length"], funasr_setting.max_sentence_length)
+asr_model_provider = st.session_state.get(audio_keys["asr_model_provider"], asr_setting.asr_model_provider)
+whisper_model_size = st.session_state.get(audio_keys["whisper_model_size"], whisper_setting.whisper_model_size)
+
 
 # 用于音频上传
 if audio_keys["audio_name"] not in st.session_state:
@@ -58,8 +65,8 @@ if audio_keys["audio_file"] not in st.session_state:
 
 
 # 用于音频识别
-if audio_keys["response_with_timestamp"] not in st.session_state:
-    st.session_state[audio_keys["response_with_timestamp"]] = None
+if audio_keys["sentences"] not in st.session_state:
+    st.session_state[audio_keys["sentences"]] = None
 if audio_keys["text_result"] not in st.session_state:
     st.session_state[audio_keys["text_result"]] = None
 
@@ -69,7 +76,7 @@ if audio_keys["preview_srt_file"] not in st.session_state:
 
 
 # 用于消息提示
-if audio_keys["readme"] not in st.session_state and audio_settings.guide == "open":
+if audio_keys["readme"] not in st.session_state and webui_setting.guide == "open":
     AudioReadme()
     st.session_state[audio_keys["readme"]] = True
 if audio_keys["welcome"] in st.session_state:
@@ -96,15 +103,22 @@ with setting_tab:
     with AudioSetting:
         guide = st.selectbox(
             get_setting_title("guide", AudioRecognizeSettings),
-            audio_settings.get_zh_option_list("guide"),
-            index=audio_settings.get_index("guide"),
+            webui_setting.get_zh_option_list("guide"),
+            index=webui_setting.get_index("guide"),
         )
-        include_timestamp = st.selectbox(
-            get_setting_title("include_timestamp", AudioRecognizeSettings),
-            audio_settings.get_zh_option_list("include_timestamp"),
-            index=audio_settings.get_index("include_timestamp"),
+        asr_model_provider = st.selectbox(
+            get_setting_title("asr_model_provider", ASRSettings),
+            asr_setting.get_zh_option_list("asr_model_provider"),
+            index=asr_setting.get_index("asr_model_provider"),
         )
-        st.caption("只有带时间戳的字幕才支持自定义字幕速度。")
+        st.caption("FunASR 仅支持中英文,Whisper 支持多语言, 中文任务 FunASR 精度高")
+        if asr_model_provider == "Whisper":
+            whisper_model_size = st.selectbox(
+                get_setting_title("whisper_model_size", WhisperSettings),
+                whisper_setting.get_zh_option_list("whisper_model_size"),
+                index=whisper_setting.get_index("whisper_model_size"),
+            )
+            st.caption("tiny < base < turbo < large. 模型越大, 精度越高, 但速度越慢")
     with AudioSave:
         col1, col2 = st.columns([0.75, 0.25])
         st.markdown("")
@@ -112,9 +126,14 @@ with setting_tab:
             st.markdown("")
             st.markdown("")
             if st.button("**保存更改**", use_container_width=True, type="primary"):
-                audio_settings.zh_set_value("guide", guide)
-                audio_settings.zh_set_value("include_timestamp", include_timestamp)
-                write_settings_file("audio.toml", audio_settings)
+                webui_setting.zh_set_value("guide", guide)
+                asr_setting.zh_set_value("asr_model_provider", asr_model_provider)
+                if asr_model_provider == "Whisper":
+                    whisper_setting.zh_set_value("whisper_model_size", whisper_model_size)
+                    asr_setting.whisper = whisper_setting
+                lab_settings.asr = asr_setting
+                lab_settings.webui = webui_setting
+                write_settings_file("lab.toml", lab_settings)
                 st.session_state[audio_keys["save"]] = True
                 st.rerun()
         with col1:
@@ -164,7 +183,7 @@ with working_tab:
                     audio_first_name = audio_file.name.split(".")[0]
                     audio_last_name = audio_file.name.split(".")[-1]
                     st.session_state[audio_keys["audio_name"]] = audio_file.name
-                    cache_dir = Path(settings.cache_dir) / audio_first_name / current_time
+                    cache_dir = Path(asr_setting.cache_dir) / audio_first_name / current_time
                     cache_dir.mkdir(parents=True, exist_ok=True)
                     # TODO 这里只是复制到了 cache_Dir ,实际上， 我们需要把它处理成 wav.
                     with (cache_dir / st.session_state[audio_keys["audio_name"]]).open("wb") as file:
@@ -188,7 +207,7 @@ with working_tab:
                     else:
                         st.toast("请先选择示例文件", icon=":material/error:")
                         st.stop()
-                    cache_dir = Path(settings.cache_dir) / audio_first_name / current_time
+                    cache_dir = Path(asr_setting.cache_dir) / audio_first_name / current_time
                     cache_dir.mkdir(parents=True, exist_ok=True)
                     shutil.copy(
                         Path(f"examples/{st.session_state[audio_keys['audio_name']]}"),
@@ -214,7 +233,7 @@ with working_tab:
                         st.toast("请先选择音频文件", icon=":material/error:")
                         st.stop()
 
-                    cache_dir = Path(settings.cache_dir) / audio_first_name / current_time
+                    cache_dir = Path(asr_setting.cache_dir) / audio_first_name / current_time
                     cache_dir.mkdir(parents=True, exist_ok=True)
                     shutil.copy(
                         Path(st.session_state[audio_keys["audio_file"]]),
@@ -241,34 +260,27 @@ with working_tab:
                 print("\033[1;33m⚠️ 请不要在任务运行期间切换菜单或修改参数！\033[0m")
 
                 msg_whs = st.toast("正在识别音频内容", icon=":material/troubleshoot:")
-                if audio_settings.include_timestamp == "with_timestamp":
-                    asr_client = ASRClient(no_punc=True)
-                    response_with_timestamp = asr_client.post(
-                        ASRRequest(
-                            file_path=Path(cache_dir / st.session_state[audio_keys["audio_name"]]),
-                        )
+                asr_client = ASRClient()
+                sentences = asr_client.post(
+                    ASRRequest(
+                        file_path=Path(cache_dir / st.session_state[audio_keys["audio_name"]]),
                     )
-                    if response_with_timestamp is None:
-                        st.error(
-                            "识别失败，请检查音频文件格式是否正确，或尝试使用其他音频文件。", icon=":material/error:"
-                        )
-                    else:
-                        # 保存 response 到 json 文件
-                        st.session_state[audio_keys["response_with_timestamp"]] = response_with_timestamp
-                        sentences = convert_asr_response_to_sentences(response_with_timestamp)
-                        # 保存字幕
-                        print("\n\033[1;35m*** 正在生成 SRT 字幕文件 ***\033[0m\n")
-                        st.session_state[audio_keys["preview_srt_file"]] = (
-                            Path(settings.output_dir) / "audio" / (audio_first_name + ".srt")
-                        )
-                        write_srt_from_sentences(
-                            sentences,
-                            st.session_state[audio_keys["preview_srt_file"]],
-                        )
-                        print("\033[1;34m🎉 字幕生成成功！\033[0m")
-
-                elif audio_settings.include_timestamp == "without_timestamp":
-                    st.error("暂时不支持无时间戳的字幕生成，请选择带时间戳的字幕。", icon=":material/error:")
+                )
+                if sentences is None:
+                    st.error("识别失败，请检查音频文件格式是否正确，或尝试使用其他音频文件。", icon=":material/error:")
+                else:
+                    # 保存 response 到 json 文件
+                    st.session_state[audio_keys["sentences"]] = sentences
+                    # 保存字幕
+                    print("\n\033[1;35m*** 正在生成 SRT 字幕文件 ***\033[0m\n")
+                    st.session_state[audio_keys["preview_srt_file"]] = (
+                        Path(asr_setting.output_dir) / "audio" / (audio_first_name + ".srt")
+                    )
+                    write_srt_from_sentences(
+                        sentences,
+                        st.session_state[audio_keys["preview_srt_file"]],
+                    )
+                    print("\033[1;34m🎉 字幕生成成功！\033[0m")
                 print("\033[1;34m🎉 FunASR 识别成功！\033[0m")
                 msg_whs.toast("音频内容识别完成", icon=":material/colorize:")
                 print("\033[1;34m🎉 任务成功结束！\033[0m")
@@ -325,8 +337,8 @@ with working_tab:
                 st.caption("所有自定义行为均在生成字幕后操作，请先生成字幕。")
                 subtitle_speed = st.selectbox(
                     get_setting_title("subtitle_speed", AudioRecognizeSettings),
-                    audio_settings.get_zh_option_list("subtitle_speed"),
-                    index=audio_settings.get_index("subtitle_speed"),
+                    webui_setting.get_zh_option_list("subtitle_speed"),
+                    index=webui_setting.get_index("subtitle_speed"),
                 )
                 st.caption("字幕单句长则慢，单句短则快")
                 st.markdown("")
@@ -362,13 +374,12 @@ with working_tab:
                     st.caption("单句最大长度，如果超过该长度就不再继续合并。")
                     st.markdown("")
 
-                if st.session_state[audio_keys["response_with_timestamp"]]:
-                    response_with_timestamp = st.session_state[audio_keys["response_with_timestamp"]]
-                    sentences = convert_asr_response_to_sentences(response_with_timestamp)
+                if st.session_state[audio_keys["sentences"]]:
+                    sentences = st.session_state[audio_keys["sentences"]]
                     if subtitle_speed == "慢":
                         sentences = combine_sentences(
                             sentences,
-                            max_sentence_length=settings.max_sentence_length,
+                            max_sentence_length=funasr_setting.max_sentence_length,
                             combine_line=combine_line,
                         )
                     elif subtitle_speed == "快":

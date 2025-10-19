@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 
 from lab.__version__ import VERSION
-from lab.config_manager import FunASRSettings, XnneHangLabSettings, load_settings_file
+from lab.config_manager import ASRSettings, XnneHangLabSettings, load_settings_file
 from lab.utils.console.logger import Badge, Logger
 
 
@@ -37,24 +37,27 @@ def cli():
 
     parser = argparse.ArgumentParser(description="音频转文字工具ya~")
     parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {VERSION}", help="显示版本号")
-    settings: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSettings)
+    lab_settings: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSettings)
 
     subparsers = parser.add_subparsers(dest="command", help="支持的子命令")
     rec_parser = subparsers.add_parser("recognize", help="识别音频文件")
     punc_recover_parser = subparsers.add_parser("punc_recover", help="标点恢复")
     vad_parser = subparsers.add_parser("vad", help="VAD 语音活动检测")
 
-    add_recognize_arguments(rec_parser, settings.funasr)
-    add_punc_recover_arguments(punc_recover_parser, settings.funasr)
-    add_vad_arguments(vad_parser, settings.funasr)
+    add_recognize_arguments(rec_parser, lab_settings.asr)
+    add_punc_recover_arguments(punc_recover_parser, lab_settings.asr)
+    add_vad_arguments(vad_parser, lab_settings.asr)
     return parser
 
 
-def add_recognize_arguments(parser: argparse.ArgumentParser, settings: FunASRSettings):
+def add_recognize_arguments(parser: argparse.ArgumentParser, settings: ASRSettings):
     # basic-setting
     group_config = parser.add_argument_group("setting", "配置项")
     group_config.add_argument(
-        "--batch_size_s", type=int, default=settings.batch_size_s, help=f"批处理大小, 默认为 {settings.batch_size_s}"
+        "--batch_size_s",
+        type=int,
+        default=settings.funasr.batch_size_s,
+        help=f"批处理大小, 默认为 {settings.funasr.batch_size_s}",
     )
     group_config.add_argument(
         "--device", type=str, default=settings.device, help=f"计算设备(cpu/gpu), 默认为 {settings.device}"
@@ -65,33 +68,38 @@ def add_recognize_arguments(parser: argparse.ArgumentParser, settings: FunASRSet
     group_config.add_argument(
         "--cache_dir", type=path_from_cli, default=path_from_cli(settings.cache_dir), help="缓存目录"
     )
-    group_config.add_argument("--hotwords", type=str, default=settings.hot_words_path, help="热词或者热词(txt)的路径")
+    group_config.add_argument(
+        "--hotwords", type=str, default=settings.funasr.hot_words_path, help="热词或者热词(txt)的路径"
+    )
     group_config.add_argument("--ffmpeg-path", type=str, default=settings.FFMPEG_PATH, help="ffmpeg的路径")
     group_config.add_argument(
-        "--base-model", type=path_from_cli, default=path_from_cli(settings.base_model), help="基础模型的路径"
+        "--base-model", type=path_from_cli, default=path_from_cli(settings.funasr.base_model), help="基础模型的路径"
     )
     group_config.add_argument(
-        "--punc-model", type=path_from_cli, default=path_from_cli(settings.punc_model), help="分词模型的路径"
+        "--punc-model", type=path_from_cli, default=path_from_cli(settings.funasr.punc_model), help="分词模型的路径"
     )
     group_config.add_argument(
-        "--vad-model", type=path_from_cli, default=path_from_cli(settings.vad_model), help="VAD模型的路径"
+        "--vad-model", type=path_from_cli, default=path_from_cli(settings.funasr.vad_model), help="VAD模型的路径"
     )
     group_config.add_argument("--cut", action="store_true", help="是否裁剪长句, 不可以和合并短句同时使用")
     group_config.add_argument("--combine", action="store_true", help="是否合并短句, 不可以和裁剪长句同时使用")
     group_config.add_argument(
         "--combine-line",
         type=int,
-        default=settings.combine_line,
-        help=f"合并短句的间隔临界值(ms), 默认为 {settings.combine_line} ",
+        default=settings.funasr.combine_line,
+        help=f"合并短句的间隔临界值(ms), 默认为 {settings.funasr.combine_line} ",
     )
     group_config.add_argument(
-        "--cut-line", type=int, default=settings.cut_line, help=f"裁剪长句的间隔临界值(ms), 默认为 {settings.cut_line} "
+        "--cut-line",
+        type=int,
+        default=settings.funasr.cut_line,
+        help=f"裁剪长句的间隔临界值(ms), 默认为 {settings.funasr.cut_line} ",
     )
     group_config.add_argument(
         "--max-sentence-length",
         type=int,
-        default=settings.max_sentence_length,
-        help=f"最大句子长度,默认为 {settings.max_sentence_length} , 当句子超过这个长度时,就不再合并了",
+        default=settings.funasr.max_sentence_length,
+        help=f"最大句子长度,默认为 {settings.funasr.max_sentence_length} , 当句子超过这个长度时,就不再合并了",
     )
     group_config.add_argument("--need-punc", action="store_true", help="是否需要标点符号")
     # 隐藏了 punc_list , custom_output_dir, 前者除非出现新的未知标点符号导致 list index out of range 否则不需要修改, 后者只是用于维持 WebUI 的状态的.
@@ -114,13 +122,13 @@ def add_recognize_arguments(parser: argparse.ArgumentParser, settings: FunASRSet
     )
 
 
-def add_punc_recover_arguments(parser: argparse.ArgumentParser, settings: FunASRSettings):
+def add_punc_recover_arguments(parser: argparse.ArgumentParser, settings: ASRSettings):
     group_config = parser.add_argument_group("setting", "配置项")
     group_config.add_argument(
         "--device", type=str, default=settings.device, help=f"计算设备(cpu/gpu), 默认为 {settings.device}"
     )
     group_config.add_argument(
-        "--punc-model", type=path_from_cli, default=path_from_cli(settings.punc_model), help="分词模型的路径"
+        "--punc-model", type=path_from_cli, default=path_from_cli(settings.funasr.punc_model), help="分词模型的路径"
     )
     # 这里只加入了需要的参数, 其他的都不需要了
 
@@ -133,13 +141,13 @@ def add_punc_recover_arguments(parser: argparse.ArgumentParser, settings: FunASR
     )
 
 
-def add_vad_arguments(parser: argparse.ArgumentParser, settings: FunASRSettings):
+def add_vad_arguments(parser: argparse.ArgumentParser, settings: ASRSettings):
     group_config = parser.add_argument_group("setting", "配置项")
     group_config.add_argument(
         "--device", type=str, default=settings.device, help=f"计算设备(cpu/gpu), 默认为 {settings.device}"
     )
     group_config.add_argument(
-        "--vad-model", type=path_from_cli, default=path_from_cli(settings.vad_model), help="VAD模型的路径"
+        "--vad-model", type=path_from_cli, default=path_from_cli(settings.funasr.vad_model), help="VAD模型的路径"
     )
     group_config.add_argument(
         "--input-path",

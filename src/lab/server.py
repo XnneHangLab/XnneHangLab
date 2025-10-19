@@ -134,9 +134,9 @@ class WebSocketServer:
         self.app.include_router(vtuber_router)
         self.app.include_router(deeplx_router)
         if lab_settings.package.funasr:
-            from lab.api.routes.audio import router as audio_router
+            from lab.api.routes.asr import router as asr_router
 
-            self.app.include_router(audio_router)
+            self.app.include_router(asr_router)
         if lab_settings.package.bert_vits:
             from lab.api.routes.bert_vits import router as vits_router
 
