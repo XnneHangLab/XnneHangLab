@@ -31,7 +31,7 @@ class i18nDictionary(TypedDict):
 
     # whisper model size
     tiny: tuple[str, int]
-    large_v3_turbo: tuple[str, int]
+    turbo: tuple[str, int]
 
 
 i18n_dictionary: i18nDictionary = {
@@ -47,5 +47,5 @@ i18n_dictionary: i18nDictionary = {
     "cpu": ("cpu", 0),
     "cuda": ("gpu", 1),
     "tiny": ("tiny", 0),
-    "large_v3_turbo": ("large_v3_turbo", 1),
+    "turbo": ("turbo", 1),
 }

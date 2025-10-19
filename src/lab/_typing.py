@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import Literal, TypedDict
+from typing import Literal
+
+from typing_extensions import TypedDict
 
 # 两条线，一条是直接 mp4 输入。(需要考虑mp4->wav和音视频长度对齐)。
 # 一种是音频(wav)直接输入。或者考虑自动转换aac,mp3,m4a->wav.
@@ -176,7 +178,7 @@ class AudioSessionStateKeys(TypedDict):
     use_bilibili: str  # 是否使用 bilibili 模块下载的音频
 
     # ======= 音频识别
-    response_with_timestamp: str  # 带时间戳的识别结果
+    sentences: str  # 带时间戳的识别结果
     text_result: str  # 不带时间戳的识别结果, only text
 
     # ======= 界面展示

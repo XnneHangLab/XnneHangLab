@@ -126,6 +126,8 @@ class WhisperModel(ASRBaseModel):
         # 假设配置管理器和配置路径正确
         self.settings = load_settings_file("lab.toml", XnneHangLabSettings)
         self.model_name: str = self.settings.asr.whisper.whisper_model_size
+        if self.model_name == "turbo":
+            self.model_name = "large-v3-turbo"
         self.device: str = self.settings.asr.device
         # Whisper 只需要一个 ASR 模型实例
         self.model: Whisper | None = None

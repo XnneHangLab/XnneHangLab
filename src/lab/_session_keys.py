@@ -21,7 +21,7 @@ audio_keys: AudioSessionStateKeys = {
     "use_upload": "use_upload",
     "use_example": "use_example",
     "use_bilibili": "use_bilibili",
-    "response_with_timestamp": "response_with_timestamp",
+    "sentences": "sentences",
     "text_result": "text_result",
     "preview_srt_file": "preview_srt_file",
     "guide": "guide",

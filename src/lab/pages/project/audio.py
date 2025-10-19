@@ -10,7 +10,6 @@ from lab._session_keys import audio_keys
 from lab.api.clients import ASRClient, ASRRequest
 from lab.asr.combiner import combine_sentences
 from lab.asr.cutter import cut_sentences
-from lab.asr.funasr.converter import convert_asr_response_to_sentences
 from lab.config_manager import (
     ASRSettings,
     AudioRecognizeSettings,
@@ -64,8 +63,8 @@ if audio_keys["audio_file"] not in st.session_state:
 
 
 # 用于音频识别
-if audio_keys["response_with_timestamp"] not in st.session_state:
-    st.session_state[audio_keys["response_with_timestamp"]] = None
+if audio_keys["sentences"] not in st.session_state:
+    st.session_state[audio_keys["sentences"]] = None
 if audio_keys["text_result"] not in st.session_state:
     st.session_state[audio_keys["text_result"]] = None
 
@@ -248,20 +247,19 @@ with working_tab:
 
                 msg_whs = st.toast("正在识别音频内容", icon=":material/troubleshoot:")
                 if webui_setting.include_timestamp == "with_timestamp":
-                    asr_client = ASRClient(no_punc=True)
-                    response_with_timestamp = asr_client.post(
+                    asr_client = ASRClient()
+                    sentences = asr_client.post(
                         ASRRequest(
                             file_path=Path(cache_dir / st.session_state[audio_keys["audio_name"]]),
                         )
                     )
-                    if response_with_timestamp is None:
+                    if sentences is None:
                         st.error(
                             "识别失败，请检查音频文件格式是否正确，或尝试使用其他音频文件。", icon=":material/error:"
                         )
                     else:
                         # 保存 response 到 json 文件
-                        st.session_state[audio_keys["response_with_timestamp"]] = response_with_timestamp
-                        sentences = convert_asr_response_to_sentences(response_with_timestamp)
+                        st.session_state[audio_keys["sentences"]] = sentences
                         # 保存字幕
                         print("\n\033[1;35m*** 正在生成 SRT 字幕文件 ***\033[0m\n")
                         st.session_state[audio_keys["preview_srt_file"]] = (
@@ -368,9 +366,8 @@ with working_tab:
                     st.caption("单句最大长度，如果超过该长度就不再继续合并。")
                     st.markdown("")
 
-                if st.session_state[audio_keys["response_with_timestamp"]]:
-                    response_with_timestamp = st.session_state[audio_keys["response_with_timestamp"]]
-                    sentences = convert_asr_response_to_sentences(response_with_timestamp)
+                if st.session_state[audio_keys["sentences"]]:
+                    sentences = st.session_state[audio_keys["sentences"]]
                     if subtitle_speed == "慢":
                         sentences = combine_sentences(
                             sentences,

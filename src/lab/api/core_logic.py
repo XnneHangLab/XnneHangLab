@@ -39,6 +39,8 @@ def load_model():
             )
             logger.info("如果你只想使用远程 API 服务，可以忽略此警告。")
         return _model_instance
+    else:
+        return _model_instance
 
 
 def reload_model() -> Any:
@@ -62,8 +64,6 @@ def funasr_vad_audio(input_path: Path) -> dict[str, Any]:
     Perform Voice Activity Detection (VAD) on the uploaded audio file.
     """
     _model_instance = load_model()
-    if _model_instance is None:
-        raise ValueError("FunASR model instance is None. Please load the model first.")
     if _model_instance["funasr"] is None:
         raise ValueError("FunASR model instance is None. Please load the model first.")
     funasr_model: FunASRModels = _model_instance["funasr"]
@@ -78,8 +78,6 @@ def funasr_asr_audio(input_path: Path, need_punc: bool = True) -> dict[str, Any]
     Perform Automatic Speech Recognition (ASR) on the uploaded audio file.
     """
     _model_instance = load_model()
-    if _model_instance is None:
-        raise ValueError("FunASR model instance is None. Please load the model first.")
     if _model_instance["funasr"] is None:
         raise ValueError("FunASR model instance is None. Please load the model first.")
     funasr_model: FunASRModels = _model_instance["funasr"]
@@ -94,8 +92,6 @@ def whisper_asr_audio(input_path: Path) -> dict[str, Any]:
     Perform Automatic Speech Recognition (ASR) using Whisper model on the uploaded audio file.
     """
     _model_instance = load_model()
-    if _model_instance is None:
-        raise ValueError("Whisper model instance is None. Please load the model first.")
     if _model_instance["whisper"] is None:
         raise ValueError("Whisper model instance is None. Please load the model first.")
     whisper_model = _model_instance["whisper"]
