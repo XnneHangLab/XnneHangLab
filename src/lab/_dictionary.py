@@ -12,10 +12,6 @@ class i18nDictionary(TypedDict):
     open: tuple[str, int]
     close: tuple[str, int]
 
-    # include_timestamp
-    with_timestamp: tuple[str, int]
-    without_timestamp: tuple[str, int]
-
     # subtitle_speed
     slow: tuple[str, int]
     normal: tuple[str, int]
@@ -37,8 +33,6 @@ class i18nDictionary(TypedDict):
 i18n_dictionary: i18nDictionary = {
     "open": ("开启", 0),
     "close": ("关闭", 1),
-    "with_timestamp": ("带时间戳", 0),
-    "without_timestamp": ("不带时间戳", 1),
     "slow": ("慢", 0),
     "normal": ("正常", 1),
     "fast": ("快", 2),

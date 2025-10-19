@@ -27,7 +27,6 @@ whisper_model_size = "turbo"
 
 [webui]
 guide = "open"
-include_timestamp = "with_timestamp"
 subtitle_speed = "normal"
 
 [agent]

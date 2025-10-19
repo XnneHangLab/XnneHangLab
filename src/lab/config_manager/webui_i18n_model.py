@@ -21,7 +21,6 @@ WebUIDropdownSetting = Literal["device", "guide"]
 # 下拉选项定义 / 要不要隔离定义域，比如不同页面的 device. or 直接在一个文件定义然后导入。
 Device = Literal["cpu", "cuda"]
 Guide = Literal["open", "close"]
-IncludeTimestamp = Literal["with_timestamp", "without_timestamp"]
 SubtitleSpeed = Literal["slow", "normal", "fast"]
 
 

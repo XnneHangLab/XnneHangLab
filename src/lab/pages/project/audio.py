@@ -43,7 +43,6 @@ whisper_setting: WhisperSettings = lab_settings.asr.whisper
 # 参数说明参见 _session_keys.py
 
 guide = st.session_state.get(audio_keys["guide"], webui_setting.guide)
-include_timestamp = st.session_state.get(audio_keys["include_timestamp"], webui_setting.include_timestamp)
 subtitle_speed = st.session_state.get(audio_keys["subtitle_speed"], webui_setting.subtitle_speed)
 cut_line: int = st.session_state.get(audio_keys["cut_line"], funasr_setting.cut_line)
 combine_line: int = st.session_state.get(audio_keys["combine_line"], funasr_setting.combine_line)
@@ -104,12 +103,6 @@ with setting_tab:
             webui_setting.get_zh_option_list("guide"),
             index=webui_setting.get_index("guide"),
         )
-        include_timestamp = st.selectbox(
-            get_setting_title("include_timestamp", AudioRecognizeSettings),
-            webui_setting.get_zh_option_list("include_timestamp"),
-            index=webui_setting.get_index("include_timestamp"),
-        )
-        st.caption("只有带时间戳的字幕才支持自定义字幕速度。")
     with AudioSave:
         col1, col2 = st.columns([0.75, 0.25])
         st.markdown("")
@@ -118,7 +111,6 @@ with setting_tab:
             st.markdown("")
             if st.button("**保存更改**", use_container_width=True, type="primary"):
                 webui_setting.zh_set_value("guide", guide)
-                webui_setting.zh_set_value("include_timestamp", include_timestamp)
                 write_settings_file("audio.toml", webui_setting)
                 st.session_state[audio_keys["save"]] = True
                 st.rerun()
@@ -246,33 +238,29 @@ with working_tab:
                 print("\033[1;33m⚠️ 请不要在任务运行期间切换菜单或修改参数！\033[0m")
 
                 msg_whs = st.toast("正在识别音频内容", icon=":material/troubleshoot:")
-                if webui_setting.include_timestamp == "with_timestamp":
-                    asr_client = ASRClient()
-                    sentences = asr_client.post(
-                        ASRRequest(
-                            file_path=Path(cache_dir / st.session_state[audio_keys["audio_name"]]),
-                        )
+                asr_client = ASRClient()
+                sentences = asr_client.post(
+                    ASRRequest(
+                        file_path=Path(cache_dir / st.session_state[audio_keys["audio_name"]]),
                     )
-                    if sentences is None:
-                        st.error(
-                            "识别失败，请检查音频文件格式是否正确，或尝试使用其他音频文件。", icon=":material/error:"
-                        )
-                    else:
-                        # 保存 response 到 json 文件
-                        st.session_state[audio_keys["sentences"]] = sentences
-                        # 保存字幕
-                        print("\n\033[1;35m*** 正在生成 SRT 字幕文件 ***\033[0m\n")
-                        st.session_state[audio_keys["preview_srt_file"]] = (
-                            Path(asr_setting.output_dir) / "audio" / (audio_first_name + ".srt")
-                        )
-                        write_srt_from_sentences(
-                            sentences,
-                            st.session_state[audio_keys["preview_srt_file"]],
-                        )
-                        print("\033[1;34m🎉 字幕生成成功！\033[0m")
-
-                elif webui_setting.include_timestamp == "without_timestamp":
-                    st.error("暂时不支持无时间戳的字幕生成，请选择带时间戳的字幕。", icon=":material/error:")
+                )
+                if sentences is None:
+                    st.error(
+                        "识别失败，请检查音频文件格式是否正确，或尝试使用其他音频文件。", icon=":material/error:"
+                    )
+                else:
+                    # 保存 response 到 json 文件
+                    st.session_state[audio_keys["sentences"]] = sentences
+                    # 保存字幕
+                    print("\n\033[1;35m*** 正在生成 SRT 字幕文件 ***\033[0m\n")
+                    st.session_state[audio_keys["preview_srt_file"]] = (
+                        Path(asr_setting.output_dir) / "audio" / (audio_first_name + ".srt")
+                    )
+                    write_srt_from_sentences(
+                        sentences,
+                        st.session_state[audio_keys["preview_srt_file"]],
+                    )
+                    print("\033[1;34m🎉 字幕生成成功！\033[0m")
                 print("\033[1;34m🎉 FunASR 识别成功！\033[0m")
                 msg_whs.toast("音频内容识别完成", icon=":material/colorize:")
                 print("\033[1;34m🎉 任务成功结束！\033[0m")
