@@ -270,7 +270,7 @@ with BOTSave:
                     or current_settings["funasr"]["vad_model"] != initial_settings["paths"]["vad_model"]
                 ):
                     # 需要重新加载模型
-                    reload_client = ReloadClient("audio")
+                    reload_client = ReloadClient("asr")
                     st.toast("正在重新加载模型，请稍候...")
                     reload_client.post()
                 st.session_state[setting_keys["initial_settings"]] = (
@@ -288,7 +288,7 @@ with BOTSave:
             lab_settings.asr = asr_settings
             asr_setting_path.unlink()
             write_settings_file("lab.toml", lab_settings)
-            reload_client = ReloadClient("audio")
+            reload_client = ReloadClient("asr")
             st.toast("正在重新加载模型，请稍候...")
             reload_client.post()
             message_box("恢复成功！", "配置已恢复为默认设置。刷新页面即可查看更改。")

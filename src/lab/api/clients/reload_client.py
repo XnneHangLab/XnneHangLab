@@ -8,7 +8,7 @@ from lab.api.clients.base_client_interface import BaseClientInterface, BaseRespo
 
 
 class ReloadClient(BaseClientInterface):
-    def __init__(self, model_node: Literal["audio"]):
+    def __init__(self, model_node: Literal["asr"]):
         self.base_url = self.base_url + f"/{model_node}/reload"
 
     def post(self) -> None:  # type: ignore[override]
