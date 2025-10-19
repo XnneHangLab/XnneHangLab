@@ -47,6 +47,9 @@ subtitle_speed = st.session_state.get(audio_keys["subtitle_speed"], webui_settin
 cut_line: int = st.session_state.get(audio_keys["cut_line"], funasr_setting.cut_line)
 combine_line: int = st.session_state.get(audio_keys["combine_line"], funasr_setting.combine_line)
 max_sentence_length: int = st.session_state.get(audio_keys["max_sentence_length"], funasr_setting.max_sentence_length)
+asr_model_provider = st.session_state.get(audio_keys["asr_model_provider"], asr_setting.asr_model_provider)
+whisper_model_size = st.session_state.get(audio_keys["whisper_model_size"], whisper_setting.whisper_model_size)
+
 
 # 用于音频上传
 if audio_keys["audio_name"] not in st.session_state:
@@ -103,6 +106,18 @@ with setting_tab:
             webui_setting.get_zh_option_list("guide"),
             index=webui_setting.get_index("guide"),
         )
+        asr_model_provider = st.selectbox(
+            get_setting_title("asr_model_provider", ASRSettings),
+            asr_setting.get_zh_option_list("asr_model_provider"),
+            index=asr_setting.get_index("asr_model_provider"),
+        )
+        st.toast("FunASR 仅支持中英文,Whisper 支持多语言, 中文任务 FunASR 精度高")
+        if asr_model_provider == "Whisper":
+            whisper_model_size = st.selectbox(
+                get_setting_title("whisper_model_size", WhisperSettings),
+                whisper_setting.get_zh_option_list("whisper_model_size"),
+                index=whisper_setting.get_index("whisper_model_size"),
+            )
     with AudioSave:
         col1, col2 = st.columns([0.75, 0.25])
         st.markdown("")
@@ -111,7 +126,13 @@ with setting_tab:
             st.markdown("")
             if st.button("**保存更改**", use_container_width=True, type="primary"):
                 webui_setting.zh_set_value("guide", guide)
-                write_settings_file("audio.toml", webui_setting)
+                asr_setting.zh_set_value("asr_model_provider", asr_model_provider)
+                if asr_model_provider == "Whisper":
+                    whisper_setting.zh_set_value("whisper_model_size", whisper_model_size)
+                    asr_setting.whisper = whisper_setting
+                lab_settings.asr = asr_setting
+                lab_settings.webui = webui_setting
+                write_settings_file("lab.toml", lab_settings)
                 st.session_state[audio_keys["save"]] = True
                 st.rerun()
         with col1:
@@ -245,9 +266,7 @@ with working_tab:
                     )
                 )
                 if sentences is None:
-                    st.error(
-                        "识别失败，请检查音频文件格式是否正确，或尝试使用其他音频文件。", icon=":material/error:"
-                    )
+                    st.error("识别失败，请检查音频文件格式是否正确，或尝试使用其他音频文件。", icon=":material/error:")
                 else:
                     # 保存 response 到 json 文件
                     st.session_state[audio_keys["sentences"]] = sentences

@@ -30,10 +30,11 @@ audio_keys: AudioSessionStateKeys = {
     "save": "save",
     "upload": "upload",
     "cut_line": "cut_line",
-    "include_timestamp": "include_timestamp",
     "combine_line": "combine_line",
     "subtitle_speed": "subtitle_speed",
     "max_sentence_length": "max_sentence_length",
+    "asr_model_provider": "asr_model_provider",
+    "whisper_model_size": "whisper_model_size",
 }
 
 setting_keys: SettingSessionSateKeys = {

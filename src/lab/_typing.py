@@ -192,11 +192,12 @@ class AudioSessionStateKeys(TypedDict):
     guide: str  # guide
 
     # ======= 配置文件
-    include_timestamp: str  # 是否包含时间戳
     subtitle_speed: str  # 字幕速度
     cut_line: str
     combine_line: str
     max_sentence_length: str  # 最大句子长度
+    asr_model_provider: str  # ASR 模型系列 FunASR | Whisper
+    whisper_model_size: str  # Whisper 模型规格
 
 
 class SettingSessionSateKeys(TypedDict):
