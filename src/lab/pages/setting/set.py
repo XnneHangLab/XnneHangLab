@@ -199,7 +199,7 @@ with BOTSetting:
         key="whisper_model_size",
     )  # Add key
     st.caption(
-        "请确保下载的模型文件夹存放于 whisper_models_base_dir 下方且命名与选项，如 whisper_models_base_dir/large_v3_turbo"
+        "请确保下载的模型文件夹存放于 whisper_models_base_dir 下方且命名与所选规格一致，如 whisper_models_base_dir/large_v3_turbo"
     )
 
     st.markdown("")
