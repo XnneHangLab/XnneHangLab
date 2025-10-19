@@ -111,14 +111,14 @@ with setting_tab:
             asr_setting.get_zh_option_list("asr_model_provider"),
             index=asr_setting.get_index("asr_model_provider"),
         )
-        st.toast("FunASR 仅支持中英文,Whisper 支持多语言, 中文任务 FunASR 精度高")
+        st.caption("FunASR 仅支持中英文,Whisper 支持多语言, 中文任务 FunASR 精度高")
         if asr_model_provider == "Whisper":
             whisper_model_size = st.selectbox(
                 get_setting_title("whisper_model_size", WhisperSettings),
                 whisper_setting.get_zh_option_list("whisper_model_size"),
                 index=whisper_setting.get_index("whisper_model_size"),
             )
-            st.toast("tiny < base < turbo < large. 模型越大, 精度越高, 但速度越慢")
+            st.caption("tiny < base < turbo < large. 模型越大, 精度越高, 但速度越慢")
     with AudioSave:
         col1, col2 = st.columns([0.75, 0.25])
         st.markdown("")
