@@ -232,7 +232,7 @@ with BOTSave:
             initial_settings = st.session_state[setting_keys["initial_settings"]]
 
             if current_settings != initial_settings:  # Compare dictionaries
-                asr_settings.device = device if check_device_is_available(device=device) else "cpu"  # type: ignore
+                asr_settings.zh_set_value("device", device)
                 asr_settings.custom_output_dir = (
                     custom_output_dir if custom_output_dir else initial_settings["basic"]["custom_output_dir"]
                 )

@@ -39,7 +39,7 @@ i18n_dictionary: i18nDictionary = {
     "funasr": ("FunASR", 0),
     "whisper": ("Whisper", 1),
     "cpu": ("cpu", 0),
-    "cuda": ("cuda", 1),
+    "cuda": ("gpu", 1),
     "tiny": ("tiny", 0),
     "turbo": ("turbo", 1),
 }
