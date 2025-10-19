@@ -87,3 +87,19 @@ def funasr_asr_audio(input_path: Path, need_punc: bool = True) -> dict[str, Any]
     Model.model = funasr_model
     result = Model.forward(input_path, use_punc=need_punc)
     return result
+
+
+def whisper_asr_audio(input_path: Path) -> dict[str, Any]:
+    """
+    Perform Automatic Speech Recognition (ASR) using Whisper model on the uploaded audio file.
+    """
+    _model_instance = load_model()
+    if _model_instance is None:
+        raise ValueError("Whisper model instance is None. Please load the model first.")
+    if _model_instance["whisper"] is None:
+        raise ValueError("Whisper model instance is None. Please load the model first.")
+    whisper_model = _model_instance["whisper"]
+    Model = WhisperModel()
+    Model.model = whisper_model
+    result = Model.forward(input_path)
+    return result

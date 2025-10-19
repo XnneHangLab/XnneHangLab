@@ -149,6 +149,7 @@ class WhisperModel(ASRBaseModel):
         model = whisper.load_model(
             self.model_name, device=self.device, download_root=self.settings.asr.whisper.whisper_models_base_dir
         )
+        logger.info("Whisper 模型加载成功!")
         return model
 
     # ---------------------- 核心推理方法 ----------------------
