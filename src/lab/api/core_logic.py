@@ -48,12 +48,14 @@ def reload_model() -> Any:
     lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
     global _model_instance
     if _model_instance is not None:
-        if "funasr" in _model_instance and lab_settings.package.funasr:
-            if isinstance(_model_instance["funasr"], FunASRModel):
-                _model_instance["funasr"].reload_model()
+        if lab_settings.package.funasr:
+            funasr_model = FunASRModel()
+            funasr_model.reload_model()
+            _model_instance["funasr"] = funasr_model.model
         if "whisper" in _model_instance and lab_settings.package.whisper:
-            if isinstance(_model_instance["whisper"], WhisperModel):
-                _model_instance["whisper"].reload_model()
+            whisper_model = WhisperModel()
+            whisper_model.reload_model()
+            _model_instance["whisper"] = whisper_model.model
     else:
         _model_instance = load_model()  # 如果模型尚未加载，则调用加载函数
     return _model_instance
