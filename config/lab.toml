@@ -4,7 +4,7 @@ device = "cpu"
 custom_output_dir = false
 cache_dir = "./cache"
 output_dir = "./output"
-asr_model_provider = "funasr"
+asr_model_provider = "whisper"
 
 [asr.funasr]
 batch_size_s = 300
@@ -23,7 +23,7 @@ need_punc = false
 
 [asr.whisper]
 whisper_models_base_dir = "./models/whisper/"
-whisper_model_size = "tiny"
+whisper_model_size = "turbo"
 
 [webui]
 guide = "open"
