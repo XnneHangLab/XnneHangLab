@@ -20,6 +20,7 @@ dependencies = [
     "loguru>=0.7.3",
     "fastmcp>=2.10.4",
     # "google-genai>=1.25.0",
+    "typing-extensions>=4.15.0",
 ]
 authors = [{ name = "MrXnneHang", email = "XnneHang@gmail.com" }]
 keywords = []
