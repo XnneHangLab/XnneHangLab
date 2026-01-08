@@ -14,9 +14,6 @@ FunASRSettingsTitle = Literal[
     "base_model",
     "vad_model",
     "punc_model",
-    "combine_line",
-    "cut_line",
-    "max_sentence_length",
 ]
 
 
@@ -50,11 +47,6 @@ class FunASRSettings(WebUIi18nSettings):
         ),
     ]
 
-    cut: Annotated[bool, Field(False)]
-    cut_line: Annotated[int, Field(400, title="分割间隔(毫秒)")]
-    combine: Annotated[bool, Field(False)]
-    combine_line: Annotated[int, Field(400, title="合并间隔(毫秒)")]
-    max_sentence_length: Annotated[int, Field(20, title="最大单句长度")]
     need_punc: Annotated[bool, Field(False)]
 
     _FIELD_TO_LITERAL = {
@@ -82,7 +74,15 @@ class WhisperSettings(WebUIi18nSettings):
 # ====== ASR 总配置
 # 开放的配置项
 ASRSettingsTitle = Literal[
-    "device", "custom_output_dir", "cache_dir", "output_dir", "asr_model_provider", "FFMPEG_PATH"
+    "device",
+    "custom_output_dir",
+    "cache_dir",
+    "output_dir",
+    "asr_model_provider",
+    "FFMPEG_PATH",
+    "combine_line",
+    "cut_line",
+    "max_sentence_length",
 ]
 # 下拉式配置项
 ASRDropdownSetting = Literal["device", "asr_model_provider"]
@@ -98,6 +98,11 @@ class ASRSettings(WebUIi18nSettings):
     asr_model_provider: Annotated[ASRModelProvider, Field("funasr", title="ASR 模型提供商")]
     funasr: Annotated[FunASRSettings, Field(FunASRSettings())]  # pyright: ignore[reportCallIssue]
     whisper: Annotated[WhisperSettings, Field(WhisperSettings())]  # pyright: ignore[reportCallIssue]
+    cut: Annotated[bool, Field(False)]
+    cut_line: Annotated[int, Field(400, title="分割间隔(毫秒)")]
+    combine: Annotated[bool, Field(False)]
+    combine_line: Annotated[int, Field(400, title="合并间隔(毫秒)")]
+    max_sentence_length: Annotated[int, Field(20, title="最大单句长度")]
     _FIELD_TO_LITERAL = {
         "device": Device,
         "asr_model_provider": ASRModelProvider,

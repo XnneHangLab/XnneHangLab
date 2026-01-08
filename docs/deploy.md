@@ -64,7 +64,7 @@ cd XnneHangLab
 如果某个目录为空，可以后续手动更新比如：
 
 ```shell
-git submodule update --init --recursive examples
+git submodule update --init --recursive examples static packages/*
 ```
 
 ### 2. 自动安装依赖并下载必要模型权重文件

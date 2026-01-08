@@ -86,20 +86,20 @@ def add_recognize_arguments(parser: argparse.ArgumentParser, settings: ASRSettin
     group_config.add_argument(
         "--combine-line",
         type=int,
-        default=settings.funasr.combine_line,
-        help=f"合并短句的间隔临界值(ms), 默认为 {settings.funasr.combine_line} ",
+        default=settings.combine_line,
+        help=f"合并短句的间隔临界值(ms), 默认为 {settings.combine_line} ",
     )
     group_config.add_argument(
         "--cut-line",
         type=int,
-        default=settings.funasr.cut_line,
-        help=f"裁剪长句的间隔临界值(ms), 默认为 {settings.funasr.cut_line} ",
+        default=settings.cut_line,
+        help=f"裁剪长句的间隔临界值(ms), 默认为 {settings.cut_line} ",
     )
     group_config.add_argument(
         "--max-sentence-length",
         type=int,
-        default=settings.funasr.max_sentence_length,
-        help=f"最大句子长度,默认为 {settings.funasr.max_sentence_length} , 当句子超过这个长度时,就不再合并了",
+        default=settings.max_sentence_length,
+        help=f"最大句子长度,默认为 {settings.max_sentence_length} , 当句子超过这个长度时,就不再合并了",
     )
     group_config.add_argument("--need-punc", action="store_true", help="是否需要标点符号")
     # 隐藏了 punc_list , custom_output_dir, 前者除非出现新的未知标点符号导致 list index out of range 否则不需要修改, 后者只是用于维持 WebUI 的状态的.
