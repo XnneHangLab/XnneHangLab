@@ -44,9 +44,9 @@ whisper_setting: WhisperSettings = lab_settings.asr.whisper
 
 guide = st.session_state.get(audio_keys["guide"], webui_setting.guide)
 subtitle_speed = st.session_state.get(audio_keys["subtitle_speed"], webui_setting.subtitle_speed)
-cut_line: int = st.session_state.get(audio_keys["cut_line"], funasr_setting.cut_line)
-combine_line: int = st.session_state.get(audio_keys["combine_line"], funasr_setting.combine_line)
-max_sentence_length: int = st.session_state.get(audio_keys["max_sentence_length"], funasr_setting.max_sentence_length)
+cut_line: int = st.session_state.get(audio_keys["cut_line"], asr_setting.cut_line)
+combine_line: int = st.session_state.get(audio_keys["combine_line"], asr_setting.combine_line)
+max_sentence_length: int = st.session_state.get(audio_keys["max_sentence_length"], asr_setting.max_sentence_length)
 asr_model_provider = st.session_state.get(audio_keys["asr_model_provider"], asr_setting.asr_model_provider)
 whisper_model_size = st.session_state.get(audio_keys["whisper_model_size"], whisper_setting.whisper_model_size)
 
@@ -344,7 +344,7 @@ with working_tab:
                 st.markdown("")
                 if subtitle_speed == "快":
                     cut_line = st.slider(
-                        get_setting_title("cut_line", FunASRSettings),
+                        get_setting_title("cut_line", ASRSettings),
                         min_value=100,
                         max_value=1000,
                         value=cut_line,
@@ -355,7 +355,7 @@ with working_tab:
                     st.markdown("")
                 if subtitle_speed == "慢":
                     combine_line = st.slider(
-                        get_setting_title("combine_line", FunASRSettings),
+                        get_setting_title("combine_line", ASRSettings),
                         min_value=100,
                         max_value=1000,
                         value=combine_line,
@@ -364,7 +364,7 @@ with working_tab:
                     )
                     st.caption("两个字间隔时长小于这个值合并为一句。")
                     max_sentence_length = st.slider(
-                        get_setting_title("max_sentence_length", FunASRSettings),
+                        get_setting_title("max_sentence_length", ASRSettings),
                         min_value=5,
                         max_value=40,
                         value=max_sentence_length,
@@ -379,7 +379,7 @@ with working_tab:
                     if subtitle_speed == "慢":
                         sentences = combine_sentences(
                             sentences,
-                            max_sentence_length=funasr_setting.max_sentence_length,
+                            max_sentence_length=max_sentence_length,
                             combine_line=combine_line,
                         )
                     elif subtitle_speed == "快":
