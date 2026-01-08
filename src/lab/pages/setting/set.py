@@ -228,7 +228,9 @@ with BOTSave:
                     batch_size_s=batch_size_s,
                 ),
                 whisper=WhisperSettingsDict(
-                    whisper_models_base_dir=whisper_models_base_dir if whisper_models_base_dir else initial_settings["whisper"]["whisper_models_base_dir"],
+                    whisper_models_base_dir=whisper_models_base_dir
+                    if whisper_models_base_dir
+                    else initial_settings["whisper"]["whisper_models_base_dir"],
                     whisper_model_size=whisper_model_size,
                 ),
             )
@@ -270,7 +272,8 @@ with BOTSave:
                     or current_settings["funasr"]["base_model"] != initial_settings["funasr"]["base_model"]
                     or current_settings["funasr"]["punc_model"] != initial_settings["funasr"]["punc_model"]
                     or current_settings["funasr"]["vad_model"] != initial_settings["funasr"]["vad_model"]
-                    or current_settings["whisper"]["whisper_model_size"] != initial_settings["whisper"]["whisper_model_size"]
+                    or current_settings["whisper"]["whisper_model_size"]
+                    != initial_settings["whisper"]["whisper_model_size"]
                 ):
                     # 需要重新加载模型
                     reload_client = ReloadClient("asr")
