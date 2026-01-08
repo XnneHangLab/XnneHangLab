@@ -88,8 +88,8 @@ def _iter_file(path: Path, chunk_size: int = 1024 * 256):
                 break
             yield chunk
 
-@router.get("/tts")
-@router.post("/tts")
+@router.get("/tts/gptsovitsv2")
+@router.post("/tts/gptsovitsv2")
 async def tts_webapi_v2_compat(request: Request, background_tasks: BackgroundTasks):
     raw = await _read_request_data(request)
     data = _normalize_webapi_v2_params(raw)

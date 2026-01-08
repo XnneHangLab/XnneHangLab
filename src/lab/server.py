@@ -143,8 +143,9 @@ class WebSocketServer:
             self.app.include_router(vits_router)
         if lab_settings.package.gpt_sovits:
             from lab.api.routes.gpt_sovits import router as gsv_router
-
+            from lab.api.routes.gpt_sovits_v2 import router as gsv_v2_router
             self.app.include_router(gsv_router)
+            self.app.include_router(gsv_v2_router)
 
         # Mount static files
         logger.info(f"Mounting static files from {ROOT_DIR}")
