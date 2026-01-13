@@ -88,8 +88,12 @@ def _iter_file(path: Path, chunk_size: int = 1024 * 256):
                 break
             yield chunk
 
-@router.get("/tts/gptsovitsv2")
-@router.post("/tts/gptsovitsv2")
+# 我为什么又写上了 /tts?
+# 因为 https://github.com/qzrs777/AIChat
+# 它的最终接口硬拼凑了一个 /tts 路径。暂时这么写，等我大改 Mod 的时候就会顺便修改掉那个硬拼的内容。
+
+@router.get("/tts/gptsovitsv2/tts")
+@router.post("/tts/gptsovitsv2/tts")
 async def tts_webapi_v2_compat(request: Request, background_tasks: BackgroundTasks):
     raw = await _read_request_data(request)
     data = _normalize_webapi_v2_params(raw)
