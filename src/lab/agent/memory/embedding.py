@@ -23,6 +23,7 @@ lab_settings: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSe
 
 
 # maxsize=1 保证了 pipeline 只会初始化一次，之后都会直接返回缓存的对象
+# TODO 存在的隐患，如果 lab_settings 被修改，比如切换了使用了 embedding_model，但这里会延用第一次初始化的时候的 cache，所以真正多模型切换的时候还得做模型卸载。暂时不这么做。
 @lru_cache(maxsize=1)
 def get_embedding_pipeline():
     return pipeline(Tasks.sentence_embedding, model=lab_settings.agent.memory.embedding_model_path, sequence_length=100)
