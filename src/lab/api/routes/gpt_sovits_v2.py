@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
@@ -9,12 +9,18 @@ from gsv.gsv_state_manager import gsv_tts_state_manager
 
 from lab.utils.FFmpegHelper import file_to_mp3
 
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
 router = APIRouter()
 
 REF_AUDIO_BASE_DIR = Path("./models/gptsovits/elaina").resolve()
 
 
 def _resolve_ref_audio_path(p: str) -> str:
+    """
+    解析 ref_audio_path，确保它是绝对路径，且在 REF_AUDIO_BASE_DIR 下。
+    """
     cand = Path(p)
     if not cand.is_absolute():
         cand = (REF_AUDIO_BASE_DIR / cand).resolve()
@@ -83,7 +89,10 @@ def _normalize_webapi_v2_params(data: dict[str, Any]) -> dict[str, Any]:
     return d
 
 
-def _iter_file(path: Path, chunk_size: int = 1024 * 256):
+def _iter_file(path: Path, chunk_size: int = 1024 * 256) -> Generator[bytes, None, None]:
+    """
+    按 chunk_size 读取文件内容，返回字节流。
+    """
     with path.open("rb") as f:
         while True:
             chunk = f.read(chunk_size)
@@ -95,8 +104,6 @@ def _iter_file(path: Path, chunk_size: int = 1024 * 256):
 # 我为什么又写上了 /tts?
 # 因为 https://github.com/qzrs777/AIChat
 # 它的最终接口硬拼凑了一个 /tts 路径。暂时这么写，等我大改 Mod 的时候就会顺便修改掉那个硬拼的内容。
-
-
 @router.get("/tts/gptsovitsv2/tts")
 @router.post("/tts/gptsovitsv2/tts")
 async def tts_webapi_v2_compat(request: Request, background_tasks: BackgroundTasks):

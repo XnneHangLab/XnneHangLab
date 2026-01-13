@@ -79,19 +79,19 @@ justfile             # useful scripts like start or install models.
 
 ### 3.4. Docstrings & Comments (CRITICAL)
 
-  - All public modules, functions, classes, and methods **MUST** have a docstring in English.
+  - All public modules, functions, classes, and methods **MUST** have a docstring in English or Chinese.
   - Use the **Google Python Style** for docstrings.
   - Docstrings **MUST** include:
     1.  Summary.
     2.  `Args:` section describing each parameter, its type, and its purpose.
     3.  `Returns:` section describing the return value, its type, and its meaning.
     4.  (Optional but encouraged) `Raises:` section for any exceptions thrown.
-  - All other code comments must also be in English.
+  - All other code comments must also be in English or Chinese.
 
 ### 3.5. Logging
 
   - Use the `loguru` module for all informational or error output.
-  - Log messages should be in English, clear, and informative. Use emoji when appropriate.
+  - Log messages should be in English or Chinese, clear, and informative. Use emoji when appropriate.
 
 
 ### 3.6. For PR
