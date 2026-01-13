@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -6,13 +5,14 @@ from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
-
 from gsv.gsv_state_manager import gsv_tts_state_manager
+
 from lab.utils.FFmpegHelper import file_to_mp3
 
 router = APIRouter()
 
 REF_AUDIO_BASE_DIR = Path("./models/gptsovits/elaina").resolve()
+
 
 def _resolve_ref_audio_path(p: str) -> str:
     cand = Path(p)
@@ -26,6 +26,7 @@ def _resolve_ref_audio_path(p: str) -> str:
         raise HTTPException(status_code=404, detail=f"ref_audio_path not found: {cand}")
     return str(cand)
 
+
 async def _read_request_data(request: Request) -> dict[str, Any]:
     """
     WebAPI v2 主要是 GET query；但也兼容 POST(json / form) 以防你后面还要复用。
@@ -38,7 +39,7 @@ async def _read_request_data(request: Request) -> dict[str, Any]:
         try:
             return await request.json()
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid JSON body: {e}")
+            raise HTTPException(status_code=400, detail=f"Invalid JSON body: {e}") from e
 
     if "application/x-www-form-urlencoded" in ctype or "multipart/form-data" in ctype:
         form = await request.form()
@@ -46,6 +47,7 @@ async def _read_request_data(request: Request) -> dict[str, Any]:
 
     # fallback：允许 query 兜底
     return dict(request.query_params)
+
 
 def _normalize_webapi_v2_params(data: dict[str, Any]) -> dict[str, Any]:
     """
@@ -80,6 +82,7 @@ def _normalize_webapi_v2_params(data: dict[str, Any]) -> dict[str, Any]:
 
     return d
 
+
 def _iter_file(path: Path, chunk_size: int = 1024 * 256):
     with path.open("rb") as f:
         while True:
@@ -88,9 +91,11 @@ def _iter_file(path: Path, chunk_size: int = 1024 * 256):
                 break
             yield chunk
 
+
 # 我为什么又写上了 /tts?
 # 因为 https://github.com/qzrs777/AIChat
 # 它的最终接口硬拼凑了一个 /tts 路径。暂时这么写，等我大改 Mod 的时候就会顺便修改掉那个硬拼的内容。
+
 
 @router.get("/tts/gptsovitsv2/tts")
 @router.post("/tts/gptsovitsv2/tts")
@@ -138,8 +143,10 @@ async def tts_webapi_v2_compat(request: Request, background_tasks: BackgroundTas
     # background_tasks.add_task(out_path.unlink, missing_ok=True)
 
     if streaming_mode:
-        return StreamingResponse(_iter_file(out_path), media_type=media_type, headers={
-            "Content-Disposition": f'attachment; filename="{filename}"'
-        })
+        return StreamingResponse(
+            _iter_file(out_path),
+            media_type=media_type,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
     else:
         return FileResponse(out_path, media_type=media_type, filename=filename)
