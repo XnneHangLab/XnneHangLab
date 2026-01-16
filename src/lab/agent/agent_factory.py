@@ -49,6 +49,12 @@ class AgentFactory:
                 base_url=agent_settings.llm.openai.llm_base_url,
                 llm_api_key=agent_settings.llm.openai.llm_api_key,
             )
+        elif agent_settings.llm_provider == "oaipro":
+            llm = StatelessLLMFactory.create_llm(
+                model=agent_settings.llm.oaipro.llm_model_name,
+                base_url=agent_settings.llm.oaipro.llm_base_url,
+                llm_api_key=agent_settings.llm.oaipro.llm_api_key,
+            )
         else:
             raise ValueError(f"Unknown LLM provider: {agent_settings.llm_provider}")
 

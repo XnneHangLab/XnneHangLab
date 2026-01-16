@@ -101,7 +101,7 @@ class LLMSettings(BaseModel):
 
 
 class AgentSettings(BaseModel):
-    llm_provider: Annotated[Literal["openai", "lingyi", "gemini"], Field("lingyi", title="LLM Provider")]
+    llm_provider: Annotated[Literal["openai", "lingyi", "gemini", "oaipro"], Field("lingyi", title="LLM Provider")]
     enable_mcp: Annotated[bool, Field(True, title="Enable MCP")]
     llm: Annotated[LLMSettings, Field(LLMSettings())]  # pyright: ignore[reportCallIssue]
     character_name: Annotated[
