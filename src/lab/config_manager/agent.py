@@ -34,6 +34,10 @@ class OpenAISetting(LLMSettingBase):
     llm_base_url: Annotated[str, Field("https://api.openai.com/v1", title="ChatGPT API Base URL")]
     llm_model_name: Annotated[str, Field("gpt-4o", title="ChatGPT Model Name")]
 
+class OAIPROSetting(OpenAISetting):
+    llm_model_name: Annotated[str, Field("gpt-5.1-2025-11-13", title="OAIPRO Model Name")]
+    llm_base_url: Annotated[str, Field("https://api.oaipro.com/v1", title="OAIPRO API Base URL")]
+
 
 # Long Term Memory
 
@@ -92,6 +96,7 @@ class LLMSettings(BaseModel):
     openai: Annotated[OpenAISetting, Field(OpenAISetting())]  # pyright: ignore[reportCallIssue]
     lingyi: Annotated[LingyiSetting, Field(LingyiSetting())]  # pyright: ignore[reportCallIssue]
     gemini: Annotated[GeminiSetting, Field(GeminiSetting())]  # pyright: ignore[reportCallIssue]
+    oaipro: Annotated[OAIPROSetting, Field(OAIPROSetting())]  # pyright: ignore[reportCallIssue]
 
 
 class AgentSettings(BaseModel):
@@ -152,3 +157,6 @@ def main():
     agent_path = search_for_settings_file("agent.toml")
     if agent_path is not None and agent_path.exists():
         agent_path.unlink()  # remove agent.toml
+
+if __name__ == "__main__":
+    main()
