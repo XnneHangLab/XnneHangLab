@@ -53,19 +53,19 @@ def main():
     # 记录脱敏后的配置信息
     logger.info("llm.openai.llm_api_key: {}", mask_api_key(settings.agent.llm.openai.llm_api_key))
     logger.info("llm.openai.llm_model_name: {}", settings.agent.llm.openai.llm_model_name)
-    
+
     logger.info("llm.lingyi.llm_api_key: {}", mask_api_key(settings.agent.llm.lingyi.llm_api_key))
     logger.info("llm.lingyi.llm_model_name: {}", settings.agent.llm.lingyi.llm_model_name)
-    
+
     logger.info("llm.gemini.llm_api_key: {}", mask_api_key(settings.agent.llm.gemini.llm_api_key))
     logger.info("llm.gemini.llm_model_name: {}", settings.agent.llm.gemini.llm_model_name)
-    
+
     logger.info("llm.oaipro.llm_api_key: {}", mask_api_key(settings.agent.llm.oaipro.llm_api_key))
     logger.info("llm.oaipro.llm_model_name: {}", settings.agent.llm.oaipro.llm_model_name)
-    
+
     logger.info("llm.cerebras.llm_api_key: {}", mask_api_key(settings.agent.llm.cerebras.llm_api_key))
     logger.info("llm.cerebras.llm_model_name: {}", settings.agent.llm.cerebras.llm_model_name)
-    
+
     logger.info("agent.deeplx_api_key: {}", mask_api_key(settings.agent.deeplx_api_key))
 
     logger.info("Sync API key done!")
