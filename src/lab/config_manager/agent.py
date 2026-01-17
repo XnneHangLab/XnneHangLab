@@ -35,9 +35,14 @@ class OpenAISetting(LLMSettingBase):
     llm_model_name: Annotated[str, Field("gpt-4o", title="ChatGPT Model Name")]
 
 
-class OAIPROSetting(OpenAISetting):
+class OAIPROSetting(LLMSettingBase):
     llm_model_name: Annotated[str, Field("gpt-5.1-2025-11-13", title="OAIPRO Model Name")]
     llm_base_url: Annotated[str, Field("https://api.oaipro.com/v1", title="OAIPRO API Base URL")]
+
+
+class CerebrasSetting(LLMSettingBase):
+    llm_base_url: Annotated[str, Field("https://api.cerebras.ai/v1", title="Cerebras API Base URL")]
+    llm_model_name: Annotated[str, Field("llama-3.3-70b", title="Cerebras Model Name")]
 
 
 # Long Term Memory
@@ -98,10 +103,11 @@ class LLMSettings(BaseModel):
     lingyi: Annotated[LingyiSetting, Field(LingyiSetting())]  # pyright: ignore[reportCallIssue]
     gemini: Annotated[GeminiSetting, Field(GeminiSetting())]  # pyright: ignore[reportCallIssue]
     oaipro: Annotated[OAIPROSetting, Field(OAIPROSetting())]  # pyright: ignore[reportCallIssue]
+    cerebras: Annotated[CerebrasSetting, Field(CerebrasSetting())]  # pyright: ignore[reportCallIssue]
 
 
 class AgentSettings(BaseModel):
-    llm_provider: Annotated[Literal["openai", "lingyi", "gemini", "oaipro"], Field("lingyi", title="LLM Provider")]
+    llm_provider: Annotated[Literal["openai", "lingyi", "gemini", "oaipro", "cerebras"], Field("oaipro", title="LLM Provider")]
     enable_mcp: Annotated[bool, Field(True, title="Enable MCP")]
     llm: Annotated[LLMSettings, Field(LLMSettings())]  # pyright: ignore[reportCallIssue]
     character_name: Annotated[
