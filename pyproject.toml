@@ -21,7 +21,7 @@ dependencies = [
     "fastmcp>=2.10.4",
     # "google-genai>=1.25.0",
     "typing-extensions>=4.15.0",
-    "dotenv>=0.9.9",
+    "python-dotenv>=1.1.1",
 ]
 authors = [{ name = "MrXnneHang", email = "XnneHang@gmail.com" }]
 keywords = []
