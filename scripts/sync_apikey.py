@@ -18,6 +18,22 @@ def mask_api_key(api_key: str) -> str:
 
 
 def main():
+    """
+    从环境变量加载API密钥并同步到lab.toml配置文件。
+
+    此函数的主要功能：
+    1. 从.env文件加载环境变量
+    2. 读取lab.toml配置文件
+    3. 将环境变量中的各类API密钥和模型名称填充到配置对象中
+    4. 记录脱敏后的配置信息到日志
+    5. 将更新后的配置写回lab.toml文件
+
+    参数:
+        无
+
+    返回值:
+        无
+    """
     load_dotenv()
     settings = load_settings_file("lab.toml", XnneHangLabSettings)
 
