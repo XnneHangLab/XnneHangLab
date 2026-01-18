@@ -78,3 +78,6 @@ tmp_audio/
 .openmcp
 whipser/
 *.pt
+
+# api key
+.env

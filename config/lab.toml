@@ -30,7 +30,7 @@ guide = "open"
 subtitle_speed = "normal"
 
 [agent]
-llm_provider = "gemini"
+llm_provider = "oaipro"
 enable_mcp = true
 character_name = "elaina"
 deeplx_api_key = ""
@@ -57,6 +57,16 @@ llm_api_key = ""
 llm_base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
 llm_model_name = "gemini-2.5-flash"
 
+[agent.llm.oaipro]
+llm_api_key = ""
+llm_base_url = "https://api.oaipro.com/v1"
+llm_model_name = "gpt-5.1-2025-11-13"
+
+[agent.llm.cerebras]
+llm_api_key = ""
+llm_base_url = "https://api.cerebras.ai/v1"
+llm_model_name = "llama-3.3-70b"
+
 [agent.memory]
 embedding_model_path = "./models/nlp_gte_sentence-embedding_chinese-base"
 books_thresholds = 0.5
@@ -81,12 +91,12 @@ path = "/"
 log_level = "debug"
 
 [package]
-funasr = true
-whisper = true
+funasr = false
+whisper = false
 to_do_list = true
 yutto_uiya = true
 bert_vits = false
 gpt_sovits = false
 
 [root]
-root_dir = "/home/xnne/tmp/XnneHangLab"
+root_dir = "D:\\tmp\\XnneHangLab"
