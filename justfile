@@ -7,6 +7,10 @@ start:
   uv run get_root
   uv run streamlit run src/lab/ui.py --server.port 8051
 
+clean-venv:
+  # 如果在 windows 上删不干净，可以运行 `FileLocksmithCLI.exe --kill "D:\tmp\XnneHangLab\.venv"`
+  rm ./.venv -rf
+
 dev:
     # 删除所有构建产物和缓存 / 二次操作防止缓存问题恢复代码
     rm -rf packages/*/dist
@@ -105,6 +109,14 @@ install-sensevoice:
   uv sync
   # SenseVoiceSmall
   uv run modelscope download --model iic/SenseVoiceSmall --local_dir ./models/SenseVoiceSmall
+
+install-bert-model:
+  uv lock
+  uv sync
+  modelscope download --model pengzhendong/chinese-hubert-base --local_dir ./models/chinese-hubert-base pytorch_model.bin
+  modelscope download --model dienstag/chinese-roberta-wwm-ext-large --local_dir ./models/chinese-roberta-wwm-ext-large  \
+  pytorch_model.bin added_tokens.json config.json configuration.json README.md special_tokens_map.json tokenizer_config.json tokenizer.json
+  # 这里不能用 --exclude 同时排除 tf_model.h5 和 flax_model.msgpack，多次 exclude 只会保留最后一个，所以这里指定了所有需要的文件
 
 # Code Quality Check
 
