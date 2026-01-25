@@ -1,11 +1,11 @@
 Data/
-bert/
+pytorch_model.bin
+*.pt
 chat_history/
 test_chat_history/
 config.yml
 config/setting.toml
 logs/
-# packages/bert-vits/
 ./*.mp3
 ./*.opus
 ./*.json
@@ -21,7 +21,6 @@ punc_ct-transformer_zh-cn-common-vocab272727-pytorch/
 speech_fsmn_vad_zh-cn-16k-common-pytorch/
 speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch/
 nlp_gte_sentence-embedding_chinese-base/
-BERT-VITS2.3
 SenseVoiceSmall/
 output.txt
 *.srt
@@ -81,3 +80,7 @@ whipser/
 
 # api key
 .env
+
+# bert model
+chinese-roberta-wwm-ext-large/
+chinese-hubert-base/

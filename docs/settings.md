@@ -28,7 +28,7 @@
 如果你只想允许本项目的部分功能，那么可以考虑调整它。并且跟随调整 pyproject.toml 中的:
 
 ```shell
-default-groups = ["dev","yutto-uiya","bert-vits","database","vtuber"] 
+default-groups = ["dev","yutto-uiya","database","vtuber"] 
 ```
 
 可以起到项目瘦身的效果。当然目前的方案还是有局限性，如果你存在更好的管理方案欢迎提出。
@@ -43,17 +43,12 @@ default-groups = ["dev","yutto-uiya","bert-vits","database","vtuber"]
 - 默认值: true
 - 特性：仅影响 WebUI
 
-**bert_vits**
-- 描述: 运行时是否包含 `bert-vits` 模块, 以及 fastapi 的 lifespan 是否加载 BERT-VITS 模型。
-- 默认值: true
-- 特性：影响 WebUI 和 fastapi 和 vtuber 功能
-
 **gpt_sovits**
 - 描述: 运行时是否包含 `gpt-sovits` 模块, 以及 fastapi 的 lifespan 是否加载 GPT-SoVITS 模型。
 - 默认值: true
 - 特性：影响 fastapi 和 vtuber 功能
 
-如果你希望使用 Vtuber 功能则需要至少开启 `bert-vits` 或者 `gpt-sovits`。
+如果你希望使用 Vtuber 功能则需要开启 `gpt-sovits`。
 
 ### lab.toml `[agent]`
 
@@ -89,10 +84,9 @@ default-groups = ["dev","yutto-uiya","bert-vits","database","vtuber"]
 **speaker_model**
 - 描述: 使用的 TTS 模型名称
 - 默认值: "gpt_sovits"
-- 可选: ["bert_vits", "gpt_sovits"]
+- 可选: ["gpt_sovits"]
 - 注意点:
-  - bert_vits 的推理设备需要更改 `config/bert_vits.yaml` 中的 `device` 字段，可以全部替换。
-  - gpt_sovits 配置位于 `config/gsv_config.yaml` 自动加载显卡如果可用。
+  - gpt_sovits 配置位于 `config/gsv_config.json` 自动加载显卡如果可用。
 
 **faster_first_response** 
 
@@ -185,19 +179,6 @@ llm 相关配置。你需要至少填写一个。
 Open-LLM-Vtuber 的配置文件。其中大部分已经用不到，而用得到的部分一般也不需要人来改。
 
 `live2d_model_name` ：配置 live2d 模型。可选项：[`shizuku-local`,`mao_pro`, `elaina-local`]
-
-### `bert_vits.yaml`
-
-Bert-VITS 推理时的配置。
-
-你只需要关心这几行:
-
-dataset_path: "models/BERT-VITS2.3/xishi"  | speaker 路径配置。
-
-device: "cpu" / "cuda" | bert-vits 推理使用的设备, 如果你希望使用 cpu 或者 cuda, 把每处都替换了即可。
-
-model: "models/G_0.pth"  | 模型路径，只需要更改 G_XX 即可，模型具体路径由 dataset_path 也就是 speaker 路径决定。
-
 
 ## json
 

@@ -65,12 +65,6 @@ class VadResponse(TypedDict):
     audio_length: int
 
 
-class BERTVITSResponse(TypedDict):
-    audio_type: Literal["opus"]  # 音频类型, 固定为 "opus"
-    audio_rate: int
-    audio_byte: bytes  # base64.b64encode(opus_bytes).decode("utf-8")
-
-
 class GPTSoVITSResponse(TypedDict):
     audio_type: Literal["mp3"]
     audio_rate: int
@@ -162,7 +156,6 @@ class Packages(TypedDict):
     funasr: bool  # 是否包含 funasr 模块
     to_do_list: bool
     yutto_uiya: bool
-    bert_vits: bool
     gpt_sovits: bool
 
 

@@ -8,12 +8,11 @@ from urllib.parse import urlparse
 import requests
 from tqdm import tqdm
 
-# 确保安装了 requests 库: pip install requests
-
 
 def download_file_with_path(url: str, output_dir: Path, filename: str | None = None):
     """
     使用 Path 对象从 URL 下载文件并保存到指定目录。
+    使用 requests 库进行下载，支持大文件下载和进度显示。
 
     Args:
         url (str): 要下载的文件的 URL。
@@ -78,7 +77,7 @@ def download_file_with_path(url: str, output_dir: Path, filename: str | None = N
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="下载 Whisper 模型文件。")
+    parser = argparse.ArgumentParser(description="用 requests 库下载文件")
 
     # 允许传入一个或多个 URL
     parser.add_argument(

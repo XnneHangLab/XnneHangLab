@@ -23,8 +23,6 @@ def main():
         "audio": ROOT_DIR / "src" / "lab" / "pages" / "project" / "audio.py",
         "settings": ROOT_DIR / "src" / "lab" / "pages" / "setting" / "set.py",
     }
-    if lab_settings.package.bert_vits:
-        PAGE_PATHS["bert-vits"] = ROOT_DIR / "packages" / "bert-vits" / "src" / "vits" / "bert_vits.py"
     if lab_settings.package.to_do_list:
         PAGE_PATHS["todo"] = ROOT_DIR / "packages" / "todo" / "src" / "todo" / "streamlit_to_do.py"
     if lab_settings.package.yutto_uiya:
@@ -52,14 +50,6 @@ def main():
             ),
         ],
     }
-    if lab_settings.package.bert_vits:
-        pages["Project"].append(
-            st.Page(
-                page=str(PAGE_PATHS["bert-vits"]),
-                title="BERT-VITS",
-                icon=":material/robot:",
-            ),
-        )
     if lab_settings.package.to_do_list:
         pages["Project"].append(
             st.Page(

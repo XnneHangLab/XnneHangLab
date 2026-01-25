@@ -92,22 +92,12 @@ yutto-uiya = [
   "natsort>=8.4.0",
 ]
 
-# 如果希望使用 tts 比如 bert_vits 或者均需要加入以下前置
+# 如果希望使用 tts 比如 gpt_sovits 均需要加入以下前置
 tts_base = [
   "librosa==0.9.2",
   "g2p-en>=2.1.0",
   "cn2an>=0.5.23",
   "pypinyin>=0.54.0",
-]
-  
-
-bert-vits = [
-  "regex>=2024.11.6",
-  "num2words>=0.5.14",
-  "pyopenjtalk>=0.4.1",
-  "vector-quantize-pytorch>=1.22.16",
-  "mecab-python3==1.0.8",
-  "huggingface-hub==0.32.2",
 ]
 
 gpt_sovits = [
@@ -138,7 +128,7 @@ vtuber = [
 
 longterm_memory = [
   "addict>=2.4.0",
-  "datasets>=3.2.0",
+  "datasets>=3.0.0,<=3.6.0",
   "simplejson>=3.20.1",
   "sortedcontainers>=2.4.0",
   "faiss-cpu>=1.11.0.post1",
@@ -149,15 +139,9 @@ longterm_memory = [
 
 [tool.uv]
 default-groups = ["base","funasr","whisper","dev", "yutto-uiya", "tts_base", "gpt_sovits", "vtuber","longterm_memory", "database"]
-conflicts = [
-    [
-        { group = "bert_vits" },
-        { group = "base" },
-    ], # huggingface-hub and transformers 冲突未解决
-]
 
 [tool.uv.workspace]
-members = ["packages/yutto-uiya","packages/todo/","packages/bert-vits","packages/gpt_sovits"]
+members = ["packages/yutto-uiya","packages/todo/","packages/gpt_sovits"]
 
 [[tool.uv.index]]
 name = "pytorch-cu118"
@@ -250,7 +234,7 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 
 [tool.hatch.build.targets.wheel]
 
-packages = ["src/lab","packages/todo/src/todo","packages/yutto-uiya/src/uiya","packages/bert-vits/src/vits","packages/gpt_sovits/src/gsv"]
+packages = ["src/lab","packages/todo/src/todo","packages/yutto-uiya/src/uiya","packages/gpt_sovits/src/gsv"]
 
 [build-system]
 requires = ["hatchling"]
