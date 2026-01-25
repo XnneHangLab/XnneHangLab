@@ -60,6 +60,7 @@ async def lifespan(app: FastAPI):
 
         from gsv.gsv_state_manager import gsv_tts_state_manager
 
+        logger.info("预加载 GPT-SoVITS 模型...")
         synthesizer_name = "gsv_fast"
         synthesizer_module = import_module(f"gsv.Synthesizers.{synthesizer_name}")
         TTS_Synthesizer = synthesizer_module.TTS_Synthesizer
