@@ -30,13 +30,13 @@ guide = "open"
 subtitle_speed = "normal"
 
 [agent]
-llm_provider = "oaipro"
-enable_mcp = true
+llm_provider = "cerebras"
+enable_mcp = false
 character_name = "elaina"
 deeplx_api_key = ""
 user_lang = "ZH"
 speaker_lang = "EN"
-enable_longterm_memory = true
+enable_longterm_memory = false
 speaker_model = "gpt_sovits"
 faster_first_response = false
 segment_method = "pysbd"
@@ -91,11 +91,11 @@ path = "/"
 log_level = "debug"
 
 [package]
-funasr = false
+funasr = true
 whisper = false
 to_do_list = true
 yutto_uiya = true
-gpt_sovits = false
+gpt_sovits = true
 
 [root]
 root_dir = "D:\\tmp\\XnneHangLab"
