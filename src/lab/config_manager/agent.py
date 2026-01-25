@@ -134,7 +134,7 @@ class AgentSettings(BaseModel):
     ]
     enable_longterm_memory: Annotated[bool, Field(True, title="Enable Long-term Memory")]
     memory: Annotated[LongTermMemorySettings, Field(LongTermMemorySettings())]  # pyright: ignore[reportCallIssue]
-    speaker_model: Annotated[Literal["bert_vits", "gpt_sovits"], Field("gpt_sovits", title="选择使用什么模型合成语音")]
+    speaker_model: Annotated[Literal["gpt_sovits"], Field("gpt_sovits", title="选择使用什么模型合成语音")]
     faster_first_response: Annotated[bool, Field(False, title="Enable Faster First Response")]
     segment_method: Literal["regex", "pysbd"] = Field(
         "pysbd",
