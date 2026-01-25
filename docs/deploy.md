@@ -59,12 +59,12 @@ git clone https://github.com/XnneHangLab/XnneHangLab.git --recurse-submodules
 cd XnneHangLab
 ```
 
-你应该保证 `submodules` 都被克隆完全。只要保证 `packages/*/`,`static/`,`examples` 均不为空即可。 
+你应该保证 `submodules` 都被克隆完全。只要保证 `packages/*/`,`static/`,`examples`,`frontend` 均不为空即可。 
 
 如果某个目录为空，可以后续手动更新比如：
 
 ```shell
-git submodule update --init --recursive examples static packages/*
+git submodule update --init --recursive examples static packages/* frontend
 ```
 
 ### 2. 自动安装依赖并下载必要模型权重文件
@@ -74,6 +74,7 @@ git submodule update --init --recursive examples static packages/*
 ```shell
 just install-model
 just install-nltk # 安装 nltk 依赖
+just install-frontend
 ```
 
 过程可能较久，因为需要先安装 python 环境，然后再下载模型， 模型和环境都不小, 建议可以先构建 cpu 版本进行功能预览，等有性能和批处理需求了再构建 gpu 版本的 torch。
@@ -129,39 +130,7 @@ BERT_VITS 几乎全用到了。
 链接: https://pan.baidu.com/s/1LGcyc9habnUcjeehNc18Pw?pwd=6ghj 提取码: 6ghj 
 ```
 
-
-### 4. 手动下载 BertVITS2.3 的模型。(如果你希望使用 VTuber 功能)
-
-有几种下载途径：
-
-- 直接从 hugging face 上下官方的底模: https://huggingface.co/OedoSoldier/Bert-VITS2-2.3/tree/main
-- 从我的网盘上下: 
-```shell
-链接: https://pan.baidu.com/s/1ItMmGUAnqlD7FhvqkUnvCQ?pwd=h22x
-提取码: h22x 
-```
-
-你只需要保证你的模型目录是这样的即可:
-
-```shell
-xnnehanglab➜  VtuberLab git:(copy-open-llm-vtuber) ✗ ls models 
-BERT-VITS2.3  punc_ct-transformer_zh-cn-common-vocab272727-pytorch  speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
-download.md   speech_fsmn_vad_zh-cn-16k-common-pytorch
-
-xnnehanglab➜  BERT-VITS2.3 git:(copy-open-llm-vtuber) ✗ tree
-.
-└── xishi
-    ├── config.json
-    ├── configs
-    │   └── config.json
-    └── models
-        ├── D_0.pth
-        ├── DUR_0.pth
-        ├── G_0.pth
-        └── train.log
-```
-
-## 5.手动下载 GPTSoVITS 模型(如果你希望使用 VTuber功能)
+## 4.手动下载 GPTSoVITS 模型(如果你希望使用 VTuber功能)
 
 原作者@[基于GPT-SoVITS的伊蕾娜自恋语音合集（附模型）](https://www.bilibili.com/video/BV1Df421m7bm/?spm_id_from=333.337.search-card.all.click&vd_source=d7601f0fc447d708fff71aa75186ea10)
 
@@ -173,7 +142,7 @@ xnnehanglab➜  BERT-VITS2.3 git:(copy-open-llm-vtuber) ✗ tree
 
 ```shell
 xnnehanglab➜  VtuberLab git:(add-gpt-sovits) ✗ ls models 
-BERT-VITS2.3  gptsovits     hub                                                   speech_fsmn_vad_zh-cn-16k-common-pytorch
+gptsovits     hub                                                   speech_fsmn_vad_zh-cn-16k-common-pytorch
 download.md   gptsovits.7z  punc_ct-transformer_zh-cn-common-vocab272727-pytorch  speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
 xnnehanglab➜  VtuberLab git:(add-gpt-sovits) ✗ tree models/gptsovits 
 models/gptsovits
@@ -261,7 +230,6 @@ default-groups = ["vtuber"]
 funasr = false
 to_do_list = false
 yutto_uiya = false
-bert_vits = false
 gpt_sovits = false
 ```
 
