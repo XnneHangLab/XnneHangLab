@@ -4,9 +4,22 @@ start:
   uv run get_root
   uv run streamlit run src/lab/ui.py --server.port 8051
 
+dev:
+    # 删除所有构建产物和缓存 / 二次操作防止缓存问题恢复代码
+    rm -rf packages/*/dist
+    rm -rf packages/*/__pycache__
+    rm -rf packages/*/*.egg-info
+    uv build packages/yutto
+    uv build packages/wexpect-uv
+    uv lock --no-cache
+    uv run get_root
+    uv run streamlit run src/lab/ui.py --server.port 8000
+
 dev-clean:
   rm packages/yutto/dist -rf
   rm packages/wexpect-uv/dist -rf
+
+# Server Start
 
 mcp-server:
   uv run src/lab/mcp/server/timeemi.py & \
@@ -16,19 +29,10 @@ server:
   uv run get_root
   uv run run_server.py
 
-
 db-server:
   uv run uvicorn src.lab.database.main:app --reload --host localhost --port 8000
 
-test-bert-vits:
-  curl -X POST "http://localhost:12393/tts/bert_vits" \
-       -H "Content-Type: application/json" \
-       -d '{"text": "我写了两个杀人推理短篇，他们互为答案（下）鲅鱼村杀人疑案。","audio_type":"opus"}' \
-       -o response.json
-  # 第二步：提取并解码音频数据
-  uv run python -c "import json, base64; data=json.load(open('response.json')); open('output.opus', 'wb').write(base64.b64decode(data['audio_byte']))"
-  # 清理中间文件
-  rm response.json
+# API Router Test
 
 test-asr:
   curl -X POST "http://localhost:12393/audio/asr" -F "file=@./examples/example3.opus"
@@ -65,19 +69,11 @@ test-deeplx:
 		"target_language": "ZH" \
 	}' \
 
+
+# deploy
+
 install-nltk:
   uv run python -c "import nltk; nltk.download('averaged_perceptron_tagger_eng')"
-
-dev:
-    # 删除所有构建产物和缓存 / 二次操作防止缓存问题恢复代码
-    rm -rf packages/*/dist
-    rm -rf packages/*/__pycache__
-    rm -rf packages/*/*.egg-info
-    uv build packages/yutto
-    uv build packages/wexpect-uv
-    uv lock --no-cache
-    uv run get_root
-    uv run streamlit run src/lab/ui.py --server.port 8000
 
 install-model:
   uv lock
@@ -95,6 +91,7 @@ install-whisper:
   uv run scripts/download.py --url https://openaipublic.azureedge.net/main/whisper/models/65147644a518d12f04e32d6f3b26facc3f8dd46e5390956a9424a650c0ce22b9/tiny.pt --filename tiny.pt --output-dir ./models/whisper
   # large-v3-turbo.pt
   uv run scripts/download.py --url https://www.modelscope.cn/models/iic/Whisper-large-v3-turbo/resolve/master/large-v3-turbo.pt --filename large-v3-turbo.pt --output-dir ./models/whisper
+
 install-embedding-model:
   uv lock
   uv sync
@@ -105,6 +102,8 @@ install-sensevoice:
   uv sync
   # SenseVoiceSmall
   uv run modelscope download --model iic/SenseVoiceSmall --local_dir ./models/SenseVoiceSmall
+
+# Code Quality Check
 
 fmt: # 似乎不会检查被 .gitignore 忽略的文件
   uv run ruff check --fix --select I . --exclude packages
@@ -120,10 +119,11 @@ fmt-docs:
 test:
   uv run pytest tests -vvv
 
+# CI-workflow
+
 ci-install:
   uv lock
   uv sync
-
 
 ci-test:
   just test
