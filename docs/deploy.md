@@ -73,8 +73,6 @@ git submodule update --init --recursive examples static packages/* frontend
 
 ```shell
 just install-model
-just install-nltk # 安装 nltk 依赖
-just install-frontend
 ```
 
 过程可能较久，因为需要先安装 python 环境，然后再下载模型， 模型和环境都不小, 建议可以先构建 cpu 版本进行功能预览，等有性能和批处理需求了再构建 gpu 版本的 torch。
@@ -99,169 +97,54 @@ torchaudio = [
 你可以通过重复运行来验证模型是否下载完整:
 
 ```shell
-(xnnehanglab) xnne@xnne-PC:~/code/XnneHangLab$ just install-model
-uv lock
-Resolved 106 packages in 5ms
-uv sync
-Resolved 106 packages in 6ms
-Audited 100 packages in 0.49ms
-# ASR with hotwords
-uv run modelscope download --model iic/punc_ct-transformer_zh-cn-common-vocab272727-pytorch --local_dir ./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch
-Downloading Model from https://www.modelscope.cn to directory: /home/xnne/code/XnneHangLab/models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch
-2025-03-31 20:41:31,448 - modelscope - WARNING - Model revision not specified, use revision: v2.0.4
-uv run modelscope download --model iic/speech_fsmn_vad_zh-cn-16k-common-pytorch --local_dir ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch
-...
-```
-### 3. 准备 bert 预训练模型 (如果你希望使用 VTuber 功能)
+(xnnehanglab) PS D:\tmp\XnneHangLab> ls .\models\
 
-```shell
-xnnehanglab➜  VtuberLab git:(add-gpt-sovits) ✗ ls bert 
-chinese-hubert-base  chinese-roberta-wwm-ext-large  deberta-v2-large-japanese-char-wwm  deberta-v3-large
-```
 
-其中 gpt_sovits 仅用到 `chinese-hubert-base  chinese-roberta-wwm-ext-large `
+    目录: D:\tmp\XnneHangLab\models
 
-BERT_VITS 几乎全用到了。
 
-你可以选择从 hugging face 上下载。或者一样从我的网盘下载:
-
-```shell
-通过网盘分享的文件：bert.7z等2个文件
-链接: https://pan.baidu.com/s/1LGcyc9habnUcjeehNc18Pw?pwd=6ghj 提取码: 6ghj 
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d-----         2026/1/25     19:00                chinese-hubert-base
+d-----         2026/1/25     19:00                chinese-roberta-wwm-ext-large
+d-----         2026/1/25     18:56                gptsovits
+d-----         2026/1/25     18:59                nlp_gte_sentence-embedding_chinese-base
+d-----         2026/1/25     18:58                punc_ct-transformer_zh-cn-common-vocab272727-pytorch
+d-----         2026/1/25     18:59                SenseVoiceSmall
+d-----         2026/1/25     18:58                speech_fsmn_vad_zh-cn-16k-common-pytorch
+d-----         2026/1/25     18:59                speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
+d-----          2026/1/6     16:45                whisper
+-a----         2026/1/25     18:58           4130 download.md
 ```
 
-## 4.手动下载 GPTSoVITS 模型(如果你希望使用 VTuber功能)
-
-原作者@[基于GPT-SoVITS的伊蕾娜自恋语音合集（附模型）](https://www.bilibili.com/video/BV1Df421m7bm/?spm_id_from=333.337.search-card.all.click&vd_source=d7601f0fc447d708fff71aa75186ea10)
-
-```shell
-链接: https://pan.baidu.com/s/1TlvFGx3bzOdZh2RydVAfpQ?pwd=hbfc 提取码: hbfc 
-```
-
-你应该把它这样放置:
-
-```shell
-xnnehanglab➜  VtuberLab git:(add-gpt-sovits) ✗ ls models 
-gptsovits     hub                                                   speech_fsmn_vad_zh-cn-16k-common-pytorch
-download.md   gptsovits.7z  punc_ct-transformer_zh-cn-common-vocab272727-pytorch  speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
-xnnehanglab➜  VtuberLab git:(add-gpt-sovits) ✗ tree models/gptsovits 
-models/gptsovits
-└── elaina
-    ├── elaina_e10_s490.pth
-    ├── elaina-e25.ckpt
-    ├── elaina.wav
-    └── infer_config.json
-
-1 directory, 4 files
-```
-
-
-## 运行一下看看
-
-启动 streamlit WebUI
-
-```shell
-just start
-```
-
-启动后端:
-
-```shell
-just server
-```
-
-如果你只想要使用部分功能，那么请参考 [关于 packages.toml](settings.md#packagetoml) 进行配置。
-
-默认开启所有功能，你需要下载所有模型和依赖。
-
-如果你需要进行对话，记得要先在 `config/lab.toml` 中配置你的使用的 openai 模型与 api key。
-
-配置相关详细参见: [关于 lab.toml](./settings.md#labtoml)
-
+阅读 download.md 你可以知道你下载了哪些模型，或者你可以挑选自己需要的模型进行安装。
 
 ## 如果出现问题！！！
 
-请参考 [issue.md](./issue.md) 进行排查，如果不在 issue 中，请联系我。
+请参考 [issue.md](./issue.md) 进行排查，如果不在 issue 中，请在 issue 中描述你的问题。
 
 我会尽快回复你。
 
-
-# 服务器部署：
-
-分享一下我自己的服务器部署方案。
-
-这个服务器部署的目标是一个无 GPU 的服务器，甚至可以是 2 GB 内存的服务器。
-
-原理是利用 frp 穿透本地的 fastapi server 到公网。这样你可以把你的 api 给任何人使用，只需要修改 `src/lab/api/client/base_client_interface.py` 中的 base_url 从 `http://localhost:12393" 到你自己穿透和反代的地址，你也可以为它加上 SSL 证书。
-
-## 1. 在电脑完成本地部署并且穿透到公网以及可选配置自定义域名和 SSL 证书
-
-可以略微参考这个: [frp 基础教程](https://www.xbfast.com/22/)
-
-你可以修改 justfile 来测试你的部署是否成功。
-
-比如:
-
-```shell
-test-vad:
-  curl -X POST "https://domain.xnnehang.top/audio/vad" -F "file=@./examples/example3.opus"
-```
-
-如果部署成功，应该会和你本地运行一致，就是速度上慢一点。
-
-## 2. 在服务器上运行一个无额外依赖的服务
-
-这里也本地部署类似，不过不需要额外下载任何模型之类的文件，模型调用完全使用第一步里的 API. 只需要克隆完整 submodule 即可。
-
-关键修改：
-
-1.`pyproject.toml`:
-
-```shell
-[tool.uv]
-default-groups = ["vtuber"]
-```
-
-仅保留 vtuber 依赖因为我们的 live2d 什么的都是使用服务器上的。
-
-2.`config/pacakages.toml`:
-
-```shell
-funasr = false
-to_do_list = false
-yutto_uiya = false
-gpt_sovits = false
-```
-
-所有包均不启动，还是得感谢 Open-LLM-VTuber 的仓库让我下定决心要分离前后端。这样自由度相当高。我可以任意组合前后端。
-
-
-3.`src/lab/api/clients/base_client_interface.py`
-
-```python
-base_url = "https://domain.xnnehang.top"
-```
-
-## 3. 启动后端
+### 3. 运行后端
 
 ```shell
 just server
 ```
 
-## 4. 启动前端
+你可以配置 `config/lab.toml` 的 [package](./settings.md#packagetoml) 来修改后端的行为。
+
+后端可以用于 ASR、TTS、 Translate 、Chat 功能。
+
+### 4. 运行前端
+
+目前有三种前端，分别是：
+
+1. Streamlit WebUI: 它可以下载 b 站视频，做一些字幕提取。
+2. Open-LLM-VTuber: 它是一个基于 Live2d+LLM 的 VTuber 项目，默认使用 elaina 的模型。
+3. chill with you lo-fi story: 它可以作为一个游戏 Mod 的服务端，提供 tts 服务。
 
 ```shell
+cd frontend
 npm run dev
 ```
 
-这里需要注意的是你需要保证两个端口均对外开放，可以先用 ip:port 来测通。
-
-以及需要注意的是，如果你的前端使用了域名并且开启了 HTTPS ，那么后端也应该这么做，不然会出现跨域问题。（前后端分离为数不多的槽点）
-
-然后再前端中的设置里，把 base_url 改为你运行在服务器上的后端的地址。
-
-比如: `https://api.xnnehang.top`, `wss://api.xnnehang.top/ws-client`，
-
-这里并不填写你模型运行后的穿透地址。
-
-wss 似乎不需要额外配置，我在 1pannel 上用 openresty 反代 http 然后开启 https 就可以使用 wss 了。
