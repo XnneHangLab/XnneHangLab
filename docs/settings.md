@@ -86,7 +86,7 @@ default-groups = ["dev","yutto-uiya","database","vtuber"]
 - 默认值: "gpt_sovits"
 - 可选: ["gpt_sovits"]
 - 注意点:
-  - gpt_sovits 配置位于 `config/gsv_config.yaml` 自动加载显卡如果可用。
+  - gpt_sovits 配置位于 `config/gsv_config.json` 自动加载显卡如果可用。
 
 **faster_first_response** 
 

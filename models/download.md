@@ -37,7 +37,7 @@ speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch/
 ```shell
 uv lock
 uv sync
-uv run modelscope download --model iic/punc_ct-transformer_zh-cn-common-vocab272727-pytorch --local_dir ./punc_ct-transformer_zh-cn-common-vocab272727-pytorch
+uv run modelscope download --model iic/punc_ct-transformer_zh-cn-common-vocab272727-pytorch --local_dir ./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch
 ```
 
 ### 语音活动检测:
@@ -47,7 +47,7 @@ uv run modelscope download --model iic/punc_ct-transformer_zh-cn-common-vocab272
 ```shell
 uv lock
 uv sync
-uv run modelscope download --model iic/speech_fsmn_vad_zh-cn-16k-common-pytorch --local_dir ./speech_fsmn_vad_zh-cn-16k-common-pytorch
+uv run modelscope download --model iic/speech_fsmn_vad_zh-cn-16k-common-pytorch --local_dir ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch
 ```
 
 ### ASR模型:
@@ -57,7 +57,7 @@ uv run modelscope download --model iic/speech_fsmn_vad_zh-cn-16k-common-pytorch 
 ```shell
 uv lock
 uv sync
-uv run modelscope download --model iic/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch --local_dir ./speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
+uv run modelscope download --model iic/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch --local_dir ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
 ```
 
 ## Whisper
@@ -65,7 +65,7 @@ uv run modelscope download --model iic/speech_seaco_paraformer_large_asr_nat-zh-
 运行以下命令安装 Whisper 模型。
 
 ```shell
-just install-whisper-model
+just install-whisper
 ```
 
 它包含以下内容:
@@ -134,7 +134,7 @@ uv run modelscope download --model xnnehang/elaina-gsv-v2 --local_dir ./models/g
 
 ## Embedding - Memory 试验
 
-本仓库正在实验性支持长期记忆。如果你想尝试，可以将 `config/lab.toml` 中的 `enable_memory` 设为 `true`。
+本仓库正在实验性支持长期记忆。如果你想尝试，可以将 `config/lab.toml` 中的 `enable_longterm_memory` 设为 `true`。
 
 然后安装 Embedding 模型:
 

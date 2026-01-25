@@ -79,7 +79,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    logger.info("Unloading TTS model...")
+    logger.info("Application shutdown: lifespan cleanup completed.")
 
 
 class WebSocketServer:
