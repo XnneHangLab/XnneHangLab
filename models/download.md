@@ -2,6 +2,12 @@
 
 如果你有安装 just, 那么你可以更快速地利用我给你提供的 justfile 来安装所需模型。
 
+或者你跟我一样很懒，你可以选择把所有模型都安装了。那么运行它：
+
+```shell
+just install-model
+```
+它同样可以用来检查模型是否安装完成。
 
 ## FunASR
 
@@ -82,6 +88,10 @@ uv run scripts/download.py --url https://www.modelscope.cn/models/iic/Whisper-la
 
 ## GPTSoVITS
 
+它包含两部分，分别是 bert_model 和 gsv_model。前者是运行的前置条件，后者则是自定义音色模型。
+
+### BERT 模型
+
 ```shell
 just install-bert-model
 ```
@@ -103,6 +113,24 @@ uv run modelscope download --model dienstag/chinese-roberta-wwm-ext-large --loca
 pytorch_model.bin added_tokens.json config.json configuration.json README.md special_tokens_map.json tokenizer_config.json tokenizer.json
 ```
 
+### GPTSoVITS 音色模型
+
+```shell
+just install-gsv-model
+```
+
+它包含以下内容:
+
+```shell
+$ ls models/gptsovits/
+elaina
+```
+
+或者你可以这样安装:
+
+```shell
+uv run modelscope download --model xnnehang/elaina-gsv-v2 --local_dir ./models/gptsovits/elaina
+```
 
 ## Embedding - Memory 试验
 

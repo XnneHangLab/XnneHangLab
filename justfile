@@ -79,6 +79,18 @@ test-deeplx:
 
 # deploy
 
+install-model:
+  uv lock
+  uv sync
+  just install-nltk
+
+  just install-funasr-model
+  just install-whisper
+  just install-embedding-model
+  just install-sensevoice
+  just install-bert-model
+  just install-gsv-model
+
 install-nltk:
   uv run python -c "import nltk; nltk.download('averaged_perceptron_tagger_eng')"
 
@@ -117,6 +129,11 @@ install-bert-model:
   uv run modelscope download --model dienstag/chinese-roberta-wwm-ext-large --local_dir ./models/chinese-roberta-wwm-ext-large  \
   pytorch_model.bin added_tokens.json config.json configuration.json README.md special_tokens_map.json tokenizer_config.json tokenizer.json
   # 这里不能用 --exclude 同时排除 tf_model.h5 和 flax_model.msgpack，多次 exclude 只会保留最后一个，所以这里指定了所有需要的文件
+
+install-gsv-model:
+  uv lock
+  uv sync
+  uv run modelscope download --model xnnehang/elaina-gsv-v2 --local_dir ./models/gptsovits/elaina
 
 # Code Quality Check
 
