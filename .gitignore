@@ -84,3 +84,5 @@ whipser/
 # bert model
 chinese-roberta-wwm-ext-large/
 chinese-hubert-base/
+
+uv.lock
