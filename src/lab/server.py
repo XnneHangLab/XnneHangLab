@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import gc
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -53,21 +52,6 @@ async def lifespan(app: FastAPI):
 
         logger.info("预加载 FunASR 模型...")
         load_model()  # 预加载模型，确保模型在启动时初始化
-    if lab_settings.package.bert_vits:
-        from vits import utils as vits_utils
-        from vits.config import config
-        from vits.infer import get_net_g, latest_version  # type: ignore[import-untyped]
-        from vits.state_manager import tts_state_manager
-
-        # 全局变量，用于存储模型和配置
-        device = config.webui_config.device
-        logger.info("Loading TTS model...")
-        hps = vits_utils.get_hparams_from_file(config.webui_config.config_path)  # type: ignore[no-untyped-call]
-        version = hps.version if hasattr(hps, "version") else latest_version  # type: ignore[no-untyped-call]
-        net_g = get_net_g(model_path=config.webui_config.model, version=version, device=device, hps=hps)  # type: ignore[no-untyped-call]
-        # 设置单例状态
-        tts_state_manager.set_state(net_g, hps)  # type: ignore[no-untyped-call]
-        logger.info("TTS model loaded successfully.")
 
     if lab_settings.package.gpt_sovits:
         # 应用启动时执行
@@ -95,18 +79,6 @@ async def lifespan(app: FastAPI):
     yield
 
     logger.info("Unloading TTS model...")
-    if lab_settings.package.bert_vits:
-        import torch
-
-        net_g = tts_state_manager.get_net_g()  # type: ignore[no-untyped-call]
-        if net_g is not None:
-            del net_g
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-        gc.collect()
-        # 重置单例状态
-        tts_state_manager.set_state(None, None)  # type: ignore[no-untyped-call]
-        logger.info("TTS model unloaded.")
 
 
 class WebSocketServer:
@@ -137,10 +109,6 @@ class WebSocketServer:
             from lab.api.routes.asr import router as asr_router
 
             self.app.include_router(asr_router)
-        if lab_settings.package.bert_vits:
-            from lab.api.routes.bert_vits import router as vits_router
-
-            self.app.include_router(vits_router)
         if lab_settings.package.gpt_sovits:
             from lab.api.routes.gpt_sovits import router as gsv_router
 

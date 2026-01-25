@@ -16,7 +16,6 @@ class PackagesSettings(BaseModel):
         bool,
         Field(True, title="是否包含 yutto-uiya"),
     ]
-    bert_vits: Annotated[bool, Field(True, title="是否包含 bert-vits")]
     gpt_sovits: Annotated[bool, Field(True, title="是否包含 gpt-sovits")]
 
     def to_dict(self) -> Packages:
@@ -24,7 +23,6 @@ class PackagesSettings(BaseModel):
         return {
             "to_do_list": self.to_do_list,
             "yutto_uiya": self.yutto_uiya,
-            "bert_vits": self.bert_vits,
             "gpt_sovits": self.gpt_sovits,
             "funasr": self.funasr,
         }

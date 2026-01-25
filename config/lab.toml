@@ -95,7 +95,6 @@ funasr = false
 whisper = false
 to_do_list = true
 yutto_uiya = true
-bert_vits = false
 gpt_sovits = false
 
 [root]
