@@ -154,15 +154,7 @@ class TTSTaskManager:
             lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
             cache_dir = Path("cache") / "tts"
             cache_dir.mkdir(parents=True, exist_ok=True)
-            if lab_settings.agent.speaker_model == "bert_vits":
-                from lab.api.clients import BERTVITSRequest, BERVITSClient
-
-                bert_vits_client = BERVITSClient()
-                response = await bert_vits_client.asyncpost(BERTVITSRequest(text=text, audio_type="opus"))
-                if response is None:
-                    logger.error("Failed to get a valid response from BERT-VITS client")
-                    return None
-            elif lab_settings.agent.speaker_model == "gpt_sovits":
+            if lab_settings.agent.speaker_model == "gpt_sovits":
                 from lab.api.clients import GPTSoVITSClient, GPTSoVITSRequest
 
                 gpt_sovits_client = GPTSoVITSClient()
