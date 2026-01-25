@@ -1,3 +1,6 @@
+key:
+  uv run scripts/sync_apikey.py  # 同步 API Key
+
 start:
   uv lock
   uv sync
