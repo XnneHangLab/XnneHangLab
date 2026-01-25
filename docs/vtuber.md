@@ -32,7 +32,6 @@ npm run dev
 目前版本中从 [Open-LLM-VTuber](https://github.com/Open-LLM-VTuber/Open-LLM-VTuber) 处移植了相当多代码来与前端兼容：
 
 新增:
- - 增加了 BERT-VITS2.3 推理中文。
  - 使用 [fast_gsv](https://github.com/XnneHangLab/GPT-SoVITS-Inference#) 推理 GPT-SoVITS, 模型使用的是 [b 站某个佬训练的](https://www.bilibili.com/video/BV1Df421m7bm/).
   
 https://github.com/user-attachments/assets/92715937-f1b0-4828-a89b-35569bc3026e
