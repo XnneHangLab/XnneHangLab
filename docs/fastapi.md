@@ -199,7 +199,7 @@ curl -X POST "http://127.0.0.1:12393/translate/deeplx" \
 -H "Content-Type: application/json" \
 -d '{ \
 	"text": "それでは問題です。澄み渡った青空をゆく、そこに人がいたのなら間違いなく誰もが振り返り、ため息をこぼしてしまうほどの美貌の魔女は、いったい誰でしょう？", \
-	"source_language": "Auto", \
+	"source_language": "JA", \
 	"target_language": "ZH" \
 }' \
 ```

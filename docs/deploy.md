@@ -143,7 +143,7 @@ just server
 
 后端用于：**ASR / TTS / 翻译 / Chat** 等能力。
 
-> ⚙️ 你可以通过 `config/lab.toml` 的配置调整后端行为，相关说明见：[`settings.md#package`](./settings.md#packagetoml)
+> ⚙️ 你可以通过 `config/lab.toml` 的配置调整后端行为，相关说明见：[`settings.md#package`](./settings.md#package-模块开关)
 
 ---
 
