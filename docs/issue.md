@@ -50,3 +50,10 @@ LookupError:
 ## 网络问题：
 
 第一次运行请保证对 github 的终端可连接。因为会自动下载这个文件: `downloading: "https://github.com/r9y9/open_jtalk/releases/download/v1.11.1/open_jtalk_dic_utf_8-1.11.tar.gz"`
+
+
+## just server 失败
+
+一般由于内存不足，因为会一次运行超多模型，三个 FunASR 模型，两个 whisper 模型，一个 GPT-SoVits 模型。
+
+所以如果空余内存不足 32GB 的情况下，可以尝试调整 `[package]` 中的相关模型开关，一般中英文 ASR 只用 FunASR 即可,而包含其他语言的 ASR 则需要使用 Whisper 模型。
