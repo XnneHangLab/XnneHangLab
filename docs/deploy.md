@@ -1,150 +1,191 @@
-## 本地部署
+## 🏠 本地部署
 
-### 0.前置
+这份指南会带你在本地跑起来 **后端服务**（ASR / TTS / 翻译 / Chat）以及 **三种前端**（Streamlit / Open-LLM-VTuber / 游戏 Mod TTS 服务）。
 
-> 如果你这三个都已经安装好了，那么可以跳到下一步。 
-
-- [x] ffmpeg
-- [x] uv
-- [x] just
+> 💡 约定：以下命令默认在项目根目录执行；Windows 示例使用 PowerShell。
 
 ---
 
-> 如果你是 windows , 可以先安装 [**scoop**](https://scoop.sh/) , 这样可以更方便的安装依赖。<br>
-> 只需要打开 powershell 然后运行:<br>
->
-> ```shell
-> Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-> Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
-> ```
->
-> 之后你就可以在任何终端使用 scoop.<br>
+### ✅ 0. 前置依赖
 
-[**ffmpeg**](https://www.ffmpeg.org/), 本项目的依赖项 `yutto` 用到系统的 `ffmpeg`, 目前 `ffmpeg` 需要在全局可以访问, 对于 mac 和 linux 用户可以直接:
+如果你已经安装好下面三个，可以直接跳到 **🚚 1. 克隆仓库**：
 
-```shell
-sudo apt install ffmpeg # linux
-brew install ffmpeg # mac
-scoop install ffmpeg # windows
+- [x] **ffmpeg**（`yutto` 依赖）
+- [x] **uv**（Python 环境与依赖管理）
+- [ ] **just**（可选：命令封装工具，装不上也没关系）
+
+---
+
+#### 🪟 0.1 Windows：建议先装 Scoop（可选但推荐）
+
+Scoop 能让 Windows 安装依赖变得很省事。
+
+在 PowerShell 执行：
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
 ```
 
-也可以下载 ffmpeg 的可执行文件然后添加到全局设置和 `b站视频下载` 是 ffmpeg 路径设置项中.
+> 🧊 装完建议 **新开一个终端**，确保 `scoop` 命令生效。
 
-[**uv**](https://docs.astral.sh/uv/) 是本项目的包管理工具，它让你免于手动配置和调试环境。你可以从[安装指南](https://docs.astral.sh/uv/getting-started/installation/)找到合适的安装方式～
+---
 
-```shell
-curl -LsSf https://astral.sh/uv/install.sh | sh # linux / mac
-scoop install uv # windows
-# 完整完均需要新开终端
+#### 🎬 0.2 安装 ffmpeg
+
+`yutto` 依赖系统 `ffmpeg`，所以 `ffmpeg` 必须能在终端里直接访问（`ffmpeg -version` 可用）。
+
+```bash
+# Linux
+sudo apt install ffmpeg
+
+# macOS
+brew install ffmpeg
+
+# Windows（如果你用了 scoop）
+scoop install ffmpeg
 ```
 
-[**just**](https://github.com/casey/just) 是一款用 rust 编写的简单易用的命令执行工具，它可以让原本复杂的命令运行变得简单。安装方法请参考[它的文档](https://github.com/casey/just#installation)。该项非必须， Windows 比较难安装 just (当然如果你有 scoop 和 git bash 可以直接 `scoop install just`), 可以跳过。后续使用 bat 脚本替代即可。
+> 🛠️ 不想用包管理器也可以手动下载 ffmpeg 并加入系统 PATH；项目里也有 “b站视频下载” 对应的 ffmpeg 路径配置项可填。
 
-```shell
-# windows
+---
+
+#### 🧪 0.3 安装 uv
+
+`uv` 是本项目的包管理工具，用来自动创建/管理 Python 环境并安装依赖。
+
+```bash
+# Linux / macOS
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows（scoop）
+scoop install uv
+```
+
+> 🔁 安装完成后建议 **新开终端**，确保 `uv` 命令可用。
+
+---
+
+#### 🧰 0.4 安装 just（可选）
+
+`just` 能把一串复杂命令封装成 `just xxx`，更方便。
+
+Windows（推荐你有 scoop 的情况下装）：
+
+```powershell
 scoop install git
 scoop install just
+```
 
-# linux / mac
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh # rust-tool-chain, 安装新开终端
+Linux / macOS：
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+# 安装完成后新开终端
 cargo install just
 ```
 
-**ps:** windows 用户也可以等待网盘的整合包。整合包双击运行,包含所有环境以及依赖.
+> 📦 PS：Windows 用户也可以等待网盘整合包（双击即用，包含环境和依赖）。
 
-### 1. 克隆仓库
+---
 
-```shell
+### 🚚 1. 克隆仓库（包含子模块）
+
+```bash
 git clone https://github.com/XnneHangLab/XnneHangLab.git --recurse-submodules
 cd XnneHangLab
 ```
 
-你应该保证 `submodules` 都被克隆完全。只要保证 `packages/*/`,`static/`,`examples`,`frontend` 均不为空即可。 
+> 🔍 请确保子模块克隆完整：`packages/*/`、`static/`、`examples/`、`frontend/` 这些目录都不应为空。
 
-如果某个目录为空，可以后续手动更新比如：
+如果发现某些目录为空，可以手动补齐：
 
-```shell
+```bash
 git submodule update --init --recursive examples static packages/* frontend
 ```
 
-### 2. 自动安装依赖并下载必要模型权重文件
+---
 
-如果你有 just:
+### 📥 2. 自动安装依赖 + 下载模型权重
 
-```shell
+如果你安装了 `just`：
+
+```bash
 just install-model
 ```
 
-过程可能较久，因为需要先安装 python 环境，然后再下载模型， 模型和环境都不小, 建议可以先构建 cpu 版本进行功能预览，等有性能和批处理需求了再构建 gpu 版本的 torch。
+> 🐢 过程可能较久：会创建 Python 环境、安装依赖，并下载模型权重（体积都不小）。
 
-更改 pyproject.toml 的这几行即可：
+你可以通过重复运行命令来验证模型是否下载完整；或检查 `models/` 目录：
 
-```toml
-# windows 下安装 pytorch-cuda, linux 和 mac 下安装 pytorch-cpu, 你可以根据你的系统和需求任意修改
-[tool.uv.sources]
-torch = [
-  { index = "pytorch-cu118", marker = "sys_platform == 'win32'" }, # sys_platform : 'win32' , 'linux' , 'Darwin'
-  { index = "pytorch-cpu", marker = "sys_platform != 'win32'"}
-]
-torchaudio = [
-  { index = "pytorch-cu118", marker = "sys_platform == 'win32'" },
-  { index = "pytorch-cpu", marker = "sys_platform != 'win32'"}
-]
+```powershell
+ls .\models\
 ```
 
-默认 windows 下是 pytorch-cu118 , linux 和 mac 下是 pytorch-cpu, 如果你希望在 windows 下安装 cpu 或者在 linux 下安装 cuda 可以直接对调即可。
+📄 `models/download.md` 会记录你下载了哪些模型，也可以按需只下载你需要的模型。
 
-你可以通过重复运行来验证模型是否下载完整:
+---
 
-```shell
-(xnnehanglab) PS D:\tmp\XnneHangLab> ls .\models\
+### 🆘 3. 如果遇到问题
 
+优先参考：[`issue.md`](./issue.md)
 
-    目录: D:\tmp\XnneHangLab\models
+- 🧾 如果 `issue.md` 没覆盖你的情况，欢迎在 issue 里描述问题（带上日志/截图/系统信息会更快定位）
+- 💬 我会尽快回复
 
+---
 
-Mode                 LastWriteTime         Length Name
-----                 -------------         ------ ----
-d-----         2026/1/25     19:00                chinese-hubert-base
-d-----         2026/1/25     19:00                chinese-roberta-wwm-ext-large
-d-----         2026/1/25     18:56                gptsovits
-d-----         2026/1/25     18:59                nlp_gte_sentence-embedding_chinese-base
-d-----         2026/1/25     18:58                punc_ct-transformer_zh-cn-common-vocab272727-pytorch
-d-----         2026/1/25     18:59                SenseVoiceSmall
-d-----         2026/1/25     18:58                speech_fsmn_vad_zh-cn-16k-common-pytorch
-d-----         2026/1/25     18:59                speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
-d-----          2026/1/6     16:45                whisper
--a----         2026/1/25     18:58           4130 download.md
-```
+### 🚀 4. 启动后端服务
 
-阅读 download.md 你可以知道你下载了哪些模型，或者你可以挑选自己需要的模型进行安装。
-
-## 如果出现问题！！！
-
-请参考 [issue.md](./issue.md) 进行排查，如果不在 issue 中，请在 issue 中描述你的问题。
-
-我会尽快回复你。
-
-### 3. 运行后端
-
-```shell
+```bash
 just server
 ```
 
-你可以配置 `config/lab.toml` 的 [package](./settings.md#packagetoml) 来修改后端的行为。
+后端用于：**ASR / TTS / 翻译 / Chat** 等能力。
 
-后端可以用于 ASR、TTS、 Translate 、Chat 功能。
+> ⚙️ 你可以通过 `config/lab.toml` 的配置调整后端行为，相关说明见：[`settings.md#package`](./settings.md#-package-模块开关)
 
-### 4. 运行前端
+---
 
-目前有三种前端，分别是：
+### 🎛️ 5. 启动前端（3 选 1 或同时使用）
 
-1. Streamlit WebUI: 它可以下载 b 站视频，做一些字幕提取。
-2. Open-LLM-VTuber: 它是一个基于 Live2d+LLM 的 VTuber 项目，默认使用 elaina 的模型。
-3. chill with you lo-fi story: 它可以作为一个游戏 Mod 的服务端，提供 tts 服务。
+目前有三种前端，你可以按需求选择：
 
-```shell
+#### 🌈 5.1 Streamlit WebUI（下载 B 站视频 / 字幕提取等）
+
+```bash
+just start
+```
+
+---
+
+#### 🧍 5.2 Open-LLM-VTuber（Live2D + LLM，对话 VTuber）
+
+默认使用 elaina 模型。
+
+```bash
 cd frontend
+npm install
 npm run dev
 ```
 
+---
+
+#### 🎮 5.3 Chill with You Lo-Fi Story（游戏 Mod 的 TTS 服务端）
+
+它可以作为游戏 Mod 的服务端，提供 GPT-SoVITS 兼容的 TTS 服务。
+
+1) 先按项目说明安装 Mod：  
+[chill with you lo-fi story AI Mod](https://github.com/qzrs777/AIChat)
+
+2) 保证后端已启动（`just server` 正在运行）
+
+3) 在 Mod 的 TTS 地址中填写：
+
+```
+http://127.0.0.1:12393/tts/gptsovitsv2
+```
+
+---
+
+✅ 到这里你应该已经能在本地愉快游玩啦！

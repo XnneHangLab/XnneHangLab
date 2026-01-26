@@ -1,200 +1,454 @@
-## 配置
+# ⚙️ settings.md — lab.toml 配置说明
 
-因为我的项目是由一个个 submodule 来构成的。
+`lab.toml` 是 **XnneHangLab** 的主配置文件，后端（ASR / TTS / Translate / Chat）、WebUI、Agent、MCP、包启用开关等都会从这里读取。
 
-而它们由几乎有自己的一个配置文件，当它们混合在一起时也相当让人眼花缭乱。
+> ✅ 这份文档假设你的 `lab.toml` 位于 `./config/lab.toml`（推荐）。
+>
+> 💡 配置加载规则：程序会优先在项目 `config/` 下找配置；找不到会尝试从系统配置目录读取；再找不到会初始化默认配置并写回（保证字段齐全）。
 
-> 提醒一下自己修复一下 as_pacakage 的命名。不能简单用通用的 `settings.toml`, 存在覆盖风险。<br>
+---
 
+## 🌳 配置结构总览（tree view）
 
-所有配置文件均位于 `config/` 下。
-
-其中， `.toml` 文件均是我自己的， `yaml` 和 `json` 文件则不是我的。
-
-## toml
-
-### lab.toml `[funasr]` and `[webui]`
-
-你在运行 just start 后就可以在 UI 的设置中看到它们。这里一般在 UI 中更改。或者你要使用 cli 时可以了解部分。
-
-具体你可以参见 [cli.md](./cli.md)
-
-### lab.toml `[root]`
-
-运行 `uv run get_root` 时生成的记录项目根目录绝对路径的配置文件,无需手动填写，运行时自动生成。
-
-### lab.toml `[package]`
-
-如果你只想允许本项目的部分功能，那么可以考虑调整它。并且跟随调整 pyproject.toml 中的:
-
-```shell
-default-groups = ["dev","yutto-uiya","database","vtuber"] 
+```text
+lab.toml
+├─ [root]                         # 项目根目录（主要给 Streamlit 找 packages 用）
+│  └─ root_dir
+│
+├─ [package]                      # 模块开关（决定是否启用/显示某些包）
+│  ├─ funasr
+│  ├─ whisper
+│  ├─ to_do_list
+│  ├─ yutto_uiya
+│  └─ gpt_sovits
+│
+├─ [asr]                          # ASR 总配置（FunASR / Whisper）
+│  ├─ FFMPEG_PATH
+│  ├─ device
+│  ├─ custom_output_dir
+│  ├─ cache_dir
+│  ├─ output_dir
+│  ├─ asr_model_provider
+│  ├─ cut / cut_line
+│  ├─ combine / combine_line
+│  ├─ max_sentence_length
+│  ├─ [asr.funasr]                # FunASR 子配置
+│  │  ├─ batch_size_s
+│  │  ├─ punctuation_list
+│  │  ├─ hot_words_path
+│  │  ├─ base_model
+│  │  ├─ vad_model
+│  │  ├─ punc_model
+│  │  ├─ sense_voice_model
+│  │  └─ need_punc
+│  └─ [asr.whisper]               # Whisper 子配置
+│     ├─ whisper_models_base_dir
+│     └─ whisper_model_size
+│
+├─ [webui]                        # Streamlit WebUI 的简单 UI 偏好
+│  ├─ guide
+│  └─ subtitle_speed
+│
+├─ [agent]                        # LLM Agent（对话 / 翻译 / 记忆 / 语音等）
+│  ├─ llm_provider
+│  ├─ enable_mcp
+│  ├─ character_name
+│  ├─ deeplx_api_key
+│  ├─ user_lang
+│  ├─ speaker_lang
+│  ├─ enable_longterm_memory
+│  ├─ speaker_model
+│  ├─ faster_first_response
+│  ├─ segment_method
+│  ├─ interrupt_method
+│  ├─ [agent.llm]                 # 不同 LLM 供应商的参数集合
+│  │  ├─ [agent.llm.openai]
+│  │  ├─ [agent.llm.lingyi]
+│  │  ├─ [agent.llm.gemini]
+│  │  ├─ [agent.llm.oaipro]
+│  │  └─ [agent.llm.cerebras]
+│  └─ [agent.memory]              # 长期记忆 / 世界书配置
+│     ├─ embedding_model_path
+│     ├─ books_thresholds
+│     ├─ mem_thresholds
+│     ├─ scan_depth
+│     ├─ enable_check_memorys
+│     ├─ enable_core_memmorys
+│     └─ lore_books
+│
+└─ [mcp]                          # MCP Server 连接配置（HTTP）
+   ├─ [mcp.timeemi]
+   │  ├─ transport
+   │  ├─ host
+   │  ├─ port
+   │  ├─ path
+   │  └─ log_level
+   └─ [mcp.vision]
+      ├─ transport
+      ├─ host
+      ├─ port
+      ├─ path
+      └─ log_level
 ```
 
-可以起到项目瘦身的效果。当然目前的方案还是有局限性，如果你存在更好的管理方案欢迎提出。
+---
 
-**to_do_list**
-- 描述：运行时是否包含待办事项，为 false 则 WebUI 中不再有`代办事项`页面
-- 默认值：true
-- 特性：仅影响 WebUI
+## 🧭 配置文件在哪里？（加载与写回规则）
 
-**yutto_uiya** 
-- 描述: 运行时是否包含 `b 站视频下载`模块
-- 默认值: true
-- 特性：仅影响 WebUI
+### 🔎 搜索顺序（简化版）
+1. `./config/<name>.toml`（推荐：把 `lab.toml` 放在项目 `config/` 下）
+2. 系统配置目录（Windows: `~/AppData`；Linux: `~/.config`；或环境变量 `XDG_CONFIG_HOME`）
+3. 都没有 → 自动创建默认配置并写入 `./config/<name>.toml`
 
-**gpt_sovits**
-- 描述: 运行时是否包含 `gpt-sovits` 模块, 以及 fastapi 的 lifespan 是否加载 GPT-SoVITS 模型。
-- 默认值: true
-- 特性：影响 fastapi 和 vtuber 功能
+### ✍️ 自动写回（为什么我改了一点点就多了一堆字段？）
+配置会经过校验与补全：  
+- 缺少字段 → 用默认值补齐  
+- 补齐后会 **立即写回**，保证你的 `lab.toml` 永远是完整的结构（方便你复制/改配置）。
 
-如果你希望使用 Vtuber 功能则需要开启 `gpt-sovits`。
+---
 
-### lab.toml `[agent]`
+## 🧩 [root] 项目根目录
 
-均用于 VtuberLab, 如果你不需要该功能那么可以不管这些配置。
+### root_dir
+- **作用**：给 Streamlit WebUI 使用的“项目根目录绝对路径”。
+- **为什么需要它**：Streamlit 启动后工作目录可能变成 `.`，导致找不到 `packages/` 等目录；因此需要把真实根目录写进配置里，供 UI 在任何位置都能定位资源。
 
-**llm_provider**
+示例：
 
-- 描述: 调用 llm api 时需要的 provider, 与 agent.llm.llm_provider 保持一致。
-- 默认值: "lingyi"
-- 可选: ["openai", "lingyi", "gemini"]
-
-**enable_mcp**
-- 描述: 是否启用 MCP 功能
-- 默认值: True
-- 注意点: 不是所有模型都支持 function call，比如零一万物的大部分模型都不支持, 所以它无法使用 MCP 功能。
-
-**speaker_lang**
-- 描述: TTS 模型生成的目标语言
-- 默认值: "EN"
-- 可选: ["ZH", "JA", "EN"]
-- 注意点： bert_vits 目前只推理中文。
-
-**user_lang**
-- 描述: 用户使用的主要语言，决定你看到的模型回复的语言。
-- 默认值: "ZH"
-- 可选: ["ZH", "JA", "EN"]
-
-**character_name**
-- 描述: 角色 system_prompt 所在的位置，对应路径 `./prompt/characters/{character_name}.txt`
-- 默认值: "elaina"
-- 可选: ["elaina", "paimeng", "neko"] # 你也可以自己替换或者新增提示词。
-
-**speaker_model**
-- 描述: 使用的 TTS 模型名称
-- 默认值: "gpt_sovits"
-- 可选: ["gpt_sovits"]
-- 注意点:
-  - gpt_sovits 配置位于 `config/gsv_config.json` 自动加载显卡如果可用。
-
-**faster_first_response** 
-
-- 描述: 是否生成第一句话的","时就开始异步生成 tts 而不是等待完整句子生成后再开始 tts
-- 默认值:false
-
-**deeplx_api_key**
-- 描述: deeplx 翻译的 api key
-- 默认值: "peach"
-
-**enable_longterm_memory**
-- 描述: 是否启用长期记忆功能
-- 默认值: true
-
-这两个我不建议你更改。
-
-**segment_method**
-**interrupt_method**
-
-#### lab.toml `[agent.llm.*]`
-
-llm 相关配置。你需要至少填写一个。
-
-**llm_api_key**
-- 描述: 调用 llm api 时需要的 api key
-- 默认值: "peach"
-
-**llm_base_url**
-- 描述: 调用 llm api 时需要的 base url
-- 默认值: "https://api.lingyiwanwu.com/v1"
-
-**llm_model**
-- 描述: 调用 llm api 时需要的模型名称
-- 默认值: "yi-lightning"
-
-
-### lab.toml `[agent.memory]`
-**embedding_model_path**
-- 描述: 嵌入模型路径(目前仅支持这个模型，而这个模型仅支持中文 =-=，后续得加个英文的或者通用的。)
-- 默认值: "./models/nlp_gte_sentence-embedding_chinese-base"
-**books_thresholds**
-- 描述: 世界书搜索阈值，低于这个阈值的世界书将被过滤掉。专业点叫知识库
-- 默认值: 0.5
-**mem_thresholds**
-- 描述: 核心记忆搜索阈值，低于这个阈值的记忆将被过滤掉。
-- 默认值: 0.38
-**scan_depth**
-- 描述: 扫描深度，扫描记忆的深度。
-- 默认值: 4
-
-还有几个暂时没用到
-
-### lab.toml `[mcp.*]`
-
-仅在 `agent.enable_mcp=True` 时工作:
-
-一般不需要手动配置，开发者使用。
-
-**transport**
-- 描述: MCP 服务器的 transport 类型
-- 默认值: "http"
-- 可选: ["http"]
-
-**host**
-- 描述: MCP 服务器的 host
-- 默认值: "127.0.0.1"
-
-**port**
-- 描述: MCP 服务器的 port
-- 默认值: 4200
-
-**path**
-- 描述: MCP 服务器的 path
-- 默认值: "/"
-
-**log_level**
-- 描述: MCP 服务器的 log_level
-- 默认值: "info"
-
-
-
-### `yutto.toml` / `todo.toml` / `uiya.toml`
-
-无需修改和注意的文件, 和 package 对应。均在 WebUI 中使用。
-
-## yaml
-
-### `vtuber.yaml`:
-
-Open-LLM-Vtuber 的配置文件。其中大部分已经用不到，而用得到的部分一般也不需要人来改。
-
-`live2d_model_name` ：配置 live2d 模型。可选项：[`shizuku-local`,`mao_pro`, `elaina-local`]
-
-## json
-
-### `gsv_config.json`
-
-```json
-{
-  "device": "auto",
-  "is_half": "auto",
-
-  "models_path": "models/gptsovits",
-  "cnhubert_base_path": "bert/chinese-hubert-base",
-  "bert_base_path": "bert/chinese-roberta-wwm-ext-large",
-  "save_prompt_cache": true,
-  "prompt_cache_dir": "cache/prompt_cache"
-}
+```toml
+[root]
+root_dir = "D:\\tmp\\XnneHangLab"
 ```
 
-用来配置模型路径用的。一般不必更改, 只需要确认防止的位置即可。
+---
+
+## 📦 [package] 模块开关
+
+这些布尔值决定某些模块/包是否启用（例如某些 UI 页面、后端挂载项、依赖是否需要等）。
+
+| 配置项 | 默认 | 说明 |
+|---|---:|---|
+| funasr | true | 是否包含 FunASR 相关能力 |
+| whisper | true/false | 是否包含 Whisper 相关能力 |
+| to_do_list | true | 是否包含 to-do-list 模块 |
+| yutto_uiya | true | 是否包含 yutto-uiya（b站下载相关 UI/能力） |
+| gpt_sovits | true | 是否包含 GPT-SoVITS 能力 |
+
+示例：
+
+```toml
+[package]
+funasr = true
+whisper = false
+to_do_list = true
+yutto_uiya = true
+gpt_sovits = true
+```
+
+---
+
+## 🎙️ [asr] 语音识别（ASR）总配置
+
+`[asr]` 是 ASR 的入口，`asr_model_provider` 决定实际使用 **FunASR** 或 **Whisper**。
+
+### 关键字段
+
+#### FFMPEG_PATH
+- **作用**：指定 ffmpeg 可执行文件路径。
+- **常见值**：
+  - `"ffmpeg"`：走系统 PATH（推荐）
+  - `"C:\\path\\to\\ffmpeg.exe"`：Windows 指向具体 exe
+
+#### device
+- **作用**：选择推理设备。
+- 可选值：`"cpu"` / `"cuda"`
+
+> 💡 WebUI 中通常会把这类字段做成下拉框（有 i18n 映射）。
+
+#### cache_dir / output_dir
+- `cache_dir`：中间缓存（下载、临时文件、切分片段等）
+- `output_dir`：输出目录（字幕、导出文件等）
+
+#### asr_model_provider
+- **作用**：选择 ASR 提供者。
+- 可选值：`"funasr"` / `"whisper"`
+
+#### cut / cut_line（可选）
+- `cut = true/false`：是否启用“按间隔切分”
+- `cut_line`：切分间隔（毫秒）
+
+#### combine / combine_line（可选）
+- `combine = true/false`：是否启用“按间隔合并”
+- `combine_line`：合并间隔（毫秒）
+
+#### max_sentence_length
+- **作用**：限制最大单句长度（用于字幕行/句子拆分策略）。
+- 建议保持默认，除非你明确想要更短/更长的字幕行。
+
+---
+
+### 🧠 [asr.funasr] FunASR 子配置
+
+| 配置项 | 作用 |
+|---|---|
+| batch_size_s | 批处理大小（单位是秒/片段时长的概念），用于尽量吃满 GPU/CPU |
+| punctuation_list | 标点列表，用于分句/后处理 |
+| hot_words_path | 热词文件路径（提高特定词识别率） |
+| base_model | base 模型路径 |
+| vad_model | VAD（语音活动检测）模型路径 |
+| punc_model | 标点恢复模型路径 |
+| sense_voice_model | SenseVoice 模型路径 |
+| need_punc | 是否启用标点恢复（false 表示不额外跑 punc） |
+
+示例：
+
+```toml
+[asr.funasr]
+batch_size_s = 300
+punctuation_list = "，。；、？！,.;?!"
+hot_words_path = "./hot_words.txt"
+base_model = "./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch"
+vad_model = "./models/speech_fsmn_vad_zh-cn-16k-common-pytorch"
+punc_model = "./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch"
+sense_voice_model = "./models/SenseVoiceSmall"
+need_punc = false
+```
+
+---
+
+### 🌀 [asr.whisper] Whisper 子配置
+
+| 配置项 | 作用 |
+|---|---|
+| whisper_models_base_dir | Whisper 模型目录 |
+| whisper_model_size | 模型规格（目前支持 `tiny` / `turbo`） |
+
+示例：
+
+```toml
+[asr.whisper]
+whisper_models_base_dir = "./models/whisper/"
+whisper_model_size = "turbo"
+```
+
+---
+
+## 🖥️ [webui] Streamlit WebUI 偏好
+
+这是给 Streamlit 页面的一些简单偏好设置（偏 UI 体验类）。
+
+### guide
+- 可选：`open` / `close`
+- **作用**：是否显示指引（新手提示/步骤说明）
+
+### subtitle_speed
+- 可选：`slow` / `normal` / `fast`
+- **作用**：字幕速度预设（用于“字幕速度调节/演示”等 UI）
+
+示例：
+
+```toml
+[webui]
+guide = "open"
+subtitle_speed = "normal"
+```
+
+---
+
+## 🧙‍♀️ [agent] LLM Agent（对话 / 翻译 / 记忆 / 语音）
+
+Agent 主要负责：
+- 选择并调用 LLM（不同 provider）
+- 角色提示词（character）
+- 跨语言对话时的翻译（DeepLX）
+- 长期记忆（RAG + 日记/核心记忆/世界书）
+- MCP 工具连接（可选）
+- 文本分句（用于更自然的 TTS/逐句处理）
+
+### llm_provider
+选择默认使用哪家 LLM：
+
+可选：`openai` / `lingyi` / `gemini` / `oaipro` / `cerebras`
+
+> ⚠️ 注意：你仍然需要在对应的 `[agent.llm.<provider>]` 里填好 `llm_api_key`（若该服务需要）。
+
+### enable_mcp
+- `true/false`
+- **作用**：是否启用 MCP 工具连接（对接 `mcp.*` 配置）
+
+### character_name
+- **作用**：选择角色提示词文件名
+- 例如：`elaina` → 对应 `./prompts/characters/elaina.txt`
+
+### deeplx_api_key
+- **作用**：用于跨语言对话时把 LLM 回复翻译成 speaker 语言，再合成语音。
+- 通常在 `user_lang != speaker_lang` 时才会用到。如果没有它就只能同语言对话。
+
+> 它是 Linux.do 社区里始皇提供给每个用户的 key，可以免费使用 deeplx(beta) 翻译服务。 <br>
+> 具体可以参考这里 [配置始皇DeepLX的沉浸式翻译](https://linux.do/t/topic/1431373)。
+
+### user_lang / speaker_lang
+- 可选：`ZH` / `EN` / `JA`
+- `user_lang`：用户输入语言，也会影响 LLM 回复语言策略  
+- `speaker_lang`：语音合成端输出语言（TTS 目标语言）
+
+### enable_longterm_memory
+- `true/false`
+- **作用**：是否启用长期记忆模块（具体策略见 `[agent.memory]`）
+
+### speaker_model
+- 当前可选：`gpt_sovits`
+- **作用**：选择用于语音合成的模型类型（后续可扩展更多模型）
+
+### faster_first_response
+- `true/false`
+- **作用**：偏“更快首句/首包”的响应策略开关（用于优化体感响应速度）
+
+### segment_method
+- 可选：`regex` / `pysbd`
+- **作用**：文本分句方法
+  - `regex`：用正则/标点切分（简单直接）
+  - `pysbd`：用句子边界检测（更像自然语言分句）
+
+### interrupt_method
+- 可选：`system` / `user`
+- **作用**：把“打断信号”写入 chat history 的方式：
+  - `system`：用系统提示写入
+  - `user`：用用户输入写入
+
+示例：
+
+```toml
+[agent]
+llm_provider = "openai"
+enable_mcp = true
+character_name = "elaina"
+user_lang = "ZH"
+speaker_lang = "EN"
+enable_longterm_memory = true
+speaker_model = "gpt_sovits"
+segment_method = "pysbd"
+interrupt_method = "user"
+```
+
+---
+
+### 🤖 [agent.llm] LLM 供应商配置（OpenAI-compatible）
+
+每个 provider 结构一致：
+
+- `llm_api_key`
+- `llm_base_url`
+- `llm_model_name`
+
+你只需要给你选中的 `llm_provider` 填对 key / base_url / model 即可；其他 provider 可以留空当备用。
+
+示例（OpenAI）：
+
+```toml
+[agent.llm.openai]
+llm_api_key = "sk-***"
+llm_base_url = "https://api.openai.com/v1"
+llm_model_name = "gpt-4o"
+```
+
+示例（Cerebras）：
+
+```toml
+[agent.llm.cerebras]
+llm_api_key = "cb-***"
+llm_base_url = "https://api.cerebras.ai/v1"
+llm_model_name = "llama-3.3-70b"
+```
+
+---
+
+### 🧠 [agent.memory] 长期记忆 / 世界书配置
+
+这部分借鉴了“暴力 RAG + 时序日记”的思路，提供：
+- 世界书（知识库）
+- 日记（按时间记录）
+- 核心记忆（关于用户的重要长期信息）
+
+#### embedding_model_path
+- **作用**：嵌入模型路径（用于语义检索）
+- 默认：`./models/nlp_gte_sentence-embedding_chinese-base`（当前主要支持中文）
+
+#### books_thresholds
+- **作用**：知识库检索阈值（相似度过滤）
+- **经验**：阈值越高 → 命中更准但更少；阈值越低 → 命中更多但可能夹杂噪声
+
+#### mem_thresholds
+- **作用**：日记内容检索阈值（相似度过滤）
+
+#### scan_depth
+- **作用**：检索深度（返回候选数量上限）
+- 注意：仍会被阈值过滤，最终返回数量可能小于 `scan_depth`
+
+#### enable_check_memorys
+- **作用**：启用“日记检索加强”
+- 行为：对检索到的内容做进一步提取/过滤，减少无关信息混入上下文
+
+#### enable_core_memmorys
+- **作用**：启用核心记忆
+- 核心记忆用于存储“用户重要信息”（例如偏好/习惯/关键信息等），是语义匹配（模糊检索），不按时间筛选，但每条记忆仍带记录时间。
+
+#### lore_books
+- **作用**：启用世界书（知识库）
+- 用于补充人物、物品、事件设定，强化角色扮演或知识补充
+
+示例：
+
+```toml
+[agent.memory]
+embedding_model_path = "./models/nlp_gte_sentence-embedding_chinese-base"
+books_thresholds = 0.5
+mem_thresholds = 0.38
+scan_depth = 4
+enable_check_memorys = true
+enable_core_memmorys = true
+lore_books = true
+```
+
+---
+
+## 🔌 [mcp] MCP Server 连接配置（HTTP）
+
+本项目的 MCP 连接方式使用 **HTTP（streamable-http）**，不使用 stdio。
+
+每个 server 都有相同字段：
+
+- `transport`：目前固定 `http`
+- `host`：默认 `127.0.0.1`
+- `port`：端口
+- `path`：默认 `/`
+- `log_level`：默认 `debug`
+
+示例：
+
+```toml
+[mcp.timeemi]
+transport = "http"
+host = "127.0.0.1"
+port = 4200
+path = "/"
+log_level = "debug"
+
+[mcp.vision]
+transport = "http"
+host = "127.0.0.1"
+port = 4201
+path = "/"
+log_level = "debug"
+```
+
+> 💡 当 `[agent].enable_mcp = true` 时，Agent 会按这里的地址尝试连接对应 MCP server。
+> 这个时候必须先运行 `just mcp-server` 先启动 MCP server，否则 Agent 会报错。
+
+---
+
+## 🧼 最后的小建议
+
+- 🔐 **别把 API Key 提交到 Git**：建议把 `config/lab.toml` 加入 `.gitignore`，或提供 `lab.example.toml` 作为模板。
+- 🔁 修改配置后建议重启服务：配置通常在启动时读取，运行中不一定热更新。
+- 🧩 模块开关优先：如果某些模块禁用（`[package]`），对应 UI/功能可能不会出现，这是预期行为。

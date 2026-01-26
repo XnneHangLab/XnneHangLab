@@ -42,13 +42,16 @@ db-server:
 # API Router Test
 
 test-asr:
-  curl -X POST "http://localhost:12393/audio/asr" -F "file=@./examples/example3.opus"
+  curl -X POST "http://localhost:12393/asr/funasr/with_punc" -F "file=@./examples/example3.opus"
 
 test-asr-no-punc:
-  curl -X POST "http://localhost:12393/audio/asr_no_punc" -F "file=@./examples/example3.opus"
+  curl -X POST "http://localhost:12393/asr/funasr/no_punc" -F "file=@./examples/example3.opus"
 
 test-vad:
-  curl -X POST "http://localhost:12393/audio/vad" -F "file=@./examples/example3.opus"
+  curl -X POST "http://localhost:12393/asr/funasr/vad" -F "file=@./examples/example3.opus"
+
+test-whisper:
+  curl -X POST "http://localhost:12393/asr/whisper" -F "file=@./examples/example3.opus"
 
 test-gsv:
 	curl -X POST "http://127.0.0.1:12393/tts/gptsovits" \
@@ -125,7 +128,7 @@ install-sensevoice:
 install-bert-model:
   uv lock
   uv sync
-  uv run modelscope download --model pengzhendong/chinese-hubert-base --local_dir ./models/chinese-hubert-base pytorch_model.bin
+  uv run modelscope download --model pengzhendong/chinese-hubert-base --local_dir ./models/chinese-hubert-base
   uv run modelscope download --model dienstag/chinese-roberta-wwm-ext-large --local_dir ./models/chinese-roberta-wwm-ext-large  \
   pytorch_model.bin added_tokens.json config.json configuration.json README.md special_tokens_map.json tokenizer_config.json tokenizer.json
   # 这里不能用 --exclude 同时排除 tf_model.h5 和 flax_model.msgpack，多次 exclude 只会保留最后一个，所以这里指定了所有需要的文件
