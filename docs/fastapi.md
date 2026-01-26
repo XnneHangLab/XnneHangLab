@@ -1,63 +1,205 @@
-## 模型下载
+# 🚀 FastAPI 接口说明（fastapi.md）
 
-参见 [./deploy.md](./deploy.md) 文档。
+本项目后端基于 **FastAPI**，提供：
 
-## 运行
+- 🎙️ ASR（FunASR / Whisper）
+- 🗣️ TTS（GPT-SoVITS / GPT-SoVITS v2）
+- 🌍 翻译（DeepLX）
 
-```shell
-just server # 使用 just
-uv run uvicorn src.lab.api_server:app --reload --host localhost --port 12393 # 直接运行
+> 🧭 默认地址：`http://127.0.0.1:12393`  
+> 🔎 Swagger：`/docs`（推荐）｜ReDoc：`/redoc`  
+> ✅ 示例命令 **全部以项目 Justfile 为准**（不再“自己编” curl），因为 `./examples/*` 也是项目的一部分。
+
+---
+
+## ▶️ 启动服务
+
+推荐用 Justfile：
+
+```bash
+just server
 ```
 
-## 路由
+---
 
-### `/audio/asr`
+## 🌳 路由总览（tree view）
 
-- 描述: 识别音频的文字内容
-- 方法: `curl -X POST "http://localhost:12393/audio/asr" -F "file=@./examples/example3.opus"`
-- 响应示例: `{"key":"example3","processing_time":0.8376491069793701,"text":"那年，长街春意正浓，策马同游。","time_stamp":[[910,1130],[1130,1370],[1490,1730],[1950,2190],[2370,2610],[2690,2930],[3030,3270],[3850,4090],[5430,5670],[5750,5990],[6070,6310],[6470,6795]]}`
-- 支持的音频格式: `wav`, `mp3`, `opus`, `flac`, `ogg`, `m4a`, `aac`
+```text
+/
+├─ /docs
+├─ /redoc
+│
+├─ /asr
+│  ├─ /funasr/with_punc      POST   (multipart/form-data: file)
+│  ├─ /funasr/no_punc        POST   (multipart/form-data: file)
+│  ├─ /funasr/vad            POST   (multipart/form-data: file)
+│  └─ /whisper               POST   (multipart/form-data: file)
+│
+├─ /tts
+│  ├─ /gptsovits             POST   (application/json)
+│  └─ /gptsovitsv2/tts        GET   (query params, returns audio)
+│
+└─ /translate
+   └─ /deeplx                POST   (application/json)
+```
 
-### `/audio/vad`
+---
 
-- 描述: 语音活动(是否有人在说话)检测, 返回毫米级别的起止时间戳
-- 方法: `curl -X POST "http://localhost:12393/audio/vad" -F "file=@./examples/example3.opus"`
-- 响应示例: `{"key":"example3","processing_time":0.29256510734558105,"timestamp":[[680,7020]],"audio_length":7046}`
-- 支持的音频格式: `wav`, `mp3`, `opus`, `flac`, `ogg`, `m4a`, `aac`
+## 🧪 一键自测（直接用 Justfile）
 
-## `/tts/gpt-sovits`
+你可以在服务启动后，直接跑这些命令验证接口是否工作（与项目 `Justfile` 保持一致）：
 
-- 描述: 调用 GPT-SoVITS 合成音频, 需要开启 packages.toml 中的 `gpt-sovits` 功能.
-- 方法&&响应示例:
-```shell
-xnnehanglab➜  VtuberLab git:(add-gpt-sovits) ✗ just test-gsv
-curl -X POST "http://127.0.0.1:12393/tts/gptsovits" -H "Content-Type: application/json" -d '{ "text": "それでは問題です。澄み渡った青空をゆく、そこに人がいたのなら間違いなく誰もが振り返り、ため息をこぼしてしまうほどの美貌の魔女は、いったい誰でしょう？", "character": "elaina", "text_language": "ja", "ref_audio_path": "/home/xnne/code/Chatter/VtuberLab/models/gptsovits/elaina/elaina.wav" }' -o response.json && python -c "import json, base64; data=json.load(open('response.json')); open('output.mp3', 'wb').write(base64.b64decode(data['audio_byte']))"
-  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-                                 Dload  Upload   Total   Spent    Left  Speed
-100  729k  100  729k  100   372  46126     22  0:00:16  0:00:16 --:--:--  174k
+```bash
+just test-asr
+just test-asr-no-punc
+just test-vad
+just test-whisper
+just test-gsv
+just test-gsv-v2
+just test-deeplx
+```
+
+> 💡 如果你刚拉完代码/换了 Key：可以用 `just key` 同步 API Key（Justfile 中的 recipe：`uv run scripts/sync_apikey.py`）。
+
+---
+
+## 📦 通用约定
+
+### 🎧 音频上传字段
+- 统一使用表单字段名：`file`
+- 格式：`multipart/form-data`
+
+### ⏱️ 时间戳单位
+- ASR / VAD 的 `timestamp` 通常是 **毫秒 ms**
+- 结构：`[[start_ms, end_ms], ...]`
+
+---
+
+## 🎙️ ASR
+
+### ✅ FunASR：带标点识别
+`POST /asr/funasr/with_punc`
+
+**推荐测试（Justfile）：**
+```bash
+just test-asr
+```
+
+**Justfile 实际执行内容：**
+```bash
+curl -X POST "http://localhost:12393/asr/funasr/with_punc" -F "file=@./examples/example3.opus"
+```
+
+---
+
+### 🧩 FunASR：不带标点识别
+`POST /asr/funasr/no_punc`
+
+**推荐测试（Justfile）：**
+```bash
+just test-asr-no-punc
+```
+
+**Justfile 实际执行内容：**
+```bash
+curl -X POST "http://localhost:12393/asr/funasr/no_punc" -F "file=@./examples/example3.opus"
+```
+
+---
+
+### 🔍 FunASR：VAD（语音活动检测）
+`POST /asr/funasr/vad`
+
+**推荐测试（Justfile）：**
+```bash
+just test-vad
+```
+
+**Justfile 实际执行内容：**
+```bash
+curl -X POST "http://localhost:12393/asr/funasr/vad" -F "file=@./examples/example3.opus"
+```
+
+---
+
+### 🌀 Whisper：识别（含 segments）
+`POST /asr/whisper`
+
+**推荐测试（Justfile）：**
+```bash
+just test-whisper
+```
+
+**Justfile 实际执行内容：**
+```bash
+curl -X POST "http://localhost:12393/asr/whisper" -F "file=@./examples/example3.opus"
+```
+
+---
+
+## 🗣️ TTS
+
+### 🧙 GPT-SoVITS（JSON → base64 音频）
+`POST /tts/gptsovits`
+
+**推荐测试（Justfile）：**
+```bash
+just test-gsv
+```
+
+**Justfile 实际执行内容（保持原样）：**
+```bash
+curl -X POST "http://127.0.0.1:12393/tts/gptsovits" \
+-H "Content-Type: application/json" \
+-d '{ \
+	"text": "それでは問題です。澄み渡った青空をゆく、そこに人がいたのなら間違いなく誰もが振り返り、ため息をこぼしてしまうほどの美貌の魔女は、いったい誰でしょう？", \
+	"character": "elaina", \
+	"text_language": "ja", \
+	"ref_audio_path": "./models/gptsovits/elaina/elaina.wav" \
+}' \
+-o response.json \
+&& uv run python -c "import json, base64; data=json.load(open('response.json')); open('output.mp3', 'wb').write(base64.b64decode(data['audio_byte']))"
 rm response.json
-
-xnnehanglab➜  VtuberLab git:(add-gpt-sovits) ✗ ls output.mp3 
-output.mp3
 ```
 
-support json body:
+> 📌 这个测试会生成 `output.mp3`（从返回的 `audio_byte` base64 解码）。
 
-```json
-{
-    "method": "POST",
-    "body": {
-        "text": "${speakText}",
-        "ref_audio_path": "${refAudioPath}",
-        "text_language": "${textLanguage}",
-        "speed": ${speed},
-        "temperature": ${temperature},
-    }
-}
+---
+
+### 🧪 GPT-SoVITS v2（Query → 直接返回音频）
+`GET /tts/gptsovitsv2/tts`
+
+**推荐测试（Justfile）：**
+```bash
+just test-gsv-v2
 ```
 
-## `translate/deeplx`
+**Justfile 实际执行内容：**
+```bash
+curl -G "http://127.0.0.1:12393/tts/gptsovitsv2/tts" --data-urlencode "text=こんにちは、お元気ですか？今日も一緒に頑張りましょう！" --data-urlencode "text_lang=ja" --data-urlencode "ref_audio_path=Voice_MainScenario_27_016.wav" --data-urlencode "prompt_text=君が集中した時のシータ波を検出して、リンクをつなぎ直せば元通りになるはず。" --data-urlencode "prompt_lang=ja" --data-urlencode "speed_factor=1.0" -o tts.wav
+```
 
-- 描述: 使用 deeplx 翻译文本,需要预先在 lab.toml 里填写 API KEY.
-- 方法: `curl -X POST "http://127.0.0.1:12393/translate/deeplx" -H "Content-Type: application/json" -d '{ "text": "それでは問題です。澄み渡った青空をゆく、そこに人がいたのなら間違いなく誰もが振り返り、ため息をこぼしてしまうほどの美貌の魔女は、いったい誰でしょう？", "source_language": "JA", "target_language": "ZH" }'`
-- 响应示例: `{"code":200,"message":"success","source_text":"JA","target_text":"现在问题来了。在湛蓝的天空中穿行的美丽女巫是谁，如果有一个人在那里，一定会让所有人回首叹息？"}%     `
+> 📌 这个测试会把返回音频保存为 `tts.wav`。
+
+---
+
+## 🌍 翻译
+
+### 🔤 DeepLX 翻译
+`POST /translate/deeplx`
+
+**推荐测试（Justfile）：**
+```bash
+just test-deeplx
+```
+
+**Justfile 实际执行内容（保持原样）：**
+```bash
+curl -X POST "http://127.0.0.1:12393/translate/deeplx" \
+-H "Content-Type: application/json" \
+-d '{ \
+	"text": "それでは問題です。澄み渡った青空をゆく、そこに人がいたのなら間違いなく誰もが振り返り、ため息をこぼしてしまうほどの美貌の魔女は、いったい誰でしょう？", \
+	"source_language": "Auto", \
+	"target_language": "ZH" \
+}' \
+```
