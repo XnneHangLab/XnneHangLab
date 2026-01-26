@@ -54,10 +54,10 @@
 
 ## 👀效果演示
 
-| ![image.png](https://cdn.xnnehang.top/MrXnneHang/blog_img/refs/heads/main/BlogHosting/img/26/01/20260126095406.png)<br> | ![image.png](https://cdn.xnnehang.top/MrXnneHang/blog_img/refs/heads/main/BlogHosting/img/26/01/20260126100429.png) |
+| ![](./assets/imgs/yutto-uiya.png)<br> | ![](./assets/imgs/subtitle-extract.png) |
 | :---------------------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------------: |
-|   ![image.png](https://cdn.xnnehang.top/MrXnneHang/blog_img/refs/heads/main/BlogHosting/img/26/01/20260126100845.png)   | ![image.png](https://cdn.xnnehang.top/MrXnneHang/blog_img/refs/heads/main/BlogHosting/img/26/01/20260126094853.png) |
-|     ![月色真美](https://cdn.xnnehang.top/MrXnneHang/blog_img/refs/heads/main/BlogHosting/img/26/01/202601100438203.png)     |    ![喝水](https://cdn.xnnehang.top/MrXnneHang/blog_img/refs/heads/main/BlogHosting/img/26/01/202601100443124.png)    |
+| ![](./assets/imgs/window-mode.png) | ![](./assets/imgs/pet-mode.png) |
+| ![](./assets/imgs/game-view-1.png) | ![](./assets/imgs/game-view-2.png) |
 
 ## ✅功能清单
 
