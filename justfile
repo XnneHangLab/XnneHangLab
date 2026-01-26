@@ -42,13 +42,16 @@ db-server:
 # API Router Test
 
 test-asr:
-  curl -X POST "http://localhost:12393/audio/asr" -F "file=@./examples/example3.opus"
+  curl -X POST "http://localhost:12393/asr/funasr/with_punc" -F "file=@./examples/example3.opus"
 
 test-asr-no-punc:
-  curl -X POST "http://localhost:12393/audio/asr_no_punc" -F "file=@./examples/example3.opus"
+  curl -X POST "http://localhost:12393/asr/funasr/no_punc" -F "file=@./examples/example3.opus"
 
 test-vad:
-  curl -X POST "http://localhost:12393/audio/vad" -F "file=@./examples/example3.opus"
+  curl -X POST "http://localhost:12393/asr/funasr/vad" -F "file=@./examples/example3.opus"
+
+test-whisper:
+  curl -X POST "http://localhost:12393/asr/whisper" -F "file=@./examples/example3.opus"
 
 test-gsv:
 	curl -X POST "http://127.0.0.1:12393/tts/gptsovits" \
