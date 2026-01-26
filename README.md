@@ -1,8 +1,14 @@
-<a href="https://xnnehang.top/">
+<p align="center">
+  <a href="https://xnnehang.top/">
+    <img
+      src="./assets/imgs/logo.svg"
+      alt="魔女の实验室"
+      width="270"
+      height="180"
+    />
+  </a>
+</p>
 
-<div align="center">
-    <img src="https://fastly.jsdelivr.net/gh/MrXnneHang/blog_img/BlogHosting/img/25/02/202503312014744.svg" alt="魔女の实验室" width="270" height="180">
-</div>
 <h1 align="center">XnneHangLab</h1>
 </a>
 <br/>
