@@ -24,19 +24,24 @@ class LLMSettingBase(BaseModel):
 class LingyiSetting(LLMSettingBase):
     llm_base_url: Annotated[str, Field("https://api.lingyiwanwu.com/v1", title="Lingyi API Base URL")]
 
+
 class GeminiSetting(LLMSettingBase):
     llm_base_url: Annotated[
         str, Field("https://generativelanguage.googleapis.com/v1beta/openai/", title="Gemini API Base URL")
     ]
 
+
 class OpenAISetting(LLMSettingBase):
     llm_base_url: Annotated[str, Field("https://api.openai.com/v1", title="ChatGPT API Base URL")]
+
 
 class OAIPROSetting(LLMSettingBase):
     llm_base_url: Annotated[str, Field("https://api.oaipro.com/v1", title="OAIPRO API Base URL")]
 
+
 class CerebrasSetting(LLMSettingBase):
     llm_base_url: Annotated[str, Field("https://api.cerebras.ai/v1", title="Cerebras API Base URL")]
+
 
 # Long Term Memory
 
