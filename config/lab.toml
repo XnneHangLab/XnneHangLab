@@ -30,13 +30,13 @@ guide = "open"
 subtitle_speed = "normal"
 
 [agent]
-llm_provider = "cerebras"
-enable_mcp = false
+llm_provider = "oaipro"
+enable_mcp = true
 character_name = "elaina"
 deeplx_api_key = ""
 user_lang = "ZH"
 speaker_lang = "EN"
-enable_longterm_memory = false
+enable_longterm_memory = true
 speaker_model = "gpt_sovits"
 faster_first_response = false
 segment_method = "pysbd"
@@ -45,27 +45,27 @@ interrupt_method = "user"
 [agent.llm.openai]
 llm_api_key = ""
 llm_base_url = "https://api.openai.com/v1"
-llm_model_name = "gpt-4o"
+api_format = "chat_completion"
 
 [agent.llm.lingyi]
 llm_api_key = ""
 llm_base_url = "https://api.lingyiwanwu.com/v1"
-llm_model_name = "yi-lightning"
+api_format = "chat_completion"
 
 [agent.llm.gemini]
 llm_api_key = ""
 llm_base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
-llm_model_name = "gemini-2.5-flash"
+api_format = "chat_completion"
 
 [agent.llm.oaipro]
 llm_api_key = ""
 llm_base_url = "https://api.oaipro.com/v1"
-llm_model_name = "gpt-5.1-2025-11-13"
+api_format = "chat_completion"
 
 [agent.llm.cerebras]
 llm_api_key = ""
 llm_base_url = "https://api.cerebras.ai/v1"
-llm_model_name = "llama-3.3-70b"
+api_format = "chat_completion"
 
 [agent.memory]
 embedding_model_path = "./models/nlp_gte_sentence-embedding_chinese-base"

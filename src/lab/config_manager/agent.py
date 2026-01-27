@@ -15,7 +15,6 @@ from pydantic import BaseModel, Field
 class LLMSettingBase(BaseModel):
     llm_api_key: Annotated[str, Field("", title="OpenAI API Key")]
     llm_base_url: Annotated[str, Field("", title="OpenAI API Base URL")]
-    llm_model_name: Annotated[str, Field("", title="OpenAI Model Name")]
     api_format: Annotated[
         Literal["chat_completion"],
         Field("chat_completion", title="API Format"),
@@ -24,30 +23,20 @@ class LLMSettingBase(BaseModel):
 
 class LingyiSetting(LLMSettingBase):
     llm_base_url: Annotated[str, Field("https://api.lingyiwanwu.com/v1", title="Lingyi API Base URL")]
-    llm_model_name: Annotated[str, Field("yi-lightning", title="Lingyi Model Name")]
-
 
 class GeminiSetting(LLMSettingBase):
     llm_base_url: Annotated[
         str, Field("https://generativelanguage.googleapis.com/v1beta/openai/", title="Gemini API Base URL")
     ]
-    llm_model_name: Annotated[str, Field("gemini-2.5-flash", title="Gemini Model Name")]
-
 
 class OpenAISetting(LLMSettingBase):
     llm_base_url: Annotated[str, Field("https://api.openai.com/v1", title="ChatGPT API Base URL")]
-    llm_model_name: Annotated[str, Field("gpt-4o", title="ChatGPT Model Name")]
-
 
 class OAIPROSetting(LLMSettingBase):
-    llm_model_name: Annotated[str, Field("gpt-5.1-2025-11-13", title="OAIPRO Model Name")]
     llm_base_url: Annotated[str, Field("https://api.oaipro.com/v1", title="OAIPRO API Base URL")]
-
 
 class CerebrasSetting(LLMSettingBase):
     llm_base_url: Annotated[str, Field("https://api.cerebras.ai/v1", title="Cerebras API Base URL")]
-    llm_model_name: Annotated[str, Field("llama-3.3-70b", title="Cerebras Model Name")]
-
 
 # Long Term Memory
 
