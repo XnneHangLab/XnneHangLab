@@ -50,6 +50,7 @@ def fetch_model_list(base_url: str, api_key: str|None = None, timeout: float = 1
 
 
 def main() -> None:
+    """列出配置项中填写 api_key 的模型列表"""
     lab_settings: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSettings)
     s = lab_settings.agent.llm
 
