@@ -16,6 +16,10 @@ class LLMSettingBase(BaseModel):
     llm_api_key: Annotated[str, Field("", title="OpenAI API Key")]
     llm_base_url: Annotated[str, Field("", title="OpenAI API Base URL")]
     llm_model_name: Annotated[str, Field("", title="OpenAI Model Name")]
+    api_format: Annotated[
+        Literal["chat_completion"],
+        Field("chat_completion", title="API Format"),
+    ]
 
 
 class LingyiSetting(LLMSettingBase):
