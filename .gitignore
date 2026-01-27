@@ -86,3 +86,4 @@ chinese-roberta-wwm-ext-large/
 chinese-hubert-base/
 
 bfg-*.jar
+model_list.json

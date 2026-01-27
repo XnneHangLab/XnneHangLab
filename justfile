@@ -1,6 +1,9 @@
 key:
   uv run scripts/sync_apikey.py  # 同步 API Key
 
+list-model: # 列出配置项中填写 api_key 的模型列表
+  uv run scripts/list_model_name.py
+
 start:
   uv lock
   uv sync
