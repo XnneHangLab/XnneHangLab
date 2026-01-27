@@ -121,7 +121,7 @@ class LLMSettings(BaseModel):
 
 class AgentSettings(BaseModel):
     chat_model: Annotated[ChatModelSetting, Field(ChatModelSetting())]  # pyright: ignore[reportCallIssue]
-    tool_model: Annotated[ToolModelSetting, Field(ToolModelSetting())] # pyright: ignore[reportCallIssue]
+    tool_model: Annotated[ToolModelSetting, Field(ToolModelSetting())]  # pyright: ignore[reportCallIssue]
     enable_mcp: Annotated[bool, Field(True, title="Enable MCP")]
     llm: Annotated[LLMSettings, Field(LLMSettings())]  # pyright: ignore[reportCallIssue]
     character_name: Annotated[
