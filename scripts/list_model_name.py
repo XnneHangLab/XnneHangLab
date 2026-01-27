@@ -7,7 +7,7 @@ import requests
 from loguru import logger
 from pydantic import BaseModel, ValidationError
 
-from lab.config_manager import XnneHangLabSettings, load_settings_file
+from lab.config_manager import RootAbsDir, XnneHangLabSettings, load_settings_file
 
 
 class ModelItem(BaseModel):
@@ -43,6 +43,7 @@ def main() -> None:
         None. Logs the results and writes them to model_list.json
     """
     lab_settings: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSettings)
+    root_setting: RootAbsDir = lab_settings.root
     s = lab_settings.agent.llm
 
     providers: dict[str, tuple[str, str]] = {
@@ -75,7 +76,7 @@ def main() -> None:
         logger.warning("api_key 不正确可能会导致获取模型列表失败")
 
     # 需要完整列表就写到文件（或直接 print(model_map)）
-    with Path("model_list.json").open("w", encoding="utf-8") as f:
+    with (Path(root_setting.root_dir) / "model_list.json").open("w", encoding="utf-8") as f:
         json.dump(model_map, f, ensure_ascii=False, indent=2)
 
 
