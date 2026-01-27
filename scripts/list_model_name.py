@@ -25,9 +25,12 @@ def fetch_model_list(base_url: str, api_key: str | None = None, timeout: float =
         headers["Authorization"] = f"Bearer {api_key}"
 
     r = requests.get(url, headers=headers, timeout=timeout)
-    if not (200 <= r.status_code < 300):
-        snippet = r.text[:200].replace("\n", " ")
-        raise RuntimeError(f"HTTP {r.status_code} from {url}: {snippet}")
+    try:
+        r.raise_for_status()
+    except requests.HTTPError as exc:
+        # Many providers return HTML when blocked by Cloudflare; keep it short.
+        snippet = r.text[:300].replace("\n", " ")
+        raise RuntimeError(f"HTTP {r.status_code} from {url}: {snippet}") from exc
 
     try:
         parsed = ModelsResponse.model_validate(r.json())
@@ -62,8 +65,18 @@ def main() -> None:
             continue
         try:
             model_map[name] = fetch_model_list(base_url, api_key=api_key)
+        except requests.exceptions.RequestException as e:
+            logger.exception(f"Request error while fetching models for provider '{name}'")
+            errors[name] = f"Request failed ({type(e).__name__}): {e}"
+        except json.JSONDecodeError as e:
+            logger.exception(f"JSON decode error while fetching models for provider '{name}'")
+            errors[name] = f"JSON decode failed ({type(e).__name__}): {e}"
+        except RuntimeError as e:
+            logger.exception(f"Runtime error while fetching models for provider '{name}'")
+            errors[name] = f"Runtime error ({type(e).__name__}): {e}"
         except Exception as e:
-            errors[name] = str(e)
+            logger.exception(f"Unexpected error while fetching models for provider '{name}'")
+            errors[name] = f"Unexpected error ({type(e).__name__}): {e}"
 
     for k, v in model_map.items():
         logger.info(f"{k}: {v}")
