@@ -9,6 +9,21 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
+LLM_Provider = Literal["openai", "lingyi", "gemini", "oaipro", "cerebras"]
+
+
+# Tool Model
+class ToolModelSetting(BaseModel):
+    llm_provider: Annotated[LLM_Provider, Field("cerebras", title="LLM Provider for Tool Model")]
+    llm_model_name: Annotated[str, Field("qwen-3-235b-a22b-instruct-2507", title="Tool Model Name")]
+
+
+# Chat Model
+class ChatModelSetting(BaseModel):
+    llm_provider: Annotated[LLM_Provider, Field("oaipro", title="LLM Provider for Chat Model")]
+    llm_model_name: Annotated[str, Field("gpt-5.1-2025-11-13", title="Chat Model Name")]
+
+
 # LLM
 
 
@@ -105,9 +120,8 @@ class LLMSettings(BaseModel):
 
 
 class AgentSettings(BaseModel):
-    llm_provider: Annotated[
-        Literal["openai", "lingyi", "gemini", "oaipro", "cerebras"], Field("oaipro", title="LLM Provider")
-    ]
+    chat_model: Annotated[ChatModelSetting, Field(ChatModelSetting())]  # pyright: ignore[reportCallIssue]
+    tool_model: Annotated[ToolModelSetting, Field(ToolModelSetting())] # pyright: ignore[reportCallIssue]
     enable_mcp: Annotated[bool, Field(True, title="Enable MCP")]
     llm: Annotated[LLMSettings, Field(LLMSettings())]  # pyright: ignore[reportCallIssue]
     character_name: Annotated[

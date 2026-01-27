@@ -30,7 +30,6 @@ guide = "open"
 subtitle_speed = "normal"
 
 [agent]
-llm_provider = "oaipro"
 enable_mcp = true
 character_name = "elaina"
 deeplx_api_key = ""
@@ -41,6 +40,14 @@ speaker_model = "gpt_sovits"
 faster_first_response = false
 segment_method = "pysbd"
 interrupt_method = "user"
+
+[agent.chat_model]
+llm_provider = "oaipro"
+llm_model_name = "gpt-5.1-2025-11-13"
+
+[agent.tool_model]
+llm_provider = "cerebras"
+llm_model_name = "qwen-3-235b-a22b-instruct-2507"
 
 [agent.llm.openai]
 llm_api_key = ""
