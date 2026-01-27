@@ -79,6 +79,11 @@ def main() -> None:
     logger.info(f"model counts: {summary}")
     logger.info("仅获取了有 api_key 的模型列表")
 
+
+    if errors:
+        logger.warning(f"failed: {list(errors.keys())}")
+        logger.warning("api_key 不正确可能会导致获取模型列表失败")
+
     # 需要完整列表就写到文件（或直接 print(model_map)）
     with Path("model_list.json").open("w", encoding="utf-8") as f:
         json.dump(model_map, f, ensure_ascii=False, indent=2)
