@@ -31,38 +31,38 @@ class AgentFactory:
             tts_preprocessor_config: Configuration for TTS preprocessing
             **kwargs: Additional arguments
         """
-        if agent_settings.llm_provider == "lingyi":
+        if agent_settings.chat_model.llm_provider == "lingyi":
             llm = StatelessLLMFactory.create_llm(
-                model=agent_settings.llm.lingyi.llm_model_name,
+                model=agent_settings.chat_model.llm_model_name,
                 base_url=agent_settings.llm.lingyi.llm_base_url,
                 llm_api_key=agent_settings.llm.lingyi.llm_api_key,
             )
-        elif agent_settings.llm_provider == "gemini":
+        elif agent_settings.chat_model.llm_provider == "gemini":
             llm = StatelessLLMFactory.create_llm(
-                model=agent_settings.llm.gemini.llm_model_name,
+                model=agent_settings.chat_model.llm_model_name,
                 base_url=agent_settings.llm.gemini.llm_base_url,
                 llm_api_key=agent_settings.llm.gemini.llm_api_key,
             )
-        elif agent_settings.llm_provider == "openai":
+        elif agent_settings.chat_model.llm_provider == "openai":
             llm = StatelessLLMFactory.create_llm(
-                model=agent_settings.llm.openai.llm_model_name,
+                model=agent_settings.chat_model.llm_model_name,
                 base_url=agent_settings.llm.openai.llm_base_url,
                 llm_api_key=agent_settings.llm.openai.llm_api_key,
             )
-        elif agent_settings.llm_provider == "oaipro":
+        elif agent_settings.chat_model.llm_provider == "oaipro":
             llm = StatelessLLMFactory.create_llm(
-                model=agent_settings.llm.oaipro.llm_model_name,
+                model=agent_settings.chat_model.llm_model_name,
                 base_url=agent_settings.llm.oaipro.llm_base_url,
                 llm_api_key=agent_settings.llm.oaipro.llm_api_key,
             )
-        elif agent_settings.llm_provider == "cerebras":
+        elif agent_settings.chat_model.llm_provider == "cerebras":
             llm = StatelessLLMFactory.create_llm(
-                model=agent_settings.llm.cerebras.llm_model_name,
+                model=agent_settings.chat_model.llm_model_name,
                 base_url=agent_settings.llm.cerebras.llm_base_url,
                 llm_api_key=agent_settings.llm.cerebras.llm_api_key,
             )
         else:
-            raise ValueError(f"Unknown LLM provider: {agent_settings.llm_provider}")
+            raise ValueError(f"Unknown LLM provider: {agent_settings.chat_model.llm_provider}")
 
         # Create the agent with the LLM and live2d_model
         return BasicMemoryAgent(  # type: ignore[call-arg]
