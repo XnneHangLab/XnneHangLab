@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import requests
 from loguru import logger
@@ -10,7 +10,7 @@ from loguru import logger
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 
 
-def fetch_model_list(base_url: str, api_key: Optional[str] = None, timeout: float = 10.0) -> list[str]:
+def fetch_model_list(base_url: str, api_key: str|None = None, timeout: float = 10.0) -> list[str]:
     """
     Assumes base_url is already a correct OpenAI-compatible prefix, e.g.:
       https://api.openai.com/v1
@@ -36,7 +36,7 @@ def fetch_model_list(base_url: str, api_key: Optional[str] = None, timeout: floa
     data = payload.get("data") if isinstance(payload, dict) else None  # type: ignore
     if not isinstance(data, list):
         raise RuntimeError(
-            f"Unexpected response shape from {url}: top-level keys={list(payload.keys()) if isinstance(payload, dict) else type(payload)}"
+            f"Unexpected response shape from {url}: top-level keys={list(payload.keys()) if isinstance(payload, dict) else type(payload)}"  # type: ignore
         )  # type: ignore
 
     ids: list[str] = []
@@ -65,6 +65,8 @@ def main() -> None:
     errors: dict[str, str] = {}
 
     for name, (base_url, api_key) in providers.items():
+        if not api_key:
+            continue
         try:
             model_map[name] = fetch_model_list(base_url, api_key=api_key)
         except Exception as e:
@@ -74,8 +76,7 @@ def main() -> None:
         logger.info(f"{k}: {v}")
     summary = {k: len(v) for k, v in model_map.items()}
     logger.info(f"model counts: {summary}")
-    if errors:
-        logger.warning(f"failed: {list(errors.keys())}")
+    logger.info("仅获取了有 api_key 的模型列表")
 
     # 需要完整列表就写到文件（或直接 print(model_map)）
     with Path("model_list.json").open("w", encoding="utf-8") as f:
