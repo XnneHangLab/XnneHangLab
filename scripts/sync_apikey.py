@@ -68,14 +68,19 @@ def main():
 
     # 记录脱敏后的配置信息
     logger.info("llm.openai.llm_api_key: {}", mask_api_key(settings.agent.llm.openai.llm_api_key))
+    logger.info("llm.openai.api_format: {}", settings.agent.llm.openai.api_format)
 
     logger.info("llm.lingyi.llm_api_key: {}", mask_api_key(settings.agent.llm.lingyi.llm_api_key))
+    logger.info("llm.lingyi.api_format: {}", settings.agent.llm.lingyi.api_format)
 
     logger.info("llm.gemini.llm_api_key: {}", mask_api_key(settings.agent.llm.gemini.llm_api_key))
+    logger.info("llm.gemini.api_format: {}", settings.agent.llm.gemini.api_format)
 
     logger.info("llm.oaipro.llm_api_key: {}", mask_api_key(settings.agent.llm.oaipro.llm_api_key))
+    logger.info("llm.oaipro.api_format: {}", settings.agent.llm.oaipro.api_format)
 
     logger.info("llm.cerebras.llm_api_key: {}", mask_api_key(settings.agent.llm.cerebras.llm_api_key))
+    logger.info("llm.cerebras.api_format: {}", settings.agent.llm.cerebras.api_format)
 
     logger.info("agent.deeplx_api_key: {}", mask_api_key(settings.agent.deeplx_api_key))
 
