@@ -1,39 +1,211 @@
 from __future__ import annotations
 
-from typing import Any, Literal, TypedDict
+from typing import Literal, Protocol
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+# =============================================================================
+# 1) OpenAI tool calling：最小 Protocol（SDK 边界）
+# =============================================================================
 
 
-class ToolMessage(TypedDict):
-    role: Literal["tool"]
+class _FnLike(Protocol):
+    name: str
+    arguments: str | None
+
+
+class ToolCallLike(Protocol):
+    id: str
+    function: _FnLike
+
+
+# =============================================================================
+# 2) 我们自己构造的 message / trace（IDE 可补全）
+# =============================================================================
+
+
+class OpenAIMessage(BaseModel):
+    """
+    我们自己构造的 OpenAI message。
+
+    示例：
+        {"role": "system", "content": "你是一个助手"}
+        {"role": "user", "content": "现在几点？"}
+        {"role": "tool", "content": "...", "tool_call_id": "call_xxx"}
+    """
+
+    role: Literal["system", "user", "assistant", "tool"]
+    content: str | None = None
+    tool_call_id: str | None = None
+
+
+class ToolMessage(BaseModel):
+    """
+    OpenAI tool message：回填给 Tool Model。
+
+    示例：
+        {"role": "tool", "content": "2026-01-27 20:54:37", "tool_call_id": "call_xxx"}
+    """
+
+    role: Literal["tool"] = "tool"
     content: str
     tool_call_id: str
 
 
-class ToolInfo(TypedDict):
-    tool_name: str
-    tool_args: Any
+class ToolTraceItem(BaseModel):
+    """
+    给 Chat Model 的工具调用摘要（结构化）。
+
+    注意：为了让 Chat Model 更好地“口语化 + TTS友好”，建议保留：
+    - raw_result：原始结果（可用于精确计算）
+    - display_hint：你希望 Chat Model 展示/口语化的方向（可选）
+
+    示例：
+        {
+          "server":"timeemi",
+          "name":"get_date_and_time",
+          "args":{},
+          "raw_result":{"datetime":"2026-01-27 20:54:37"},
+          "ok": true
+        }
+    """
+
+    server: str
+    name: str
+    args: dict[str, object] = Field(default_factory=dict)
+    raw_result: dict[str, object] = Field(default_factory=dict)
+    ok: bool = True
+    error: str | None = None
 
 
-class CommonMessage(TypedDict):
-    role: Literal["system", "user", "assistant"]
-    content: str
+# =============================================================================
+# 3) 已知工具：Args / Result（pydantic 强校验）
+# =============================================================================
+_TIME_RE = r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$"
 
 
-class ImageMessage(TypedDict):
-    role: Literal["user"]
-    content: list[dict[str, Any]]
+class GetDateAndTimeArgs(BaseModel):
+    """
+    timeemi.get_date_and_time 入参（无参数）。
+
+    输入示例：
+        {}
+    """
+
+    model_config = ConfigDict(extra="forbid")
 
 
-# message = {"role": "user", "content": [
-#     {"type": "text", "text":"""
-#     请用 2-3 句话描述图片，要求：
-#     1. 第一句概括主要场景（如「这是一张办公室桌面的照片」）
-#     2. 第二句补充关键细节（如「桌上有一台打开的笔记本电脑、一杯咖啡和几份文件」）
-#     3. 如果图片中有文字或特殊物体，可以额外提及（如「屏幕上显示代码编辑器，可能是 Python」）
-#     4. 语言自然，避免机械式描述
-#     """},
-#     {"type": "image_url",
-#     "image_url": {
-#         "url": f"data:image/jpeg;base64,{image_b64}"
-#     }}
-# ]}
+class GetDateAndTimeResult(BaseModel):
+    """
+    timeemi.get_date_and_time 输出。
+
+    输出示例：
+        {"datetime": "2026-01-27 20:54:37"}
+    """
+
+    datetime: str = Field(..., description="YYYY-MM-DD HH:MM:SS")
+
+    @field_validator("datetime")
+    @classmethod
+    def _check_fmt(cls, v: str) -> str:
+        import re
+
+        vv = v.strip()
+        if not re.match(_TIME_RE, vv):
+            raise ValueError(f"bad datetime format: {v!r}")
+        return vv
+
+
+class RollDiceArgs(BaseModel):
+    """
+    timeemi.roll_dice 入参。
+
+    输入示例：
+        {"n_dice": 3}
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    n_dice: int = Field(..., ge=1, le=50, description="骰子数量（建议限制，防止滥用）")
+
+
+class RollDiceResult(BaseModel):
+    """
+    timeemi.roll_dice 输出。
+
+    输出示例：
+        {"numbers": [5, 3, 1]}
+    """
+
+    numbers: list[int]
+
+    @field_validator("numbers")
+    @classmethod
+    def _check_range(cls, v: list[int]) -> list[int]:
+        for x in v:
+            if x < 1 or x > 6:
+                raise ValueError(f"dice out of range: {x}")
+        return v
+
+
+class RollDiceByTimeArgs(BaseModel):
+    """
+    timeemi.roll_dice_by_current_time 入参。
+
+    输入示例：
+        {"unit": "hour"}
+    """
+
+    unit: Literal["hour", "minute", "second"] = Field(..., description="使用的时间单位")
+
+
+class RollDiceByTimeResult(BaseModel):
+    """
+    timeemi.roll_dice_by_current_time 输出。
+
+    输出示例：
+    {
+      "unit": "hour",
+      "now": "2026-01-28 09:57:19",
+      "n_dice": 9,
+      "numbers": [4, 1, 4, 6, 3, 2, 5, 1, 6]
+    }
+    """
+
+    unit: Literal["hour", "minute", "second"] = Field(..., description="使用的时间单位")
+    now: str = Field(..., description="服务器当前时间，格式 YYYY-MM-DD HH:MM:SS")
+    n_dice: int = Field(..., description="最终掷骰子的数量（>=1）")
+    numbers: list[int] = Field(..., description="掷骰结果列表")
+
+    @field_validator("numbers")
+    @classmethod
+    def _check_range(cls, v: list[int]) -> list[int]:
+        for x in v:
+            if x < 1 or x > 6:
+                raise ValueError(f"dice out of range: {x}")
+        return v
+
+
+class UnknownArgs(BaseModel):
+    """
+    未知工具入参（扩展点）。
+
+    说明：
+    - 动态工具不强求 IDE 补全
+    - 仍然做最基本的“必须是 dict”约束
+
+    输入示例：
+        {"k":"v"}
+    """
+
+    data: dict[str, object] = Field(default_factory=dict)
+
+
+class UnknownResult(BaseModel):
+    """
+    未知工具输出（扩展点）。
+
+    输出示例：
+        {"data": ...}
+    """
+
+    data: object | None = None
