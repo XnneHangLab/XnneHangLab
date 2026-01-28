@@ -43,10 +43,10 @@ def dump_openai_msg(obj: object) -> dict[str, object]:
     """
     if hasattr(obj, "model_dump"):
         d = obj.model_dump(exclude_none=True)  # type: ignore[attr-defined]
-        return dict(d) # type: ignore
+        return dict(d)  # type: ignore
     if hasattr(obj, "to_dict"):
         d = obj.to_dict()  # type: ignore[attr-defined]
-        return dict(d) # type: ignore
+        return dict(d)  # type: ignore
     raise TypeError(f"Unknown message type: {type(obj)}")
 
 
@@ -176,6 +176,44 @@ class RollDiceResult(BaseModel):
         return v
 
 
+class RollDiceByTimeArgs(BaseModel):
+    """
+    timeemi.roll_dice_by_current_time 入参。
+
+    输入示例：
+        {"unit": "hour"}
+    """
+
+    unit: Literal["hour", "minute", "second"] = Field(..., description="使用的时间单位")
+
+
+class RollDiceByTimeResult(BaseModel):
+    """
+    timeemi.roll_dice_by_current_time 输出。
+
+    输出示例：
+    {
+      "unit": "hour",
+      "now": "2026-01-28 09:57:19",
+      "n_dice": 9,
+      "numbers": [4, 1, 4, 6, 3, 2, 5, 1, 6]
+    }
+    """
+
+    unit: Literal["hour", "minute", "second"] = Field(..., description="使用的时间单位")
+    now: str = Field(..., description="服务器当前时间，格式 YYYY-MM-DD HH:MM:SS")
+    n_dice: int = Field(..., description="最终掷骰子的数量（>=1）")
+    numbers: list[int] = Field(..., description="掷骰结果列表")
+
+    @field_validator("numbers")
+    @classmethod
+    def _check_range(cls, v: list[int]) -> list[int]:
+        for x in v:
+            if x < 1 or x > 6:
+                raise ValueError(f"dice out of range: {x}")
+        return v
+
+
 class UnknownArgs(BaseModel):
     """
     未知工具入参（扩展点）。
@@ -214,6 +252,7 @@ class ParsedTool:
       args_model: GetDateAndTimeArgs
     }
     """
+
     full_name: str
     server: str
     name: str
@@ -253,6 +292,10 @@ class ToolRegistry:
             args_model = RollDiceArgs.model_validate_json(s)
             return ParsedTool(full_name, server, name, args_model)
 
+        if full_name == "timeemi__roll_dice_by_current_time":
+            args_model = RollDiceByTimeArgs.model_validate_json(s)
+            return ParsedTool(full_name, server, name, args_model)
+
         # 未知工具：保底当 dict
         try:
             raw = json.loads(s)
@@ -260,7 +303,7 @@ class ToolRegistry:
                 raw = {}
         except Exception:
             raw = {}
-        args_model = UnknownArgs(data=raw) # type: ignore
+        args_model = UnknownArgs(data=raw)  # type: ignore
         return ParsedTool(full_name, server, name, args_model)
 
     @staticmethod
@@ -279,10 +322,10 @@ class ToolRegistry:
         is_error = bool(getattr(call_tool_result, "is_error", False))
         if is_error:
             # 尽量提取错误文本
-            blocks = getattr(call_tool_result, "content", None) or [] # type: ignore
+            blocks = getattr(call_tool_result, "content", None) or []  # type: ignore
             err_text = None
-            for b in blocks: # type: ignore
-                t = getattr(b, "text", None) # type: ignore
+            for b in blocks:  # type: ignore
+                t = getattr(b, "text", None)  # type: ignore
                 if t:
                     err_text = t
                     break
@@ -296,9 +339,16 @@ class ToolRegistry:
             return GetDateAndTimeResult(datetime=data)
 
         if full_name == "timeemi__roll_dice":
-            if not (isinstance(data, list) and all(isinstance(x, int) for x in data)): # type: ignore
-                raise TypeError(f"timeemi.roll_dice expects list[int], got {type(data)} {data}") # type: ignore
-            return RollDiceResult(numbers=data) # type: ignore
+            if not (isinstance(data, list) and all(isinstance(x, int) for x in data)):  # type: ignore
+                raise TypeError(f"timeemi.roll_dice expects list[int], got {type(data)} {data}")  # type: ignore
+            return RollDiceResult(numbers=data)  # type: ignore
+
+        if full_name == "timeemi__roll_dice_by_current_time":
+            if not (isinstance(data, dict) and "numbers" in data):
+                raise TypeError(
+                    f"timeemi.roll_dice_by_current_time expects dict with 'numbers', got {type(data)} {data}"  # type: ignore
+                )  # type: ignore
+            return RollDiceByTimeResult(**data)  # type: ignore
 
         return UnknownResult(data=data)
 
@@ -350,12 +400,12 @@ def prompt_result_to_text(prompt_result: object) -> str:
     输出示例：
         "system: ...\nuser: ...\nassistant: ..."
     """
-    msgs = getattr(prompt_result, "messages", None) or [] # type: ignore
+    msgs = getattr(prompt_result, "messages", None) or []  # type: ignore
     lines: list[str] = []
-    for m in msgs: # type: ignore
-        role = getattr(m, "role", "unknown") # type: ignore
-        content = getattr(m, "content", "") # type: ignore
-        text = getattr(content, "text", None) # type: ignore
+    for m in msgs:  # type: ignore
+        role = getattr(m, "role", "unknown")  # type: ignore
+        content = getattr(m, "content", "")  # type: ignore
+        text = getattr(content, "text", None)  # type: ignore
         if text is None:
             text = str(content)
         lines.append(f"{role}: {text}")
@@ -376,7 +426,7 @@ class FastMcpRouter:
     def __init__(self, *, prefix_delim: str = "__") -> None:
         self.prefix_delim = prefix_delim
         self._stack = AsyncExitStack()
-        self._clients: dict[str, Client] = {} # type: ignore
+        self._clients: dict[str, Client] = {}  # type: ignore
 
     async def connect(self, *, name: str, url: str, headers: dict[str, str] | None = None) -> None:
         """
@@ -391,7 +441,7 @@ class FastMcpRouter:
         transport = StreamableHttpTransport(url=url, headers=headers)
         client = Client(transport)
         client = await self._stack.enter_async_context(client)
-        self._clients[name] = client # type: ignore
+        self._clients[name] = client  # type: ignore
 
         tools = await client.list_tools()
         logger.info(f"[MCP] connected {name} tools={len(tools)} url={url}")
@@ -410,7 +460,7 @@ class FastMcpRouter:
             ]
         """
         out: list[dict[str, object]] = []
-        for server, client in self._clients.items(): # type: ignore
+        for server, client in self._clients.items():  # type: ignore
             tools = await client.list_tools()
             for t in tools:
                 full_name = f"{server}{self.prefix_delim}{t.name}"
@@ -438,7 +488,7 @@ class FastMcpRouter:
             {"n_dice": 3}
         """
         server, tool = self._split(full_name)
-        client = self._clients[server] # type: ignore
+        client = self._clients[server]  # type: ignore
         return await client.call_tool(tool, args, raise_on_error=False)
 
     async def get_prompt(self, *, full_name: str, prompt_name: str, args: dict[str, object]) -> object:
@@ -449,14 +499,14 @@ class FastMcpRouter:
             {"time_str": "2026-01-27 20:54:37"}
         """
         server, _ = self._split(full_name)
-        client = self._clients[server] # type: ignore
+        client = self._clients[server]  # type: ignore
         return await client.get_prompt(prompt_name, args)
 
 
 # =============================================================================
 # 7) 轻量重试（仅针对 429 queue_exceeded，避免你高峰期直接炸）
 # =============================================================================
-async def call_with_short_retry(awaitable_factory, *, max_retries: int = 2): # type: ignore
+async def call_with_short_retry(awaitable_factory, *, max_retries: int = 2):  # type: ignore
     """
     仅对 429 queue_exceeded 做短重试（避免明显变慢）。
     - 正常成功：零额外开销
@@ -465,7 +515,7 @@ async def call_with_short_retry(awaitable_factory, *, max_retries: int = 2): # t
     last: Exception | None = None
     for i in range(max_retries + 1):
         try:
-            return await awaitable_factory() # type: ignore
+            return await awaitable_factory()  # type: ignore
         except (RateLimitError, APIError) as e:
             last = e
             msg = str(e)
@@ -583,11 +633,21 @@ class Agent:
 
             if parsed.full_name == "timeemi__roll_dice":
                 nums = trace.raw_result.get("numbers")
-                if isinstance(nums, list) and all(isinstance(x, int) for x in nums): # type: ignore
+                if isinstance(nums, list) and all(isinstance(x, int) for x in nums):  # type: ignore
                     pr = await self.mcp.get_prompt(
                         full_name=parsed.full_name,
                         prompt_name="convert_list_int_readable",
                         args={"numbers": nums},
+                    )
+                    extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
+
+            if parsed.full_name == "timeemi__roll_dice_by_current_time":
+                unit = trace.raw_result.get("unit")
+                if isinstance(unit, str):
+                    pr = await self.mcp.get_prompt(
+                        full_name=parsed.full_name,
+                        prompt_name="convert_time_unit_readable",
+                        args={"unit": unit},
                     )
                     extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
 
@@ -604,11 +664,11 @@ class Agent:
         debug: bool = True,
     ) -> tuple[list[dict[str, object]], list[ToolTraceItem]]:
         """
-        Tool Model：非流式 + 支持并行/链式。
-
-        返回：
-        1) tool_loop_messages：完整轨迹（调试用）
-        2) tool_trace：结构化摘要（给 Chat Model）
+        Tool Model：非流式
+        - 协议正确：assistant(tool_calls) 后必须立刻补齐所有 tool messages（不能插 user/system）
+        - 并行：同轮多个 tool_calls -> gather
+        - 链式：补齐 tool messages 后，再追加 extra user messages 进入下一轮决策
+        - 去重：同轮相同 (tool+args) 只真实调用一次，但每个 tool_call_id 都回填
         """
         tool_loop_messages: list[dict[str, object]] = [
             OpenAIMessage(role="system", content=system_prompt).model_dump(exclude_none=True),
@@ -616,40 +676,110 @@ class Agent:
         ]
         tool_trace: list[ToolTraceItem] = []
 
+        # 跨 step 的缓存：避免重复真实调用（可选但很省）
+        cache: dict[str, tuple[str, ToolTraceItem, list[dict[str, object]]]] = {}
+
+        def _sig(full_name: str, args_dict: dict[str, object]) -> str:
+            return full_name + "::" + json.dumps(args_dict, ensure_ascii=False, sort_keys=True)
+
         for step in range(max_steps):
-            # Tool Model（非流式）
-            resp = await call_with_short_retry( # type: ignore
-                lambda: self.tool_client.chat.completions.create( # type: ignore
+            resp = await call_with_short_retry(  # type: ignore
+                lambda: self.tool_client.chat.completions.create(  # type: ignore
                     model=self.tool_model_name,
-                    messages=tool_loop_messages, # type: ignore
-                    tools=available_tools, # type: ignore
+                    messages=tool_loop_messages,  # type: ignore
+                    tools=available_tools,  # type: ignore
                     tool_choice="auto",
                     stream=False,
                 ),
                 max_retries=2,
             )
 
-            assistant_msg = resp.choices[0].message # type: ignore
-            tool_loop_messages.append(dump_openai_msg(assistant_msg)) # type: ignore
+            assistant_msg = resp.choices[0].message  # type: ignore
+            tool_loop_messages.append(dump_openai_msg(assistant_msg))  # type: ignore
 
-            tool_calls = getattr(assistant_msg, "tool_calls", None) # type: ignore
+            tool_calls = getattr(assistant_msg, "tool_calls", None)  # type: ignore
             if debug:
-                names = [tc.function.name for tc in (tool_calls or [])] # type: ignore
+                names = [tc.function.name for tc in (tool_calls or [])]  # type: ignore
                 logger.info(f"[ToolLoop step={step}] tool_calls={names}")
 
             if not tool_calls:
                 break
 
-            # 同一轮并行执行（最多 max_parallel_tools 个）
-            tool_calls = list(tool_calls)[:max_parallel_tools]
-            results = await asyncio.gather(
-                *[self._execute_tool_call(tc, user_input=user_input) for tc in tool_calls]
-            )
+            tool_calls_all = list(tool_calls)
 
-            for tool_msg, extra_msgs, trace in results:
-                tool_loop_messages.append(tool_msg.model_dump(exclude_none=True))
-                tool_trace.append(trace)
-                tool_loop_messages.extend(extra_msgs)
+            # 如果你限制 max_parallel_tools，这里要分两类：执行的、被截断的
+            tool_calls_exec = tool_calls_all[:max_parallel_tools]
+            tool_calls_skipped = tool_calls_all[max_parallel_tools:]
+
+            # --- 1) 先为“要执行的 tool_calls”准备任务（并行 + 去重/缓存）
+            tasks: list[asyncio.Task[tuple[ToolMessage, list[dict[str, object]], ToolTraceItem]]] = []
+            planned: list[tuple[ToolCallLike, str]] = []  # (tool_call, signature)
+
+            for tc in tool_calls_exec:
+                full_name = tc.function.name
+                parsed = ToolRegistry.parse_args(full_name, tc.function.arguments)
+                args_dict = parsed.args_model.model_dump(exclude_none=True)
+                sig = _sig(full_name, args_dict)
+                planned.append((tc, sig))
+
+                if sig in cache:
+                    # 缓存命中：不真实调用，但后面仍要为这个 tool_call_id 回填 tool message
+                    continue
+
+                # 真实调用
+                tasks.append(asyncio.create_task(self._execute_tool_call(tc, user_input=user_input)))
+
+            # 并行真实调用
+            if tasks:
+                results = await asyncio.gather(*tasks)
+                # 写入缓存：用 signature 作为 key
+                for tool_msg, extra_msgs, trace in results:
+                    # 这里从 trace 反推 signature（或你可以让 _execute_tool_call 返回 sig）
+                    full_name = f"{trace.server}__{trace.name}"
+                    sig = _sig(full_name, trace.args)
+                    cache[sig] = (tool_msg.content, trace, extra_msgs)
+
+            # --- 2) 构造“本轮必须补齐的 tool messages”（对每个 tool_call_id 都要有）
+            tool_msgs_to_append: list[dict[str, object]] = []
+            extra_msgs_to_append: list[dict[str, object]] = []
+
+            # 先处理执行集合（可能重复/缓存）
+            for tc, sig in planned:
+                if sig in cache:
+                    cached_content, cached_trace, cached_extra = cache[sig]
+                    tool_msgs_to_append.append(
+                        ToolMessage(content=cached_content, tool_call_id=tc.id).model_dump(exclude_none=True)
+                    )
+                    # trace 只记录一次即可（避免重复膨胀）；你也可以加个 “reused=True”
+                    if cached_trace not in tool_trace:
+                        tool_trace.append(cached_trace)
+                    # extra 也只追加一次（否则会越滚越大）
+                    if cached_extra:
+                        for m in cached_extra:
+                            if m not in extra_msgs_to_append:
+                                extra_msgs_to_append.append(m)
+                else:
+                    # 理论上不会发生：没有进入 cache 说明真实调用没跑出来
+                    tool_msgs_to_append.append(
+                        ToolMessage(content="tool_error: missing result", tool_call_id=tc.id).model_dump(
+                            exclude_none=True
+                        )
+                    )
+
+            # 再处理被截断的 tool_calls：也必须回填 tool message，否则必 400
+            for tc in tool_calls_skipped:
+                tool_msgs_to_append.append(
+                    ToolMessage(
+                        content="skipped_due_to_max_parallel_tools",
+                        tool_call_id=tc.id,
+                    ).model_dump(exclude_none=True)
+                )
+
+            # ✅ 协议关键：先追加所有 tool messages（连续）
+            tool_loop_messages.extend(tool_msgs_to_append)
+
+            # ✅ 再追加 extra user messages（用于链式决策）
+            tool_loop_messages.extend(extra_msgs_to_append)
 
         return tool_loop_messages, tool_trace
 
@@ -683,18 +813,18 @@ class Agent:
             OpenAIMessage(role="user", content=user_input).model_dump(exclude_none=True),
         ]
 
-        stream = await call_with_short_retry( # type: ignore
-            lambda: self.chat_client.chat.completions.create( # type: ignore
-                model=self.chat_model_name, # type: ignore
-                messages=messages, # type: ignore
+        stream = await call_with_short_retry(  # type: ignore
+            lambda: self.chat_client.chat.completions.create(  # type: ignore
+                model=self.chat_model_name,  # type: ignore
+                messages=messages,  # type: ignore
                 stream=True,
             ),
             max_retries=2,
         )
 
-        async for chunk in stream: # type: ignore
-            delta = chunk.choices[0].delta # type: ignore
-            content = getattr(delta, "content", None) # type: ignore
+        async for chunk in stream:  # type: ignore
+            delta = chunk.choices[0].delta  # type: ignore
+            content = getattr(delta, "content", None)  # type: ignore
             if content:
                 yield content
 
@@ -714,7 +844,9 @@ class Agent:
             for t in tool_trace:
                 logger.info(f"  - {t.server}::{t.name} args={t.args} ok={t.ok} result={t.raw_result} error={t.error}")
 
-        async for tok in self.stream_chat_answer(system_prompt=system_prompt, user_input=user_input, tool_trace=tool_trace):
+        async for tok in self.stream_chat_answer(
+            system_prompt=system_prompt, user_input=user_input, tool_trace=tool_trace
+        ):
             yield tok
 
 
@@ -735,10 +867,10 @@ async def main():
             except (APIConnectionError, APIError, RateLimitError) as e:
                 print(f"\n[LLM error] {e}")
 
-        await run("昨天几号？")
-        await run("今、何時ですか？")
-        await run("我晚上九点就后就该去打游戏了，现在几点？")
-        await run("帮我随便roll三个点数")
+        # await run("昨天几号？")
+        # await run("今、何時ですか？")
+        # await run("我晚上九点就后就该去打游戏了，现在几点？")
+        await run("现在几点？现在几点你就帮我随便 roll 几个点数")
         await run("你今天真可爱")
 
     finally:
