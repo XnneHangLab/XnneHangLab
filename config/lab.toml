@@ -35,7 +35,6 @@ character_name = "elaina"
 deeplx_api_key = ""
 user_lang = "ZH"
 speaker_lang = "EN"
-enable_longterm_memory = true
 speaker_model = "gpt_sovits"
 faster_first_response = false
 segment_method = "pysbd"
@@ -73,15 +72,6 @@ api_format = "chat_completion"
 llm_api_key = ""
 llm_base_url = "https://api.cerebras.ai/v1"
 api_format = "chat_completion"
-
-[agent.memory]
-embedding_model_path = "./models/nlp_gte_sentence-embedding_chinese-base"
-books_thresholds = 0.5
-mem_thresholds = 0.38
-scan_depth = 4
-enable_check_memorys = true
-enable_core_memmorys = true
-lore_books = true
 
 [mcp.timeemi]
 transport = "http"
