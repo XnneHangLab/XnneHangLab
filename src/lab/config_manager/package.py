@@ -9,8 +9,8 @@ if TYPE_CHECKING:
 
 
 class PackagesSettings(BaseModel):
-    funasr: Annotated[bool, Field(True, title="是否包含 funasr")]
-    whisper: Annotated[bool, Field(True, title="是否包含 whisper")]
+    funasr: Annotated[bool, Field(False, title="是否包含 funasr")]
+    whisper: Annotated[bool, Field(False, title="是否包含 whisper")]
     to_do_list: Annotated[bool, Field(True, title="是否包含 todo_list")]
     yutto_uiya: Annotated[
         bool,
