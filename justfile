@@ -33,8 +33,8 @@ dev-clean:
 # Server Start
 
 mcp-server:
-  uv run src/lab/mcp/server/timeemi.py & \
-  uv run src/lab/mcp/server/vision.py & \
+  uv run src/lab/mcp/server/timeemi_server.py & \
+  uv run src/lab/mcp/server/vision_server.py & \
 
 server:
   uv run get_root
