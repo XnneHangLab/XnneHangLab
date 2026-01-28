@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from pathlib import Path
@@ -8,7 +9,6 @@ from typing import TYPE_CHECKING, Any
 from loguru import logger
 
 from lab.agent.agent_factory import AgentFactory
-from lab.agent.memory.manager import MemoryManager
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.config_manager.vtuber import (
     CharacterConfig,
@@ -19,13 +19,12 @@ from lab.config_manager.vtuber import (
     validate_config,
 )
 from lab.live2d_model import Live2dModel
-from lab.mcp import VirtualMCPHandler, get_virtual_mcp_handler
 from lab.utils.TxtHelper import read_prompt_from_text_file
 
 if TYPE_CHECKING:
     from fastapi import WebSocket
 
-    from lab.agent.agents.agent_interface import AgentInterface
+    from lab.agent.agents.memory_agent import MemoryAgent
 
 
 class ServiceContext:
@@ -33,19 +32,19 @@ class ServiceContext:
     configurations for a connected client."""
 
     def __init__(self):
+        self._mcp_connected = False
+        self._mcp_lock = asyncio.Lock()
         self.config: Config | None = None
         self.system_config: SystemConfig | None = None
         self.character_config: CharacterConfig | None = None
 
         self.live2d_model: Live2dModel | None = None
-        self.agent_engine: AgentInterface | None = None  # type: ignore
+        self.agent_engine: MemoryAgent | None = None  # type: ignore
 
         # the system prompt is a combination of the persona prompt and live2d expression prompt
         self.system_prompt: str | None = None
-        self.mcp_client: VirtualMCPHandler | None = None
         # self.mcp_handlers: list[MCPHandlerInterface]
         self.history_uid: str = ""  # Add history_uid field
-        self.memory_manager: MemoryManager | None = None
 
     def __str__(self):
         return (
@@ -64,7 +63,7 @@ class ServiceContext:
         system_config: SystemConfig,
         character_config: CharacterConfig,
         live2d_model: Live2dModel,
-        agent_engine: AgentInterface,
+        agent_engine: MemoryAgent,
     ) -> None:
         """
         Load the ServiceContext with the reference of the provided instances.
@@ -160,7 +159,7 @@ class ServiceContext:
         # avatar = self.character_config.avatar or ""  # Get avatar from config
 
         self.agent_engine = AgentFactory.create_agent(  # type: ignore
-            agent_settings=lab_settings.agent,
+            lab_setting=lab_settings,
             system_prompt=system_prompt,
             live2d_model=self.live2d_model,
             tts_preprocessor_config=self.character_config.tts_preprocessor_config,
@@ -172,27 +171,20 @@ class ServiceContext:
         # Save the current configuration
         self.system_prompt = system_prompt
 
+    async def ensure_mcp_connected(self) -> None:
+        if self._mcp_connected or self.agent_engine is None:
+            return
+        async with self._mcp_lock:
+            if self._mcp_connected:  # double-check
+                return
+            lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+            if lab_settings.agent.enable_mcp:
+                await self.agent_engine.connect_mcp_servers()
+            self._mcp_connected = True
+
     def init_translate(self, translator_config: TranslatorConfig) -> None:
         """Initialize or update the translation engine based on the configuration."""
         logger.info("Translation already initialized with the same config.")
-
-    def init_memory_manager(self) -> None:
-        lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
-        if lab_settings.agent.enable_longterm_memory:
-            logger.info("enable_longterm_memory is True, initialize memory manager.")
-            self.memory_manager = MemoryManager(config=lab_settings)
-        else:
-            logger.info("enable_longterm_memory is False, skip initialize memory manager.")
-            return
-
-    async def init_mcp_client(self) -> None:
-        """Initialize or update the MCP client based on the configuration."""
-        lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
-        if lab_settings.agent.enable_mcp:
-            self.mcp_client = await get_virtual_mcp_handler()
-            logger.info("MCP client already initialized with the same config.")
-        else:
-            logger.info("enable_mcp is False, skip initialize MCP, use basic chat mode.")
 
     async def handle_config_switch(
         self,

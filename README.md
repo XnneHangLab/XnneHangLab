@@ -20,7 +20,6 @@
 <a href="https://github.com/modelscope/FunASR" target="_blank"><img alt="FunASR" src="https://img.shields.io/badge/FunASR-%23F0A4A0.svg?style=flat-square&logo=github&logoColor=white"></a><a href="https://streamlit.io/" target="_blank"><img alt="Streamlit" src="https://img.shields.io/badge/Streamlit-%23FF4B4B.svg?style=flat-square&logo=streamlit&logoColor=white"></a>
 <br/>
 </div>
-<p align="center"> <a href="./README_en.md"><b>English Documentation </b></a> </p>
 
 <p align="center">
  魔女の实验室
@@ -29,13 +28,6 @@
 <p align="center">
 <a href='https://xnnehang.top/' style='font-size: 20px;'><strong>文档网站(等等噢)</strong></a> ·
 <a href='https://space.bilibili.com/556737824'><strong>bilibili视频教程(再等等噢)</strong></a>
-</p>
-<p align="center">
-  <a href="#功能"><strong>功能</strong></a> ·
-  <a href="#演示"><strong>演示</strong></a> ·
-  <a href="#本地部署"><strong>本地部署</strong></a>
-  <a href="#fastapi&cli"><strong>fastapi&cli</strong></a> ·
-  <a href="#配置"><strong>配置</strong></a>
 </p>
 
 <br/>

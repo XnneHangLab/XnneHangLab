@@ -1,6 +1,9 @@
-"""Description: This file contains the implementation of the `AsyncLLM` class.
-This class is responsible for handling asynchronous interaction with OpenAI API compatible
-endpoints for language generation.
+"""OpenAI-compatible async LLM wrapper (no extra interface layer).
+
+- chat_completion: stream tokens for final chat output
+- tool_completion: non-stream call with tools for MCP tool loop
+
+This module intentionally does NOT depend on any MemoryManager abstraction.
 """
 
 from __future__ import annotations
@@ -8,46 +11,27 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from loguru import logger
-from openai import (
-    APIConnectionError,
-    APIError,
-    AsyncOpenAI,
-    AsyncStream,
-    RateLimitError,
-)
-
-from lab.agent.stateless_llm.stateless_llm_interface import StatelessLLMInterface
-from lab.mcp import CommonMessage, VirtualMCPHandler
+from openai import APIConnectionError, APIError, AsyncOpenAI, AsyncStream, RateLimitError
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from openai.types.chat import ChatCompletionChunk
-
-    from lab.agent.memory.manager import MemoryManager
+    from openai.types.chat import ChatCompletion, ChatCompletionChunk
 
 
-class AsyncLLM(StatelessLLMInterface):
+class AsyncLLM:
+    """A thin wrapper around `AsyncOpenAI` (OpenAI-compatible endpoints)."""
+
     def __init__(
         self,
+        *,
         model: str,
         base_url: str,
         llm_api_key: str,
         organization_id: str = "z",
         project_id: str = "z",
         temperature: float = 1.0,
-    ):
-        """
-        Initializes an instance of the `AsyncLLM` class.
-
-        Parameters:
-        - model (str): The model to be used for language generation.
-        - base_url (str): The base URL for the OpenAI API.
-        - organization_id (str, optional): The organization ID for the OpenAI API. Defaults to "z".
-        - project_id (str, optional): The project ID for the OpenAI API. Defaults to "z".
-        - llm_api_key (str, optional): The API key for the OpenAI API. Defaults to "z".
-        - temperature (float, optional): What sampling temperature to use, between 0 and 2. Defaults to 1.0.
-        """
+    ) -> None:
         self.base_url = base_url
         self.model = model
         self.temperature = temperature
@@ -57,100 +41,105 @@ class AsyncLLM(StatelessLLMInterface):
             project=project_id,
             api_key=llm_api_key,
         )
+        logger.info(f"Initialized AsyncLLM: base_url={self.base_url}, model={self.model}")
 
-        logger.info(f"Initialized AsyncLLM with the parameters: {self.base_url}, {self.model}")
-
-    async def chat_completion(  # type: ignore[override]
+    async def chat_completion(
         self,
         messages: list[dict[str, Any]],
         system: str | None = None,
-        mcp_client: VirtualMCPHandler | None = None,
-        memory_manager: MemoryManager | None = None,
+        *,
+        stream_: bool = True,
+        temperature: float | None = None,
     ) -> AsyncIterator[str]:
+        """Generate a chat completion.
+
+        - When `stream_` is True, yields token chunks.
+        - When `stream_` is False, yields a single full string.
         """
-        Generates a chat completion using the OpenAI API asynchronously.
+        origin_user_message = messages[-1]["content"] if messages else ""
+        stream: AsyncStream[ChatCompletionChunk] | None = None
 
-        Parameters:
-        - messages (list[dict[str, Any]]): The list of messages to send to the API.
-        - system (str, optional): System prompt to use for this completion.
-
-        Yields:
-        - str: The content of each chunk from the API response.
-
-        Raises:
-        - APIConnectionError: When the server cannot be reached
-        - RateLimitError: When a 429 status code is received
-        - APIError: For other API-related errors
-        """
-        logger.debug(f"Messages: {messages}")
-        logger.debug(f"user message: {messages[-1]}")
-        origin_user_message = messages[-1]["content"]
-        stream = None  # type: ignore[assignment]
         try:
-            # If system prompt is provided, add it to the messages
             messages_with_system = messages
             if system:
-                messages_with_system = [
-                    {"role": "system", "content": system},
-                    *messages,
-                ]
+                messages_with_system = [{"role": "system", "content": system}, *messages]
 
-            if mcp_client is None:
-                logger.info("mcp is not enable, directly async llm")
-                if memory_manager is not None:
-                    # 在这里插入用户提示词
-                    logger.info("insert knowledge base and memory into user prompt")
-                    messages_with_system[-1]["content"] = await memory_manager.process_user_message(origin_user_message)
-                else:
-                    logger.info("memory_manager is None, directly async llm")
-                stream: AsyncStream[ChatCompletionChunk] = await self.client.chat.completions.create(  # type: ignore[return-value]
-                    messages=messages_with_system,  # type: ignore[assignment]
+            temp = self.temperature if temperature is None else temperature
+
+            if stream_:
+                stream = await self.client.chat.completions.create(  # type: ignore[return-value]
+                    messages=messages_with_system,  # type: ignore[arg-type]
                     model=self.model,
                     stream=True,
-                    temperature=self.temperature,
+                    temperature=temp,
                 )
-                messages_with_system[-1]["content"] = origin_user_message
-                async for chunk in stream:  # type: ignore[assignment]
-                    if chunk.choices[0].delta.content is None:  # type: ignore[assignment]
-                        chunk.choices[0].delta.content = ""  # type: ignore[assignment]
-                    yield chunk.choices[0].delta.content  # type: ignore[assignment]
+
+                if messages_with_system:
+                    messages_with_system[-1]["content"] = origin_user_message
+
+                async for chunk in stream:  # type: ignore[return-value]
+                    delta = chunk.choices[0].delta  # type: ignore[attr-defined]
+                    if delta.content is None:  # type: ignore[union-attr]
+                        delta.content = ""  # type: ignore[assignment]
+                    yield delta.content  # type: ignore[misc]
             else:
-                logger.info("mcp is enable, use mcp")
-                if len(messages_with_system) == 0:
-                    raise ValueError("messages_with_system is empty")
-                if messages_with_system[-1]["role"] != "user":
-                    raise ValueError("messages_with_system[-1] is not user message")
-                async for chunk in mcp_client.process(  # type: ignore[return-value]
-                    message=CommonMessage(
-                        role=messages_with_system[-1]["role"], content=messages_with_system[-1]["content"]
-                    ),
-                    memory=messages_with_system,  # type: ignore[assignment]
-                    memory_manager=memory_manager,
-                ):
-                    yield chunk
+                response = await self.client.chat.completions.create(  # type: ignore[return-value]
+                    messages=messages_with_system,  # type: ignore[arg-type]
+                    model=self.model,
+                    stream=False,
+                    temperature=temp,
+                )
+
+                if messages_with_system:
+                    messages_with_system[-1]["content"] = origin_user_message
+
+                assistant_msg = response.choices[0].message  # type: ignore[attr-defined]
+                yield assistant_msg.content or ""  # type: ignore[misc]
 
         except APIConnectionError as e:
             logger.error(
-                f"Error calling the chat endpoint: Connection error. Failed to connect to the LLM API. \nCheck the configurations and the reachability of the LLM backend. \nSee the logs for details. \nTroubleshooting with documentation: https://open-llm-vtuber.github.io/docs/faq#%E9%81%87%E5%88%B0-error-calling-the-chat-endpoint-%E9%94%99%E8%AF%AF%E6%80%8E%E4%B9%88%E5%8A%9E \n{e.__cause__}"
+                "Connection error calling chat endpoint. Check base_url/api_key and LLM backend reachability. "
+                f"{e.__cause__}"
             )
-            yield "Error calling the chat endpoint: Connection error. Failed to connect to the LLM API. Check the configurations and the reachability of the LLM backend. See the logs for details. Troubleshooting with documentation: [https://open-llm-vtuber.github.io/docs/faq#%E9%81%87%E5%88%B0-error-calling-the-chat-endpoint-%E9%94%99%E8%AF%AF%E6%80%8E%E4%B9%88%E5%8A%9E]"
+            yield "Error calling the chat endpoint: Connection error. Failed to connect to the LLM API."
 
         except RateLimitError as e:
-            logger.error(f"Error calling the chat endpoint: Rate limit exceeded: {e.response}")
-            yield "Error calling the chat endpoint: Rate limit exceeded. Please try again later. See the logs for details."
+            logger.error(f"Rate limit exceeded: {e.response}")
+            yield "Error calling the chat endpoint: Rate limit exceeded. Please try again later."
 
         except APIError as e:
-            logger.error(f"LLM API: Error occurred: {e}")
-            logger.info(f"Base URL: {self.base_url}")
-            logger.info(f"Model: {self.model}")
-            logger.info(f"Messages: {messages}")
-            logger.info(f"temperature: {self.temperature}")
-            yield "Error calling the chat endpoint: Error occurred while generating response. See the logs for details."
+            logger.error(f"LLM API error: {e}")
+            logger.info(f"base_url={self.base_url} model={self.model} temperature={self.temperature}")
+            yield "Error calling the chat endpoint: Error occurred while generating response."
 
         finally:
-            # make sure the stream is properly closed
-            # so when interrupted, no more tokens will being generated.
-            if stream:
-                logger.debug("Chat completion finished.")
-                await stream.close()  # type: ignore[return-value]
-                logger.debug("Stream closed.")
+            if stream is not None:
+                try:
+                    await stream.close()  # type: ignore[union-attr]
+                except Exception:
+                    pass
+
+    async def tool_completion(
+        self,
+        *,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        tool_choice: str | dict[str, Any] = "auto",
+        system: str | None = None,
+        temperature: float | None = None,
+    ) -> ChatCompletion:
+        """Non-stream tool decision call (returns full response object)."""
+        messages_with_system = messages
+        if system:
+            messages_with_system = [{"role": "system", "content": system}, *messages]
+
+        temp = self.temperature if temperature is None else temperature
+
+        return await self.client.chat.completions.create(  # type: ignore[return-value]
+            model=self.model,
+            messages=messages_with_system,  # type: ignore[arg-type]
+            tools=tools,  # type: ignore[arg-type]
+            tool_choice=tool_choice,  # type: ignore[arg-type]
+            stream=False,
+            temperature=temp,
+        )

@@ -126,19 +126,8 @@ vtuber = [
   "soundfile>=0.13.1",
 ]
 
-longterm_memory = [
-  "addict>=2.4.0",
-  "datasets>=3.0.0,<=3.6.0",
-  "simplejson>=3.20.1",
-  "sortedcontainers>=2.4.0",
-  "faiss-cpu>=1.11.0.post1",
-  "shortuuid>=1.0.13",
-  "jionlp>=1.5.24",
-  "ruamel-yaml>=0.18.14",
-]
-
 [tool.uv]
-default-groups = ["base","funasr","whisper","dev", "yutto-uiya", "tts_base", "gpt_sovits", "vtuber","longterm_memory", "database"]
+default-groups = ["base","funasr","whisper","dev", "yutto-uiya", "tts_base", "gpt_sovits", "vtuber", "database"]
 
 [tool.uv.workspace]
 members = ["packages/yutto-uiya","packages/todo/","packages/gpt_sovits"]

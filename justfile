@@ -2,6 +2,7 @@ key:
   uv run scripts/sync_apikey.py  # 同步 API Key
 
 list-model: # 列出配置项中填写 api_key 的模型列表
+  uv run get_root
   uv run scripts/list_model_name.py
 
 start:
@@ -32,8 +33,8 @@ dev-clean:
 # Server Start
 
 mcp-server:
-  uv run src/lab/mcp/server/timeemi.py & \
-  uv run src/lab/mcp/server/vision.py & \
+  uv run src/lab/mcp/server/timeemi_server.py & \
+  uv run src/lab/mcp/server/vision_server.py & \
 
 server:
   uv run get_root
@@ -92,7 +93,6 @@ install-model:
 
   just install-funasr-model
   just install-whisper
-  just install-embedding-model
   just install-sensevoice
   just install-bert-model
   just install-gsv-model
@@ -116,11 +116,6 @@ install-whisper:
   uv run scripts/download.py --url https://openaipublic.azureedge.net/main/whisper/models/65147644a518d12f04e32d6f3b26facc3f8dd46e5390956a9424a650c0ce22b9/tiny.pt --filename tiny.pt --output-dir ./models/whisper
   # large-v3-turbo.pt
   uv run scripts/download.py --url https://www.modelscope.cn/models/iic/Whisper-large-v3-turbo/resolve/master/large-v3-turbo.pt --filename large-v3-turbo.pt --output-dir ./models/whisper
-
-install-embedding-model:
-  uv lock
-  uv sync
-  uv run modelscope download --model iic/nlp_gte_sentence-embedding_chinese-base --local_dir ./models/nlp_gte_sentence-embedding_chinese-base
 
 install-sensevoice:
   uv lock

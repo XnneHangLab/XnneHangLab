@@ -4,9 +4,10 @@ import random
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from fastmcp import FastMCP
+from pydantic import BaseModel, Field
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 
@@ -100,6 +101,58 @@ def convert_list_int_to_readable_text(numbers: list[int]) -> str:
     当前需要转换的数字列表：{", ".join(map(str, numbers))}
     请根据用户语言返回对应格式
     """
+
+
+class RollDiceByCurrentTimeResult(BaseModel):
+    """
+    roll_dice_by_current_time 的返回结果。
+
+    示例：
+    {
+      "unit": "hour",
+      "now": "2026-01-28 09:57:19",
+      "value": 9,
+      "n_dice": 4,
+      "numbers": [4, 1, 4, 6]
+    }
+    """
+
+    unit: Literal["hour", "minute", "second"] = Field(..., description="使用的时间单位")
+    now: str = Field(..., description="服务器当前时间，格式 YYYY-MM-DD HH:MM:SS")
+    value: int = Field(..., description="从当前时间中提取的数值（hour/minute/second）")
+    n_dice: int = Field(..., description="最终掷骰子的数量（>=1）")
+    numbers: list[int] = Field(..., description="掷骰结果列表")
+
+
+@mcp.tool()
+def roll_dice_by_current_time(
+    unit: Literal["hour", "minute", "second"],
+) -> RollDiceByCurrentTimeResult:
+    """
+    根据当前时间决定掷骰数量，然后返回掷骰结果。
+
+    参数：
+    - unit: 使用当前时间的哪个单位来决定掷骰数量  ["hour", "minute", "second"]
+    hour: 使用当前小时数决定掷骰数量 (0-23), 几点，几小时。
+    minute: 使用当前分钟数决定掷骰数量 (0-59), 几分。
+    second: 使用当前秒数决定掷骰数量 (0-59), 几秒。"""
+    now_dt = datetime.now()
+    now_str = now_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+    if unit == "hour":
+        value = now_dt.hour
+    elif unit == "minute":
+        value = now_dt.minute
+    else:
+        value = now_dt.second
+
+    if value == 0:
+        n_dice = 1
+    else:
+        n_dice = value
+
+    numbers = [random.randint(1, 6) for _ in range(n_dice)]
+    return RollDiceByCurrentTimeResult(unit=unit, now=now_str, value=value, n_dice=n_dice, numbers=numbers)
 
 
 def run_mcp():
