@@ -7,7 +7,7 @@ from lab.agent.stateless_llm_factory import LLMFactory
 
 if TYPE_CHECKING:
     from lab.agent.agents.agent_interface import AgentInterface
-    from lab.config_manager import AgentSettings, XnneHangLabSettings
+    from lab.config_manager import XnneHangLabSettings
     from lab.config_manager.vtuber import TTSPreprocessorConfig
     from lab.live2d_model import Live2dModel
 
@@ -15,11 +15,10 @@ if TYPE_CHECKING:
 class AgentFactory:
     @staticmethod
     def create_agent(
-        agent_settings: AgentSettings,
+        lab_setting: XnneHangLabSettings,
         system_prompt: str,
         live2d_model: Live2dModel,
         tts_preprocessor_config: TTSPreprocessorConfig,
-        lab_setting: XnneHangLabSettings,
     ) -> type[AgentInterface]:
         """Create an agent based on configuration (OpenAI only, dual-model ready).
 
@@ -52,7 +51,7 @@ class AgentFactory:
             system=system_prompt,
             live2d_model=live2d_model,
             tts_preprocessor_config=tts_preprocessor_config,
-            faster_first_response=agent_settings.faster_first_response,
-            segment_method=agent_settings.segment_method,
-            interrupt_method=agent_settings.interrupt_method,
+            faster_first_response=lab_setting.agent.faster_first_response,
+            segment_method=lab_setting.agent.segment_method,
+            interrupt_method=lab_setting.agent.interrupt_method,
         )
