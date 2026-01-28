@@ -867,9 +867,9 @@ async def main():
             except (APIConnectionError, APIError, RateLimitError) as e:
                 print(f"\n[LLM error] {e}")
 
-        # await run("昨天几号？")
-        # await run("今、何時ですか？")
-        # await run("我晚上九点就后就该去打游戏了，现在几点？")
+        await run("昨天几号？")
+        await run("今、何時ですか？")
+        await run("我晚上九点就后就该去打游戏了，现在几点？")
         await run("现在几点？现在几点你就帮我随便 roll 几个点数")
         await run("你今天真可爱")
 
