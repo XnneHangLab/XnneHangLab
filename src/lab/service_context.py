@@ -34,6 +34,7 @@ class ServiceContext:
     def __init__(self):
         self._mcp_connected = False
         self._mcp_lock = asyncio.Lock()
+        self.lab_setting: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSettings)
         self.config: Config | None = None
         self.system_config: SystemConfig | None = None
         self.character_config: CharacterConfig | None = None
@@ -103,15 +104,6 @@ class ServiceContext:
         # init live2d from character config
         self.init_live2d(config.character_config.live2d_model_name)
 
-        # # init asr from character config
-        # self.init_asr(config.character_config.asr_config)
-
-        # # init tts from character config
-        # self.init_tts(config.character_config.tts_config)
-
-        # init vad from character config
-        # self.init_vad(config.character_config.vad_config)
-
         # init agent from character config
         self.init_agent()
 
@@ -136,7 +128,7 @@ class ServiceContext:
     def init_agent(self) -> None:
         """Initialize or update the LLM engine based on agent configuration."""
         # agent 暂时不需要多次启动模型，所以不需要自检是否初始化。
-        lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+        lab_settings = self.lab_setting
         system_prompt = read_prompt_from_text_file(lab_settings.agent.character_name)
         system_prompt += "这是你的 Emotion 列表，请在合适的时候使用它们：\n" + str(self.live2d_model.emo_key) + "\n"  # type: ignore
         if lab_settings.agent.user_lang == "ZH":
@@ -177,7 +169,7 @@ class ServiceContext:
         async with self._mcp_lock:
             if self._mcp_connected:  # double-check
                 return
-            lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+            lab_settings = self.lab_setting
             if lab_settings.agent.enable_mcp:
                 await self.agent_engine.connect_mcp_servers()
             self._mcp_connected = True
