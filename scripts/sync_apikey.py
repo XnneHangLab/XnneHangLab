@@ -11,12 +11,30 @@ from lab.config_manager import LLM_Provider, XnneHangLabSettings, load_settings_
 ALLOWED_API_FORMATS = "chat_completion"  # chat_completions: v1/chat_completions, Responses: v1/responses, Messages: v1/Messages. 可能以后会扩展。
 ApiFormat = Literal["chat_completion"]
 
+EnvKeyNames = Literal[
+    "OPENAI_API_KEY",
+    "OPENAI_API_FORMAT",
+    "LINGYI_API_KEY",
+    "LINGYI_API_FORMAT",
+    "GEMINI_API_KEY",
+    "GEMINI_API_FORMAT",
+    "OAIPRO_API_KEY",
+    "OAIPRO_API_FORMAT",
+    "CEREBRAS_API_KEY",
+    "CEREBRAS_API_FORMAT",
+    "DEEPLX_API_KEY",
+    "CHAT_MODEL_PROVIDER",
+    "CHAT_MODEL_NAME",
+    "TOOL_MODEL_PROVIDER",
+    "TOOL_MODEL_NAME",
+]
+
 
 def is_api_format(x: str) -> TypeGuard[ApiFormat]:
     return x in ALLOWED_API_FORMATS
 
 
-def validate_api_format(env_key_name: str, default: ApiFormat = "chat_completion") -> ApiFormat:
+def validate_api_format(env_key_name: EnvKeyNames, default: ApiFormat = "chat_completion") -> ApiFormat:
     v = os.getenv(env_key_name, default).strip().lower()
     if is_api_format(v):
         return v
@@ -28,7 +46,7 @@ def is_llm_provider(x: str) -> TypeGuard[LLM_Provider]:
     return x in LLM_Provider.__args__
 
 
-def validate_llm_provider(env_key_name: str, default: LLM_Provider = "cerebras") -> LLM_Provider:
+def validate_llm_provider(env_key_name: EnvKeyNames, default: LLM_Provider = "cerebras") -> LLM_Provider:
     v = os.getenv(env_key_name, default).strip().lower()
     if is_llm_provider(v):
         return v
@@ -73,7 +91,7 @@ def main():
     settings.agent.llm.gemini.llm_api_key = os.environ.get("GEMINI_API_KEY", "")
     settings.agent.llm.gemini.api_format = validate_api_format("GEMINI_API_FORMAT")
     settings.agent.llm.oaipro.llm_api_key = os.environ.get("OAIPRO_API_KEY", "")
-    settings.agent.llm.oaipro.api_format = validate_api_format("OAIPRO_API_FORAMT")
+    settings.agent.llm.oaipro.api_format = validate_api_format("OAIPRO_API_FORMAT")
     settings.agent.llm.cerebras.llm_api_key = os.environ.get("CEREBRAS_API_KEY", "")
     settings.agent.llm.cerebras.api_format = validate_api_format("CEREBRAS_API_FORMAT")
     settings.agent.deeplx_api_key = os.environ.get("DEEPLX_API_KEY", "")
