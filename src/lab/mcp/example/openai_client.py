@@ -16,6 +16,19 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 
+""" one-file 的 OpenAI tool calling MCP Client 示例。（使用 FastMCP），算是我们的一个 Demo。
+说明：
+包含以下内容：
+1.Tool Model 和 Chat Model 分离
+2.Args 类型：使用 Pydantic BaseModel 强类型
+3.Result 类型：使用 Pydantic BaseModel 强类型
+4.Tool Registry：集中管理工具的 Args/Result 类型
+5.Router：多 server 路由
+6.并行 Tool Call 和链式 Tool Call
+7.但是链式 Tool Call 并不支持因果关系(如"现在几点？现在几点你就帮我随便 roll 几个点数")，它会被作为一个独立的 Tool Call 来处理。
+因果关系强依赖最好都独立新建 Tool Call Function。因为 Tool Model 本身比较弱，即便增加复杂度来处理依赖关系，也只会让 Tool Call 步骤增多，且效果不稳定。
+"""
+
 
 # =============================================================================
 # 1) OpenAI tool calling：最小 Protocol（SDK 边界）
