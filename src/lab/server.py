@@ -72,10 +72,10 @@ async def lifespan(app: FastAPI):
         gen = tts_synthesizer.generate(tts_synthesizer.params_parser({"text": "筆者はすでにエッセイの序論"}))
         next(gen)
 
-    # from lab.mcp import get_virtual_mcp_handler, test_virtual_mcp_handler
-
-    # virtual_mcp_handler = await get_virtual_mcp_handler()
-    # await test_virtual_mcp_handler(virtual_mcp_handler)
+    # 在 yield 前做启动期连接
+    ctx = getattr(app.state, "default_context_cache", None)
+    if ctx is not None:
+        await ctx.ensure_mcp_connected()
 
     yield
 
@@ -141,6 +141,8 @@ class WebSocketServer:
             CustomStaticFiles(directory=str(ROOT_DIR / "web_tool"), html=True),
             name="web_tool",
         )
+
+        self.app.state.default_context_cache = default_context_cache
 
     def run(self):
         pass

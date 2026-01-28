@@ -77,10 +77,11 @@ class MemoryAgent(AgentInterface):
     # MCP lifecycle
     # ---------------------------------------------------------------------
     async def connect_mcp_servers(self, servers: list[tuple[str, str]] | None = None) -> None:
-        if not servers:
-            return
-        for name, url in servers:
-            await self.mcp.connect(name=name, url=url)
+        """
+        连接你已启动的 FastMCP servers（你配置里 path="/"）。
+        """
+        await self.mcp.connect(name="timeemi", url="http://127.0.0.1:4200/")
+        await self.mcp.connect(name="vision", url="http://127.0.0.1:4201/")
 
     async def close(self) -> None:
         await self.mcp.close()
