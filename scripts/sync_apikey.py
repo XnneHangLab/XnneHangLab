@@ -23,8 +23,10 @@ def validate_api_format(env_key_name: str, default: ApiFormat = "chat_completion
     logger.warning("Invalid %s=%r, allowed=%s, fallback=%r", env_key_name, v, ALLOWED_API_FORMATS, default)
     return default
 
+
 def is_llm_provider(x: str) -> TypeGuard[LLM_Provider]:
     return x in LLM_Provider.__args__
+
 
 def validate_llm_provider(env_key_name: str, default: LLM_Provider = "cerebras") -> LLM_Provider:
     v = os.getenv(env_key_name, default).strip().lower()

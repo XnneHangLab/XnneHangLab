@@ -117,11 +117,6 @@ install-whisper:
   # large-v3-turbo.pt
   uv run scripts/download.py --url https://www.modelscope.cn/models/iic/Whisper-large-v3-turbo/resolve/master/large-v3-turbo.pt --filename large-v3-turbo.pt --output-dir ./models/whisper
 
-install-embedding-model:
-  uv lock
-  uv sync
-  uv run modelscope download --model iic/nlp_gte_sentence-embedding_chinese-base --local_dir ./models/nlp_gte_sentence-embedding_chinese-base
-
 install-sensevoice:
   uv lock
   uv sync
