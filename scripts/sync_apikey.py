@@ -6,7 +6,7 @@ from typing import Literal, TypeGuard
 from dotenv import load_dotenv
 from loguru import logger
 
-from lab.config_manager import XnneHangLabSettings, load_settings_file, write_settings_file
+from lab.config_manager import LLM_Provider, XnneHangLabSettings, load_settings_file, write_settings_file
 
 ALLOWED_API_FORMATS = "chat_completion"  # chat_completions: v1/chat_completions, Responses: v1/responses, Messages: v1/Messages. 可能以后会扩展。
 ApiFormat = Literal["chat_completion"]
@@ -21,6 +21,16 @@ def validate_api_format(env_key_name: str, default: ApiFormat = "chat_completion
     if is_api_format(v):
         return v
     logger.warning("Invalid %s=%r, allowed=%s, fallback=%r", env_key_name, v, ALLOWED_API_FORMATS, default)
+    return default
+
+def is_llm_provider(x: str) -> TypeGuard[LLM_Provider]:
+    return x in LLM_Provider.__args__
+
+def validate_llm_provider(env_key_name: str, default: LLM_Provider = "cerebras") -> LLM_Provider:
+    v = os.getenv(env_key_name, default).strip().lower()
+    if is_llm_provider(v):
+        return v
+    logger.warning("Invalid %s=%r, allowed=%s, fallback=%r", env_key_name, v, LLM_Provider.__args__, default)
     return default
 
 
@@ -65,6 +75,10 @@ def main():
     settings.agent.llm.cerebras.llm_api_key = os.environ.get("CEREBRAS_API_KEY", "")
     settings.agent.llm.cerebras.api_format = validate_api_format("CEREBRAS_API_FORMAT")
     settings.agent.deeplx_api_key = os.environ.get("DEEPLX_API_KEY", "")
+    settings.agent.chat_model.llm_provider = validate_llm_provider("CHAT_MODEL_PROVIDER")
+    settings.agent.chat_model.llm_model_name = os.environ.get("CHAT_MODEL_NAME", "")
+    settings.agent.tool_model.llm_provider = validate_llm_provider("TOOL_MODEL_PROVIDER")
+    settings.agent.tool_model.llm_model_name = os.environ.get("TOOL_MODEL_NAME", "")
 
     # 记录脱敏后的配置信息
     logger.info("llm.openai.llm_api_key: {}", mask_api_key(settings.agent.llm.openai.llm_api_key))
