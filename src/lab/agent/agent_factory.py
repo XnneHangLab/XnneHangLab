@@ -47,7 +47,7 @@ class AgentFactory:
         return MemoryAgent(  # type: ignore[call-arg]
             chat_llm=chat_llm,
             tool_llm=tool_llm,
-            enable_tool=True,
+            enable_tool=lab_setting.agent.enable_mcp, # TODO 区分 enable_mcp 和 enable_tool, enable_mcp 是 enable_mcp 的超集
             system=system_prompt,
             live2d_model=live2d_model,
             tts_preprocessor_config=tts_preprocessor_config,
