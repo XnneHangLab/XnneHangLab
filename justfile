@@ -93,7 +93,6 @@ install-model:
 
   just install-funasr-model
   just install-whisper
-  just install-embedding-model
   just install-sensevoice
   just install-bert-model
   just install-gsv-model
