@@ -10,7 +10,7 @@ from lab.agent.input_types import BatchInput, TextSource
 from lab.agent.mcp_tool_loop import McpToolLoopRunner
 from lab.agent.transformers import actions_extractor, display_processor, sentence_divider, tts_filter
 from lab.chat_history_manager import get_history
-from lab.mcp.fastmcp_router import FastMcpRouter
+from lab.mcp import FastMcpRouter
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable

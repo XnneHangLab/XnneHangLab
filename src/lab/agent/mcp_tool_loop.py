@@ -6,15 +6,14 @@ from typing import TYPE_CHECKING
 
 from loguru import logger
 
-from lab.mcp._typing import ToolCallLike, ToolMessage, ToolTraceItem
-from lab.mcp.tool_registry import ToolRegistry
+from lab.mcp import ToolCallLike, ToolMessage, ToolRegistry, ToolTraceItem
 
 # These helpers exist in your codebase (same as your MCP demo).
 from lab.mcp.util import call_with_short_retry, dump_openai_msg, prompt_result_to_text  # type: ignore
 
 if TYPE_CHECKING:
     from lab.agent.stateless_llm.openai_compatible_llm import AsyncLLM
-    from lab.mcp.fastmcp_router import FastMcpRouter
+    from lab.mcp import FastMcpRouter
 
 
 class McpToolLoopRunner:
