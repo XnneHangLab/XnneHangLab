@@ -9,61 +9,24 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
     from lab.agent.input_types import BaseInput
-    from lab.agent.memory.manager import MemoryManager
     from lab.agent.output_types import BaseOutput
-    from lab.mcp import VirtualMCPHandler
 
 
 class AgentInterface(ABC):
-    """Base interface for all agent implementations"""
+    """Base interface for all agent implementations."""
 
     @abstractmethod
-    async def chat(
-        self,
-        input_data: BaseInput,
-        mcp_client: VirtualMCPHandler | None = None,
-        memory_manager: MemoryManager | None = None,
-    ) -> AsyncIterator[BaseOutput]:
-        """
-        Chat with the agent asynchronously.
-
-        This function should be implemented by the agent.
-        Output type depends on the agent's output_type:
-        - SentenceOutput: For text-based responses with display and TTS text
-        - AudioOutput: For direct audio output with display text and transcript
-
-        Args:
-            input_data: BaseInput - User input data
-            mcp_client: VirtualMCPHandler | None - MCP client for handling MCP messages
-            memory_manager: MemoryManager - Memory manager for managing agent's working memory
-
-        Returns:
-            AsyncIterator[BaseOutput] - Stream of agent outputs
-        """
+    async def chat(self, input_data: BaseInput) -> AsyncIterator[BaseOutput]:
+        """Chat with the agent asynchronously."""
         logger.critical("Agent: No chat function set.")
         raise ValueError("Agent: No chat function set.")
 
     @abstractmethod
     def handle_interrupt(self, heard_response: str) -> None:
-        """
-        Handle user interruption. This function will be called when the agent is interrupted.
-
-        Args:
-            heard_response: str - The part of response heard before interruption
-        """
-        logger.warning(
-            """Agent: No interrupt handler set. The agent may not handle interruptions
-            correctly. The AI may not be able to understand that it was interrupted."""
-        )
-        pass
+        """Handle user interruption."""
+        logger.warning("Agent: No interrupt handler set. The agent may not handle interruptions correctly.")
 
     @abstractmethod
     def set_memory_from_history(self, conf_uid: str, history_uid: str) -> None:
-        """
-        Load the agent's working memory from chat history
-
-        Args:
-            conf_uid: str - Configuration ID
-            history_uid: str - History ID
-        """
-        pass
+        """Load the agent's working memory from chat history."""
+        raise NotImplementedError

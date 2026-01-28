@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any
 from loguru import logger
 
 from lab.agent.agent_factory import AgentFactory
-from lab.agent.memory.manager import MemoryManager
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.config_manager.vtuber import (
     CharacterConfig,
@@ -19,7 +18,6 @@ from lab.config_manager.vtuber import (
     validate_config,
 )
 from lab.live2d_model import Live2dModel
-from lab.mcp import VirtualMCPHandler, get_virtual_mcp_handler
 from lab.utils.TxtHelper import read_prompt_from_text_file
 
 if TYPE_CHECKING:
@@ -42,10 +40,8 @@ class ServiceContext:
 
         # the system prompt is a combination of the persona prompt and live2d expression prompt
         self.system_prompt: str | None = None
-        self.mcp_client: VirtualMCPHandler | None = None
         # self.mcp_handlers: list[MCPHandlerInterface]
         self.history_uid: str = ""  # Add history_uid field
-        self.memory_manager: MemoryManager | None = None
 
     def __str__(self):
         return (
@@ -177,22 +173,7 @@ class ServiceContext:
         logger.info("Translation already initialized with the same config.")
 
     def init_memory_manager(self) -> None:
-        lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
-        if lab_settings.agent.enable_longterm_memory:
-            logger.info("enable_longterm_memory is True, initialize memory manager.")
-            self.memory_manager = MemoryManager(config=lab_settings)
-        else:
-            logger.info("enable_longterm_memory is False, skip initialize memory manager.")
-            return
-
-    async def init_mcp_client(self) -> None:
-        """Initialize or update the MCP client based on the configuration."""
-        lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
-        if lab_settings.agent.enable_mcp:
-            self.mcp_client = await get_virtual_mcp_handler()
-            logger.info("MCP client already initialized with the same config.")
-        else:
-            logger.info("enable_mcp is False, skip initialize MCP, use basic chat mode.")
+        logger.info("enable_longterm_memory is Outdated. Remove it.")
 
     async def handle_config_switch(
         self,

@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from lab.agent.agents.basic_memory_agent import BasicMemoryAgent
-from lab.agent.stateless_llm_factory import LLMFactory as StatelessLLMFactory
+from lab.agent.agents.memory_agent import MemoryAgent
+from lab.agent.stateless_llm_factory import LLMFactory
 
 if TYPE_CHECKING:
     from lab.agent.agents.agent_interface import AgentInterface
-    from lab.config_manager import AgentSettings
+    from lab.config_manager import AgentSettings, XnneHangLabSettings
     from lab.config_manager.vtuber import TTSPreprocessorConfig
     from lab.live2d_model import Live2dModel
 
@@ -19,54 +19,36 @@ class AgentFactory:
         system_prompt: str,
         live2d_model: Live2dModel,
         tts_preprocessor_config: TTSPreprocessorConfig,
+        lab_setting: XnneHangLabSettings,
     ) -> type[AgentInterface]:
-        """Create an agent based on the configuration.
+        """Create an agent based on configuration (OpenAI only, dual-model ready).
 
-        Args:
-            conversation_agent_choice: The type of agent to create
-            agent_settings: Settings for different types of agents
-            llm_configs: Pool of LLM configurations
-            system_prompt: The system prompt to use
-            live2d_model: Live2D model instance for expression extraction
-            tts_preprocessor_config: Configuration for TTS preprocessing
-            **kwargs: Additional arguments
+        Note:
+        - `enable_tool` is an explicit switch (defaults to False if not present in config).
+        - We still create tool_llm so you can turn tools on/off at runtime without re-wiring.
         """
-        if agent_settings.chat_model.llm_provider == "lingyi":
-            llm = StatelessLLMFactory.create_llm(
-                model=agent_settings.chat_model.llm_model_name,
-                base_url=agent_settings.llm.lingyi.llm_base_url,
-                llm_api_key=agent_settings.llm.lingyi.llm_api_key,
-            )
-        elif agent_settings.chat_model.llm_provider == "gemini":
-            llm = StatelessLLMFactory.create_llm(
-                model=agent_settings.chat_model.llm_model_name,
-                base_url=agent_settings.llm.gemini.llm_base_url,
-                llm_api_key=agent_settings.llm.gemini.llm_api_key,
-            )
-        elif agent_settings.chat_model.llm_provider == "openai":
-            llm = StatelessLLMFactory.create_llm(
-                model=agent_settings.chat_model.llm_model_name,
-                base_url=agent_settings.llm.openai.llm_base_url,
-                llm_api_key=agent_settings.llm.openai.llm_api_key,
-            )
-        elif agent_settings.chat_model.llm_provider == "oaipro":
-            llm = StatelessLLMFactory.create_llm(
-                model=agent_settings.chat_model.llm_model_name,
-                base_url=agent_settings.llm.oaipro.llm_base_url,
-                llm_api_key=agent_settings.llm.oaipro.llm_api_key,
-            )
-        elif agent_settings.chat_model.llm_provider == "cerebras":
-            llm = StatelessLLMFactory.create_llm(
-                model=agent_settings.chat_model.llm_model_name,
-                base_url=agent_settings.llm.cerebras.llm_base_url,
-                llm_api_key=agent_settings.llm.cerebras.llm_api_key,
-            )
-        else:
-            raise ValueError(f"Unknown LLM provider: {agent_settings.chat_model.llm_provider}")
+        tool_model = lab_setting.agent.tool_model
+        chat_model = lab_setting.agent.chat_model
 
-        # Create the agent with the LLM and live2d_model
-        return BasicMemoryAgent(  # type: ignore[call-arg]
-            llm=llm,  # type: ignore[arg-type]s
+        tool_llm = getattr(lab_setting.agent.llm, tool_model.llm_provider)
+        chat_llm = getattr(lab_setting.agent.llm, chat_model.llm_provider)
+
+        chat_llm = LLMFactory.create_llm(
+            model=chat_model.llm_model_name,
+            base_url=chat_llm.llm_base_url,
+            llm_api_key=chat_llm.llm_api_key,
+        )
+
+        tool_llm = LLMFactory.create_llm(
+            model=tool_model.llm_model_name,
+            base_url=tool_llm.llm_base_url,
+            llm_api_key=tool_llm.llm_api_key,
+        )
+
+        return MemoryAgent(  # type: ignore[call-arg]
+            chat_llm=chat_llm,
+            tool_llm=tool_llm,
+            enable_tool=True,
             system=system_prompt,
             live2d_model=live2d_model,
             tts_preprocessor_config=tts_preprocessor_config,
