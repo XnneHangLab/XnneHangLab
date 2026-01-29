@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -46,7 +47,6 @@ class AvatarStaticFiles(StaticFiles):
 # 应用生命周期管理
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 之所以做这些 packages 的区分，是因为我们的 Base_URL 可以调用远程，不一定要运行在本地。
     if lab_settings.package.funasr:
         from lab.api.core_logic import load_model
 
@@ -72,10 +72,20 @@ async def lifespan(app: FastAPI):
         gen = tts_synthesizer.generate(tts_synthesizer.params_parser({"text": "筆者はすでにエッセイの序論"}))
         next(gen)
 
-    # 在 yield 前做启动期连接
     ctx = getattr(app.state, "default_context_cache", None)
-    if ctx is not None:
-        await ctx.ensure_mcp_connected()
+    if ctx is not None and lab_settings.agent.enable_mcp:
+        # 尝试连接 MCP 服务器
+        try:
+            logger.info("Application startup: connecting to MCP servers...")
+            await ctx.agent_engine.connect_mcp_servers()
+            logger.info("MCP servers connected.")
+        except Exception:
+            logger.warning("Failed to connect to MCP servers on startup.", exc_info=sys.exc_info())
+            logger.warning("你可能没开启 MCP Server，先运行 `just mcp-server` 启动 MCP Server。")
+            logger.warning(
+                "如果你不需要使用工具调用功能，可以忽略此警告。或者将 lab.toml 里的 enable_mcp 设置为 false。"
+            )
+            logger.warning("继续启动应用，但本次运行工具调用功能将被禁用。")
 
     yield
 
