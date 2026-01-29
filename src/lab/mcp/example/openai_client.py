@@ -366,6 +366,8 @@ async def main():
         # await run("你今天真可爱")
         await run("https://xnnehang.top/posts/default/chill_ai_chat_mod, 这个博客讲啥了？")
         await run("https://alma.now/docs/guide/, 帮我用中文解释下这个网页的内容。")
+        await run("./README.md 这个文件里面讲了什么内容？")
+        # await run("帮我搜索一下XnneHangLab，告诉我它是做什么的？")
 
     finally:
         await agent.close()

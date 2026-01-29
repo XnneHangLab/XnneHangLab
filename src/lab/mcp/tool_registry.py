@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from lab.mcp._typing import (
     GetDateAndTimeArgs,
@@ -25,40 +25,49 @@ from lab.mcp._typing import (
 if TYPE_CHECKING:
     from pydantic import BaseModel
 
-# type error 太多了，得想个别的办法
-def _as_dict(data: object) -> dict[Any, Any] | None: # type:ignore
+
+def _coerce_dict(data: object) -> dict[str, object] | None:
+    """
+    FastMCP 有时会把结果包成 RootModel / types.Root 等对象。
+    这里把各种“看起来像 dict 的东西”统一转成 dict。
+    """
     if data is None:
         return None
-    if isinstance(data, dict):
-        return data # type: ignore
 
-    # pydantic v2 BaseModel
+    if isinstance(data, dict):
+        return data  # type: ignore[return-value]
+
+    # pydantic v2 BaseModel / RootModel: model_dump
     md = getattr(data, "model_dump", None)
     if callable(md):
         try:
-            return md(exclude_none=True, mode="json") # type: ignore
+            d = md(exclude_none=True, mode="json")
         except TypeError:
-            # 有些实现不支持 mode 参数
-            return md() # type: ignore
+            d = md()
+        if isinstance(d, dict):
+            return d  # type: ignore[return-value]
 
-    # pydantic RootModel / 其他 Root 包装
+    # RootModel-like: .root
     root = getattr(data, "root", None)
     if root is not None:
         if isinstance(root, dict):
-            return root # type: ignore
+            return root  # type: ignore[return-value]
         md2 = getattr(root, "model_dump", None)
         if callable(md2):
             try:
-                return md2(exclude_none=True, mode="json") # type: ignore
+                d2 = md2(exclude_none=True, mode="json")
             except TypeError:
-                return md2() # type: ignore
+                d2 = md2()
+            if isinstance(d2, dict):
+                return d2  # type: ignore[return-value]
 
-    # 兜底：对象字典（不保证干净，但比直接死好）
-    d = getattr(data, "__dict__", None)
-    if isinstance(d, dict):
-        return d # type: ignore
+    # 兜底：__dict__
+    d3 = getattr(data, "__dict__", None)
+    if isinstance(d3, dict):
+        return d3  # type: ignore[return-value]
 
     return None
+
 
 # =============================================================================
 # 4) ToolRegistry：强类型解析入口（你以后扩展就在这里加分支）
@@ -183,22 +192,23 @@ class ToolRegistry:
                 )  # type: ignore
             return RollDiceByTimeResult(**data)  # type: ignore
 
-        if full_name == "tool__web_fetch":
-            d = _as_dict(data)
-            if d is None:
-                raise TypeError(f"tool.web_fetch expects dict-like, got {type(data)}")
-            return WebFetchResult.model_validate(d)
-
         if full_name == "tool__web_search":
-            d = _as_dict(data)
+            d = _coerce_dict(data)
             if d is None:
                 raise TypeError(f"tool.web_search expects dict-like, got {type(data)}")
             return WebSearchResult.model_validate(d)
 
+        if full_name == "tool__web_fetch":
+            d = _coerce_dict(data)
+            if d is None:
+                raise TypeError(f"tool.web_fetch expects dict-like, got {type(data)}")
+            return WebFetchResult.model_validate(d)
+
         if full_name == "tool__read_file":
-            if not isinstance(data, dict):
-                raise TypeError(f"tool.read_file expects dict, got {type(data)}")
-            return ReadFileResult.model_validate(data)
+            d = _coerce_dict(data)
+            if d is None:
+                raise TypeError(f"tool.read_file expects dict-like, got {type(data)}")
+            return ReadFileResult.model_validate(d)
 
         return UnknownResult(data=data)
 
