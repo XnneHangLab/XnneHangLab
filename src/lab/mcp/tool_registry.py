@@ -42,16 +42,16 @@ def _to_jsonable(x: object) -> object:
     if isinstance(x, (str, int, float, bool)):
         return x
 
-    if isinstance(x, dict) and set(x.keys()) == {"_url"}:
-        return str(x["_url"])
+    if isinstance(x, dict) and set(x.keys()) == {"_url"}:  # type: ignore
+        return str(x["_url"])  # type: ignore
 
     # dict
     if isinstance(x, dict):
-        return {str(k): _to_jsonable(v) for k, v in x.items()}
+        return {str(k): _to_jsonable(v) for k, v in x.items()}  # type: ignore
 
     # list/tuple
     if isinstance(x, (list, tuple)):
-        return [_to_jsonable(v) for v in x]
+        return [_to_jsonable(v) for v in x]  # type: ignore
 
     # pydantic BaseModel / RootModel
     md = getattr(x, "model_dump", None)
@@ -70,7 +70,7 @@ def _to_jsonable(x: object) -> object:
     # last resort: __dict__
     d3 = getattr(x, "__dict__", None)
     if isinstance(d3, dict) and d3:
-        return _to_jsonable(d3)
+        return _to_jsonable(d3)  # type: ignore
 
     # fallback: keep as-is (will likely fail validation if it's exotic)
     return x
@@ -81,7 +81,7 @@ def _coerce_dict_deep(data: object) -> dict[str, object] | None:
     Ensure `data` becomes a dict[str, object] after deep coercion.
     """
     j = _to_jsonable(data)
-    return j if isinstance(j, dict) else None
+    return j if isinstance(j, dict) else None  # type: ignore
 
 
 # =============================================================================

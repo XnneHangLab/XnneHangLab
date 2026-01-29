@@ -8,7 +8,6 @@ import logging
 import time
 import urllib.parse
 import urllib.robotparser
-from collections.abc import Iterable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from functools import lru_cache
@@ -18,13 +17,14 @@ from typing import TYPE_CHECKING, Any
 import httpx
 from bs4 import BeautifulSoup  # ✅ 强依赖：只用这一种“最常用/最实用”的解析方式
 from fastmcp import FastMCP
-from pydantic import BaseModel
 
 from lab.config_manager.config import XnneHangLabSettings, load_settings_file
 from lab.mcp._typing import ReadFileResult, WebFetchResult, WebSearchResult, WebSearchResultItem
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Iterable
+
+    from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -141,31 +141,6 @@ async def _get_with_retries(
     for i in range(retries + 1):
         try:
             return await client.get(url, params=params, headers=headers)
-        except Exception as e:
-            last_exc = e
-            if i >= retries:
-                break
-            await asyncio.sleep(backoff_s * (2**i))
-    assert last_exc is not None
-    raise last_exc
-
-
-async def _post_with_retries(
-    client: httpx.AsyncClient,
-    url: str,
-    *,
-    json_body: dict[str, Any],
-    headers: dict[str, str] | None = None,
-    retries: int = 2,
-    backoff_s: float = 0.6,
-) -> httpx.Response:
-    """
-    Perform POST with a small retry + exponential backoff.
-    """
-    last_exc: Exception | None = None
-    for i in range(retries + 1):
-        try:
-            return await client.post(url, json=json_body, headers=headers)
         except Exception as e:
             last_exc = e
             if i >= retries:
@@ -335,10 +310,10 @@ def _extract_next_data_text(raw_html: str) -> str | None:
 
     def walk(x: Any) -> None:
         if isinstance(x, dict):
-            for v in x.values():
+            for v in x.values():  # type: ignore
                 walk(v)
         elif isinstance(x, list):
-            for v in x:
+            for v in x:  # type: ignore
                 walk(v)
         elif isinstance(x, str):
             s = x.strip()
@@ -419,8 +394,8 @@ def _parse_ddg_html_results(html_text: str, max_results: int) -> list[WebSearchR
     for a in soup.select("a.result__a"):
         title = a.get_text(" ", strip=True) or "No title"
         href = a.get("href") or ""
-        href = html.unescape(href)
-        href = _decode_ddg_redirect(href)
+        href = html.unescape(href)  # type: ignore
+        href = _decode_ddg_redirect(href)  # type: ignore
 
         if href.startswith("//"):
             href = "https:" + href
@@ -437,7 +412,7 @@ def _parse_ddg_html_results(html_text: str, max_results: int) -> list[WebSearchR
                 snippet = sn.get_text(" ", strip=True) or None
 
         try:
-            items.append(WebSearchResultItem(title=title, url=href, snippet=snippet))
+            items.append(WebSearchResultItem(title=title, url=href, snippet=snippet))  # type: ignore
         except Exception:
             # AnyHttpUrl validation fails -> skip
             continue
@@ -464,13 +439,13 @@ def _parse_searxng_html_results(html_text: str, base_url: str, max_results: int)
         if not href:
             continue
 
-        href = html.unescape(href)
-        if href.startswith("//"):
-            href = "https:" + href
-        elif href.startswith("/"):
-            href = urllib.parse.urljoin(base_url.rstrip("/") + "/", href)
+        href = html.unescape(href)  # type: ignore
+        if href.startswith("//"):  # type: ignore
+            href = "https:" + href  # type: ignore
+        elif href.startswith("/"):  # type: ignore
+            href = urllib.parse.urljoin(base_url.rstrip("/") + "/", href)  # type: ignore
 
-        if not _is_http_url(href):
+        if not _is_http_url(href):  # type: ignore
             continue
 
         snippet = None
@@ -479,7 +454,7 @@ def _parse_searxng_html_results(html_text: str, base_url: str, max_results: int)
             snippet = p.get_text(" ", strip=True) or None
 
         try:
-            items.append(WebSearchResultItem(title=title, url=href, snippet=snippet))
+            items.append(WebSearchResultItem(title=title, url=href, snippet=snippet))  # type: ignore
         except Exception:
             continue
 
@@ -527,82 +502,6 @@ async def _search_searxng(query: str, max_results: int) -> list[WebSearchResultI
     return _parse_searxng_html_results(resp.text, base_url=base, max_results=max_results)
 
 
-async def _search_tavily(query: str, max_results: int) -> list[WebSearchResultItem]:
-    """
-    Tavily API search (requires api key).
-    """
-    s = _lab_settings().mcp.tools.web_search
-    api_key = (s.tavily_api_key or "").strip()
-    if not api_key:
-        return []
-
-    timeout_s = float(s.timeout_s) + 5.0
-    async with httpx.AsyncClient(timeout=timeout_s, follow_redirects=True) as client:
-        resp = await _post_with_retries(
-            client,
-            "https://api.tavily.com/search",
-            json_body={"api_key": api_key, "query": query, "max_results": max_results},
-            headers=_headers({"Content-Type": "application/json"}),
-        )
-
-    if resp.status_code >= 400:
-        return []
-
-    data = resp.json()
-    out: list[WebSearchResultItem] = []
-    for r in (data.get("results") or [])[:max_results]:
-        url = (r.get("url") or "").strip()
-        if not _is_http_url(url):
-            continue
-        title = (r.get("title") or "").strip() or "No title"
-        snippet = (r.get("content") or r.get("snippet") or "").strip() or None
-        try:
-            out.append(WebSearchResultItem(title=title, url=url, snippet=snippet))
-        except Exception:
-            continue
-    return _dedup_keep_order(out)
-
-
-async def _search_bochaai(query: str, max_results: int) -> list[WebSearchResultItem]:
-    """
-    BochaAI API search (requires api key).
-    """
-    s = _lab_settings().mcp.tools.web_search
-    api_key = (s.bochaai_api_key or "").strip()
-    if not api_key:
-        return []
-
-    timeout_s = float(s.timeout_s) + 10.0
-    headers = _headers({"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"})
-
-    async with httpx.AsyncClient(timeout=timeout_s, follow_redirects=True) as client:
-        resp = await _post_with_retries(
-            client,
-            "https://api.bochaai.com/v1/web-search",
-            json_body={"query": query, "summary": True, "count": max_results},
-            headers=headers,
-        )
-
-    if resp.status_code >= 400:
-        return []
-
-    data = resp.json()
-    values = (((data.get("data") or {}).get("webPages") or {}).get("value") or [])[:max_results]
-
-    out: list[WebSearchResultItem] = []
-    for it in values:
-        url = (it.get("url") or "").strip()
-        if not _is_http_url(url):
-            continue
-        title = (it.get("name") or "").strip() or "No title"
-        snippet = (it.get("snippet") or "").strip() or None
-        try:
-            out.append(WebSearchResultItem(title=title, url=url, snippet=snippet))
-        except Exception:
-            continue
-    return _dedup_keep_order(out)
-
-
 async def _run_search(provider: str, query: str, max_results: int) -> list[WebSearchResultItem]:
     """
     Dispatch search based on provider name.
@@ -611,10 +510,6 @@ async def _run_search(provider: str, query: str, max_results: int) -> list[WebSe
     p = (provider or "").strip().lower()
     if p == "searxng":
         return await _search_searxng(query, max_results)
-    if p == "tavily":
-        return await _search_tavily(query, max_results)
-    if p == "bochaai":
-        return await _search_bochaai(query, max_results)
     # default / fallback provider choice is still "duckduckgo"
     return await _search_duckduckgo(query, max_results)
 
@@ -688,7 +583,7 @@ async def web_search(query: str, max_results: int = 5, provider: str | None = No
         provider:
             Optional provider override.
             If omitted, uses `lab_settings.mcp.tools.web_search.provider`.
-            Allowed values (your Literal): "duckduckgo" / "searxng" / "tavily" / "bochaai".
+            Allowed values (your Literal): "duckduckgo" / "searxng"
 
     Returns:
         WebSearchResult:
@@ -782,7 +677,7 @@ async def web_fetch(url: str, max_chars: int = 8000, timeout_s: float = 10.0) ->
 
     if not await _allowed_by_robots(url):
         return WebFetchResult(
-            url=url,
+            url=url,  # type: ignore
             status_code=451,
             content_type="text/plain",
             text="Blocked by robots.txt (respect_robots=true).",
@@ -822,7 +717,7 @@ async def web_fetch(url: str, max_chars: int = 8000, timeout_s: float = 10.0) ->
         truncated = True
 
     result_model = WebFetchResult(
-        url=url,
+        url=url,  # type: ignore
         status_code=resp.status_code,
         content_type=content_type,
         text=text,
