@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING
 from lab.mcp._typing import (
     GetDateAndTimeArgs,
     GetDateAndTimeResult,
+    ReadFileArgs,
+    ReadFileResult,
     RollDiceArgs,
     RollDiceByTimeArgs,
     RollDiceByTimeResult,
@@ -14,10 +16,74 @@ from lab.mcp._typing import (
     ToolTraceItem,
     UnknownArgs,
     UnknownResult,
+    WebFetchArgs,
+    WebFetchResult,
+    WebSearchArgs,
+    WebSearchResult,
 )
+from lab.mcp.util import normalize_jsonlike
 
 if TYPE_CHECKING:
     from pydantic import BaseModel
+
+
+def _to_jsonable(x: object) -> object:
+    """
+    Deep-coerce FastMCP / Pydantic outputs into plain JSON-serializable types:
+    - dict / list / str / int / float / bool / None
+    Also handles:
+    - Pydantic BaseModel / RootModel (model_dump)
+    - FastMCP types.Root / Root-like wrappers (.root)
+    - arbitrary objects with __dict__ (as last resort)
+    """
+    if x is None:
+        return None
+
+    # plain primitives
+    if isinstance(x, (str, int, float, bool)):
+        return x
+
+    if isinstance(x, dict) and set(x.keys()) == {"_url"}:  # type: ignore
+        return str(x["_url"])  # type: ignore
+
+    # dict
+    if isinstance(x, dict):
+        return {str(k): _to_jsonable(v) for k, v in x.items()}  # type: ignore
+
+    # list/tuple
+    if isinstance(x, (list, tuple)):
+        return [_to_jsonable(v) for v in x]  # type: ignore
+
+    # pydantic BaseModel / RootModel
+    md = getattr(x, "model_dump", None)
+    if callable(md):
+        try:
+            d = md(exclude_none=True, mode="json")
+        except TypeError:
+            d = md()
+        return _to_jsonable(d)
+
+    # Root-like wrapper
+    root = getattr(x, "root", None)
+    if root is not None:
+        return _to_jsonable(root)
+
+    # last resort: __dict__
+    d3 = getattr(x, "__dict__", None)
+    if isinstance(d3, dict) and d3:
+        return _to_jsonable(d3)  # type: ignore
+
+    # fallback: keep as-is (will likely fail validation if it's exotic)
+    return x
+
+
+def _coerce_dict_deep(data: object) -> dict[str, object] | None:
+    """
+    Ensure `data` becomes a dict[str, object] after deep coercion.
+    """
+    j = _to_jsonable(data)
+    return j if isinstance(j, dict) else None  # type: ignore
+
 
 # =============================================================================
 # 4) ToolRegistry：强类型解析入口（你以后扩展就在这里加分支）
@@ -77,6 +143,17 @@ class ToolRegistry:
             args_model = RollDiceByTimeArgs.model_validate_json(s)
             return ParsedTool(full_name, server, name, args_model)
 
+        if full_name == "tool__web_search":
+            args_model = WebSearchArgs.model_validate_json(s)
+            return ParsedTool(full_name, server, name, args_model)
+
+        if full_name == "tool__web_fetch":
+            args_model = WebFetchArgs.model_validate_json(s)
+            return ParsedTool(full_name, server, name, args_model)
+
+        if full_name == "tool__read_file":
+            args_model = ReadFileArgs.model_validate_json(s)
+            return ParsedTool(full_name, server, name, args_model)
         # 未知工具：保底当 dict
         try:
             raw = json.loads(s)
@@ -125,11 +202,32 @@ class ToolRegistry:
             return RollDiceResult(numbers=data)  # type: ignore
 
         if full_name == "timeemi__roll_dice_by_current_time":
-            if not (isinstance(data, dict) and "numbers" in data):
+            d = _coerce_dict_deep(data)
+            if d is None:
+                raise TypeError(f"timeemi.roll_dice_by_current_time expects dict-like, got {type(data)}")
+            if "numbers" not in d:
                 raise TypeError(
                     f"timeemi.roll_dice_by_current_time expects dict with 'numbers', got {type(data)} {data}"  # type: ignore
                 )  # type: ignore
-            return RollDiceByTimeResult(**data)  # type: ignore
+            return RollDiceByTimeResult.model_validate(d)  # type: ignore
+
+        if full_name == "tool__web_search":
+            d = _coerce_dict_deep(data)
+            if d is None:
+                raise TypeError(f"tool.web_search expects dict-like, got {type(data)}")
+            return WebSearchResult.model_validate(d)
+
+        if full_name == "tool__web_fetch":
+            d = _coerce_dict_deep(data)
+            if d is None:
+                raise TypeError(f"tool.web_fetch expects dict-like, got {type(data)}")
+            return WebFetchResult.model_validate(d)
+
+        if full_name == "tool__read_file":
+            d = _coerce_dict_deep(data)
+            if d is None:
+                raise TypeError(f"tool.read_file expects dict-like, got {type(data)}")
+            return ReadFileResult.model_validate(d)
 
         return UnknownResult(data=data)
 
@@ -148,6 +246,16 @@ class ToolRegistry:
             return result_model.datetime
         if isinstance(result_model, RollDiceResult):
             return json.dumps(result_model.numbers, ensure_ascii=False)
+        if isinstance(result_model, RollDiceByTimeResult):
+            return json.dumps(result_model.numbers, ensure_ascii=False)
+        if isinstance(result_model, WebSearchResult):
+            return json.dumps(
+                [r.model_dump(exclude_none=True, mode="json") for r in result_model.results], ensure_ascii=False
+            )
+        if isinstance(result_model, WebFetchResult):
+            return result_model.text
+        if isinstance(result_model, ReadFileResult):
+            return result_model.text
         d = result_model.model_dump(exclude_none=True)
         return json.dumps(d, ensure_ascii=False, default=str)
 
@@ -159,8 +267,9 @@ class ToolRegistry:
         - args：Args(BaseModel) dump 成 dict
         - raw_result：Result(BaseModel) dump 成 dict
         """
-        args_dict = parsed.args_model.model_dump(exclude_none=True)
-        raw_dict = result_model.model_dump(exclude_none=True)
+        args_dict = parsed.args_model.model_dump(exclude_none=True, mode="json")
+        raw_dict = result_model.model_dump(exclude_none=True, mode="json")
+        raw_dict = normalize_jsonlike(raw_dict)
         return ToolTraceItem(
             server=parsed.server,
             name=parsed.name,

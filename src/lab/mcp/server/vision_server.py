@@ -123,11 +123,11 @@ def describe_image() -> str:
 def run_mcp():
     lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
     mcp.run(
-        transport=lab_settings.mcp.vision.transport,
-        host=lab_settings.mcp.vision.host,
-        port=lab_settings.mcp.vision.port,
-        path=lab_settings.mcp.vision.path,
-        log_level=lab_settings.mcp.vision.log_level,
+        transport=lab_settings.mcp.servers.vision.transport,
+        host=lab_settings.mcp.servers.vision.host,
+        port=lab_settings.mcp.servers.vision.port,
+        path=lab_settings.mcp.servers.vision.path,
+        log_level=lab_settings.mcp.servers.vision.log_level,
     )
 
 

@@ -85,8 +85,8 @@ class MemoryAgent(AgentInterface):
             return
 
         for name, s in [
-            ("timeemi", self.lab_settings.mcp.timeemi),
-            ("vision", self.lab_settings.mcp.vision),
+            ("timeemi", self.lab_settings.mcp.servers.timeemi),
+            ("vision", self.lab_settings.mcp.servers.vision),
         ]:
             url = f"{s.transport}://{s.host}:{s.port}{s.path}"  # http://127.0.0.1:4200/ 我们只考虑 http, stdio 无法在 uvicorn 中运行.
             await self.mcp.connect(name=name, url=url)

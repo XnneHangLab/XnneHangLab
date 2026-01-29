@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal, Protocol
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_validator
 
 # =============================================================================
 # 1) OpenAI tool calling：最小 Protocol（SDK 边界）
@@ -183,6 +183,84 @@ class RollDiceByTimeResult(BaseModel):
             if x < 1 or x > 6:
                 raise ValueError(f"dice out of range: {x}")
         return v
+
+
+# =============================================================================
+# 4) Web/IO tools: Args / Result
+# =============================================================================
+
+
+WebSearchProvider = Literal["duckduckgo", "searxng", "tavily", "bochaai"]
+
+
+class WebSearchArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    query: str = Field(..., min_length=1, description="搜索关键词")
+    max_results: int = Field(5, ge=1, le=10, description="返回结果数量")
+
+    # ✅ 新增：严格 provider（不允许别名）
+    provider: WebSearchProvider | None = Field(
+        None,
+        description="搜索引擎：duckduckgo / searxng / tavily / bochaai；为空则用服务端默认配置",
+    )
+
+
+class WebSearchResultItem(BaseModel):
+    title: str
+    url: AnyHttpUrl
+    snippet: str | None = None
+
+
+class WebSearchResult(BaseModel):
+    query: str
+    results: list[WebSearchResultItem]
+
+
+class WebFetchArgs(BaseModel):
+    """
+    tool.web_fetch 入参。
+
+    输入示例：
+        {"url": "https://example.com", "max_chars": 8000}
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    url: AnyHttpUrl
+    max_chars: int = Field(8000, ge=256, le=20000, description="最大返回字符数")
+    timeout_s: float = Field(10.0, ge=1.0, le=30.0, description="请求超时秒数")
+
+
+class WebFetchResult(BaseModel):
+    url: AnyHttpUrl
+    status_code: int
+    content_type: str | None = None
+    text: str
+    truncated: bool = False
+
+
+class ReadFileArgs(BaseModel):
+    """
+    tool.read_file 入参。
+
+    输入示例：
+        {"path": "README.md", "start_line": 1, "end_line": 200}
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    path: str = Field(..., min_length=1, description="相对路径或绝对路径")
+    start_line: int | None = Field(None, ge=1, description="起始行")
+    end_line: int | None = Field(None, ge=1, description="结束行")
+    max_chars: int = Field(8000, ge=256, le=20000, description="最大返回字符数")
+
+
+class ReadFileResult(BaseModel):
+    path: str
+    text: str
+    truncated: bool = False
+    start_line: int | None = None
+    end_line: int | None = None
+    total_lines: int | None = None
 
 
 class UnknownArgs(BaseModel):
