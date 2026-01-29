@@ -54,6 +54,13 @@ class Agent:
         system += "\n\n**請使用和用戶相同的語言**"
         return system
 
+    def _snip(self, s: str, n: int = 1200) -> str:
+        """截断字符串，保留前 n 个字符，加省略号"""
+        ss = (s or "").strip()
+        if len(ss) <= n:
+            return ss
+        return ss[:n] + f"\n...(preview truncated, {len(ss)} chars total)..."
+
     async def connect_mcp_servers(self) -> None:
         """
         连接你已启动的 FastMCP servers（你配置里 path="/"）。
@@ -142,7 +149,57 @@ class Agent:
                         args={"unit": unit},
                     )
                     extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
+            if tool_output_as_user_prompt and trace.ok:
+                # --------------------------
+                # tool__web_search: extract
+                # --------------------------
+                if parsed.full_name == "tool__web_search":
+                    raw_result = trace.raw_result  # dict[str, object]
+                    search_results = raw_result.get("results")
 
+                    if isinstance(search_results, list):
+                        lines: list[str] = ["Web search results (pick one URL if you need to fetch details):"]
+                        for idx, item in enumerate(search_results[:5], 1):  # type: ignore
+                            if not isinstance(item, dict):
+                                continue
+                            title = str(item.get("title", "") or "")  # type: ignore
+                            url = str(item.get("url", "") or "")  # type: ignore
+                            snippet = str(item.get("snippet", "") or "")  # type: ignore
+                            lines.append(f"{idx}. {title}\n   {url}\n   {snippet}")
+                        extra_msgs.append({"role": "user", "content": "\n".join(lines)})
+
+                # --------------------------
+                # tool__web_fetch: extract
+                # --------------------------
+                if parsed.full_name == "tool__web_fetch":
+                    raw_result = trace.raw_result  # dict[str, object]
+
+                    fetch_url = str(raw_result.get("url", "") or "")
+                    status_code = raw_result.get("status_code", "")
+                    content_type = str(raw_result.get("content_type", "") or "")
+                    is_truncated = bool(raw_result.get("truncated", False))
+
+                    fetch_text_obj = raw_result.get("text", "")
+                    fetch_text = fetch_text_obj if isinstance(fetch_text_obj, str) else ""
+                    preview = self._snip(fetch_text, 1200) if fetch_text else ""
+
+                    lines = [
+                        "Web fetch result (use this content to answer; if insufficient, fetch again with larger max_chars or another URL):",
+                        f"- url: {fetch_url}",
+                        f"- status_code: {status_code}",
+                        f"- content_type: {content_type}",
+                        f"- truncated: {is_truncated}",
+                        "",
+                        "Extracted text preview:",
+                        preview,
+                    ]
+                    if is_truncated:
+                        lines += [
+                            "",
+                            "Note: content was truncated. If you need more, call tool__web_fetch with a larger max_chars (up to 20000) or fetch a more specific URL section.",
+                        ]
+
+                    extra_msgs.append({"role": "user", "content": "\n".join(lines)})
         return tool_msg, extra_msgs, trace
 
     async def run_tool_loop(
@@ -199,9 +256,18 @@ class Agent:
 
             tool_calls_all = list(tool_calls)
 
-            # 如果你限制 max_parallel_tools，这里要分两类：执行的、被截断的
-            tool_calls_exec = tool_calls_all[:max_parallel_tools]
-            tool_calls_skipped = tool_calls_all[max_parallel_tools:]
+            web_search_idx = next(
+                (i for i, tc in enumerate(tool_calls_all) if tc.function.name == "tool__web_search"),
+                None,
+            )
+            # 如果触发 Web Search，则本轮只执行它，不并行，独占一个 Step。
+            # 这样做是为了更好地配合 Fetch，避免 Web Search Fetch 并行调用而让 Fetch 不完整。
+            if web_search_idx is not None and len(tool_calls_all) > 1:
+                tool_calls_exec = [tool_calls_all[web_search_idx]]
+                tool_calls_skipped = [tc for j, tc in enumerate(tool_calls_all) if j != web_search_idx]
+            else:
+                tool_calls_exec = tool_calls_all[:max_parallel_tools]
+                tool_calls_skipped = tool_calls_all[max_parallel_tools:]
 
             # --- 1) 先为“要执行的 tool_calls”准备任务（并行 + 去重/缓存）
             tasks: list[asyncio.Task[tuple[ToolMessage, list[dict[str, object]], ToolTraceItem]]] = []
@@ -359,15 +425,15 @@ async def main():
             except (APIConnectionError, APIError, RateLimitError) as e:
                 print(f"\n[LLM error] {e}")
 
-        await run("昨天几号？")
-        await run("今、何時ですか？")
-        await run("我晚上九点就后就该去打游戏了，现在几点？")
+        # await run("昨天几号？")
+        # await run("今、何時ですか？")
+        # await run("我晚上九点就后就该去打游戏了，现在几点？")
         await run("现在几点？现在几点你就帮我随便 roll 几个点数")
-        await run("你今天真可爱")
-        await run("https://xnnehang.top/posts/default/chill_ai_chat_mod, 这个博客讲啥了？")
-        await run("https://alma.now/docs/guide/, 帮我用中文解释下这个网页的内容。")
-        await run("./README.md 这个文件里面讲了什么内容？")
-        await run("帮我搜索一下XnneHangLab，告诉我它是做什么的？")
+        # await run("你今天真可爱")
+        # await run("https://xnnehang.top/posts/default/chill_ai_chat_mod, 这个博客讲啥了？")
+        # await run("https://alma.now/docs/guide/, 帮我用中文解释下这个网页的内容。")
+        # await run("./README.md 这个文件里面讲了什么内容？")
+        # await run("帮我搜索一下XnneHangLab，告诉我它是做什么的？")
 
     finally:
         await agent.close()

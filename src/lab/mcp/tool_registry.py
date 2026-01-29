@@ -21,6 +21,7 @@ from lab.mcp._typing import (
     WebSearchArgs,
     WebSearchResult,
 )
+from lab.mcp.util import normalize_jsonlike
 
 if TYPE_CHECKING:
     from pydantic import BaseModel
@@ -265,6 +266,7 @@ class ToolRegistry:
         """
         args_dict = parsed.args_model.model_dump(exclude_none=True, mode="json")
         raw_dict = result_model.model_dump(exclude_none=True, mode="json")
+        raw_dict = normalize_jsonlike(raw_dict)
         return ToolTraceItem(
             server=parsed.server,
             name=parsed.name,
