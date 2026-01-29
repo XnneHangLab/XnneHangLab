@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable
 
     from lab.agent.output_types import AudioOutput, DisplayText, SentenceOutput
+    from lab.config_manager.config import XnneHangLabSettings
     from lab.config_manager.vtuber import TTSPreprocessorConfig
     from lab.live2d_model import Live2dModel
 
@@ -39,6 +40,7 @@ class MemoryAgent(AgentInterface):
     def __init__(
         self,
         *,
+        lab_settings: XnneHangLabSettings,
         chat_llm: Any,
         system: str,
         live2d_model: Live2dModel,
@@ -53,9 +55,9 @@ class MemoryAgent(AgentInterface):
         super().__init__()
         self._memory: list[dict[str, str]] = []
         self._chat_llm = chat_llm
-
-        self.enable_tool = enable_tool
         self._tool_llm = tool_llm or chat_llm
+        self.lab_settings = lab_settings
+        self.enable_tool = enable_tool
         self.mcp = mcp or FastMcpRouter(prefix_delim="__")
         self._tool_loop = McpToolLoopRunner(tool_llm=self._tool_llm, mcp=self.mcp)
 
@@ -77,11 +79,17 @@ class MemoryAgent(AgentInterface):
     # MCP lifecycle
     # ---------------------------------------------------------------------
     async def connect_mcp_servers(self, servers: list[tuple[str, str]] | None = None) -> None:
-        """
-        连接你已启动的 FastMCP servers（你配置里 path="/"）。
-        """
-        await self.mcp.connect(name="timeemi", url="http://127.0.0.1:4200/")
-        await self.mcp.connect(name="vision", url="http://127.0.0.1:4201/")
+        if servers:
+            for name, url in servers:
+                await self.mcp.connect(name=name, url=url)
+            return
+
+        for name, s in [
+            ("timeemi", self.lab_settings.mcp.timeemi),
+            ("vision", self.lab_settings.mcp.vision),
+        ]:
+            url = f"{s.transport}://{s.host}:{s.port}{s.path}"  # http://127.0.0.1:4200/ 我们只考虑 http, stdio 无法在 uvicorn 中运行.
+            await self.mcp.connect(name=name, url=url)
 
     async def close(self) -> None:
         await self.mcp.close()
@@ -251,7 +259,3 @@ class MemoryAgent(AgentInterface):
 
     async def chat(self, input_data: BatchInput):  # type: ignore[override]
         return self.chat(input_data)  # type: ignore[return-value]
-
-
-# Backward-compatible alias (optional):
-BasicMemoryAgent = MemoryAgent
