@@ -73,19 +73,47 @@ llm_api_key = ""
 llm_base_url = "https://api.cerebras.ai/v1"
 api_format = "chat_completion"
 
-[mcp.timeemi]
+[mcp.servers.timeemi]
 transport = "http"
+enable = true
 host = "127.0.0.1"
 port = 4200
 path = "/"
 log_level = "debug"
 
-[mcp.vision]
+[mcp.servers.vision]
 transport = "http"
+enable = true
 host = "127.0.0.1"
 port = 4201
 path = "/"
 log_level = "debug"
+
+[mcp.servers.tool]
+transport = "http"
+enable = true
+host = "127.0.0.1"
+port = 4202
+path = "/"
+log_level = "debug"
+
+[mcp.tools]
+user_agent = "XnneHangLab-MCP/1.1"
+
+[mcp.tools.web_search]
+provider = "duckduckgo"
+timeout_s = 10.0
+searxng_url = "http://127.0.0.1:8000"
+tavily_api_key = ""
+bochaai_api_key = ""
+
+[mcp.tools.web_fetch]
+respect_robots = true
+robots_fail_closed = false
+use_jina_fallback = false
+jina_api_key = ""
+timeout_s = 10.0
+max_chars_default = 8000
 
 [package]
 funasr = false
