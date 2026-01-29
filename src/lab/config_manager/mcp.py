@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 class MCPServerSettingBase(BaseModel):
     transport: Annotated[Literal["http"], Field("http", title="MCP Transport")]
+    enable: Annotated[bool, Field(True, title="Enable MCP Server")]
     host: Annotated[str, Field("127.0.0.1", title="MCP Host")]
     port: Annotated[int, Field(8080, title="MCP Port")]
     path: Annotated[str, Field("/", title="MCP Path")]
@@ -24,9 +25,15 @@ class VisionServerSetting(MCPServerSettingBase):
     port: Annotated[int, Field(4201, title="MCP Port")]
 
 
+class ToolServerSetting(MCPServerSettingBase):
+    # 存储文件持久特殊变量.
+    port: Annotated[int, Field(4202, title="MCP Port")]
+
+
 class MCPSettings(BaseModel):
     timeemi: Annotated[TimeEmiServerSetting, Field(TimeEmiServerSetting())]  # pyright: ignore[reportCallIssue]
     vision: Annotated[VisionServerSetting, Field(VisionServerSetting())]  # pyright: ignore[reportCallIssue]
+    tool: Annotated[ToolServerSetting, Field(ToolServerSetting())]  # pyright: ignore[reportCallIssue]
 
 
 def main():
@@ -37,9 +44,9 @@ def main():
         write_settings_file,
     )
 
-    agent_settings_path = search_for_settings_file("agent.toml")
-    if agent_settings_path is not None and agent_settings_path.exists():
-        agent_settings_path.unlink()  # ensure load default
+    mcp_settings_path = search_for_settings_file("mcp.toml")
+    if mcp_settings_path is not None and mcp_settings_path.exists():
+        mcp_settings_path.unlink()  # ensure load default
     mcp_settings = load_settings_file("mcp.toml", MCPSettings)
     lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
     lab_settings.mcp = mcp_settings

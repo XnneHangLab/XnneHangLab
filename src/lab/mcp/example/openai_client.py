@@ -60,6 +60,7 @@ class Agent:
         """
         await self.mcp.connect(name="timeemi", url="http://127.0.0.1:4200/")
         await self.mcp.connect(name="vision", url="http://127.0.0.1:4201/")
+        await self.mcp.connect(name="tool", url="http://127.0.0.1:4202/")
 
     async def close(self) -> None:
         await self.mcp.close()
@@ -83,7 +84,7 @@ class Agent:
 
         # 1) args 强校验
         parsed = ToolRegistry.parse_args(full_name, tool_call.function.arguments)
-        args_dict = parsed.args_model.model_dump(exclude_none=True)
+        args_dict = parsed.args_model.model_dump(exclude_none=True, mode="json")
 
         # 2) 调工具
         try:
@@ -171,7 +172,7 @@ class Agent:
         cache: dict[str, tuple[str, ToolTraceItem, list[dict[str, object]]]] = {}
 
         def _sig(full_name: str, args_dict: dict[str, object]) -> str:
-            return full_name + "::" + json.dumps(args_dict, ensure_ascii=False, sort_keys=True)
+            return full_name + "::" + json.dumps(args_dict, ensure_ascii=False, sort_keys=True, default=str)
 
         for step in range(max_steps):
             resp = await call_with_short_retry(  # type: ignore
@@ -209,7 +210,7 @@ class Agent:
             for tc in tool_calls_exec:
                 full_name = tc.function.name
                 parsed = ToolRegistry.parse_args(full_name, tc.function.arguments)
-                args_dict = parsed.args_model.model_dump(exclude_none=True)
+                args_dict = parsed.args_model.model_dump(exclude_none=True, mode="json")
                 sig = _sig(full_name, args_dict)
                 planned.append((tc, sig))
 
@@ -288,8 +289,8 @@ class Agent:
         - 口语化/TTS 友好由 Chat Model 完成
         - 我们只提供结构化 trace，避免在 client 侧硬编码口语化逻辑
         """
-        trace_dump = [t.model_dump(exclude_none=True) for t in tool_trace]
-        tool_summary = json.dumps(trace_dump, ensure_ascii=False, indent=2) if trace_dump else "[]"
+        trace_dump = [t.model_dump(exclude_none=True, mode="json") for t in tool_trace]
+        tool_summary = json.dumps(trace_dump, ensure_ascii=False, indent=2, default=str) if trace_dump else "[]"
 
         messages: list[dict[str, object]] = [
             OpenAIMessage(role="system", content=system_prompt).model_dump(exclude_none=True),
@@ -358,11 +359,13 @@ async def main():
             except (APIConnectionError, APIError, RateLimitError) as e:
                 print(f"\n[LLM error] {e}")
 
-        await run("昨天几号？")
-        await run("今、何時ですか？")
-        await run("我晚上九点就后就该去打游戏了，现在几点？")
-        await run("现在几点？现在几点你就帮我随便 roll 几个点数")
-        await run("你今天真可爱")
+        # await run("昨天几号？")
+        # await run("今、何時ですか？")
+        # await run("我晚上九点就后就该去打游戏了，现在几点？")
+        # await run("现在几点？现在几点你就帮我随便 roll 几个点数")
+        # await run("你今天真可爱")
+        await run("https://xnnehang.top/posts/default/chill_ai_chat_mod, 这个博客讲啥了？")
+        await run("https://alma.now/docs/guide/, 帮我用中文解释下这个网页的内容。")
 
     finally:
         await agent.close()

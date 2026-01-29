@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from lab.mcp._typing import (
     GetDateAndTimeArgs,
     GetDateAndTimeResult,
+    ReadFileArgs,
+    ReadFileResult,
     RollDiceArgs,
     RollDiceByTimeArgs,
     RollDiceByTimeResult,
@@ -14,10 +16,49 @@ from lab.mcp._typing import (
     ToolTraceItem,
     UnknownArgs,
     UnknownResult,
+    WebFetchArgs,
+    WebFetchResult,
+    WebSearchArgs,
+    WebSearchResult,
 )
 
 if TYPE_CHECKING:
     from pydantic import BaseModel
+
+# type error 太多了，得想个别的办法
+def _as_dict(data: object) -> dict[Any, Any] | None: # type:ignore
+    if data is None:
+        return None
+    if isinstance(data, dict):
+        return data # type: ignore
+
+    # pydantic v2 BaseModel
+    md = getattr(data, "model_dump", None)
+    if callable(md):
+        try:
+            return md(exclude_none=True, mode="json") # type: ignore
+        except TypeError:
+            # 有些实现不支持 mode 参数
+            return md() # type: ignore
+
+    # pydantic RootModel / 其他 Root 包装
+    root = getattr(data, "root", None)
+    if root is not None:
+        if isinstance(root, dict):
+            return root # type: ignore
+        md2 = getattr(root, "model_dump", None)
+        if callable(md2):
+            try:
+                return md2(exclude_none=True, mode="json") # type: ignore
+            except TypeError:
+                return md2() # type: ignore
+
+    # 兜底：对象字典（不保证干净，但比直接死好）
+    d = getattr(data, "__dict__", None)
+    if isinstance(d, dict):
+        return d # type: ignore
+
+    return None
 
 # =============================================================================
 # 4) ToolRegistry：强类型解析入口（你以后扩展就在这里加分支）
@@ -77,6 +118,17 @@ class ToolRegistry:
             args_model = RollDiceByTimeArgs.model_validate_json(s)
             return ParsedTool(full_name, server, name, args_model)
 
+        if full_name == "tool__web_search":
+            args_model = WebSearchArgs.model_validate_json(s)
+            return ParsedTool(full_name, server, name, args_model)
+
+        if full_name == "tool__web_fetch":
+            args_model = WebFetchArgs.model_validate_json(s)
+            return ParsedTool(full_name, server, name, args_model)
+
+        if full_name == "tool__read_file":
+            args_model = ReadFileArgs.model_validate_json(s)
+            return ParsedTool(full_name, server, name, args_model)
         # 未知工具：保底当 dict
         try:
             raw = json.loads(s)
@@ -131,6 +183,23 @@ class ToolRegistry:
                 )  # type: ignore
             return RollDiceByTimeResult(**data)  # type: ignore
 
+        if full_name == "tool__web_fetch":
+            d = _as_dict(data)
+            if d is None:
+                raise TypeError(f"tool.web_fetch expects dict-like, got {type(data)}")
+            return WebFetchResult.model_validate(d)
+
+        if full_name == "tool__web_search":
+            d = _as_dict(data)
+            if d is None:
+                raise TypeError(f"tool.web_search expects dict-like, got {type(data)}")
+            return WebSearchResult.model_validate(d)
+
+        if full_name == "tool__read_file":
+            if not isinstance(data, dict):
+                raise TypeError(f"tool.read_file expects dict, got {type(data)}")
+            return ReadFileResult.model_validate(data)
+
         return UnknownResult(data=data)
 
     @staticmethod
@@ -148,6 +217,16 @@ class ToolRegistry:
             return result_model.datetime
         if isinstance(result_model, RollDiceResult):
             return json.dumps(result_model.numbers, ensure_ascii=False)
+        if isinstance(result_model, RollDiceByTimeResult):
+            return json.dumps(result_model.numbers, ensure_ascii=False)
+        if isinstance(result_model, WebSearchResult):
+            return json.dumps(
+                [r.model_dump(exclude_none=True, mode="json") for r in result_model.results], ensure_ascii=False
+            )
+        if isinstance(result_model, WebFetchResult):
+            return result_model.text
+        if isinstance(result_model, ReadFileResult):
+            return result_model.text
         d = result_model.model_dump(exclude_none=True)
         return json.dumps(d, ensure_ascii=False, default=str)
 
@@ -159,8 +238,8 @@ class ToolRegistry:
         - args：Args(BaseModel) dump 成 dict
         - raw_result：Result(BaseModel) dump 成 dict
         """
-        args_dict = parsed.args_model.model_dump(exclude_none=True)
-        raw_dict = result_model.model_dump(exclude_none=True)
+        args_dict = parsed.args_model.model_dump(exclude_none=True, mode="json")
+        raw_dict = result_model.model_dump(exclude_none=True, mode="json")
         return ToolTraceItem(
             server=parsed.server,
             name=parsed.name,
