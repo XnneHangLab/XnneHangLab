@@ -425,15 +425,15 @@ async def main():
             except (APIConnectionError, APIError, RateLimitError) as e:
                 print(f"\n[LLM error] {e}")
 
-        # await run("昨天几号？")
-        # await run("今、何時ですか？")
-        # await run("我晚上九点就后就该去打游戏了，现在几点？")
+        await run("昨天几号？")
+        await run("今、何時ですか？")
+        await run("我晚上九点就后就该去打游戏了，现在几点？")
         await run("现在几点？现在几点你就帮我随便 roll 几个点数")
-        # await run("你今天真可爱")
-        # await run("https://xnnehang.top/posts/default/chill_ai_chat_mod, 这个博客讲啥了？")
-        # await run("https://alma.now/docs/guide/, 帮我用中文解释下这个网页的内容。")
-        # await run("./README.md 这个文件里面讲了什么内容？")
-        # await run("帮我搜索一下XnneHangLab，告诉我它是做什么的？")
+        await run("你今天真可爱")
+        await run("https://xnnehang.top/posts/default/chill_ai_chat_mod, 这个博客讲啥了？")
+        await run("https://alma.now/docs/guide/, 帮我用中文解释下这个网页的内容。")
+        await run("./README.md 这个文件里面讲了什么内容？")
+        await run("帮我搜索一下XnneHangLab，告诉我它是做什么的？")
 
     finally:
         await agent.close()

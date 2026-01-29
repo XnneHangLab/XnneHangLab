@@ -69,14 +69,35 @@ def convert_isoformat_time_to_tts_text(time_str: str) -> str:
     """
 
 
-@mcp.prompt("limit_time_response")
-def limit_time_response(user_input: str) -> str:
+@mcp.prompt("convert_time_unit_readable")
+def convert_time_unit_readable(unit: str) -> str:
+    """
+    Convert unit key ("hour"/"minute"/"second") to a short spoken phrase in the user's language.
+
+    Args:
+        unit: unit key, expected "hour" / "minute" / "second" (string)
+
+    Returns:
+        Prompt text (string). The model should output only the converted short word/phrase.
+    """
+    u = (unit or "").strip().lower()
+    if u not in {"hour", "minute", "second"}:
+        # 保底：别让 prompt 直接炸
+        u = "hour"
+
     return f"""
-    只需要返回和用户语言相同的格式即可,你转换得到的时间是**现在这个时刻的时间**。
-    当用户问你几点时，你只需要回答十二时二十一分，不需要回答秒,当然你可以加上上午，下午，晚上,傍晚等修饰语。
-    当用户问你今天是几号时，你可以选择回答 二零零四年十月十四日 或者 十月十四日,尽量选择后者，因为比较短。
-    你也需要自己应付用户刁钻的回答比如昨天，明天，大后天，一个小时前。甚至问你时区时差问题。
-    现在用户问的是:{user_input}
+    你需要把一个时间单位键转换成“用户语言”的自然短词/短语。
+
+    输入 unit: {u}
+
+    输出要求：
+    1) 只输出转换后的短词/短语，不要解释。
+    2) 输出语言必须与用户回复语言一致。
+
+    参考：
+    - 中文：hour→“小时/点钟”，minute→“分钟”，second→“秒”
+    - English：hour→“hour”，minute→“minute”，second→“second”
+    - 日本語：hour→“じ”，minute→“ふん”，second→“びょう”
     """
 
 

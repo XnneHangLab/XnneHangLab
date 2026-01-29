@@ -202,11 +202,14 @@ class ToolRegistry:
             return RollDiceResult(numbers=data)  # type: ignore
 
         if full_name == "timeemi__roll_dice_by_current_time":
-            if not (isinstance(data, dict) and "numbers" in data):
+            d = _coerce_dict_deep(data)
+            if d is None:
+                raise TypeError(f"timeemi.roll_dice_by_current_time expects dict-like, got {type(data)}")
+            if "numbers" not in d:
                 raise TypeError(
                     f"timeemi.roll_dice_by_current_time expects dict with 'numbers', got {type(data)} {data}"  # type: ignore
                 )  # type: ignore
-            return RollDiceByTimeResult(**data)  # type: ignore
+            return RollDiceByTimeResult.model_validate(d)  # type: ignore
 
         if full_name == "tool__web_search":
             d = _coerce_dict_deep(data)
