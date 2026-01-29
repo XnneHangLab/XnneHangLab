@@ -26,47 +26,62 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
 
-def _coerce_dict(data: object) -> dict[str, object] | None:
+def _to_jsonable(x: object) -> object:
     """
-    FastMCP 有时会把结果包成 RootModel / types.Root 等对象。
-    这里把各种“看起来像 dict 的东西”统一转成 dict。
+    Deep-coerce FastMCP / Pydantic outputs into plain JSON-serializable types:
+    - dict / list / str / int / float / bool / None
+    Also handles:
+    - Pydantic BaseModel / RootModel (model_dump)
+    - FastMCP types.Root / Root-like wrappers (.root)
+    - arbitrary objects with __dict__ (as last resort)
     """
-    if data is None:
+    if x is None:
         return None
 
-    if isinstance(data, dict):
-        return data  # type: ignore[return-value]
+    # plain primitives
+    if isinstance(x, (str, int, float, bool)):
+        return x
 
-    # pydantic v2 BaseModel / RootModel: model_dump
-    md = getattr(data, "model_dump", None)
+    if isinstance(x, dict) and set(x.keys()) == {"_url"}:
+        return str(x["_url"])
+
+    # dict
+    if isinstance(x, dict):
+        return {str(k): _to_jsonable(v) for k, v in x.items()}
+
+    # list/tuple
+    if isinstance(x, (list, tuple)):
+        return [_to_jsonable(v) for v in x]
+
+    # pydantic BaseModel / RootModel
+    md = getattr(x, "model_dump", None)
     if callable(md):
         try:
             d = md(exclude_none=True, mode="json")
         except TypeError:
             d = md()
-        if isinstance(d, dict):
-            return d  # type: ignore[return-value]
+        return _to_jsonable(d)
 
-    # RootModel-like: .root
-    root = getattr(data, "root", None)
+    # Root-like wrapper
+    root = getattr(x, "root", None)
     if root is not None:
-        if isinstance(root, dict):
-            return root  # type: ignore[return-value]
-        md2 = getattr(root, "model_dump", None)
-        if callable(md2):
-            try:
-                d2 = md2(exclude_none=True, mode="json")
-            except TypeError:
-                d2 = md2()
-            if isinstance(d2, dict):
-                return d2  # type: ignore[return-value]
+        return _to_jsonable(root)
 
-    # 兜底：__dict__
-    d3 = getattr(data, "__dict__", None)
-    if isinstance(d3, dict):
-        return d3  # type: ignore[return-value]
+    # last resort: __dict__
+    d3 = getattr(x, "__dict__", None)
+    if isinstance(d3, dict) and d3:
+        return _to_jsonable(d3)
 
-    return None
+    # fallback: keep as-is (will likely fail validation if it's exotic)
+    return x
+
+
+def _coerce_dict_deep(data: object) -> dict[str, object] | None:
+    """
+    Ensure `data` becomes a dict[str, object] after deep coercion.
+    """
+    j = _to_jsonable(data)
+    return j if isinstance(j, dict) else None
 
 
 # =============================================================================
@@ -193,19 +208,19 @@ class ToolRegistry:
             return RollDiceByTimeResult(**data)  # type: ignore
 
         if full_name == "tool__web_search":
-            d = _coerce_dict(data)
+            d = _coerce_dict_deep(data)
             if d is None:
                 raise TypeError(f"tool.web_search expects dict-like, got {type(data)}")
             return WebSearchResult.model_validate(d)
 
         if full_name == "tool__web_fetch":
-            d = _coerce_dict(data)
+            d = _coerce_dict_deep(data)
             if d is None:
                 raise TypeError(f"tool.web_fetch expects dict-like, got {type(data)}")
             return WebFetchResult.model_validate(d)
 
         if full_name == "tool__read_file":
-            d = _coerce_dict(data)
+            d = _coerce_dict_deep(data)
             if d is None:
                 raise TypeError(f"tool.read_file expects dict-like, got {type(data)}")
             return ReadFileResult.model_validate(d)

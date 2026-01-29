@@ -158,11 +158,11 @@ def roll_dice_by_current_time(
 def run_mcp():
     lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
     mcp.run(
-        transport=lab_settings.mcp.timeemi.transport,
-        host=lab_settings.mcp.timeemi.host,
-        port=lab_settings.mcp.timeemi.port,
-        path=lab_settings.mcp.timeemi.path,
-        log_level=lab_settings.mcp.timeemi.log_level,
+        transport=lab_settings.mcp.servers.timeemi.transport,
+        host=lab_settings.mcp.servers.timeemi.host,
+        port=lab_settings.mcp.servers.timeemi.port,
+        path=lab_settings.mcp.servers.timeemi.path,
+        log_level=lab_settings.mcp.servers.timeemi.log_level,
     )
 
 

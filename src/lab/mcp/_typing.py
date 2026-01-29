@@ -188,17 +188,22 @@ class RollDiceByTimeResult(BaseModel):
 # =============================================================================
 # 4) Web/IO tools: Args / Result
 # =============================================================================
+
+
+WebSearchProvider = Literal["duckduckgo", "searxng", "tavily", "bochaai"]
+
+
 class WebSearchArgs(BaseModel):
-    """
-    tool.web_search 入参。
-
-    输入示例：
-        {"query": "FastMCP tutorial", "max_results": 5}
-    """
-
     model_config = ConfigDict(extra="forbid")
+
     query: str = Field(..., min_length=1, description="搜索关键词")
     max_results: int = Field(5, ge=1, le=10, description="返回结果数量")
+
+    # ✅ 新增：严格 provider（不允许别名）
+    provider: WebSearchProvider | None = Field(
+        None,
+        description="搜索引擎：duckduckgo / searxng / tavily / bochaai；为空则用服务端默认配置",
+    )
 
 
 class WebSearchResultItem(BaseModel):
