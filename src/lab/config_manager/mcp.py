@@ -43,7 +43,7 @@ class WebSearchToolSettings(BaseModel):
     provider: Annotated[WebSearchProvider, Field("duckduckgo", title="Web Search Provider")]
     timeout_s: Annotated[float, Field(10.0, title="Web Search Timeout (s)")]
     searxng_url: Annotated[
-        str, Field("http://127.0.0.1:8080", title="SearXNG URL")
+        str, Field("http://127.0.0.1:8000", title="SearXNG URL")
     ]  # SearXNG 本地服务地址（当 provider="searxng" 时使用）
     tavily_api_key: Annotated[
         str, Field("", title="Tavily API Key")
