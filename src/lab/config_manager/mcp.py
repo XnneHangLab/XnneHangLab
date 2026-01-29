@@ -36,7 +36,7 @@ class MCPServerSettings(BaseModel):
     tool: Annotated[ToolServerSetting, Field(ToolServerSetting())]  # pyright: ignore[reportCallIssue]
 
 
-WebSearchProvider = Literal["duckduckgo", "searxng", "tavily", "bochaai"]
+WebSearchProvider = Literal["duckduckgo", "searxng"]
 
 
 class WebSearchToolSettings(BaseModel):
