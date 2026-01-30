@@ -75,7 +75,7 @@ async def call_with_short_retry(awaitable_factory, *, max_retries: int = 2):  # 
     raise last  # pragma: no cover # type: ignore
 
 
-def normalize_jsonlike(x: object) -> object:
+def normalize_jsonlike(x: object, strict: bool = False) -> object:
     """
     把 FastMCP / Pydantic 返回的 Root/BaseModel/Url wrapper 归一化成 JSON-like。
     目标：最终只出现 dict/list/str/int/bool/None，不出现 types.Root / Url(...) 等对象。
@@ -83,6 +83,8 @@ def normalize_jsonlike(x: object) -> object:
     if x is None or isinstance(x, (str, int, float, bool)):
         return x
 
+    # FastMCP / pydantic 可能把 URL 包成 {"_url": Url(...)}；必须优先解包成 str，
+    # 否则下游 pydantic 校验 Url 字段会收到 dict 而失败。
     if isinstance(x, dict) and set(x.keys()) == {"_url"}:  # type: ignore
         return str(x["_url"])  # type: ignore
 
@@ -110,5 +112,9 @@ def normalize_jsonlike(x: object) -> object:
     if isinstance(d3, dict) and d3:
         return normalize_jsonlike(d3)  # type: ignore
 
-    # fallback: convert to string to avoid leaking exotic types downstream
-    return str(x)
+    if strict:
+        # fallback: return as is
+        return x
+    else:
+        # fallback: convert to string to avoid leaking exotic types downstream
+        return str(x)
