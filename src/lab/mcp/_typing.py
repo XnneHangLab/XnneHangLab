@@ -202,6 +202,7 @@ class ScreenShotResult(BaseModel):
             "image_b64": "iVBORw0KGgoAAAANSUhEUgAA..."
         }
     """
+
     image_b64: str = Field(
         ...,
         description="当前屏幕截图的 base64 编码图像数据（通常为 PNG 或 JPEG）",

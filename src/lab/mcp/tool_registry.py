@@ -4,7 +4,6 @@ import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-# from distro import name
 from lab.mcp._typing import (
     GetDateAndTimeArgs,
     GetDateAndTimeResult,

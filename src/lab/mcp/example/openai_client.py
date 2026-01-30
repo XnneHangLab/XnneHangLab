@@ -210,57 +210,56 @@ class Agent:
                 )
                 extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
 
-            if tool_output_as_user_prompt:
-                # --------------------------
-                # tool__web_search: extract
-                # --------------------------
-                if parsed.full_name == "tool__web_search":
-                    raw_result = trace.raw_result  # dict[str, object]
-                    search_results = raw_result.get("results")
+            # --------------------------
+            # tool__web_search: extract
+            # --------------------------
+            if parsed.full_name == "tool__web_search":
+                raw_result = trace.raw_result  # dict[str, object]
+                search_results = raw_result.get("results")
 
-                    if isinstance(search_results, list):
-                        lines: list[str] = ["Web search results (pick one URL if you need to fetch details):"]
-                        for idx, item in enumerate(search_results[:5], 1):  # type: ignore
-                            if not isinstance(item, dict):
-                                continue
-                            title = str(item.get("title", "") or "")  # type: ignore
-                            url = str(item.get("url", "") or "")  # type: ignore
-                            snippet = str(item.get("snippet", "") or "")  # type: ignore
-                            lines.append(f"{idx}. {title}\n   {url}\n   {snippet}")
-                        extra_msgs.append({"role": "user", "content": "\n".join(lines)})
-
-                # --------------------------
-                # tool__web_fetch: extract
-                # --------------------------
-                if parsed.full_name == "tool__web_fetch":
-                    raw_result = trace.raw_result  # dict[str, object]
-
-                    fetch_url = str(raw_result.get("url", "") or "")
-                    status_code = raw_result.get("status_code", "")
-                    content_type = str(raw_result.get("content_type", "") or "")
-                    is_truncated = bool(raw_result.get("truncated", False))
-
-                    fetch_text_obj = raw_result.get("text", "")
-                    fetch_text = fetch_text_obj if isinstance(fetch_text_obj, str) else ""
-                    preview = self._snip(fetch_text, 1200) if fetch_text else ""
-
-                    lines = [
-                        "Web fetch result (use this content to answer; if insufficient, fetch again with larger max_chars or another URL):",
-                        f"- url: {fetch_url}",
-                        f"- status_code: {status_code}",
-                        f"- content_type: {content_type}",
-                        f"- truncated: {is_truncated}",
-                        "",
-                        "Extracted text preview:",
-                        preview,
-                    ]
-                    if is_truncated:
-                        lines += [
-                            "",
-                            "Note: content was truncated. If you need more, call tool__web_fetch with a larger max_chars (up to 20000) or fetch a more specific URL section.",
-                        ]
-
+                if isinstance(search_results, list):
+                    lines: list[str] = ["Web search results (pick one URL if you need to fetch details):"]
+                    for idx, item in enumerate(search_results[:5], 1):  # type: ignore
+                        if not isinstance(item, dict):
+                            continue
+                        title = str(item.get("title", "") or "")  # type: ignore
+                        url = str(item.get("url", "") or "")  # type: ignore
+                        snippet = str(item.get("snippet", "") or "")  # type: ignore
+                        lines.append(f"{idx}. {title}\n   {url}\n   {snippet}")
                     extra_msgs.append({"role": "user", "content": "\n".join(lines)})
+
+            # --------------------------
+            # tool__web_fetch: extract
+            # --------------------------
+            if parsed.full_name == "tool__web_fetch":
+                raw_result = trace.raw_result  # dict[str, object]
+
+                fetch_url = str(raw_result.get("url", "") or "")
+                status_code = raw_result.get("status_code", "")
+                content_type = str(raw_result.get("content_type", "") or "")
+                is_truncated = bool(raw_result.get("truncated", False))
+
+                fetch_text_obj = raw_result.get("text", "")
+                fetch_text = fetch_text_obj if isinstance(fetch_text_obj, str) else ""
+                preview = self._snip(fetch_text, 1200) if fetch_text else ""
+
+                lines = [
+                    "Web fetch result (use this content to answer; if insufficient, fetch again with larger max_chars or another URL):",
+                    f"- url: {fetch_url}",
+                    f"- status_code: {status_code}",
+                    f"- content_type: {content_type}",
+                    f"- truncated: {is_truncated}",
+                    "",
+                    "Extracted text preview:",
+                    preview,
+                ]
+                if is_truncated:
+                    lines += [
+                        "",
+                        "Note: content was truncated. If you need more, call tool__web_fetch with a larger max_chars (up to 20000) or fetch a more specific URL section.",
+                    ]
+
+                extra_msgs.append({"role": "user", "content": "\n".join(lines)})
         return tool_msg, extra_msgs, trace
 
     async def run_tool_loop(
