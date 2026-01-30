@@ -110,5 +110,5 @@ def normalize_jsonlike(x: object) -> object:
     if isinstance(d3, dict) and d3:
         return normalize_jsonlike(d3)  # type: ignore
 
-    # fallback: keep as-is (will likely fail validation if it's exotic)
-    return x
+    # fallback: convert to string to avoid leaking exotic types downstream
+    return str(x)
