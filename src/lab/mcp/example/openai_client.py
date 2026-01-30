@@ -8,14 +8,9 @@ from loguru import logger
 from openai import APIConnectionError, APIError, AsyncOpenAI, RateLimitError
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
-from lab.mcp._typing import (
-    OpenAIMessage,
-    ToolCallLike,
-    ToolMessage,
-    ToolTraceItem,
-)
+from lab.mcp._typing import OpenAIMessage, ScreenShotResult, ToolCallLike, ToolMessage, ToolTraceItem
 from lab.mcp.fastmcp_router import FastMcpRouter
-from lab.mcp.tool_registry import ToolRegistry
+from lab.mcp.tool_registry import DEFAULT_RETRY_HINT, TOOL_RETRY_HINTS, ToolRegistry
 from lab.mcp.util import call_with_short_retry, dump_openai_msg, prompt_result_to_text  # type: ignore
 
 
@@ -42,6 +37,7 @@ class Agent:
 
         self.tool_model_name = tool_model.llm_model_name
         self.chat_model_name = chat_model.llm_model_name
+        self._blob_store: dict[str, dict[str, object]] = {}  # call_id -> {"mime":..., "b64":...}
 
         self.mcp = FastMcpRouter(prefix_delim="__")
 
@@ -60,6 +56,37 @@ class Agent:
         if len(ss) <= n:
             return ss
         return ss[:n] + f"\n...(preview truncated, {len(ss)} chars total)..."
+
+    def _user_msg_with_image(self, text: str, *, b64: str, mime: str = "image/jpeg") -> dict[str, object]:
+        return {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": text},
+                {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
+            ],
+        }
+
+    def _first_image_ref(self, tool_trace: list[ToolTraceItem]) -> str | None:
+        """
+        从 tool_trace 中提取第一个 image_ref。
+        试图 match 这样一个对象：
+        trace.raw_result = {
+            "image_ref": tool_call.id,
+            "mime": "image/jpeg",
+            "b64_len": len(b64),
+        }
+        局限是：
+        仅仅支持单图片场景，且 image_ref 必须在 raw_result 里。
+        不过鉴于 openai 一次传入多个 image_url 的识别率直线下降（以前用 llm 做电池缺陷识别的经验），这里仅支持单图片场景，比如：
+        调用 screen shoot，或者调用摄像机等工具，来获取图片，一般更建议多次调用然后每次对单张图片进行分析而不是一次调用获取多张图片。
+        """
+        for t in tool_trace:
+            raw_result = t.raw_result or {}
+            if isinstance(raw_result, dict) and "image_ref" in raw_result:  # type: ignore
+                v = raw_result["image_ref"]
+                if isinstance(v, str):
+                    return v
+        return None
 
     async def connect_mcp_servers(self) -> None:
         """
@@ -97,10 +124,35 @@ class Agent:
         try:
             result_obj = await self.mcp.call_tool(full_name=full_name, args=args_dict)
             result_model = ToolRegistry.parse_result(full_name, result_obj)
-            tool_text = ToolRegistry.tool_content_for_tool_model(full_name, result_model)
 
-            tool_msg = ToolMessage(content=tool_text, tool_call_id=tool_call.id)
-            trace = ToolRegistry.trace_item(parsed, result_model, ok=True, error=None)
+            if isinstance(result_model, ScreenShotResult):
+                b64 = result_model.image_b64
+                self._blob_store[tool_call.id] = {"mime": "image/jpeg", "b64": b64}
+
+                # ToolMessage 给 Tool Model：只给短信息
+                tool_msg = ToolMessage(
+                    content=f"[screenshot captured] ref={tool_call.id} mime=image/jpeg b64_len={len(b64)}",
+                    tool_call_id=tool_call.id,
+                )
+
+                # ToolTrace 给 Chat Model：只给 ref + 元信息
+                trace = ToolRegistry.trace_item(
+                    parsed,
+                    ScreenShotResult(image_b64=""),  # 或者你直接手动构造 raw_result
+                    ok=True,
+                    error=None,
+                )
+                trace.raw_result = {
+                    "image_ref": tool_call.id,
+                    "mime": "image/jpeg",
+                    "b64_len": len(b64),
+                }
+            else:
+                # 普通工具调用
+                tool_text = ToolRegistry.tool_content_for_tool_model(result_model)
+
+                tool_msg = ToolMessage(content=tool_text, tool_call_id=tool_call.id)
+                trace = ToolRegistry.trace_item(parsed, result_model, ok=True, error=None)
 
         except Exception as e:
             # 不让异常打断 tool loop：记录错误，tool_msg 回填错误文本
@@ -117,89 +169,105 @@ class Agent:
 
         # 3) 链式 extra prompt（可选）
         extra_msgs: list[dict[str, object]] = []
-        if tool_output_as_user_prompt and trace.ok:
-            # 只对你已知工具做 prompt（扩展点：你以后可以加 vision 等）
-            if parsed.full_name == "timeemi__get_date_and_time":
-                # 这里传 raw datetime 给 server prompt 模板（让 Tool Model/Chat Model 自己口语化）
-                dt = trace.raw_result.get("datetime")
-                if isinstance(dt, str):
+        if tool_output_as_user_prompt:
+            if trace.ok:
+                # 只对你已知工具做 prompt（扩展点：你以后可以加 vision 等）
+                if parsed.full_name == "timeemi__get_date_and_time":
+                    # 这里传 raw datetime 给 server prompt 模板（让 Tool Model/Chat Model 自己口语化）
+                    dt = trace.raw_result.get("datetime")
+                    if isinstance(dt, str):
+                        pr = await self.mcp.get_prompt(
+                            full_name=parsed.full_name,
+                            prompt_name="convert_time_readable",
+                            args={"time_str": dt},
+                        )
+                        extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
+
+                if parsed.full_name == "timeemi__roll_dice":
+                    nums = trace.raw_result.get("numbers")
+                    if isinstance(nums, list) and all(isinstance(x, int) for x in nums):  # type: ignore
+                        pr = await self.mcp.get_prompt(
+                            full_name=parsed.full_name,
+                            prompt_name="convert_list_int_readable",
+                            args={"numbers": nums},
+                        )
+                        extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
+
+                if parsed.full_name == "timeemi__roll_dice_by_current_time":
+                    unit = trace.raw_result.get("unit")
+                    if isinstance(unit, str):
+                        pr = await self.mcp.get_prompt(
+                            full_name=parsed.full_name,
+                            prompt_name="convert_time_unit_readable",
+                            args={"unit": unit},
+                        )
+                        extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
+
+                if parsed.full_name == "vision__screen_shot":
                     pr = await self.mcp.get_prompt(
                         full_name=parsed.full_name,
-                        prompt_name="convert_time_readable",
-                        args={"time_str": dt},
+                        prompt_name="describe_image",
+                        args={},
                     )
                     extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
+            else:
+                hint = TOOL_RETRY_HINTS.get(parsed.full_name, DEFAULT_RETRY_HINT)
+                extra_msgs.append(
+                    {
+                        "role": "user",
+                        "content": (f"[TOOL_ERROR] {parsed.full_name} failed.\nError: {trace.error}\n{hint}"),
+                    }
+                )
+            # --------------------------
+            # tool__web_search: extract
+            # --------------------------
+            if parsed.full_name == "tool__web_search":
+                raw_result = trace.raw_result  # dict[str, object]
+                search_results = raw_result.get("results")
 
-            if parsed.full_name == "timeemi__roll_dice":
-                nums = trace.raw_result.get("numbers")
-                if isinstance(nums, list) and all(isinstance(x, int) for x in nums):  # type: ignore
-                    pr = await self.mcp.get_prompt(
-                        full_name=parsed.full_name,
-                        prompt_name="convert_list_int_readable",
-                        args={"numbers": nums},
-                    )
-                    extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
-
-            if parsed.full_name == "timeemi__roll_dice_by_current_time":
-                unit = trace.raw_result.get("unit")
-                if isinstance(unit, str):
-                    pr = await self.mcp.get_prompt(
-                        full_name=parsed.full_name,
-                        prompt_name="convert_time_unit_readable",
-                        args={"unit": unit},
-                    )
-                    extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
-            if tool_output_as_user_prompt and trace.ok:
-                # --------------------------
-                # tool__web_search: extract
-                # --------------------------
-                if parsed.full_name == "tool__web_search":
-                    raw_result = trace.raw_result  # dict[str, object]
-                    search_results = raw_result.get("results")
-
-                    if isinstance(search_results, list):
-                        lines: list[str] = ["Web search results (pick one URL if you need to fetch details):"]
-                        for idx, item in enumerate(search_results[:5], 1):  # type: ignore
-                            if not isinstance(item, dict):
-                                continue
-                            title = str(item.get("title", "") or "")  # type: ignore
-                            url = str(item.get("url", "") or "")  # type: ignore
-                            snippet = str(item.get("snippet", "") or "")  # type: ignore
-                            lines.append(f"{idx}. {title}\n   {url}\n   {snippet}")
-                        extra_msgs.append({"role": "user", "content": "\n".join(lines)})
-
-                # --------------------------
-                # tool__web_fetch: extract
-                # --------------------------
-                if parsed.full_name == "tool__web_fetch":
-                    raw_result = trace.raw_result  # dict[str, object]
-
-                    fetch_url = str(raw_result.get("url", "") or "")
-                    status_code = raw_result.get("status_code", "")
-                    content_type = str(raw_result.get("content_type", "") or "")
-                    is_truncated = bool(raw_result.get("truncated", False))
-
-                    fetch_text_obj = raw_result.get("text", "")
-                    fetch_text = fetch_text_obj if isinstance(fetch_text_obj, str) else ""
-                    preview = self._snip(fetch_text, 1200) if fetch_text else ""
-
-                    lines = [
-                        "Web fetch result (use this content to answer; if insufficient, fetch again with larger max_chars or another URL):",
-                        f"- url: {fetch_url}",
-                        f"- status_code: {status_code}",
-                        f"- content_type: {content_type}",
-                        f"- truncated: {is_truncated}",
-                        "",
-                        "Extracted text preview:",
-                        preview,
-                    ]
-                    if is_truncated:
-                        lines += [
-                            "",
-                            "Note: content was truncated. If you need more, call tool__web_fetch with a larger max_chars (up to 20000) or fetch a more specific URL section.",
-                        ]
-
+                if isinstance(search_results, list):
+                    lines: list[str] = ["Web search results (pick one URL if you need to fetch details):"]
+                    for idx, item in enumerate(search_results[:5], 1):  # type: ignore
+                        if not isinstance(item, dict):
+                            continue
+                        title = str(item.get("title", "") or "")  # type: ignore
+                        url = str(item.get("url", "") or "")  # type: ignore
+                        snippet = str(item.get("snippet", "") or "")  # type: ignore
+                        lines.append(f"{idx}. {title}\n   {url}\n   {snippet}")
                     extra_msgs.append({"role": "user", "content": "\n".join(lines)})
+
+            # --------------------------
+            # tool__web_fetch: extract
+            # --------------------------
+            if parsed.full_name == "tool__web_fetch":
+                raw_result = trace.raw_result  # dict[str, object]
+
+                fetch_url = str(raw_result.get("url", "") or "")
+                status_code = raw_result.get("status_code", "")
+                content_type = str(raw_result.get("content_type", "") or "")
+                is_truncated = bool(raw_result.get("truncated", False))
+
+                fetch_text_obj = raw_result.get("text", "")
+                fetch_text = fetch_text_obj if isinstance(fetch_text_obj, str) else ""
+                preview = self._snip(fetch_text, 1200) if fetch_text else ""
+
+                lines = [
+                    "Web fetch result (use this content to answer; if insufficient, fetch again with larger max_chars or another URL):",
+                    f"- url: {fetch_url}",
+                    f"- status_code: {status_code}",
+                    f"- content_type: {content_type}",
+                    f"- truncated: {is_truncated}",
+                    "",
+                    "Extracted text preview:",
+                    preview,
+                ]
+                if is_truncated:
+                    lines += [
+                        "",
+                        "Note: content was truncated. If you need more, call tool__web_fetch with a larger max_chars (up to 20000) or fetch a more specific URL section.",
+                    ]
+
+                extra_msgs.append({"role": "user", "content": "\n".join(lines)})
         return tool_msg, extra_msgs, trace
 
     async def run_tool_loop(
@@ -355,22 +423,34 @@ class Agent:
         - 口语化/TTS 友好由 Chat Model 完成
         - 我们只提供结构化 trace，避免在 client 侧硬编码口语化逻辑
         """
+        img_ref = self._first_image_ref(tool_trace)
         trace_dump = [t.model_dump(exclude_none=True, mode="json") for t in tool_trace]
         tool_summary = json.dumps(trace_dump, ensure_ascii=False, indent=2, default=str) if trace_dump else "[]"
-
-        messages: list[dict[str, object]] = [
+        messages = [
             OpenAIMessage(role="system", content=system_prompt).model_dump(exclude_none=True),
             OpenAIMessage(
-                role="system",
+                role="user",
                 content=(
-                    "你已经通过工具拿到结构化结果（JSON）。"
+                    "这是通过工具拿到结构化结果（JSON）。"
                     "请基于这些结果用自然口语回答，并让输出适合 TTS 朗读（避免太“机器格式”）。\n\n"
                     f"工具结果摘要：\n{tool_summary}"
                 ),
             ).model_dump(exclude_none=True),
-            OpenAIMessage(role="user", content=user_input).model_dump(exclude_none=True),
         ]
+        if img_ref and img_ref in self._blob_store:
+            blob = self._blob_store[img_ref]  # 由 tool_trace.id 反推 img_ref
+            b64 = str(blob["b64"])
+            mime = str(blob.get("mime", "image/jpeg"))
 
+            # ⚠️ 这里请用“支持 vision 的 chat_model”
+            # 比如你可以在 config 里专门配一个 chat_vision_model
+            messages.append(
+                self._user_msg_with_image(user_input, b64=b64, mime=mime),
+            )
+        else:
+            messages.append(
+                OpenAIMessage(role="user", content=user_input).model_dump(exclude_none=True),
+            )
         stream = await call_with_short_retry(  # type: ignore
             lambda: self.chat_client.chat.completions.create(  # type: ignore
                 model=self.chat_model_name,  # type: ignore
@@ -425,8 +505,6 @@ async def main():
             except (APIConnectionError, APIError, RateLimitError) as e:
                 print(f"\n[LLM error] {e}")
 
-        await run("昨天几号？")
-        await run("今、何時ですか？")
         await run("我晚上九点就后就该去打游戏了，现在几点？")
         await run("现在几点？现在几点你就帮我随便 roll 几个点数")
         await run("你今天真可爱")
@@ -434,6 +512,7 @@ async def main():
         await run("https://alma.now/docs/guide/, 帮我用中文解释下这个网页的内容。")
         await run("./README.md 这个文件里面讲了什么内容？")
         await run("帮我搜索一下XnneHangLab，告诉我它是做什么的？")
+        await run("你能看到我现在的桌面环境吗？描述一下。")
 
     finally:
         await agent.close()

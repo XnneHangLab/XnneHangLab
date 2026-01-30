@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import httpx
+import pydantic
 from bs4 import BeautifulSoup  # ✅ 强依赖：只用这一种“最常用/最实用”的解析方式
 from fastmcp import FastMCP
 
@@ -87,7 +88,7 @@ def _clamp_int(v: int, lo: int, hi: int) -> int:
     """
     try:
         iv = int(v)
-    except Exception:
+    except (TypeError, ValueError):
         return lo
     return max(lo, min(hi, iv))
 
@@ -141,11 +142,28 @@ async def _get_with_retries(
     for i in range(retries + 1):
         try:
             return await client.get(url, params=params, headers=headers)
-        except Exception as e:
+        except httpx.RequestError as e:
+            # Retry on likely-transient httpx network errors (timeouts, DNS, connect, etc.).
             last_exc = e
             if i >= retries:
+                logger.warning(
+                    "HTTP GET to %s failed after %d retries; last error: %s: %s",
+                    url,
+                    retries,
+                    type(e).__name__,
+                    str(e),
+                )
                 break
             await asyncio.sleep(backoff_s * (2**i))
+        except Exception as e:
+            # Non-httpx exceptions are treated as non-retryable and re-raised immediately.
+            logger.error(
+                "Non-retryable error during HTTP GET to %s: %s: %s",
+                url,
+                type(e).__name__,
+                str(e),
+            )
+            raise
     assert last_exc is not None
     raise last_exc
 
@@ -350,7 +368,7 @@ def _is_http_url(u: str) -> bool:
     try:
         p = urllib.parse.urlparse(u)
         return p.scheme in {"http", "https"} and bool(p.netloc)
-    except Exception:
+    except ValueError:
         return False
 
 
@@ -413,7 +431,7 @@ def _parse_ddg_html_results(html_text: str, max_results: int) -> list[WebSearchR
 
         try:
             items.append(WebSearchResultItem(title=title, url=href, snippet=snippet))  # type: ignore
-        except Exception:
+        except pydantic.ValidationError:
             # AnyHttpUrl validation fails -> skip
             continue
 
@@ -690,7 +708,6 @@ async def web_fetch(url: str, max_chars: int = 8000, timeout_s: float = 10.0) ->
     content_type = resp.headers.get("content-type")
     raw = resp.text
 
-    text = raw
     if content_type and "text/html" in content_type.lower():
         text1 = _html_to_text(raw)
 
@@ -704,7 +721,7 @@ async def web_fetch(url: str, max_chars: int = 8000, timeout_s: float = 10.0) ->
                 jina_text = await _fetch_via_jina(url, timeout_s=min(20.0, timeout_s + 5.0))
                 if jina_text and len(jina_text) >= 200:
                     text1 = jina_text
-            except Exception:
+            except Exception:  # 忽略 Jina 失败
                 pass
 
         text = text1

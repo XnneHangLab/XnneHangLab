@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from lab.mcp._typing import (
     GetDateAndTimeArgs,
@@ -13,6 +13,8 @@ from lab.mcp._typing import (
     RollDiceByTimeArgs,
     RollDiceByTimeResult,
     RollDiceResult,
+    ScreenShotArgs,
+    ScreenShotResult,
     ToolTraceItem,
     UnknownArgs,
     UnknownResult,
@@ -27,62 +29,26 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
 
-def _to_jsonable(x: object) -> object:
+def _coerce_dict_deep(x: object) -> dict[str, Any] | None:
     """
-    Deep-coerce FastMCP / Pydantic outputs into plain JSON-serializable types:
-    - dict / list / str / int / float / bool / None
-    Also handles:
-    - Pydantic BaseModel / RootModel (model_dump)
-    - FastMCP types.Root / Root-like wrappers (.root)
-    - arbitrary objects with __dict__ (as last resort)
+    Ensure `x` becomes a dict[str, Any] after deep coercion.
     """
-    if x is None:
-        return None
-
-    # plain primitives
-    if isinstance(x, (str, int, float, bool)):
-        return x
-
-    if isinstance(x, dict) and set(x.keys()) == {"_url"}:  # type: ignore
-        return str(x["_url"])  # type: ignore
-
-    # dict
-    if isinstance(x, dict):
-        return {str(k): _to_jsonable(v) for k, v in x.items()}  # type: ignore
-
-    # list/tuple
-    if isinstance(x, (list, tuple)):
-        return [_to_jsonable(v) for v in x]  # type: ignore
-
-    # pydantic BaseModel / RootModel
-    md = getattr(x, "model_dump", None)
-    if callable(md):
-        try:
-            d = md(exclude_none=True, mode="json")
-        except TypeError:
-            d = md()
-        return _to_jsonable(d)
-
-    # Root-like wrapper
-    root = getattr(x, "root", None)
-    if root is not None:
-        return _to_jsonable(root)
-
-    # last resort: __dict__
-    d3 = getattr(x, "__dict__", None)
-    if isinstance(d3, dict) and d3:
-        return _to_jsonable(d3)  # type: ignore
-
-    # fallback: keep as-is (will likely fail validation if it's exotic)
-    return x
+    y = normalize_jsonlike(x)
+    return y if isinstance(y, dict) else None  # type: ignore
 
 
-def _coerce_dict_deep(data: object) -> dict[str, object] | None:
-    """
-    Ensure `data` becomes a dict[str, object] after deep coercion.
-    """
-    j = _to_jsonable(data)
-    return j if isinstance(j, dict) else None  # type: ignore
+def _coerce_list(x: object) -> list[Any] | None:
+    """Ensure `x` becomes a list[Any] after coercion."""
+    y = normalize_jsonlike(x)
+    return y if isinstance(y, list) else None  # type: ignore
+
+
+def _coerce_scalar(x: object) -> str | int | float | bool | None:
+    """Ensure `x` becomes a scalar (str, int, float, bool or None) after coercion."""
+    y = normalize_jsonlike(x)
+    if y is None or isinstance(y, (str, int, float, bool)):
+        return y
+    return None
 
 
 # =============================================================================
@@ -143,6 +109,11 @@ class ToolRegistry:
             args_model = RollDiceByTimeArgs.model_validate_json(s)
             return ParsedTool(full_name, server, name, args_model)
 
+        if full_name == "vision__screen_shot":
+            # 无参数工具
+            args_model = ScreenShotArgs.model_validate_json(s)
+            return ParsedTool(full_name, server, name, args_model)
+
         if full_name == "tool__web_search":
             args_model = WebSearchArgs.model_validate_json(s)
             return ParsedTool(full_name, server, name, args_model)
@@ -154,14 +125,14 @@ class ToolRegistry:
         if full_name == "tool__read_file":
             args_model = ReadFileArgs.model_validate_json(s)
             return ParsedTool(full_name, server, name, args_model)
-        # 未知工具：保底当 dict
         try:
             raw = json.loads(s)
             if not isinstance(raw, dict):
                 raw = {}
         except Exception:
             raw = {}
-        args_model = UnknownArgs(data=raw)  # type: ignore
+
+        args_model = UnknownArgs(raw)  # 注意：RootModel 的构造方式 # type: ignore
         return ParsedTool(full_name, server, name, args_model)
 
     @staticmethod
@@ -192,47 +163,54 @@ class ToolRegistry:
         data = getattr(call_tool_result, "data", None)
 
         if full_name == "timeemi__get_date_and_time":
-            if not isinstance(data, str):
+            data = _coerce_scalar(data)
+            if data is None or not isinstance(data, str):
                 raise TypeError(f"timeemi.get_date_and_time expects str, got {type(data)}")
             return GetDateAndTimeResult(datetime=data)
 
         if full_name == "timeemi__roll_dice":
-            if not (isinstance(data, list) and all(isinstance(x, int) for x in data)):  # type: ignore
+            data = _coerce_list(data)
+            if data is None:
                 raise TypeError(f"timeemi.roll_dice expects list[int], got {type(data)} {data}")  # type: ignore
             return RollDiceResult(numbers=data)  # type: ignore
 
         if full_name == "timeemi__roll_dice_by_current_time":
-            d = _coerce_dict_deep(data)
-            if d is None:
+            data = _coerce_dict_deep(data)
+            if data is None:
                 raise TypeError(f"timeemi.roll_dice_by_current_time expects dict-like, got {type(data)}")
-            if "numbers" not in d:
+            if "numbers" not in data:
                 raise TypeError(
                     f"timeemi.roll_dice_by_current_time expects dict with 'numbers', got {type(data)} {data}"  # type: ignore
                 )  # type: ignore
-            return RollDiceByTimeResult.model_validate(d)  # type: ignore
+            return RollDiceByTimeResult.model_validate(data)  # type: ignore
+        if full_name == "vision__screen_shot":
+            data = _coerce_scalar(data)
+            if data is None or not isinstance(data, str):
+                raise TypeError(f"vision.screen_shot expects str (base64), got {type(data)}")
+            return ScreenShotResult(image_b64=data)
 
         if full_name == "tool__web_search":
-            d = _coerce_dict_deep(data)
-            if d is None:
+            data = _coerce_dict_deep(data)
+            if data is None:
                 raise TypeError(f"tool.web_search expects dict-like, got {type(data)}")
-            return WebSearchResult.model_validate(d)
+            return WebSearchResult.model_validate(data)
 
         if full_name == "tool__web_fetch":
-            d = _coerce_dict_deep(data)
-            if d is None:
+            data = _coerce_dict_deep(data)
+            if data is None:
                 raise TypeError(f"tool.web_fetch expects dict-like, got {type(data)}")
-            return WebFetchResult.model_validate(d)
+            return WebFetchResult.model_validate(data)
 
         if full_name == "tool__read_file":
-            d = _coerce_dict_deep(data)
-            if d is None:
+            data = _coerce_dict_deep(data)
+            if data is None:
                 raise TypeError(f"tool.read_file expects dict-like, got {type(data)}")
-            return ReadFileResult.model_validate(d)
+            return ReadFileResult.model_validate(data)
 
         return UnknownResult(data=data)
 
     @staticmethod
-    def tool_content_for_tool_model(full_name: str, result_model: BaseModel) -> str:
+    def tool_content_for_tool_model(result_model: BaseModel) -> str:
         """
         生成回填给 Tool Model 的 tool message content（尽量短）。
 
@@ -256,8 +234,13 @@ class ToolRegistry:
             return result_model.text
         if isinstance(result_model, ReadFileResult):
             return result_model.text
-        d = result_model.model_dump(exclude_none=True)
-        return json.dumps(d, ensure_ascii=False, default=str)
+        if isinstance(result_model, ScreenShotResult):
+            raise TypeError("ScreenShotResult should not be converted to tool content directly.")
+        #     return result_model.image_b64
+        # 它实际上从来没进来过，也不应该进来，因为 image 的 base64 直接放进 user prompt 里面太大
+        # 它被分流然后以 {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}} 的形式放进 user prompt 里面了
+        data = result_model.model_dump(exclude_none=True)
+        return json.dumps(data, ensure_ascii=False, default=str)
 
     @staticmethod
     def trace_item(parsed: ParsedTool, result_model: BaseModel, *, ok: bool, error: str | None) -> ToolTraceItem:
@@ -274,7 +257,41 @@ class ToolRegistry:
             server=parsed.server,
             name=parsed.name,
             args=args_dict,
-            raw_result=raw_dict,
+            raw_result=raw_dict,  # type: ignore
             ok=ok,
             error=error,
         )
+
+
+TOOL_RETRY_HINTS: dict[str, str] = {
+    "vision__screen_shot": (
+        "Retry once: call vision__screen_shot with NO arguments.\n"
+        "If it still fails: tell the user you cannot access their desktop, "
+        "and ask them to describe what they see or provide a screenshot image."
+    ),
+    "tool__web_search": (
+        "Retry once with a simpler query or a different provider.\n"
+        "If you need details: pick 1 URL from results and call tool__web_fetch."
+    ),
+    "tool__web_fetch": (
+        "Retry once with a larger max_chars (e.g., 12000~20000) "
+        "or fetch a more specific URL/section.\n"
+        "If blocked by robots or 4xx/5xx: report the status and ask user for another URL."
+    ),
+    "tool__read_file": (
+        "Retry once with a correct path (relative to project root) "
+        "or adjust start_line/end_line.\n"
+        "If file not found: ask user for the correct file path."
+    ),
+    "timeemi__get_date_and_time": "Retry once with NO arguments.",
+    "timeemi__roll_dice": "Retry once with a reasonable n_dice (1~100).",
+    "timeemi__roll_dice_by_current_time": (
+        "Retry once with unit in ['hour','minute','second'].\n"
+        "If prompt rendering fails: verify the MCP prompt name exists on the server."
+    ),
+}
+
+DEFAULT_RETRY_HINT = (
+    "Retry once with the same arguments.\n"
+    "If it still fails: report the error briefly and ask the user for missing info."
+)

@@ -45,7 +45,7 @@ class McpToolLoopRunner:
         try:
             result_obj = await self.mcp.call_tool(full_name=full_name, args=args_dict)
             result_model = ToolRegistry.parse_result(full_name, result_obj)
-            tool_text = ToolRegistry.tool_content_for_tool_model(full_name, result_model)
+            tool_text = ToolRegistry.tool_content_for_tool_model(result_model)
 
             tool_msg = ToolMessage(content=tool_text, tool_call_id=tool_call.id)
             trace = ToolRegistry.trace_item(parsed, result_model, ok=True, error=None)
