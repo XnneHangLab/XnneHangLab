@@ -431,7 +431,7 @@ class Agent:
             ).model_dump(exclude_none=True),
         ]
         if img_ref and img_ref in self._blob_store:
-            blob = self._blob_store[img_ref] # 由 tool_trace.id 反推 img_ref
+            blob = self._blob_store[img_ref]  # 由 tool_trace.id 反推 img_ref
             b64 = str(blob["b64"])
             mime = str(blob.get("mime", "image/jpeg"))
 

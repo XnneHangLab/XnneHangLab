@@ -51,6 +51,7 @@ def _coerce_scalar(x: object) -> str | int | float | bool | None:
         return y
     return None
 
+
 # =============================================================================
 # 4) ToolRegistry：强类型解析入口（你以后扩展就在这里加分支）
 # =============================================================================
@@ -235,7 +236,10 @@ class ToolRegistry:
         if isinstance(result_model, ReadFileResult):
             return result_model.text
         if isinstance(result_model, ScreenShotResult):
-            return result_model.image_b64
+            raise TypeError("ScreenShotResult should not be converted to tool content directly.")
+        #     return result_model.image_b64
+        # 它实际上从来没进来过，也不应该进来，因为 image 的 base64 直接放进 user prompt 里面太大
+        # 它被分流然后以 {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}} 的形式放进 user prompt 里面了
         data = result_model.model_dump(exclude_none=True)
         return json.dumps(data, ensure_ascii=False, default=str)
 
