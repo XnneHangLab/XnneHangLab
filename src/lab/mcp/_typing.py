@@ -185,6 +185,13 @@ class RollDiceByTimeResult(BaseModel):
         return v
 
 
+# 无 ScreenShotArgs，因为无参数
+
+
+class ScreenShotResult(BaseModel):
+    image_b64: str
+
+
 # =============================================================================
 # 4) Web/IO tools: Args / Result
 # =============================================================================

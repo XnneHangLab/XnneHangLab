@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from lab.mcp._typing import (
     GetDateAndTimeArgs,
@@ -13,6 +13,7 @@ from lab.mcp._typing import (
     RollDiceByTimeArgs,
     RollDiceByTimeResult,
     RollDiceResult,
+    ScreenShotResult,
     ToolTraceItem,
     UnknownArgs,
     UnknownResult,
@@ -27,12 +28,24 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
 
-def _coerce_dict_deep(data: object) -> dict[str, object] | None:
+def _coerce_dict_deep(x: object) -> dict[str, Any] | None:
     """
-    Ensure `data` becomes a dict[str, object] after deep coercion.
+    Ensure `x` becomes a dict[str, Any] after deep coercion.
     """
-    j = normalize_jsonlike(data)
-    return j if isinstance(j, dict) else None  # type: ignore
+    y = normalize_jsonlike(x)
+    return y if isinstance(y, dict) else None  # type: ignore
+
+
+def _coerce_list(x: object) -> list[Any] | None:
+    y = normalize_jsonlike(x)
+    return y if isinstance(y, list) else None  # type: ignore
+
+
+def _coerce_scalar(x: object) -> Any:
+    y = normalize_jsonlike(x)
+    if y is None or isinstance(y, (str, int, float, bool)):
+        return y
+    return y
 
 
 # =============================================================================
@@ -93,6 +106,11 @@ class ToolRegistry:
             args_model = RollDiceByTimeArgs.model_validate_json(s)
             return ParsedTool(full_name, server, name, args_model)
 
+        if full_name == "vision__screen_shot":
+            # 无参数工具
+            args_model = UnknownArgs()  # type: ignore
+            return ParsedTool(full_name, server, name, args_model)
+
         if full_name == "tool__web_search":
             args_model = WebSearchArgs.model_validate_json(s)
             return ParsedTool(full_name, server, name, args_model)
@@ -142,42 +160,49 @@ class ToolRegistry:
         data = getattr(call_tool_result, "data", None)
 
         if full_name == "timeemi__get_date_and_time":
-            if not isinstance(data, str):
+            data = _coerce_scalar(data)
+            if data is None or not isinstance(data, str):
                 raise TypeError(f"timeemi.get_date_and_time expects str, got {type(data)}")
             return GetDateAndTimeResult(datetime=data)
 
         if full_name == "timeemi__roll_dice":
-            if not (isinstance(data, list) and all(isinstance(x, int) for x in data)):  # type: ignore
+            data = _coerce_list(data)
+            if data is None:
                 raise TypeError(f"timeemi.roll_dice expects list[int], got {type(data)} {data}")  # type: ignore
             return RollDiceResult(numbers=data)  # type: ignore
 
         if full_name == "timeemi__roll_dice_by_current_time":
-            d = _coerce_dict_deep(data)
-            if d is None:
+            data = _coerce_dict_deep(data)
+            if data is None:
                 raise TypeError(f"timeemi.roll_dice_by_current_time expects dict-like, got {type(data)}")
-            if "numbers" not in d:
+            if "numbers" not in data:
                 raise TypeError(
                     f"timeemi.roll_dice_by_current_time expects dict with 'numbers', got {type(data)} {data}"  # type: ignore
                 )  # type: ignore
-            return RollDiceByTimeResult.model_validate(d)  # type: ignore
+            return RollDiceByTimeResult.model_validate(data)  # type: ignore
+        if full_name == "vision__screen_shot":
+            data = _coerce_scalar(data)
+            if data is None or not isinstance(data, str):
+                raise TypeError(f"vision.screen_shot expects str (base64), got {type(data)}")
+            return ScreenShotResult(image_b64=data)
 
         if full_name == "tool__web_search":
-            d = _coerce_dict_deep(data)
-            if d is None:
+            data = _coerce_dict_deep(data)
+            if data is None:
                 raise TypeError(f"tool.web_search expects dict-like, got {type(data)}")
-            return WebSearchResult.model_validate(d)
+            return WebSearchResult.model_validate(data)
 
         if full_name == "tool__web_fetch":
-            d = _coerce_dict_deep(data)
-            if d is None:
+            data = _coerce_dict_deep(data)
+            if data is None:
                 raise TypeError(f"tool.web_fetch expects dict-like, got {type(data)}")
-            return WebFetchResult.model_validate(d)
+            return WebFetchResult.model_validate(data)
 
         if full_name == "tool__read_file":
-            d = _coerce_dict_deep(data)
-            if d is None:
+            data = _coerce_dict_deep(data)
+            if data is None:
                 raise TypeError(f"tool.read_file expects dict-like, got {type(data)}")
-            return ReadFileResult.model_validate(d)
+            return ReadFileResult.model_validate(data)
 
         return UnknownResult(data=data)
 
@@ -206,8 +231,10 @@ class ToolRegistry:
             return result_model.text
         if isinstance(result_model, ReadFileResult):
             return result_model.text
-        d = result_model.model_dump(exclude_none=True)
-        return json.dumps(d, ensure_ascii=False, default=str)
+        if isinstance(result_model, ScreenShotResult):
+            return result_model.image_b64
+        data = result_model.model_dump(exclude_none=True)
+        return json.dumps(data, ensure_ascii=False, default=str)
 
     @staticmethod
     def trace_item(parsed: ParsedTool, result_model: BaseModel, *, ok: bool, error: str | None) -> ToolTraceItem:
