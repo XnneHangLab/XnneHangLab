@@ -149,7 +149,7 @@ class Agent:
                         args={"unit": unit},
                     )
                     extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
-            if tool_output_as_user_prompt and trace.ok:
+            if tool_output_as_user_prompt:
                 # --------------------------
                 # tool__web_search: extract
                 # --------------------------
