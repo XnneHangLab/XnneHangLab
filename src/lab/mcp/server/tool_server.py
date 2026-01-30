@@ -141,11 +141,28 @@ async def _get_with_retries(
     for i in range(retries + 1):
         try:
             return await client.get(url, params=params, headers=headers)
-        except Exception as e:
+        except httpx.RequestError as e:
+            # Retry on likely-transient httpx network errors (timeouts, DNS, connect, etc.).
             last_exc = e
             if i >= retries:
+                logger.warning(
+                    "HTTP GET to %s failed after %d retries; last error: %s: %s",
+                    url,
+                    retries,
+                    type(e).__name__,
+                    str(e),
+                )
                 break
             await asyncio.sleep(backoff_s * (2**i))
+        except Exception as e:
+            # Non-httpx exceptions are treated as non-retryable and re-raised immediately.
+            logger.error(
+                "Non-retryable error during HTTP GET to %s: %s: %s",
+                url,
+                type(e).__name__,
+                str(e),
+            )
+            raise
     assert last_exc is not None
     raise last_exc
 
