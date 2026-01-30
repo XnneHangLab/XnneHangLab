@@ -404,6 +404,19 @@ class Agent:
         - 我们只提供结构化 trace，避免在 client 侧硬编码口语化逻辑
         """
         img_ref = self._first_image_ref(tool_trace)
+        trace_dump = [t.model_dump(exclude_none=True, mode="json") for t in tool_trace]
+        tool_summary = json.dumps(trace_dump, ensure_ascii=False, indent=2, default=str) if trace_dump else "[]"
+        messages = [
+            OpenAIMessage(role="system", content=system_prompt).model_dump(exclude_none=True),
+            OpenAIMessage(
+                role="user",
+                content=(
+                    "这是通过工具拿到结构化结果（JSON）。"
+                    "请基于这些结果用自然口语回答，并让输出适合 TTS 朗读（避免太“机器格式”）。\n\n"
+                    f"工具结果摘要：\n{tool_summary}"
+                ),
+            ).model_dump(exclude_none=True),
+        ]
         if img_ref and img_ref in self._blob_store:
             blob = self._blob_store[img_ref]
             b64 = str(blob["b64"])
@@ -411,27 +424,13 @@ class Agent:
 
             # ⚠️ 这里请用“支持 vision 的 chat_model”
             # 比如你可以在 config 里专门配一个 chat_vision_model
-            messages = [
-                {"role": "system", "content": system_prompt},
+            messages.append(
                 self._user_msg_with_image(user_input, b64=b64, mime=mime),
-            ]
+            )
         else:
-            trace_dump = [t.model_dump(exclude_none=True, mode="json") for t in tool_trace]
-            tool_summary = json.dumps(trace_dump, ensure_ascii=False, indent=2, default=str) if trace_dump else "[]"
-
-            messages: list[dict[str, object]] = [
-                OpenAIMessage(role="system", content=system_prompt).model_dump(exclude_none=True),
-                OpenAIMessage(
-                    role="system",
-                    content=(
-                        "你已经通过工具拿到结构化结果（JSON）。"
-                        "请基于这些结果用自然口语回答，并让输出适合 TTS 朗读（避免太“机器格式”）。\n\n"
-                        f"工具结果摘要：\n{tool_summary}"
-                    ),
-                ).model_dump(exclude_none=True),
+            messages.append(
                 OpenAIMessage(role="user", content=user_input).model_dump(exclude_none=True),
-            ]
-
+            )
         stream = await call_with_short_retry(  # type: ignore
             lambda: self.chat_client.chat.completions.create(  # type: ignore
                 model=self.chat_model_name,  # type: ignore
@@ -486,13 +485,13 @@ async def main():
             except (APIConnectionError, APIError, RateLimitError) as e:
                 print(f"\n[LLM error] {e}")
 
-        await run("我晚上九点就后就该去打游戏了，现在几点？")
-        await run("现在几点？现在几点你就帮我随便 roll 几个点数")
-        await run("你今天真可爱")
-        await run("https://xnnehang.top/posts/default/chill_ai_chat_mod, 这个博客讲啥了？")
-        await run("https://alma.now/docs/guide/, 帮我用中文解释下这个网页的内容。")
-        await run("./README.md 这个文件里面讲了什么内容？")
-        await run("帮我搜索一下XnneHangLab，告诉我它是做什么的？")
+        # await run("我晚上九点就后就该去打游戏了，现在几点？")
+        # await run("现在几点？现在几点你就帮我随便 roll 几个点数")
+        # await run("你今天真可爱")
+        # await run("https://xnnehang.top/posts/default/chill_ai_chat_mod, 这个博客讲啥了？")
+        # await run("https://alma.now/docs/guide/, 帮我用中文解释下这个网页的内容。")
+        # await run("./README.md 这个文件里面讲了什么内容？")
+        # await run("帮我搜索一下XnneHangLab，告诉我它是做什么的？")
         await run("你能看到我现在的桌面环境吗？描述一下。")
 
     finally:
