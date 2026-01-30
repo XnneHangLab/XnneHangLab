@@ -87,7 +87,7 @@ def _clamp_int(v: int, lo: int, hi: int) -> int:
     """
     try:
         iv = int(v)
-    except Exception:
+    except (TypeError, ValueError):
         return lo
     return max(lo, min(hi, iv))
 
