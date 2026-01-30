@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import random
-from typing import Any
 
 from openai import APIError, RateLimitError
 
@@ -76,7 +75,7 @@ async def call_with_short_retry(awaitable_factory, *, max_retries: int = 2):  # 
     raise last  # pragma: no cover # type: ignore
 
 
-def normalize_jsonlike(x: Any) -> Any:
+def normalize_jsonlike(x: object) -> object:
     """
     把 FastMCP / Pydantic 返回的 Root/BaseModel/Url wrapper 归一化成 JSON-like。
     目标：最终只出现 dict/list/str/int/bool/None，不出现 types.Root / Url(...) 等对象。
@@ -84,10 +83,11 @@ def normalize_jsonlike(x: Any) -> Any:
     if x is None or isinstance(x, (str, int, float, bool)):
         return x
 
+    if isinstance(x, dict) and set(x.keys()) == {"_url"}:  # type: ignore
+        return str(x["_url"])  # type: ignore
+
+    # dict
     if isinstance(x, dict):
-        # pydantic AnyHttpUrl/Url wrapper 常见形态：{"_url": Url("https://...")}
-        if set(x.keys()) == {"_url"}:  # type: ignore
-            return str(x["_url"])  # type: ignore
         return {str(k): normalize_jsonlike(v) for k, v in x.items()}  # type: ignore
 
     if isinstance(x, (list, tuple)):
@@ -105,5 +105,10 @@ def normalize_jsonlike(x: Any) -> Any:
     if root is not None:
         return normalize_jsonlike(root)
 
-    # 最后兜底：转字符串（避免 unknown 对象污染）
-    return str(x)
+    # last resort: __dict__
+    d3 = getattr(x, "__dict__", None)
+    if isinstance(d3, dict) and d3:
+        return normalize_jsonlike(d3)  # type: ignore
+
+    # fallback: keep as-is (will likely fail validation if it's exotic)
+    return x

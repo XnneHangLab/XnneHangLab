@@ -27,61 +27,11 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
 
-def _to_jsonable(x: object) -> object:
-    """
-    Deep-coerce FastMCP / Pydantic outputs into plain JSON-serializable types:
-    - dict / list / str / int / float / bool / None
-    Also handles:
-    - Pydantic BaseModel / RootModel (model_dump)
-    - FastMCP types.Root / Root-like wrappers (.root)
-    - arbitrary objects with __dict__ (as last resort)
-    """
-    if x is None:
-        return None
-
-    # plain primitives
-    if isinstance(x, (str, int, float, bool)):
-        return x
-
-    if isinstance(x, dict) and set(x.keys()) == {"_url"}:  # type: ignore
-        return str(x["_url"])  # type: ignore
-
-    # dict
-    if isinstance(x, dict):
-        return {str(k): _to_jsonable(v) for k, v in x.items()}  # type: ignore
-
-    # list/tuple
-    if isinstance(x, (list, tuple)):
-        return [_to_jsonable(v) for v in x]  # type: ignore
-
-    # pydantic BaseModel / RootModel
-    md = getattr(x, "model_dump", None)
-    if callable(md):
-        try:
-            d = md(exclude_none=True, mode="json")
-        except TypeError:
-            d = md()
-        return _to_jsonable(d)
-
-    # Root-like wrapper
-    root = getattr(x, "root", None)
-    if root is not None:
-        return _to_jsonable(root)
-
-    # last resort: __dict__
-    d3 = getattr(x, "__dict__", None)
-    if isinstance(d3, dict) and d3:
-        return _to_jsonable(d3)  # type: ignore
-
-    # fallback: keep as-is (will likely fail validation if it's exotic)
-    return x
-
-
 def _coerce_dict_deep(data: object) -> dict[str, object] | None:
     """
     Ensure `data` becomes a dict[str, object] after deep coercion.
     """
-    j = _to_jsonable(data)
+    j = normalize_jsonlike(data)
     return j if isinstance(j, dict) else None  # type: ignore
 
 
@@ -274,7 +224,7 @@ class ToolRegistry:
             server=parsed.server,
             name=parsed.name,
             args=args_dict,
-            raw_result=raw_dict,
+            raw_result=raw_dict,  # type: ignore
             ok=ok,
             error=error,
         )
