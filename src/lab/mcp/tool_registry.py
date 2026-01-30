@@ -4,6 +4,7 @@ import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+# from distro import name
 from lab.mcp._typing import (
     GetDateAndTimeArgs,
     GetDateAndTimeResult,
@@ -13,6 +14,7 @@ from lab.mcp._typing import (
     RollDiceByTimeArgs,
     RollDiceByTimeResult,
     RollDiceResult,
+    ScreenShotArgs,
     ScreenShotResult,
     ToolTraceItem,
     UnknownArgs,
@@ -108,7 +110,7 @@ class ToolRegistry:
 
         if full_name == "vision__screen_shot":
             # 无参数工具
-            args_model = UnknownArgs()  # type: ignore
+            args_model = ScreenShotArgs().model_validate_json(s)
             return ParsedTool(full_name, server, name, args_model)
 
         if full_name == "tool__web_search":
@@ -122,14 +124,14 @@ class ToolRegistry:
         if full_name == "tool__read_file":
             args_model = ReadFileArgs.model_validate_json(s)
             return ParsedTool(full_name, server, name, args_model)
-        # 未知工具：保底当 dict
         try:
             raw = json.loads(s)
             if not isinstance(raw, dict):
                 raw = {}
         except Exception:
             raw = {}
-        args_model = UnknownArgs(data=raw)  # type: ignore
+
+        args_model = UnknownArgs(raw)  # 注意：RootModel 的构造方式 # type: ignore
         return ParsedTool(full_name, server, name, args_model)
 
     @staticmethod

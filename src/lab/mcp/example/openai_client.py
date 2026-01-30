@@ -8,12 +8,7 @@ from loguru import logger
 from openai import APIConnectionError, APIError, AsyncOpenAI, RateLimitError
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
-from lab.mcp._typing import (
-    OpenAIMessage,
-    ToolCallLike,
-    ToolMessage,
-    ToolTraceItem,
-)
+from lab.mcp._typing import OpenAIMessage, ScreenShotResult, ToolCallLike, ToolMessage, ToolTraceItem
 from lab.mcp.fastmcp_router import FastMcpRouter
 from lab.mcp.tool_registry import ToolRegistry
 from lab.mcp.util import call_with_short_retry, dump_openai_msg, prompt_result_to_text  # type: ignore
@@ -42,6 +37,7 @@ class Agent:
 
         self.tool_model_name = tool_model.llm_model_name
         self.chat_model_name = chat_model.llm_model_name
+        self._blob_store: dict[str, dict[str, object]] = {}  # call_id -> {"mime":..., "b64":...}
 
         self.mcp = FastMcpRouter(prefix_delim="__")
 
@@ -60,6 +56,24 @@ class Agent:
         if len(ss) <= n:
             return ss
         return ss[:n] + f"\n...(preview truncated, {len(ss)} chars total)..."
+
+    def _user_msg_with_image(self, text: str, *, b64: str, mime: str = "image/jpeg") -> dict[str, object]:
+        return {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": text},
+                {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
+            ],
+        }
+
+    def _first_image_ref(self, tool_trace: list[ToolTraceItem]) -> str | None:
+        for t in tool_trace:
+            raw_result = t.raw_result or {}
+            if isinstance(raw_result, dict) and "image_ref" in raw_result:  # type: ignore
+                v = raw_result["image_ref"]
+                if isinstance(v, str):
+                    return v
+        return None
 
     async def connect_mcp_servers(self) -> None:
         """
@@ -97,10 +111,35 @@ class Agent:
         try:
             result_obj = await self.mcp.call_tool(full_name=full_name, args=args_dict)
             result_model = ToolRegistry.parse_result(full_name, result_obj)
-            tool_text = ToolRegistry.tool_content_for_tool_model(full_name, result_model)
 
-            tool_msg = ToolMessage(content=tool_text, tool_call_id=tool_call.id)
-            trace = ToolRegistry.trace_item(parsed, result_model, ok=True, error=None)
+            if isinstance(result_model, ScreenShotResult):
+                b64 = result_model.image_b64
+                self._blob_store[tool_call.id] = {"mime": "image/jpeg", "b64": b64}
+
+                # ToolMessage 给 Tool Model：只给短信息
+                tool_msg = ToolMessage(
+                    content=f"[screenshot captured] ref={tool_call.id} mime=image/jpeg b64_len={len(b64)}",
+                    tool_call_id=tool_call.id,
+                )
+
+                # ToolTrace 给 Chat Model：只给 ref + 元信息
+                trace = ToolRegistry.trace_item(
+                    parsed,
+                    ScreenShotResult(image_b64=""),  # 或者你直接手动构造 raw_result
+                    ok=True,
+                    error=None,
+                )
+                trace.raw_result = {
+                    "image_ref": tool_call.id,
+                    "mime": "image/jpeg",
+                    "b64_len": len(b64),
+                }
+            else:
+                # 普通工具调用
+                tool_text = ToolRegistry.tool_content_for_tool_model(full_name, result_model)
+
+                tool_msg = ToolMessage(content=tool_text, tool_call_id=tool_call.id)
+                trace = ToolRegistry.trace_item(parsed, result_model, ok=True, error=None)
 
         except Exception as e:
             # 不让异常打断 tool loop：记录错误，tool_msg 回填错误文本
@@ -149,6 +188,15 @@ class Agent:
                         args={"unit": unit},
                     )
                     extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
+
+            if parsed.full_name == "vision__screen_shot":
+                pr = await self.mcp.get_prompt(
+                    full_name=parsed.full_name,
+                    prompt_name="describe_image",
+                    args={},
+                )
+                extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
+
             if tool_output_as_user_prompt:
                 # --------------------------
                 # tool__web_search: extract
@@ -355,21 +403,34 @@ class Agent:
         - 口语化/TTS 友好由 Chat Model 完成
         - 我们只提供结构化 trace，避免在 client 侧硬编码口语化逻辑
         """
-        trace_dump = [t.model_dump(exclude_none=True, mode="json") for t in tool_trace]
-        tool_summary = json.dumps(trace_dump, ensure_ascii=False, indent=2, default=str) if trace_dump else "[]"
+        img_ref = self._first_image_ref(tool_trace)
+        if img_ref and img_ref in self._blob_store:
+            blob = self._blob_store[img_ref]
+            b64 = str(blob["b64"])
+            mime = str(blob.get("mime", "image/jpeg"))
 
-        messages: list[dict[str, object]] = [
-            OpenAIMessage(role="system", content=system_prompt).model_dump(exclude_none=True),
-            OpenAIMessage(
-                role="system",
-                content=(
-                    "你已经通过工具拿到结构化结果（JSON）。"
-                    "请基于这些结果用自然口语回答，并让输出适合 TTS 朗读（避免太“机器格式”）。\n\n"
-                    f"工具结果摘要：\n{tool_summary}"
-                ),
-            ).model_dump(exclude_none=True),
-            OpenAIMessage(role="user", content=user_input).model_dump(exclude_none=True),
-        ]
+            # ⚠️ 这里请用“支持 vision 的 chat_model”
+            # 比如你可以在 config 里专门配一个 chat_vision_model
+            messages = [
+                {"role": "system", "content": system_prompt},
+                self._user_msg_with_image(user_input, b64=b64, mime=mime),
+            ]
+        else:
+            trace_dump = [t.model_dump(exclude_none=True, mode="json") for t in tool_trace]
+            tool_summary = json.dumps(trace_dump, ensure_ascii=False, indent=2, default=str) if trace_dump else "[]"
+
+            messages: list[dict[str, object]] = [
+                OpenAIMessage(role="system", content=system_prompt).model_dump(exclude_none=True),
+                OpenAIMessage(
+                    role="system",
+                    content=(
+                        "你已经通过工具拿到结构化结果（JSON）。"
+                        "请基于这些结果用自然口语回答，并让输出适合 TTS 朗读（避免太“机器格式”）。\n\n"
+                        f"工具结果摘要：\n{tool_summary}"
+                    ),
+                ).model_dump(exclude_none=True),
+                OpenAIMessage(role="user", content=user_input).model_dump(exclude_none=True),
+            ]
 
         stream = await call_with_short_retry(  # type: ignore
             lambda: self.chat_client.chat.completions.create(  # type: ignore
@@ -425,15 +486,14 @@ async def main():
             except (APIConnectionError, APIError, RateLimitError) as e:
                 print(f"\n[LLM error] {e}")
 
-        await run("昨天几号？")
-        await run("今、何時ですか？")
-        await run("我晚上九点就后就该去打游戏了，现在几点？")
-        await run("现在几点？现在几点你就帮我随便 roll 几个点数")
-        await run("你今天真可爱")
-        await run("https://xnnehang.top/posts/default/chill_ai_chat_mod, 这个博客讲啥了？")
-        await run("https://alma.now/docs/guide/, 帮我用中文解释下这个网页的内容。")
-        await run("./README.md 这个文件里面讲了什么内容？")
-        await run("帮我搜索一下XnneHangLab，告诉我它是做什么的？")
+        # await run("我晚上九点就后就该去打游戏了，现在几点？")
+        # await run("现在几点？现在几点你就帮我随便 roll 几个点数")
+        # await run("你今天真可爱")
+        # await run("https://xnnehang.top/posts/default/chill_ai_chat_mod, 这个博客讲啥了？")
+        # await run("https://alma.now/docs/guide/, 帮我用中文解释下这个网页的内容。")
+        # await run("./README.md 这个文件里面讲了什么内容？")
+        # await run("帮我搜索一下XnneHangLab，告诉我它是做什么的？")
+        await run("你能看到我现在的桌面环境吗？描述一下。")
 
     finally:
         await agent.close()

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import Literal, Protocol
 
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_validator
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, RootModel, field_validator
+
+from lab.mcp.util import normalize_jsonlike
 
 # =============================================================================
 # 1) OpenAI tool calling：最小 Protocol（SDK 边界）
@@ -185,7 +187,10 @@ class RollDiceByTimeResult(BaseModel):
         return v
 
 
-# 无 ScreenShotArgs，因为无参数
+class ScreenShotArgs(BaseModel):
+    """vision.screen_shot 入参（无参数）"""
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class ScreenShotResult(BaseModel):
@@ -270,27 +275,28 @@ class ReadFileResult(BaseModel):
     total_lines: int | None = None
 
 
-class UnknownArgs(BaseModel):
-    """
-    未知工具入参（扩展点）。
-
-    说明：
-    - 动态工具不强求 IDE 补全
-    - 仍然做最基本的“必须是 dict”约束
-
-    输入示例：
-        {"k":"v"}
+class UnknownArgs(RootModel[dict[str, object]]):
+    """未知工具入参：原样透传 dict，不包一层 data。
+    留待扩展
     """
 
-    data: dict[str, object] = Field(default_factory=dict)
+    pass
 
 
 class UnknownResult(BaseModel):
     """
     未知工具输出（扩展点）。
-
-    输出示例：
-        {"data": ...}
+    - data 会被尽量归一化成 JSON-like（dict/list/str/int/bool/None）
+    - 遇到真的很怪的对象，退化成 repr，保证不会在 trace/dump 阶段炸
     """
 
-    data: object | None = None
+    data: object | None = Field(default=None)
+
+    @field_validator("data", mode="before")
+    @classmethod
+    def _normalize(cls, v: object) -> object:
+        nv = normalize_jsonlike(v)
+        # normalize 后如果还是不可控的 exotic 对象，就 repr 保底（只针对 Unknown）
+        if nv is None or isinstance(nv, (dict, list, str, int, float, bool)):
+            return nv  # type: ignore
+        return repr(nv)
