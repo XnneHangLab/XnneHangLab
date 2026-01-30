@@ -111,7 +111,7 @@ class ToolRegistry:
 
         if full_name == "vision__screen_shot":
             # 无参数工具
-            args_model = ScreenShotArgs().model_validate_json(s)
+            args_model = ScreenShotArgs.model_validate_json(s)
             return ParsedTool(full_name, server, name, args_model)
 
         if full_name == "tool__web_search":
