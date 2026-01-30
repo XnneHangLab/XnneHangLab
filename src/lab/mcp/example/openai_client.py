@@ -10,7 +10,7 @@ from openai import APIConnectionError, APIError, AsyncOpenAI, RateLimitError
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.mcp._typing import OpenAIMessage, ScreenShotResult, ToolCallLike, ToolMessage, ToolTraceItem
 from lab.mcp.fastmcp_router import FastMcpRouter
-from lab.mcp.tool_registry import ToolRegistry
+from lab.mcp.tool_registry import DEFAULT_RETRY_HINT, TOOL_RETRY_HINTS, ToolRegistry
 from lab.mcp.util import call_with_short_retry, dump_openai_msg, prompt_result_to_text  # type: ignore
 
 
@@ -169,47 +169,57 @@ class Agent:
 
         # 3) 链式 extra prompt（可选）
         extra_msgs: list[dict[str, object]] = []
-        if tool_output_as_user_prompt and trace.ok:
-            # 只对你已知工具做 prompt（扩展点：你以后可以加 vision 等）
-            if parsed.full_name == "timeemi__get_date_and_time":
-                # 这里传 raw datetime 给 server prompt 模板（让 Tool Model/Chat Model 自己口语化）
-                dt = trace.raw_result.get("datetime")
-                if isinstance(dt, str):
+        if tool_output_as_user_prompt:
+            if trace.ok:
+                # 只对你已知工具做 prompt（扩展点：你以后可以加 vision 等）
+                if parsed.full_name == "timeemi__get_date_and_time":
+                    # 这里传 raw datetime 给 server prompt 模板（让 Tool Model/Chat Model 自己口语化）
+                    dt = trace.raw_result.get("datetime")
+                    if isinstance(dt, str):
+                        pr = await self.mcp.get_prompt(
+                            full_name=parsed.full_name,
+                            prompt_name="convert_time_readable",
+                            args={"time_str": dt},
+                        )
+                        extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
+
+                if parsed.full_name == "timeemi__roll_dice":
+                    nums = trace.raw_result.get("numbers")
+                    if isinstance(nums, list) and all(isinstance(x, int) for x in nums):  # type: ignore
+                        pr = await self.mcp.get_prompt(
+                            full_name=parsed.full_name,
+                            prompt_name="convert_list_int_readable",
+                            args={"numbers": nums},
+                        )
+                        extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
+
+                if parsed.full_name == "timeemi__roll_dice_by_current_time":
+                    unit = trace.raw_result.get("unit")
+                    if isinstance(unit, str):
+                        pr = await self.mcp.get_prompt(
+                            full_name=parsed.full_name,
+                            prompt_name="convert_time_unit_readable",
+                            args={"unit": unit},
+                        )
+                        extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
+
+                if parsed.full_name == "vision__screen_shot":
                     pr = await self.mcp.get_prompt(
                         full_name=parsed.full_name,
-                        prompt_name="convert_time_readable",
-                        args={"time_str": dt},
+                        prompt_name="describe_image",
+                        args={},
                     )
                     extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
-
-            if parsed.full_name == "timeemi__roll_dice":
-                nums = trace.raw_result.get("numbers")
-                if isinstance(nums, list) and all(isinstance(x, int) for x in nums):  # type: ignore
-                    pr = await self.mcp.get_prompt(
-                        full_name=parsed.full_name,
-                        prompt_name="convert_list_int_readable",
-                        args={"numbers": nums},
+            else:
+                hint = TOOL_RETRY_HINTS.get(parsed.full_name, DEFAULT_RETRY_HINT)
+                extra_msgs.append({
+                    "role": "user",
+                    "content": (
+                        f"[TOOL_ERROR] {parsed.full_name} failed.\n"
+                        f"Error: {trace.error}\n"
+                        f"{hint}"
                     )
-                    extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
-
-            if parsed.full_name == "timeemi__roll_dice_by_current_time":
-                unit = trace.raw_result.get("unit")
-                if isinstance(unit, str):
-                    pr = await self.mcp.get_prompt(
-                        full_name=parsed.full_name,
-                        prompt_name="convert_time_unit_readable",
-                        args={"unit": unit},
-                    )
-                    extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
-
-            if parsed.full_name == "vision__screen_shot":
-                pr = await self.mcp.get_prompt(
-                    full_name=parsed.full_name,
-                    prompt_name="describe_image",
-                    args={},
-                )
-                extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
-
+                })
             # --------------------------
             # tool__web_search: extract
             # --------------------------

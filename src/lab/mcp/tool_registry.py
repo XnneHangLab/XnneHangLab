@@ -261,3 +261,37 @@ class ToolRegistry:
             ok=ok,
             error=error,
         )
+
+
+TOOL_RETRY_HINTS: dict[str, str] = {
+    "vision__screen_shot": (
+        "Retry once: call vision__screen_shot with NO arguments.\n"
+        "If it still fails: tell the user you cannot access their desktop, "
+        "and ask them to describe what they see or provide a screenshot image."
+    ),
+    "tool__web_search": (
+        "Retry once with a simpler query or a different provider.\n"
+        "If you need details: pick 1 URL from results and call tool__web_fetch."
+    ),
+    "tool__web_fetch": (
+        "Retry once with a larger max_chars (e.g., 12000~20000) "
+        "or fetch a more specific URL/section.\n"
+        "If blocked by robots or 4xx/5xx: report the status and ask user for another URL."
+    ),
+    "tool__read_file": (
+        "Retry once with a correct path (relative to project root) "
+        "or adjust start_line/end_line.\n"
+        "If file not found: ask user for the correct file path."
+    ),
+    "timeemi__get_date_and_time": "Retry once with NO arguments.",
+    "timeemi__roll_dice": "Retry once with a reasonable n_dice (1~100).",
+    "timeemi__roll_dice_by_current_time": (
+        "Retry once with unit in ['hour','minute','second'].\n"
+        "If prompt rendering fails: verify the MCP prompt name exists on the server."
+    ),
+}
+
+DEFAULT_RETRY_HINT = (
+    "Retry once with the same arguments.\n"
+    "If it still fails: report the error briefly and ask the user for missing info."
+)
