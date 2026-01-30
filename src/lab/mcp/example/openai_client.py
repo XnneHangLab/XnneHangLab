@@ -67,6 +67,19 @@ class Agent:
         }
 
     def _first_image_ref(self, tool_trace: list[ToolTraceItem]) -> str | None:
+        """
+        从 tool_trace 中提取第一个 image_ref。
+        试图 match 这样一个对象：
+        trace.raw_result = {
+            "image_ref": tool_call.id,
+            "mime": "image/jpeg",
+            "b64_len": len(b64),
+        }
+        局限是：
+        仅仅支持单图片场景，且 image_ref 必须在 raw_result 里。
+        不过鉴于 openai 一次传入多个 image_url 的识别率直线下降（以前用 llm 做电池缺陷识别的经验），这里仅支持单图片场景，比如：
+        调用 screen shoot，或者调用摄像机等工具，来获取图片，一般更建议多次调用然后每次对单张图片进行分析而不是一次调用获取多张图片。
+        """
         for t in tool_trace:
             raw_result = t.raw_result or {}
             if isinstance(raw_result, dict) and "image_ref" in raw_result:  # type: ignore
@@ -136,7 +149,7 @@ class Agent:
                 }
             else:
                 # 普通工具调用
-                tool_text = ToolRegistry.tool_content_for_tool_model(full_name, result_model)
+                tool_text = ToolRegistry.tool_content_for_tool_model(result_model)
 
                 tool_msg = ToolMessage(content=tool_text, tool_call_id=tool_call.id)
                 trace = ToolRegistry.trace_item(parsed, result_model, ok=True, error=None)
@@ -418,7 +431,7 @@ class Agent:
             ).model_dump(exclude_none=True),
         ]
         if img_ref and img_ref in self._blob_store:
-            blob = self._blob_store[img_ref]
+            blob = self._blob_store[img_ref] # 由 tool_trace.id 反推 img_ref
             b64 = str(blob["b64"])
             mime = str(blob.get("mime", "image/jpeg"))
 

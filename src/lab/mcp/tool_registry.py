@@ -39,16 +39,17 @@ def _coerce_dict_deep(x: object) -> dict[str, Any] | None:
 
 
 def _coerce_list(x: object) -> list[Any] | None:
+    """Ensure `x` becomes a list[Any] after coercion."""
     y = normalize_jsonlike(x)
     return y if isinstance(y, list) else None  # type: ignore
 
 
-def _coerce_scalar(x: object) -> Any:
+def _coerce_scalar(x: object) -> str | int | float | bool | None:
+    """Ensure `x` becomes a scalar (str, int, float, bool or None) after coercion."""
     y = normalize_jsonlike(x)
     if y is None or isinstance(y, (str, int, float, bool)):
         return y
-    return y
-
+    return None
 
 # =============================================================================
 # 4) ToolRegistry：强类型解析入口（你以后扩展就在这里加分支）
@@ -209,7 +210,7 @@ class ToolRegistry:
         return UnknownResult(data=data)
 
     @staticmethod
-    def tool_content_for_tool_model(full_name: str, result_model: BaseModel) -> str:
+    def tool_content_for_tool_model(result_model: BaseModel) -> str:
         """
         生成回填给 Tool Model 的 tool message content（尽量短）。
 
