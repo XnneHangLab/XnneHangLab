@@ -212,14 +212,12 @@ class Agent:
                     extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
             else:
                 hint = TOOL_RETRY_HINTS.get(parsed.full_name, DEFAULT_RETRY_HINT)
-                extra_msgs.append({
-                    "role": "user",
-                    "content": (
-                        f"[TOOL_ERROR] {parsed.full_name} failed.\n"
-                        f"Error: {trace.error}\n"
-                        f"{hint}"
-                    )
-                })
+                extra_msgs.append(
+                    {
+                        "role": "user",
+                        "content": (f"[TOOL_ERROR] {parsed.full_name} failed.\nError: {trace.error}\n{hint}"),
+                    }
+                )
             # --------------------------
             # tool__web_search: extract
             # --------------------------
