@@ -30,7 +30,7 @@ guide = "open"
 subtitle_speed = "normal"
 
 [agent]
-enable_mcp = true
+enable_mcp = false
 character_name = "elaina"
 deeplx_api_key = ""
 user_lang = "ZH"
@@ -43,10 +43,15 @@ interrupt_method = "user"
 [agent.chat_model]
 llm_provider = "oaipro"
 llm_model_name = "gpt-5.1-2025-11-13"
+support_vision = false
 
 [agent.tool_model]
 llm_provider = "cerebras"
 llm_model_name = "qwen-3-235b-a22b-instruct-2507"
+
+[agent.vision_model]
+llm_provider = "oaipro"
+llm_model_name = "gpt-5.1-2025-11-13"
 
 [agent.llm.openai]
 llm_api_key = ""

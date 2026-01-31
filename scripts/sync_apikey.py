@@ -25,8 +25,11 @@ EnvKeyNames = Literal[
     "DEEPLX_API_KEY",
     "CHAT_MODEL_PROVIDER",
     "CHAT_MODEL_NAME",
+    "CHAT_MODEL_SUPPORT_VISION",
     "TOOL_MODEL_PROVIDER",
     "TOOL_MODEL_NAME",
+    "VISION_MODEL_PROVIDER",
+    "VISION_MODEL_NAME",
 ]
 
 
@@ -97,8 +100,11 @@ def main():
     settings.agent.deeplx_api_key = os.environ.get("DEEPLX_API_KEY", "")
     settings.agent.chat_model.llm_provider = validate_llm_provider("CHAT_MODEL_PROVIDER")
     settings.agent.chat_model.llm_model_name = os.environ.get("CHAT_MODEL_NAME", "")
+    settings.agent.chat_model.support_vision = os.environ.get("CHAT_MODEL_SUPPORT_VISION", "false").lower() == "true"
     settings.agent.tool_model.llm_provider = validate_llm_provider("TOOL_MODEL_PROVIDER")
     settings.agent.tool_model.llm_model_name = os.environ.get("TOOL_MODEL_NAME", "")
+    settings.agent.vision_model.llm_provider = validate_llm_provider("VISION_MODEL_PROVIDER")
+    settings.agent.vision_model.llm_model_name = os.environ.get("VISION_MODEL_NAME", "")
 
     # 记录脱敏后的配置信息
     logger.info("llm.openai.llm_api_key: {}", mask_api_key(settings.agent.llm.openai.llm_api_key))
@@ -117,6 +123,16 @@ def main():
     logger.info("llm.cerebras.api_format: {}", settings.agent.llm.cerebras.api_format)
 
     logger.info("agent.deeplx_api_key: {}", mask_api_key(settings.agent.deeplx_api_key))
+
+    logger.info("agent.chat_model.llm_provider: {}", settings.agent.chat_model.llm_provider)
+    logger.info("agent.chat_model.llm_model_name: {}", settings.agent.chat_model.llm_model_name)
+    logger.info("agent.chat_model.support_vision: {}", settings.agent.chat_model.support_vision)
+
+    logger.info("agent.tool_model.llm_provider: {}", settings.agent.tool_model.llm_provider)
+    logger.info("agent.tool_model.llm_model_name: {}", settings.agent.tool_model.llm_model_name)
+
+    logger.info("agent.vision_model.llm_provider: {}", settings.agent.vision_model.llm_provider)
+    logger.info("agent.vision_model.llm_model_name: {}", settings.agent.vision_model.llm_model_name)
 
     logger.info("Sync API key done!")
     write_settings_file("lab.toml", settings)

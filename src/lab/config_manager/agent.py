@@ -22,6 +22,7 @@ class ToolModelSetting(BaseModel):
 class ChatModelSetting(BaseModel):
     llm_provider: Annotated[LLM_Provider, Field("oaipro", title="LLM Provider for Chat Model")]
     llm_model_name: Annotated[str, Field("gpt-5.1-2025-11-13", title="Chat Model Name")]
+    support_vision: Annotated[bool, Field(False, title="Whether the chat model supports vision input")]
 
 
 # Vision Model
@@ -73,6 +74,7 @@ class LLMSettings(BaseModel):
 class AgentSettings(BaseModel):
     chat_model: Annotated[ChatModelSetting, Field(ChatModelSetting())]  # pyright: ignore[reportCallIssue]
     tool_model: Annotated[ToolModelSetting, Field(ToolModelSetting())]  # pyright: ignore[reportCallIssue]
+    vision_model: Annotated[VisionModelSetting, Field(VisionModelSetting())]  # pyright: ignore[reportCallIssue]
     enable_mcp: Annotated[bool, Field(False, title="Enable MCP")]
     llm: Annotated[LLMSettings, Field(LLMSettings())]  # pyright: ignore[reportCallIssue]
     character_name: Annotated[
