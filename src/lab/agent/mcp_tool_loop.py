@@ -40,7 +40,7 @@ class McpToolLoopRunner:
     def __init__(self, *, tool_llm: AsyncLLM, mcp: FastMcpRouter, tool_context_config: ToolContextConfig) -> None:
         self.tool_llm = tool_llm
         self.mcp = mcp
-        self._blob_store: dict[str, dict[str, object]] = {}  # call_id -> {"mime":..., "b64":...}
+        self.blob_store: dict[str, dict[str, object]] = {}  # call_id -> {"mime":..., "b64":...}
         self.tool_ctx_cfg = tool_context_config
 
     def _snip(self, s: str, n: int = 1200) -> str:
@@ -75,7 +75,7 @@ class McpToolLoopRunner:
         if not isinstance(refs, dict):
             return False
         ref = refs.get("last_image_ref")  # type: ignore
-        return isinstance(ref, str) and ref in self._blob_store
+        return isinstance(ref, str) and ref in self.blob_store
 
     def _effective_tools_for_step(
         self,
@@ -112,7 +112,7 @@ class McpToolLoopRunner:
 
         # 1) args 强校验
         parsed = ToolRegistry.parse_args(full_name, tool_call.function.arguments)
-        args_dict = parsed.args_model.model_dump(exclude_none=True)
+        args_dict = parsed.args_model.model_dump(exclude_none=True,mode="json")
 
         # 2) 调工具
         try:
@@ -120,7 +120,7 @@ class McpToolLoopRunner:
             result_model = ToolRegistry.parse_result(full_name, result_obj)
             if isinstance(result_model, ScreenShotResult):
                 b64 = result_model.image_b64
-                self._blob_store[tool_call.id] = {"mime": "image/jpeg", "b64": b64}
+                self.blob_store[tool_call.id] = {"mime": "image/jpeg", "b64": b64}
 
                 tool_msg = ToolMessage(
                     content=f"[screenshot captured] ref={tool_call.id} mime=image/jpeg b64_len={len(b64)}",
@@ -264,7 +264,6 @@ class McpToolLoopRunner:
         available_tools: list[dict[str, object]],
         max_steps: int = 6,
         max_parallel_tools: int = 6,
-        tool_output_as_user_prompt: bool = True,
         debug: bool = True,
         state: ConversationState,
     ) -> tuple[list[dict[str, object]], list[ToolTraceItem]]:
@@ -343,7 +342,7 @@ class McpToolLoopRunner:
             for tool_call in tool_calls_exec:
                 full_name = tool_call.function.name
                 parsed = ToolRegistry.parse_args(full_name, tool_call.function.arguments)
-                args_dict = parsed.args_model.model_dump(exclude_none=True)
+                args_dict = parsed.args_model.model_dump(exclude_none=True,mode="json")
                 sig = _sig(full_name, args_dict)
                 planned.append((tool_call, sig))
 

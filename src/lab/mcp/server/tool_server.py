@@ -10,7 +10,6 @@ import urllib.parse
 import urllib.robotparser
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -27,9 +26,6 @@ if TYPE_CHECKING:
 
     from pydantic import BaseModel
 
-logger = logging.getLogger(__name__)
-
-
 def _dump_json(model: BaseModel) -> dict[str, Any]:
     """
     Force pydantic to serialize in JSON mode.
@@ -41,21 +37,7 @@ def _dump_json(model: BaseModel) -> dict[str, Any]:
 DEFAULT_ACCEPT = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
 DEFAULT_ACCEPT_LANG = "zh-CN,zh;q=0.9,en;q=0.8"
 
-# =============================================================================
-# Settings: lab.toml -> lab_settings.mcp.*
-# =============================================================================
-
-
-@lru_cache(maxsize=1)
-def _lab_settings() -> XnneHangLabSettings:
-    """
-    Load and cache lab settings.
-
-    Notes:
-        - This reads lab.toml once per process (cached).
-        - If you edit lab.toml, restart the tool server to apply changes.
-    """
-    return load_settings_file("lab.toml", XnneHangLabSettings)
+lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
 
 
 def _ua() -> str:
@@ -65,7 +47,7 @@ def _ua() -> str:
     Reads:
         lab_settings.mcp.tools.user_agent
     """
-    return _lab_settings().mcp.tools.user_agent
+    return lab_settings.mcp.tools.user_agent
 
 
 def _headers(extra: dict[str, str] | None = None) -> dict[str, str]:
@@ -111,7 +93,7 @@ async def app_lifespan(server: FastMCP[AppContext]) -> AsyncIterator[AppContext]
     Reads:
         lab_settings.root.root_dir
     """
-    root = Path(_lab_settings().root.root_dir).expanduser().resolve()
+    root = Path(lab_settings.root.root_dir).expanduser().resolve()
     yield AppContext(root_dir=root)
 
 
@@ -146,7 +128,7 @@ async def _get_with_retries(
             # Retry on likely-transient httpx network errors (timeouts, DNS, connect, etc.).
             last_exc = e
             if i >= retries:
-                logger.warning(
+                logging.getLogger(__name__).warning(
                     "HTTP GET to %s failed after %d retries; last error: %s: %s",
                     url,
                     retries,
@@ -157,7 +139,7 @@ async def _get_with_retries(
             await asyncio.sleep(backoff_s * (2**i))
         except Exception as e:
             # Non-httpx exceptions are treated as non-retryable and re-raised immediately.
-            logger.error(
+            logging.getLogger(__name__).error(
                 "Non-retryable error during HTTP GET to %s: %s: %s",
                 url,
                 type(e).__name__,
@@ -234,7 +216,7 @@ async def _allowed_by_robots(url: str) -> bool:
             - robots_fail_closed = False -> allow
             - robots_fail_closed = True  -> deny
     """
-    s = _lab_settings().mcp.tools.web_fetch
+    s = lab_settings.mcp.tools.web_fetch
     if not s.respect_robots:
         return True
 
@@ -487,7 +469,7 @@ async def _search_duckduckgo(query: str, max_results: int) -> list[WebSearchResu
     DuckDuckGo HTML search.
     No extra dependencies beyond httpx + bs4.
     """
-    s = _lab_settings().mcp.tools.web_search
+    s = lab_settings.mcp.tools.web_search
     timeout_s = float(s.timeout_s)
     async with httpx.AsyncClient(timeout=timeout_s, follow_redirects=True) as client:
         resp = await _get_with_retries(
@@ -505,7 +487,7 @@ async def _search_searxng(query: str, max_results: int) -> list[WebSearchResultI
     SearXNG search via your self-hosted instance.
     Recommended for stability and control.
     """
-    s = _lab_settings().mcp.tools.web_search
+    s = lab_settings.mcp.tools.web_search
     base = s.searxng_url.rstrip("/")
     timeout_s = float(s.timeout_s)
 
@@ -546,7 +528,7 @@ async def _fetch_via_jina(original_url: str, timeout_s: float) -> str | None:
         - If jina_api_key is empty, request is made without auth.
         - Returned content is typically readable markdown/text.
     """
-    s = _lab_settings().mcp.tools.web_fetch
+    s = lab_settings.mcp.tools.web_fetch
     headers = _headers()
     if s.jina_api_key:
         headers["Authorization"] = f"Bearer {s.jina_api_key}"
@@ -625,13 +607,13 @@ async def web_search(query: str, max_results: int = 5, provider: str | None = No
     """
     max_results = _clamp_int(max_results, 1, 10)
 
-    s = _lab_settings().mcp.tools.web_search
+    s = lab_settings.mcp.tools.web_search
     provider = provider or s.provider
 
     try:
         results = await _run_search(provider, query, max_results)
     except Exception:
-        logger.exception("web_search failed: provider=%s query=%s", provider, query)
+        logging.getLogger(__name__).exception("web_search failed: provider=%s query=%s", provider, query)
         results = []
     result_model = WebSearchResult(query=query, results=results)
     return _dump_json(result_model)  # type: ignore[return-value]
@@ -689,7 +671,7 @@ async def web_fetch(url: str, max_chars: int = 8000, timeout_s: float = 10.0) ->
     """
     _validate_public_http_url(url)
 
-    s = _lab_settings().mcp.tools.web_fetch
+    s = lab_settings.mcp.tools.web_fetch
     max_chars = _clamp_int(max_chars, 256, 20000)
     timeout_s = max(1.0, min(float(timeout_s), 30.0))
 
@@ -788,8 +770,7 @@ def read_file(
         - Read a range:
             read_file(path="src/app.py", start_line=1, end_line=200)
     """
-    lab = _lab_settings()
-    root = Path(lab.root.root_dir).expanduser().resolve()
+    root = Path(lab_settings.root.root_dir).expanduser().resolve()
 
     p = Path(path).expanduser()
     target = (root / p).resolve() if not p.is_absolute() else p.resolve()
@@ -840,8 +821,7 @@ def run_mcp() -> None:
     Reads:
         lab_settings.mcp.servers.tool.transport/host/port/path/log_level
     """
-    lab = _lab_settings()
-    tool = lab.mcp.servers.tool
+    tool = lab_settings.mcp.servers.tool
 
     mcp.run(
         transport=tool.transport,

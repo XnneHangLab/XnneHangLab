@@ -67,7 +67,6 @@ class MemoryAgent(AgentInterface):
         self.chat_supports_vision = self.lab_settings.agent.chat_model.support_vision
 
         # MCP 相关
-        self._blob_store: dict[str, dict[str, object]] = {}  # call_id -> {"mime":..., "b64":...}
         self.enable_tool = enable_tool
         self.mcp = mcp or FastMcpRouter(prefix_delim="__")
         self.tool_loop = McpToolLoopRunner(
@@ -289,6 +288,7 @@ class MemoryAgent(AgentInterface):
                 # IMPORTANT: 移除该 message，tool loop 会重新添加， 不然会重复
                 messages.remove(m)
                 break
+        logger.debug(f"get user_input from messages: {user_input}")
         _, tool_trace = await self.tool_loop.run_tool_loop(
             tool_system_prompt=self.tool_system_prompt,
             available_tools=available_tools,
@@ -308,7 +308,7 @@ class MemoryAgent(AgentInterface):
 
         img_ref = img_ref or self._first_image_ref(tool_trace)
         tool_summary = json.dumps(
-            [t.model_dump(exclude_none=True) for t in tool_trace],  # type: ignore[attr-defined]
+            [t.model_dump(exclude_none=True,mode="json") for t in tool_trace],  # type: ignore[attr-defined]
             ensure_ascii=False,
             indent=2,
         )
@@ -320,8 +320,8 @@ class MemoryAgent(AgentInterface):
         )
         messages.append({"role": "user", "content": tools_summary_str})
 
-        if img_ref and img_ref in self._blob_store:
-            blob = self._blob_store[img_ref]
+        if img_ref and img_ref in self.tool_loop.blob_store:
+            blob = self.tool_loop.blob_store[img_ref]
             b64 = str(blob["b64"])
             mime = str(blob.get("mime", "image/jpeg"))
             if self.chat_supports_vision:
@@ -333,6 +333,7 @@ class MemoryAgent(AgentInterface):
                     user_input=user_input, img_ref=img_ref, b64=b64, mime=mime
                 )
                 if vision_summary:
+                    logger.debug(f"[VISION] obtained vision summary for chat: {self._snip(vision_summary)}")
                     messages.append(
                         {
                             "role": "user",
@@ -346,6 +347,7 @@ class MemoryAgent(AgentInterface):
                     )
                 else:
                     # ✅ 没有 vision_model 可用：只能不看图
+                    logger.debug(f"[VISION] no vision summary for chat: {self._snip(user_input)}")
                     messages.append(
                         {
                             "role": "user",
