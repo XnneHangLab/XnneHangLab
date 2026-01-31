@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from lab.mcp._typing import ToolTraceItem
-from lab.mcp.context_policy import ConversationState  # 你 ConversationState 在哪就改哪
+if TYPE_CHECKING:
+    from lab.mcp._typing import ToolTraceItem
+    from lab.mcp.context_policy import ConversationState
 
 _URL_RE = re.compile(r"https?://\S+", re.IGNORECASE)
 _FILE_RE = re.compile(r"(\.?/[\w\-/\.]+|\w+\.(md|txt|json|toml|yaml|yml|py)\b)", re.IGNORECASE)
@@ -90,13 +91,13 @@ def update_state_from_tool_trace(state: ConversationState, trace: ToolTraceItem)
         results = _get(raw, "results")
         if isinstance(results, list):
             compact: list[dict[str, str]] = []
-            for item in results[:5]:
+            for item in results[:5]: # type: ignore
                 if not isinstance(item, dict):
                     continue
                 compact.append(
                     {
-                        "title": str(item.get("title", ""))[:200],
-                        "url": str(item.get("url", ""))[:500],
+                        "title": str(item.get("title", ""))[:200], # type: ignore
+                        "url": str(item.get("url", ""))[:500], # type: ignore
                     }
                 )
             state.slots["last_search_results"] = compact

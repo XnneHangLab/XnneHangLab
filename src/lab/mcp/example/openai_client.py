@@ -545,6 +545,14 @@ async def main():
                     print(tok, end="", flush=True)
                 print("\n=== END ===")
 
+        await run("我晚上九点就后就该去打游戏了，现在几点？")
+        await run("现在几点？现在几点你就帮我随便 roll 几个点数")
+        await run("你今天真可爱")
+        await run("https://xnnehang.top/posts/default/chill_ai_chat_mod, 这个博客讲啥了？")
+        await run("https://alma.now/docs/guide/, 帮我用中文解释下这个网页的内容。")
+        await run("./README.md 这个文件里面讲了什么内容？")
+        await run("帮我搜索一下XnneHangLab，告诉我它是做什么的？")
+        await run("你能看到我现在的桌面环境吗？描述一下。")
         await run_dialog(
             [
                 "https://alma.now/docs/guide/ , 用中文解释下这页讲什么",
@@ -557,15 +565,6 @@ async def main():
                 "刚才那张截图里，最显眼的窗口是什么？用一句话说",
             ]
         )
-
-        await run("我晚上九点就后就该去打游戏了，现在几点？")
-        # await run("现在几点？现在几点你就帮我随便 roll 几个点数")
-        # await run("你今天真可爱")
-        # await run("https://xnnehang.top/posts/default/chill_ai_chat_mod, 这个博客讲啥了？")
-        # await run("https://alma.now/docs/guide/, 帮我用中文解释下这个网页的内容。")
-        # await run("./README.md 这个文件里面讲了什么内容？")
-        # await run("帮我搜索一下XnneHangLab，告诉我它是做什么的？")
-        # await run("你能看到我现在的桌面环境吗？描述一下。")
 
     finally:
         await agent.close()
