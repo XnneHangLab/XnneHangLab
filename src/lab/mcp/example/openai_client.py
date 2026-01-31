@@ -40,15 +40,24 @@ class Agent:
 
         tool_model = self.config.agent.tool_model
         chat_model = self.config.agent.chat_model
+        vision_model = self.config.agent.vision_model
+
         tool_llm = getattr(self.config.agent.llm, tool_model.llm_provider)
         chat_llm = getattr(self.config.agent.llm, chat_model.llm_provider)
+        vision_llm = getattr(self.config.agent.llm, vision_model.llm_provider)
         self.state = ConversationState()
         self.tool_ctx_cfg = ToolContextConfig()  # 或从 lab.toml 加载
         self.tool_client = AsyncOpenAI(base_url=tool_llm.llm_base_url, api_key=tool_llm.llm_api_key)
         self.chat_client = AsyncOpenAI(base_url=chat_llm.llm_base_url, api_key=chat_llm.llm_api_key)
+        self.vision_client = AsyncOpenAI(base_url=vision_llm.llm_base_url, api_key=vision_llm.llm_api_key)
 
         self.tool_model_name = tool_model.llm_model_name
         self.chat_model_name = chat_model.llm_model_name
+        self.vision_model_name = vision_model.llm_model_name
+
+        # ✅ 新增：能力开关
+        self.chat_supports_vision = bool(getattr(chat_model, "supports_vision", False))
+
         self._load_system_prompt()
         self._blob_store: dict[str, dict[str, object]] = {}  # call_id -> {"mime":..., "b64":...}
 
@@ -109,6 +118,38 @@ class Agent:
                     return v2
         return None
 
+    def _user_wants_reuse_screenshot(self, text: str) -> bool:
+        t = text or ""
+        return any(x in t for x in ["刚才那张截图", "那张截图", "上一个截图", "刚刚的截图", "上一张图", "刚才那张图","上一张截图","刚才那图片"])
+
+    def _user_wants_new_screenshot(self, text: str) -> bool:
+        t = text or ""
+        return any(x in t for x in ["现在截图", "重新截图", "再截一张", "此刻截图", "再截图一次"])
+
+    def _can_reuse_last_image(self) -> bool:
+        refs = getattr(self.state, "refs", {})
+        if not isinstance(refs, dict):
+            return False
+        ref = refs.get("last_image_ref") # type: ignore
+        return isinstance(ref, str) and ref in self._blob_store
+
+    def _effective_tools_for_step(
+        self,
+        *,
+        user_input: str,
+        available_tools: list[dict[str, object]],
+    ) -> list[dict[str, object]]:
+        reuse = self._user_wants_reuse_screenshot(user_input) and not self._user_wants_new_screenshot(user_input)
+        if reuse and self._can_reuse_last_image():
+            logger.info("[TOOLS] reuse screenshot: disabling vision__screen_shot for this step")
+            return [
+                t for t in available_tools
+                if t.get("function", {}).get("name") != "vision__screen_shot" # type: ignore
+            ]
+        return available_tools
+
+
+
     async def connect_mcp_servers(self) -> None:
         """
         连接你已启动的 FastMCP servers（你配置里 path="/"）。
@@ -117,6 +158,62 @@ class Agent:
         await self.mcp.connect(name="vision", url="http://127.0.0.1:4201/")
         await self.mcp.connect(name="tool", url="http://127.0.0.1:4202/")
 
+    async def _get_vision_summary(
+        self,
+        *,
+        user_input: str,
+        img_ref: str,
+        b64: str,
+        mime: str,
+    ) -> str:
+        # ✅ 缓存：同一张图别反复总结
+        cache_key = f"vision_summary::{img_ref}"
+        cached = self.state.slots.get(cache_key)
+        if isinstance(cached, str) and cached.strip():
+            return cached
+
+        if not self.vision_client or not self.vision_model_name:
+            return ""
+
+        # 视觉模型只做“抽取/结构化摘要”，不要写长文，不要角色扮演
+        vision_system = (
+            "你是视觉抽取器。只根据图片内容输出“短、结构化”的摘要，"
+            "用于后续文本模型推理。不要寒暄，不要长文。\n\n"
+            "输出格式（严格 JSON）：\n"
+            "{"
+            '  "scene": "...",'
+            '  "key_items": ["..."],'
+            '  "visible_text": ["..."],'
+            '  "uncertainty": ["..."]'
+            "}\n"
+            "scene 1 句，key_items 3~8 项，visible_text 0~8 项。"
+        )
+
+        # ✅ 这里要把图发给 vision_model（它支持 vision）
+        msgs: list[dict[str, object]] = [
+            {"role": "system", "content": vision_system},
+            self._user_msg_with_image(
+                f"用户问题：{user_input}\n请抽取与问题最相关的信息。",
+                b64=b64,
+                mime=mime,
+            ),
+        ]
+
+        resp = await call_with_short_retry(  # type: ignore
+            lambda: self.vision_client.chat.completions.create(
+                model=self.vision_model_name,
+                messages=msgs,  # type: ignore
+                stream=False,
+            ),
+            max_retries=2,
+        )
+
+        text = (resp.choices[0].message.content or "").strip()  # type: ignore
+        # 缓存
+        if text:
+            self.state.slots[cache_key] = text
+        return text  # type: ignore
+
     async def close(self) -> None:
         await self.mcp.close()
 
@@ -124,7 +221,6 @@ class Agent:
         self,
         tool_call: ToolCallLike,
         *,
-        user_input: str,
         tool_output_as_user_prompt: bool = True,
     ) -> tuple[ToolMessage, list[dict[str, object]], ToolTraceItem]:
         """
@@ -324,11 +420,16 @@ class Agent:
             return full_name + "::" + json.dumps(args_dict, ensure_ascii=False, sort_keys=True, default=str)
 
         for step in range(max_steps):
-            resp = await call_with_short_retry(  # type: ignore
-                lambda: self.tool_client.chat.completions.create(  # type: ignore
+            tools_eff = self._effective_tools_for_step(
+                user_input=user_input,
+                available_tools=available_tools,
+            )
+
+            resp = await call_with_short_retry( # type: ignore
+                lambda tools_eff=tools_eff: self.tool_client.chat.completions.create( # type: ignore
                     model=self.tool_model_name,
-                    messages=tool_loop_messages,  # type: ignore
-                    tools=available_tools,  # type: ignore
+                    messages=tool_loop_messages, # type: ignore
+                    tools=tools_eff,  # type: ignore[arg-type]
                     tool_choice="auto",
                     stream=False,
                 ),
@@ -377,7 +478,7 @@ class Agent:
                     continue
 
                 # 真实调用
-                tasks.append(asyncio.create_task(self._execute_tool_call(tc, user_input=user_input)))
+                tasks.append(asyncio.create_task(self._execute_tool_call(tc)))
 
             # 并行真实调用
             if tasks:
@@ -473,19 +574,44 @@ class Agent:
             ).model_dump(exclude_none=True),
         ]
         if img_ref and img_ref in self._blob_store:
-            blob = self._blob_store[img_ref]  # 由 tool_trace.id 反推 img_ref
+            blob = self._blob_store[img_ref]
             b64 = str(blob["b64"])
             mime = str(blob.get("mime", "image/jpeg"))
 
-            # ⚠️ 这里请用“支持 vision 的 chat_model”
-            # 比如你可以在 config 里专门配一个 chat_vision_model
-            messages.append(
-                self._user_msg_with_image(user_input, b64=b64, mime=mime),
-            )
+            if self.chat_supports_vision:
+                # ✅ 直接让 chat_model 看图（一次调用，最简单）
+                messages.append(self._user_msg_with_image(user_input, b64=b64, mime=mime))
+            else:
+                # ✅ chat text-only：走 vision fallback summary
+                vision_summary = await self._get_vision_summary(
+                    user_input=user_input, img_ref=img_ref, b64=b64, mime=mime
+                )
+                if vision_summary:
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                "以下是视觉模型对图片的结构化摘要（JSON）。"
+                                "请把它当作“图片内容的真实信息来源”，结合工具结果与用户问题作答。\n\n"
+                                f"VISION_SUMMARY:\n{vision_summary}\n\n"
+                                f"用户问题：{user_input}"
+                            ),
+                        }
+                    )
+                else:
+                    # ✅ 没有 vision_model 可用：只能不看图
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                "注意：当前 chat_model 不支持图像输入，且未配置可用的 vision_model，"
+                                "因此无法读取图片内容。请仅根据工具摘要与用户文字尽力回答，并说明限制。\n\n"
+                                f"用户问题：{user_input}"
+                            ),
+                        }
+                    )
         else:
-            messages.append(
-                OpenAIMessage(role="user", content=user_input).model_dump(exclude_none=True),
-            )
+            messages.append({"role": "user", "content": user_input})
         stream = await call_with_short_retry(  # type: ignore
             lambda: self.chat_client.chat.completions.create(  # type: ignore
                 model=self.chat_model_name,  # type: ignore
@@ -560,7 +686,8 @@ async def main():
         await run_dialog(
             [
                 "你能看到我现在的桌面环境吗？描述一下。",
-                "刚才那张截图里，最显眼的窗口是什么？用一句话说",
+                "刚才那张截图里，最显眼的部分是什么？用一句话说",
+                "刚才那张图里，配色是什么样的？"
             ]
         )
 
