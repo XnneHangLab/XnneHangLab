@@ -8,10 +8,12 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import TypeAdapter
 
-from lab.mcp._typing import ConversationState, Role, TolerantOpenAIChatMessage, ToolContextConfig
+from lab.mcp._typing import ConversationState, Role, TolerantOpenAIChatMessage
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+
+    from lab.config_manager import ToolContextConfig
 
 _messages_adapter = TypeAdapter(list[TolerantOpenAIChatMessage])
 
@@ -135,7 +137,7 @@ def build_tool_context(
     tool_system_prompt: str,
     full_history: list[dict[str, Any]],
     state: ConversationState,
-    cfg: ToolContextConfig | None = None,
+    cfg: ToolContextConfig,
 ) -> list[dict[str, Any]]:
     """
     返回给 Tool model 的 messages（dict list）：
@@ -147,7 +149,7 @@ def build_tool_context(
     if not (tool_system_prompt or "").strip():
         raise ValueError("tool_system_prompt must be a non-empty string")
 
-    cfg = cfg or ToolContextConfig()
+    cfg = cfg
 
     # 1) Pydantic 校验 full_history（role 必须合法，结构允许 extra）
     history: list[TolerantOpenAIChatMessage] = _messages_adapter.validate_python(full_history)

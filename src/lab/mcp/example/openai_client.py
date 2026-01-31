@@ -14,7 +14,6 @@ from lab.mcp._typing import (
     OpenAIMessage,
     ScreenShotResult,
     ToolCallLike,
-    ToolContextConfig,
     ToolMessage,
     ToolTraceItem,
 )
@@ -46,7 +45,7 @@ class Agent:
         chat_llm = getattr(self.config.agent.llm, chat_model.llm_provider)
         vision_llm = getattr(self.config.agent.llm, vision_model.llm_provider)
         self.state = ConversationState()
-        self.tool_ctx_cfg = ToolContextConfig()  # 或从 lab.toml 加载
+        self.tool_ctx_cfg = self.config.mcp.tool_context  # 或从 lab.toml 加载
         self.tool_client = AsyncOpenAI(base_url=tool_llm.llm_base_url, api_key=tool_llm.llm_api_key)
         self.chat_client = AsyncOpenAI(base_url=chat_llm.llm_base_url, api_key=chat_llm.llm_api_key)
         self.vision_client = AsyncOpenAI(base_url=vision_llm.llm_base_url, api_key=vision_llm.llm_api_key)
@@ -120,7 +119,19 @@ class Agent:
 
     def _user_wants_reuse_screenshot(self, text: str) -> bool:
         t = text or ""
-        return any(x in t for x in ["刚才那张截图", "那张截图", "上一个截图", "刚刚的截图", "上一张图", "刚才那张图","上一张截图","刚才那图片"])
+        return any(
+            x in t
+            for x in [
+                "刚才那张截图",
+                "那张截图",
+                "上一个截图",
+                "刚刚的截图",
+                "上一张图",
+                "刚才那张图",
+                "上一张截图",
+                "刚才那图片",
+            ]
+        )
 
     def _user_wants_new_screenshot(self, text: str) -> bool:
         t = text or ""
@@ -130,7 +141,7 @@ class Agent:
         refs = getattr(self.state, "refs", {})
         if not isinstance(refs, dict):
             return False
-        ref = refs.get("last_image_ref") # type: ignore
+        ref = refs.get("last_image_ref")  # type: ignore
         return isinstance(ref, str) and ref in self._blob_store
 
     def _effective_tools_for_step(
@@ -143,12 +154,11 @@ class Agent:
         if reuse and self._can_reuse_last_image():
             logger.info("[TOOLS] reuse screenshot: disabling vision__screen_shot for this step")
             return [
-                t for t in available_tools
-                if t.get("function", {}).get("name") != "vision__screen_shot" # type: ignore
+                t
+                for t in available_tools
+                if t.get("function", {}).get("name") != "vision__screen_shot"  # type: ignore
             ]
         return available_tools
-
-
 
     async def connect_mcp_servers(self) -> None:
         """
@@ -425,10 +435,10 @@ class Agent:
                 available_tools=available_tools,
             )
 
-            resp = await call_with_short_retry( # type: ignore
-                lambda tools_eff=tools_eff: self.tool_client.chat.completions.create( # type: ignore
+            resp = await call_with_short_retry(  # type: ignore
+                lambda tools_eff=tools_eff: self.tool_client.chat.completions.create(  # type: ignore
                     model=self.tool_model_name,
-                    messages=tool_loop_messages, # type: ignore
+                    messages=tool_loop_messages,  # type: ignore
                     tools=tools_eff,  # type: ignore[arg-type]
                     tool_choice="auto",
                     stream=False,
@@ -687,7 +697,7 @@ async def main():
             [
                 "你能看到我现在的桌面环境吗？描述一下。",
                 "刚才那张截图里，最显眼的部分是什么？用一句话说",
-                "刚才那张图里，配色是什么样的？"
+                "刚才那张图里，配色是什么样的？",
             ]
         )
 

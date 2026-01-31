@@ -30,7 +30,7 @@ class MemoryAgent(AgentInterface):
     Final output ALWAYS goes through the transformer pipeline for TTS (same as BasicMemoryAgent).
     """
 
-    _system: str = (
+    _chat_system: str = (
         "You are an error message repeater.\n"
         "Your job is repeating this error message:\n"
         "'No system prompt set. Please set a system prompt'.\n"
@@ -42,11 +42,14 @@ class MemoryAgent(AgentInterface):
         *,
         lab_settings: XnneHangLabSettings,
         chat_llm: Any,
-        system: str,
+        tool_llm: Any | None = None,
+        vision_llm: Any | None = None,
+        chat_system: str,
+        tool_system: str | None = None,
+        vision_system: str | None = None,
         live2d_model: Live2dModel,
         tts_preprocessor_config: TTSPreprocessorConfig,
         enable_tool: bool = False,
-        tool_llm: Any | None = None,
         mcp: FastMcpRouter | None = None,
         faster_first_response: bool = True,
         segment_method: str = "pysbd",
@@ -56,10 +59,11 @@ class MemoryAgent(AgentInterface):
         self._memory: list[dict[str, str]] = []
         self._chat_llm = chat_llm
         self._tool_llm = tool_llm or chat_llm
+        self._vision_llm = vision_llm or chat_llm
         self.lab_settings = lab_settings
         self.enable_tool = enable_tool
         self.mcp = mcp or FastMcpRouter(prefix_delim="__")
-        self._tool_loop = McpToolLoopRunner(tool_llm=self._tool_llm, mcp=self.mcp)
+        self._tool_loop = McpToolLoopRunner(tool_llm=self._tool_llm, mcp=self.mcp,tool_context_config=lab_settings.mcp.tool_context)
 
         self._live2d_model = live2d_model
         self._tts_preprocessor_config = tts_preprocessor_config
@@ -68,7 +72,9 @@ class MemoryAgent(AgentInterface):
         self.interrupt_method = interrupt_method
         self._interrupt_handled = False
 
-        self.set_system(system)
+        self.set_system(chat_system)
+        self._tool_system = tool_system or ""
+        self._vision_system = vision_system or ""
 
         # bind chat pipeline
         self.chat = self._chat_function_factory(self._stream_chat_tokens)  # type: ignore[method-assign]
@@ -101,7 +107,7 @@ class MemoryAgent(AgentInterface):
         logger.debug(f"MemoryAgent: Setting system prompt: '''{system}'''")
         if self.interrupt_method == "user":
             system = f"{system}\n\nIf you received `[interrupted by user]` signal, you were interrupted."
-        self._system = system
+        self._chat_system = system
 
     def _add_message(
         self,
@@ -178,7 +184,7 @@ class MemoryAgent(AgentInterface):
         if not self.enable_tool:
             async for tok in self._chat_llm.chat_completion(  # type: ignore[attr-defined]
                 messages,  # type: ignore[arg-type]
-                self._system,
+                self._chat_system,
                 stream_=True,
             ):
                 yield tok
@@ -188,7 +194,7 @@ class MemoryAgent(AgentInterface):
         try:
             available_tools = await self.mcp.list_tools_openai_schema()
             _, tool_trace = await self._tool_loop.run_tool_loop(
-                system_prompt=self._system,
+                tool_system_prompt=self._tool_system,
                 messages=messages,
                 available_tools=available_tools,
                 debug=False,
@@ -204,7 +210,7 @@ class MemoryAgent(AgentInterface):
         )
 
         system_with_tools = (
-            f"{self._system}\n\n"
+            f"{self._chat_system}\n\n"
             "你已经通过工具拿到结构化结果（JSON）。"
             "请基于这些结果用自然口语回答，并让输出适合 TTS 朗读（避免太‘机器格式’）。\n\n"
             f"工具结果摘要：\n{tool_summary}"

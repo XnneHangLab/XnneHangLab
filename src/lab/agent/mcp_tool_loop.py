@@ -12,7 +12,6 @@ from lab.mcp import (
     ConversationState,
     ScreenShotResult,
     ToolCallLike,
-    ToolContextConfig,
     ToolMessage,
     ToolRegistry,
     ToolTraceItem,
@@ -24,6 +23,7 @@ from lab.mcp.util import call_with_short_retry, dump_openai_msg, prompt_result_t
 
 if TYPE_CHECKING:
     from lab.agent.stateless_llm.openai_compatible_llm import AsyncLLM
+    from lab.config_manager import ToolContextConfig
     from lab.mcp import FastMcpRouter
 
 
@@ -35,16 +35,12 @@ class McpToolLoopRunner:
       with no interleaving user/system messages, otherwise OpenAI will 400.
     """
 
-    def __init__(self, *, tool_llm: AsyncLLM, mcp: FastMcpRouter) -> None:
+    def __init__(self, *, tool_llm: AsyncLLM, mcp: FastMcpRouter, tool_context_config: ToolContextConfig) -> None:
         self.tool_llm = tool_llm
         self.mcp = mcp
         self._blob_store: dict[str, dict[str, object]] = {}  # call_id -> {"mime":..., "b64":...}
         self.state = ConversationState()
-        self.tool_ctx_cfg = ToolContextConfig(
-            tool_budget_tokens=2200,
-            recent_n_msgs=10,
-            include_prev_assistant=True,
-        )
+        self.tool_ctx_cfg = tool_context_config
 
     def _snip(self, s: str, n: int = 1200) -> str:
         """截断字符串，保留前 n 个字符，加省略号"""
