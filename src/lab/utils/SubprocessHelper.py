@@ -43,10 +43,10 @@ def run_shell_command(
             check=check_returncode,  # 根据参数决定是否检查返回码
         )
 
-        if result.stdout:
-            logger.log(log_level_stdout, result.stdout)  # 使用可配置的日志级别
-        if result.stderr:
-            logger.log(log_level_stderr, result.stderr)  # 使用可配置的日志级别
+        # if result.stdout:
+        #     logger.log(log_level_stdout, result.stdout)  # 使用可配置的日志级别
+        # if result.stderr:
+        #     logger.log(log_level_stderr, result.stderr)  # 使用可配置的日志级别
 
         return result
 

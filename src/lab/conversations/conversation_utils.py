@@ -60,7 +60,7 @@ async def process_agent_output(
     full_response = ""
     try:
         # if isinstance(output, SentenceOutput):
-        logger.info("SentenceOutput Detect")
+        logger.debug("SentenceOutput Detect")
         full_response = await handle_sentence_output(
             output,
             live2d_model,

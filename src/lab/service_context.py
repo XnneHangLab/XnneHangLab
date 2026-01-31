@@ -43,7 +43,9 @@ class ServiceContext:
         self.agent_engine: MemoryAgent | None = None  # type: ignore
 
         # the system prompt is a combination of the persona prompt and live2d expression prompt
-        self.system_prompt: str | None = None
+        self.chat_system_prompt: str | None = None
+        self.tool_system_prompt: str | None = None
+        self.vision_system_prompt: str | None = None
         # self.mcp_handlers: list[MCPHandlerInterface]
         self.history_uid: str = ""  # Add history_uid field
 
@@ -53,7 +55,9 @@ class ServiceContext:
             f"  System Config: {'Loaded' if self.system_config else 'Not Loaded'}\n"
             f"    Details: {json.dumps(self.system_config.model_dump(), indent=6) if self.system_config else 'None'}\n"
             f"  Live2D Model: {self.live2d_model.model_info if self.live2d_model else 'Not Loaded'}\n"  # type: ignore
-            f"  System Prompt: {self.system_prompt or 'Not Set'}"
+            f"  Chat System Prompt: {self.chat_system_prompt or 'Not Set'}\n"
+            f"  Tool System Prompt: {self.tool_system_prompt or 'Not Set'}\n"
+            f"  Vision System Prompt: {self.vision_system_prompt or 'Not Set'}"
         )
 
     # ==== Initializers
@@ -129,20 +133,23 @@ class ServiceContext:
         """Initialize or update the LLM engine based on agent configuration."""
         # agent 暂时不需要多次启动模型，所以不需要自检是否初始化。
         lab_settings = self.lab_setting
-        system_prompt = read_prompt_from_text_file(lab_settings.agent.character_name)
-        system_prompt += "这是你的 Emotion 列表，请在合适的时候使用它们：\n" + str(self.live2d_model.emo_key) + "\n"  # type: ignore
-        if lab_settings.agent.user_lang == "ZH":
-            system_prompt += "\n**请回复中文。**"
-        elif lab_settings.agent.user_lang == "EN":
-            system_prompt += "\n**Please reply in English.**"
-        elif lab_settings.agent.user_lang == "JA":
-            system_prompt += "\n**日本語で返信してください。**"
-        else:
-            raise ValueError(f"speaker_lang {lab_settings.agent.user_lang} not supported")
-
+        chat_system_prompt = read_prompt_from_text_file(lab_settings.agent.character_name)
         if self.live2d_model is None:
             logger.error("Live2D model is not initialized, cannot create agent.")
             raise ValueError("Live2D model must be initialized before creating agent.")
+        chat_system_prompt += (
+            "这是你的 Emotion 列表，请在合适的时候使用它们：\n" + str(self.live2d_model.emo_key) + "\n"
+        )
+        if lab_settings.agent.user_lang == "ZH":
+            chat_system_prompt += "\n**请回复中文。**"
+        elif lab_settings.agent.user_lang == "EN":
+            chat_system_prompt += "\n**Please reply in English.**"
+        elif lab_settings.agent.user_lang == "JA":
+            chat_system_prompt += "\n**日本語で返信してください。**"
+        else:
+            raise ValueError(f"speaker_lang {lab_settings.agent.user_lang} not supported")
+        tool_system_prompt = read_prompt_from_text_file("tool_model")
+        vision_system_prompt = read_prompt_from_text_file("vision_model")
         if self.character_config is None:
             logger.error("character_config is None, cannot create agent.")
             raise ValueError("character_config cannot be None")
@@ -152,16 +159,20 @@ class ServiceContext:
 
         self.agent_engine = AgentFactory.create_agent(  # type: ignore
             lab_setting=lab_settings,
-            system_prompt=system_prompt,
+            chat_system_prompt=chat_system_prompt,
+            tool_system_prompt=tool_system_prompt,
+            vision_system_prompt=vision_system_prompt,
             live2d_model=self.live2d_model,
             tts_preprocessor_config=self.character_config.tts_preprocessor_config,
             # character_avatar=avatar,  # Add avatar parameter
         )
 
-        logger.debug(f"System prompt: {system_prompt}")
+        # logger.debug(f"System prompt: {system_prompt}")
 
         # Save the current configuration
-        self.system_prompt = system_prompt
+        self.chat_system_prompt = chat_system_prompt
+        self.tool_system_prompt = tool_system_prompt
+        self.vision_system_prompt = vision_system_prompt
 
     async def ensure_mcp_connected(self) -> None:
         if self._mcp_connected or self.agent_engine is None:

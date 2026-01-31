@@ -30,7 +30,7 @@ guide = "open"
 subtitle_speed = "normal"
 
 [agent]
-enable_mcp = true
+enable_mcp = false
 character_name = "elaina"
 deeplx_api_key = ""
 user_lang = "ZH"
@@ -43,10 +43,15 @@ interrupt_method = "user"
 [agent.chat_model]
 llm_provider = "oaipro"
 llm_model_name = "gpt-5.1-2025-11-13"
+support_vision = false
 
 [agent.tool_model]
 llm_provider = "cerebras"
 llm_model_name = "qwen-3-235b-a22b-instruct-2507"
+
+[agent.vision_model]
+llm_provider = "oaipro"
+llm_model_name = "gpt-5.1-2025-11-13"
 
 [agent.llm.openai]
 llm_api_key = ""
@@ -104,8 +109,6 @@ user_agent = "XnneHangLab-MCP/1.1"
 provider = "duckduckgo"
 timeout_s = 10.0
 searxng_url = "http://127.0.0.1:8000"
-tavily_api_key = ""
-bochaai_api_key = ""
 
 [mcp.tools.web_fetch]
 respect_robots = true
@@ -114,6 +117,14 @@ use_jina_fallback = false
 jina_api_key = ""
 timeout_s = 10.0
 max_chars_default = 8000
+
+[mcp.tool_context]
+tool_budget_tokens = 2200
+recent_n_msgs = 10
+include_prev_assistant = true
+pinned_max_chars = 2400
+reserve_tokens = 350
+min_window_tokens = 200
 
 [package]
 funasr = false

@@ -16,10 +16,12 @@ class AgentFactory:
     @staticmethod
     def create_agent(
         lab_setting: XnneHangLabSettings,
-        system_prompt: str,
+        chat_system_prompt: str,
+        tool_system_prompt: str,
+        vision_system_prompt: str,
         live2d_model: Live2dModel,
         tts_preprocessor_config: TTSPreprocessorConfig,
-    ) -> type[AgentInterface]:
+    ) -> AgentInterface:
         """Create an agent based on configuration (OpenAI only, dual-model ready).
 
         Note:
@@ -28,28 +30,39 @@ class AgentFactory:
         """
         tool_model = lab_setting.agent.tool_model
         chat_model = lab_setting.agent.chat_model
+        vision_model = lab_setting.agent.vision_model
 
         tool_llm = getattr(lab_setting.agent.llm, tool_model.llm_provider)
         chat_llm = getattr(lab_setting.agent.llm, chat_model.llm_provider)
+        vision_llm = getattr(lab_setting.agent.llm, vision_model.llm_provider)
 
-        chat_llm = LLMFactory.create_llm(
+        chat_llm_interface = LLMFactory.create_llm(
             model=chat_model.llm_model_name,
             base_url=chat_llm.llm_base_url,
             llm_api_key=chat_llm.llm_api_key,
         )
 
-        tool_llm = LLMFactory.create_llm(
+        tool_llm_interface = LLMFactory.create_llm(
             model=tool_model.llm_model_name,
             base_url=tool_llm.llm_base_url,
             llm_api_key=tool_llm.llm_api_key,
         )
 
-        return MemoryAgent(  # type: ignore[call-arg]
-            chat_llm=chat_llm,
-            tool_llm=tool_llm,
+        vision_llm_interface = LLMFactory.create_llm(
+            model=vision_model.llm_model_name,
+            base_url=vision_llm.llm_base_url,
+            llm_api_key=vision_llm.llm_api_key,
+        )
+
+        return MemoryAgent(
             lab_settings=lab_setting,
-            enable_tool=lab_setting.agent.enable_mcp,  # TODO 区分 enable_mcp 和 enable_tool, enable_mcp 是 enable_mcp 的超集
-            system=system_prompt,
+            chat_llm=chat_llm_interface,
+            tool_llm=tool_llm_interface,
+            vision_llm=vision_llm_interface,
+            chat_system_prompt=chat_system_prompt,
+            tool_system_prompt=tool_system_prompt,
+            vision_system_prompt=vision_system_prompt,
+            enable_tool=lab_setting.agent.enable_mcp,
             live2d_model=live2d_model,
             tts_preprocessor_config=tts_preprocessor_config,
             faster_first_response=lab_setting.agent.faster_first_response,
