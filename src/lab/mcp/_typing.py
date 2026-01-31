@@ -477,6 +477,7 @@ class ToolContextConfig(BaseModel):
     这套配置的价值
     - 在“总是全上下文（慢）”与“永远短上下文（容易跑偏）”之间提供可调的工程折中。
     """
+
     model_config = ConfigDict(extra="forbid")
 
     # 粗估 token 预算（工具 schema + 思考也会占用，所以别给太满）

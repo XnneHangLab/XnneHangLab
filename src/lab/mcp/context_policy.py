@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from pydantic import TypeAdapter
@@ -14,49 +15,65 @@ if TYPE_CHECKING:
 
 _messages_adapter = TypeAdapter(list[TolerantOpenAIChatMessage])
 
-# -----------------------------
-# Heuristic scorer (轻量但更稳)
-# -----------------------------
-_CUES = [
-    re.compile(r"(继续|刚才|上一个|那个|同样|照之前|按之前|再来一次|你说的|前面|如上|同上)", re.IGNORECASE),
-    re.compile(r"(上一条|上次|刚刚|前一轮|你刚才|你刚說|你刚讲|接着|然后呢)", re.IGNORECASE),
-]
-_CHOICE = re.compile(
-    r"(第[一二三四五六七八九十0-9]+(个|條|条|項|项)|\b[ABCDEF]\b|选[0-9A-Fa-f]|用[0-9A-Fa-f]|\b[0-9]+\b)",
+
+_CONTEXT_CUES = re.compile(
+    r"(继续|刚才|上一个|那个|同样|照之前|按之前|再来一次|你说的|第[二三四五六七八九十]个|前面|如上|同上|this|that|it)",
     re.IGNORECASE,
 )
-_FOLLOWUP_VERB = re.compile(r"(继续|再来|重来|照做|同样|照旧|按这个|按上面|沿用|还是那样)", re.IGNORECASE)
-_ANCHOR = re.compile(
-    r"(https?://\S+|\.?/[\w\-/\.]+|\w+\.(md|txt|json|toml|yaml|yml|py)\b)",
-    re.IGNORECASE,
-)
-_SHORT_DEPENDENT = {"对", "不是", "可以", "好", "行", "嗯", "OK", "ok", "好的", "没错", "第二个", "第2个"}
+_CHOICE_CUES = re.compile(r"(第[0-9一二三四五六七八九十]+个|\b[0-9]+\b|\b[A-F]\b)", re.IGNORECASE)
+_CONFIRM_CUES = re.compile(r"^(对|不是|可以|行|好|嗯|OK|okay|yes|no|y|n)\b", re.IGNORECASE)
+_PRONOUN_START = re.compile(r"^(它|他|她|这|那|this|that|it)\b", re.IGNORECASE)
+_HAS_URL = re.compile(r"https?://\S+", re.IGNORECASE)
+_HAS_PATH = re.compile(r"(\.?/[\w\-/\.]+|\w+\.(md|txt|json|toml|yaml|yml|py)\b)", re.IGNORECASE)
 
 
-def is_context_dependent(user_text: str) -> bool:
+@dataclass(frozen=True)
+class ContextDecision:
+    dependent: bool
+    score: int
+    reasons: list[str]
+
+
+def is_context_dependent(user_text: str) -> ContextDecision:
     t = (user_text or "").strip()
     if not t:
-        return False
-
-    if t in _SHORT_DEPENDENT:
-        return True
+        return ContextDecision(False, 0, ["empty"])
 
     score = 0
+    reasons: list[str] = []
+
+    # 1) very short
     if len(t) <= 6:
         score += 3
-    elif len(t) <= 12:
+        reasons.append("very_short<=6")
+
+    # 2) reference cues
+    if _CONTEXT_CUES.search(t):
+        score += 2
+        reasons.append("context_cue")
+
+    # 3) choice / index
+    if _CHOICE_CUES.search(t):
+        score += 2
+        reasons.append("choice_cue")
+
+    # 4) confirm-like reply
+    if _CONFIRM_CUES.search(t):
+        score += 2
+        reasons.append("confirm_reply")
+
+    # 5) pronoun start
+    if _PRONOUN_START.search(t):
         score += 1
+        reasons.append("pronoun_start")
 
-    if any(p.search(t) for p in _CUES):
-        score += 3
-    if _CHOICE.search(t):
-        score += 2
-    if _FOLLOWUP_VERB.search(t):
-        score += 2
-    if _ANCHOR.search(t):
-        score -= 3
+    # 6) if user already provides concrete target, dependency is lower
+    if _HAS_URL.search(t) or _HAS_PATH.search(t):
+        score -= 2
+        reasons.append("has_explicit_target")
 
-    return score >= 3
+    dependent = score >= 3
+    return ContextDecision(dependent, score, reasons)
 
 
 # -----------------------------

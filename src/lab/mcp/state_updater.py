@@ -91,13 +91,13 @@ def update_state_from_tool_trace(state: ConversationState, trace: ToolTraceItem)
         results = _get(raw, "results")
         if isinstance(results, list):
             compact: list[dict[str, str]] = []
-            for item in results[:5]: # type: ignore
+            for item in results[:5]:  # type: ignore
                 if not isinstance(item, dict):
                     continue
                 compact.append(
                     {
-                        "title": str(item.get("title", ""))[:200], # type: ignore
-                        "url": str(item.get("url", ""))[:500], # type: ignore
+                        "title": str(item.get("title", ""))[:200],  # type: ignore
+                        "url": str(item.get("url", ""))[:500],  # type: ignore
                     }
                 )
             state.slots["last_search_results"] = compact

@@ -515,9 +515,7 @@ class Agent:
             for t in tool_trace:
                 logger.info(f"  - {t.server}::{t.name} args={t.args} ok={t.ok} result={t.raw_result} error={t.error}")
 
-        async for tok in self.stream_chat_answer(
-            user_input=user_input, tool_trace=tool_trace
-        ):
+        async for tok in self.stream_chat_answer(user_input=user_input, tool_trace=tool_trace):
             yield tok
 
 
