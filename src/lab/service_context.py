@@ -134,9 +134,12 @@ class ServiceContext:
         # agent 暂时不需要多次启动模型，所以不需要自检是否初始化。
         lab_settings = self.lab_setting
         chat_system_prompt = read_prompt_from_text_file(lab_settings.agent.character_name)
+        if self.live2d_model is None:
+            logger.error("Live2D model is not initialized, cannot create agent.")
+            raise ValueError("Live2D model must be initialized before creating agent.")
         chat_system_prompt += (
             "这是你的 Emotion 列表，请在合适的时候使用它们：\n" + str(self.live2d_model.emo_key) + "\n"
-        )  # type: ignore
+        )
         if lab_settings.agent.user_lang == "ZH":
             chat_system_prompt += "\n**请回复中文。**"
         elif lab_settings.agent.user_lang == "EN":
@@ -147,9 +150,6 @@ class ServiceContext:
             raise ValueError(f"speaker_lang {lab_settings.agent.user_lang} not supported")
         tool_system_prompt = read_prompt_from_text_file("tool_model")
         vision_system_prompt = read_prompt_from_text_file("vision_model")
-        if self.live2d_model is None:
-            logger.error("Live2D model is not initialized, cannot create agent.")
-            raise ValueError("Live2D model must be initialized before creating agent.")
         if self.character_config is None:
             logger.error("character_config is None, cannot create agent.")
             raise ValueError("character_config cannot be None")

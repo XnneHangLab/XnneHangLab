@@ -10,7 +10,7 @@ from lab.agent.input_types import BatchInput, TextSource
 from lab.agent.mcp_tool_loop import McpToolLoopRunner
 from lab.agent.transformers import actions_extractor, display_processor, sentence_divider, tts_filter
 from lab.chat_history_manager import get_history
-from lab.mcp import ConversationState, FastMcpRouter, dump_openai_msg, prompt_result_to_text
+from lab.mcp import ConversationState, FastMcpRouter
 from lab.mcp.util import call_with_short_retry  # type: ignore
 
 if TYPE_CHECKING:
@@ -268,9 +268,9 @@ class MemoryAgent(AgentInterface):
     # ---------------------------------------------------------------------
     # Core streaming (with optional MCP tool loop)
     # ---------------------------------------------------------------------
-    async def _stream_chat_tokens(self, messages: list[dict[str, object]]) -> AsyncIterator[str]:
+    async def _stream_chat_tokens(self, messages: list[dict[str, Any]]) -> AsyncIterator[str]:
         if not self.enable_tool:
-            async for tok in self._chat_llm.chat_completion(  # type: ignore[attr-defined]
+            async for tok in self.chat_llm.chat_completion(  # type: ignore[attr-defined]
                 messages,  # type: ignore[arg-type]
                 self.chat_system_prompt,
                 stream_=True,
@@ -279,51 +279,89 @@ class MemoryAgent(AgentInterface):
             return
 
         # tool mode
-        try:
-            available_tools = await self.mcp.list_tools_openai_schema()
-            user_input = ""
-            for m in reversed(messages):
-                # 从后往前找最新的 user message
-                if m.get("role") == "user":
-                    user_input = str(m.get("content", ""))
-                    break
-            _, tool_trace = await self.tool_loop.run_tool_loop(
-                tool_system_prompt=self.tool_system_prompt,
-                available_tools=available_tools,
-                debug=False,
-                state=self.state,
-                user_input=user_input,
-            )
-            img_ref = None
-            # ✅ 优先从 state 拿（更稳：即使 tool_trace 被裁剪/压缩也不影响）
-            if isinstance(getattr(self, "state", None), object):
-                refs = getattr(self.state, "refs", {})
-                if isinstance(refs, dict):
-                    v = refs.get("last_image_ref")  # type: ignore
-                    if isinstance(v, str):
-                        img_ref = v
 
-            img_ref = img_ref or self._first_image_ref(tool_trace)
-        except Exception as e:
-            logger.exception(f"Tool loop failed, fallback to normal chat: {e}")
-            tool_trace = []
+        available_tools = await self.mcp.list_tools_openai_schema()
+        user_input = ""
+        for m in reversed(messages):
+            # 从后往前找最新的 user message
+            if m.get("role") == "user":
+                user_input = str(m.get("content", ""))
+                # IMPORTANT: 移除该 message，tool loop 会重新添加， 不然会重复
+                messages.remove(m)
+                break
+        _, tool_trace = await self.tool_loop.run_tool_loop(
+            tool_system_prompt=self.tool_system_prompt,
+            available_tools=available_tools,
+            debug=False,
+            state=self.state,
+            user_input=user_input,
+        )
 
+        img_ref = None
+        # ✅ 优先从 state 拿（更稳：即使 tool_trace 被裁剪/压缩也不影响）
+        if isinstance(getattr(self, "state", None), object):
+            refs = getattr(self.state, "refs", {})
+            if isinstance(refs, dict):
+                v = refs.get("last_image_ref")  # type: ignore
+                if isinstance(v, str):
+                    img_ref = v
+
+        img_ref = img_ref or self._first_image_ref(tool_trace)
         tool_summary = json.dumps(
             [t.model_dump(exclude_none=True) for t in tool_trace],  # type: ignore[attr-defined]
             ensure_ascii=False,
             indent=2,
         )
 
-        system_with_tools = (
-            f"{self._chat_system}\n\n"
+        tools_summary_str = (
             "你已经通过工具拿到结构化结果（JSON）。"
             "请基于这些结果用自然口语回答，并让输出适合 TTS 朗读（避免太‘机器格式’）。\n\n"
             f"工具结果摘要：\n{tool_summary}"
         )
+        messages.append({"role": "user", "content": tools_summary_str})
 
-        async for tok in self._chat_llm.chat_completion(  # type: ignore[attr-defined]
+        if img_ref and img_ref in self._blob_store:
+            blob = self._blob_store[img_ref]
+            b64 = str(blob["b64"])
+            mime = str(blob.get("mime", "image/jpeg"))
+            if self.chat_supports_vision:
+                # ✅ 直接让 chat_model 看图（一次调用，最简单）
+                messages.append(self._user_msg_with_image(user_input, b64=b64, mime=mime))
+            else:
+                # ✅ chat text-only：走 vision fallback summary
+                vision_summary = await self._get_vision_summary(
+                    user_input=user_input, img_ref=img_ref, b64=b64, mime=mime
+                )
+                if vision_summary:
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                "以下是视觉模型对图片的结构化摘要（JSON）。"
+                                "请把它当作“图片内容的真实信息来源”，结合工具结果与用户问题作答。\n\n"
+                                f"VISION_SUMMARY:\n{vision_summary}\n\n"
+                                f"用户问题：{user_input}"
+                            ),
+                        }
+                    )
+                else:
+                    # ✅ 没有 vision_model 可用：只能不看图
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                "注意：当前 chat_model 不支持图像输入，且未配置可用的 vision_model，"
+                                "因此无法读取图片内容。请仅根据工具摘要与用户文字尽力回答，并说明限制。\n\n"
+                                f"用户问题：{user_input}"
+                            ),
+                        }
+                    )
+        else:
+            messages.append({"role": "user", "content": user_input})
+
+        async for tok in self.chat_llm.chat_completion(  # type: ignore[attr-defined]
             messages,  # type: ignore[arg-type]
-            system_with_tools,
+            system=self.chat_system_prompt,
             stream_=True,
         ):
             yield tok
@@ -339,12 +377,12 @@ class MemoryAgent(AgentInterface):
         LLM tokens -> sentence_divider -> actions_extractor -> display_processor -> tts_filter
         """
 
-        @tts_filter(self._tts_preprocessor_config)
+        @tts_filter(self.tts_preprocessor_config)
         @display_processor()
         @actions_extractor(self._live2d_model)
         @sentence_divider(
-            faster_first_response=self._faster_first_response,
-            segment_method=self._segment_method,
+            faster_first_response=self.faster_first_response,
+            segment_method=self.segment_method,
             valid_tags=["think"],
         )
         async def chat_with_memory(input_data: BatchInput) -> AsyncIterator[str | AudioOutput]:
