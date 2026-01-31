@@ -10,16 +10,18 @@ from lab.mcp import (
     DEFAULT_RETRY_HINT,
     TOOL_RETRY_HINTS,
     ConversationState,
+    ImageRefResult,
+    OpenAIMessage,
     ScreenShotResult,
     ToolCallLike,
     ToolMessage,
     ToolRegistry,
     ToolTraceItem,
-    build_tool_context,
+    build_resolved_refs_msg,
+    update_state_from_tool_trace,
+    update_state_from_user_text,
 )
-
-# These helpers exist in your codebase (same as your MCP demo).
-from lab.mcp.util import call_with_short_retry, dump_openai_msg, prompt_result_to_text  # type: ignore
+from lab.mcp.util import dump_openai_msg, prompt_result_to_text
 
 if TYPE_CHECKING:
     from lab.agent.stateless_llm.openai_compatible_llm import AsyncLLM
@@ -39,7 +41,6 @@ class McpToolLoopRunner:
         self.tool_llm = tool_llm
         self.mcp = mcp
         self._blob_store: dict[str, dict[str, object]] = {}  # call_id -> {"mime":..., "b64":...}
-        self.state = ConversationState()
         self.tool_ctx_cfg = tool_context_config
 
     def _snip(self, s: str, n: int = 1200) -> str:
@@ -49,11 +50,54 @@ class McpToolLoopRunner:
             return ss
         return ss[:n] + f"\n...(preview truncated, {len(ss)} chars total)..."
 
+    def _user_wants_reuse_screenshot(self, text: str, state: ConversationState) -> bool:
+        t = text or ""
+        return any(
+            x in t
+            for x in [
+                "刚才那张截图",
+                "那张截图",
+                "上一个截图",
+                "刚刚的截图",
+                "上一张图",
+                "刚才那张图",
+                "上一张截图",
+                "刚才那图片",
+            ]
+        )
+
+    def _user_wants_new_screenshot(self, text: str) -> bool:
+        t = text or ""
+        return any(x in t for x in ["现在截图", "重新截图", "再截一张", "此刻截图", "再截图一次"])
+
+    def _can_reuse_last_image(self, state: ConversationState) -> bool:
+        refs = getattr(state, "refs", {})
+        if not isinstance(refs, dict):
+            return False
+        ref = refs.get("last_image_ref")  # type: ignore
+        return isinstance(ref, str) and ref in self._blob_store
+
+    def _effective_tools_for_step(
+        self,
+        *,
+        user_input: str,
+        available_tools: list[dict[str, object]],
+        state: ConversationState,
+    ) -> list[dict[str, object]]:
+        reuse = self._user_wants_reuse_screenshot(user_input, state) and not self._user_wants_new_screenshot(user_input)
+        if reuse and self._can_reuse_last_image(state):
+            logger.info("[TOOLS] reuse screenshot: disabling vision__screen_shot for this step")
+            return [
+                t
+                for t in available_tools
+                if t.get("function", {}).get("name") != "vision__screen_shot"  # type: ignore
+            ]
+        return available_tools
+
     async def _execute_tool_call(
         self,
         tool_call: ToolCallLike,
         *,
-        user_input: str,
         tool_output_as_user_prompt: bool = True,
     ) -> tuple[ToolMessage, list[dict[str, object]], ToolTraceItem]:
         """
@@ -75,32 +119,23 @@ class McpToolLoopRunner:
             result_obj = await self.mcp.call_tool(full_name=full_name, args=args_dict)
             result_model = ToolRegistry.parse_result(full_name, result_obj)
             if isinstance(result_model, ScreenShotResult):
-                # 调用了截图工具，存 blob，不能直接放 base64 到消息里
                 b64 = result_model.image_b64
                 self._blob_store[tool_call.id] = {"mime": "image/jpeg", "b64": b64}
 
-                # ToolMessage 给 Tool Model：只给短信息
                 tool_msg = ToolMessage(
                     content=f"[screenshot captured] ref={tool_call.id} mime=image/jpeg b64_len={len(b64)}",
                     tool_call_id=tool_call.id,
                 )
 
-                # ToolTrace 给 Chat Model：只给 ref + 元信息
+                # ✅ 关键：trace_item 直接吃 ImageRefResult，raw_result 统一建模
                 trace = ToolRegistry.trace_item(
                     parsed,
-                    ScreenShotResult(image_b64=""),  # 或者你直接手动构造 raw_result
+                    ImageRefResult(image_ref=tool_call.id, mime="image/jpeg", b64_len=len(b64)),
                     ok=True,
                     error=None,
                 )
-                trace.raw_result = {
-                    "image_ref": tool_call.id,
-                    "mime": "image/jpeg",
-                    "b64_len": len(b64),
-                }
             else:
-                # 普通工具调用
                 tool_text = ToolRegistry.tool_content_for_tool_model(result_model)
-
                 tool_msg = ToolMessage(content=tool_text, tool_call_id=tool_call.id)
                 trace = ToolRegistry.trace_item(parsed, result_model, ok=True, error=None)
 
@@ -225,12 +260,13 @@ class McpToolLoopRunner:
         self,
         *,
         tool_system_prompt: str,
-        messages: list[dict[str, object]],
+        user_input: str,
         available_tools: list[dict[str, object]],
         max_steps: int = 6,
         max_parallel_tools: int = 6,
         tool_output_as_user_prompt: bool = True,
         debug: bool = True,
+        state: ConversationState,
     ) -> tuple[list[dict[str, object]], list[ToolTraceItem]]:
         """
         Tool Model：非流式
@@ -239,35 +275,40 @@ class McpToolLoopRunner:
         - 链式：补齐 tool messages 后，再追加 extra user messages 进入下一轮决策
         - 去重：同轮相同 (tool+args) 只真实调用一次，但每个 tool_call_id 都回填
         """
+        if debug:
+            logger.info(f"[STATE] active_task={state.active_task} refs={state.refs} slots={list(state.slots.keys())}")
+            logger.info(f"[STATE_JSON] {state.model_dump(exclude_none=True)}")
+        # 初始 state 更新（last_user_text / last_url / last_file / choice）
+        update_state_from_user_text(state, user_text=user_input)
 
-        tool_loop_messages = build_tool_context(
-            tool_system_prompt=tool_system_prompt,  # 注意：这里用“短的 tool routing prompt”
-            full_history=messages,
-            state=self.state,
-            cfg=self.tool_ctx_cfg,
-        )
+        # 我们的 tool loop 只需要 system + user 这 2 条消息，在需要的时候才会追加上下文(根据 pinned state 和 匹配评分)
+        tool_loop_messages: list[dict[str, object]] = [
+            OpenAIMessage(role="system", content=tool_system_prompt).model_dump(exclude_none=True),
+            OpenAIMessage(role="user", content=user_input).model_dump(exclude_none=True),
+        ]
+
         tool_trace: list[ToolTraceItem] = []
+        resolved_refs_msg = build_resolved_refs_msg(state, user_input)
+        if resolved_refs_msg is not None:
+            tool_loop_messages.append(resolved_refs_msg)
 
         cache: dict[str, tuple[str, ToolTraceItem, list[dict[str, object]]]] = {}
 
         def _sig(full_name: str, args_dict: dict[str, object]) -> str:
             return full_name + "::" + json.dumps(args_dict, ensure_ascii=False, sort_keys=True)
 
-        # user_input: last user message content (best effort)
-        user_input = ""
-        for m in reversed(messages):
-            if m.get("role") == "user":
-                user_input = str(m.get("content", ""))
-                break
-
         for step in range(max_steps):
-            resp = await call_with_short_retry(  # type: ignore[arg-type]
-                lambda: self.tool_llm.tool_completion(
-                    messages=tool_loop_messages,  # includes system already
-                    tools=available_tools,  # OpenAI schema from MCP
-                    tool_choice="auto",
-                ),
-                max_retries=2,
+            tools_eff = self._effective_tools_for_step(
+                user_input=user_input,
+                available_tools=available_tools,
+                state=state,
+            )
+
+            resp = await self.tool_llm.tool_completion(
+                messages=tool_loop_messages,
+                tools=tools_eff,  # ✅ 用 tools_eff
+                tool_choice="auto",
+                system=None,  # 你说 messages 已经包含 system，就别再传
             )
 
             assistant_msg = resp.choices[0].message  # type: ignore[attr-defined]
@@ -282,74 +323,91 @@ class McpToolLoopRunner:
                 break
 
             tool_calls_all = list(tool_calls)
-            tool_calls_exec = tool_calls_all[:max_parallel_tools]
-            tool_calls_skipped = tool_calls_all[max_parallel_tools:]
+            web_search_idx = next(
+                (i for i, tc in enumerate(tool_calls_all) if tc.function.name == "tool__web_search"),
+                None,
+            )
+            # 如果触发 Web Search，则本轮只执行它，不并行，独占一个 Step。
+            # 这样做是为了更好地配合 Fetch，避免 Web Search Fetch 并行调用而让 Fetch 不完整。
+            if web_search_idx is not None and len(tool_calls_all) > 1:
+                tool_calls_exec = [tool_calls_all[web_search_idx]]
+                tool_calls_skipped = [tc for j, tc in enumerate(tool_calls_all) if j != web_search_idx]
+            else:
+                tool_calls_exec = tool_calls_all[:max_parallel_tools]
+                tool_calls_skipped = tool_calls_all[max_parallel_tools:]
 
             # 1) schedule real tool calls (dedupe by signature)
             tasks: list[asyncio.Task[tuple[ToolMessage, list[dict[str, object]], ToolTraceItem]]] = []
             planned: list[tuple[ToolCallLike, str]] = []
 
-            for tc in tool_calls_exec:
-                full_name = tc.function.name
-                parsed = ToolRegistry.parse_args(full_name, tc.function.arguments)
+            for tool_call in tool_calls_exec:
+                full_name = tool_call.function.name
+                parsed = ToolRegistry.parse_args(full_name, tool_call.function.arguments)
                 args_dict = parsed.args_model.model_dump(exclude_none=True)
                 sig = _sig(full_name, args_dict)
-                planned.append((tc, sig))
+                planned.append((tool_call, sig))
 
                 if sig in cache:
+                    # 缓存命中：不真实调用，但后面仍要为这个 tool_call_id 回填 tool message
                     continue
 
                 tasks.append(
                     asyncio.create_task(
                         self._execute_tool_call(
-                            tc,
-                            user_input=user_input,
-                            tool_output_as_user_prompt=tool_output_as_user_prompt,
+                            tool_call,
                         )
                     )
                 )
 
+            # 并行真实调用
             if tasks:
                 results = await asyncio.gather(*tasks)
+                # 写入缓存：用 signature 作为 key
                 for tool_msg, extra_msgs, trace in results:
+                    # 这里从 trace 反推 signature（或你可以让 _execute_tool_call 返回 sig）
                     full_name = f"{trace.server}__{trace.name}"
                     sig = _sig(full_name, trace.args)
                     cache[sig] = (tool_msg.content, trace, extra_msgs)
-
-            # 2) build tool messages (MUST be consecutive)
+            # --- 2) 构造“本轮必须补齐的 tool messages”（对每个 tool_call_id 都要有）
             tool_msgs_to_append: list[dict[str, object]] = []
             extra_msgs_to_append: list[dict[str, object]] = []
 
-            for tc, sig in planned:
+            # 先处理执行集合（可能重复/缓存）
+            for tool_call, sig in planned:
                 if sig in cache:
                     cached_content, cached_trace, cached_extra = cache[sig]
                     tool_msgs_to_append.append(
-                        ToolMessage(content=cached_content, tool_call_id=tc.id).model_dump(exclude_none=True)
+                        ToolMessage(content=cached_content, tool_call_id=tool_call.id).model_dump(exclude_none=True)
                     )
-
+                    # trace 只记录一次即可（避免重复膨胀）；你也可以加个 “reused=True”
                     if cached_trace not in tool_trace:
                         tool_trace.append(cached_trace)
+                        update_state_from_tool_trace(state, cached_trace)
 
-                    for em in cached_extra:
-                        if em not in extra_msgs_to_append:
-                            extra_msgs_to_append.append(em)
-
+                    # extra 也只追加一次（否则会越滚越大）
+                    if cached_extra:
+                        for m in cached_extra:
+                            if m not in extra_msgs_to_append:
+                                extra_msgs_to_append.append(m)
                 else:
+                    # 理论上不会发生：没有进入 cache 说明真实调用没跑出来
                     tool_msgs_to_append.append(
-                        ToolMessage(content="tool_error: missing result", tool_call_id=tc.id).model_dump(
+                        ToolMessage(content="tool_error: missing result", tool_call_id=tool_call.id).model_dump(
                             exclude_none=True
                         )
                     )
-
-            for tc in tool_calls_skipped:
+            for tool_call in tool_calls_skipped:
                 tool_msgs_to_append.append(
                     ToolMessage(
                         content="skipped_due_to_max_parallel_tools",
-                        tool_call_id=tc.id,
+                        tool_call_id=tool_call.id,
                     ).model_dump(exclude_none=True)
                 )
 
+            # ✅ 协议关键：先追加所有 tool messages（连续）
             tool_loop_messages.extend(tool_msgs_to_append)
+
+            # ✅ 再追加 extra user messages（用于链式决策）
             tool_loop_messages.extend(extra_msgs_to_append)
 
         return tool_loop_messages, tool_trace

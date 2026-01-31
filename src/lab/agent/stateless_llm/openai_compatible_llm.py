@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING, Any
 from loguru import logger
 from openai import APIConnectionError, APIError, AsyncOpenAI, AsyncStream, RateLimitError
 
+from lab.mcp.util import call_with_short_retry  # type: ignore
+
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
@@ -135,11 +137,36 @@ class AsyncLLM:
 
         temp = self.temperature if temperature is None else temperature
 
-        return await self.client.chat.completions.create(  # type: ignore[return-value]
-            model=self.model,
-            messages=messages_with_system,  # type: ignore[arg-type]
-            tools=tools,  # type: ignore[arg-type]
-            tool_choice=tool_choice,  # type: ignore[arg-type]
-            stream=False,
-            temperature=temp,
+        return await call_with_short_retry(
+            lambda: self.client.chat.completions.create(  # type: ignore[return-value]
+                model=self.model,
+                messages=messages_with_system,  # type: ignore[arg-type]
+                tools=tools,  # type: ignore[arg-type]
+                tool_choice=tool_choice,  # type: ignore[arg-type]
+                stream=False,
+                temperature=temp,
+            ),
+            max_retries=2,
+        )  # type: ignore[return-value]
+
+    async def vision_completion_once(
+        self,
+        messages: list[dict[str, Any]],
+        system: str | None = None,
+        *,
+        temperature: float | None = None,
+    ) -> str:
+        base_msgs = list(messages)
+        messages_with_system = ([{"role": "system", "content": system}] + base_msgs) if system else base_msgs
+        temp = self.temperature if temperature is None else temperature
+
+        resp = await call_with_short_retry(  # type: ignore[assignment]
+            lambda: self.client.chat.completions.create(  # type: ignore[return-value]
+                model=self.model,
+                messages=messages_with_system,  # type: ignore[arg-type]
+                stream=False,
+                temperature=temp,
+            ),
+            max_retries=2,
         )
+        return (resp.choices[0].message.content or "").strip()  # type: ignore[misc]

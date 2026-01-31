@@ -10,15 +10,18 @@ from lab.agent.input_types import BatchInput, TextSource
 from lab.agent.mcp_tool_loop import McpToolLoopRunner
 from lab.agent.transformers import actions_extractor, display_processor, sentence_divider, tts_filter
 from lab.chat_history_manager import get_history
-from lab.mcp import FastMcpRouter
+from lab.mcp import ConversationState, FastMcpRouter, dump_openai_msg, prompt_result_to_text
+from lab.mcp.util import call_with_short_retry  # type: ignore
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable
 
     from lab.agent.output_types import AudioOutput, DisplayText, SentenceOutput
+    from lab.agent.stateless_llm.openai_compatible_llm import AsyncLLM
     from lab.config_manager.config import XnneHangLabSettings
     from lab.config_manager.vtuber import TTSPreprocessorConfig
     from lab.live2d_model import Live2dModel
+    from lab.mcp import ToolTraceItem
 
 
 class MemoryAgent(AgentInterface):
@@ -30,23 +33,16 @@ class MemoryAgent(AgentInterface):
     Final output ALWAYS goes through the transformer pipeline for TTS (same as BasicMemoryAgent).
     """
 
-    _chat_system: str = (
-        "You are an error message repeater.\n"
-        "Your job is repeating this error message:\n"
-        "'No system prompt set. Please set a system prompt'.\n"
-        "Don't say anything else.\n"
-    )
-
     def __init__(
         self,
         *,
         lab_settings: XnneHangLabSettings,
-        chat_llm: Any,
-        tool_llm: Any | None = None,
-        vision_llm: Any | None = None,
-        chat_system: str,
-        tool_system: str | None = None,
-        vision_system: str | None = None,
+        chat_llm: AsyncLLM,
+        tool_llm: AsyncLLM,
+        vision_llm: AsyncLLM,
+        chat_system_prompt: str,
+        tool_system_prompt: str,
+        vision_system_prompt: str,
         live2d_model: Live2dModel,
         tts_preprocessor_config: TTSPreprocessorConfig,
         enable_tool: bool = False,
@@ -56,30 +52,124 @@ class MemoryAgent(AgentInterface):
         interrupt_method: Literal["system", "user"] = "user",
     ) -> None:
         super().__init__()
-        self._memory: list[dict[str, str]] = []
-        self._chat_llm = chat_llm
-        self._tool_llm = tool_llm or chat_llm
-        self._vision_llm = vision_llm or chat_llm
         self.lab_settings = lab_settings
+        self.state = ConversationState()  # 这是动态状态，不是配置
+        self.tool_ctx_cfg = self.lab_settings.mcp.tool_context  # 或从 lab.toml 加载，静态配置
+        self._memory: list[dict[str, str]] = []
+        # ✅ LLM 接口
+        self.chat_llm = chat_llm
+        self.tool_llm = tool_llm
+        self.vision_llm = vision_llm
+        self.chat_system_prompt = chat_system_prompt
+        self.tool_system_prompt = tool_system_prompt
+        self.vision_system_prompt = vision_system_prompt
+        # ✅ 新增：能力开关
+        self.chat_supports_vision = self.lab_settings.agent.chat_model.support_vision
+
+        # MCP 相关
+        self._blob_store: dict[str, dict[str, object]] = {}  # call_id -> {"mime":..., "b64":...}
         self.enable_tool = enable_tool
         self.mcp = mcp or FastMcpRouter(prefix_delim="__")
-        self._tool_loop = McpToolLoopRunner(tool_llm=self._tool_llm, mcp=self.mcp,tool_context_config=lab_settings.mcp.tool_context)
+        self.tool_loop = McpToolLoopRunner(
+            tool_llm=self.tool_llm, mcp=self.mcp, tool_context_config=lab_settings.mcp.tool_context
+        )
 
         self._live2d_model = live2d_model
-        self._tts_preprocessor_config = tts_preprocessor_config
-        self._faster_first_response = faster_first_response
-        self._segment_method = segment_method
-        self.interrupt_method = interrupt_method
-        self._interrupt_handled = False
 
-        self.set_system(chat_system)
-        self._tool_system = tool_system or ""
-        self._vision_system = vision_system or ""
+        # tts preprocessor config
+        self.tts_preprocessor_config = tts_preprocessor_config
+        self.faster_first_response = faster_first_response
+        self.segment_method = segment_method
+        self.interrupt_method = interrupt_method
+        self.interrupt_handled = False
 
         # bind chat pipeline
         self.chat = self._chat_function_factory(self._stream_chat_tokens)  # type: ignore[method-assign]
 
         logger.info(f"MemoryAgent initialized. enable_tool={self.enable_tool}")
+
+    def _snip(self, s: str, n: int = 1200) -> str:
+        """截断字符串，保留前 n 个字符，加省略号"""
+        ss = (s or "").strip()
+        if len(ss) <= n:
+            return ss
+        return ss[:n] + f"\n...(preview truncated, {len(ss)} chars total)..."
+
+    def _user_msg_with_image(self, text: str, *, b64: str, mime: str = "image/jpeg") -> dict[str, object]:
+        return {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": text},
+                {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
+            ],
+        }
+
+    def _first_image_ref(self, tool_trace: list[ToolTraceItem]) -> str | None:
+        """
+        从 tool_trace 中提取第一个 image_ref。
+        试图 match 这样一个对象：
+        trace.raw_result = {
+            "image_ref": tool_call.id,
+            "mime": "image/jpeg",
+            "b64_len": len(b64),
+        }
+        局限是：
+        仅仅支持单图片场景，且 image_ref 必须在 raw_result 里。
+        不过鉴于 openai 一次传入多个 image_url 的识别率直线下降（以前用 llm 做电池缺陷识别的经验），这里仅支持单图片场景，比如：
+        调用 screen shoot，或者调用摄像机等工具，来获取图片，一般更建议多次调用然后每次对单张图片进行分析而不是一次调用获取多张图片。
+        """
+        for t in tool_trace:
+            raw = t.raw_result or {}
+            if isinstance(raw, dict):  # type: ignore
+                if raw.get("kind") == "image_ref":
+                    v = raw.get("image_ref")
+                    if isinstance(v, str) and v:
+                        return v
+                # 兼容旧格式（如果你历史里存在）
+                v2 = raw.get("image_ref")
+                if isinstance(v2, str) and v2:
+                    return v2
+        return None
+
+    async def _get_vision_summary(
+        self,
+        *,
+        user_input: str,
+        img_ref: str,
+        b64: str,
+        mime: str,
+    ) -> str:
+        # ✅ 缓存：同一张图别反复总结
+        cache_key = f"vision_summary::{img_ref}"
+        cached = self.state.slots.get(cache_key)
+        if isinstance(cached, str) and cached.strip():
+            return cached
+
+        if not self.vision_llm:
+            return ""
+
+        # 视觉模型只做“抽取/结构化摘要”，不要写长文，不要角色扮演
+        vision_system = self.vision_system_prompt
+
+        # ✅ 这里要把图发给 vision_model（它支持 vision）
+        msgs: list[dict[str, object]] = [
+            {"role": "system", "content": vision_system},
+            self._user_msg_with_image(
+                f"用户问题：{user_input}\n请抽取与问题最相关的信息。",
+                b64=b64,
+                mime=mime,
+            ),
+        ]
+
+        text_summary = await self.vision_llm.vision_completion_once(  # type: ignore[attr-defined]
+            messages=msgs,
+            system=vision_system,
+        )
+        if text_summary:
+            # cache it
+            self.state.slots[cache_key] = text_summary
+            logger.info(f"[VISION] cached vision summary for img_ref={img_ref}: {self._snip(text_summary)}")
+        return text_summary
 
     # ---------------------------------------------------------------------
     # MCP lifecycle
@@ -93,6 +183,7 @@ class MemoryAgent(AgentInterface):
         for name, s in [
             ("timeemi", self.lab_settings.mcp.servers.timeemi),
             ("vision", self.lab_settings.mcp.servers.vision),
+            ("tool", self.lab_settings.mcp.servers.tool),
         ]:
             url = f"{s.transport}://{s.host}:{s.port}{s.path}"  # http://127.0.0.1:4200/ 我们只考虑 http, stdio 无法在 uvicorn 中运行.
             await self.mcp.connect(name=name, url=url)
@@ -103,11 +194,6 @@ class MemoryAgent(AgentInterface):
     # ---------------------------------------------------------------------
     # Basic memory ops
     # ---------------------------------------------------------------------
-    def set_system(self, system: str) -> None:
-        logger.debug(f"MemoryAgent: Setting system prompt: '''{system}'''")
-        if self.interrupt_method == "user":
-            system = f"{system}\n\nIf you received `[interrupted by user]` signal, you were interrupted."
-        self._chat_system = system
 
     def _add_message(
         self,
@@ -140,15 +226,17 @@ class MemoryAgent(AgentInterface):
         for msg in messages:
             self._memory.append(
                 {
-                    "role": "user" if msg["role"] == "human" else "assistant",
+                    "role": "user"
+                    if msg["role"] == "human"
+                    else "assistant",  # bug: 这里可能会有 tool call 的 tool message, 但是暂时也就当成 assistant 处理, 具体得看怎么写的 history
                     "content": msg["content"],
                 }
             )
 
     def handle_interrupt(self, heard_response: str) -> None:
-        if self._interrupt_handled:
+        if self.interrupt_handled:
             return
-        self._interrupt_handled = True
+        self.interrupt_handled = True
 
         if self._memory and self._memory[-1]["role"] == "assistant":
             self._memory[-1]["content"] = heard_response + "..."
@@ -184,7 +272,7 @@ class MemoryAgent(AgentInterface):
         if not self.enable_tool:
             async for tok in self._chat_llm.chat_completion(  # type: ignore[attr-defined]
                 messages,  # type: ignore[arg-type]
-                self._chat_system,
+                self.chat_system_prompt,
                 stream_=True,
             ):
                 yield tok
@@ -193,12 +281,29 @@ class MemoryAgent(AgentInterface):
         # tool mode
         try:
             available_tools = await self.mcp.list_tools_openai_schema()
-            _, tool_trace = await self._tool_loop.run_tool_loop(
-                tool_system_prompt=self._tool_system,
-                messages=messages,
+            user_input = ""
+            for m in reversed(messages):
+                # 从后往前找最新的 user message
+                if m.get("role") == "user":
+                    user_input = str(m.get("content", ""))
+                    break
+            _, tool_trace = await self.tool_loop.run_tool_loop(
+                tool_system_prompt=self.tool_system_prompt,
                 available_tools=available_tools,
                 debug=False,
+                state=self.state,
+                user_input=user_input,
             )
+            img_ref = None
+            # ✅ 优先从 state 拿（更稳：即使 tool_trace 被裁剪/压缩也不影响）
+            if isinstance(getattr(self, "state", None), object):
+                refs = getattr(self.state, "refs", {})
+                if isinstance(refs, dict):
+                    v = refs.get("last_image_ref")  # type: ignore
+                    if isinstance(v, str):
+                        img_ref = v
+
+            img_ref = img_ref or self._first_image_ref(tool_trace)
         except Exception as e:
             logger.exception(f"Tool loop failed, fallback to normal chat: {e}")
             tool_trace = []

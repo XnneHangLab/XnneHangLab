@@ -160,14 +160,6 @@ class Agent:
             ]
         return available_tools
 
-    async def connect_mcp_servers(self) -> None:
-        """
-        连接你已启动的 FastMCP servers（你配置里 path="/"）。
-        """
-        await self.mcp.connect(name="timeemi", url="http://127.0.0.1:4200/")
-        await self.mcp.connect(name="vision", url="http://127.0.0.1:4201/")
-        await self.mcp.connect(name="tool", url="http://127.0.0.1:4202/")
-
     async def _get_vision_summary(
         self,
         *,
@@ -223,6 +215,14 @@ class Agent:
         if text:
             self.state.slots[cache_key] = text
         return text  # type: ignore
+
+    async def connect_mcp_servers(self) -> None:
+        """
+        连接你已启动的 FastMCP servers（你配置里 path="/"）。
+        """
+        await self.mcp.connect(name="timeemi", url="http://127.0.0.1:4200/")
+        await self.mcp.connect(name="vision", url="http://127.0.0.1:4201/")
+        await self.mcp.connect(name="tool", url="http://127.0.0.1:4202/")
 
     async def close(self) -> None:
         await self.mcp.close()
