@@ -49,18 +49,22 @@ class Agent:
 
         self.tool_model_name = tool_model.llm_model_name
         self.chat_model_name = chat_model.llm_model_name
+        self._load_system_prompt()
         self._blob_store: dict[str, dict[str, object]] = {}  # call_id -> {"mime":..., "b64":...}
 
         self.mcp = FastMcpRouter(prefix_delim="__")
 
-    def _load_system_prompt(self) -> str:
+    def _load_system_prompt(self) -> None:
         """
-        加载角色系统提示词。
+        加载角色系统提示词和工具系统提示词。
         """
-        p = Path("prompts") / "characters" / f"{self.config.agent.character_name}.txt"
-        system = p.read_text(encoding="utf-8") if p.exists() else ""
-        system += "\n\n**請使用和用戶相同的語言**"
-        return system
+        chat_system_path = Path("prompts") / "characters" / f"{self.config.agent.character_name}.txt"
+        tool_system_path = Path("prompts") / "characters" / "tool_model.txt"
+        chat_system_prompt = chat_system_path.read_text(encoding="utf-8") if chat_system_path.exists() else ""
+        tool_system_prompt = tool_system_path.read_text(encoding="utf-8") if tool_system_path.exists() else ""
+
+        self.chat_system_prompt = chat_system_prompt
+        self.tool_system_prompt = tool_system_prompt
 
     def _snip(self, s: str, n: int = 1200) -> str:
         """截断字符串，保留前 n 个字符，加省略号"""
@@ -283,7 +287,6 @@ class Agent:
     async def run_tool_loop(
         self,
         *,
-        system_prompt: str,
         user_input: str,
         available_tools: list[dict[str, object]],
         max_steps: int = 6,
@@ -306,7 +309,7 @@ class Agent:
         # 初始 state 更新（last_user_text / last_url / last_file / choice）
         update_state_from_user_text(self.state, user_input)
         tool_loop_messages: list[dict[str, object]] = [
-            OpenAIMessage(role="system", content=system_prompt).model_dump(exclude_none=True),
+            OpenAIMessage(role="system", content=self.tool_system_prompt).model_dump(exclude_none=True),
             OpenAIMessage(role="user", content=user_input).model_dump(exclude_none=True),
         ]
         tool_trace: list[ToolTraceItem] = []
@@ -435,7 +438,6 @@ class Agent:
     async def stream_chat_answer(
         self,
         *,
-        system_prompt: str,
         user_input: str,
         tool_trace: list[ToolTraceItem],
     ):
@@ -460,7 +462,7 @@ class Agent:
         trace_dump = [t.model_dump(exclude_none=True, mode="json") for t in tool_trace]
         tool_summary = json.dumps(trace_dump, ensure_ascii=False, indent=2, default=str) if trace_dump else "[]"
         messages = [
-            OpenAIMessage(role="system", content=system_prompt).model_dump(exclude_none=True),
+            OpenAIMessage(role="system", content=self.chat_system_prompt).model_dump(exclude_none=True),
             OpenAIMessage(
                 role="user",
                 content=(
@@ -500,11 +502,9 @@ class Agent:
                 yield content
 
     async def chat_stream(self, user_input: str, *, debug: bool = True):
-        system_prompt = self._load_system_prompt()
         available_tools = await self.mcp.list_tools_openai_schema()
 
         _, tool_trace = await self.run_tool_loop(
-            system_prompt=system_prompt,
             user_input=user_input,
             available_tools=available_tools,
             debug=debug,
@@ -516,7 +516,7 @@ class Agent:
                 logger.info(f"  - {t.server}::{t.name} args={t.args} ok={t.ok} result={t.raw_result} error={t.error}")
 
         async for tok in self.stream_chat_answer(
-            system_prompt=system_prompt, user_input=user_input, tool_trace=tool_trace
+            user_input=user_input, tool_trace=tool_trace
         ):
             yield tok
 
