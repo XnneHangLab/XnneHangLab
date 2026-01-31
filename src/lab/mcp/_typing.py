@@ -351,10 +351,53 @@ class TolerantOpenAIChatMessage(BaseModel):
 # -----------------------------
 class ConversationState(BaseModel):
     """
-    Tool model 需要的“结构化记忆”：
-    - refs：用于指代消解（last_url/last_file/last_image_ref 等）
-    - slots：任务约束（用户选项、偏好、已确认条件等）
-    - summary：滚动摘要（短！）
+    ConversationState = “pinned / structured memory” for Tool Model.
+
+    目标
+    - 给 Tool Model 提供一份稳定、结构化、可控长度的“记忆与锚点”，用于：
+      1) 指代消解（“上一个链接/刚才那张图/那个文件/继续”）
+      2) 缺参补全（用户省略 URL/path 或复用上一次 image_ref）
+      3) 多轮任务约束（用户选项、偏好、已确认条件）
+      4) 可选：滚动摘要 summary（当上下文很长时替代历史全文）
+
+    重要：这个 state 本身不会“自动生效”
+    - state 只有在你把 `to_tool_pinned_json()` 注入到 tool model 的 messages 里时，Tool Model 才“看得到”。
+    - state 也不会自动更新：需要你在每轮对话/工具返回后，调用 updater 逻辑写入 refs/slots/summary/active_task。
+
+    字段说明
+    - user_prefs:
+        长期偏好（语言、风格、单位、禁用/偏好工具等），适合跨任务复用。
+    - active_task:
+        当前任务类型标记（如 "web" / "image" / "file" / "time"），用于帮助 Tool Model 做策略选择与复用策略。
+        注意：它只是提示信号；需要你在 tool prompt 中明确写“如何用 active_task”才会真正提升稳定性。
+    - refs:
+        “可复用实体”的引用与元信息，用于指代消解与复用。
+        推荐约定键（你可以按需扩展）：
+          * last_url: 最近一次被提及/尝试的 URL（不一定成功）
+          * last_url_ok: 最近一次成功抓取且内容非空的 URL（强烈建议优先使用它）
+          * last_url_failed / last_url_failed_status: 最近一次失败的 URL 与状态（避免重复撞墙）
+          * last_file: 最近一次被读取/被用户提及的文件路径
+          * last_image_ref: 最近一次截图/图像工具返回的 image_ref（避免重复截图）
+          * last_image_mime / last_image_b64_len: 图像元信息（用于调试/策略）
+        关键工程规则（强烈建议）：
+          - “失败的 web_fetch 不要覆盖 last_url_ok”，否则会污染后续“上一个链接”的解析。
+          - 用户说“刚才那张截图”时默认复用 last_image_ref，除非用户明确要求“重新截图/现在截图”。
+
+    - slots:
+        与当前任务强相关的结构化槽位（本轮/近期有效），例如：
+          * last_user_text: 上一条用户输入（用于一些弱消歧/回显）
+          * choice_index / selected_item / constraints: 用户选了第几个、选择了哪项、有哪些约束
+        slots 适合短期、任务内变量；不建议塞长期偏好（放到 user_prefs）。
+
+    - summary:
+        “滚动摘要”，用于在长对话时替代历史全文，降低 tool model 上下文开销。
+        注意：本字段不会自动生成；需要你实现一个 summarizer（可由 chat model 或 tool model 生成）并写回。
+        本类 validator 仅做长度上限保护（避免 pinned state 失控膨胀）。
+
+    输出
+    - to_tool_pinned_json():
+        返回“注入给 tool model 的 JSON”（会再截断保护长度）。
+        典型用法：作为一条固定的 user/system 消息注入 tool loop 的最前部，或紧跟 system prompt 之后。
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -388,6 +431,52 @@ class ConversationState(BaseModel):
 # -----------------------------
 # TODO Move to lab.toml
 class ToolContextConfig(BaseModel):
+    """
+    ToolContextConfig = 控制“tool model 上下文构建策略”的配置。
+
+    目标
+    - 在“工具 schema + 思考空间 + pinned state + 上下文窗口”之间做预算分配，
+      避免把 tool model 喂到很慢/很贵/注意力分散，同时保证在需要时能看见关键历史。
+
+    重要：这个 config 不会自动生效
+    - 只有当你实现并调用类似 `build_tool_context(...)` / `trim_to_budget(...)` 的逻辑时，
+      这些字段才会真正影响 tool_loop_messages。
+    - 如果你只是定义了 config 但仍然用“system + 最后一条 user_input”喂给 tool model，
+      那这些参数几乎不会起作用。
+
+    字段说明（建议实现时的使用方式）
+    - tool_budget_tokens:
+        tool model 输入的粗预算（保守值）。注意工具 schema/函数定义也会占用大量 token。
+    - reserve_tokens:
+        预留给工具 schema、工具调用协议、模型思考余量的预算；用于从 budget 中先扣掉。
+        validator 保证 reserve_tokens < tool_budget_tokens。
+    - min_window_tokens:
+        给“最近上下文窗口”保底的最小预算，防止 pinned state 或其它内容把窗口挤没。
+    - pinned_max_chars:
+        pinned state 的字符上限（第二道保护），防止 state JSON 过大影响速度与稳定性。
+    - recent_n_msgs:
+        当需要历史上下文时，最多向前带多少条 message（user/assistant/tool 都算）。
+        工程实现建议：
+          1) 先拿最近 N 条作为候选窗口；
+          2) 再根据 token 预算逐步裁剪（而不是死保 N 条）。
+    - include_prev_assistant:
+        处理“对/不是/第二个/同样/继续”等强依赖上一轮 assistant 的短输入时，
+        尽量把“上一条 assistant”也纳入窗口，以提升指代/选择解析的稳定性。
+        工程注意：
+          - 永远对索引做 clamp：即使历史不足也不要越界（避免 list index out of range）。
+          - 若上一条 assistant 是 tool_calls 产物，确保协议顺序仍然正确（不要把 user 插到 tool messages 中间）。
+
+    推荐的上下文构建流程（实现提示）
+    1) 固定注入 system_prompt（tool router prompt）
+    2) 固定注入 pinned state（ConversationState.to_tool_pinned_json 的一条消息）
+    3) 依据 user_text 判断是否 context-dependent：
+         - 否：窗口可只保留最后 rememberable 的少量消息（甚至只保 last user）
+         - 是：扩展到 recent_n_msgs，并按 include_prev_assistant 做补齐
+    4) 按 tool_budget_tokens/reserve_tokens 做粗裁剪，必要时对窗口做缩短/摘要替代
+
+    这套配置的价值
+    - 在“总是全上下文（慢）”与“永远短上下文（容易跑偏）”之间提供可调的工程折中。
+    """
     model_config = ConfigDict(extra="forbid")
 
     # 粗估 token 预算（工具 schema + 思考也会占用，所以别给太满）
