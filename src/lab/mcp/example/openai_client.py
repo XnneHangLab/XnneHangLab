@@ -8,8 +8,19 @@ from loguru import logger
 from openai import APIConnectionError, APIError, AsyncOpenAI, RateLimitError
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
-from lab.mcp._typing import OpenAIMessage, ScreenShotResult, ToolCallLike, ToolMessage, ToolTraceItem
+from lab.mcp._typing import (
+    ConversationState,
+    ImageRefResult,
+    OpenAIMessage,
+    ScreenShotResult,
+    ToolCallLike,
+    ToolContextConfig,
+    ToolMessage,
+    ToolTraceItem,
+)
+from lab.mcp.context_policy import build_resolved_refs_msg
 from lab.mcp.fastmcp_router import FastMcpRouter
+from lab.mcp.state_updater import update_state_from_tool_trace, update_state_from_user_text
 from lab.mcp.tool_registry import DEFAULT_RETRY_HINT, TOOL_RETRY_HINTS, ToolRegistry
 from lab.mcp.util import call_with_short_retry, dump_openai_msg, prompt_result_to_text  # type: ignore
 
@@ -31,7 +42,8 @@ class Agent:
         chat_model = self.config.agent.chat_model
         tool_llm = getattr(self.config.agent.llm, tool_model.llm_provider)
         chat_llm = getattr(self.config.agent.llm, chat_model.llm_provider)
-
+        self.state = ConversationState()
+        self.tool_ctx_cfg = ToolContextConfig()  # 或从 lab.toml 加载
         self.tool_client = AsyncOpenAI(base_url=tool_llm.llm_base_url, api_key=tool_llm.llm_api_key)
         self.chat_client = AsyncOpenAI(base_url=chat_llm.llm_base_url, api_key=chat_llm.llm_api_key)
 
@@ -81,11 +93,16 @@ class Agent:
         调用 screen shoot，或者调用摄像机等工具，来获取图片，一般更建议多次调用然后每次对单张图片进行分析而不是一次调用获取多张图片。
         """
         for t in tool_trace:
-            raw_result = t.raw_result or {}
-            if isinstance(raw_result, dict) and "image_ref" in raw_result:  # type: ignore
-                v = raw_result["image_ref"]
-                if isinstance(v, str):
-                    return v
+            raw = t.raw_result or {}
+            if isinstance(raw, dict):  # type: ignore
+                if raw.get("kind") == "image_ref":
+                    v = raw.get("image_ref")
+                    if isinstance(v, str) and v:
+                        return v
+                # 兼容旧格式（如果你历史里存在）
+                v2 = raw.get("image_ref")
+                if isinstance(v2, str) and v2:
+                    return v2
         return None
 
     async def connect_mcp_servers(self) -> None:
@@ -129,28 +146,20 @@ class Agent:
                 b64 = result_model.image_b64
                 self._blob_store[tool_call.id] = {"mime": "image/jpeg", "b64": b64}
 
-                # ToolMessage 给 Tool Model：只给短信息
                 tool_msg = ToolMessage(
                     content=f"[screenshot captured] ref={tool_call.id} mime=image/jpeg b64_len={len(b64)}",
                     tool_call_id=tool_call.id,
                 )
 
-                # ToolTrace 给 Chat Model：只给 ref + 元信息
+                # ✅ 关键：trace_item 直接吃 ImageRefResult，raw_result 统一建模
                 trace = ToolRegistry.trace_item(
                     parsed,
-                    ScreenShotResult(image_b64=""),  # 或者你直接手动构造 raw_result
+                    ImageRefResult(image_ref=tool_call.id, mime="image/jpeg", b64_len=len(b64)),
                     ok=True,
                     error=None,
                 )
-                trace.raw_result = {
-                    "image_ref": tool_call.id,
-                    "mime": "image/jpeg",
-                    "b64_len": len(b64),
-                }
             else:
-                # 普通工具调用
                 tool_text = ToolRegistry.tool_content_for_tool_model(result_model)
-
                 tool_msg = ToolMessage(content=tool_text, tool_call_id=tool_call.id)
                 trace = ToolRegistry.trace_item(parsed, result_model, ok=True, error=None)
 
@@ -171,7 +180,7 @@ class Agent:
         extra_msgs: list[dict[str, object]] = []
         if tool_output_as_user_prompt:
             if trace.ok:
-                # 只对你已知工具做 prompt（扩展点：你以后可以加 vision 等）
+                # 只对你已知工具做 prompt
                 if parsed.full_name == "timeemi__get_date_and_time":
                     # 这里传 raw datetime 给 server prompt 模板（让 Tool Model/Chat Model 自己口语化）
                     dt = trace.raw_result.get("datetime")
@@ -210,6 +219,57 @@ class Agent:
                         args={},
                     )
                     extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
+
+                # --------------------------
+                # tool__web_search: extract
+                # --------------------------
+                if parsed.full_name == "tool__web_search":
+                    raw_result = trace.raw_result  # dict[str, object]
+                    search_results = raw_result.get("results")
+
+                    if isinstance(search_results, list):
+                        lines: list[str] = ["Web search results (pick one URL if you need to fetch details):"]
+                        for idx, item in enumerate(search_results[:5], 1):  # type: ignore
+                            if not isinstance(item, dict):
+                                continue
+                            title = str(item.get("title", "") or "")  # type: ignore
+                            url = str(item.get("url", "") or "")  # type: ignore
+                            snippet = str(item.get("snippet", "") or "")  # type: ignore
+                            lines.append(f"{idx}. {title}\n   {url}\n   {snippet}")
+                        extra_msgs.append({"role": "user", "content": "\n".join(lines)})
+
+                # --------------------------
+                # tool__web_fetch: extract
+                # --------------------------
+                if parsed.full_name == "tool__web_fetch":
+                    raw_result = trace.raw_result  # dict[str, object]
+
+                    fetch_url = str(raw_result.get("url", "") or "")
+                    status_code = raw_result.get("status_code", "")
+                    content_type = str(raw_result.get("content_type", "") or "")
+                    is_truncated = bool(raw_result.get("truncated", False))
+
+                    fetch_text_obj = raw_result.get("text", "")
+                    fetch_text = fetch_text_obj if isinstance(fetch_text_obj, str) else ""
+                    preview = self._snip(fetch_text, 1200) if fetch_text else ""
+
+                    lines = [
+                        "Web fetch result (use this content to answer; if insufficient, fetch again with larger max_chars or another URL):",
+                        f"- url: {fetch_url}",
+                        f"- status_code: {status_code}",
+                        f"- content_type: {content_type}",
+                        f"- truncated: {is_truncated}",
+                        "",
+                        "Extracted text preview:",
+                        preview,
+                    ]
+                    if is_truncated:
+                        lines += [
+                            "",
+                            "Note: content was truncated. If you need more, call tool__web_fetch with a larger max_chars (up to 20000) or fetch a more specific URL section.",
+                        ]
+
+                    extra_msgs.append({"role": "user", "content": "\n".join(lines)})
             else:
                 hint = TOOL_RETRY_HINTS.get(parsed.full_name, DEFAULT_RETRY_HINT)
                 extra_msgs.append(
@@ -218,56 +278,6 @@ class Agent:
                         "content": (f"[TOOL_ERROR] {parsed.full_name} failed.\nError: {trace.error}\n{hint}"),
                     }
                 )
-            # --------------------------
-            # tool__web_search: extract
-            # --------------------------
-            if parsed.full_name == "tool__web_search":
-                raw_result = trace.raw_result  # dict[str, object]
-                search_results = raw_result.get("results")
-
-                if isinstance(search_results, list):
-                    lines: list[str] = ["Web search results (pick one URL if you need to fetch details):"]
-                    for idx, item in enumerate(search_results[:5], 1):  # type: ignore
-                        if not isinstance(item, dict):
-                            continue
-                        title = str(item.get("title", "") or "")  # type: ignore
-                        url = str(item.get("url", "") or "")  # type: ignore
-                        snippet = str(item.get("snippet", "") or "")  # type: ignore
-                        lines.append(f"{idx}. {title}\n   {url}\n   {snippet}")
-                    extra_msgs.append({"role": "user", "content": "\n".join(lines)})
-
-            # --------------------------
-            # tool__web_fetch: extract
-            # --------------------------
-            if parsed.full_name == "tool__web_fetch":
-                raw_result = trace.raw_result  # dict[str, object]
-
-                fetch_url = str(raw_result.get("url", "") or "")
-                status_code = raw_result.get("status_code", "")
-                content_type = str(raw_result.get("content_type", "") or "")
-                is_truncated = bool(raw_result.get("truncated", False))
-
-                fetch_text_obj = raw_result.get("text", "")
-                fetch_text = fetch_text_obj if isinstance(fetch_text_obj, str) else ""
-                preview = self._snip(fetch_text, 1200) if fetch_text else ""
-
-                lines = [
-                    "Web fetch result (use this content to answer; if insufficient, fetch again with larger max_chars or another URL):",
-                    f"- url: {fetch_url}",
-                    f"- status_code: {status_code}",
-                    f"- content_type: {content_type}",
-                    f"- truncated: {is_truncated}",
-                    "",
-                    "Extracted text preview:",
-                    preview,
-                ]
-                if is_truncated:
-                    lines += [
-                        "",
-                        "Note: content was truncated. If you need more, call tool__web_fetch with a larger max_chars (up to 20000) or fetch a more specific URL section.",
-                    ]
-
-                extra_msgs.append({"role": "user", "content": "\n".join(lines)})
         return tool_msg, extra_msgs, trace
 
     async def run_tool_loop(
@@ -287,11 +297,22 @@ class Agent:
         - 链式：补齐 tool messages 后，再追加 extra user messages 进入下一轮决策
         - 去重：同轮相同 (tool+args) 只真实调用一次，但每个 tool_call_id 都回填
         """
+        if debug:
+            logger.info(
+                f"[STATE] active_task={self.state.active_task} refs={self.state.refs} slots={list(self.state.slots.keys())}"
+            )
+            logger.info(f"[STATE_JSON] {self.state.model_dump(exclude_none=True)}")
+
+        # 初始 state 更新（last_user_text / last_url / last_file / choice）
+        update_state_from_user_text(self.state, user_input)
         tool_loop_messages: list[dict[str, object]] = [
             OpenAIMessage(role="system", content=system_prompt).model_dump(exclude_none=True),
             OpenAIMessage(role="user", content=user_input).model_dump(exclude_none=True),
         ]
         tool_trace: list[ToolTraceItem] = []
+        resolved_refs_msg = build_resolved_refs_msg(self.state, user_input)
+        if resolved_refs_msg is not None:
+            tool_loop_messages.append(resolved_refs_msg)
 
         # 跨 step 的缓存：避免重复真实调用（可选但很省）
         cache: dict[str, tuple[str, ToolTraceItem, list[dict[str, object]]]] = {}
@@ -379,6 +400,8 @@ class Agent:
                     # trace 只记录一次即可（避免重复膨胀）；你也可以加个 “reused=True”
                     if cached_trace not in tool_trace:
                         tool_trace.append(cached_trace)
+                        update_state_from_tool_trace(self.state, cached_trace)
+
                     # extra 也只追加一次（否则会越滚越大）
                     if cached_extra:
                         for m in cached_extra:
@@ -423,7 +446,17 @@ class Agent:
         - 口语化/TTS 友好由 Chat Model 完成
         - 我们只提供结构化 trace，避免在 client 侧硬编码口语化逻辑
         """
-        img_ref = self._first_image_ref(tool_trace)
+        img_ref = None
+        # ✅ 优先从 state 拿（更稳：即使 tool_trace 被裁剪/压缩也不影响）
+        if isinstance(getattr(self, "state", None), object):
+            refs = getattr(self.state, "refs", {})
+            if isinstance(refs, dict):
+                v = refs.get("last_image_ref")  # type: ignore
+                if isinstance(v, str):
+                    img_ref = v
+
+        img_ref = img_ref or self._first_image_ref(tool_trace)
+
         trace_dump = [t.model_dump(exclude_none=True, mode="json") for t in tool_trace]
         tool_summary = json.dumps(trace_dump, ensure_ascii=False, indent=2, default=str) if trace_dump else "[]"
         messages = [
@@ -505,14 +538,34 @@ async def main():
             except (APIConnectionError, APIError, RateLimitError) as e:
                 print(f"\n[LLM error] {e}")
 
+        async def run_dialog(turns: list[str]):
+            for q in turns:
+                print(f"\n\n=== Q: {q} ===")
+                async for tok in agent.chat_stream(q, debug=True):
+                    print(tok, end="", flush=True)
+                print("\n=== END ===")
+
+        await run_dialog(
+            [
+                "https://alma.now/docs/guide/ , 用中文解释下这页讲什么",
+                "把上一个链接再总结一遍，换成更口语一点",
+            ]
+        )
+        await run_dialog(
+            [
+                "你能看到我现在的桌面环境吗？描述一下。",
+                "刚才那张截图里，最显眼的窗口是什么？用一句话说",
+            ]
+        )
+
         await run("我晚上九点就后就该去打游戏了，现在几点？")
-        await run("现在几点？现在几点你就帮我随便 roll 几个点数")
-        await run("你今天真可爱")
-        await run("https://xnnehang.top/posts/default/chill_ai_chat_mod, 这个博客讲啥了？")
-        await run("https://alma.now/docs/guide/, 帮我用中文解释下这个网页的内容。")
-        await run("./README.md 这个文件里面讲了什么内容？")
-        await run("帮我搜索一下XnneHangLab，告诉我它是做什么的？")
-        await run("你能看到我现在的桌面环境吗？描述一下。")
+        # await run("现在几点？现在几点你就帮我随便 roll 几个点数")
+        # await run("你今天真可爱")
+        # await run("https://xnnehang.top/posts/default/chill_ai_chat_mod, 这个博客讲啥了？")
+        # await run("https://alma.now/docs/guide/, 帮我用中文解释下这个网页的内容。")
+        # await run("./README.md 这个文件里面讲了什么内容？")
+        # await run("帮我搜索一下XnneHangLab，告诉我它是做什么的？")
+        # await run("你能看到我现在的桌面环境吗？描述一下。")
 
     finally:
         await agent.close()

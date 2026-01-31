@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal, Protocol
+from typing import Any, Literal, Protocol
 
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, RootModel, field_validator
 
@@ -78,6 +78,18 @@ class ToolTraceItem(BaseModel):
     raw_result: dict[str, object] = Field(default_factory=dict)
     ok: bool = True
     error: str | None = None
+
+
+class ImageRefResult(BaseModel):
+    """
+    用于 ToolTraceItem.raw_result 的“图像引用结果”。
+    大 payload（base64）不进 messages，只进 blob_store。
+    """
+
+    kind: Literal["image_ref"] = "image_ref"
+    image_ref: str = Field(..., min_length=1)
+    mime: str = Field(default="image/jpeg", min_length=3)
+    b64_len: int = Field(..., ge=0)
 
 
 # =============================================================================
@@ -312,3 +324,95 @@ class UnknownResult(BaseModel):
         if nv is None or isinstance(nv, (dict, list, str, int, float, bool)):
             return nv  # type: ignore
         return repr(nv)
+
+
+# -----------------------------
+# Message schema (宽松校验)
+# -----------------------------
+Role = Literal["system", "user", "assistant", "tool"]
+
+
+class TolerantOpenAIChatMessage(BaseModel):
+    """
+    宽松版 OpenAI message 校验：
+    - role 必须是合法值
+    - content 允许 str 或 list（多模态）或其他（我们会 best-effort 转文字）
+    - extra 字段允许（比如 tool_call_id / name / tool_calls / etc）
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    role: Role
+    content: Any = ""
+
+
+# -----------------------------
+# Conversation pinned state
+# -----------------------------
+class ConversationState(BaseModel):
+    """
+    Tool model 需要的“结构化记忆”：
+    - refs：用于指代消解（last_url/last_file/last_image_ref 等）
+    - slots：任务约束（用户选项、偏好、已确认条件等）
+    - summary：滚动摘要（短！）
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    user_prefs: dict[str, Any] = Field(default_factory=dict)
+    active_task: str | None = None
+    refs: dict[str, Any] = Field(default_factory=dict)
+    slots: dict[str, Any] = Field(default_factory=dict)
+    summary: str = ""
+
+    @field_validator("summary")
+    @classmethod
+    def _summary_not_too_long(cls, v: str) -> str:
+        # 这里不是硬限制 token，只做一个上限保护，避免 pinned 爆炸
+        v = (v or "").strip()
+        return v[:4000]
+
+    def to_tool_pinned_json(self) -> dict[str, Any]:
+        # 给 tool routing 用的 pinned JSON（再截一层，保证更短）
+        return {
+            "user_prefs": self.user_prefs,
+            "active_task": self.active_task,
+            "refs": self.refs,
+            "slots": self.slots,
+            "summary": (self.summary or "")[:1000],
+        }
+
+
+# -----------------------------
+# Config with validation
+# -----------------------------
+# TODO Move to lab.toml
+class ToolContextConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # 粗估 token 预算（工具 schema + 思考也会占用，所以别给太满）
+    tool_budget_tokens: int = Field(default=2200, ge=512, le=20000)
+
+    # 需要扩展时，最多向前带多少条 message（user/assistant/tool 都算）
+    recent_n_msgs: int = Field(default=10, ge=1, le=60)
+
+    # 扩展时是否尽量保证带上“上一条 assistant”（对“对/不是/第二个”很关键）
+    include_prev_assistant: bool = True
+
+    # pinned state 最大字符数（保护上限）
+    pinned_max_chars: int = Field(default=2400, ge=256, le=20000)
+
+    # 预留 token 给工具 schema/模型思考（粗估）
+    reserve_tokens: int = Field(default=350, ge=0, le=5000)
+
+    # “窗口”最小保留预算（避免全被 pinned 吃掉）
+    min_window_tokens: int = Field(default=200, ge=0, le=5000)
+
+    @field_validator("reserve_tokens")
+    @classmethod
+    def _reserve_lt_budget(cls, v: int, info) -> int:  # type: ignore
+        # 在 pydantic v2 里拿到同模型其它字段要用 info.data
+        budget = int(info.data.get("tool_budget_tokens", 2200))  # type: ignore
+        if v >= budget:
+            raise ValueError(f"reserve_tokens({v}) must be < tool_budget_tokens({budget})")
+        return v
