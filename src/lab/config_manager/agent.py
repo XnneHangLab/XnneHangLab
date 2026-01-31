@@ -23,10 +23,12 @@ class ChatModelSetting(BaseModel):
     llm_provider: Annotated[LLM_Provider, Field("oaipro", title="LLM Provider for Chat Model")]
     llm_model_name: Annotated[str, Field("gpt-5.1-2025-11-13", title="Chat Model Name")]
 
+# Vision Model
+class VisionModelSetting(BaseModel):
+    llm_provider: Annotated[LLM_Provider, Field("oaipro", title="LLM Provider for Vision Model")]
+    llm_model_name: Annotated[str, Field("gpt-5.1-2025-11-13", title="Vision Model Name")]
 
 # LLM
-
-
 class LLMSettingBase(BaseModel):
     llm_api_key: Annotated[str, Field("", title="OpenAI API Key")]
     llm_base_url: Annotated[str, Field("", title="OpenAI API Base URL")]
