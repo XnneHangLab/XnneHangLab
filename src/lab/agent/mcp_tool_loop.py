@@ -112,7 +112,7 @@ class McpToolLoopRunner:
 
         # 1) args 强校验
         parsed = ToolRegistry.parse_args(full_name, tool_call.function.arguments)
-        args_dict = parsed.args_model.model_dump(exclude_none=True,mode="json")
+        args_dict = parsed.args_model.model_dump(exclude_none=True, mode="json")
 
         # 2) 调工具
         try:
@@ -342,7 +342,7 @@ class McpToolLoopRunner:
             for tool_call in tool_calls_exec:
                 full_name = tool_call.function.name
                 parsed = ToolRegistry.parse_args(full_name, tool_call.function.arguments)
-                args_dict = parsed.args_model.model_dump(exclude_none=True,mode="json")
+                args_dict = parsed.args_model.model_dump(exclude_none=True, mode="json")
                 sig = _sig(full_name, args_dict)
                 planned.append((tool_call, sig))
 

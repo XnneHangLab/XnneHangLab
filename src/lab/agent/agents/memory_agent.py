@@ -269,6 +269,7 @@ class MemoryAgent(AgentInterface):
     # ---------------------------------------------------------------------
     async def _stream_chat_tokens(self, messages: list[dict[str, Any]]) -> AsyncIterator[str]:
         if not self.enable_tool:
+            self._add_message(messages[-1]["content"], "user")  # 直接添加 user message 到 memory 中
             async for tok in self.chat_llm.chat_completion(  # type: ignore[attr-defined]
                 messages,  # type: ignore[arg-type]
                 self.chat_system_prompt,
@@ -280,22 +281,39 @@ class MemoryAgent(AgentInterface):
         # tool mode
 
         available_tools = await self.mcp.list_tools_openai_schema()
-        user_input = ""
-        for m in reversed(messages):
-            # 从后往前找最新的 user message
-            if m.get("role") == "user":
-                user_input = str(m.get("content", ""))
-                # IMPORTANT: 移除该 message，tool loop 会重新添加， 不然会重复
-                messages.remove(m)
-                break
-        logger.debug(f"get user_input from messages: {user_input}")
+        # 如果 user input 的来源是 _memory 且是由 chat_func 调用的，那么最后一条消息一定是 user,而这里防的是其他情况
+        user_input_content: list[dict[str, Any]] | str = (
+            messages[-1]["content"]
+            if messages[-1]["role"] == "user"
+            else ValueError(f"last message must be user,but got {messages[-1]['role']}")
+        )  # type: ignore[assignment]
+        messages = messages[
+            :-1
+        ]  # remove last user message for now , 因为我们会在 tool loop 中添加 tool summary, 以 role=user 的身份添加到 memory 中
+        user_input_text = ""
+        if isinstance(user_input_content, list):
+            for item in user_input_content:
+                if item.get("type") == "text":
+                    user_input_text += str(item.get("text", ""))
+        # 我们暂时没有 tool call 需要图片输入的场景，有的话再做支持
         _, tool_trace = await self.tool_loop.run_tool_loop(
             tool_system_prompt=self.tool_system_prompt,
             available_tools=available_tools,
             debug=False,
             state=self.state,
-            user_input=user_input,
+            user_input=user_input_text,
         )
+
+        tool_summary = json.dumps(
+            [t.model_dump(exclude_none=True, mode="json") for t in tool_trace],  # type: ignore[attr-defined]
+            ensure_ascii=False,
+            indent=2,
+        )
+
+        tools_summary_str = f"工具结果摘要：\n{tool_summary}"
+        messages.append({"role": "user", "content": tools_summary_str})
+
+        self._add_message(tools_summary_str, "user")
 
         img_ref = None
         # ✅ 优先从 state 拿（更稳：即使 tool_trace 被裁剪/压缩也不影响）
@@ -307,59 +325,51 @@ class MemoryAgent(AgentInterface):
                     img_ref = v
 
         img_ref = img_ref or self._first_image_ref(tool_trace)
-        tool_summary = json.dumps(
-            [t.model_dump(exclude_none=True,mode="json") for t in tool_trace],  # type: ignore[attr-defined]
-            ensure_ascii=False,
-            indent=2,
-        )
-
-        tools_summary_str = (
-            "你已经通过工具拿到结构化结果（JSON）。"
-            "请基于这些结果用自然口语回答，并让输出适合 TTS 朗读（避免太‘机器格式’）。\n\n"
-            f"工具结果摘要：\n{tool_summary}"
-        )
-        messages.append({"role": "user", "content": tools_summary_str})
-
         if img_ref and img_ref in self.tool_loop.blob_store:
             blob = self.tool_loop.blob_store[img_ref]
             b64 = str(blob["b64"])
             mime = str(blob.get("mime", "image/jpeg"))
             if self.chat_supports_vision:
                 # ✅ 直接让 chat_model 看图（一次调用，最简单）
-                messages.append(self._user_msg_with_image(user_input, b64=b64, mime=mime))
+                messages.append(self._user_msg_with_image(user_input_text, b64=b64, mime=mime))
+                self._add_message(user_input_text, "user")  # history 中并不存 base64 图像数据
             else:
                 # ✅ chat text-only：走 vision fallback summary
                 vision_summary = await self._get_vision_summary(
-                    user_input=user_input, img_ref=img_ref, b64=b64, mime=mime
+                    user_input=user_input_text, img_ref=img_ref, b64=b64, mime=mime
                 )
                 if vision_summary:
                     logger.debug(f"[VISION] obtained vision summary for chat: {self._snip(vision_summary)}")
+                    vision_summary_prompt = (
+                        "以下是视觉模型对图片的结构化摘要（JSON）。请把它当作“图片内容的真实信息来源”，结合工具结果与用户问题作答。"
+                        f"VISION_SUMMARY:{vision_summary}"
+                        f"用户问题：{user_input_text}"
+                    )
                     messages.append(
                         {
                             "role": "user",
-                            "content": (
-                                "以下是视觉模型对图片的结构化摘要（JSON）。"
-                                "请把它当作“图片内容的真实信息来源”，结合工具结果与用户问题作答。\n\n"
-                                f"VISION_SUMMARY:\n{vision_summary}\n\n"
-                                f"用户问题：{user_input}"
-                            ),
+                            "content": vision_summary_prompt,
                         }
                     )
+                    self._add_message(vision_summary_prompt, "user")
                 else:
                     # ✅ 没有 vision_model 可用：只能不看图
-                    logger.debug(f"[VISION] no vision summary for chat: {self._snip(user_input)}")
+                    logger.debug(f"[VISION] no vision summary for chat: {self._snip(user_input_text)}")
+                    vision_summary_prompt = (
+                        "注意：当前 chat_model 不支持图像输入，且未配置可用的 vision_model，"
+                        "你应该先告诉用户你无法读取图片内容，不要胡编乱造。\n\n"
+                        f"用户问题：{user_input_text}"
+                    )
                     messages.append(
                         {
                             "role": "user",
-                            "content": (
-                                "注意：当前 chat_model 不支持图像输入，且未配置可用的 vision_model，"
-                                "因此无法读取图片内容。请仅根据工具摘要与用户文字尽力回答，并说明限制。\n\n"
-                                f"用户问题：{user_input}"
-                            ),
+                            "content": vision_summary_prompt,
                         }
                     )
+                    self._add_message(vision_summary_prompt, "user")
         else:
-            messages.append({"role": "user", "content": user_input})
+            messages.append({"role": "user", "content": user_input_text})
+            self._add_message(user_input_text, "user")
 
         async for tok in self.chat_llm.chat_completion(  # type: ignore[attr-defined]
             messages,  # type: ignore[arg-type]
@@ -392,9 +402,6 @@ class MemoryAgent(AgentInterface):
 
             # build messages WITHOUT system (system is passed separately)
             messages: list[dict[str, object]] = [*self._memory, {"role": "user", "content": user_prompt}]  # type: ignore[arg-type]
-
-            # store user message
-            self._add_message(user_prompt, "user")
 
             token_stream = chat_func(messages)
             complete_response = ""

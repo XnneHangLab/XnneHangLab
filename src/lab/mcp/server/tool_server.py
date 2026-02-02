@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 
     from pydantic import BaseModel
 
+
 def _dump_json(model: BaseModel) -> dict[str, Any]:
     """
     Force pydantic to serialize in JSON mode.
