@@ -14,7 +14,6 @@ from lab.mcp._typing import (
     OpenAIMessage,
     ScreenShotResult,
     ToolCallLike,
-    ToolMessage,
     ToolTraceItem,
 )
 from lab.mcp.context_policy import build_resolved_refs_msg
@@ -232,12 +231,12 @@ class Agent:
         tool_call: ToolCallLike,
         *,
         tool_output_as_user_prompt: bool = True,
-    ) -> tuple[ToolMessage, list[dict[str, object]], ToolTraceItem]:
+    ) -> tuple[OpenAIMessage, list[dict[str, object]], ToolTraceItem]:
         """
         执行单个 tool_call（强类型校验 + trace）。
 
         返回：
-        - ToolMessage：回填给 Tool Model
+        - OpenAIMessage：回填给 Tool Model
         - extra_msgs：作为下一轮 Tool Model 的额外 user messages（用于链式）
         - ToolTraceItem：结构化摘要（给 Chat Model）
         """
@@ -256,7 +255,8 @@ class Agent:
                 b64 = result_model.image_b64
                 self._blob_store[tool_call.id] = {"mime": "image/jpeg", "b64": b64}
 
-                tool_msg = ToolMessage(
+                tool_msg = OpenAIMessage(
+                    role="tool",
                     content=f"[screenshot captured] ref={tool_call.id} mime=image/jpeg b64_len={len(b64)}",
                     tool_call_id=tool_call.id,
                 )
@@ -270,13 +270,13 @@ class Agent:
                 )
             else:
                 tool_text = ToolRegistry.tool_content_for_tool_model(result_model)
-                tool_msg = ToolMessage(content=tool_text, tool_call_id=tool_call.id)
+                tool_msg = OpenAIMessage(role="tool", content=tool_text, tool_call_id=tool_call.id)
                 trace = ToolRegistry.trace_item(parsed, result_model, ok=True, error=None)
 
         except Exception as e:
             # 不让异常打断 tool loop：记录错误，tool_msg 回填错误文本
             err = f"{type(e).__name__}: {e}"
-            tool_msg = ToolMessage(content=err, tool_call_id=tool_call.id)
+            tool_msg = OpenAIMessage(role="tool", content=err, tool_call_id=tool_call.id)
             trace = ToolTraceItem(
                 server=parsed.server,
                 name=parsed.name,
@@ -421,12 +421,13 @@ class Agent:
         tool_trace: list[ToolTraceItem] = []
         resolved_refs_msg = build_resolved_refs_msg(self.state, user_input)
         if resolved_refs_msg is not None:
-            tool_loop_messages.append(resolved_refs_msg)
+            tool_loop_messages.append(resolved_refs_msg.model_dump(exclude_none=True))
 
         # 跨 step 的缓存：避免重复真实调用（可选但很省）
         cache: dict[str, tuple[str, ToolTraceItem, list[dict[str, object]]]] = {}
 
         def _sig(full_name: str, args_dict: dict[str, object]) -> str:
+            # 缓存 key：full_name + sorted(args_dict)
             return full_name + "::" + json.dumps(args_dict, ensure_ascii=False, sort_keys=True, default=str)
 
         for step in range(max_steps):
@@ -473,7 +474,7 @@ class Agent:
                 tool_calls_skipped = tool_calls_all[max_parallel_tools:]
 
             # --- 1) 先为“要执行的 tool_calls”准备任务（并行 + 去重/缓存）
-            tasks: list[asyncio.Task[tuple[ToolMessage, list[dict[str, object]], ToolTraceItem]]] = []
+            tasks: list[asyncio.Task[tuple[OpenAIMessage, list[dict[str, object]], ToolTraceItem]]] = []
             planned: list[tuple[ToolCallLike, str]] = []  # (tool_call, signature)
 
             for tc in tool_calls_exec:
@@ -498,7 +499,10 @@ class Agent:
                     # 这里从 trace 反推 signature（或你可以让 _execute_tool_call 返回 sig）
                     full_name = f"{trace.server}__{trace.name}"
                     sig = _sig(full_name, trace.args)
-                    cache[sig] = (tool_msg.content, trace, extra_msgs)
+                    if isinstance(tool_msg.content, str):
+                        cache[sig] = (tool_msg.content, trace, extra_msgs)
+                    else:
+                        raise ValueError("tool_msg.content is not str")
 
             # --- 2) 构造“本轮必须补齐的 tool messages”（对每个 tool_call_id 都要有）
             tool_msgs_to_append: list[dict[str, object]] = []
@@ -509,7 +513,9 @@ class Agent:
                 if sig in cache:
                     cached_content, cached_trace, cached_extra = cache[sig]
                     tool_msgs_to_append.append(
-                        ToolMessage(content=cached_content, tool_call_id=tc.id).model_dump(exclude_none=True)
+                        OpenAIMessage(role="tool", content=cached_content, tool_call_id=tc.id).model_dump(
+                            exclude_none=True
+                        )
                     )
                     # trace 只记录一次即可（避免重复膨胀）；你也可以加个 “reused=True”
                     if cached_trace not in tool_trace:
@@ -524,7 +530,7 @@ class Agent:
                 else:
                     # 理论上不会发生：没有进入 cache 说明真实调用没跑出来
                     tool_msgs_to_append.append(
-                        ToolMessage(content="tool_error: missing result", tool_call_id=tc.id).model_dump(
+                        OpenAIMessage(role="tool", content="tool_error: missing result", tool_call_id=tc.id).model_dump(
                             exclude_none=True
                         )
                     )
@@ -532,7 +538,8 @@ class Agent:
             # 再处理被截断的 tool_calls：也必须回填 tool message，否则必 400
             for tc in tool_calls_skipped:
                 tool_msgs_to_append.append(
-                    ToolMessage(
+                    OpenAIMessage(
+                        role="tool",
                         content="skipped_due_to_max_parallel_tools",
                         tool_call_id=tc.id,
                     ).model_dump(exclude_none=True)
@@ -697,7 +704,7 @@ async def main():
             [
                 "你能看到我现在的桌面环境吗？描述一下。",
                 "刚才那张截图里，最显眼的部分是什么？用一句话说",
-                "刚才那张图里，配色是什么样的？",
+                "刚才那张图里，配色是什么样的？给你的感觉如何？",
             ]
         )
 

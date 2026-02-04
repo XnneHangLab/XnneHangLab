@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from loguru import logger
 
-from lab.chat_history_manager import store_message
 from lab.conversations.conversation_utils import (
     EMOJI_LIST,
     cleanup_conversation,
@@ -69,15 +68,6 @@ async def process_single_conversation(
             from_name=context.character_config.human_name,
         )
 
-        # Store user message
-        if context.history_uid:
-            store_message(
-                conf_uid=context.character_config.conf_uid,
-                history_uid=context.history_uid,
-                role="human",
-                content=input_text,
-                name=context.character_config.human_name,
-            )
         logger.info(f"User input: {input_text}")
         if images:
             logger.info(f"With {len(images)} images")
@@ -103,17 +93,6 @@ async def process_single_conversation(
             websocket_send=websocket_send,
             client_uid=client_uid,
         )
-
-        if context.history_uid and full_response:
-            store_message(
-                conf_uid=context.character_config.conf_uid,
-                history_uid=context.history_uid,
-                role="ai",
-                content=full_response,
-                name=context.character_config.character_name,
-                avatar=context.character_config.avatar,
-            )
-            logger.info(f"AI response: {full_response}")
 
         return full_response
 

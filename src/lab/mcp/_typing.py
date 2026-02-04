@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Literal, Protocol
+from typing import Annotated, Any, Literal, Protocol
 
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, RootModel, field_validator
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, RootModel, field_validator, model_validator
 
 from lab.mcp.util import normalize_jsonlike
 
@@ -26,32 +26,171 @@ class ToolCallLike(Protocol):
 # =============================================================================
 
 
+class TextPart(BaseModel):
+    type: Literal["text"]
+    text: str
+    model_config = ConfigDict(extra="forbid")
+
+
+class ImageURL(BaseModel):
+    url: str
+    detail: Literal["auto", "low", "high"] = "auto"
+    model_config = ConfigDict(extra="forbid")
+
+
+class ImagePart(BaseModel):
+    type: Literal["image_url"]
+    image_url: ImageURL
+    model_config = ConfigDict(extra="forbid")
+
+
+class InputAudio(BaseModel):
+    data: str
+    format: Literal["wav", "mp3"]
+    model_config = ConfigDict(extra="forbid")
+
+
+class AudioPart(BaseModel):
+    type: Literal["input_audio"]
+    input_audio: InputAudio
+    model_config = ConfigDict(extra="forbid")
+
+
+class FileObj(BaseModel):
+    file_data: str | None = None
+    file_id: str | None = None
+    filename: str | None = None
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def _check(self):
+        if not (self.file_data or self.file_id):
+            raise ValueError("file must include file_data or file_id")
+        return self
+
+
+class FilePart(BaseModel):
+    type: Literal["file"]
+    file: FileObj
+    model_config = ConfigDict(extra="forbid")
+
+
+ContentPart = Annotated[
+    TextPart | ImagePart | AudioPart | FilePart,
+    Field(discriminator="type"),
+]
+
+OpenAIContent = str | list[ContentPart]
+
+
+class SystemMsg(BaseModel):
+    role: Literal["system"]
+    content: OpenAIContent
+    tool_call_id: None = None
+    model_config = ConfigDict(extra="forbid")
+
+
+class UserMsg(BaseModel):
+    role: Literal["user"]
+    content: OpenAIContent
+    tool_call_id: None = None
+    model_config = ConfigDict(extra="forbid")
+
+
+class AssistantMsg(BaseModel):
+    role: Literal["assistant"]
+    # 如果你不支持 assistant 的 tool_calls，就把它改成 `content: Content`
+    content: OpenAIContent | None = None
+    tool_call_id: None = None
+    model_config = ConfigDict(extra="forbid")
+
+
+class ToolMsg(BaseModel):
+    role: Literal["tool"]
+    content: str
+    tool_call_id: str  # tool 必填
+    model_config = ConfigDict(extra="forbid")
+
+
+class ToolFunction(BaseModel):
+    name: str
+    arguments: str  # OpenAI 返回是 JSON 字符串
+    model_config = ConfigDict(extra="forbid")
+
+
+class ToolCall(BaseModel):
+    id: str
+    type: Literal["function"] = "function"
+    function: ToolFunction
+    model_config = ConfigDict(extra="forbid")
+
+
 class OpenAIMessage(BaseModel):
-    """
-    我们自己构造的 OpenAI message。
+    role: Literal["developer", "system", "user", "assistant", "tool"]
+    content: OpenAIContent | None = None
 
-    示例：
-        {"role": "system", "content": "你是一个助手"}
-        {"role": "user", "content": "现在几点？"}
-        {"role": "tool", "content": "...", "tool_call_id": "call_xxx"}
-    """
-
-    role: Literal["system", "user", "assistant", "tool"]
-    content: str | None = None
+    # tool role 使用
     tool_call_id: str | None = None
 
+    # assistant role 可能返回
+    tool_calls: list[ToolCall] | None = None
+    annotations: list[Any] | None = None
 
-class ToolMessage(BaseModel):
-    """
-    OpenAI tool message：回填给 Tool Model。
+    model_config = ConfigDict(extra="forbid")
 
-    示例：
-        {"role": "tool", "content": "2026-01-27 20:54:37", "tool_call_id": "call_xxx"}
-    """
+    @model_validator(mode="after")
+    def _check(self):
+        # tool message：必须 tool_call_id + content(str)
+        if self.role == "tool":
+            if not self.tool_call_id:
+                raise ValueError("tool message must include tool_call_id")
+            if not isinstance(self.content, str):
+                raise ValueError("tool message content must be str")
+            if self.tool_calls is not None:
+                raise ValueError("tool message must not include tool_calls")
+            return self
 
-    role: Literal["tool"] = "tool"
-    content: str
-    tool_call_id: str
+        # 非 tool：不允许 tool_call_id
+        if self.tool_call_id is not None:
+            raise ValueError("tool_call_id is only allowed for role='tool'")
+
+        # assistant：content 可以为空，但必须有 content 或 tool_calls 之一
+        if self.role == "assistant":
+            if (self.content is None or (isinstance(self.content, str) and not self.content)) and not self.tool_calls:
+                raise ValueError("assistant message must include content or tool_calls")
+            return self
+
+        # system/user/developer：一般要求 content 非空（你可以按需放宽）
+        if self.role in ("system", "user", "developer") and self.content is None:
+            raise ValueError(f"{self.role} message must include content")
+
+        # 其他 role 不应带 tool_calls
+        if self.tool_calls is not None:
+            raise ValueError("tool_calls is only allowed for role='assistant'")
+
+        return self
+
+    def to_openai_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {"role": self.role}
+
+        # content 可以是 None / str / parts
+        if self.content is None:
+            d["content"] = None
+        elif isinstance(self.content, str):
+            d["content"] = self.content
+        else:
+            d["content"] = [p.model_dump(mode="json") for p in self.content]
+
+        # tool role 需要 tool_call_id
+        if self.role == "tool":
+            d["tool_call_id"] = self.tool_call_id
+
+        # assistant role 可能需要 tool_calls
+        if self.role == "assistant" and getattr(self, "tool_calls", None):
+            d["tool_calls"] = [tc.model_dump(mode="json") for tc in self.tool_calls]  # type: ignore[attr-defined]
+
+        # annotations 通常不需要传回 OpenAI，除非你自己要
+        return d
 
 
 class ToolTraceItem(BaseModel):
