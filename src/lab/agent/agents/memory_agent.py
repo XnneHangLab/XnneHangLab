@@ -334,21 +334,25 @@ class MemoryAgent(AgentInterface):
             blob = self.tool_loop.blob_store[img_ref]
             b64 = str(blob["b64"])
             mime = str(blob.get("mime", "image/jpeg"))
-            # 对于 vision model 的情况, tool summary 只是一个摘要，它并不包含图片或者图片内容，它只是告诉模型“我用工具拿到了一张图片”。实际上图片内容在 vision summary 或者图片本身中。
-            # chat model support vision: tool summary +用户输入+图片内容
-            # 对于 chat model 不支持 vision 的情况: 摘要+用户输入+vision summary
-            """  {
-            "role": "user",
-            "timestamp": "2026-02-04T12:25:21",
-            "content": "工具结果摘要：\n[\n  {\n    \"server\": \"tool\",\n    "name": "read_file\",\n    "args": {\n      "path": "call_7hDJSt2JAcF1DhGISQVlvDE7\",\n      "max_chars": 8000\n    },\n    "raw_result": {\n      "data": "Error calling tool 'read_file': [Errno 2] No such file or directory: 'D:\\\\\\\\tmp\\\\\\\\XnneHangLab\\\\\\\\call_7hDJSt2JAcF1DhGISQVlvDE7'"\n    },\n    "ok   ": true\n  }\n]"
-            },"""
-            messages.append(OpenAIMessage(role="user", content=tools_summary_str))
-            self._add_message(OpenAIMessage(role="user", content=tools_summary_str))
+            # 对于有图片的情况, tool summary 只是一个摘要,像下面，而且，当使用到 last_image_ref 时，连图片信息都没有在 tool summary 里体现出来。
+            """
+            {
+                "role": "user",
+                "timestamp": "2026-02-04T12:23:34",
+                "content": "工具结果摘要：\n[\n  {\n    \"server\": \"vision\",\n    \"name\": \"screen_shot\",\n    \"args\": {},\n    \"raw_result\": {\n      \"kind\": \"image_ref\",\n      \"image_ref\": \"call_7hDJSt2JAcF1DhGISQVlvDE7\",\n      \"mime\": \"image/jpeg\",\n      \"b64_len\": 161756\n    },\n    \"ok\": true\n  }\n]"
+            },
+            """
+
             if self.chat_supports_vision:
+                user_prompt = f"""
+                [Task / User Prompt] {user_input_text}
+                ###
+                [Tool Call Summary] {tools_summary_str}
+                """
                 # ✅ 直接让 chat_model 看图（一次调用，最简单）
-                messages.append(self._user_msg_with_image(user_input_text, b64=b64, mime=mime))
+                messages.append(self._user_msg_with_image(user_prompt, b64=b64, mime=mime))
                 self._add_message(
-                    OpenAIMessage(role="user", content=user_input_text)
+                    OpenAIMessage(role="user", content=user_prompt)
                 )  # history 中并不存 base64 图像数据just
             else:
                 # ✅ chat text-only：走 vision fallback summary
@@ -362,35 +366,32 @@ class MemoryAgent(AgentInterface):
                         f"VISION_SUMMARY:{vision_summary}"
                         f"用户问题：{user_input_text}"
                     )
-                    messages.append(
-                        OpenAIMessage(
-                            role="user",
-                            content=vision_summary_prompt,
-                        )
-                    )
-                    self._add_message(OpenAIMessage(role="user", content=vision_summary_prompt))
                 else:
                     # ✅ 没有 vision_model 可用：只能不看图
                     logger.debug(f"[VISION] no vision summary for chat: {self._snip(user_input_text)}")
                     vision_summary_prompt = (
-                        "注意：当前 chat_model 不支持图像输入，且未配置可用的 vision_model，"
+                        "注意：当前 chat_model 和 vision_model 都不支持图像输入，且未配置可用的 vision_model，"
                         "你应该先告诉用户你无法读取图片内容，不要胡编乱造。\n\n"
                         f"用户问题：{user_input_text}"
                     )
-                    messages.append(
-                        OpenAIMessage(
-                            role="user",
-                            content=vision_summary_prompt,
-                        )
-                    )
-                    self._add_message(OpenAIMessage(role="user", content=vision_summary_prompt))
+                blocks = [
+                    f"[Task / User Prompt]\n{vision_summary_prompt}",
+                    f"[Tool Call Summary]\n{tools_summary_str}",
+                ]
+                user_prompt = "\n\n###\n\n".join(blocks)
+                messages.append(OpenAIMessage(role="user", content=user_prompt))
+                self._add_message(OpenAIMessage(role="user", content=user_prompt))
+
         else:
             # 对于没有图片的情况，正常 Tool Call 包含模型回复所需要的全部信息
             # 顺序：用户输入+工具结果摘要
-            messages.append(OpenAIMessage(role="user", content=user_input_text))
-            self._add_message(OpenAIMessage(role="user", content=user_input_text))
-            messages.append(OpenAIMessage(role="user", content=tools_summary_str))
-            self._add_message(OpenAIMessage(role="user", content=tools_summary_str))
+            blocks = [
+                f"[Task / User Prompt]\n{user_input_text}",
+                f"[Tool Call Summary]\n{tools_summary_str}",
+            ]
+            user_prompt = "\n\n###\n\n".join(blocks)
+            messages.append(OpenAIMessage(role="user", content=user_prompt))
+            self._add_message(OpenAIMessage(role="user", content=user_prompt))
 
 
         async for tok in self.chat_llm.chat_completion(  # type: ignore[attr-defined]
