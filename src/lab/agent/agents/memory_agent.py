@@ -319,12 +319,7 @@ class MemoryAgent(AgentInterface):
             ensure_ascii=False,
             indent=2,
         )
-
-        tools_summary_str = f"工具结果摘要：\n{tool_summary}"
-        messages.append(OpenAIMessage(role="user", content=tools_summary_str))
-
-        self._add_message(OpenAIMessage(role="user", content=tools_summary_str))
-
+        tools_summary_str = f"[Tool Call Summary]:\n{tool_summary}"
         img_ref = None
         # ✅ 优先从 state 拿（更稳：即使 tool_trace 被裁剪/压缩也不影响）
         if isinstance(getattr(self, "state", None), object):
@@ -339,6 +334,16 @@ class MemoryAgent(AgentInterface):
             blob = self.tool_loop.blob_store[img_ref]
             b64 = str(blob["b64"])
             mime = str(blob.get("mime", "image/jpeg"))
+            # 对于 vision model 的情况, tool summary 只是一个摘要，它并不包含图片或者图片内容，它只是告诉模型“我用工具拿到了一张图片”。实际上图片内容在 vision summary 或者图片本身中。
+            # chat model support vision: tool summary +用户输入+图片内容
+            # 对于 chat model 不支持 vision 的情况: 摘要+用户输入+vision summary
+            """  {
+            "role": "user",
+            "timestamp": "2026-02-04T12:25:21",
+            "content": "工具结果摘要：\n[\n  {\n    \"server\": \"tool\",\n    "name": "read_file\",\n    "args": {\n      "path": "call_7hDJSt2JAcF1DhGISQVlvDE7\",\n      "max_chars": 8000\n    },\n    "raw_result": {\n      "data": "Error calling tool 'read_file': [Errno 2] No such file or directory: 'D:\\\\\\\\tmp\\\\\\\\XnneHangLab\\\\\\\\call_7hDJSt2JAcF1DhGISQVlvDE7'"\n    },\n    "ok   ": true\n  }\n]"
+            },"""
+            messages.append(OpenAIMessage(role="user", content=tools_summary_str))
+            self._add_message(OpenAIMessage(role="user", content=tools_summary_str))
             if self.chat_supports_vision:
                 # ✅ 直接让 chat_model 看图（一次调用，最简单）
                 messages.append(self._user_msg_with_image(user_input_text, b64=b64, mime=mime))
@@ -380,8 +385,13 @@ class MemoryAgent(AgentInterface):
                     )
                     self._add_message(OpenAIMessage(role="user", content=vision_summary_prompt))
         else:
+            # 对于没有图片的情况，正常 Tool Call 包含模型回复所需要的全部信息
+            # 顺序：用户输入+工具结果摘要
             messages.append(OpenAIMessage(role="user", content=user_input_text))
             self._add_message(OpenAIMessage(role="user", content=user_input_text))
+            messages.append(OpenAIMessage(role="user", content=tools_summary_str))
+            self._add_message(OpenAIMessage(role="user", content=tools_summary_str))
+
 
         async for tok in self.chat_llm.chat_completion(  # type: ignore[attr-defined]
             messages,  # type: ignore[arg-type]
