@@ -393,7 +393,6 @@ class MemoryAgent(AgentInterface):
             messages.append(OpenAIMessage(role="user", content=user_prompt))
             self._add_message(OpenAIMessage(role="user", content=user_prompt))
 
-
         async for tok in self.chat_llm.chat_completion(  # type: ignore[attr-defined]
             messages,  # type: ignore[arg-type]
             system=self.chat_system_prompt,
