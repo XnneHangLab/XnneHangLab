@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Literal, Protocol
+from typing import Annotated, Any, Literal, Protocol
 
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, RootModel, field_validator
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, RootModel, field_validator, model_validator
 
 from lab.mcp.util import normalize_jsonlike
 
@@ -26,32 +26,130 @@ class ToolCallLike(Protocol):
 # =============================================================================
 
 
-class OpenAIMessage(BaseModel):
-    """
-    我们自己构造的 OpenAI message。
-
-    示例：
-        {"role": "system", "content": "你是一个助手"}
-        {"role": "user", "content": "现在几点？"}
-        {"role": "tool", "content": "...", "tool_call_id": "call_xxx"}
-    """
-
-    role: Literal["system", "user", "assistant", "tool"]
-    content: str | None = None
-    tool_call_id: str | None = None
+class TextPart(BaseModel):
+    type: Literal["text"]
+    text: str
+    model_config = ConfigDict(extra="forbid")
 
 
-class ToolMessage(BaseModel):
-    """
-    OpenAI tool message：回填给 Tool Model。
+class ImageURL(BaseModel):
+    url: str
+    detail: Literal["auto", "low", "high"] = "auto"
+    model_config = ConfigDict(extra="forbid")
 
-    示例：
-        {"role": "tool", "content": "2026-01-27 20:54:37", "tool_call_id": "call_xxx"}
-    """
 
-    role: Literal["tool"] = "tool"
+class ImagePart(BaseModel):
+    type: Literal["image_url"]
+    image_url: ImageURL
+    model_config = ConfigDict(extra="forbid")
+
+
+class InputAudio(BaseModel):
+    data: str
+    format: Literal["wav", "mp3"]
+    model_config = ConfigDict(extra="forbid")
+
+
+class AudioPart(BaseModel):
+    type: Literal["input_audio"]
+    input_audio: InputAudio
+    model_config = ConfigDict(extra="forbid")
+
+
+class FileObj(BaseModel):
+    file_data: str | None = None
+    file_id: str | None = None
+    filename: str | None = None
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def _check(self):
+        if not (self.file_data or self.file_id):
+            raise ValueError("file must include file_data or file_id")
+        return self
+
+
+class FilePart(BaseModel):
+    type: Literal["file"]
+    file: FileObj
+    model_config = ConfigDict(extra="forbid")
+
+
+ContentPart = Annotated[
+    TextPart | ImagePart | AudioPart | FilePart,
+    Field(discriminator="type"),
+]
+
+OpenAIContent = str | list[ContentPart]
+
+
+class SystemMsg(BaseModel):
+    role: Literal["system"]
+    content: OpenAIContent
+    tool_call_id: None = None
+    model_config = ConfigDict(extra="forbid")
+
+
+class UserMsg(BaseModel):
+    role: Literal["user"]
+    content: OpenAIContent
+    tool_call_id: None = None
+    model_config = ConfigDict(extra="forbid")
+
+
+class AssistantMsg(BaseModel):
+    role: Literal["assistant"]
+    # 如果你不支持 assistant 的 tool_calls，就把它改成 `content: Content`
+    content: OpenAIContent | None = None
+    tool_call_id: None = None
+    model_config = ConfigDict(extra="forbid")
+
+
+class ToolMsg(BaseModel):
+    role: Literal["tool"]
     content: str
-    tool_call_id: str
+    tool_call_id: str  # tool 必填
+    model_config = ConfigDict(extra="forbid")
+
+
+class OpenAIMessage(BaseModel):
+    role: Literal["developer", "system", "user", "assistant", "tool"]
+    content: OpenAIContent
+    tool_call_id: str | None = None
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def _validate_role(self):
+        # tool: 必须有 tool_call_id + content(str)
+        if self.role == "tool":
+            if not self.tool_call_id:
+                raise ValueError("tool messages require tool_call_id")
+            if not isinstance(self.content, str):
+                raise ValueError("tool message content must be str")
+            return self
+
+        # 非 tool：不允许 tool_call_id
+        if self.tool_call_id is not None:
+            raise ValueError("tool_call_id is only allowed when role='tool'")
+
+        # system / developer：只允许 text（或纯字符串）
+        if self.role in ("system", "developer"):
+            if isinstance(self.content, list):
+                if any(p.type != "text" for p in self.content):
+                    raise ValueError(f"{self.role} messages only support text parts")
+        return self
+
+    def to_openai_dict(self) -> dict[str, Any]:
+        # 生成 OpenAI API 需要的 dict（兼容 chat.completions.create）
+        d: dict[str, Any] = {"role": self.role}
+        if isinstance(self.content, str):
+            d["content"] = self.content
+        else:
+            d["content"] = [p.model_dump() for p in self.content]
+
+        if self.role == "tool":
+            d["tool_call_id"] = self.tool_call_id
+        return d
 
 
 class ToolTraceItem(BaseModel):

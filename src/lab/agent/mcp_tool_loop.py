@@ -14,7 +14,6 @@ from lab.mcp import (
     OpenAIMessage,
     ScreenShotResult,
     ToolCallLike,
-    ToolMessage,
     ToolRegistry,
     ToolTraceItem,
     build_resolved_refs_msg,
@@ -99,12 +98,12 @@ class McpToolLoopRunner:
         tool_call: ToolCallLike,
         *,
         tool_output_as_user_prompt: bool = True,
-    ) -> tuple[ToolMessage, list[dict[str, object]], ToolTraceItem]:
+    ) -> tuple[OpenAIMessage, list[OpenAIMessage], ToolTraceItem]:
         """
         执行单个 tool_call（强类型校验 + trace）。
 
         返回：
-        - ToolMessage：回填给 Tool Model
+        - OpenAIMessage：回填给 Tool Model
         - extra_msgs：作为下一轮 Tool Model 的额外 user messages（用于链式）
         - ToolTraceItem：结构化摘要（给 Chat Model）
         """
@@ -122,7 +121,8 @@ class McpToolLoopRunner:
                 b64 = result_model.image_b64
                 self.blob_store[tool_call.id] = {"mime": "image/jpeg", "b64": b64}
 
-                tool_msg = ToolMessage(
+                tool_msg = OpenAIMessage(
+                    role="tool",
                     content=f"[screenshot captured] ref={tool_call.id} mime=image/jpeg b64_len={len(b64)}",
                     tool_call_id=tool_call.id,
                 )
@@ -136,13 +136,13 @@ class McpToolLoopRunner:
                 )
             else:
                 tool_text = ToolRegistry.tool_content_for_tool_model(result_model)
-                tool_msg = ToolMessage(content=tool_text, tool_call_id=tool_call.id)
+                tool_msg = OpenAIMessage(role="tool", content=tool_text, tool_call_id=tool_call.id)
                 trace = ToolRegistry.trace_item(parsed, result_model, ok=True, error=None)
 
         except Exception as e:
             # 不让异常打断 tool loop：记录错误，tool_msg 回填错误文本
             err = f"{type(e).__name__}: {e}"
-            tool_msg = ToolMessage(content=err, tool_call_id=tool_call.id)
+            tool_msg = OpenAIMessage(role="tool", content=err, tool_call_id=tool_call.id)
             trace = ToolTraceItem(
                 server=parsed.server,
                 name=parsed.name,
@@ -153,7 +153,7 @@ class McpToolLoopRunner:
             )
 
         # 3) 链式 extra prompt（可选）
-        extra_msgs: list[dict[str, object]] = []
+        extra_msgs: list[OpenAIMessage] = []
         if tool_output_as_user_prompt:
             if trace.ok:
                 # 只对你已知工具做 prompt
@@ -166,7 +166,7 @@ class McpToolLoopRunner:
                             prompt_name="convert_time_readable",
                             args={"time_str": dt},
                         )
-                        extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
+                        extra_msgs.append(OpenAIMessage(role="user", content=prompt_result_to_text(pr)))
 
                 if parsed.full_name == "timeemi__roll_dice":
                     nums = trace.raw_result.get("numbers")
@@ -176,7 +176,7 @@ class McpToolLoopRunner:
                             prompt_name="convert_list_int_readable",
                             args={"numbers": nums},
                         )
-                        extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
+                        extra_msgs.append(OpenAIMessage(role="user", content=prompt_result_to_text(pr)))
 
                 if parsed.full_name == "timeemi__roll_dice_by_current_time":
                     unit = trace.raw_result.get("unit")
@@ -186,7 +186,7 @@ class McpToolLoopRunner:
                             prompt_name="convert_time_unit_readable",
                             args={"unit": unit},
                         )
-                        extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
+                        extra_msgs.append(OpenAIMessage(role="user", content=prompt_result_to_text(pr)))
 
                 if parsed.full_name == "vision__screen_shot":
                     pr = await self.mcp.get_prompt(
@@ -194,7 +194,7 @@ class McpToolLoopRunner:
                         prompt_name="describe_image",
                         args={},
                     )
-                    extra_msgs.append({"role": "user", "content": prompt_result_to_text(pr)})
+                    extra_msgs.append(OpenAIMessage(role="user", content=prompt_result_to_text(pr)))
 
                 # --------------------------
                 # tool__web_search: extract
@@ -212,7 +212,7 @@ class McpToolLoopRunner:
                             url = str(item.get("url", "") or "")  # type: ignore
                             snippet = str(item.get("snippet", "") or "")  # type: ignore
                             lines.append(f"{idx}. {title}\n   {url}\n   {snippet}")
-                        extra_msgs.append({"role": "user", "content": "\n".join(lines)})
+                        extra_msgs.append(OpenAIMessage(role="user", content="\n".join(lines)))
 
                 # --------------------------
                 # tool__web_fetch: extract
@@ -245,14 +245,14 @@ class McpToolLoopRunner:
                             "Note: content was truncated. If you need more, call tool__web_fetch with a larger max_chars (up to 20000) or fetch a more specific URL section.",
                         ]
 
-                    extra_msgs.append({"role": "user", "content": "\n".join(lines)})
+                    extra_msgs.append(OpenAIMessage(role="user", content="\n".join(lines)))
             else:
                 hint = TOOL_RETRY_HINTS.get(parsed.full_name, DEFAULT_RETRY_HINT)
                 extra_msgs.append(
-                    {
-                        "role": "user",
-                        "content": (f"[TOOL_ERROR] {parsed.full_name} failed.\nError: {trace.error}\n{hint}"),
-                    }
+                    OpenAIMessage(
+                        role="user",
+                        content=(f"[TOOL_ERROR] {parsed.full_name} failed.\nError: {trace.error}\n{hint}"),
+                    )
                 )
         return tool_msg, extra_msgs, trace
 
@@ -266,7 +266,7 @@ class McpToolLoopRunner:
         max_parallel_tools: int = 6,
         debug: bool = True,
         state: ConversationState,
-    ) -> tuple[list[dict[str, object]], list[ToolTraceItem]]:
+    ) -> tuple[list[OpenAIMessage], list[ToolTraceItem]]:
         """
         Tool Model：非流式
         - 协议正确：assistant(tool_calls) 后必须立刻补齐所有 tool messages（不能插 user/system）
@@ -281,9 +281,9 @@ class McpToolLoopRunner:
         update_state_from_user_text(state, user_text=user_input)
 
         # 我们的 tool loop 只需要 system + user 这 2 条消息，在需要的时候才会追加上下文(根据 pinned state 和 匹配评分)
-        tool_loop_messages: list[dict[str, object]] = [
-            OpenAIMessage(role="system", content=tool_system_prompt).model_dump(exclude_none=True),
-            OpenAIMessage(role="user", content=user_input).model_dump(exclude_none=True),
+        tool_loop_messages: list[OpenAIMessage] = [
+            OpenAIMessage(role="system", content=tool_system_prompt),
+            OpenAIMessage(role="user", content=user_input),
         ]
 
         tool_trace: list[ToolTraceItem] = []
@@ -291,7 +291,7 @@ class McpToolLoopRunner:
         if resolved_refs_msg is not None:
             tool_loop_messages.append(resolved_refs_msg)
 
-        cache: dict[str, tuple[str, ToolTraceItem, list[dict[str, object]]]] = {}
+        cache: dict[str, tuple[str, ToolTraceItem, list[OpenAIMessage]]] = {}
 
         def _sig(full_name: str, args_dict: dict[str, object]) -> str:
             return full_name + "::" + json.dumps(args_dict, ensure_ascii=False, sort_keys=True)
@@ -336,7 +336,7 @@ class McpToolLoopRunner:
                 tool_calls_skipped = tool_calls_all[max_parallel_tools:]
 
             # 1) schedule real tool calls (dedupe by signature)
-            tasks: list[asyncio.Task[tuple[ToolMessage, list[dict[str, object]], ToolTraceItem]]] = []
+            tasks: list[asyncio.Task[tuple[OpenAIMessage, list[OpenAIMessage], ToolTraceItem]]] = []
             planned: list[tuple[ToolCallLike, str]] = []
 
             for tool_call in tool_calls_exec:
@@ -366,17 +366,20 @@ class McpToolLoopRunner:
                     # 这里从 trace 反推 signature（或你可以让 _execute_tool_call 返回 sig）
                     full_name = f"{trace.server}__{trace.name}"
                     sig = _sig(full_name, trace.args)
-                    cache[sig] = (tool_msg.content, trace, extra_msgs)
+                    if isinstance(tool_msg.content, str):
+                        cache[sig] = (tool_msg.content, trace, extra_msgs)
+                    else:
+                        raise ValueError("tool_msg.content is not str")
             # --- 2) 构造“本轮必须补齐的 tool messages”（对每个 tool_call_id 都要有）
-            tool_msgs_to_append: list[dict[str, object]] = []
-            extra_msgs_to_append: list[dict[str, object]] = []
+            tool_msgs_to_append: list[OpenAIMessage] = []
+            extra_msgs_to_append: list[OpenAIMessage] = []
 
             # 先处理执行集合（可能重复/缓存）
             for tool_call, sig in planned:
                 if sig in cache:
                     cached_content, cached_trace, cached_extra = cache[sig]
                     tool_msgs_to_append.append(
-                        ToolMessage(content=cached_content, tool_call_id=tool_call.id).model_dump(exclude_none=True)
+                        OpenAIMessage(role="tool", content=cached_content, tool_call_id=tool_call.id)
                     )
                     # trace 只记录一次即可（避免重复膨胀）；你也可以加个 “reused=True”
                     if cached_trace not in tool_trace:
@@ -391,16 +394,15 @@ class McpToolLoopRunner:
                 else:
                     # 理论上不会发生：没有进入 cache 说明真实调用没跑出来
                     tool_msgs_to_append.append(
-                        ToolMessage(content="tool_error: missing result", tool_call_id=tool_call.id).model_dump(
-                            exclude_none=True
-                        )
+                        OpenAIMessage(role="tool", content="tool_error: missing result", tool_call_id=tool_call.id)
                     )
             for tool_call in tool_calls_skipped:
                 tool_msgs_to_append.append(
-                    ToolMessage(
+                    OpenAIMessage(
+                        role="tool",
                         content="skipped_due_to_max_parallel_tools",
                         tool_call_id=tool_call.id,
-                    ).model_dump(exclude_none=True)
+                    )
                 )
 
             # ✅ 协议关键：先追加所有 tool messages（连续）

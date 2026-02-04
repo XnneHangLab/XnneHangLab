@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Literal
 
 from loguru import logger
 
@@ -9,9 +9,9 @@ from lab.agent.agents.agent_interface import AgentInterface
 from lab.agent.input_types import BatchInput, TextSource
 from lab.agent.mcp_tool_loop import McpToolLoopRunner
 from lab.agent.transformers import actions_extractor, display_processor, sentence_divider, tts_filter
-from lab.chat_history_manager import get_history
-from lab.mcp import ConversationState, FastMcpRouter
-from lab.mcp.util import call_with_short_retry  # type: ignore
+from lab.chat_history_manager import get_history, store_message
+from lab.mcp import ContentPart, ConversationState, FastMcpRouter, ImagePart, OpenAIMessage, TextPart
+from lab.mcp._typing import ImageURL
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable
@@ -55,7 +55,7 @@ class MemoryAgent(AgentInterface):
         self.lab_settings = lab_settings
         self.state = ConversationState()  # 这是动态状态，不是配置
         self.tool_ctx_cfg = self.lab_settings.mcp.tool_context  # 或从 lab.toml 加载，静态配置
-        self._memory: list[dict[str, str]] = []
+        self._memory: list[OpenAIMessage] = []
         # ✅ LLM 接口
         self.chat_llm = chat_llm
         self.tool_llm = tool_llm
@@ -72,6 +72,9 @@ class MemoryAgent(AgentInterface):
         self.tool_loop = McpToolLoopRunner(
             tool_llm=self.tool_llm, mcp=self.mcp, tool_context_config=lab_settings.mcp.tool_context
         )
+
+        self.history_uid: str | None = None
+        self.conf_uid: str | None = None
 
         self._live2d_model = live2d_model
 
@@ -94,14 +97,15 @@ class MemoryAgent(AgentInterface):
             return ss
         return ss[:n] + f"\n...(preview truncated, {len(ss)} chars total)..."
 
-    def _user_msg_with_image(self, text: str, *, b64: str, mime: str = "image/jpeg") -> dict[str, object]:
-        return {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": text},
-                {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
-            ],
-        }
+    def _user_msg_with_image(self, text: str, *, b64: str, mime: str = "image/jpeg") -> OpenAIMessage:
+        content_parts: list[ContentPart] = [
+            TextPart(type="text", text=text),
+            ImagePart(type="image_url", image_url=ImageURL(url=f"data:{mime};base64,{b64}")),
+        ]
+        return OpenAIMessage(
+            role="user",
+            content=content_parts,
+        )
 
     def _first_image_ref(self, tool_trace: list[ToolTraceItem]) -> str | None:
         """
@@ -151,8 +155,8 @@ class MemoryAgent(AgentInterface):
         vision_system = self.vision_system_prompt
 
         # ✅ 这里要把图发给 vision_model（它支持 vision）
-        msgs: list[dict[str, object]] = [
-            {"role": "system", "content": vision_system},
+        msgs: list[OpenAIMessage] = [
+            OpenAIMessage(role="system", content=vision_system),
             self._user_msg_with_image(
                 f"用户问题：{user_input}\n请抽取与问题最相关的信息。",
                 b64=b64,
@@ -196,24 +200,30 @@ class MemoryAgent(AgentInterface):
 
     def _add_message(
         self,
-        message: str | list[dict[str, Any]],
-        role: str,
+        message: OpenAIMessage,
         display_text: DisplayText | None = None,
     ) -> None:
-        if isinstance(message, list):
-            text_content = ""
-            for item in message:
-                if item.get("type") == "text":
-                    text_content += str(item.get("text", ""))
+        if isinstance(message.content, str):
+            text_content = message.content
         else:
-            text_content = message
+            text_content = ""
+            for item in message.content:
+                if item.type == "text":
+                    text_content += str(item.text)
 
-        if role == "assistant" and display_text is not None:
+        if message.role == "assistant" and display_text is not None:
             content = display_text.text
         else:
             content = text_content
 
-        self._memory.append({"role": role, "content": content})
+        self._memory.append(OpenAIMessage(role=message.role, content=content))
+        if self.history_uid and self.conf_uid:
+            store_message(
+                conf_uid=self.conf_uid,
+                history_uid=self.history_uid,
+                role=message.role,
+                content=content,
+            )
 
     def set_memory_from_history(self, conf_uid: str, history_uid: str) -> None:
         """Load user/assistant messages from chat history.
@@ -221,15 +231,15 @@ class MemoryAgent(AgentInterface):
         Note: we DO NOT inject system prompt into memory; system is passed separately to the LLM.
         """
         messages = get_history(conf_uid, history_uid)
+        self.conf_uid = conf_uid
+        self.history_uid = history_uid
         self._memory = []
         for msg in messages:
             self._memory.append(
-                {
-                    "role": "user"
-                    if msg["role"] == "human"
-                    else "assistant",  # bug: 这里可能会有 tool call 的 tool message, 但是暂时也就当成 assistant 处理, 具体得看怎么写的 history
-                    "content": msg["content"],
-                }
+                OpenAIMessage(
+                    role="user" if msg["role"] == "human" or msg["role"] == "user" else "assistant",
+                    content=msg["content"],
+                )
             )
 
     def handle_interrupt(self, heard_response: str) -> None:
@@ -237,16 +247,16 @@ class MemoryAgent(AgentInterface):
             return
         self.interrupt_handled = True
 
-        if self._memory and self._memory[-1]["role"] == "assistant":
-            self._memory[-1]["content"] = heard_response + "..."
+        if self._memory and self._memory[-1].role == "assistant":
+            self._memory[-1].content = heard_response + "..."
         elif heard_response:
-            self._memory.append({"role": "assistant", "content": heard_response + "..."})
+            self._memory.append(OpenAIMessage(role="assistant", content=heard_response + "..."))
 
         self._memory.append(
-            {
-                "role": "system" if self.interrupt_method == "system" else "user",
-                "content": "[interrupted by user]",
-            }
+            OpenAIMessage(
+                role="system" if self.interrupt_method == "system" else "user",
+                content="[interrupted by user]",
+            )
         )
 
     def reset_interrupt(self) -> None:
@@ -267,9 +277,10 @@ class MemoryAgent(AgentInterface):
     # ---------------------------------------------------------------------
     # Core streaming (with optional MCP tool loop)
     # ---------------------------------------------------------------------
-    async def _stream_chat_tokens(self, messages: list[dict[str, Any]]) -> AsyncIterator[str]:
+    async def _stream_chat_tokens(self, messages: list[OpenAIMessage]) -> AsyncIterator[str]:
         if not self.enable_tool:
-            self._add_message(messages[-1]["content"], "user")  # 直接添加 user message 到 memory 中
+            self._add_message(messages[-1])  # 直接添加 user message 到 memory 中
+
             async for tok in self.chat_llm.chat_completion(  # type: ignore[attr-defined]
                 messages,  # type: ignore[arg-type]
                 self.chat_system_prompt,
@@ -282,19 +293,16 @@ class MemoryAgent(AgentInterface):
 
         available_tools = await self.mcp.list_tools_openai_schema()
         # 如果 user input 的来源是 _memory 且是由 chat_func 调用的，那么最后一条消息一定是 user,而这里防的是其他情况
-        user_input_content: list[dict[str, Any]] | str = (
-            messages[-1]["content"]
-            if messages[-1]["role"] == "user"
-            else ValueError(f"last message must be user,but got {messages[-1]['role']}")
-        )  # type: ignore[assignment]
-        messages = messages[
-            :-1
-        ]  # remove last user message for now , 因为我们会在 tool loop 中添加 tool summary, 以 role=user 的身份添加到 memory 中
+        assert messages[-1].role == "user", f"last message must be user, but got {messages[-1].role}"
+        user_input_content = messages[-1].content
+        messages = messages[:-1]
         user_input_text = ""
         if isinstance(user_input_content, list):
             for item in user_input_content:
-                if item.get("type") == "text":
-                    user_input_text += str(item.get("text", ""))
+                if item.type == "text":
+                    user_input_text += str(item.text)
+        else:
+            user_input_content = str(user_input_content)
         # 我们暂时没有 tool call 需要图片输入的场景，有的话再做支持
         _, tool_trace = await self.tool_loop.run_tool_loop(
             tool_system_prompt=self.tool_system_prompt,
@@ -311,9 +319,9 @@ class MemoryAgent(AgentInterface):
         )
 
         tools_summary_str = f"工具结果摘要：\n{tool_summary}"
-        messages.append({"role": "user", "content": tools_summary_str})
+        messages.append(OpenAIMessage(role="user", content=tools_summary_str))
 
-        self._add_message(tools_summary_str, "user")
+        self._add_message(OpenAIMessage(role="user", content=tools_summary_str))
 
         img_ref = None
         # ✅ 优先从 state 拿（更稳：即使 tool_trace 被裁剪/压缩也不影响）
@@ -332,7 +340,9 @@ class MemoryAgent(AgentInterface):
             if self.chat_supports_vision:
                 # ✅ 直接让 chat_model 看图（一次调用，最简单）
                 messages.append(self._user_msg_with_image(user_input_text, b64=b64, mime=mime))
-                self._add_message(user_input_text, "user")  # history 中并不存 base64 图像数据
+                self._add_message(
+                    OpenAIMessage(role="user", content=user_input_text)
+                )  # history 中并不存 base64 图像数据just
             else:
                 # ✅ chat text-only：走 vision fallback summary
                 vision_summary = await self._get_vision_summary(
@@ -346,12 +356,12 @@ class MemoryAgent(AgentInterface):
                         f"用户问题：{user_input_text}"
                     )
                     messages.append(
-                        {
-                            "role": "user",
-                            "content": vision_summary_prompt,
-                        }
+                        OpenAIMessage(
+                            role="user",
+                            content=vision_summary_prompt,
+                        )
                     )
-                    self._add_message(vision_summary_prompt, "user")
+                    self._add_message(OpenAIMessage(role="user", content=vision_summary_prompt))
                 else:
                     # ✅ 没有 vision_model 可用：只能不看图
                     logger.debug(f"[VISION] no vision summary for chat: {self._snip(user_input_text)}")
@@ -361,15 +371,15 @@ class MemoryAgent(AgentInterface):
                         f"用户问题：{user_input_text}"
                     )
                     messages.append(
-                        {
-                            "role": "user",
-                            "content": vision_summary_prompt,
-                        }
+                        OpenAIMessage(
+                            role="user",
+                            content=vision_summary_prompt,
+                        )
                     )
-                    self._add_message(vision_summary_prompt, "user")
+                    self._add_message(OpenAIMessage(role="user", content=vision_summary_prompt))
         else:
-            messages.append({"role": "user", "content": user_input_text})
-            self._add_message(user_input_text, "user")
+            messages.append(OpenAIMessage(role="user", content=user_input_text))
+            self._add_message(OpenAIMessage(role="user", content=user_input_text))
 
         async for tok in self.chat_llm.chat_completion(  # type: ignore[attr-defined]
             messages,  # type: ignore[arg-type]
@@ -383,7 +393,7 @@ class MemoryAgent(AgentInterface):
     # ---------------------------------------------------------------------
     def _chat_function_factory(
         self,
-        chat_func: Callable[[list[dict[str, object]]], AsyncIterator[str]],
+        chat_func: Callable[[list[OpenAIMessage]], AsyncIterator[str]],
     ) -> Callable[..., AsyncIterator[SentenceOutput | AudioOutput]]:
         """Pipeline:
         LLM tokens -> sentence_divider -> actions_extractor -> display_processor -> tts_filter
@@ -401,7 +411,7 @@ class MemoryAgent(AgentInterface):
             user_prompt = self._to_text_prompt(input_data)
 
             # build messages WITHOUT system (system is passed separately)
-            messages: list[dict[str, object]] = [*self._memory, {"role": "user", "content": user_prompt}]  # type: ignore[arg-type]
+            messages: list[OpenAIMessage] = [*self._memory, OpenAIMessage(role="user", content=user_prompt)]
 
             token_stream = chat_func(messages)
             complete_response = ""
@@ -411,7 +421,7 @@ class MemoryAgent(AgentInterface):
                 complete_response += token
 
             # store assistant message
-            self._add_message(complete_response, "assistant")
+            self._add_message(OpenAIMessage(role="assistant", content=complete_response))
 
         return chat_with_memory
 

@@ -12,7 +12,7 @@ from loguru import logger
 
 
 class HistoryMessage(TypedDict):
-    role: Literal["human", "ai", "system"]
+    role: Literal["human", "ai", "system", "user"]
     timestamp: str
     content: str
     # Optional display information for the message
@@ -99,7 +99,7 @@ def create_new_history(conf_uid: str) -> str:
 def store_message(
     conf_uid: str,
     history_uid: str,
-    role: Literal["human", "ai", "system"],
+    role: Literal["user", "assistant", "system", "tool", "developer"],
     content: str,
     name: str | None = None,
     avatar: str | None = None,
@@ -109,11 +109,13 @@ def store_message(
     Args:
         conf_uid: Configuration unique identifier
         history_uid: History unique identifier
-        role: Message role ("human" or "ai")
+        role: Message role ("user", "assistant", "system", "tool", or "developer")
         content: Message content
         name: Optional display name (default None)
         avatar: Optional avatar URL (default None)
     """
+    if role in ["system", "developer", "tool"]:
+        return
     if not conf_uid or not history_uid:
         if not conf_uid:
             logger.warning("Missing conf_uid")

@@ -13,12 +13,31 @@ from typing import TYPE_CHECKING, Any
 from loguru import logger
 from openai import APIConnectionError, APIError, AsyncOpenAI, AsyncStream, RateLimitError
 
+from lab.mcp import OpenAIMessage
 from lab.mcp.util import call_with_short_retry  # type: ignore
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Sequence
 
     from openai.types.chat import ChatCompletion, ChatCompletionChunk
+
+
+def normalize_messages(
+    messages: Sequence[OpenAIMessage | dict[str, Any]],
+    *,
+    system: str | None = None,
+) -> list[dict[str, Any]]:
+    # 1) pydantic 校验/解析
+    parsed: list[OpenAIMessage] = [
+        m if isinstance(m, OpenAIMessage) else OpenAIMessage.model_validate(m) for m in messages
+    ]
+
+    # 2) 注入 system/developer
+    if system:
+        parsed = [OpenAIMessage(role="system", content=system), *parsed]
+
+    # 3) 转成 OpenAI API dict
+    return [m.to_openai_dict() for m in parsed]
 
 
 class AsyncLLM:
@@ -62,9 +81,7 @@ class AsyncLLM:
         stream: AsyncStream[ChatCompletionChunk] | None = None
 
         try:
-            messages_with_system = messages
-            if system:
-                messages_with_system = [{"role": "system", "content": system}, *messages]
+            messages_with_system = normalize_messages(messages, system=system)
 
             temp = self.temperature if temperature is None else temperature
 
@@ -124,17 +141,14 @@ class AsyncLLM:
     async def tool_completion(
         self,
         *,
-        messages: list[dict[str, Any]],
+        messages: list[OpenAIMessage],
         tools: list[dict[str, Any]],
         tool_choice: str | dict[str, Any] = "auto",
         system: str | None = None,
         temperature: float | None = None,
     ) -> ChatCompletion:
         """Non-stream tool decision call (returns full response object)."""
-        messages_with_system = messages
-        if system:
-            messages_with_system = [{"role": "system", "content": system}, *messages]
-
+        messages_with_system = normalize_messages(messages, system=system)
         temp = self.temperature if temperature is None else temperature
 
         return await call_with_short_retry(
@@ -151,13 +165,12 @@ class AsyncLLM:
 
     async def vision_completion_once(
         self,
-        messages: list[dict[str, Any]],
+        messages: list[OpenAIMessage],
         system: str | None = None,
         *,
         temperature: float | None = None,
     ) -> str:
-        base_msgs = list(messages)
-        messages_with_system = ([{"role": "system", "content": system}] + base_msgs) if system else base_msgs
+        messages_with_system = normalize_messages(messages, system=system)
         temp = self.temperature if temperature is None else temperature
 
         resp = await call_with_short_retry(  # type: ignore[assignment]

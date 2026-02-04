@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import TypeAdapter
 
-from lab.mcp._typing import ConversationState, Role, TolerantOpenAIChatMessage
+from lab.mcp._typing import ConversationState, OpenAIMessage, Role, TolerantOpenAIChatMessage
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -212,7 +212,7 @@ def build_tool_context(
     return out
 
 
-def build_resolved_refs_msg(state: ConversationState, user_text: str) -> dict[str, object] | None:
+def build_resolved_refs_msg(state: ConversationState, user_text: str) -> OpenAIMessage | None:
     t = (user_text or "").strip()
     if not t:
         return None
@@ -266,8 +266,7 @@ def build_resolved_refs_msg(state: ConversationState, user_text: str) -> dict[st
         return None
 
     payload = {"resolved_refs": resolved}
-    return {
-        "role": "user",
-        "content": "[RESOLVED_REFS]\n" + json.dumps(payload, ensure_ascii=False, sort_keys=True),
-        "_ephemeral": True,  # 可选：你内部过滤用
-    }
+    return OpenAIMessage(
+        role="user",
+        content="[RESOLVED_REFS]\n" + json.dumps(payload, ensure_ascii=False, sort_keys=True),
+    )
