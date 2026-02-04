@@ -66,7 +66,7 @@ class AsyncLLM:
 
     async def chat_completion(
         self,
-        messages: list[dict[str, Any]],
+        messages: list[OpenAIMessage],
         system: str | None = None,
         *,
         stream_: bool = True,
@@ -77,7 +77,6 @@ class AsyncLLM:
         - When `stream_` is True, yields token chunks.
         - When `stream_` is False, yields a single full string.
         """
-        origin_user_message = messages[-1]["content"] if messages else ""
         stream: AsyncStream[ChatCompletionChunk] | None = None
 
         try:
@@ -93,9 +92,6 @@ class AsyncLLM:
                     temperature=temp,
                 )
 
-                if messages_with_system:
-                    messages_with_system[-1]["content"] = origin_user_message
-
                 async for chunk in stream:  # type: ignore[return-value]
                     delta = chunk.choices[0].delta  # type: ignore[attr-defined]
                     if delta.content is None:  # type: ignore[union-attr]
@@ -108,9 +104,6 @@ class AsyncLLM:
                     stream=False,
                     temperature=temp,
                 )
-
-                if messages_with_system:
-                    messages_with_system[-1]["content"] = origin_user_message
 
                 assistant_msg = response.choices[0].message  # type: ignore[attr-defined]
                 yield assistant_msg.content or ""  # type: ignore[misc]

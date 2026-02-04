@@ -207,6 +207,8 @@ class MemoryAgent(AgentInterface):
             text_content = message.content
         else:
             text_content = ""
+            if message.content is None:
+                return
             for item in message.content:
                 if item.type == "text":
                     text_content += str(item.text)
@@ -302,7 +304,7 @@ class MemoryAgent(AgentInterface):
                 if item.type == "text":
                     user_input_text += str(item.text)
         else:
-            user_input_content = str(user_input_content)
+            user_input_text = str(user_input_content)
         # 我们暂时没有 tool call 需要图片输入的场景，有的话再做支持
         _, tool_trace = await self.tool_loop.run_tool_loop(
             tool_system_prompt=self.tool_system_prompt,

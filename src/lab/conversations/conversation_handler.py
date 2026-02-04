@@ -78,7 +78,7 @@ async def handle_individual_interrupt(
             store_message(
                 conf_uid=context.character_config.conf_uid,
                 history_uid=context.history_uid,
-                role="ai",
+                role="assistant",
                 content=heard_response,
                 name=context.character_config.character_name,
                 avatar=context.character_config.avatar,

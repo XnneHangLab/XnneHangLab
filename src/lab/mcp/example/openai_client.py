@@ -513,7 +513,9 @@ class Agent:
                 if sig in cache:
                     cached_content, cached_trace, cached_extra = cache[sig]
                     tool_msgs_to_append.append(
-                        OpenAIMessage(role="tool", content=cached_content, tool_call_id=tc.id).model_dump(exclude_none=True)
+                        OpenAIMessage(role="tool", content=cached_content, tool_call_id=tc.id).model_dump(
+                            exclude_none=True
+                        )
                     )
                     # trace 只记录一次即可（避免重复膨胀）；你也可以加个 “reused=True”
                     if cached_trace not in tool_trace:

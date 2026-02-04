@@ -112,43 +112,84 @@ class ToolMsg(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class ToolFunction(BaseModel):
+    name: str
+    arguments: str  # OpenAI 返回是 JSON 字符串
+    model_config = ConfigDict(extra="forbid")
+
+
+class ToolCall(BaseModel):
+    id: str
+    type: Literal["function"] = "function"
+    function: ToolFunction
+    model_config = ConfigDict(extra="forbid")
+
+
 class OpenAIMessage(BaseModel):
     role: Literal["developer", "system", "user", "assistant", "tool"]
-    content: OpenAIContent
+    content: OpenAIContent | None = None
+
+    # tool role 使用
     tool_call_id: str | None = None
+
+    # assistant role 可能返回
+    tool_calls: list[ToolCall] | None = None
+    annotations: list[Any] | None = None
+
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def _validate_role(self):
-        # tool: 必须有 tool_call_id + content(str)
+    def _check(self):
+        # tool message：必须 tool_call_id + content(str)
         if self.role == "tool":
             if not self.tool_call_id:
-                raise ValueError("tool messages require tool_call_id")
+                raise ValueError("tool message must include tool_call_id")
             if not isinstance(self.content, str):
                 raise ValueError("tool message content must be str")
+            if self.tool_calls is not None:
+                raise ValueError("tool message must not include tool_calls")
             return self
 
         # 非 tool：不允许 tool_call_id
         if self.tool_call_id is not None:
-            raise ValueError("tool_call_id is only allowed when role='tool'")
+            raise ValueError("tool_call_id is only allowed for role='tool'")
 
-        # system / developer：只允许 text（或纯字符串）
-        if self.role in ("system", "developer"):
-            if isinstance(self.content, list):
-                if any(p.type != "text" for p in self.content):
-                    raise ValueError(f"{self.role} messages only support text parts")
+        # assistant：content 可以为空，但必须有 content 或 tool_calls 之一
+        if self.role == "assistant":
+            if (self.content is None or (isinstance(self.content, str) and not self.content)) and not self.tool_calls:
+                raise ValueError("assistant message must include content or tool_calls")
+            return self
+
+        # system/user/developer：一般要求 content 非空（你可以按需放宽）
+        if self.role in ("system", "user", "developer") and self.content is None:
+            raise ValueError(f"{self.role} message must include content")
+
+        # 其他 role 不应带 tool_calls
+        if self.tool_calls is not None:
+            raise ValueError("tool_calls is only allowed for role='assistant'")
+
         return self
 
     def to_openai_dict(self) -> dict[str, Any]:
-        # 生成 OpenAI API 需要的 dict（兼容 chat.completions.create）
         d: dict[str, Any] = {"role": self.role}
-        if isinstance(self.content, str):
+
+        # content 可以是 None / str / parts
+        if self.content is None:
+            d["content"] = None
+        elif isinstance(self.content, str):
             d["content"] = self.content
         else:
-            d["content"] = [p.model_dump() for p in self.content]
+            d["content"] = [p.model_dump(mode="json") for p in self.content]
 
+        # tool role 需要 tool_call_id
         if self.role == "tool":
             d["tool_call_id"] = self.tool_call_id
+
+        # assistant role 可能需要 tool_calls
+        if self.role == "assistant" and getattr(self, "tool_calls", None):
+            d["tool_calls"] = [tc.model_dump(mode="json") for tc in self.tool_calls]  # type: ignore[attr-defined]
+
+        # annotations 通常不需要传回 OpenAI，除非你自己要
         return d
 
 
