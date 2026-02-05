@@ -30,13 +30,15 @@ guide = "open"
 subtitle_speed = "normal"
 
 [agent]
-enable_mcp = true
+enable_mcp = false
 character_name = "elaina"
 deeplx_api_key = ""
 user_lang = "ZH"
 speaker_lang = "EN"
 speaker_model = "gpt_sovits"
 faster_first_response = false
+max_vision_concurrency = 4
+require_detailed = true
 segment_method = "pysbd"
 interrupt_method = "user"
 
