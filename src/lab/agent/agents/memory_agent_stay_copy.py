@@ -223,7 +223,7 @@ class MemoryAgent(AgentInterface):
         """
         for t in tool_trace:
             raw = t.raw_result or {}
-            if isinstance(raw, dict):  # type: ignore
+            if isinstance(raw, dict): # type: ignore
                 if raw.get("kind") == "image_ref":
                     v = raw.get("image_ref")
                     if isinstance(v, str) and v:
@@ -362,7 +362,7 @@ class MemoryAgent(AgentInterface):
 
         out: dict[str, str] = {}
         for i, item in enumerate(results):
-            label = f"{prefix}{i+1}"
+            label = f"{prefix}{i + 1}"
             if isinstance(item, Exception):
                 logger.exception(f"[VISION] {label} 并发摘要失败：{item}")
                 out[label] = f"[ERROR] {label} 摘要失败：{type(item).__name__}"
@@ -379,7 +379,6 @@ class MemoryAgent(AgentInterface):
             out[label] = (summary or "").strip()
 
         return out
-
 
     # ---------------------------------------------------------------------
     # MCP lifecycle
@@ -586,11 +585,11 @@ class MemoryAgent(AgentInterface):
             obj = json.loads(s)
             if isinstance(obj, dict) and "items" in obj and isinstance(obj["items"], list):
                 out: dict[str, str] = {}
-                for it in obj["items"]: # type: ignore
+                for it in obj["items"]:  # type: ignore
                     if not isinstance(it, dict):
                         continue
-                    _id = it.get("id") # type: ignore
-                    _sum = it.get("summary") # type: ignore
+                    _id = it.get("id")  # type: ignore
+                    _sum = it.get("summary")  # type: ignore
                     if isinstance(_id, str) and isinstance(_sum, str) and _id.strip():
                         out[_id.strip()] = _sum.strip()
                 if out:
