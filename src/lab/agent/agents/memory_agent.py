@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import TYPE_CHECKING, Literal
 
@@ -97,15 +98,108 @@ class MemoryAgent(AgentInterface):
             return ss
         return ss[:n] + f"\n...(preview truncated, {len(ss)} chars total)..."
 
-    def _user_msg_with_image(self, text: str, *, b64: str, mime: str = "image/jpeg") -> OpenAIMessage:
+    def _user_msg_with_image_from_screen_shoot(self, text: str, *, b64: str, mime: str = "image/jpeg") -> OpenAIMessage:
         content_parts: list[ContentPart] = [
             TextPart(type="text", text=text),
             ImagePart(type="image_url", image_url=ImageURL(url=f"data:{mime};base64,{b64}")),
         ]
+
         return OpenAIMessage(
             role="user",
             content=content_parts,
         )
+
+    def _user_msg_with_image_from_upload(self, text: str, data: str) -> OpenAIMessage:
+        """
+        data like: data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA4QAAAKeCAYAAADAeD/Mw...
+        [{'source': 'upload', 'data': 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA4QAAAKeCAYAAADAeD/Mw...', 'mime': 'image/png'}]
+        """
+        content_parts: list[ContentPart] = [
+            TextPart(type="text", text=text),
+            ImagePart(type="image_url", image_url=ImageURL(url=data))
+        ]
+
+        return OpenAIMessage(
+            role="user",
+            content=content_parts,
+        )
+
+
+    def _user_msg_with_images(self, text: str, *, images: list[tuple[str, str]]) -> OpenAIMessage:
+        """
+        images: [(b64, mime), ...]
+        """
+        parts: list[ContentPart] = [TextPart(type="text", text=text)]
+        for b64, mime in images:
+            parts.append(ImagePart(type="image_url", image_url=ImageURL(url=f"data:{mime};base64,{b64}")))
+        return OpenAIMessage(role="user", content=parts)
+
+    def _extract_text_and_first_data_image(self, msg: OpenAIMessage) -> tuple[str, str | None, str | None]:
+        """
+        从 OpenAIMessage 中抽取：
+        - text：拼起来的 text parts
+        - b64/mime：只取第一张 data-url base64 图
+        """
+        if isinstance(msg.content, str):
+            return msg.content, None, None
+
+        text = ""
+        b64: str | None = None
+        mime: str | None = None
+
+        if not msg.content:
+            return "", None, None
+
+        for part in msg.content:
+            if part.type == "text":
+                text += str(part.text)
+            elif part.type == "image_url":
+                url = getattr(part.image_url, "url", "")
+                if isinstance(url, str) and url.startswith("data:") and ";base64," in url:
+                    head, _, b64data = url.partition(";base64,")
+                    mime = head[5:] or "image/jpeg"
+                    b64 = b64data
+                    break
+
+        return text, b64, mime
+
+    def _img_ref_from_b64(self, b64: str, mime: str) -> str:
+        """
+        给“用户上传图”生成稳定 cache key，避免重复 summary。
+        不 hash 全量 b64（太大），用长度 + 前缀采样。
+        """
+        h = hashlib.sha1()
+        h.update(mime.encode("utf-8"))
+        h.update(str(len(b64)).encode("utf-8"))
+        h.update(b64[:8192].encode("utf-8"))
+        return h.hexdigest()
+
+    def _build_prompt_with_image_summaries(
+        self,
+        *,
+        user_input_text: str,
+        tools_summary_str: str,
+        tool_image_summary: str | None,
+        user_image_summary: str | None,
+    ) -> str:
+        tool_block = (
+            f"以下是视觉模型对 Tool Call 回调图片（调用工具截图）的图片内容信息：\n{tool_image_summary}"
+            if tool_image_summary
+            else "本次并未回调图片。"
+        )
+        user_block = (
+            f"以下是视觉模型对用户上传图片内容的信息：\n{user_image_summary}"
+            if user_image_summary
+            else "本次用户没有上传图片。"
+        )
+
+        blocks = [
+            f"[Task / User Prompt]\n{user_input_text}",
+            f"[Tool Call Summary]\n{tools_summary_str}",
+            f"[Tool Call Image Summary]\n{tool_block}",
+            f"[User Upload Image Summary]\n{user_block}",
+        ]
+        return "\n\n###\n\n".join(blocks)
 
     def _first_image_ref(self, tool_trace: list[ToolTraceItem]) -> str | None:
         """
@@ -157,7 +251,7 @@ class MemoryAgent(AgentInterface):
         # ✅ 这里要把图发给 vision_model（它支持 vision）
         msgs: list[OpenAIMessage] = [
             OpenAIMessage(role="system", content=vision_system),
-            self._user_msg_with_image(
+            self._user_msg_with_image_from_screen_shoot(
                 f"用户问题：{user_input}\n请抽取与问题最相关的信息。",
                 b64=b64,
                 mime=mime,
@@ -264,9 +358,9 @@ class MemoryAgent(AgentInterface):
     def reset_interrupt(self) -> None:
         self._interrupt_handled = False
 
-    # ---------------------------------------------------------------------
-    # Prompt / messages
-    # ---------------------------------------------------------------------
+    # ------------------------------
+    # BatchInput -> user message (keep as-is)
+    # ------------------------------
     def _to_text_prompt(self, input_data: BatchInput) -> str:
         parts: list[str] = []
         for text_data in input_data.texts:
@@ -276,12 +370,61 @@ class MemoryAgent(AgentInterface):
                 parts.append(f"[Clipboard content: {text_data.content}]")
         return "\n".join(parts)
 
+    def _build_user_message_from_batch(self, input_data: BatchInput) -> OpenAIMessage:
+        user_prompt = self._to_text_prompt(input_data)
+        # 这里不做 vision 分流，只负责“把用户上传图挂上去”
+        if input_data.images:
+            img0 = input_data.images[0]
+            return self._user_msg_with_image_from_upload(user_prompt, data=img0.data)
+
+        return OpenAIMessage(role="user", content=user_prompt)
+
     # ---------------------------------------------------------------------
     # Core streaming (with optional MCP tool loop)
     # ---------------------------------------------------------------------
     async def _stream_chat_tokens(self, messages: list[OpenAIMessage]) -> AsyncIterator[str]:
+        assert messages and messages[-1].role == "user", "last message must be user"
+
+        # 先从最后一条 user message 里把“用户上传图”解析出来（tool 模式和非 tool 模式都用得到）
+        user_input_text, user_up_b64, user_up_mime = self._extract_text_and_first_data_image(messages[-1])
+        # ------------------------------
+        # No-tool mode
+        # ------------------------------
         if not self.enable_tool:
-            self._add_message(messages[-1])  # 直接添加 user message 到 memory 中
+            # 如果 chat 不支持 vision，但用户上传了图，则走 vision_summary fallback（避免把 image_url 发给不支持的模型）
+            if (not self.chat_supports_vision) and user_up_b64:
+                if self.vision_llm:
+                    user_ref = self._img_ref_from_b64(user_up_b64, user_up_mime or "image/jpeg")
+                    user_sum = await self._get_vision_summary(
+                        user_input=user_input_text,
+                        img_ref=user_ref,
+                        b64=user_up_b64,
+                        mime=user_up_mime or "image/jpeg",
+                    )
+                    prompt = "\n\n###\n\n".join(
+                        [
+                            f"[Task / User Prompt]\n{user_input_text}",
+                            f"[User Upload Image Summary]\n以下是视觉模型对用户上传图片内容的信息：\n{user_sum}",
+                        ]
+                    )
+                else:
+                    prompt = (
+                        "注意：当前 chat_model 不支持图像输入，且未配置可用的 vision_model，无法读取图片内容。\n\n"
+                        f"{user_input_text}"
+                    )
+
+                # 发给模型纯文本；history 也存纯文本
+                send_msg = OpenAIMessage(role="user", content=prompt)
+                mem_msg = OpenAIMessage(role="user", content=prompt)
+                messages = [*messages[:-1], send_msg]
+                self._add_message(mem_msg)
+            else:
+                # chat 支持 vision 或者用户没图：直接把原消息发给模型
+                # 但 history 仍然只存纯文本（安全）
+                send_msg = messages[-1]
+                mem_msg = OpenAIMessage(role="user", content=user_input_text)
+                messages = [*messages[:-1], send_msg]
+                self._add_message(mem_msg)
 
             async for tok in self.chat_llm.chat_completion(  # type: ignore[attr-defined]
                 messages,  # type: ignore[arg-type]
@@ -291,21 +434,14 @@ class MemoryAgent(AgentInterface):
                 yield tok
             return
 
-        # tool mode
+        # ------------------------------
+        # Tool mode
+        # ------------------------------
 
         available_tools = await self.mcp.list_tools_openai_schema()
-        # 如果 user input 的来源是 _memory 且是由 chat_func 调用的，那么最后一条消息一定是 user,而这里防的是其他情况
-        assert messages[-1].role == "user", f"last message must be user, but got {messages[-1].role}"
-        user_input_content = messages[-1].content
-        messages = messages[:-1]
-        user_input_text = ""
-        if isinstance(user_input_content, list):
-            for item in user_input_content:
-                if item.type == "text":
-                    user_input_text += str(item.text)
-        else:
-            user_input_text = str(user_input_content)
-        # 我们暂时没有 tool call 需要图片输入的场景，有的话再做支持
+        # tool loop 只吃 text（不把 data-url base64 传进去）
+        messages_wo_user = messages[:-1]
+
         _, tool_trace = await self.tool_loop.run_tool_loop(
             tool_system_prompt=self.tool_system_prompt,
             available_tools=available_tools,
@@ -320,81 +456,88 @@ class MemoryAgent(AgentInterface):
             indent=2,
         )
         tools_summary_str = f"[Tool Call Summary]:\n{tool_summary}"
-        img_ref = None
-        # ✅ 优先从 state 拿（更稳：即使 tool_trace 被裁剪/压缩也不影响）
-        if isinstance(getattr(self, "state", None), object):
-            refs = getattr(self.state, "refs", {})
-            if isinstance(refs, dict):
-                v = refs.get("last_image_ref")  # type: ignore
-                if isinstance(v, str):
-                    img_ref = v
 
+        # ---- 取 tool 回调图片（截图）----
+        img_ref = None
+        refs = getattr(self.state, "refs", {})
+        if isinstance(refs, dict):
+            v = refs.get("last_image_ref")  # type: ignore
+            if isinstance(v, str):
+                img_ref = v
         img_ref = img_ref or self._first_image_ref(tool_trace)
+
+        tool_b64 = None
+        tool_mime = None
         if img_ref and img_ref in self.tool_loop.blob_store:
             blob = self.tool_loop.blob_store[img_ref]
-            b64 = str(blob["b64"])
-            mime = str(blob.get("mime", "image/jpeg"))
-            # 对于有图片的情况, tool summary 只是一个摘要,像下面，而且，当使用到 last_image_ref 时，连图片信息都没有在 tool summary 里体现出来。
-            """
-            {
-                "role": "user",
-                "timestamp": "2026-02-04T12:23:34",
-                "content": "工具结果摘要：\n[\n  {\n    \"server\": \"vision\",\n    \"name\": \"screen_shot\",\n    \"args\": {},\n    \"raw_result\": {\n      \"kind\": \"image_ref\",\n      \"image_ref\": \"call_7hDJSt2JAcF1DhGISQVlvDE7\",\n      \"mime\": \"image/jpeg\",\n      \"b64_len\": 161756\n    },\n    \"ok\": true\n  }\n]"
-            },
-            """
+            tool_b64 = str(blob["b64"])
+            tool_mime = str(blob.get("mime", "image/jpeg"))
 
-            if self.chat_supports_vision:
-                user_prompt = f"""
-                [Task / User Prompt] {user_input_text}
-                ###
-                [Tool Call Summary] {tools_summary_str}
-                """
-                # ✅ 直接让 chat_model 看图（一次调用，最简单）
-                messages.append(self._user_msg_with_image(user_prompt, b64=b64, mime=mime))
-                self._add_message(
-                    OpenAIMessage(role="user", content=user_prompt)
-                )  # history 中并不存 base64 图像数据just
-            else:
-                # ✅ chat text-only：走 vision fallback summary
-                vision_summary = await self._get_vision_summary(
-                    user_input=user_input_text, img_ref=img_ref, b64=b64, mime=mime
-                )
-                if vision_summary:
-                    logger.debug(f"[VISION] obtained vision summary for chat: {self._snip(vision_summary)}")
-                    vision_summary_prompt = (
-                        "以下是视觉模型对图片的结构化摘要（JSON）。请把它当作“图片内容的真实信息来源”，结合工具结果与用户问题作答。"
-                        f"VISION_SUMMARY:{vision_summary}"
-                        f"用户问题：{user_input_text}"
-                    )
-                else:
-                    # ✅ 没有 vision_model 可用：只能不看图
-                    logger.debug(f"[VISION] no vision summary for chat: {self._snip(user_input_text)}")
-                    vision_summary_prompt = (
-                        "注意：当前 chat_model 和 vision_model 都不支持图像输入，且未配置可用的 vision_model，"
-                        "你应该先告诉用户你无法读取图片内容，不要胡编乱造。\n\n"
-                        f"用户问题：{user_input_text}"
-                    )
-                blocks = [
-                    f"[Task / User Prompt]\n{vision_summary_prompt}",
-                    f"[Tool Call Summary]\n{tools_summary_str}",
-                ]
-                user_prompt = "\n\n###\n\n".join(blocks)
-                messages.append(OpenAIMessage(role="user", content=user_prompt))
-                self._add_message(OpenAIMessage(role="user", content=user_prompt))
-
-        else:
-            # 对于没有图片的情况，正常 Tool Call 包含模型回复所需要的全部信息
-            # 顺序：用户输入+工具结果摘要
-            blocks = [
+        # prompt 主体（四段里前两段用这个做基础）----
+        base_prompt = "\n\n###\n\n".join(
+            [
                 f"[Task / User Prompt]\n{user_input_text}",
                 f"[Tool Call Summary]\n{tools_summary_str}",
             ]
-            user_prompt = "\n\n###\n\n".join(blocks)
-            messages.append(OpenAIMessage(role="user", content=user_prompt))
-            self._add_message(OpenAIMessage(role="user", content=user_prompt))
+        )
+
+        # ==============================
+        # A) chat_model 支持 vision：把两张图一起打包送进去
+        # ==============================
+        if self.chat_supports_vision:
+            images_to_send: list[tuple[str, str]] = []
+            if tool_b64:
+                images_to_send.append((tool_b64, tool_mime or "image/jpeg"))
+            if user_up_b64:
+                images_to_send.append((user_up_b64, user_up_mime or "image/jpeg"))
+
+            if images_to_send:
+                send_msg = self._user_msg_with_images(base_prompt, images=images_to_send)
+                mem_msg = OpenAIMessage(role="user", content=base_prompt)  # ✅ history 不存 base64
+                final_messages = [*messages_wo_user, send_msg]
+                self._add_message(mem_msg)
+            else:
+                send_msg = OpenAIMessage(role="user", content=base_prompt)
+                mem_msg = OpenAIMessage(role="user", content=base_prompt)
+                final_messages = [*messages_wo_user, send_msg]
+                self._add_message(mem_msg)
+
+            async for tok in self.chat_llm.chat_completion(  # type: ignore[attr-defined]
+                final_messages,  # type: ignore[arg-type]
+                system=self.chat_system_prompt,
+                stream_=True,
+            ):
+                yield tok
+            return
+
+        # ==============================
+        # B) chat_model 不支持 vision：按图存在情况调用 0/1/2 次 vision_summary，然后拼四段 prompt
+        # ==============================
+        tool_sum = None
+        user_sum = None
+        if user_up_b64:
+            user_ref = self._img_ref_from_b64(user_up_b64, user_up_mime or "image/jpeg")
+            user_sum = await self._get_vision_summary(
+                user_input=user_input_text,
+                img_ref=user_ref,
+                b64=user_up_b64,
+                mime=user_up_mime or "image/jpeg",
+            )
+
+        full_prompt = self._build_prompt_with_image_summaries(
+            user_input_text=user_input_text,
+            tools_summary_str=tools_summary_str,
+            tool_image_summary=tool_sum,
+            user_image_summary=user_sum,
+        )
+
+        send_msg = OpenAIMessage(role="user", content=full_prompt)
+        mem_msg = OpenAIMessage(role="user", content=full_prompt)  # ✅ history 不含 base64
+        final_messages = [*messages_wo_user, send_msg]
+        self._add_message(mem_msg)
 
         async for tok in self.chat_llm.chat_completion(  # type: ignore[attr-defined]
-            messages,  # type: ignore[arg-type]
+            final_messages,  # type: ignore[arg-type]
             system=self.chat_system_prompt,
             stream_=True,
         ):
@@ -407,10 +550,6 @@ class MemoryAgent(AgentInterface):
         self,
         chat_func: Callable[[list[OpenAIMessage]], AsyncIterator[str]],
     ) -> Callable[..., AsyncIterator[SentenceOutput | AudioOutput]]:
-        """Pipeline:
-        LLM tokens -> sentence_divider -> actions_extractor -> display_processor -> tts_filter
-        """
-
         @tts_filter(self.tts_preprocessor_config)
         @display_processor()
         @actions_extractor(self._live2d_model)
@@ -420,10 +559,11 @@ class MemoryAgent(AgentInterface):
             valid_tags=["think"],
         )
         async def chat_with_memory(input_data: BatchInput) -> AsyncIterator[str | AudioOutput]:
-            user_prompt = self._to_text_prompt(input_data)
+            # ✅ 这里要用“可能带图”的 user message
+            user_msg = self._build_user_message_from_batch(input_data)
 
             # build messages WITHOUT system (system is passed separately)
-            messages: list[OpenAIMessage] = [*self._memory, OpenAIMessage(role="user", content=user_prompt)]
+            messages: list[OpenAIMessage] = [*self._memory, user_msg]
 
             token_stream = chat_func(messages)
             complete_response = ""
