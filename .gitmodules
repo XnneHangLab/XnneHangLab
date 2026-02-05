@@ -15,4 +15,4 @@
 	url = https://github.com/XnneHangLab/GPT-SoVITS-Inference.git
 [submodule "frontend"]
 	path = frontend
-	url = https://github.com/Open-LLM-VTuber/Open-LLM-VTuber-Web.git
+	url = https://github.com/XnneHangLab/Open-LLM-VTuber-Web.git
