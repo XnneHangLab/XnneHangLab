@@ -37,6 +37,8 @@ user_lang = "ZH"
 speaker_lang = "EN"
 speaker_model = "gpt_sovits"
 faster_first_response = false
+max_vision_concurrency = 4
+require_detailed = true
 segment_method = "pysbd"
 interrupt_method = "user"
 

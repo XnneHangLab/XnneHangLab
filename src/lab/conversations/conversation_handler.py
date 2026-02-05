@@ -44,6 +44,9 @@ async def handle_conversation_trigger(
         received_data_buffers[client_uid] = np.array([])
 
     images = data.get("images")
+    # logger.info(f"Received images: {images}")
+    # [{'source': 'upload', 'data': 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA4QAAAKeCAYAAADAeD/Mw...', 'mime': 'image/png'}]
+    # [{'source': 'upload', 'data': 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA4QAAAKeCAYAAADAeD/Mw...', 'mime': 'image/jpeg'}]
     session_emoji = np.random.choice(EMOJI_LIST)
 
     logger.info(f"Starting new single conversation for {client_uid}")

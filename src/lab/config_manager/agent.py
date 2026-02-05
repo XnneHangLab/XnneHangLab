@@ -75,7 +75,7 @@ class AgentSettings(BaseModel):
     chat_model: Annotated[ChatModelSetting, Field(ChatModelSetting())]  # pyright: ignore[reportCallIssue]
     tool_model: Annotated[ToolModelSetting, Field(ToolModelSetting())]  # pyright: ignore[reportCallIssue]
     vision_model: Annotated[VisionModelSetting, Field(VisionModelSetting())]  # pyright: ignore[reportCallIssue]
-    enable_mcp: Annotated[bool, Field(False, title="Enable MCP")]
+    enable_mcp: Annotated[bool, Field(True, title="Enable MCP")]
     llm: Annotated[LLMSettings, Field(LLMSettings())]  # pyright: ignore[reportCallIssue]
     character_name: Annotated[
         str,
@@ -98,7 +98,16 @@ class AgentSettings(BaseModel):
         Literal["ZH", "EN", "JA"], Field("EN", title="Speaker Language, speaker 合成语音时使用的语言")
     ]
     speaker_model: Annotated[Literal["gpt_sovits"], Field("gpt_sovits", title="选择使用什么模型合成语音")]
-    faster_first_response: Annotated[bool, Field(False, title="Enable Faster First Response")]
+    faster_first_response: Annotated[bool, Field(False, title="更快的首句回复")]
+    max_vision_concurrency: Annotated[
+        int,
+        Field(
+            default=4,
+            ge=1,  # ✅ 关键：>=1，不然不会开启任何并发线程。而太高会 API 调用频率过快
+            title="一次最多并发多少个 vision model 进行推理，不应该设置太高但不应该低于 1，默认为 4",
+        ),
+    ]
+    require_detailed: Annotated[bool, Field(True, title="是否逐图分析每张图的细节，而不是一次分析所有图")]
     segment_method: Literal["regex", "pysbd"] = Field(
         "pysbd",
         title="Segment Method",
