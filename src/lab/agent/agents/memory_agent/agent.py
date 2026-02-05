@@ -208,24 +208,20 @@ class MemoryAgent(AgentInterface):
                 yield tok
             return
 
-        # 3) chat 支持 vision：快模式不做摘要；细模式做逐图摘要+图同喂
+        # 3) chat 支持 vision：快模式不做摘要；细模式做逐图摘要+图同喂给 chat
         if self.require_detailed and self.vision_llm:
-            if tool_result.tool_image:
-                summaries = await self.vision.summarize_all(
-                    user_input_text=user_input_text,
-                    tool_image=tool_result.tool_image,
-                    upload_images=user_up_images,
-                    require_detailed=True,
-                )
-                full_prompt = self.prompt.build_prompt_with_image_summaries(
-                    user_input_text=user_input_text,
-                    tools_summary_str=tool_result.trace_json if self.enable_tool else "(无)",
-                    tool_image_summary=summaries.tool_image_summary,
-                    user_image_summary=self.prompt.format_labeled_summaries(summaries.upload_summaries),
-                )
-            else:
-                warn = "注意：当前 chat_model 支持图像输入，且本次没有工具回调图片，无法读取图片内容。\n\n"
-                full_prompt = warn + base_prompt
+            summaries = await self.vision.summarize_all(
+                user_input_text=user_input_text,
+                tool_image=tool_result.tool_image,  # ✅ 允许 None
+                upload_images=user_up_images,  # ✅ 关键：upload-only 也要总结
+                require_detailed=True,
+            )
+            full_prompt = self.prompt.build_prompt_with_image_summaries(
+                user_input_text=user_input_text,
+                tools_summary_str=tool_result.trace_json if self.enable_tool else "(无)",
+                tool_image_summary=summaries.tool_image_summary,
+                user_image_summary=self.prompt.format_labeled_summaries(summaries.upload_summaries),
+            )
         else:
             full_prompt = base_prompt
 
