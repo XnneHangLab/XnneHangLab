@@ -743,7 +743,9 @@ class MemoryAgent(AgentInterface):
                 warn = "注意：当前 chat_model 不支持图像输入，且未配置可用的 vision_model，无法读取图片内容。\n\n"
                 full_prompt = warn + base_prompt
             else:
-                # tool 图一般只有 0/1 张：用单图 summary 即可
+                # tool 图一般只有 0/1 张；而且来源是 self._blob_store 的 last image ref，当下也只可能有一张。
+                # 另外，我们不希望它与 user 图片混淆, 而希望独自并发，防止它混进了 upload_image_summaries 让用户觉得很怪：
+                # 我上传了三张图，结果摘要里有四个 p1/p2/p3/p4，且用户通常不知道为什么多了这一张，可能会认为是模型幻觉，体验很怪。
                 if tool_b64:
                     tool_image_summary = await self._get_vision_summary(
                         user_input=f"{user_input_text}\n(来源:tool_callback)",
