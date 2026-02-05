@@ -116,14 +116,13 @@ class MemoryAgent(AgentInterface):
         """
         content_parts: list[ContentPart] = [
             TextPart(type="text", text=text),
-            ImagePart(type="image_url", image_url=ImageURL(url=data))
+            ImagePart(type="image_url", image_url=ImageURL(url=data)),
         ]
 
         return OpenAIMessage(
             role="user",
             content=content_parts,
         )
-
 
     def _user_msg_with_images(self, text: str, *, images: list[tuple[str, str]]) -> OpenAIMessage:
         """
