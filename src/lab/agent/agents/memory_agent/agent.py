@@ -181,22 +181,18 @@ class MemoryAgent(AgentInterface):
                 warn = "注意：当前 chat_model 不支持图像输入，且未配置可用的 vision_model，无法读取图片内容。\n\n"
                 full_prompt = warn + base_prompt
             else:
-                if tool_result.tool_image:
-                    summaries = await self.vision.summarize_all(
-                        user_input_text=user_input_text,
-                        tool_image=tool_result.tool_image,
-                        upload_images=user_up_images,
-                        require_detailed=self.require_detailed,
-                    )
-                    full_prompt = self.prompt.build_prompt_with_image_summaries(
-                        user_input_text=user_input_text,
-                        tools_summary_str=tool_result.trace_json if self.enable_tool else "(无)",
-                        tool_image_summary=summaries.tool_image_summary,
-                        user_image_summary=self.prompt.format_labeled_summaries(summaries.upload_summaries),
-                    )
-                else:
-                    warn = "注意：当前 chat_model 不支持图像输入，且本次没有工具回调图片，无法读取图片内容。\n\n"
-                    full_prompt = warn + base_prompt
+                summaries = await self.vision.summarize_all(
+                    user_input_text=user_input_text,
+                    tool_image=tool_result.tool_image,
+                    upload_images=user_up_images,
+                    require_detailed=self.require_detailed,
+                )
+                full_prompt = self.prompt.build_prompt_with_image_summaries(
+                    user_input_text=user_input_text,
+                    tools_summary_str=tool_result.trace_json if self.enable_tool else "(无)",
+                    tool_image_summary=summaries.tool_image_summary,
+                    user_image_summary=self.prompt.format_labeled_summaries(summaries.upload_summaries),
+                )
 
             send_msg = OpenAIMessage(role="user", content=full_prompt)
             final_messages = [*messages_wo_user, send_msg]

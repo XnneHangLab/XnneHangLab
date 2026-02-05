@@ -97,7 +97,7 @@ class VisionSummarizer:
         self,
         *,
         user_input_text: str,
-        tool_image: ImagePayload,
+        tool_image: ImagePayload | None,
     ) -> str:
         """tool 回调图默认单张：返回其 summary（或 ""）。"""
         if not tool_image or not self.vision_llm:
@@ -139,7 +139,7 @@ class VisionSummarizer:
         self,
         *,
         user_input_text: str,
-        tool_image: ImagePayload,
+        tool_image: ImagePayload | None,
         upload_images: list[tuple[str, str]],
         require_detailed: bool,
     ) -> VisionSummaryResult:
