@@ -107,8 +107,9 @@ class MemoryAgent(AgentInterface):
         self.segment_method = segment_method
 
         # bind chat pipeline
-        self.chat = self._chat_function_factory(self._stream_chat_tokens)  # type: ignore[method-assign]
-
+        self._bound_chat: Callable[[BatchInput], AsyncIterator[SentenceOutput | AudioOutput]] = (
+            self._chat_function_factory(self._stream_chat_tokens)
+        )
         logger.info(f"MemoryAgent initialized. enable_tool={self.enable_tool}")
 
     # ---------------------------------------------------------------------
@@ -283,5 +284,6 @@ class MemoryAgent(AgentInterface):
 
         return chat_with_memory
 
-    async def chat(self, input_data: BatchInput) -> AsyncIterator[str | AudioOutput]:  # type: ignore[override]
-        return self.chat(input_data)  # type: ignore[return-value]
+    async def chat(self, input_data: BatchInput) -> AsyncIterator[SentenceOutput | AudioOutput]:  # type: ignore[override]
+        async for chunk in self._bound_chat(input_data):
+            yield chunk
