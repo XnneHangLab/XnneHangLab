@@ -172,7 +172,7 @@ def write_settings_file(
         settings_file.touch()
     try:
         with settings_file.open("w", encoding="utf-8") as f:
-            toml_string = toml_dumps(settings.model_dump())  # type: ignore
+            toml_string = toml_dumps(settings.model_dump(exclude_none=True))  # type: ignore
             f.write(toml_string)
     except Exception as e:
         print(f"写入配置文件失败: {e}")
