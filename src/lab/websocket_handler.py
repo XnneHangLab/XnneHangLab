@@ -19,7 +19,7 @@ from lab.chat_history_manager import (
     get_history,
     get_history_list,  # type: ignore[import]
 )
-from lab.config_manager.vtuber import scan_bg_directory, scan_config_alts_directory
+from lab.config_manager.vtuber import scan_bg_directory
 from lab.conversations.conversation_handler import (
     handle_conversation_trigger,  # type: ignore[import]
     handle_group_interrupt,
@@ -448,10 +448,10 @@ class WebSocketHandler:
     async def _handle_fetch_configs(self, websocket: WebSocket, client_uid: str, data: WSMessage) -> None:
         """Handle fetching available configurations"""
         context = self.client_contexts[client_uid]
-        if context.system_config is None:
-            logger.error("system_config is None, cannot fetch config files")
-            raise ValueError("system_config cannot be None")
-        config_files = scan_config_alts_directory(context.system_config.config_alts_dir)
+        if context.character_config is None:
+            logger.error("character_config is None, cannot fetch config files")
+            raise ValueError("character_config cannot be None")
+        config_files = [{"filename": "lab.toml", "name": context.character_config.conf_name}]
         await websocket.send_text(json.dumps({"type": "config-files", "configs": config_files}))
 
     async def _handle_config_switch(self, websocket: WebSocket, client_uid: str, data: dict[Any, Any]):

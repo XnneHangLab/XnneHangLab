@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from loguru import logger
@@ -11,7 +9,7 @@ from loguru import logger
 from lab.agent.agent_factory import AgentFactory
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.config_manager.server import ServerSettings
-from lab.config_manager.vtuber import CharacterSettings, TranslatorConfig, read_yaml
+from lab.config_manager.vtuber import CharacterSettings, TranslatorConfig
 from lab.live2d_model import Live2dModel
 from lab.utils.TxtHelper import read_prompt_from_text_file
 
@@ -189,12 +187,9 @@ class ServiceContext:
         config_file_name: str,
     ) -> None:
         """
-        Handle the configuration switch request.
-        Change the configuration to a new config and notify the client.
+        处理配置切换请求。
 
-        Parameters:
-        - websocket (WebSocket): The WebSocket connection.
-        - config_file_name (str): The name of the configuration file.
+        当前仅支持使用 `lab.toml` 作为唯一配置源。
         """
         try:
             if self.character_config is None:
@@ -204,58 +199,37 @@ class ServiceContext:
                 logger.error("system_config is None, cannot switch configuration")
                 raise ValueError("system_config cannot be None")
             if self.config is None:
-                logger.error("character_config is None, cannot switch configuration")
-                raise ValueError("character_config cannot be None")
-            new_character_config_data = None
+                logger.error("config is None, cannot switch configuration")
+                raise ValueError("config cannot be None")
+            if config_file_name not in {"lab.toml", "vtuber.yaml"}:
+                raise ValueError("Only lab.toml is supported")
 
-            if config_file_name in {"lab.toml", "vtuber.yaml"}:
-                # Load base config from lab.toml
-                new_character_config_data = self.lab_setting.vtuber.character_config.model_dump()
-            else:
-                # Load alternative config and merge with base config
-                characters_dir = Path(self.system_config.config_alts_dir)
-                file_path = os.path.normpath(characters_dir / config_file_name)
-                # if not file_path.startswith(characters_dir):
-                #     raise ValueError("Invalid configuration file path")
+            new_config = load_settings_file("lab.toml", XnneHangLabSettings)
+            self.load_from_config(new_config)
+            logger.debug(f"New config: {self}")
+            logger.debug(f"New character config: {self.character_config.model_dump()}")
 
-                alt_config_data = read_yaml(file_path).get("character_config")
-
-                # Start with original config data and perform a deep merge
-                new_character_config_data = deep_merge(self.config.vtuber.character_config.model_dump(), alt_config_data)  # type: ignore
-
-            if new_character_config_data:
-                new_config_data = self.config.model_dump()
-                new_config_data["vtuber"]["character_config"] = new_character_config_data
-                new_config = XnneHangLabSettings.model_validate(new_config_data)
-                self.load_from_config(new_config)
-                logger.debug(f"New config: {self}")
-                logger.debug(f"New character config: {self.character_config.model_dump()}")
-
-                # Send responses to client
-
-                await websocket.send_text(
-                    json.dumps(
-                        {
-                            "type": "set-model-and-conf",
-                            "model_info": self.live2d_model.model_info,  # type: ignore
-                            "conf_name": self.character_config.conf_name,
-                            "conf_uid": self.character_config.conf_uid,
-                        }
-                    )
+            await websocket.send_text(
+                json.dumps(
+                    {
+                        "type": "set-model-and-conf",
+                        "model_info": self.live2d_model.model_info,  # type: ignore
+                        "conf_name": self.character_config.conf_name,
+                        "conf_uid": self.character_config.conf_uid,
+                    }
                 )
+            )
 
-                await websocket.send_text(
-                    json.dumps(
-                        {
-                            "type": "config-switched",
-                            "message": f"Switched to config: {config_file_name}",
-                        }
-                    )
+            await websocket.send_text(
+                json.dumps(
+                    {
+                        "type": "config-switched",
+                        "message": "Switched to config: lab.toml",
+                    }
                 )
+            )
 
-                logger.info(f"Configuration switched to {config_file_name}")
-            else:
-                raise ValueError(f"Failed to load configuration from {config_file_name}")
+            logger.info("Configuration switched to lab.toml")
 
         except Exception as e:
             logger.error(f"Error switching configuration: {e}")
@@ -269,16 +243,3 @@ class ServiceContext:
                 )
             )
             raise e
-
-
-def deep_merge(dict1: dict[Any, Any], dict2: dict[Any, Any]) -> dict[Any, Any]:
-    """
-    Recursively merges dict2 into dict1, prioritizing values from dict2.
-    """
-    result = dict1.copy()
-    for key, value in dict2.items():
-        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-            result[key] = deep_merge(result[key], value)  # type: ignore
-        else:
-            result[key] = value
-    return result
