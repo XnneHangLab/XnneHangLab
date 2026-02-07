@@ -2,22 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
-from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from loguru import logger
 
 from lab.agent.agent_factory import AgentFactory
 from lab.config_manager import XnneHangLabSettings, load_settings_file
-from lab.config_manager.vtuber import (
-    CharacterConfig,
-    Config,
-    SystemConfig,
-    TranslatorConfig,
-    read_yaml,
-    validate_config,
-)
 from lab.live2d_model import Live2dModel
 from lab.utils.TxtHelper import read_prompt_from_text_file
 
@@ -25,6 +15,8 @@ if TYPE_CHECKING:
     from fastapi import WebSocket
 
     from lab.agent.agents.memory_agent import MemoryAgent
+    from lab.config_manager.server import ServerSettings
+    from lab.config_manager.vtuber import CharacterSettings
 
 
 class ServiceContext:
@@ -35,9 +27,9 @@ class ServiceContext:
         self._mcp_connected = False
         self._mcp_lock = asyncio.Lock()
         self.lab_setting: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSettings)
-        self.config: Config | None = None
-        self.system_config: SystemConfig | None = None
-        self.character_config: CharacterConfig | None = None
+        self.config: XnneHangLabSettings | None = None
+        self.system_config: ServerSettings | None = None
+        self.character_config: CharacterSettings | None = None
 
         self.live2d_model: Live2dModel | None = None
         self.agent_engine: MemoryAgent | None = None  # type: ignore
@@ -64,9 +56,9 @@ class ServiceContext:
 
     def load_cache(
         self,
-        config: Config,
-        system_config: SystemConfig,
-        character_config: CharacterConfig,
+        config: XnneHangLabSettings,
+        system_config: ServerSettings,
+        character_config: CharacterSettings,
         live2d_model: Live2dModel,
         agent_engine: MemoryAgent,
     ) -> None:
@@ -86,7 +78,7 @@ class ServiceContext:
         self.agent_engine = agent_engine
         logger.debug(f"Loaded service context with cache: {character_config}")
 
-    def load_from_config(self, config: Config) -> None:
+    def load_from_config(self, config: XnneHangLabSettings) -> None:
         """
         Load the ServiceContext with the config.
         Reinitialize the instances if the config is different.
@@ -98,24 +90,24 @@ class ServiceContext:
             self.config = config
 
         if not self.system_config:
-            self.system_config = config.system_config
+            self.system_config = config.server
 
         if not self.character_config:
-            self.character_config = config.character_config
+            self.character_config = config.vtuber.character_config
 
         # update all sub-configs
 
         # init live2d from character config
-        self.init_live2d(config.character_config.live2d_model_name)
+        self.init_live2d(config.vtuber.character_config.live2d_model_name)
 
         # init agent from character config
-        self.init_agent()
+        self.init_agent(config)
 
-        self.init_translate(config.character_config.tts_preprocessor_config.translator_config)
+        # self.init_translate(config.vtuber.character_config.tts_preprocessor_config.translator_config) # 到时替换成自己的
         # store typed config references
         self.config = config
-        self.system_config = config.system_config or self.system_config
-        self.character_config = config.character_config
+        self.system_config = config.server or self.system_config
+        self.character_config = config.vtuber.character_config
 
     def init_live2d(self, live2d_model_name: str) -> None:
         logger.info(f"Initializing Live2D: {live2d_model_name}")
@@ -129,11 +121,11 @@ class ServiceContext:
             logger.critical(f"Error initializing Live2D: {e}")
             logger.critical("Try to proceed without Live2D...")
 
-    def init_agent(self) -> None:
+    def init_agent(self, lab_settings: XnneHangLabSettings) -> None:
         """Initialize or update the LLM engine based on agent configuration."""
         # agent 暂时不需要多次启动模型，所以不需要自检是否初始化。
-        lab_settings = self.lab_setting
-        chat_system_prompt = read_prompt_from_text_file(lab_settings.agent.character_name)
+        chat_system_prompt = read_prompt_from_text_file(lab_settings.agent.prompts.character_prompt)
+        chat_system_prompt += "\n\n" + read_prompt_from_text_file(lab_settings.agent.prompts.live2d_expression_prompt)
         if self.live2d_model is None:
             logger.error("Live2D model is not initialized, cannot create agent.")
             raise ValueError("Live2D model must be initialized before creating agent.")
@@ -148,8 +140,8 @@ class ServiceContext:
             chat_system_prompt += "\n**日本語で返信してください。**"
         else:
             raise ValueError(f"speaker_lang {lab_settings.agent.user_lang} not supported")
-        tool_system_prompt = read_prompt_from_text_file("tool_model")
-        vision_system_prompt = read_prompt_from_text_file("vision_model")
+        tool_system_prompt = read_prompt_from_text_file(lab_settings.agent.prompts.tool_prompt)
+        vision_system_prompt = read_prompt_from_text_file(lab_settings.agent.prompts.vision_prompt)
         if self.character_config is None:
             logger.error("character_config is None, cannot create agent.")
             raise ValueError("character_config cannot be None")
@@ -185,7 +177,7 @@ class ServiceContext:
                 await self.agent_engine.connect_mcp_servers()
             self._mcp_connected = True
 
-    def init_translate(self, translator_config: TranslatorConfig) -> None:
+    def init_translate(self) -> None:
         """Initialize or update the translation engine based on the configuration."""
         logger.info("Translation already initialized with the same config.")
 
@@ -195,12 +187,9 @@ class ServiceContext:
         config_file_name: str,
     ) -> None:
         """
-        Handle the configuration switch request.
-        Change the configuration to a new config and notify the client.
+        处理配置切换请求。
 
-        Parameters:
-        - websocket (WebSocket): The WebSocket connection.
-        - config_file_name (str): The name of the configuration file.
+        当前仅支持使用 `lab.toml` 作为唯一配置源。
         """
         try:
             if self.character_config is None:
@@ -210,60 +199,37 @@ class ServiceContext:
                 logger.error("system_config is None, cannot switch configuration")
                 raise ValueError("system_config cannot be None")
             if self.config is None:
-                logger.error("character_config is None, cannot switch configuration")
-                raise ValueError("character_config cannot be None")
-            new_character_config_data = None
+                logger.error("config is None, cannot switch configuration")
+                raise ValueError("config cannot be None")
+            if config_file_name not in {"lab.toml"}:
+                raise ValueError("Only lab.toml is supported")
 
-            if config_file_name == "vtuber.yaml":
-                # Load base config
-                new_character_config_data = read_yaml("config/vtuber.yaml").get("character_config")
-            else:
-                # Load alternative config and merge with base config
-                characters_dir = Path(self.system_config.config_alts_dir)
-                file_path = os.path.normpath(characters_dir / config_file_name)
-                # if not file_path.startswith(characters_dir):
-                #     raise ValueError("Invalid configuration file path")
+            new_config = load_settings_file("lab.toml", XnneHangLabSettings) # 这里实际上欲盖弥彰，因为我们并没有提供额外的配置文件，config switch 暂时只能切换到 lab.toml。
+            self.load_from_config(new_config)
+            logger.debug(f"New config: {self}")
+            logger.debug(f"New character config: {self.character_config.model_dump()}")
 
-                alt_config_data = read_yaml(file_path).get("character_config")
-
-                # Start with original config data and perform a deep merge
-                new_character_config_data = deep_merge(self.config.character_config.model_dump(), alt_config_data)  # type: ignore
-
-            if new_character_config_data:
-                new_config = {
-                    "system_config": self.system_config.model_dump(),
-                    "character_config": new_character_config_data,
-                }
-                new_config = validate_config(new_config)
-                self.load_from_config(new_config)
-                logger.debug(f"New config: {self}")
-                logger.debug(f"New character config: {self.character_config.model_dump()}")
-
-                # Send responses to client
-
-                await websocket.send_text(
-                    json.dumps(
-                        {
-                            "type": "set-model-and-conf",
-                            "model_info": self.live2d_model.model_info,  # type: ignore
-                            "conf_name": self.character_config.conf_name,
-                            "conf_uid": self.character_config.conf_uid,
-                        }
-                    )
+            await websocket.send_text(
+                json.dumps(
+                    {
+                        "type": "set-model-and-conf",
+                        "model_info": self.live2d_model.model_info,  # type: ignore
+                        "conf_name": self.character_config.conf_name,
+                        "conf_uid": self.character_config.conf_uid,
+                    }
                 )
+            )
 
-                await websocket.send_text(
-                    json.dumps(
-                        {
-                            "type": "config-switched",
-                            "message": f"Switched to config: {config_file_name}",
-                        }
-                    )
+            await websocket.send_text(
+                json.dumps(
+                    {
+                        "type": "config-switched",
+                        "message": "Switched to config: lab.toml",
+                    }
                 )
+            )
 
-                logger.info(f"Configuration switched to {config_file_name}")
-            else:
-                raise ValueError(f"Failed to load configuration from {config_file_name}")
+            logger.info("Configuration switched to lab.toml")
 
         except Exception as e:
             logger.error(f"Error switching configuration: {e}")
@@ -277,16 +243,3 @@ class ServiceContext:
                 )
             )
             raise e
-
-
-def deep_merge(dict1: dict[Any, Any], dict2: dict[Any, Any]) -> dict[Any, Any]:
-    """
-    Recursively merges dict2 into dict1, prioritizing values from dict2.
-    """
-    result = dict1.copy()
-    for key, value in dict2.items():
-        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-            result[key] = deep_merge(result[key], value)  # type: ignore
-        else:
-            result[key] = value
-    return result

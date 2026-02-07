@@ -71,11 +71,37 @@ class LLMSettings(BaseModel):
     cerebras: Annotated[CerebrasSetting, Field(CerebrasSetting())]  # pyright: ignore[reportCallIssue]
 
 
+class PromptSettings(BaseModel):
+    """Agent 侧提示词配置所在的路径"""
+
+    live2d_expression_prompt: Annotated[
+        str,
+        Field("./prompts/live2d_expression_prompt.txt", title="Live2D 表情提示词"),
+    ]
+    think_tag_prompt: Annotated[
+        str,
+        Field("./prompts/think_tag_prompt.txt", title="思考标签提示词"),
+    ]
+    character_prompt: Annotated[
+        str,
+        Field("./prompts/characters/elaina.txt", title="角色系统提示词文件路径"),
+    ]
+    vision_prompt: Annotated[
+        str,
+        Field("./prompts/vision_prompt.txt", title="视觉提示词"),
+    ]
+    tool_prompt: Annotated[
+        str,
+        Field("./prompts/tool_prompt.txt", title="工具提示词"),
+    ]
+
+
 class AgentSettings(BaseModel):
     chat_model: Annotated[ChatModelSetting, Field(ChatModelSetting())]  # pyright: ignore[reportCallIssue]
     tool_model: Annotated[ToolModelSetting, Field(ToolModelSetting())]  # pyright: ignore[reportCallIssue]
     vision_model: Annotated[VisionModelSetting, Field(VisionModelSetting())]  # pyright: ignore[reportCallIssue]
     enable_mcp: Annotated[bool, Field(True, title="Enable MCP")]
+    prompts: Annotated[PromptSettings, Field(PromptSettings())]  # pyright: ignore[reportCallIssue]
     llm: Annotated[LLMSettings, Field(LLMSettings())]  # pyright: ignore[reportCallIssue]
     character_name: Annotated[
         str,

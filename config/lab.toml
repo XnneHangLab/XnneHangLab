@@ -55,6 +55,13 @@ llm_model_name = "qwen-3-235b-a22b-instruct-2507"
 llm_provider = "oaipro"
 llm_model_name = "gpt-5.1-2025-11-13"
 
+[agent.prompts]
+live2d_expression_prompt = "./prompts/live2d_expression_prompt.txt"
+think_tag_prompt = "./prompts/think_tag_prompt.txt"
+character_prompt = "./prompts/characters/elaina.txt"
+vision_prompt = "./prompts/vision_prompt.txt"
+tool_prompt = "./prompts/tool_prompt.txt"
+
 [agent.llm.openai]
 llm_api_key = ""
 llm_base_url = "https://api.openai.com/v1"
@@ -137,3 +144,27 @@ gpt_sovits = true
 
 [root]
 root_dir = "D:\\tmp\\XnneHangLab"
+
+[server]
+conf_version = "v1.1.1"
+host = "localhost"
+port = 12393
+config_alts_dir = "characters"
+
+[server.tool_prompts]
+live2d_expression_prompt = "live2d_expression_prompt"
+
+[vtuber.character_config]
+conf_name = "elaina-local"
+conf_uid = "elaina-local-001"
+live2d_model_name = "Elaina"
+character_name = "Elaina"
+avatar = "ico_lss.png"
+human_name = "Human"
+
+[vtuber.character_config.tts_preprocessor_config]
+remove_special_char = true
+ignore_brackets = true
+ignore_parentheses = true
+ignore_asterisks = true
+ignore_angle_brackets = true

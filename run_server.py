@@ -9,7 +9,7 @@ import tomli
 import uvicorn
 from loguru import logger
 
-from src.lab.config_manager.vtuber import Config, read_yaml, validate_config
+from src.lab.config_manager import XnneHangLabSettings, load_settings_file
 from src.lab.server import WebSocketServer
 
 os.environ["HF_HOME"] = str(Path(__file__).parent / "models")
@@ -55,14 +55,11 @@ def run(console_log_level: str):
     init_logger(console_log_level)
     logger.info(f"Open-LLM-VTuber, version v{get_version()}")
 
-    # Load configurations from yaml file
-    config: Config = validate_config(read_yaml("config/vtuber.yaml"))
-    server_config = config.system_config
+    lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+    server_config = lab_settings.server
 
     # Initialize and run the WebSocket server
-    server = WebSocketServer(config=config)
-    if server_config is None:
-        raise ValueError("Server configuration is missing in the config file.")
+    server = WebSocketServer()
 
     uvicorn.run(
         app=server.app,

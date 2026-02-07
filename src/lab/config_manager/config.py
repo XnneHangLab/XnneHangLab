@@ -24,15 +24,11 @@ from lab.config_manager.asr import (
 from lab.config_manager.audio_recognize import AudioRecognizeSettings, AudioRecognizeSettingsTitle
 from lab.config_manager.mcp import MCPSettings
 from lab.config_manager.package import PackagesSettings
+from lab.config_manager.server import ServerSettings
+from lab.config_manager.vtuber import VtuberSettings
 
 toml_loads = tomllib.loads
 toml_dumps = tomlw.dumps  # 使用 tomlw.dumps
-# else:
-#     import tomli as tomllib  # type: ignore
-#     import tomli_w as tomlw  # type: ignore
-
-#     toml_loads = tomllib.loads  # type: ignore
-#     toml_dumps = tomlw.dumps  # type: ignore
 
 
 def xdg_config_home() -> Path:
@@ -52,6 +48,10 @@ def search_for_settings_file(setting_name: str) -> Path | None:
     if not settings_file.exists():  # XDG_CONFIG_HOME 也没找到
         return None
     return settings_file
+
+
+@overload
+def load_settings_file(setting_name: str, setting: type[VtuberSettings]) -> VtuberSettings: ...
 
 
 @overload
@@ -90,6 +90,10 @@ def load_settings_file(setting_name: str, setting: type[MCPSettings]) -> MCPSett
 def load_settings_file(setting_name: str, setting: type[ASRSettings]) -> ASRSettings: ...
 
 
+@overload
+def load_settings_file(setting_name: str, setting: type[ServerSettings]) -> ServerSettings: ...
+
+
 class XnneHangLabSettings(BaseModel):
     asr: Annotated[ASRSettings, Field(ASRSettings())]  # pyright: ignore[reportCallIssue]
     webui: Annotated[AudioRecognizeSettings, Field(AudioRecognizeSettings())]  # pyright: ignore[reportCallIssue]
@@ -97,7 +101,8 @@ class XnneHangLabSettings(BaseModel):
     mcp: Annotated[MCPSettings, Field(MCPSettings())]  # pyright: ignore[reportCallIssue]
     package: Annotated[PackagesSettings, Field(PackagesSettings())]  # pyright: ignore[reportCallIssue]
     root: Annotated[RootAbsDir, Field(RootAbsDir())]  # pyright: ignore[reportCallIssue]
-    mcp: Annotated[MCPSettings, Field(MCPSettings())]  # pyright: ignore[reportCallIssue]
+    server: Annotated[ServerSettings, Field(ServerSettings())]  # pyright: ignore[reportCallIssue]
+    vtuber: Annotated[VtuberSettings, Field(VtuberSettings())]  # pyright: ignore[reportCallIssue]
 
 
 def load_settings_file(
@@ -113,6 +118,8 @@ def load_settings_file(
             | XnneHangLabSettings
             | MCPSettings
             | ASRSettings
+            | ServerSettings
+            | VtuberSettings
         ]
     ),
 ) -> (
@@ -125,6 +132,8 @@ def load_settings_file(
     | XnneHangLabSettings
     | MCPSettings
     | ASRSettings
+    | ServerSettings
+    | VtuberSettings
 ):
     """加载配置文件，如果不存在则创建默认配置文件在当前工作目录。"""
     settings_file = search_for_settings_file(setting_name=setting_name)
@@ -152,7 +161,9 @@ def write_settings_file(
     | PackagesSettings
     | XnneHangLabSettings
     | MCPSettings
-    | ASRSettings,
+    | ASRSettings
+    | ServerSettings
+    | VtuberSettings,
 ) -> None:
     """将 Setting 对象写入 TOML 文件。"""
     settings_file = search_for_settings_file(setting_name=settings_name)
@@ -161,7 +172,7 @@ def write_settings_file(
         settings_file.touch()
     try:
         with settings_file.open("w", encoding="utf-8") as f:
-            toml_string = toml_dumps(settings.model_dump())  # type: ignore
+            toml_string = toml_dumps(settings.model_dump(exclude_none=True))  # type: ignore
             f.write(toml_string)
     except Exception as e:
         print(f"写入配置文件失败: {e}")
