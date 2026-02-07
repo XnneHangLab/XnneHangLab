@@ -65,8 +65,8 @@ class Agent:
         """
         加载角色系统提示词和工具系统提示词。
         """
-        chat_system_path = Path("prompts") / "characters" / f"{self.config.agent.character_name}.txt"
-        tool_system_path = Path("prompts") / "characters" / "tool_model.txt"
+        chat_system_path = Path(self.config.agent.prompts.character_prompt)
+        tool_system_path = Path(self.config.agent.prompts.tool_prompt)
         chat_system_prompt = chat_system_path.read_text(encoding="utf-8") if chat_system_path.exists() else ""
         tool_system_prompt = tool_system_path.read_text(encoding="utf-8") if tool_system_path.exists() else ""
 

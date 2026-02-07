@@ -125,7 +125,8 @@ class ServiceContext:
         """Initialize or update the LLM engine based on agent configuration."""
         # agent 暂时不需要多次启动模型，所以不需要自检是否初始化。
         lab_settings = self.lab_setting
-        chat_system_prompt = read_prompt_from_text_file(lab_settings.agent.character_name)
+        chat_system_prompt = read_prompt_from_text_file(lab_settings.agent.prompts.character_prompt)
+        chat_system_prompt += "\n\n" + read_prompt_from_text_file(lab_settings.agent.prompts.live2d_expression_prompt)
         if self.live2d_model is None:
             logger.error("Live2D model is not initialized, cannot create agent.")
             raise ValueError("Live2D model must be initialized before creating agent.")
@@ -140,8 +141,8 @@ class ServiceContext:
             chat_system_prompt += "\n**日本語で返信してください。**"
         else:
             raise ValueError(f"speaker_lang {lab_settings.agent.user_lang} not supported")
-        tool_system_prompt = read_prompt_from_text_file("tool_model")
-        vision_system_prompt = read_prompt_from_text_file("vision_model")
+        tool_system_prompt = read_prompt_from_text_file(lab_settings.agent.prompts.tool_prompt)
+        vision_system_prompt = read_prompt_from_text_file(lab_settings.agent.prompts.vision_prompt)
         if self.character_config is None:
             logger.error("character_config is None, cannot create agent.")
             raise ValueError("character_config cannot be None")
