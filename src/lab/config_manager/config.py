@@ -24,7 +24,8 @@ from lab.config_manager.asr import (
 from lab.config_manager.audio_recognize import AudioRecognizeSettings, AudioRecognizeSettingsTitle
 from lab.config_manager.mcp import MCPSettings
 from lab.config_manager.package import PackagesSettings
-from lab.config_manager.vtuber_setting import VtuberSettings
+from lab.config_manager.server import ServerSettings
+from lab.config_manager.vtuber import VtuberSettings
 
 toml_loads = tomllib.loads
 toml_dumps = tomlw.dumps  # 使用 tomlw.dumps
@@ -89,6 +90,10 @@ def load_settings_file(setting_name: str, setting: type[MCPSettings]) -> MCPSett
 def load_settings_file(setting_name: str, setting: type[ASRSettings]) -> ASRSettings: ...
 
 
+@overload
+def load_settings_file(setting_name: str, setting: type[ServerSettings]) -> ServerSettings: ...
+
+
 class XnneHangLabSettings(BaseModel):
     asr: Annotated[ASRSettings, Field(ASRSettings())]  # pyright: ignore[reportCallIssue]
     webui: Annotated[AudioRecognizeSettings, Field(AudioRecognizeSettings())]  # pyright: ignore[reportCallIssue]
@@ -96,6 +101,7 @@ class XnneHangLabSettings(BaseModel):
     mcp: Annotated[MCPSettings, Field(MCPSettings())]  # pyright: ignore[reportCallIssue]
     package: Annotated[PackagesSettings, Field(PackagesSettings())]  # pyright: ignore[reportCallIssue]
     root: Annotated[RootAbsDir, Field(RootAbsDir())]  # pyright: ignore[reportCallIssue]
+    server: Annotated[ServerSettings, Field(ServerSettings())]  # pyright: ignore[reportCallIssue]
     vtuber: Annotated[VtuberSettings, Field(VtuberSettings())]  # pyright: ignore[reportCallIssue]
 
 
@@ -112,6 +118,7 @@ def load_settings_file(
             | XnneHangLabSettings
             | MCPSettings
             | ASRSettings
+            | ServerSettings
             | VtuberSettings
         ]
     ),
@@ -125,6 +132,7 @@ def load_settings_file(
     | XnneHangLabSettings
     | MCPSettings
     | ASRSettings
+    | ServerSettings
     | VtuberSettings
 ):
     """加载配置文件，如果不存在则创建默认配置文件在当前工作目录。"""
@@ -154,6 +162,7 @@ def write_settings_file(
     | XnneHangLabSettings
     | MCPSettings
     | ASRSettings
+    | ServerSettings
     | VtuberSettings,
 ) -> None:
     """将 Setting 对象写入 TOML 文件。"""

@@ -19,7 +19,7 @@ from lab.chat_history_manager import (
     get_history,
     get_history_list,  # type: ignore[import]
 )
-from lab.config_manager.vtuber.utils import scan_bg_directory, scan_config_alts_directory
+from lab.config_manager.vtuber import scan_bg_directory, scan_config_alts_directory
 from lab.conversations.conversation_handler import (
     handle_conversation_trigger,  # type: ignore[import]
     handle_group_interrupt,

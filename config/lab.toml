@@ -138,5 +138,26 @@ gpt_sovits = true
 [root]
 root_dir = "D:\\tmp\\XnneHangLab"
 
-[vtuber]
-system_config = "system_config.json"
+[server]
+conf_version = "v1.1.1"
+host = "localhost"
+port = 12393
+config_alts_dir = "characters"
+
+[server.tool_prompts]
+live2d_expression_prompt = "live2d_expression_prompt"
+
+[vtuber.character_config]
+conf_name = "elaina-local"
+conf_uid = "elaina-local-001"
+live2d_model_name = "Elaina"
+character_name = "Elaina"
+avatar = "ico_lss.png"
+human_name = "Human"
+
+[vtuber.character_config.tts_preprocessor_config]
+remove_special_char = true
+ignore_brackets = true
+ignore_parentheses = true
+ignore_asterisks = true
+ignore_angle_brackets = true

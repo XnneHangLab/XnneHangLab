@@ -3,7 +3,6 @@ from __future__ import annotations
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -15,9 +14,6 @@ from lab.api.routes.deeplx import router as deeplx_router
 from lab.api.routes.vtuber import init_client_ws_route, router as vtuber_router
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.service_context import ServiceContext
-
-if TYPE_CHECKING:
-    from lab.config_manager.vtuber.utils import Config as vtuber_config
 
 lab_settings: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSettings)
 
@@ -93,7 +89,7 @@ async def lifespan(app: FastAPI):
 
 
 class WebSocketServer:
-    def __init__(self, config: vtuber_config):
+    def __init__(self):
         # def __init__(self):
         self.app = FastAPI(lifespan=lifespan)
 
@@ -108,7 +104,7 @@ class WebSocketServer:
 
         # Load configurations and initialize the default context cache
         default_context_cache = ServiceContext()
-        default_context_cache.load_from_config(config)
+        default_context_cache.load_from_config(default_context_cache.lab_setting)
 
         # Include routes
         self.app.include_router(

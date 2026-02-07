@@ -10,14 +10,8 @@ from loguru import logger
 
 from lab.agent.agent_factory import AgentFactory
 from lab.config_manager import XnneHangLabSettings, load_settings_file
-from lab.config_manager.vtuber import (
-    CharacterConfig,
-    Config,
-    SystemConfig,
-    TranslatorConfig,
-    read_yaml,
-    validate_config,
-)
+from lab.config_manager.server import ServerSettings
+from lab.config_manager.vtuber import CharacterSettings, TranslatorConfig, read_yaml
 from lab.live2d_model import Live2dModel
 from lab.utils.TxtHelper import read_prompt_from_text_file
 
@@ -35,9 +29,9 @@ class ServiceContext:
         self._mcp_connected = False
         self._mcp_lock = asyncio.Lock()
         self.lab_setting: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSettings)
-        self.config: Config | None = None
-        self.system_config: SystemConfig | None = None
-        self.character_config: CharacterConfig | None = None
+        self.config: XnneHangLabSettings | None = None
+        self.system_config: ServerSettings | None = None
+        self.character_config: CharacterSettings | None = None
 
         self.live2d_model: Live2dModel | None = None
         self.agent_engine: MemoryAgent | None = None  # type: ignore
@@ -64,9 +58,9 @@ class ServiceContext:
 
     def load_cache(
         self,
-        config: Config,
-        system_config: SystemConfig,
-        character_config: CharacterConfig,
+        config: XnneHangLabSettings,
+        system_config: ServerSettings,
+        character_config: CharacterSettings,
         live2d_model: Live2dModel,
         agent_engine: MemoryAgent,
     ) -> None:
@@ -86,7 +80,7 @@ class ServiceContext:
         self.agent_engine = agent_engine
         logger.debug(f"Loaded service context with cache: {character_config}")
 
-    def load_from_config(self, config: Config) -> None:
+    def load_from_config(self, config: XnneHangLabSettings) -> None:
         """
         Load the ServiceContext with the config.
         Reinitialize the instances if the config is different.
@@ -98,24 +92,24 @@ class ServiceContext:
             self.config = config
 
         if not self.system_config:
-            self.system_config = config.system_config
+            self.system_config = config.server
 
         if not self.character_config:
-            self.character_config = config.character_config
+            self.character_config = config.vtuber.character_config
 
         # update all sub-configs
 
         # init live2d from character config
-        self.init_live2d(config.character_config.live2d_model_name)
+        self.init_live2d(config.vtuber.character_config.live2d_model_name)
 
         # init agent from character config
         self.init_agent()
 
-        # self.init_translate(config.character_config.tts_preprocessor_config.translator_config) # 到时替换成自己的
+        # self.init_translate(config.vtuber.character_config.tts_preprocessor_config.translator_config) # 到时替换成自己的
         # store typed config references
         self.config = config
-        self.system_config = config.system_config or self.system_config
-        self.character_config = config.character_config
+        self.system_config = config.server or self.system_config
+        self.character_config = config.vtuber.character_config
 
     def init_live2d(self, live2d_model_name: str) -> None:
         logger.info(f"Initializing Live2D: {live2d_model_name}")
@@ -214,9 +208,9 @@ class ServiceContext:
                 raise ValueError("character_config cannot be None")
             new_character_config_data = None
 
-            if config_file_name == "vtuber.yaml":
-                # Load base config
-                new_character_config_data = read_yaml("config/vtuber.yaml").get("character_config")
+            if config_file_name in {"lab.toml", "vtuber.yaml"}:
+                # Load base config from lab.toml
+                new_character_config_data = self.lab_setting.vtuber.character_config.model_dump()
             else:
                 # Load alternative config and merge with base config
                 characters_dir = Path(self.system_config.config_alts_dir)
@@ -227,14 +221,12 @@ class ServiceContext:
                 alt_config_data = read_yaml(file_path).get("character_config")
 
                 # Start with original config data and perform a deep merge
-                new_character_config_data = deep_merge(self.config.character_config.model_dump(), alt_config_data)  # type: ignore
+                new_character_config_data = deep_merge(self.config.vtuber.character_config.model_dump(), alt_config_data)  # type: ignore
 
             if new_character_config_data:
-                new_config = {
-                    "system_config": self.system_config.model_dump(),
-                    "character_config": new_character_config_data,
-                }
-                new_config = validate_config(new_config)
+                new_config_data = self.config.model_dump()
+                new_config_data["vtuber"]["character_config"] = new_character_config_data
+                new_config = XnneHangLabSettings.model_validate(new_config_data)
                 self.load_from_config(new_config)
                 logger.debug(f"New config: {self}")
                 logger.debug(f"New character config: {self.character_config.model_dump()}")
