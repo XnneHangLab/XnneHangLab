@@ -36,11 +36,6 @@ class VtuberSettings(BaseModel):
 
     character_config: Annotated[CharacterSettings, Field(CharacterSettings())]  # pyright: ignore[reportCallIssue]
 
-
-class TranslatorConfig(BaseModel):
-    """兼容旧接口，当前翻译配置由 agent 侧管理。"""
-
-
 def scan_bg_directory() -> list[str]:
     """扫描可用背景图目录并返回图片文件名列表。"""
 

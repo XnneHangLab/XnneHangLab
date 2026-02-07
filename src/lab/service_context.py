@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
     from lab.agent.agents.memory_agent import MemoryAgent
     from lab.config_manager.server import ServerSettings
-    from lab.config_manager.vtuber import CharacterSettings, TranslatorConfig
+    from lab.config_manager.vtuber import CharacterSettings
 
 
 class ServiceContext:
@@ -177,7 +177,7 @@ class ServiceContext:
                 await self.agent_engine.connect_mcp_servers()
             self._mcp_connected = True
 
-    def init_translate(self, translator_config: TranslatorConfig) -> None:
+    def init_translate(self) -> None:
         """Initialize or update the translation engine based on the configuration."""
         logger.info("Translation already initialized with the same config.")
 
