@@ -38,6 +38,6 @@ class ServerSettings(BaseModel):
 
     conf_version: Annotated[str, Field("v1.1.1", title="配置版本")]
     host: Annotated[str, Field("localhost", title="监听地址")]
-    port: Annotated[int, Field(12393, title="监听端口")]
+    port: Annotated[int, Field(12393, ge=1, le=65535, title="监听端口")]
     config_alts_dir: Annotated[str, Field("characters", title="角色替代配置目录")]
     tool_prompts: Annotated[ToolPromptsSettings, Field(ToolPromptsSettings())]  # pyright: ignore[reportCallIssue]

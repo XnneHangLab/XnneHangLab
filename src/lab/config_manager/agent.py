@@ -84,7 +84,7 @@ class PromptSettings(BaseModel):
     ]
     character_prompt: Annotated[
         str,
-        Field("./prompts/characters/elaina.txt", title="角色系统提示词所在目录，需配合 character_name 使用"),
+        Field("./prompts/characters/elaina.txt", title="角色系统提示词文件路径"),
     ]
     vision_prompt: Annotated[
         str,
