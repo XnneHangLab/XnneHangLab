@@ -101,7 +101,7 @@ class ServiceContext:
         self.init_live2d(config.vtuber.character_config.live2d_model_name)
 
         # init agent from character config
-        self.init_agent()
+        self.init_agent(config)
 
         # self.init_translate(config.vtuber.character_config.tts_preprocessor_config.translator_config) # 到时替换成自己的
         # store typed config references
@@ -121,10 +121,9 @@ class ServiceContext:
             logger.critical(f"Error initializing Live2D: {e}")
             logger.critical("Try to proceed without Live2D...")
 
-    def init_agent(self) -> None:
+    def init_agent(self, lab_settings: XnneHangLabSettings) -> None:
         """Initialize or update the LLM engine based on agent configuration."""
         # agent 暂时不需要多次启动模型，所以不需要自检是否初始化。
-        lab_settings = self.lab_setting
         chat_system_prompt = read_prompt_from_text_file(lab_settings.agent.prompts.character_prompt)
         chat_system_prompt += "\n\n" + read_prompt_from_text_file(lab_settings.agent.prompts.live2d_expression_prompt)
         if self.live2d_model is None:
