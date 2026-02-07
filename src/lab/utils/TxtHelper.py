@@ -94,8 +94,8 @@ def calculate_words_length(segmented_text: str) -> int:
     return length
 
 
-def read_prompt_from_text_file(character_name: str) -> str:
-    prompt_text_path = Path("prompts") / "characters" / f"{character_name}.txt"
+def read_prompt_from_text_file(prompt_path: str) -> str:
+    prompt_text_path = Path(prompt_path)
     if not prompt_text_path.exists():
         raise ValueError(f"prompt file {prompt_text_path} not exists")
     with prompt_text_path.open("r", encoding="utf-8") as f:
