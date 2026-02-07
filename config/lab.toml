@@ -137,3 +137,6 @@ gpt_sovits = true
 
 [root]
 root_dir = "D:\\tmp\\XnneHangLab"
+
+[vtuber]
+system_config = "system_config.json"
