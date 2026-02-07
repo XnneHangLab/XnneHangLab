@@ -202,7 +202,7 @@ class ServiceContext:
             if self.config is None:
                 logger.error("config is None, cannot switch configuration")
                 raise ValueError("config cannot be None")
-            if config_file_name not in {"lab.toml", "vtuber.yaml"}:
+            if config_file_name not in {"lab.toml"}:
                 raise ValueError("Only lab.toml is supported")
 
             new_config = load_settings_file("lab.toml", XnneHangLabSettings)
