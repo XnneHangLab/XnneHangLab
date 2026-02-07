@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from loguru import logger
 
 from lab.agent.agent_factory import AgentFactory
 from lab.config_manager import XnneHangLabSettings, load_settings_file
-from lab.config_manager.server import ServerSettings
-from lab.config_manager.vtuber import CharacterSettings, TranslatorConfig
 from lab.live2d_model import Live2dModel
 from lab.utils.TxtHelper import read_prompt_from_text_file
 
@@ -17,6 +15,8 @@ if TYPE_CHECKING:
     from fastapi import WebSocket
 
     from lab.agent.agents.memory_agent import MemoryAgent
+    from lab.config_manager.server import ServerSettings
+    from lab.config_manager.vtuber import CharacterSettings, TranslatorConfig
 
 
 class ServiceContext:

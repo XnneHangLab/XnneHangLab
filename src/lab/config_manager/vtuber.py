@@ -44,7 +44,7 @@ class TranslatorConfig(BaseModel):
 def scan_bg_directory() -> list[str]:
     """扫描可用背景图目录并返回图片文件名列表。"""
 
-    bg_files = []
+    bg_files: list[str] = []
     bg_dir = "static/backgrounds"
     for _, _, files in os.walk(bg_dir):
         for file in files:

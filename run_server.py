@@ -60,8 +60,6 @@ def run(console_log_level: str):
 
     # Initialize and run the WebSocket server
     server = WebSocketServer()
-    if server_config is None:
-        raise ValueError("Server configuration is missing in the config file.")
 
     uvicorn.run(
         app=server.app,
