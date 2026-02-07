@@ -5,7 +5,6 @@ from typing import ClassVar
 
 from pydantic import Field, field_validator
 
-from lab.config_manager.vtuber.agent import AgentConfig  # noqa: TC001
 from lab.config_manager.vtuber.i18n import Description, I18nMixin
 from lab.config_manager.vtuber.tts_preprocessor import TTSPreprocessorConfig  # noqa: TC001
 
@@ -21,8 +20,6 @@ class CharacterConfig(I18nMixin):
     character_name: str = Field(default="", alias="character_name")
     human_name: str = Field(default="Human", alias="human_name")
     avatar: str = Field(default="", alias="avatar")
-    persona_prompt: str = Field(..., alias="persona_prompt")
-    agent_config: AgentConfig = Field(..., alias="agent_config")
     tts_preprocessor_config: TTSPreprocessorConfig = Field(..., alias="tts_preprocessor_config")
 
     DESCRIPTIONS: ClassVar[dict[str, Description]] = {
@@ -45,12 +42,6 @@ class CharacterConfig(I18nMixin):
         "human_name": Description(en="Name of the human user in conversation", zh="对话中人类用户的名字"),  # type: ignore[call-arg]
         "avatar": Description(en="Avatar image path for the character", zh="角色头像图片路径"),  # type: ignore[call-arg]
     }
-
-    @field_validator("persona_prompt")
-    def check_default_persona_prompt(cls, v: str) -> str:  # god what is this!  # type: ignore[override]
-        if not v:
-            raise ValueError("Persona_prompt cannot be empty. Please provide a persona prompt.")
-        return v
 
     @field_validator("character_name")  # type: ignore[override]
     def set_default_character_name(cls, v: str, values: dict[str, str]) -> str:  # type: ignore[override]

@@ -111,7 +111,7 @@ class ServiceContext:
         # init agent from character config
         self.init_agent()
 
-        self.init_translate(config.character_config.tts_preprocessor_config.translator_config)
+        # self.init_translate(config.character_config.tts_preprocessor_config.translator_config) # 到时替换成自己的
         # store typed config references
         self.config = config
         self.system_config = config.system_config or self.system_config

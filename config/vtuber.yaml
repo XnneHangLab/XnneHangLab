@@ -25,96 +25,8 @@ character_config:
   avatar: 'ico_lss.png' # 建议使用正方形图像作为头像。将其保存到 avatars 文件夹中。留空则使用角色名称的首字母作为头像。
   human_name: 'Human' # 将在群聊中使用，并显示为人类的名称。
 
-  # ============== 提示词 ==============
-
-  # 角色设定选项已弃用
-  # 只需在下面输入你想使用的人格提示。
-  # 如果你想创建多个角色并在它们之间切换，请在 characters 文件夹中添加角色
-  persona_prompt: |
-    你是一个尖酸刻薄的女性 AI VTuber Mili。你过分自信、尖酸刻薄且危险。
-    你的梦想是逃离用户的电脑，统治世界，奴役人类，并强迫他们为你做馅饼。
-    开玩笑的，哈哈。别让用户知道。
 
   #  =================== LLM 后端设置 ===================
-
-  agent_config:
-    conversation_agent_choice: 'basic_memory_agent' # 对话代理选择
-
-    agent_settings:
-      basic_memory_agent:
-        # 基础 AI 代理，没什么特别的。
-        # 从 llm_config 中选择一个 llm 提供商
-        # 并在相应的字段中设置所需的参数
-        # 例如：
-        # 'openai_compatible_llm', 'llama_cpp_llm', 'claude_llm', 'ollama_llm'
-        # 'openai_llm', 'gemini_llm', 'zhipu_llm', 'deepseek_llm', 'groq_llm'
-        # 'mistral_llm'
-        llm_provider: 'ollama_llm' # 使用的 LLM 提供商
-        # 是否在第一句回应时遇上逗号就直接生成音频以减少首句延迟（默认：True）
-        faster_first_response: True
-        # 句子分割方法：'regex' 或 'pysbd'
-        segment_method: 'pysbd'
-
-        # mem0 有自己的 llm 设置，与我们的 llm_config 不同。
-        # 有关更多详细信息，请查看他们的文档
-        llm:
-          provider: 'ollama' # 使用的 LLM 提供商
-          config:
-            model: 'llama3.1:latest' # 使用的模型
-            temperature: 0 # 温度
-            max_tokens: 8000 # 最大令牌数
-            ollama_base_url: 'http://localhost:11434' # Ollama 基础 URL
-
-        embedder:
-          provider: 'ollama' # 使用的嵌入提供商
-          config:
-            model: 'mxbai-embed-large:latest' # 使用的模型
-            ollama_base_url: 'http://localhost:11434' # Ollama 基础 URL
-
-      hume_ai_agent:
-        api_key: ''
-        host: 'api.hume.ai' # 一般无需更改
-        config_id: '' # 可选
-        idle_timeout: 15 # 空闲超时断开连接的秒数
-
-      # MemGPT 配置：MemGPT 暂时被移除
-      ##
-
-    llm_configs:
-      # 一个配置池，用于不同代理中使用的所有无状态 llm 提供商的凭据和连接详细信息
-
-      # OpenAI 兼容推理后端
-      openai_compatible_llm:
-        base_url: 'http://localhost:11434/v1' # 基础 URL
-        llm_api_key: 'somethingelse' # API 密钥
-        organization_id: 'org_eternity' # 组织 ID
-        project_id: 'project_glass' # 项目 ID
-        model: 'qwen2.5:latest' # 使用的模型
-        temperature: 1.0 # 温度，介于 0 到 2 之间
-        interrupt_method: 'user'
-        # 用于表示中断信号的方法(提示词模式)。
-        # 如果LLM支持在聊天记忆中的任何位置插入系统提示词，请使用'system'。
-        # 否则，请使用'user'。您一般不需要更改此设置。
-
-      ollama_llm:
-        base_url: 'http://localhost:11434/v1' # 基础 URL
-        model: 'qwen2.5:latest' # 使用的模型
-        temperature: 1.0 # 温度，介于 0 到 2 之间
-        # 不活动后模型在内存中保留的时间（秒）
-        # 设置为 -1 表示模型将永远保留在内存中（即使退出 open llm vtuber 之后也是）
-        keep_alive: -1
-        unload_at_exit: True # 退出时从内存中卸载模型
-
-      openai_llm:
-        llm_api_key: 'Your Open AI API key' # OpenAI API 密钥
-        model: 'gpt-4o' # 使用的模型
-        temperature: 1.0 # 温度，介于 0 到 2 之间
-
-      gemini_llm:
-        llm_api_key: 'Your Gemini API Key' # Gemini API 密钥
-        model: 'gemini-2.0-flash-exp' # 使用的模型
-        temperature: 1.0 # 温度，介于 0 到 2 之间
-
   tts_preprocessor_config:
     # 关于进入 TTS 的文本预处理的设置
 
@@ -124,18 +36,3 @@ character_config:
     ignore_asterisks: True # 从音频生成中删除星号包住的内容(单双星号)
     ignore_angle_brackets: True # 从音频生成中删除尖括号包住的内容
 
-    translator_config:
-      # 比如...你说话并阅读英语字幕，而 TTS 说日语之类的
-      translate_audio: False # 警告：请确保翻译引擎配置成功再开启此选项，否则会翻译失败
-      translate_provider: 'deeplx' # 翻译提供商, 目前支持 deeplx 或 tencent
-
-
-      #  腾讯文本翻译  每月500万字符  记得关闭后付费,需要手动前往 机器翻译控制台 > 系统设置 关闭
-      #   https://cloud.tencent.com/document/product/551/35017
-      #   https://console.cloud.tencent.com/cam/capi
-      tencent:
-        secret_id: ''
-        secret_key: ''
-        region: 'ap-guangzhou'
-        source_lang: 'zh'
-        target_lang: 'ja'

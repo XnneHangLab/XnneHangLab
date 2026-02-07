@@ -66,12 +66,11 @@ class TTSPreprocessorConfig(I18nMixin):
     ignore_parentheses: bool = Field(default=True, alias="ignore_parentheses")
     ignore_asterisks: bool = Field(default=True, alias="ignore_asterisks")
     ignore_angle_brackets: bool = Field(default=True, alias="ignore_angle_brackets")
-    translator_config: TranslatorConfig = Field(..., alias="translator_config")
+
 
     DESCRIPTIONS: ClassVar[dict[str, Description]] = {
         "remove_special_char": Description(  # type: ignore[arg-type]
             en="Remove special characters from the input text",
             zh="从输入文本中删除特殊字符",
         ),
-        "translator_config": Description(en="Configuration for translation services", zh="翻译服务的配置"),  # type: ignore[arg-type]
     }

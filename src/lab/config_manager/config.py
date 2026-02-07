@@ -24,15 +24,10 @@ from lab.config_manager.asr import (
 from lab.config_manager.audio_recognize import AudioRecognizeSettings, AudioRecognizeSettingsTitle
 from lab.config_manager.mcp import MCPSettings
 from lab.config_manager.package import PackagesSettings
+from lab.config_manager.vtuber_setting import VtuberSettings
 
 toml_loads = tomllib.loads
 toml_dumps = tomlw.dumps  # 使用 tomlw.dumps
-# else:
-#     import tomli as tomllib  # type: ignore
-#     import tomli_w as tomlw  # type: ignore
-
-#     toml_loads = tomllib.loads  # type: ignore
-#     toml_dumps = tomlw.dumps  # type: ignore
 
 
 def xdg_config_home() -> Path:
@@ -52,6 +47,10 @@ def search_for_settings_file(setting_name: str) -> Path | None:
     if not settings_file.exists():  # XDG_CONFIG_HOME 也没找到
         return None
     return settings_file
+
+
+@overload
+def load_settings_file(setting_name: str, setting: type[VtuberSettings]) -> VtuberSettings: ...
 
 
 @overload
@@ -97,7 +96,7 @@ class XnneHangLabSettings(BaseModel):
     mcp: Annotated[MCPSettings, Field(MCPSettings())]  # pyright: ignore[reportCallIssue]
     package: Annotated[PackagesSettings, Field(PackagesSettings())]  # pyright: ignore[reportCallIssue]
     root: Annotated[RootAbsDir, Field(RootAbsDir())]  # pyright: ignore[reportCallIssue]
-    mcp: Annotated[MCPSettings, Field(MCPSettings())]  # pyright: ignore[reportCallIssue]
+    vtuber: Annotated[VtuberSettings, Field(VtuberSettings())]  # pyright: ignore[reportCallIssue]
 
 
 def load_settings_file(
@@ -113,6 +112,7 @@ def load_settings_file(
             | XnneHangLabSettings
             | MCPSettings
             | ASRSettings
+            | VtuberSettings
         ]
     ),
 ) -> (
@@ -125,6 +125,7 @@ def load_settings_file(
     | XnneHangLabSettings
     | MCPSettings
     | ASRSettings
+    | VtuberSettings
 ):
     """加载配置文件，如果不存在则创建默认配置文件在当前工作目录。"""
     settings_file = search_for_settings_file(setting_name=setting_name)
@@ -152,7 +153,8 @@ def write_settings_file(
     | PackagesSettings
     | XnneHangLabSettings
     | MCPSettings
-    | ASRSettings,
+    | ASRSettings
+    | VtuberSettings,
 ) -> None:
     """将 Setting 对象写入 TOML 文件。"""
     settings_file = search_for_settings_file(setting_name=settings_name)
