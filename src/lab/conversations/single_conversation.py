@@ -68,9 +68,8 @@ async def process_single_conversation(
             from_name=context.character_config.human_name,
         )
 
-        logger.info(f"User input: {input_text}")
         if images:
-            logger.info(f"With {len(images)} images")
+            logger.debug(f"With {len(images)} images")
 
         # Process agent response
         full_response = await process_agent_response(
@@ -82,11 +81,11 @@ async def process_single_conversation(
 
         # Wait for any pending TTS tasks
         if tts_manager.task_list:  #  type: ignore
-            logger.info(f"Waiting for {len(tts_manager.task_list)} TTS tasks to complete")  #  type: ignore
+            logger.debug(f"Waiting for {len(tts_manager.task_list)} TTS tasks to complete")  #  type: ignore
             await asyncio.gather(*tts_manager.task_list)  #  type: ignore
             await websocket_send(json.dumps({"type": "backend-synth-complete"}))
         else:
-            logger.info("No TTS tasks to wait for")
+            logger.debug("No TTS tasks to wait for")
 
         await finalize_conversation_turn(
             tts_manager=tts_manager,
@@ -132,7 +131,7 @@ async def process_agent_response(
             raise ValueError("agent_engine cannot be None")
         agent_output = context.agent_engine.chat(batch_input)  # type: ignore
         async for output in agent_output:  # type: ignore
-            logger.info(output)  # type: ignore
+            logger.debug(output)  # type: ignore
             if context.live2d_model is None:
                 logger.error("live2d_model is None, cannot process agent output")
                 raise ValueError("live2d_model cannot be None")
@@ -150,5 +149,5 @@ async def process_agent_response(
     except Exception as e:
         logger.error(f"Error processing agent response: {e}")
         raise
-    logger.info("return full_response")
+    logger.debug("Returning full_response")
     return full_response

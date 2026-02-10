@@ -52,7 +52,7 @@ class TTSTaskManager:
             websocket_send: WebSocket send function
         """
         if len(re.sub(r'[\s.,!?，。！？\'"』」）】\s]+', "", tts_text)) == 0:
-            logger.info("Empty TTS text, sending silent display payload")
+            logger.debug("Empty TTS text, sending silent display payload")
             # Get current sequence number for silent payload
             current_sequence = self._sequence_counter
             self._sequence_counter += 1
@@ -64,7 +64,6 @@ class TTSTaskManager:
             await self._send_silent_payload(display_text, actions, current_sequence)
             return
 
-        logger.info(f"🏃Queuing TTS task for: '''{tts_text}''' (by {display_text.name})")
 
         # Get current sequence number
         current_sequence = self._sequence_counter
@@ -93,7 +92,7 @@ class TTSTaskManager:
         Runs continuously until all payloads are processed.
         """
         buffered_payloads: dict[int, AudioPayload] = {}
-        logger.info("Starting TTS payload sender task...")
+        logger.debug("Starting TTS payload sender task...")
 
         while True:
             # try:
@@ -150,7 +149,6 @@ class TTSTaskManager:
     async def _generate_audio(self, text: str) -> Path | None:
         """Generate audio file from text"""
         try:
-            logger.debug(f"🏃Generating audio for '''{text}'''...")
             lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
             cache_dir = Path("cache") / "tts"
             cache_dir.mkdir(parents=True, exist_ok=True)
@@ -191,5 +189,5 @@ class TTSTaskManager:
         self._sequence_counter = 0
         self._next_sequence_to_send = 0
         # Create a new queue to clear any pending items
-        logger.info("Clearing TTS payload queue...")
+        logger.debug("Clearing TTS payload queue...")
         self._payload_queue = asyncio.Queue()

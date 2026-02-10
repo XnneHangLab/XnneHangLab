@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import argparse
 import os
-import sys
 from pathlib import Path
 
 import tomli
 import uvicorn
 from loguru import logger
 
-from src.lab.config_manager import XnneHangLabSettings, load_settings_file
-from src.lab.server import WebSocketServer
+from lab.config_manager import XnneHangLabSettings, load_settings_file
+from lab.logger.logger_group import init_logger
+from lab.server import WebSocketServer
 
 os.environ["HF_HOME"] = str(Path(__file__).parent / "models")
 os.environ["MODELSCOPE_CACHE"] = str(Path(__file__).parent / "models")
@@ -22,41 +22,21 @@ def get_version() -> str:
     return pyproject["project"]["version"]
 
 
-def init_logger(console_log_level: str = "INFO") -> None:
-    logger.remove()
-    # Console output
-    logger.add(
-        sys.stderr,
-        level=console_log_level,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | {message}",
-        colorize=True,
-    )
-
-    # File output
-    logger.add(
-        "logs/debug_{time:YYYY-MM-DD}.log",
-        rotation="10 MB",
-        retention="30 days",
-        level="DEBUG",
-        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} | {message} | {extra}",
-        backtrace=True,
-        diagnose=True,
-    )
-
-
-def parse_args():
-    parser = argparse.ArgumentParser(description="Open-LLM-VTuber Server")
+def parse_args(lab_settings: XnneHangLabSettings):
+    parser = argparse.ArgumentParser(description="XnneHangLab Server")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
+    parser.add_argument("--port", type=int, default=lab_settings.server.port, help="Server port")
     return parser.parse_args()
 
 
 @logger.catch
-def run(console_log_level: str):
-    init_logger(console_log_level)
-    logger.info(f"Open-LLM-VTuber, version v{get_version()}")
+def run(lab_settings: XnneHangLabSettings, args: argparse.Namespace):
+    init_logger()
+    logger.info(f"XnneHangLab, version v{get_version()}")
 
-    lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
     server_config = lab_settings.server
+    if args.port is not None:
+        server_config.port = args.port
 
     # Initialize and run the WebSocket server
     server = WebSocketServer()
@@ -65,11 +45,12 @@ def run(console_log_level: str):
         app=server.app,
         host=server_config.host,
         port=server_config.port,
-        log_level=console_log_level.lower(),
+        log_level=server_config.uvicorn_log_level.lower(),
     )
 
 
 if __name__ == "__main__":
-    args = parse_args()
-    console_log_level = "INFO"  # if args.verbose else "INFO"
-    run(console_log_level=console_log_level)
+    lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+    args = parse_args(lab_settings)
+
+    run(lab_settings=lab_settings, args=args)

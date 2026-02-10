@@ -119,7 +119,7 @@ class WebSocketHandler:
 
             await self._send_initial_messages(websocket, client_uid, session_service_context)
 
-            logger.info(f"Connection established for client {client_uid}")
+            logger.debug(f"Connection established for client {client_uid}")
 
         except Exception as e:
             logger.error(f"Failed to initialize connection for client {client_uid}: {e}")
@@ -417,7 +417,7 @@ class WebSocketHandler:
     async def _handle_raw_audio_data(self, websocket: WebSocket, client_uid: str, data: WSMessage) -> None:
         """Handle incoming raw audio data for VAD processing"""
         # context = self.client_contexts[client_uid]
-        logger.info(f"Received raw audio data for client {client_uid}")
+        logger.debug(f"Received raw audio data for client {client_uid}")
         # chunk = data.get("audio", [])  # type: ignore[return]
         # if chunk:
         #     for audio_bytes in context.vad_engine.detect_speech(chunk):
@@ -470,7 +470,7 @@ class WebSocketHandler:
         """
         Handle audio playback start notification
         """
-        logger.info(data)
+        logger.debug(data)
 
     async def _handle_group_info(self, websocket: WebSocket, client_uid: str, data: WSMessage) -> None:
         """Handle group info request"""

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -76,7 +75,7 @@ async def lifespan(app: FastAPI):
             await ctx.agent_engine.connect_mcp_servers()
             logger.info("MCP servers connected.")
         except Exception:
-            logger.warning("Failed to connect to MCP servers on startup.", exc_info=sys.exc_info())
+            logger.warning("Failed to connect to MCP servers on startup.")
             logger.warning("你可能没开启 MCP Server，先运行 `just mcp-server` 启动 MCP Server。")
             logger.warning(
                 "如果你不需要使用工具调用功能，可以忽略此警告。或者将 lab.toml 里的 enable_mcp 设置为 false。"

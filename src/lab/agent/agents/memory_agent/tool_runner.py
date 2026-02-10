@@ -84,6 +84,12 @@ class ToolRunner:
         if not enable_tool:
             return ToolRunResult(trace_json="(无)", tool_image=None, tool_trace=[])
 
+        # 兼容场景：enable_tool=true 但 MCP 未连接成功（或无可用工具）时，
+        # 退化为普通对话模式，不进入 tool loop。
+        if not available_tools:
+            logger.info("[TOOL] enable_tool=True but no available tools; skip tool loop.")
+            return ToolRunResult(trace_json="(无)", tool_image=None, tool_trace=[])
+
         _, tool_trace = await self.tool_loop.run_tool_loop(
             tool_system_prompt=tool_system_prompt,
             available_tools=available_tools,

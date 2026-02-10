@@ -1,3 +1,5 @@
+conf_version = "v1.1.2"
+
 [asr]
 FFMPEG_PATH = "ffmpeg"
 device = "cuda"
@@ -146,13 +148,10 @@ gpt_sovits = true
 root_dir = "D:\\tmp\\XnneHangLab"
 
 [server]
-conf_version = "v1.1.1"
 host = "localhost"
 port = 12393
 config_alts_dir = "characters"
-
-[server.tool_prompts]
-live2d_expression_prompt = "live2d_expression_prompt"
+uvicorn_log_level = "warning"
 
 [vtuber.character_config]
 conf_name = "elaina-local"
