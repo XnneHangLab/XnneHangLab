@@ -3,12 +3,16 @@ from __future__ import annotations
 import shutil
 from typing import TYPE_CHECKING
 
+from loguru import logger
+
 from lab.config_manager import XnneHangLabSettings, load_settings_file
-from lab.utils.console.logger import Logger
 from lab.utils.SubprocessHelper import run_shell_command
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+
+util_logger = logger.bind(group="util")
 
 
 def test_call_ffmpeg():
@@ -18,10 +22,10 @@ def test_call_ffmpeg():
     result = run_shell_command(command=command)
 
     if result.returncode == 0:
-        print("ffmpeg is accessible")
+        util_logger.info("ffmpeg is accessible")
         return True
     else:
-        print("ffmpeg is not asscessible")
+        util_logger.error("ffmpeg is not asscessible")
         return False
 
 
@@ -37,7 +41,7 @@ def file_to_wav(input_path: Path, output_wav_path: Path):
         raise FileNotFoundError(f"输入文件不存在: {input_path}")
 
     if input_path.suffix.lower() == ".wav":
-        print("\033[1;34m🎧 文件已经是 WAV 格式，无需转换。\033[0m")
+        util_logger.info("🎧 文件已经是 WAV 格式，无需转换。")
         return input_path
 
     command = [
@@ -60,10 +64,10 @@ def file_to_wav(input_path: Path, output_wav_path: Path):
     result = run_shell_command(command)  # 使用 run_shell_command 执行命令
 
     if result.returncode == 0:
-        print(f"\033[1;34m🎧 '{input_path}' 成功转换为 WAV 文件 '{output_wav_path}'")
+        util_logger.info(f"🎧 '{input_path}' 成功转换为 WAV 文件 '{output_wav_path}'")
         return True
     else:
-        print(f"FFmpeg 转换失败，返回码: {result.returncode}")
+        util_logger.error(f"FFmpeg 转换失败，返回码: {result.returncode}")
         # run_shell_command 已经记录了错误信息，这里可以不再重复打印 stderr/stdout
         return False
 
@@ -75,7 +79,7 @@ def file_to_mp3(input_path: Path, output_path: Path):
         raise FileNotFoundError(f"输入文件不存在: {input_path}")
 
     if input_path.suffix.lower() == ".mp3":
-        print("\033[1;34m🎧 文件已经是 MP3 格式，无需转换。\033[0m")
+        util_logger.info("🎧 文件已经是 MP3 格式，无需转换。")
         return input_path
 
     command = [
@@ -96,10 +100,10 @@ def file_to_mp3(input_path: Path, output_path: Path):
     result = run_shell_command(command)
 
     if result.returncode == 0:
-        print(f"🎧 文件 '{input_path}' 成功转换为 MP3 文件 '{output_path}'")
+        util_logger.debug(f"🎧 文件 '{input_path}' 成功转换为 MP3 文件 '{output_path}'")
         return output_path
     else:
-        print(f"FFmpeg 转换失败，返回码: {result.returncode}")
+        util_logger.error(f"FFmpeg 转换失败，返回码: {result.returncode}")
         return None
 
 
@@ -115,7 +119,7 @@ def file_to_opus(input_path: Path, output_path: Path):
         raise FileNotFoundError(f"输入文件不存在: {input_path}")
 
     if input_path.suffix.lower() == ".opus":
-        Logger.info("文件已经是 Opus 格式，无需转换。")
+        util_logger.info("文件已经是 Opus 格式，无需转换。")
         return input_path
 
     command = [
@@ -142,10 +146,10 @@ def file_to_opus(input_path: Path, output_path: Path):
     result = run_shell_command(command)  # 使用 run_shell_command 执行命令
 
     if result.returncode == 0:
-        Logger.info(f"'{input_path}' 成功转换为 Opus 文件 '{output_path}'")
+        util_logger.info(f"'{input_path}' 成功转换为 Opus 文件 '{output_path}'")
         return True
     else:
-        print(f"FFmpeg 转换失败，返回码: {result.returncode}")
+        util_logger.error(f"FFmpeg 转换失败，返回码: {result.returncode}")
         # run_shell_command 已经记录了错误信息，这里可以不再重复打印 stderr/stdout
         return False
 
