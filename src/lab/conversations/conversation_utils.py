@@ -89,8 +89,8 @@ async def handle_sentence_output(
     lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
     async for display_text, tts_text, actions in output:
         if lab_settings.agent.speaker_lang != lab_settings.agent.user_lang:
-            logger.info(f"🏃 Processing output: '''{tts_text}'''...")
-            logger.info(f"🏃 Translating text to {lab_settings.agent.speaker_lang}...")
+            logger.debug(f"🏃 Processing output: '''{tts_text}'''...")
+            logger.debug(f"🏃 Translating text to {lab_settings.agent.speaker_lang}...")
             deeplx_client = DeepLXClient()
             response = await deeplx_client.asyncpost(
                 DeepLXRequest(
@@ -102,7 +102,7 @@ async def handle_sentence_output(
             tts_text = (
                 response["target_text"] if response else tts_text
             )  # 我打算用 MCP 实现表情播放，看看能不能简化一下复杂度？
-            logger.info(f"🏃 Text after translation: '''{tts_text}'''...")
+            logger.debug(f"🏃 Text after translation: '''{tts_text}'''...")
         tts_text.replace("*", "")
         display_text.text = display_text.text.replace("*", "")
 
@@ -164,7 +164,7 @@ async def process_user_input(
 
         return response["text"]  # TODO, 规范化我们的 routes 输出，以 TypedDict 约束
     else:
-        logger.info(f"User input: {user_input}")
+        logger.debug(f"User input: {user_input}")
         # await websocket_send(json.dumps({"type": "user-input-text", "text": user_input}))
         return user_input
 

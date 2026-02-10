@@ -49,7 +49,7 @@ async def handle_conversation_trigger(
     # [{'source': 'upload', 'data': 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA4QAAAKeCAYAAADAeD/Mw...', 'mime': 'image/jpeg'}]
     session_emoji = np.random.choice(EMOJI_LIST)
 
-    logger.info(f"Starting new single conversation for {client_uid}")
+    logger.debug(f"Starting new single conversation for {client_uid}")
     current_conversation_tasks[client_uid] = asyncio.create_task(
         process_single_conversation(
             context=context,
@@ -72,7 +72,7 @@ async def handle_individual_interrupt(
         task = current_conversation_tasks[client_uid]  # type: ignore
         if task and not task.done():
             task.cancel()
-            logger.info("🛑 Conversation task was successfully interrupted")
+            logger.debug("🛑 Conversation task was successfully interrupted")
 
         if context.history_uid:
             if context.character_config is None:
@@ -98,4 +98,4 @@ async def handle_group_interrupt(
     group_id: str,
 ) -> None:
     """Handles interruption for a group conversation"""
-    logger.info(f"handle_group_interrupt called for group {group_id}")
+    logger.debug(f"handle_group_interrupt called for group {group_id}")

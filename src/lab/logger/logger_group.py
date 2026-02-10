@@ -12,6 +12,7 @@ MODULE_TO_GROUP = {
     "lab.server": "server",
     "lab.service_context": "server",
     "lab.websocket_handler": "server",
+    "lab.agent.transformers": "dialog",
 }
 
 PREFIX_TO_GROUP = {
@@ -46,7 +47,7 @@ GROUP_LEVEL = {
     "agent": "DEBUG",
     "asr": "INFO",
     "config": "INFO",
-    "server": "INFO",
+    "server": "DEBUG",
     "dialog": "INFO",
     "fastapi": "INFO",
     "chore": "WARNING",

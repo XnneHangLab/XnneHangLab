@@ -36,7 +36,7 @@ class FastMcpRouter:
         self._clients[name] = client  # type: ignore
 
         tools = await client.list_tools()
-        logger.info(f"[MCP] connected {name} tools={len(tools)} url={url}")
+        logger.debug(f"[MCP] connected {name} tools={len(tools)} url={url}")
 
     async def close(self) -> None:
         """关闭所有连接。"""
