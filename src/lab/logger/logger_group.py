@@ -36,7 +36,13 @@ def pick_group(name: str) -> str:
     return "chore"
 
 
-LOG_FORMAT = "{time:HH:mm:ss} | {level:<8} | {extra[group]:<8} | {name}:{line} | {message}"
+LOG_FORMAT = (
+    "<cyan>{level:<8}</cyan>|"
+    "<cyan>{extra[group]:<8}</cyan>|"
+    "<cyan>{name}:{line}</cyan>|"
+    "{message}"
+)
+
 
 GROUP_LEVEL = {
     "mcp": "DEBUG",

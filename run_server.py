@@ -35,6 +35,7 @@ def init_logger(verbose: bool = False) -> None:
         level="TRACE",  # 让 filter 决定放行级别
         format=LOG_FORMAT,
         filter=group_filter,
+        colorize=True,
         enqueue=True,
     )
 
