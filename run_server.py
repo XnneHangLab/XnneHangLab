@@ -24,12 +24,16 @@ def get_version() -> str:
 
 def init_logger(console_log_level: str = "INFO") -> None:
     logger.remove()
-    # Console output
+
     logger.add(
         sys.stderr,
-        level=console_log_level,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | {message}",
-        colorize=True,
+        level="TRACE",  # 让 filter 来决定哪些放行
+        filter={
+            "": "WARNING",                  # 其他库默认只看 WARNING+
+            "lab": "INFO",                  # 你的项目默认 INFO+
+            "lab.mcp.tool_registry": "DEBUG"  # 这个模块单独 DEBUG
+        },
+        enqueue=True,
     )
 
     # File output
@@ -52,8 +56,8 @@ def parse_args(lab_settings: XnneHangLabSettings):
 
 
 @logger.catch
-def run(console_log_level: str, lab_settings: XnneHangLabSettings, args: argparse.Namespace):
-    init_logger(console_log_level)
+def run(lab_settings: XnneHangLabSettings, args: argparse.Namespace):
+    init_logger()
     logger.info(f"XnneHangLab, version v{get_version()}")
 
 
@@ -68,12 +72,12 @@ def run(console_log_level: str, lab_settings: XnneHangLabSettings, args: argpars
         app=server.app,
         host=server_config.host,
         port=server_config.port,
-        log_level=console_log_level.lower(),
+        log_level=server_config.uvicorn_log_level.lower(),
     )
 
 
 if __name__ == "__main__":
     lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
     args = parse_args(lab_settings)
-    console_log_level = "INFO"  # if args.verbose else "INFO"
-    run(console_log_level=console_log_level, lab_settings=lab_settings, args=args)
+
+    run(lab_settings=lab_settings, args=args)
