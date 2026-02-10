@@ -51,6 +51,7 @@ GROUP_LEVEL = {
     "dialog": "INFO",
     "fastapi": "INFO",
     "chore": "WARNING",
+    "util": "INFO",
 }
 
 GROUP_COLOR = {
@@ -61,6 +62,7 @@ GROUP_COLOR = {
     "fastapi": "blue",
     "asr": "light-cyan",
     "config": "light-black",
+    "util": "white",
 }
 
 
