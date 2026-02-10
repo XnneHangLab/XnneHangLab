@@ -44,19 +44,22 @@ def init_logger(console_log_level: str = "INFO") -> None:
     )
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="Open-LLM-VTuber Server")
+def parse_args(lab_settings: XnneHangLabSettings):
+    parser = argparse.ArgumentParser(description="XnneHangLab Server")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
+    parser.add_argument("--port", type=int, default=lab_settings.server.port, help="Server port")
     return parser.parse_args()
 
 
 @logger.catch
-def run(console_log_level: str):
+def run(console_log_level: str, lab_settings: XnneHangLabSettings, args: argparse.Namespace):
     init_logger(console_log_level)
-    logger.info(f"Open-LLM-VTuber, version v{get_version()}")
+    logger.info(f"XnneHangLab, version v{get_version()}")
 
-    lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+
     server_config = lab_settings.server
+    if args.port is not None:
+        server_config.port = args.port
 
     # Initialize and run the WebSocket server
     server = WebSocketServer()
@@ -70,6 +73,7 @@ def run(console_log_level: str):
 
 
 if __name__ == "__main__":
-    args = parse_args()
+    lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+    args = parse_args(lab_settings)
     console_log_level = "INFO"  # if args.verbose else "INFO"
-    run(console_log_level=console_log_level)
+    run(console_log_level=console_log_level, lab_settings=lab_settings, args=args)
