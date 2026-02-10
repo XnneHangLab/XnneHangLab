@@ -8,9 +8,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated
 
+from loguru import logger
 from pydantic import BaseModel, Field
 
-from lab.utils.console.logger import Logger
+from lab.logger.logger_group import init_logger
 
 
 class RootAbsDir(BaseModel):
@@ -24,6 +25,7 @@ def main():
     ROOT_DIR = Path(__file__).parent.parent.parent.parent
     settings = load_settings_file("lab.toml", XnneHangLabSettings)
     settings.root.root_dir = str(ROOT_DIR)
-    Logger.info(f"Set root directory to {settings.root.root_dir}")
+    init_logger()
+    logger.info(f"Set root directory to {settings.root.root_dir}")
 
     write_settings_file("lab.toml", settings)

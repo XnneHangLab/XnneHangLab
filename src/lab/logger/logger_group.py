@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sys
+
 import loguru
 from loguru import logger
 
@@ -36,12 +38,7 @@ def pick_group(name: str) -> str:
     return "chore"
 
 
-LOG_FORMAT = (
-    "<cyan>{level:<8}</cyan>|"
-    "<cyan>{extra[group]:<8}</cyan>|"
-    "<cyan>{name}:{line}</cyan>|"
-    "{message}"
-)
+BASE_FORMAT = "| <dim>{level:<5}</dim> | <dim>{name}:{line}</dim> | <level>{message}</level>"
 
 
 GROUP_LEVEL = {
@@ -55,11 +52,19 @@ GROUP_LEVEL = {
     "chore": "WARNING",
 }
 
+GROUP_COLOR = {
+    "dialog": "green",
+    "agent": "cyan",
+    "server": "yellow",
+    "mcp": "magenta",
+    "fastapi": "blue",
+    "asr": "light-cyan",
+    "config": "light-black",
+}
+
 
 def patch_group(record: loguru.Record) -> None:
-    # record["name"] 可能是 None
     name = record["name"] or ""
-    # 尊重手动 bind(group=...)
     record["extra"].setdefault("group", pick_group(name))
 
 
@@ -69,3 +74,41 @@ def group_filter(record: loguru.Record) -> bool:
 
     min_level = GROUP_LEVEL.get(grp, "WARNING")
     return record["level"].no >= logger.level(min_level).no
+
+
+def init_logger(verbose: bool = False) -> None:
+    logger.remove()
+    logger.configure(patcher=patch_group)
+
+    # 彩色 group（每个 group 一个 sink）
+    for grp, color in GROUP_COLOR.items():
+        logger.add(
+            sys.stderr,
+            level="TRACE",
+            colorize=True,
+            format=f"<{color}>{{extra[group]:<8}}</{color}> {BASE_FORMAT}",
+            filter=lambda r, g=grp: r["extra"].get("group") == g and group_filter(r),
+            enqueue=True,
+        )
+
+    # 默认（没命中的 group）：用 dim
+    logger.add(
+        sys.stderr,
+        level="TRACE",
+        colorize=True,
+        format="<dim>{extra[group]:<8}</dim> " + BASE_FORMAT,
+        filter=lambda r: r["extra"].get("group") not in GROUP_COLOR and group_filter(r),
+        enqueue=True,
+    )
+
+    # 文件日志：不要颜色标签，保留时间
+    logger.add(
+        "logs/debug_{time:YYYY-MM-DD}.log",
+        rotation="10 MB",
+        retention="30 days",
+        level="DEBUG",
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {extra[group]:<8} | {name}:{function}:{line} | {message}",
+        backtrace=True,
+        diagnose=True,
+        enqueue=True,
+    )
