@@ -14,4 +14,4 @@ class ServerSettings(BaseModel):
     host: Annotated[str, Field("localhost", title="监听地址")]
     port: Annotated[int, Field(12393, ge=1, le=65535, title="监听端口")]
     config_alts_dir: Annotated[str, Field("characters", title="角色替代配置目录")]
-    uvicorn_log_level: Annotated[str, Field("info", title="Uvicorn 日志等级")]
+    uvicorn_log_level: Annotated[str, Field("warning", title="Uvicorn 日志等级")]
