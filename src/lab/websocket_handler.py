@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+import re
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, Optional, TypedDict
 
 import numpy as np
 from fastapi import WebSocket, WebSocketDisconnect
 from loguru import logger
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from lab.chat_group import (
     ChatGroupManager,
@@ -18,6 +20,7 @@ from lab.chat_history_manager import (
     delete_history,
     get_history,
     get_history_list,  # type: ignore[import]
+    HistoryMessage,
 )
 from lab.config_manager.vtuber import scan_bg_directory
 from lab.conversations.conversation_handler import (
@@ -62,6 +65,43 @@ class WSMessage(TypedDict, total=False):
     history_uid: str | None
     file: str | None
     display_text: DisplayTextDict | None
+
+
+class DisplayHistoryMessage(BaseModel):
+    """Pydantic model for history messages sent to frontend."""
+
+    model_config = ConfigDict(extra="allow")
+
+    role: Literal["human", "ai", "system", "user", "assistant", "tool", "developer"]
+    timestamp: str
+    content: str
+    name: str | None = None
+    avatar: str | None = None
+
+
+_TASK_PROMPT_PATTERN = re.compile(r"\[Task / User Prompt\]\s*(.*?)(?:\n\s*###|$)", re.DOTALL)
+
+
+def _extract_user_prompt_for_display(content: str) -> str:
+    """Extract user-visible text from packed prompt content for frontend history display."""
+    match = _TASK_PROMPT_PATTERN.search(content)
+    if not match:
+        return content
+    return match.group(1).strip() or content
+
+
+def _format_history_message_for_display(message: HistoryMessage) -> dict[str, Any]:
+    """Return a display-safe history message without mutating stored history data."""
+    try:
+        display_message = DisplayHistoryMessage.model_validate(message)
+    except ValidationError:
+        logger.warning("Failed to validate history message for display; fallback to raw message")
+        return message
+
+    if display_message.role == "user":
+        display_message.content = _extract_user_prompt_for_display(display_message.content)
+
+    return display_message.model_dump()
 
 
 class WebSocketHandler:
@@ -352,7 +392,7 @@ class WebSocketHandler:
             context.character_config.conf_uid,
             history_uid,  # type: ignore[return]
         )
-        messages = [msg for msg in msgs if msg["role"] != "system"]
+        messages = [_format_history_message_for_display(msg) for msg in msgs if msg["role"] != "system"]
         await websocket.send_text(json.dumps({"type": "history-data", "messages": messages}))
 
     async def _handle_create_history(self, websocket: WebSocket, client_uid: str, data: WSMessage) -> None:
