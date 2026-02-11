@@ -16,11 +16,11 @@ from lab.chat_group import (
     handle_group_operation,
 )
 from lab.chat_history_manager import (
+    HistoryMessage,
     create_new_history,
     delete_history,
     get_history,
     get_history_list,  # type: ignore[import]
-    HistoryMessage,
 )
 from lab.config_manager.vtuber import scan_bg_directory
 from lab.conversations.conversation_handler import (
@@ -90,7 +90,7 @@ def _extract_user_prompt_for_display(content: str) -> str:
     return match.group(1).strip() or content
 
 
-def _format_history_message_for_display(message: HistoryMessage) -> dict[str, Any]:
+def _format_history_message_for_display(message: HistoryMessage) -> dict[str, Any] | HistoryMessage:
     """Return a display-safe history message without mutating stored history data."""
     try:
         display_message = DisplayHistoryMessage.model_validate(message)
