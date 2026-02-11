@@ -56,8 +56,8 @@ class ServiceContext:
     def load_cache(
         self,
         lab_setting: XnneHangLabSettings,
-        server_config: ServerSettings,
-        character_config: CharacterSettings,
+        server_config: ServerSettings | None,
+        character_config: CharacterSettings | None,
         live2d_model: Live2dModel,
         agent_engine: MemoryAgent,
     ) -> None:
