@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from loguru import logger
@@ -24,7 +24,7 @@ async def handle_conversation_trigger(
     context: ServiceContext,
     websocket: WebSocket,
     received_data_buffers: dict[str, np.ndarray[Any, Any]],
-    current_conversation_tasks: dict[str, Optional[asyncio.Task]],  # noqa: UP045 # type: ignore
+    current_conversation_tasks: dict[str, asyncio.Task | None],  # type: ignore
 ) -> None:
     """Handle triggers that start a conversation"""
     if msg_type == "ai-speak-signal":
@@ -64,7 +64,7 @@ async def handle_conversation_trigger(
 
 async def handle_individual_interrupt(
     client_uid: str,
-    current_conversation_tasks: dict[str, Optional[asyncio.Task]],  # noqa: UP045 # type: ignore
+    current_conversation_tasks: dict[str, asyncio.Task | None],  # type: ignore
     context: ServiceContext,
     heard_response: str,
 ):
