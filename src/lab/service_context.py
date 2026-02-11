@@ -43,7 +43,7 @@ class ServiceContext:
     def __str__(self):
         return (
             f"ServiceContext:\n"
-            f"  System Config: {'Loaded' if self.server_config else 'Not Loaded'}\n"
+            f"  Server Config: {'Loaded' if self.server_config else 'Not Loaded'}\n"
             f"    Details: {json.dumps(self.server_config.model_dump(), indent=6) if self.server_config else 'None'}\n"
             f"  Live2D Model: {self.live2d_model.model_info if self.live2d_model else 'Not Loaded'}\n"  # type: ignore
             f"  Chat System Prompt: {self.chat_system_prompt or 'Not Set'}\n"
@@ -65,9 +65,9 @@ class ServiceContext:
         Load the ServiceContext with the reference of the provided instances.
         Pass by reference so no reinitialization will be done.
         """
-        if not character_config:
+        if character_config is None:
             raise ValueError("character_config cannot be None")
-        if not server_config:
+        if server_config is None:
             raise ValueError("server_config cannot be None")
 
         self.lab_setting = lab_setting
@@ -83,14 +83,14 @@ class ServiceContext:
         Reinitialize the instances if the config is different.
 
         Parameters:
-        - config (Dict): The configuration dictionary.
+        - config (XnneHangLabSettings): The typed lab settings to load into the context.
         """
         self.lab_setting = config
 
-        if not self.server_config:
+        if self.server_config is None:
             self.server_config = config.server
 
-        if not self.character_config:
+        if self.character_config is None:
             self.character_config = config.vtuber.character_config
 
         # update all sub-configs
@@ -103,8 +103,7 @@ class ServiceContext:
 
         # self.init_translate(config.vtuber.character_config.tts_preprocessor_config.translator_config) # 到时替换成自己的
         # store typed config references
-        self.lab_setting = config
-        self.server_config = config.server or self.server_config
+        self.server_config = config.server
         self.character_config = config.vtuber.character_config
 
     def init_live2d(self, live2d_model_name: str) -> None:
