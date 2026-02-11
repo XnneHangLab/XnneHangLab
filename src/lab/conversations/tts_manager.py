@@ -64,7 +64,6 @@ class TTSTaskManager:
             await self._send_silent_payload(display_text, actions, current_sequence)
             return
 
-
         # Get current sequence number
         current_sequence = self._sequence_counter
         self._sequence_counter += 1

@@ -27,8 +27,7 @@ class ServiceContext:
         self._mcp_connected = False
         self._mcp_lock = asyncio.Lock()
         self.lab_setting: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSettings)
-        self.config: XnneHangLabSettings | None = None
-        self.system_config: ServerSettings | None = None
+        self.server_config: ServerSettings | None = None
         self.character_config: CharacterSettings | None = None
 
         self.live2d_model: Live2dModel | None = None
@@ -44,8 +43,8 @@ class ServiceContext:
     def __str__(self):
         return (
             f"ServiceContext:\n"
-            f"  System Config: {'Loaded' if self.system_config else 'Not Loaded'}\n"
-            f"    Details: {json.dumps(self.system_config.model_dump(), indent=6) if self.system_config else 'None'}\n"
+            f"  Server Config: {'Loaded' if self.server_config else 'Not Loaded'}\n"
+            f"    Details: {json.dumps(self.server_config.model_dump(), indent=6) if self.server_config else 'None'}\n"
             f"  Live2D Model: {self.live2d_model.model_info if self.live2d_model else 'Not Loaded'}\n"  # type: ignore
             f"  Chat System Prompt: {self.chat_system_prompt or 'Not Set'}\n"
             f"  Tool System Prompt: {self.tool_system_prompt or 'Not Set'}\n"
@@ -56,9 +55,9 @@ class ServiceContext:
 
     def load_cache(
         self,
-        config: XnneHangLabSettings,
-        system_config: ServerSettings,
-        character_config: CharacterSettings,
+        lab_setting: XnneHangLabSettings,
+        server_config: ServerSettings | None,
+        character_config: CharacterSettings | None,
         live2d_model: Live2dModel,
         agent_engine: MemoryAgent,
     ) -> None:
@@ -66,13 +65,13 @@ class ServiceContext:
         Load the ServiceContext with the reference of the provided instances.
         Pass by reference so no reinitialization will be done.
         """
-        if not character_config:
+        if character_config is None:
             raise ValueError("character_config cannot be None")
-        if not system_config:
-            raise ValueError("system_config cannot be None")
+        if server_config is None:
+            raise ValueError("server_config cannot be None")
 
-        self.config = config
-        self.system_config = system_config
+        self.lab_setting = lab_setting
+        self.server_config = server_config
         self.character_config = character_config
         self.live2d_model = live2d_model
         self.agent_engine = agent_engine
@@ -84,15 +83,14 @@ class ServiceContext:
         Reinitialize the instances if the config is different.
 
         Parameters:
-        - config (Dict): The configuration dictionary.
+        - config (XnneHangLabSettings): The typed lab settings to load into the context.
         """
-        if not self.config:
-            self.config = config
+        self.lab_setting = config
 
-        if not self.system_config:
-            self.system_config = config.server
+        if self.server_config is None:
+            self.server_config = config.server
 
-        if not self.character_config:
+        if self.character_config is None:
             self.character_config = config.vtuber.character_config
 
         # update all sub-configs
@@ -105,8 +103,7 @@ class ServiceContext:
 
         # self.init_translate(config.vtuber.character_config.tts_preprocessor_config.translator_config) # 到时替换成自己的
         # store typed config references
-        self.config = config
-        self.system_config = config.server or self.system_config
+        self.server_config = config.server
         self.character_config = config.vtuber.character_config
 
     def init_live2d(self, live2d_model_name: str) -> None:
@@ -195,16 +192,15 @@ class ServiceContext:
             if self.character_config is None:
                 logger.error("character_config is None, cannot switch configuration")
                 raise ValueError("character_config cannot be None")
-            if self.system_config is None:
-                logger.error("system_config is None, cannot switch configuration")
-                raise ValueError("system_config cannot be None")
-            if self.config is None:
-                logger.error("config is None, cannot switch configuration")
-                raise ValueError("config cannot be None")
+            if self.server_config is None:
+                logger.error("server_config is None, cannot switch configuration")
+                raise ValueError("server_config cannot be None")
             if config_file_name not in {"lab.toml"}:
                 raise ValueError("Only lab.toml is supported")
 
-            new_config = load_settings_file("lab.toml", XnneHangLabSettings) # 这里实际上欲盖弥彰，因为我们并没有提供额外的配置文件，config switch 暂时只能切换到 lab.toml。
+            new_config = load_settings_file(
+                "lab.toml", XnneHangLabSettings
+            )  # 这里实际上欲盖弥彰，因为我们并没有提供额外的配置文件，config switch 暂时只能切换到 lab.toml。
             self.load_from_config(new_config)
             logger.debug(f"New config: {self}")
             logger.debug(f"New character config: {self.character_config.model_dump()}")

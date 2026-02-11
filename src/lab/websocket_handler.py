@@ -171,8 +171,8 @@ class WebSocketHandler:
         """Initialize service context for a new session by cloning the default context"""
         session_service_context = ServiceContext()
         session_service_context.load_cache(
-            config=self.default_context_cache.config.model_copy(deep=True),  # type: ignore
-            system_config=self.default_context_cache.system_config.model_copy(deep=True),  # type: ignore
+            lab_setting=self.default_context_cache.lab_setting.model_copy(deep=True),  # type: ignore
+            server_config=self.default_context_cache.server_config.model_copy(deep=True),  # type: ignore
             character_config=self.default_context_cache.character_config.model_copy(deep=True),  # type: ignore
             live2d_model=self.default_context_cache.live2d_model,  # type: ignore
             agent_engine=self.default_context_cache.agent_engine,  # type: ignore
