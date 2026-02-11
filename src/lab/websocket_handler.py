@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Literal, Optional, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 import numpy as np
 from fastapi import WebSocket, WebSocketDisconnect
@@ -90,18 +90,18 @@ def _extract_user_prompt_for_display(content: str) -> str:
     return match.group(1).strip() or content
 
 
-def _format_history_message_for_display(message: HistoryMessage) -> dict[str, Any] | HistoryMessage:
+def _format_history_message_for_display(message: HistoryMessage) -> dict[str, Any]:
     """Return a display-safe history message without mutating stored history data."""
     try:
         display_message = DisplayHistoryMessage.model_validate(message)
     except ValidationError:
         logger.warning("Failed to validate history message for display; fallback to raw message")
-        return message
+        return dict(message)
 
-    if display_message.role == "user":
+    if display_message.role in {"user", "human"}:
         display_message.content = _extract_user_prompt_for_display(display_message.content)
 
-    return display_message.model_dump()
+    return display_message.model_dump(exclude_none=True)
 
 
 class WebSocketHandler:
@@ -112,7 +112,7 @@ class WebSocketHandler:
         self.client_connections: dict[str, WebSocket] = {}
         self.client_contexts: dict[str, ServiceContext] = {}
         self.chat_group_manager = ChatGroupManager()
-        self.current_conversation_tasks: dict[str, Optional[asyncio.Task]] = {}  # noqa: UP045 # type: ignore
+        self.current_conversation_tasks: dict[str, asyncio.Task | None] = {}  # type: ignore
         self.default_context_cache = default_context_cache
         self.received_data_buffers: dict[str, np.ndarray[Any, Any]] = {}
 
