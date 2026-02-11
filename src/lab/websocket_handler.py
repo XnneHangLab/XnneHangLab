@@ -90,13 +90,13 @@ def _extract_user_prompt_for_display(content: str) -> str:
     return match.group(1).strip() or content
 
 
-def _format_history_message_for_display(message: HistoryMessage) -> dict[str, Any] | HistoryMessage:
+def _format_history_message_for_display(message: HistoryMessage) -> dict[str, Any]:
     """Return a display-safe history message without mutating stored history data."""
     try:
         display_message = DisplayHistoryMessage.model_validate(message)
     except ValidationError:
         logger.warning("Failed to validate history message for display; fallback to raw message")
-        return message
+        return dict(message)
 
     if display_message.role in {"user", "human"}:
         display_message.content = _extract_user_prompt_for_display(display_message.content)
