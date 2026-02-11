@@ -198,7 +198,9 @@ class ServiceContext:
             if config_file_name not in {"lab.toml"}:
                 raise ValueError("Only lab.toml is supported")
 
-            new_config = load_settings_file("lab.toml", XnneHangLabSettings) # 这里实际上欲盖弥彰，因为我们并没有提供额外的配置文件，config switch 暂时只能切换到 lab.toml。
+            new_config = load_settings_file(
+                "lab.toml", XnneHangLabSettings
+            )  # 这里实际上欲盖弥彰，因为我们并没有提供额外的配置文件，config switch 暂时只能切换到 lab.toml。
             self.load_from_config(new_config)
             logger.debug(f"New config: {self}")
             logger.debug(f"New character config: {self.character_config.model_dump()}")
