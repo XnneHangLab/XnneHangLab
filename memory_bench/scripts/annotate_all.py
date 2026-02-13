@@ -409,8 +409,13 @@ def validate_event_line(
     if not isinstance(tags, list) or len(tags) < 1:
         raise AnnotationError(f"{_error_prefix(conv_id, file_line)} tags must be non-empty list")
     for tag in tags:
-        if not isinstance(tag, str) or tag not in ALLOWED_TAGS:
-            raise AnnotationError(f"{_error_prefix(conv_id, file_line)} invalid tag (got={tag!r})")
+        if not isinstance(tag, str):
+            raise AnnotationError(f"{_error_prefix(conv_id, file_line)} tag must be str (got={tag!r})")
+        if tag not in ALLOWED_TAGS:
+            raise AnnotationError(
+                f"{_error_prefix(conv_id, file_line)} invalid tag "
+                f"(got={tag!r}, allowed_tags={sorted(ALLOWED_TAGS)})"
+            )
 
     if not isinstance(obj["meta"], dict):
         raise AnnotationError(f"{_error_prefix(conv_id, file_line)} meta must be object")
