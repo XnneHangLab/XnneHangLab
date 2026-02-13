@@ -1,4 +1,6 @@
 # ch16 明明可以成为任何样子
+
+```text
 @scene: chill_ai_chat
 @character: congyin
 @source_type: monologue
@@ -20,3 +22,4 @@
 [S|MONO] 就还能成为任何样子
 [S|MONO] 不过·····逃避现实也没用吧。
 [S|MONO] 在喜欢的东西的陪伴下继续进行创作吧
+```

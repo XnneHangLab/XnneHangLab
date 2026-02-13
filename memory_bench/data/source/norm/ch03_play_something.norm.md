@@ -1,4 +1,6 @@
 # ch03 播放点什么好？
+
+```text
 @scene: chill_ai_chat
 @character: congyin
 @source_type: monologue
@@ -16,3 +18,4 @@
 [S|MONO] 和你一起，放着音乐一边创作
 [S|MONO] 可能是最近最顺利的一次了！
 [S|MONO] 下次再一起创作吧。
+```

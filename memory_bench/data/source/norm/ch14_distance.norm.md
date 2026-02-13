@@ -1,4 +1,6 @@
 # ch14 协作通话的距离感
+
+```text
 @scene: chill_ai_chat
 @character: congyin
 @source_type: monologue
@@ -18,3 +20,4 @@
 [S|MONO] 嗯？刚刚是不是有点延迟？
 [S|MONO] 是工具的问题···还是网络不好···
 [S|MONO] 总之，今后也希望你能继续听我说说话。
+```

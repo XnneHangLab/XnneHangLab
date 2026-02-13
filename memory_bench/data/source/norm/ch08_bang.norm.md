@@ -1,4 +1,6 @@
 # ch08 砰
+
+```text
 @scene: chill_ai_chat
 @character: congyin
 @source_type: monologue
@@ -19,3 +21,4 @@
 [S|MONO] 砰..爆炸..烟花
 [S|MONO] 就是它！
 [S|MONO] 不好意思，我先回去继续创作了
+```

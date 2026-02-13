@@ -1,4 +1,6 @@
 # ch01 相逢
+
+```text
 @scene: chill_ai_chat
 @character: congyin
 @source_type: mixed
@@ -26,3 +28,4 @@
 [S] 太好了，你也这么想啊！
 [S] 总之，接下来也请你多多关照。
 [S] 那我们马上开始创作吧
+```

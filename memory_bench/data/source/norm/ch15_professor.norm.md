@@ -1,4 +1,6 @@
 # ch15 教授
+
+```text
 @scene: chill_ai_chat
 @character: congyin
 @source_type: dialogue
@@ -12,3 +14,4 @@
 [S] 等会我发邮件问问看
 [S] 不过教授很忙可能会回得晚一点···
 [S] 如果有什么发现我也会告诉你的
+```

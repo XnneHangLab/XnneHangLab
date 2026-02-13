@@ -1,4 +1,6 @@
 # ch10 飞机
+
+```text
 @scene: chill_ai_chat
 @character: congyin
 @source_type: monologue
@@ -16,3 +18,4 @@
 [S|MONO] 还有好多好多想弄明白的事情啊
 [S|MONO] 研究生...
 [S|MONO] 要不要和父母商量一下呢
+```

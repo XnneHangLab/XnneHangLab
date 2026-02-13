@@ -1,4 +1,6 @@
 # ch07 夏日风物
+
+```text
 @scene: chill_ai_chat
 @character: congyin
 @source_type: monologue
@@ -18,3 +20,4 @@
 [S|MONO] 我一专注起来就会这样
 [S|MONO] 创作过程中卡住的地方感觉终于能整理出来了
 [S|MONO] 就趁这股劲继续推进吧咱们下次再聊
+```

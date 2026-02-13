@@ -1,4 +1,6 @@
 # ch11 克鲁波克鲁
+
+```text
 @scene: chill_ai_chat
 @character: congyin
 @source_type: monologue
@@ -20,3 +22,4 @@
 [S|MONO] 有种前进一步退后两步的感觉。
 [S|MONO] 但自从和你开始协作通话进展似乎变得顺利了。
 [S|MONO] 以后也请你多关照啦。
+```

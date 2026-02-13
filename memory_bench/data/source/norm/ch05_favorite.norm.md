@@ -1,4 +1,6 @@
 # ch05 我的最爱
+
+```text
 @scene: chill_ai_chat
 @character: congyin
 @source_type: monologue
@@ -16,3 +18,4 @@
 [S|MONO] 如果这个协作通话应用再更先进一点，
 [S|MONO] 说不定就能把菜肴传送给你
 [S|MONO] 呃，这个确实有点难吧……
+```

@@ -1,4 +1,6 @@
 # ch04 心事重重
+
+```text
 @scene: chill_ai_chat
 @character: congyin
 @source_type: mixed
@@ -21,3 +23,4 @@
 [S] 所以我现在超级纠结未来该走哪条路。
 [S] 不过总之，得先努力把眼前的考试搞定行。
 [S] 为了让我不偷懒，希望你还能再陪我一起。
+```
