@@ -76,8 +76,9 @@ def main() -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(index_data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
+    log = logger.bind(group="memory")
     for line in warnings:
-        logger.warning(line)
+        log.warning(line)
 
 
 if __name__ == "__main__":
