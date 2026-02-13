@@ -33,7 +33,7 @@ class _BoundLogger:
     _logger: logging.Logger
     _group: str = "chore"
 
-    def bind(self, **kwargs: object) -> "_BoundLogger":
+    def bind(self, **kwargs: object) -> _BoundLogger:
         group = kwargs.get("group", self._group)
         return _BoundLogger(self._logger, str(group))
 
