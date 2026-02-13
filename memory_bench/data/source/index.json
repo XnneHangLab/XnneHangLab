@@ -1,0 +1,74 @@
+[
+  {
+    "id": "ch00",
+    "path": "memory_bench/data/source/raw/ch00_prelude_moon.md"
+  },
+  {
+    "id": "ch01",
+    "path": "memory_bench/data/source/raw/ch01_meet.md"
+  },
+  {
+    "id": "ch02",
+    "path": "memory_bench/data/source/raw/ch02_self_intro.md"
+  },
+  {
+    "id": "ch03",
+    "path": "memory_bench/data/source/raw/ch03_play_something.md"
+  },
+  {
+    "id": "ch04",
+    "path": "memory_bench/data/source/raw/ch04_anxious.md"
+  },
+  {
+    "id": "ch05",
+    "path": "memory_bench/data/source/raw/ch05_favorite.md"
+  },
+  {
+    "id": "ch06",
+    "path": "memory_bench/data/source/raw/ch06_writer_block.md"
+  },
+  {
+    "id": "ch07",
+    "path": "memory_bench/data/source/raw/ch07_summer_motif.md"
+  },
+  {
+    "id": "ch08",
+    "path": "memory_bench/data/source/raw/ch08_bang.md"
+  },
+  {
+    "id": "ch09",
+    "path": "memory_bench/data/source/raw/ch09_mugs.md"
+  },
+  {
+    "id": "ch10",
+    "path": "memory_bench/data/source/raw/ch10_airplane.md"
+  },
+  {
+    "id": "ch11",
+    "path": "memory_bench/data/source/raw/ch11_krupokkuru.md"
+  },
+  {
+    "id": "ch12",
+    "path": "memory_bench/data/source/raw/ch12_unbelievable_lie.md"
+  },
+  {
+    "id": "ch13",
+    "path": "memory_bench/data/source/raw/ch13_space_whale.md"
+  },
+  {
+    "id": "ch14",
+    "path": "memory_bench/data/source/raw/ch14_distance.md"
+  },
+  {
+    "id": "ch15",
+    "path": "memory_bench/data/source/raw/ch15_professor.md"
+  },
+  {
+    "id": "ch16",
+    "path": "memory_bench/data/source/raw/ch16_anything.md"
+  },
+  {
+    "id": "ch17",
+    "path": "memory_bench/data/source/raw/ch17_if_fly.md"
+  }
+]
