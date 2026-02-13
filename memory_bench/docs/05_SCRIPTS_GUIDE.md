@@ -153,6 +153,17 @@ uv run python memory_bench/scripts/annotate_all.py --source norm
 
 - `memory_bench/.env.benchmark.example`
 
+
+### 4.4.1 模型选择建议（很重要）
+
+为了获得稳定且接近人工标注质量的 JSONL，建议至少使用 `gpt-5.1-2025-11-13` 这一档规格（或同等级更强模型）。
+
+- 过于老旧/轻量的模型，常见问题是：
+  - 混入解释文字，破坏“纯 JSONL”
+  - `turn_id` 不连续
+  - `tags` 误判（例如全部打成 `canon_only`）
+- 通常模型能力越强，输出越接近真实标注预期，返工成本越低。
+
 ### 4.5 成功/失败/跳过的判定
 
 - **ok**：LLM 输出通过严格 JSONL 校验，并成功原子写入最终 jsonl。

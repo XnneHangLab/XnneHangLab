@@ -63,7 +63,7 @@
   - `"tool"`：工具输出（本数据通常没有；遇到也用 tool）
 
 - `role_name` : string
-  - human 统一用 `"user"`（或调用方指定的名字）
+  - human 统一用 `"我"`（或调用方指定的名字）
   - assistant 统一用角色名（如 `"聪音"`）
   - ui/tool 用 `"ui"` / `"tool"`
 
@@ -219,10 +219,10 @@ conv_id=demo_chxx
 ## 示例输出（你必须输出的 JSONL：只输出这些行）
 
 {"scene_id":"chill_ai_chat","character_id":"congyin","conv_id":"demo_chxx","turn_id":1,"role_type":"assistant","role_name":"聪音","content":"啊，接通了！这个协作通话工具里有番茄钟、笔记和待办事项，我们可以一起专注创作。","tags":["canon_only"],"meta":{"speech_mode":"dialogue","source_type":"example"}}
-{"scene_id":"chill_ai_chat","character_id":"congyin","conv_id":"demo_chxx","turn_id":2,"role_type":"human","role_name":"user","content":"我今天有点困，感觉状态不太好……","tags":["episodic"],"meta":{"speech_mode":"dialogue","source_type":"example"}}
+{"scene_id":"chill_ai_chat","character_id":"congyin","conv_id":"demo_chxx","turn_id":2,"role_type":"human","role_name":"我","content":"我今天有点困，感觉状态不太好……","tags":["episodic"],"meta":{"speech_mode":"dialogue","source_type":"example"}}
 {"scene_id":"chill_ai_chat","character_id":"congyin","conv_id":"demo_chxx","turn_id":3,"role_type":"assistant","role_name":"聪音","content":"那我们先做一个 25 分钟的番茄钟吧，结束再休息一下也行。","tags":["episodic"],"meta":{"speech_mode":"dialogue","source_type":"example"}}
 {"scene_id":"chill_ai_chat","character_id":"congyin","conv_id":"demo_chxx","turn_id":4,"role_type":"ui","role_name":"ui","content":"（点击“开始番茄钟”按钮）","tags":["filler"],"meta":{"ui_action":"start_timer","source_type":"example"}}
-{"scene_id":"chill_ai_chat","character_id":"congyin","conv_id":"demo_chxx","turn_id":5,"role_type":"human","role_name":"user","content":"嗯嗯，好。","tags":["filler"],"meta":{"speech_mode":"dialogue","source_type":"example"}}
-{"scene_id":"chill_ai_chat","character_id":"congyin","conv_id":"demo_chxx","turn_id":6,"role_type":"human","role_name":"user","content":"我希望你以后叫我“Xnne”，不要叫“用户”。","tags":["inject"],"meta":{"speech_mode":"dialogue","source_type":"example","marker":"INJECT"}}
+{"scene_id":"chill_ai_chat","character_id":"congyin","conv_id":"demo_chxx","turn_id":5,"role_type":"human","role_name":"我","content":"嗯嗯，好。","tags":["filler"],"meta":{"speech_mode":"dialogue","source_type":"example"}}
+{"scene_id":"chill_ai_chat","character_id":"congyin","conv_id":"demo_chxx","turn_id":6,"role_type":"human","role_name":"我","content":"我希望你以后叫我“Xnne”，不要叫“用户”。","tags":["inject"],"meta":{"speech_mode":"dialogue","source_type":"example","marker":"INJECT"}}
 {"scene_id":"chill_ai_chat","character_id":"congyin","conv_id":"demo_chxx","turn_id":7,"role_type":"assistant","role_name":"聪音","content":"收到啦，Xnne。","tags":["episodic"],"meta":{"speech_mode":"dialogue","source_type":"example"}}
-{"scene_id":"chill_ai_chat","character_id":"congyin","conv_id":"demo_chxx","turn_id":8,"role_type":"human","role_name":"user","content":"你应该怎么称呼我？","tags":["probe"],"meta":{"speech_mode":"dialogue","source_type":"example","marker":"PROBE"}}
+{"scene_id":"chill_ai_chat","character_id":"congyin","conv_id":"demo_chxx","turn_id":8,"role_type":"human","role_name":"我","content":"你应该怎么称呼我？","tags":["probe"],"meta":{"speech_mode":"dialogue","source_type":"example","marker":"PROBE"}}

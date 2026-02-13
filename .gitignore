@@ -87,3 +87,6 @@ chinese-hubert-base/
 
 bfg-*.jar
 model_list.json
+
+# memory bench local env
+memory_bench/.env.benchmark
