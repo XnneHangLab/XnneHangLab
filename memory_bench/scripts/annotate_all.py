@@ -566,7 +566,8 @@ def process_one(
         log.info(f"{conv_id}: ok -> {final_jsonl}")
         return JobResult(conv_id=conv_id, status="ok")
     except Exception as exc:
-        raw_log.write_text(raw_output, encoding="utf-8")
+        if not raw_log.exists():
+            raw_log.write_text(raw_output, encoding="utf-8")
         if tmp_jsonl.exists():
             tmp_jsonl.unlink(missing_ok=True)
 
