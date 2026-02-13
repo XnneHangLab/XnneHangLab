@@ -58,9 +58,6 @@ def load_benchmark_dotenv(repo_root: Path) -> None:
 
     Args:
         repo_root: 仓库根目录路径。
-
-    Returns:
-        None。
     """
     dotenv_path = repo_root / "memory_bench" / ".env.benchmark"
     if not dotenv_path.exists():
@@ -313,9 +310,6 @@ def validate_event_line(obj: Any, conv_id: str, scene_id: str, character_id: str
         character_id: 当前批次期望的 character_id。
         expected_turn: 该行期望的 turn_id。
 
-    Returns:
-        None。
-
     Raises:
         AnnotationError: 当字段缺失、类型错误或业务规则不满足时抛出。
     """
@@ -420,9 +414,6 @@ def write_meta(meta_path: Path, payload: dict[str, Any]) -> None:
     Args:
         meta_path: 目标元信息文件路径。
         payload: 需要写入的元信息字典。
-
-    Returns:
-        None。
     """
 
     meta_path.parent.mkdir(parents=True, exist_ok=True)
