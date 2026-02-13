@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
+"""Build source index for memory_bench chapter files.
+
+This script scans `memory_bench/data/source/raw/` for chapter markdown files,
+tries to pair each chapter with its optional normalized file under
+`memory_bench/data/source/norm/`, and writes a unified `index.json`.
+"""
+
 from __future__ import annotations
 
 import json
 import re
 from pathlib import Path
+from typing import TypedDict
 
 from loguru import logger
 
@@ -11,7 +19,30 @@ RAW_PATTERN = re.compile(r"^(ch\d{2})_.*\.md$")
 NORM_PATTERN = re.compile(r"^(ch\d{2})_.*\.norm\.md$")
 
 
+class IndexEntry(TypedDict):
+    """Single chapter index entry.
+
+    Attributes:
+        id: Chapter ID in `chXX` format.
+        raw_path: Relative repository path for the raw markdown file.
+        norm_path: Relative repository path for normalized file. Empty when missing.
+    """
+
+    id: str
+    raw_path: str
+    norm_path: str
+
+
 def build_norm_map(repo_root: Path) -> dict[str, str]:
+    """Build chapter-to-normalized-file mapping.
+
+    Args:
+        repo_root: Repository root path.
+
+    Returns:
+        Mapping from chapter ID (`chXX`) to normalized file relative path.
+        If the norm directory does not exist, returns an empty mapping.
+    """
     norm_dir = repo_root / "memory_bench" / "data" / "source" / "norm"
     norm_map: dict[str, str] = {}
 
@@ -31,7 +62,20 @@ def build_norm_map(repo_root: Path) -> dict[str, str]:
     return norm_map
 
 
-def build_index(repo_root: Path) -> tuple[list[dict[str, str]], list[str]]:
+def build_index(repo_root: Path) -> tuple[list[IndexEntry], list[str]]:
+    """Build unified index entries from raw files and optional norm files.
+
+    Args:
+        repo_root: Repository root path.
+
+    Returns:
+        A tuple containing:
+          1. Index entries sorted by chapter number and raw filename.
+          2. Warning messages for chapters missing normalized files.
+
+        Each entry contains `id`, non-empty `raw_path`, and possibly-empty
+        `norm_path`.
+    """
     raw_dir = repo_root / "memory_bench" / "data" / "source" / "raw"
     norm_map = build_norm_map(repo_root)
     entries: list[tuple[int, str, str, str]] = []
@@ -56,7 +100,7 @@ def build_index(repo_root: Path) -> tuple[list[dict[str, str]], list[str]]:
 
     entries.sort(key=lambda item: (item[0], Path(item[2]).name))
 
-    index = [
+    index: list[IndexEntry] = [
         {
             "id": chapter_id,
             "raw_path": raw_path,
@@ -69,6 +113,14 @@ def build_index(repo_root: Path) -> tuple[list[dict[str, str]], list[str]]:
 
 
 def main() -> None:
+    """Generate and write index.json for memory_bench source chapters.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     repo_root = Path(__file__).resolve().parents[2]
     output_path = repo_root / "memory_bench" / "data" / "source" / "index.json"
 
