@@ -1,4 +1,6 @@
 # ch17 如果能飞上天空
+
+```text
 @scene: chill_ai_chat
 @character: congyin
 @source_type: monologue
@@ -16,3 +18,4 @@
 [S|MONO] 在天空中跟你协作通话
 [S|MONO] 不觉得很棒吗？
 [S|MONO] 真希望哪天能实现啊。
+```

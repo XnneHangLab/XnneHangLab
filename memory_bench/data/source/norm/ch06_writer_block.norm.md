@@ -1,4 +1,6 @@
 # ch06 创作瓶颈
+
+```text
 @scene: chill_ai_chat
 @character: congyin
 @source_type: mixed
@@ -18,3 +20,4 @@
 [S] 像这样把心中的郁结说出来
 [S] 感觉好像轻松了一点。
 [S] 谢谢你愿意听我说这些
+```

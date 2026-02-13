@@ -1,4 +1,6 @@
 # ch12 有点不可思议的谎言
+
+```text
 @scene: chill_ai_chat
 @character: congyin
 @source_type: monologue
@@ -21,3 +23,4 @@
 [S|MONO] 和你聊天时真的会冒出好点子。
 [S|MONO] 一直以来谢谢你啦
 [S|MONO] 我现在想查些东西下次再慢慢聊吧。
+```

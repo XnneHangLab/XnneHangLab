@@ -1,4 +1,6 @@
 # ch13 宇宙里的鲸鱼
+
+```text
 @scene: chill_ai_chat
 @character: congyin
 @source_type: monologue
@@ -21,3 +23,4 @@
 [S|MONO] 和你聊天
 [S|MONO] 总是能冒出好点子。
 [S|MONO] 一道以来谢谢你啦。
+```

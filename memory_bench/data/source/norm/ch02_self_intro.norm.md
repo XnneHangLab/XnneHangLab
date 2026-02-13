@@ -1,4 +1,6 @@
 # ch02 自我介绍
+
+```text
 @scene: chill_ai_chat
 @character: congyin
 @source_type: monologue
@@ -13,3 +15,4 @@
 [S|MONO] 说起来····我还没自我介绍呢。
 [S|MONO] 我叫聪音。
 [S|MONO] 以后请多多指教啦
+```
