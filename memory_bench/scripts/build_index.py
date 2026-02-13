@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Build source index for memory_bench chapter files.
+"""为 memory_bench 章节文件构建索引。
 
-This script scans `memory_bench/data/source/raw/` for chapter markdown files,
-tries to pair each chapter with its optional normalized file under
-`memory_bench/data/source/norm/`, and writes a unified `index.json`.
+该脚本会扫描 `memory_bench/data/source/raw/` 下的章节 Markdown，
+尝试按章节 ID 关联 `memory_bench/data/source/norm/` 下的规范化文件，
+并最终输出统一的 `index.json`。
 """
 
 from __future__ import annotations
@@ -20,12 +20,12 @@ NORM_PATTERN = re.compile(r"^(ch\d{2})_.*\.norm\.md$")
 
 
 class IndexEntry(TypedDict):
-    """Single chapter index entry.
+    """单条章节索引记录。
 
     Attributes:
-        id: Chapter ID in `chXX` format.
-        raw_path: Relative repository path for the raw markdown file.
-        norm_path: Relative repository path for normalized file. Empty when missing.
+        id: 章节 ID，格式为 `chXX`。
+        raw_path: 原始章节文件（raw）相对于仓库根目录的路径。
+        norm_path: 规范化章节文件（norm）相对路径；若缺失则为空字符串。
     """
 
     id: str
@@ -34,14 +34,14 @@ class IndexEntry(TypedDict):
 
 
 def build_norm_map(repo_root: Path) -> dict[str, str]:
-    """Build chapter-to-normalized-file mapping.
+    """构建章节 ID 到规范化文件路径的映射。
 
     Args:
-        repo_root: Repository root path.
+        repo_root: 仓库根目录路径。
 
     Returns:
-        Mapping from chapter ID (`chXX`) to normalized file relative path.
-        If the norm directory does not exist, returns an empty mapping.
+        以章节 ID（`chXX`）为键、norm 文件相对路径为值的映射。
+        若 norm 目录不存在，则返回空映射。
     """
     norm_dir = repo_root / "memory_bench" / "data" / "source" / "norm"
     norm_map: dict[str, str] = {}
@@ -63,18 +63,17 @@ def build_norm_map(repo_root: Path) -> dict[str, str]:
 
 
 def build_index(repo_root: Path) -> tuple[list[IndexEntry], list[str]]:
-    """Build unified index entries from raw files and optional norm files.
+    """从 raw 与 norm 构建统一索引数据。
 
     Args:
-        repo_root: Repository root path.
+        repo_root: 仓库根目录路径。
 
     Returns:
-        A tuple containing:
-          1. Index entries sorted by chapter number and raw filename.
-          2. Warning messages for chapters missing normalized files.
+        一个二元组，包含：
+          1. 章节索引列表（按章节号与文件名排序）；
+          2. 缺失 norm 文件时产生的告警信息列表。
 
-        Each entry contains `id`, non-empty `raw_path`, and possibly-empty
-        `norm_path`.
+        每条索引记录都包含 `id`、非空 `raw_path` 与可空 `norm_path`。
     """
     raw_dir = repo_root / "memory_bench" / "data" / "source" / "raw"
     norm_map = build_norm_map(repo_root)
@@ -113,13 +112,13 @@ def build_index(repo_root: Path) -> tuple[list[IndexEntry], list[str]]:
 
 
 def main() -> None:
-    """Generate and write index.json for memory_bench source chapters.
+    """生成并写入 memory_bench 的 `index.json`。
 
     Args:
-        None.
+        None。
 
     Returns:
-        None.
+        None。
     """
     repo_root = Path(__file__).resolve().parents[2]
     output_path = repo_root / "memory_bench" / "data" / "source" / "index.json"
