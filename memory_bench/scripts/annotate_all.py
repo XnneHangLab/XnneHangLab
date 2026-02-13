@@ -19,24 +19,49 @@ ALLOWED_TAGS = {"canon_only", "episodic", "filler", "inject", "probe"}
 
 
 class AnnotationError(RuntimeError):
-    """章节标注失败。"""
+    """章节标注失败异常。"""
 
 
 @dataclass
 class ChapterJob:
+    """单章处理任务。
+
+    Attributes:
+        conv_id: 章节对应的会话 ID。
+        source_path: 实际用于标注的章节文件绝对路径。
+    """
+
     conv_id: str
     source_path: Path
 
 
 @dataclass
 class JobResult:
+    """单章处理结果。
+
+    Attributes:
+        conv_id: 章节对应的会话 ID。
+        status: 执行状态，取值为 ok/failed/skipped。
+        error_message: 失败时的错误信息；成功或跳过时为 None。
+    """
+
     conv_id: str
     status: str
     error_message: str | None = None
 
 
 def load_benchmark_dotenv(repo_root: Path) -> None:
-    """尝试加载 memory_bench/.env.benchmark；缺依赖时静默回退到系统环境变量。"""
+    """加载 bench 专用 dotenv 文件。
+
+    仅尝试读取 `memory_bench/.env.benchmark`。当文件不存在，或未安装
+    `python-dotenv` 时，函数会静默回退到系统环境变量，不抛出异常。
+
+    Args:
+        repo_root: 仓库根目录路径。
+
+    Returns:
+        None。
+    """
     dotenv_path = repo_root / "memory_bench" / ".env.benchmark"
     if not dotenv_path.exists():
         return
@@ -50,6 +75,15 @@ def load_benchmark_dotenv(repo_root: Path) -> None:
 
 
 def parse_args() -> argparse.Namespace:
+    """解析命令行参数。
+
+    Args:
+        None。
+
+    Returns:
+        argparse.Namespace: 包含并发、章节过滤、模型与数据源等配置。
+    """
+
     parser = argparse.ArgumentParser(description="Batch annotate chapters into strict JSONL events")
     parser.add_argument("--workers", type=int, default=None, help="并发章节数")
     parser.add_argument("--force", action="store_true", help="覆盖重跑")
@@ -67,11 +101,32 @@ def parse_args() -> argparse.Namespace:
 
 
 def read_prompt_base(repo_root: Path) -> str:
+    """读取标注基础提示词模板。
+
+    Args:
+        repo_root: 仓库根目录路径。
+
+    Returns:
+        str: `memory_bench/docs/20_ANNOTATOR_PROMPT.md` 的完整文本内容。
+    """
+
     prompt_path = repo_root / "memory_bench" / "docs" / "20_ANNOTATOR_PROMPT.md"
     return prompt_path.read_text(encoding="utf-8")
 
 
 def load_index(repo_root: Path) -> list[dict[str, Any]]:
+    """加载章节索引文件。
+
+    Args:
+        repo_root: 仓库根目录路径。
+
+    Returns:
+        list[dict[str, Any]]: `index.json` 中的章节条目列表。
+
+    Raises:
+        AnnotationError: 当索引根节点不是数组时抛出。
+    """
+
     index_path = repo_root / "memory_bench" / "data" / "source" / "index.json"
     data = json.loads(index_path.read_text(encoding="utf-8"))
     if not isinstance(data, list):
@@ -80,11 +135,30 @@ def load_index(repo_root: Path) -> list[dict[str, Any]]:
 
 
 def get_env(name: str, default: str | None = None) -> str | None:
+    """读取环境变量并处理空字符串。
+
+    Args:
+        name: 环境变量名。
+        default: 当变量不存在或为空字符串时返回的默认值。
+
+    Returns:
+        str | None: 环境变量值或默认值。
+    """
+
     value = os.environ.get(name)
     return value if value not in (None, "") else default
 
 
 def infer_norm_from_raw(raw_rel: str) -> str:
+    """根据 raw 路径推断 norm 路径。
+
+    Args:
+        raw_rel: raw 章节文件的仓库相对路径。
+
+    Returns:
+        str: 推断得到的 norm 章节文件相对路径。
+    """
+
     raw_path = Path(raw_rel)
     if "/raw/" not in raw_path.as_posix():
         return raw_path.as_posix()
@@ -97,6 +171,20 @@ def infer_norm_from_raw(raw_rel: str) -> str:
 
 
 def resolve_source_path(repo_root: Path, entry: dict[str, Any], source_mode: str) -> ChapterJob:
+    """根据 source 模式解析单章输入文件路径。
+
+    Args:
+        repo_root: 仓库根目录路径。
+        entry: 章节索引条目。
+        source_mode: 源文件选择模式，支持 auto/raw/norm。
+
+    Returns:
+        ChapterJob: 包含 conv_id 和最终来源文件路径的任务对象。
+
+    Raises:
+        AnnotationError: 当索引字段缺失或 raw/norm 路径均不可用时抛出。
+    """
+
     conv_id = str(entry.get("id", "")).strip()
     if not conv_id:
         raise AnnotationError(f"index entry 缺失 id: {entry}")
@@ -126,6 +214,20 @@ def resolve_source_path(repo_root: Path, entry: dict[str, Any], source_mode: str
 
 
 def build_prompt(prompt_base: str, scene_id: str, character_id: str, conv_id: str, source_path: Path, chapter_text: str) -> str:
+    """拼接最终提交给 LLM 的提示词。
+
+    Args:
+        prompt_base: 基础标注规则提示词。
+        scene_id: 当前场景 ID。
+        character_id: 当前角色 ID。
+        conv_id: 当前会话/章节 ID。
+        source_path: 章节源文件路径。
+        chapter_text: 章节正文文本。
+
+    Returns:
+        str: `prompt_base + user_block` 形式的完整提示词。
+    """
+
     user_block = (
         "\n\n[INPUT_META]\n"
         f"scene_id={scene_id}\n"
@@ -141,6 +243,19 @@ def build_prompt(prompt_base: str, scene_id: str, character_id: str, conv_id: st
 
 
 def call_llm(prompt: str, model: str) -> str:
+    """调用 OpenAI chat.completions 接口生成标注结果。
+
+    Args:
+        prompt: 完整提示词。
+        model: 要使用的模型名称。
+
+    Returns:
+        str: 助手返回的纯文本内容。
+
+    Raises:
+        AnnotationError: 当缺少 API Key、SDK 未安装或返回为空时抛出。
+    """
+
     api_key = get_env("BENCHMARK_OPENAI_API_KEY")
     if not api_key:
         raise AnnotationError(
@@ -190,6 +305,22 @@ def call_llm(prompt: str, model: str) -> str:
 
 
 def validate_event_line(obj: Any, conv_id: str, scene_id: str, character_id: str, expected_turn: int) -> None:
+    """校验单行事件对象是否满足 schema 与一致性规则。
+
+    Args:
+        obj: 单行 JSON 反序列化后的对象。
+        conv_id: 当前章节期望的 conv_id。
+        scene_id: 当前批次期望的 scene_id。
+        character_id: 当前批次期望的 character_id。
+        expected_turn: 该行期望的 turn_id。
+
+    Returns:
+        None。
+
+    Raises:
+        AnnotationError: 当字段缺失、类型错误或业务规则不满足时抛出。
+    """
+
     if not isinstance(obj, dict):
         raise AnnotationError(f"line {expected_turn}: 不是 JSON 对象")
 
@@ -245,6 +376,21 @@ def validate_event_line(obj: Any, conv_id: str, scene_id: str, character_id: str
 
 
 def validate_jsonl_output(raw_output: str, conv_id: str, scene_id: str, character_id: str) -> list[str]:
+    """逐行解析并校验 LLM 输出 JSONL。
+
+    Args:
+        raw_output: 模型原始文本输出。
+        conv_id: 当前章节期望的 conv_id。
+        scene_id: 当前批次期望的 scene_id。
+        character_id: 当前批次期望的 character_id。
+
+    Returns:
+        list[str]: 校验通过的原始 JSONL 行列表（不做清洗与重写）。
+
+    Raises:
+        AnnotationError: 当输出为空、含空行、非法 JSON 或 schema 不合法时抛出。
+    """
+
     if not raw_output.strip():
         raise AnnotationError("模型输出为空")
 
@@ -270,6 +416,16 @@ def validate_jsonl_output(raw_output: str, conv_id: str, scene_id: str, characte
 
 
 def write_meta(meta_path: Path, payload: dict[str, Any]) -> None:
+    """写入章节执行元信息文件。
+
+    Args:
+        meta_path: 目标元信息文件路径。
+        payload: 需要写入的元信息字典。
+
+    Returns:
+        None。
+    """
+
     meta_path.parent.mkdir(parents=True, exist_ok=True)
     meta_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
@@ -284,6 +440,22 @@ def process_one(
     force: bool,
     workers: int,
 ) -> JobResult:
+    """处理单个章节：构造提示、调用模型、校验并写入产物。
+
+    Args:
+        repo_root: 仓库根目录路径。
+        prompt_base: 基础标注提示词。
+        job: 单章任务对象。
+        scene_id: 场景 ID。
+        character_id: 角色 ID。
+        model: 模型名称。
+        force: 是否强制覆盖已存在的章节结果。
+        workers: 并发 worker 数，用于写入 meta 统计。
+
+    Returns:
+        JobResult: 单章执行结果。
+    """
+
     conv_id = job.conv_id
     log = logger.bind(group="memory")
 
@@ -359,6 +531,15 @@ def process_one(
 
 
 def main() -> int:
+    """运行批量章节标注流程。
+
+    Args:
+        None。
+
+    Returns:
+        int: 退出码；全部成功/跳过返回 0，任意失败返回 1。
+    """
+
     repo_root = Path(__file__).resolve().parents[2]
     load_benchmark_dotenv(repo_root)
     args = parse_args()
