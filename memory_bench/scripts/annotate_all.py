@@ -16,6 +16,17 @@ from bench_logger import logger
 
 ALLOWED_ROLE_TYPES = {"human", "assistant", "ui", "tool"}
 ALLOWED_TAGS = {"canon_only", "episodic", "filler", "inject", "probe"}
+REQUIRED_KEYS = [
+    "scene_id",
+    "character_id",
+    "conv_id",
+    "turn_id",
+    "role_type",
+    "role_name",
+    "content",
+    "tags",
+    "meta",
+]
 
 
 class AnnotationError(RuntimeError):
@@ -351,23 +362,12 @@ def validate_event_line(
     if not isinstance(obj, dict):
         raise AnnotationError(f"{_error_prefix(conv_id, file_line)} not a JSON object")
 
-    required_keys = [
-        "scene_id",
-        "character_id",
-        "conv_id",
-        "turn_id",
-        "role_type",
-        "role_name",
-        "content",
-        "tags",
-        "meta",
-    ]
     present_keys = list(obj.keys())
-    for key in required_keys:
+    for key in REQUIRED_KEYS:
         if key not in obj:
             raise AnnotationError(
                 f"{_error_prefix(conv_id, file_line)} missing required key "
-                f"(missing_key={key!r}, present_keys={present_keys[:20]})"
+                f"(missing_key={key!r}, present_keys={present_keys[:30]})"
             )
 
     for field, expected, got in (
@@ -409,13 +409,8 @@ def validate_event_line(
     if not isinstance(tags, list) or len(tags) < 1:
         raise AnnotationError(f"{_error_prefix(conv_id, file_line)} tags must be non-empty list")
     for tag in tags:
-        if not isinstance(tag, str):
-            raise AnnotationError(f"{_error_prefix(conv_id, file_line)} tag must be str (got={tag!r})")
-        if tag not in ALLOWED_TAGS:
-            raise AnnotationError(
-                f"{_error_prefix(conv_id, file_line)} invalid tag "
-                f"(got={tag!r}, allowed_tags={sorted(ALLOWED_TAGS)})"
-            )
+        if not isinstance(tag, str) or tag not in ALLOWED_TAGS:
+            raise AnnotationError(f"{_error_prefix(conv_id, file_line)} invalid tag (got={tag!r})")
 
     if not isinstance(obj["meta"], dict):
         raise AnnotationError(f"{_error_prefix(conv_id, file_line)} meta must be object")
