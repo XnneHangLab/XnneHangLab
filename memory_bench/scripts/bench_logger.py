@@ -57,10 +57,7 @@ class _BoundLogger:
         if level_color:
             level_text = f"{level_color}{level_name:<5}{RESET}"
 
-        rendered = (
-            f"{group_text} | {level_text} | "
-            f"{DIM}{module_name}:{line_no}{RESET} | {message}"
-        )
+        rendered = f"{group_text} | {level_text} | {DIM}{module_name}:{line_no}{RESET} | {message}"
         self._logger.log(level_no, rendered)
 
 

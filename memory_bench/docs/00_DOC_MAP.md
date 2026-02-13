@@ -8,21 +8,24 @@
    - 模块说明、目录结构、索引脚本用法。
 2. `00_DOC_MAP.md`
    - 文档总览、阅读路径、职责分工（本文件）。
-3. `10_SYSTEM_PROMPTS.md`
+3. `05_SCRIPTS_GUIDE.md`
+   - scripts 作用、调用示例（含 `uv run ... -h`）、输入输出与返回行为。
+4. `10_SYSTEM_PROMPTS.md`
    - 系统级提示词约束与角色边界。
-4. `20_ANNOTATOR_PROMPT.md`
+5. `20_ANNOTATOR_PROMPT.md`
    - JSONL 事件标注提示词（raw/norm → events）。
-5. `21_SCENE_CANON.md`
+6. `21_SCENE_CANON.md`
    - 场景宪法：`chill_ai_chat` 的世界边界、主题范围与一致性约束。
-6. `22_PERSONA_CANON.md`
+7. `22_PERSONA_CANON.md`
    - 角色圣典：聪音的人设事实、风格与行为边界。
-7. `30_GENERATOR_PROMPT.md`
+8. `30_GENERATOR_PROMPT.md`
    - 评测 patch 生成提示词（inject/probe/filler）。
-8. `40_ANCHORS_AND_TEMPLATES.md`
+9. `40_ANCHORS_AND_TEMPLATES.md`
    - Event JSONL schema、锚点规范、命名规则。
 
 ## 推荐阅读顺序
 
+- 第零步：`05_SCRIPTS_GUIDE.md`（先看怎么跑脚本）
 - 第一步：`21_SCENE_CANON.md`
 - 第二步：`22_PERSONA_CANON.md`
 - 第三步：`10_SYSTEM_PROMPTS.md`
