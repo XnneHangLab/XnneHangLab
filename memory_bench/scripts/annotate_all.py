@@ -300,7 +300,40 @@ def call_llm(prompt: str, model: str) -> str:
     return text
 
 
-def validate_event_line(obj: Any, conv_id: str, scene_id: str, character_id: str, expected_turn: int) -> None:
+def _error_prefix(conv_id: str, file_line: int) -> str:
+    """构建统一错误前缀。
+
+    Args:
+        conv_id: 当前章节会话 ID。
+        file_line: JSONL 的真实文件行号。
+
+    Returns:
+        str: 统一格式的错误前缀。
+    """
+
+    return f"[{conv_id}] file_line={file_line}:"
+
+
+def _line_preview(line: str, max_len: int = 120) -> str:
+    """生成用于报错展示的行预览。
+
+    Args:
+        line: 原始 JSONL 行文本。
+        max_len: 预览最大长度。
+
+    Returns:
+        str: 截断后的单行预览。
+    """
+
+    preview = line.replace("\n", "\\n")
+    if len(preview) <= max_len:
+        return preview
+    return preview[: max_len - 3] + "..."
+
+
+def validate_event_line(
+    obj: Any, conv_id: str, scene_id: str, character_id: str, expected_turn: int, file_line: int
+) -> None:
     """校验单行事件对象是否满足 schema 与一致性规则。
 
     Args:
@@ -309,13 +342,14 @@ def validate_event_line(obj: Any, conv_id: str, scene_id: str, character_id: str
         scene_id: 当前批次期望的 scene_id。
         character_id: 当前批次期望的 character_id。
         expected_turn: 该行期望的 turn_id。
+        file_line: JSONL 的真实文件行号。
 
     Raises:
         AnnotationError: 当字段缺失、类型错误或业务规则不满足时抛出。
     """
 
     if not isinstance(obj, dict):
-        raise AnnotationError(f"line {expected_turn}: 不是 JSON 对象")
+        raise AnnotationError(f"{_error_prefix(conv_id, file_line)} not a JSON object")
 
     required_keys = [
         "scene_id",
@@ -328,44 +362,58 @@ def validate_event_line(obj: Any, conv_id: str, scene_id: str, character_id: str
         "tags",
         "meta",
     ]
+    present_keys = list(obj.keys())
     for key in required_keys:
         if key not in obj:
-            raise AnnotationError(f"line {expected_turn}: 缺少必备字段 `{key}`")
+            raise AnnotationError(
+                f"{_error_prefix(conv_id, file_line)} missing required key "
+                f"(missing_key={key!r}, present_keys={present_keys[:20]})"
+            )
 
-    if obj["conv_id"] != conv_id:
-        raise AnnotationError(f"line {expected_turn}: conv_id 不一致")
-    if obj["scene_id"] != scene_id:
-        raise AnnotationError(f"line {expected_turn}: scene_id 不一致")
-    if obj["character_id"] != character_id:
-        raise AnnotationError(f"line {expected_turn}: character_id 不一致")
+    for field, expected, got in (
+        ("conv_id", conv_id, obj["conv_id"]),
+        ("scene_id", scene_id, obj["scene_id"]),
+        ("character_id", character_id, obj["character_id"]),
+    ):
+        if got != expected:
+            raise AnnotationError(
+                f"{_error_prefix(conv_id, file_line)} id mismatch "
+                f"(field={field!r}, expected={expected!r}, got={got!r})"
+            )
 
     turn_id = obj["turn_id"]
     if not isinstance(turn_id, int):
-        raise AnnotationError(f"line {expected_turn}: turn_id 必须为 int")
+        raise AnnotationError(
+            f"{_error_prefix(conv_id, file_line)} turn_id type mismatch "
+            f"(expected_turn_id={expected_turn}, got_turn_id={turn_id!r})"
+        )
     if turn_id != expected_turn:
-        raise AnnotationError(f"line {expected_turn}: turn_id 必须严格连续，从 1 递增")
+        raise AnnotationError(
+            f"{_error_prefix(conv_id, file_line)} turn_id mismatch "
+            f"(expected_turn_id={expected_turn}, got_turn_id={turn_id})"
+        )
 
     role_type = obj["role_type"]
     if not isinstance(role_type, str) or role_type not in ALLOWED_ROLE_TYPES:
-        raise AnnotationError(f"line {expected_turn}: role_type 非法")
+        raise AnnotationError(f"{_error_prefix(conv_id, file_line)} invalid role_type (got={role_type!r})")
 
     role_name = obj["role_name"]
     if not isinstance(role_name, str):
-        raise AnnotationError(f"line {expected_turn}: role_name 必须为 str")
+        raise AnnotationError(f"{_error_prefix(conv_id, file_line)} role_name must be str (got={role_name!r})")
 
     content = obj["content"]
     if not isinstance(content, str) or not content.strip():
-        raise AnnotationError(f"line {expected_turn}: content 必须为非空字符串")
+        raise AnnotationError(f"{_error_prefix(conv_id, file_line)} content must be non-empty string")
 
     tags = obj["tags"]
     if not isinstance(tags, list) or len(tags) < 1:
-        raise AnnotationError(f"line {expected_turn}: tags 必须为非空 list")
+        raise AnnotationError(f"{_error_prefix(conv_id, file_line)} tags must be non-empty list")
     for tag in tags:
         if not isinstance(tag, str) or tag not in ALLOWED_TAGS:
-            raise AnnotationError(f"line {expected_turn}: tags 存在非法值 `{tag}`")
+            raise AnnotationError(f"{_error_prefix(conv_id, file_line)} invalid tag (got={tag!r})")
 
     if not isinstance(obj["meta"], dict):
-        raise AnnotationError(f"line {expected_turn}: meta 必须为 object")
+        raise AnnotationError(f"{_error_prefix(conv_id, file_line)} meta must be object")
 
 
 def validate_jsonl_output(raw_output: str, conv_id: str, scene_id: str, character_id: str) -> list[str]:
@@ -385,23 +433,33 @@ def validate_jsonl_output(raw_output: str, conv_id: str, scene_id: str, characte
     """
 
     if not raw_output.strip():
-        raise AnnotationError("模型输出为空")
+        raise AnnotationError(f"[{conv_id}] file_line=0: model output is empty")
 
     raw_lines = raw_output.splitlines()
     if not raw_lines:
-        raise AnnotationError("模型输出为空")
+        raise AnnotationError(f"[{conv_id}] file_line=0: model output is empty")
 
     validated_lines: list[str] = []
     expected_turn = 1
 
-    for idx, line in enumerate(raw_lines, start=1):
+    for file_line, line in enumerate(raw_lines, start=1):
         if not line.strip():
-            raise AnnotationError(f"line {idx}: 存在空行，不是纯 JSONL")
+            raise AnnotationError(f"[{conv_id}] file_line={file_line}: empty line is not allowed in JSONL")
         try:
             obj = json.loads(line)
         except json.JSONDecodeError as exc:
-            raise AnnotationError(f"line {idx}: 非法 JSON: {exc}") from exc
-        validate_event_line(obj, conv_id, scene_id, character_id, expected_turn)
+            raise AnnotationError(
+                f"[{conv_id}] file_line={file_line}: invalid JSON "
+                f"(json_error={exc.msg!r}, col={exc.colno}, line_preview={_line_preview(line)!r})"
+            ) from exc
+        validate_event_line(
+            obj,
+            conv_id=conv_id,
+            scene_id=scene_id,
+            character_id=character_id,
+            expected_turn=expected_turn,
+            file_line=file_line,
+        )
         validated_lines.append(line)
         expected_turn += 1
 
