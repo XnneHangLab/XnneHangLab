@@ -491,19 +491,19 @@ def process_one(
         log.info(f"{conv_id}: skipped (already exists)")
         return JobResult(conv_id=conv_id, status="skipped")
 
-    chapter_text = job.source_path.read_text(encoding="utf-8")
-    prompt = build_prompt(
-        prompt_base=prompt_base,
-        scene_id=scene_id,
-        character_id=character_id,
-        conv_id=conv_id,
-        source_path=job.source_path,
-        chapter_text=chapter_text,
-    )
-    prompt_log.write_text(prompt, encoding="utf-8")
-
     raw_output = ""
     try:
+        chapter_text = job.source_path.read_text(encoding="utf-8")
+        prompt = build_prompt(
+            prompt_base=prompt_base,
+            scene_id=scene_id,
+            character_id=character_id,
+            conv_id=conv_id,
+            source_path=job.source_path,
+            chapter_text=chapter_text,
+        )
+        prompt_log.write_text(prompt, encoding="utf-8")
+
         raw_output = call_llm(prompt=prompt, model=model)
         raw_log.write_text(raw_output, encoding="utf-8")
         lines = validate_jsonl_output(raw_output, conv_id=conv_id, scene_id=scene_id, character_id=character_id)
@@ -574,7 +574,7 @@ def main() -> int:
 
     results: list[JobResult] = []
     with ThreadPoolExecutor(max_workers=workers) as executor:
-        futures = [
+        future_to_job = {
             executor.submit(
                 process_one,
                 repo_root,
@@ -585,11 +585,16 @@ def main() -> int:
                 model,
                 args.force,
                 workers,
-            )
+            ): job
             for job in jobs
-        ]
-        for fut in as_completed(futures):
-            results.append(fut.result())
+        }
+        for fut in as_completed(future_to_job):
+            job = future_to_job[fut]
+            try:
+                results.append(fut.result())
+            except Exception as exc:
+                logger.bind(group="memory").warning(f"{job.conv_id}: worker crashed: {exc}")
+                results.append(JobResult(conv_id=job.conv_id, status="failed", error_message=str(exc)))
 
     failed = sorted(result.conv_id for result in results if result.status == "failed")
     if failed:
