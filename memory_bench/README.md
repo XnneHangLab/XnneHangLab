@@ -6,7 +6,8 @@
 - 规范化章节语料（`memory_bench/data/source/norm/`）
 - 机器可读索引（`memory_bench/data/source/index.json`）
 - 工作流文档与提示词（`memory_bench/docs/`）
-- 数据索引构建脚本（`memory_bench/scripts/build_index.py`）
+- 章节索引与 LLM 标注脚本（`memory_bench/scripts/`）
+- 标注产物与调试日志（运行后生成到 `memory_bench/data/events/` 与 `memory_bench/logs/`）
 
 ## 目录结构
 
@@ -14,24 +15,41 @@
 memory_bench/
 ├─ README.md
 ├─ pyproject.toml
+├─ uv.lock
 ├─ scripts/
+│  ├─ annotate_all.py
+│  ├─ bench_logger.py
 │  └─ build_index.py
 ├─ docs/
 │  ├─ 00_DOC_MAP.md
+│  ├─ 05_SCRIPTS_GUIDE.md
 │  ├─ 10_SYSTEM_PROMPTS.md
 │  ├─ 20_ANNOTATOR_PROMPT.md
+│  ├─ 21_SCENE_CANON.md
+│  ├─ 22_PERSONA_CANON.md
 │  ├─ 30_GENERATOR_PROMPT.md
 │  └─ 40_ANCHORS_AND_TEMPLATES.md
 └─ data/
+   ├─ events/                 # 运行 annotate_all.py 后生成
+   │  └─ by_chapter/
+   │     └─ chXX.jsonl
    └─ source/
       ├─ index.json
       ├─ raw/
       │  └─ chXX_*.md
       └─ norm/
          └─ chXX_*.norm.md
+
+# 运行 annotate_all.py 后还会新增：
+# memory_bench/logs/
+# ├─ annotate_meta/{conv_id}.json
+# ├─ annotate_prompt/{conv_id}.txt
+# └─ annotate_raw/{conv_id}.txt
 ```
 
-## 索引构建脚本
+## 脚本说明
+
+### 1) 索引构建：`build_index.py`
 
 脚本：`memory_bench/scripts/build_index.py`
 
@@ -44,7 +62,7 @@ memory_bench/
 5. 关联可选的 `memory_bench/data/source/norm/` 规范化文件路径；
 6. 生成 `memory_bench/data/source/index.json`。
 
-### 运行方式
+#### 运行方式
 
 > 在项目根目录执行：
 
@@ -58,7 +76,49 @@ uv run --project memory_bench ./memory_bench/scripts/build_index.py
 uv run ./scripts/build_index.py
 ```
 
-## `index.json` 格式
+### 2) LLM 标注：`annotate_all.py`
+
+脚本：`memory_bench/scripts/annotate_all.py`
+
+功能：
+
+1. 读取 `memory_bench/data/source/index.json`；
+2. 按章节读取 `norm`（或按配置回退 `raw`）文本；
+3. 调用 LLM 产出严格 JSONL event 流；
+4. 通过 schema 与顺序校验后，原子写入章节事件文件；
+5. 同步落盘 prompt/raw/meta 三类调试日志。
+
+常用运行方式：
+
+```bash
+uv run python memory_bench/scripts/annotate_all.py --workers 6
+```
+
+只跑指定章节：
+
+```bash
+uv run python memory_bench/scripts/annotate_all.py --only ch01,ch02
+```
+
+输出路径：
+
+- 事件（正式产物）：`memory_bench/data/events/by_chapter/{conv_id}.jsonl`
+- 日志（调试定位）：
+  - `memory_bench/logs/annotate_prompt/{conv_id}.txt`
+  - `memory_bench/logs/annotate_raw/{conv_id}.txt`
+  - `memory_bench/logs/annotate_meta/{conv_id}.json`
+
+状态语义：
+
+- `ok`：校验通过并写入正式 jsonl
+- `skipped`：目标文件已存在且未加 `--force`
+- `failed`：LLM 调用/格式校验/字段校验等任一步骤失败
+
+### 3) 统一日志模块：`bench_logger.py`
+
+`memory_bench/scripts/bench_logger.py` 为内部复用模块，提供统一日志格式（含 group 与 level），被 `build_index.py`、`annotate_all.py` 调用，不作为独立 CLI 使用。
+
+## `index.json` 格式（供 annotate_all.py 消费）
 
 ```json
 [
@@ -84,3 +144,9 @@ uv run ./scripts/build_index.py
 - 可被 `json.loads` 正常解析；
 - 列表长度与 `raw/` 下匹配 `ch\d\d_*.md` 文件数量一致；
 - `raw_path` 全部非空。
+
+如果跑了 `annotate_all.py`，还建议补充确认：
+
+- `memory_bench/data/events/by_chapter/` 下存在对应章节 `*.jsonl`；
+- `memory_bench/logs/annotate_meta/*.json` 中失败章节有明确 `error_message`；
+- 重跑时未加 `--force` 的章节会被 `skipped`（而不是被覆盖）。
