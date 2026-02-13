@@ -213,7 +213,9 @@ def resolve_source_path(repo_root: Path, entry: dict[str, Any], source_mode: str
     raise AnnotationError(f"{conv_id}: raw/norm 源文件均不存在")
 
 
-def build_prompt(prompt_base: str, scene_id: str, character_id: str, conv_id: str, source_path: Path, chapter_text: str) -> str:
+def build_prompt(
+    prompt_base: str, scene_id: str, character_id: str, conv_id: str, source_path: Path, chapter_text: str
+) -> str:
     """拼接最终提交给 LLM 的提示词。
 
     Args:
@@ -258,16 +260,13 @@ def call_llm(prompt: str, model: str) -> str:
 
     api_key = get_env("BENCHMARK_OPENAI_API_KEY")
     if not api_key:
-        raise AnnotationError(
-            "缺少 BENCHMARK_OPENAI_API_KEY。请设置环境变量，或写入 memory_bench/.env.benchmark。"
-        )
+        raise AnnotationError("缺少 BENCHMARK_OPENAI_API_KEY。请设置环境变量，或写入 memory_bench/.env.benchmark。")
 
     try:
         from openai import OpenAI
     except ImportError as exc:
         raise AnnotationError(
-            "未安装 openai SDK。请先安装 `openai`（如 `pip install openai`），"
-            "或自行实现 call_llm。"
+            "未安装 openai SDK。请先安装 `openai`（如 `pip install openai`），或自行实现 call_llm。"
         ) from exc
 
     client_kwargs: dict[str, Any] = {"api_key": api_key}
@@ -510,7 +509,7 @@ def process_one(
         lines = validate_jsonl_output(raw_output, conv_id=conv_id, scene_id=scene_id, character_id=character_id)
 
         tmp_jsonl.write_text("\n".join(lines) + "\n", encoding="utf-8")
-        os.replace(tmp_jsonl, final_jsonl)
+        tmp_jsonl.replace(final_jsonl)
 
         meta["status"] = "ok"
         meta["duration_ms"] = int(time.time() * 1000) - start_ms
