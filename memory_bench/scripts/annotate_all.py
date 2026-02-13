@@ -167,20 +167,23 @@ def call_llm(prompt: str, model: str) -> str:
         client_kwargs["project"] = project
 
     client = OpenAI(**client_kwargs)
-    response = client.responses.create(
+    response = client.chat.completions.create(
         model=model,
         temperature=0,
-        input=[
+        messages=[
             {
                 "role": "user",
-                "content": [
-                    {"type": "input_text", "text": prompt},
-                ],
+                "content": prompt,
             }
         ],
     )
 
-    text = getattr(response, "output_text", "")
+    choices = getattr(response, "choices", None)
+    if not choices:
+        raise AnnotationError("LLM 返回为空，无法继续")
+
+    message = choices[0].message
+    text = getattr(message, "content", "")
     if not isinstance(text, str) or not text.strip():
         raise AnnotationError("LLM 返回为空，无法继续")
     return text
