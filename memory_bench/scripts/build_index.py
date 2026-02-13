@@ -128,6 +128,7 @@ def main() -> None:
     output_path.write_text(json.dumps(index_data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     log = logger.bind(group="memory")
+    log.info(f"Generated index with {len(index_data)} chapters -> {output_path}")
     for line in warnings:
         log.warning(line)
 
