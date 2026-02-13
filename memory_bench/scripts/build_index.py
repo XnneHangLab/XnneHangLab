@@ -5,6 +5,8 @@ import json
 import re
 from pathlib import Path
 
+from loguru import logger
+
 RAW_PATTERN = re.compile(r"^(ch\d{2})_.*\.md$")
 NORM_PATTERN = re.compile(r"^(ch\d{2})_.*\.norm\.md$")
 
@@ -48,7 +50,7 @@ def build_index(repo_root: Path) -> tuple[list[dict[str, str]], list[str]]:
         norm_path = norm_map.get(chapter_id, "")
 
         if not norm_path:
-            warnings.append(f"[WARN] missing norm file for {chapter_id}: expected in memory_bench/data/source/norm/")
+            warnings.append(f"missing norm file for {chapter_id}: expected in memory_bench/data/source/norm/")
 
         entries.append((chapter_num, chapter_id, raw_path, norm_path))
 
@@ -75,7 +77,7 @@ def main() -> None:
     output_path.write_text(json.dumps(index_data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     for line in warnings:
-        print(line)
+        logger.warning(line)
 
 
 if __name__ == "__main__":
