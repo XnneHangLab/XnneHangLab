@@ -1,0 +1,250 @@
+# Memory Bench 脚本使用手册（scripts/）
+
+> 目标：解释 `memory_bench/scripts/` 下每个脚本的作用、调用示例、输入输出、常见返回结果与排错方式。  
+> 适合“第一次接触 bench”的同学，尽量避免需要读源码才能知道怎么用。
+
+---
+
+## 1. 脚本总览
+
+当前脚本目录：
+
+- `memory_bench/scripts/build_index.py`
+- `memory_bench/scripts/annotate_all.py`
+- `memory_bench/scripts/bench_logger.py`
+
+建议执行顺序：
+
+1. 先跑 `build_index.py` 生成章节索引。
+2. 再跑 `annotate_all.py` 批量标注并产出 JSONL events。
+3. `bench_logger.py` 是被前两个脚本复用的日志模块，不是独立 CLI 工具。
+
+---
+
+## 2. 通用运行方式（推荐）
+
+在仓库根目录执行：
+
+```bash
+uv run python memory_bench/scripts/<script_name>.py
+```
+
+查看 CLI 帮助（支持 `-h` 的脚本）：
+
+```bash
+uv run python memory_bench/scripts/<script_name>.py -h
+```
+
+> 说明：当前仅 `annotate_all.py` 提供 `-h` 参数帮助；`build_index.py` 没有命令行参数。
+
+---
+
+## 3. `build_index.py`
+
+### 3.1 作用
+
+扫描 `memory_bench/data/source/raw/` 章节文件，并尝试关联 `memory_bench/data/source/norm/`，生成统一索引文件：
+
+- `memory_bench/data/source/index.json`
+
+这个索引是 `annotate_all.py` 的输入前置。
+
+### 3.2 调用示例
+
+```bash
+uv run python memory_bench/scripts/build_index.py
+```
+
+### 3.3 输入来源
+
+- raw 目录：`memory_bench/data/source/raw/*.md`
+- norm 目录：`memory_bench/data/source/norm/*.norm.md`（可缺省）
+
+### 3.4 输出结果
+
+- 成功写入：`memory_bench/data/source/index.json`
+- 日志输出：
+  - 章节数统计（info）
+  - 缺失 norm 的章节告警（warning）
+
+### 3.5 返回行为
+
+- 正常运行结束：进程退出码 `0`
+- 若发生未捕获异常（例如路径权限问题）：退出非 `0`
+
+### 3.6 常见问题
+
+- **index.json 没有 norm_path**：通常是对应章节缺少 norm 文件，允许存在，会由后续 `annotate_all --source auto` 自动回退 raw。
+
+---
+
+## 4. `annotate_all.py`
+
+### 4.1 作用
+
+批量读取章节文本，调用 LLM 标注为严格 JSONL event 流，并进行强校验后写入：
+
+- 事件文件：`memory_bench/data/events/by_chapter/{conv_id}.jsonl`
+- 调试日志：
+  - `memory_bench/logs/annotate_prompt/{conv_id}.txt`
+  - `memory_bench/logs/annotate_raw/{conv_id}.txt`
+  - `memory_bench/logs/annotate_meta/{conv_id}.json`
+
+### 4.2 CLI 帮助（推荐先看）
+
+```bash
+uv run python memory_bench/scripts/annotate_all.py -h
+```
+
+你将看到参数：
+
+- `--workers`：并发章节数
+- `--force`：强制重跑已存在章节
+- `--only`：仅处理指定 conv_id（逗号分隔）
+- `--scene-id`
+- `--character-id`
+- `--model`
+- `--source {auto,raw,norm}`
+
+### 4.3 最常用调用示例
+
+1) 默认批量跑：
+
+```bash
+uv run python memory_bench/scripts/annotate_all.py --workers 6
+```
+
+2) 仅跑两个章节：
+
+```bash
+uv run python memory_bench/scripts/annotate_all.py --only ch05,ch06
+```
+
+3) 强制覆盖重跑：
+
+```bash
+uv run python memory_bench/scripts/annotate_all.py --force --workers 4
+```
+
+4) 强制只读 norm：
+
+```bash
+uv run python memory_bench/scripts/annotate_all.py --source norm
+```
+
+### 4.4 环境变量与配置优先级
+
+脚本会优先尝试加载：
+
+- `memory_bench/.env.benchmark`
+
+关键变量：
+
+- `BENCHMARK_OPENAI_API_KEY`（必须）
+- `BENCHMARK_OPENAI_MODEL`（可选）
+- `BENCHMARK_OPENAI_BASE_URL`（可选）
+- `BENCHMARK_WORKERS` / `BENCHMARK_SOURCE` / `BENCHMARK_SCENE_ID` / `BENCHMARK_CHARACTER_ID`（可选）
+
+优先级：
+
+- CLI 参数 > `BENCHMARK_` 环境变量 > 脚本默认值
+
+可参考模板：
+
+- `memory_bench/.env.benchmark.example`
+
+### 4.5 成功/失败/跳过的判定
+
+- **ok**：LLM 输出通过严格 JSONL 校验，并成功原子写入最终 jsonl。
+- **skipped**：目标 jsonl 已存在且未开启 `--force`。
+- **failed**：任意环节失败（调用失败、非法 JSONL、字段/枚举/顺序不合法等）。
+
+### 4.6 返回码（非常重要）
+
+- `0`：所有章节都 `ok` 或 `skipped`
+- `1`：任意章节 `failed`
+
+### 4.7 你最关心的“失败后会留下什么”
+
+即使失败，也会保留定位信息：
+
+- prompt：`logs/annotate_prompt/{conv_id}.txt`
+- 原始输出：`logs/annotate_raw/{conv_id}.txt`
+- 元信息：`logs/annotate_meta/{conv_id}.json`（含 `error_message`）
+
+并且失败时不会留下半截正式结果：
+
+- 先写 `.tmp`，校验通过后才原子替换正式 jsonl
+
+### 4.8 常见报错与处理
+
+- **缺少 API key**：
+  - 报错包含 `BENCHMARK_OPENAI_API_KEY`
+  - 处理：设置环境变量或写入 `.env.benchmark`
+- **openai SDK 未安装**：
+  - 处理：安装 `openai` 包
+- **source=norm 找不到文件**：
+  - 处理：补 norm 文件，或改用 `--source auto`
+- **输出不是纯 JSONL**（有解释文字/代码块/空行）：
+  - 这是预期失败保护，需调整提示词或模型输出
+
+---
+
+## 5. `bench_logger.py`
+
+### 5.1 作用
+
+提供统一彩色日志封装（按 group + level 渲染），被 `build_index.py` 与 `annotate_all.py` 调用。
+
+### 5.2 如何使用（代码内）
+
+```python
+from bench_logger import logger
+
+log = logger.bind(group="memory")
+log.info("message")
+log.warning("warning message")
+```
+
+### 5.3 是否可独立执行
+
+- 不建议直接作为脚本运行（它是工具模块，不是 CLI）
+
+### 5.4 返回结果
+
+- 无单独“返回码”语义；由导入它的脚本负责进程退出逻辑。
+
+---
+
+## 6. 一套可复制的完整流程（从原文到事件）
+
+```bash
+# 1) 先建索引
+uv run python memory_bench/scripts/build_index.py
+
+# 2) 查看标注脚本参数
+uv run python memory_bench/scripts/annotate_all.py -h
+
+# 3) 先小范围试跑
+uv run python memory_bench/scripts/annotate_all.py --only ch01 --workers 1
+
+# 4) 再全量跑
+uv run python memory_bench/scripts/annotate_all.py --workers 6
+```
+
+完成后重点看：
+
+- `memory_bench/data/events/by_chapter/*.jsonl`
+- `memory_bench/logs/annotate_meta/*.json`
+
+---
+
+## 7. 建议的维护方式
+
+- 以后新增脚本（例如 `patch_generator.py`）时，建议同步更新本文件：
+  - 脚本作用
+  - `uv run ... -h` 参数解释
+  - 输入/输出路径
+  - 退出码与失败排查
+
+这样可以避免“脚本变长后，大家不知道怎么用”的问题。
