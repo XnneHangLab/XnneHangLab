@@ -135,7 +135,7 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
         for i, line in enumerate(f, start=1):
             raw = line.strip()
             if not raw:
-                continue
+                raise ReplayMem0Error(f"empty line is not allowed (line {i})")
             try:
                 obj = json.loads(raw)
             except json.JSONDecodeError as exc:
