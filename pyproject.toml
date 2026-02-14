@@ -127,8 +127,12 @@ vtuber = [
   "soundfile>=0.13.1",
 ]
 
+memory_bench = [
+  "mem0ai>=0.1.115",
+]
+
 [tool.uv]
-default-groups = ["base","funasr","whisper","dev", "yutto-uiya", "tts_base", "gpt_sovits", "vtuber", "database"]
+default-groups = ["base","funasr","whisper","dev", "yutto-uiya", "tts_base", "gpt_sovits", "vtuber", "database", "memory_bench"]
 
 [tool.uv.workspace]
 members = ["packages/yutto-uiya","packages/todo/","packages/gpt_sovits"]
