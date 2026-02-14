@@ -302,6 +302,7 @@ uv run python memory_bench/scripts/replay_mem0.py -h
 - `--skip-tags`：默认 `filler`
 - `--only-tags`：可选 tag 白名单
 - `--write-probes`：是否将 probe 事件写入 Mem0（默认关闭）
+- `--batch-size`：批量写入大小（默认 16，遇到 probe 前会先 flush）
 
 环境变量（脚本会优先读取 `memory_bench/.env.benchmark`）：
 
@@ -327,6 +328,12 @@ uv run python memory_bench/scripts/replay_mem0.py --input memory_bench/data/even
 
 ```bash
 uv run python memory_bench/scripts/replay_mem0.py --isolation per_chapter
+```
+
+4) 开启批量写入（通常更快）：
+
+```bash
+uv run python memory_bench/scripts/replay_mem0.py --batch-size 32
 ```
 
 ### 6.4 probe 日志字段

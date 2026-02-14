@@ -182,6 +182,7 @@ uv run python memory_bench/scripts/replay_mem0.py --isolation per_chapter
 - `--skip-tags filler`
 - `--only-tags canon_only,episodic,synthetic`
 - `--write-probes`（默认关闭，避免 probe 污染记忆）
+- `--batch-size 16`（批量写入 Memory.add，probe 前自动 flush）
 
 环境变量（优先读取 bench 前缀）：
 

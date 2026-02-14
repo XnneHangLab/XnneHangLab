@@ -187,6 +187,12 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Write probe events into Mem0 (default: false)",
     )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=16,
+        help="Batch size for Memory.add writes",
+    )
     return parser.parse_args()
 
 
@@ -272,6 +278,31 @@ def should_ingest(
     if ("probe" in tags) and (not write_probes):
         return False
     return True
+
+
+def flush_ingest_batch(
+    memory: Any,
+    user_id: str | None,
+    pending_messages: list[dict[str, str]],
+) -> int:
+    """将积攒的 ingest 消息批量写入 Mem0。
+
+    Args:
+        memory: Mem0 Memory 实例。
+        user_id: 当前批次对应的 user_id。
+        pending_messages: 待写入的消息列表，会在成功后被清空。
+
+    Returns:
+        int: 本次实际写入的消息条数。
+    """
+
+    if user_id is None or not pending_messages:
+        return 0
+
+    message_count = len(pending_messages)
+    memory.add(messages=pending_messages, user_id=user_id)
+    pending_messages.clear()
+    return message_count
 
 
 def read_jsonl(path: Path) -> Iterator[dict[str, Any]]:
@@ -418,6 +449,8 @@ def main() -> int:
         raise ReplayMem0Error(
             "OPENAI_API_KEY is required for Mem0. Set BENCHMARK_OPENAI_API_KEY or OPENAI_API_KEY."
         )
+    if args.batch_size <= 0:
+        raise ReplayMem0Error("--batch-size must be a positive integer")
 
     input_path = Path(args.input)
     output_path = Path(args.output) if args.output else default_output_path()
@@ -437,7 +470,8 @@ def main() -> int:
     stats = ReplayStats()
 
     logger.bind(group="memory").info(
-        f"Replay start: input={input_path}, output={output_path}, isolation={args.isolation}, k={args.k}"
+        "Replay start: "
+        f"input={input_path}, output={output_path}, isolation={args.isolation}, k={args.k}, batch_size={args.batch_size}"
     )
     logger.bind(group="memory").info(
         "Mem0/OpenAI env: "
@@ -451,6 +485,9 @@ def main() -> int:
         raise ReplayMem0Error(f"failed to initialize Mem0: {exc}") from exc
     total_events = count_replay_events(input_path)
     replay_progress = create_replay_progress(total_events)
+    pending_messages: list[dict[str, str]] = []
+    pending_user_id: str | None = None
+
     with output_path.open("w", encoding="utf-8") as out_file:
         for event in read_jsonl(input_path):
             stats.total_events += 1
@@ -461,6 +498,9 @@ def main() -> int:
             user_id = build_user_id(event, args.isolation)
 
             if "probe" in tags:
+                stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_messages)
+                pending_user_id = None
+
                 stats.probe_events += 1
                 query = str(event.get("content", "")).strip()
                 if not query:
@@ -500,10 +540,23 @@ def main() -> int:
                 if message is None:
                     stats.skipped_events += 1
                     continue
-                memory.add(messages=[message], user_id=user_id)
-                stats.ingested_events += 1
+
+                if pending_user_id is not None and pending_user_id != user_id:
+                    stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_messages)
+                    pending_user_id = None
+
+                if pending_user_id is None:
+                    pending_user_id = user_id
+
+                pending_messages.append(message)
+                if len(pending_messages) >= args.batch_size:
+                    stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_messages)
+                    pending_user_id = None
             else:
                 stats.skipped_events += 1
+
+    stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_messages)
+
 
     replay_progress.close()
 
