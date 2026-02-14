@@ -284,7 +284,7 @@ uv run python memory_bench/scripts/compile_events.py --out memory_bench/data/eve
   - `memory_bench/data/events/compiled/all.jsonl`（默认）
   - 或 `memory_bench/data/events/by_chapter/chXX.jsonl`
 - 输出：
-  - `memory_bench/logs/replay_mem0/run_YYYYMMDD_HHMM.jsonl`（默认）
+  - `memory_bench/logs/replay_mem0/run_YYYYMMDD_HHMMSS.jsonl`（默认）
 
 ### 6.2 CLI 帮助
 

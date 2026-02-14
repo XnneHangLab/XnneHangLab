@@ -155,7 +155,7 @@ def parse_args() -> argparse.Namespace:
         "--output",
         type=str,
         default="",
-        help="Optional output log JSONL path. Defaults to logs/replay_mem0/run_YYYYMMDD_HHMM.jsonl",
+        help="Optional output log JSONL path. Defaults to logs/replay_mem0/run_YYYYMMDD_HHMMSS.jsonl",
     )
     parser.add_argument(
         "--isolation",
@@ -337,17 +337,23 @@ def read_jsonl(path: Path) -> Iterator[dict[str, Any]]:
 
 
 def default_output_path() -> Path:
-    """生成默认 replay 日志输出路径。
+    """生成默认 replay 日志输出路径并避免文件名冲突。
 
     Args:
         无。
 
     Returns:
-        Path: 带当前时间戳的默认输出路径。
+        Path: 唯一的默认输出路径（至少秒级粒度，必要时追加序号）。
     """
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-    return Path(f"memory_bench/logs/replay_mem0/run_{timestamp}.jsonl")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    base = Path(f"memory_bench/logs/replay_mem0/run_{timestamp}")
+    candidate = base.with_suffix(".jsonl")
+    suffix = 1
+    while candidate.exists():
+        candidate = Path(f"{base}_{suffix}.jsonl")
+        suffix += 1
+    return candidate
 
 
 def compact_hits_preview(hits: Any, k: int) -> list[dict[str, Any]]:
