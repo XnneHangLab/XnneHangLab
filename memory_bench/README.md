@@ -182,6 +182,14 @@ uv run python memory_bench/scripts/replay_mem0.py --isolation per_chapter
 - `--only-tags canon_only,episodic,synthetic`
 - `--write-probes`（默认关闭，避免 probe 污染记忆）
 
+环境变量（优先读取 bench 前缀）：
+
+- `BENCHMARK_OPENAI_API_KEY`（或 `OPENAI_API_KEY`）
+- `BENCHMARK_OPENAI_BASE_URL`（或 `OPENAI_BASE_URL` / `OPENAI_API_BASE`）
+- `BENCHMARK_OPENAI_MODEL`（可选，回退 `OPENAI_MODEL`）
+
+脚本会先尝试加载 `memory_bench/.env.benchmark`，并将上述值传递给 Mem0 初始化。
+
 ### 5) 统一日志模块：`bench_logger.py`
 
 `memory_bench/scripts/bench_logger.py` 为内部复用模块，提供统一日志格式（含 group 与 level），被 `build_index.py`、`annotate_all.py` 调用，不作为独立 CLI 使用。

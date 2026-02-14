@@ -301,6 +301,12 @@ uv run python memory_bench/scripts/replay_mem0.py -h
 - `--only-tags`：可选 tag 白名单
 - `--write-probes`：是否将 probe 事件写入 Mem0（默认关闭）
 
+环境变量（脚本会优先读取 `memory_bench/.env.benchmark`）：
+
+- `BENCHMARK_OPENAI_API_KEY`（必需，或回退 `OPENAI_API_KEY`）
+- `BENCHMARK_OPENAI_BASE_URL`（可选，回退 `OPENAI_BASE_URL` / `OPENAI_API_BASE`）
+- `BENCHMARK_OPENAI_MODEL`（可选，回退 `OPENAI_MODEL`）
+
 ### 6.3 运行示例
 
 1) 默认全量回放：
@@ -340,6 +346,7 @@ uv run python memory_bench/scripts/replay_mem0.py --isolation per_chapter
 常见问题：
 
 - **提示 mem0 未安装**：执行 `uv sync --group memory_bench`。
+- **提示缺少 OPENAI_API_KEY**：设置 `BENCHMARK_OPENAI_API_KEY` 或 `OPENAI_API_KEY`。
 - **出现空行 warning**：当前行为是 warning 并跳过该行，建议上游修复数据。
 
 ---

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import time
 from dataclasses import dataclass
 from datetime import datetime
@@ -34,6 +35,100 @@ class ReplayStats:
     skipped_events: int = 0
     probe_events: int = 0
 
+
+
+
+def load_benchmark_dotenv(repo_root: Path) -> None:
+    """加载 bench 专用 dotenv 文件。
+
+    Args:
+        repo_root: 仓库根目录路径。
+
+    Returns:
+        None。
+    """
+
+    dotenv_path = repo_root / "memory_bench" / ".env.benchmark"
+    if not dotenv_path.exists():
+        return
+
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return
+
+    load_dotenv(dotenv_path=dotenv_path, override=False)
+
+
+def get_env(name: str, default: str | None = None) -> str | None:
+    """读取环境变量并处理空字符串。
+
+    Args:
+        name: 环境变量名。
+        default: 变量不存在或为空时的默认值。
+
+    Returns:
+        str | None: 读取到的值或默认值。
+    """
+
+    value = os.environ.get(name)
+    return value if value not in (None, "") else default
+
+
+def prepare_mem0_env() -> tuple[str | None, str | None, str | None]:
+    """从 bench/openai 环境变量准备 Mem0 所需配置。
+
+    Args:
+        无。
+
+    Returns:
+        tuple[str | None, str | None, str | None]: `(api_key, base_url, model_name)`。
+    """
+
+    api_key = get_env("BENCHMARK_OPENAI_API_KEY") or get_env("OPENAI_API_KEY")
+    base_url = (
+        get_env("BENCHMARK_OPENAI_BASE_URL")
+        or get_env("OPENAI_BASE_URL")
+        or get_env("OPENAI_API_BASE")
+    )
+    model_name = get_env("BENCHMARK_OPENAI_MODEL") or get_env("OPENAI_MODEL")
+
+    if api_key:
+        os.environ.setdefault("OPENAI_API_KEY", api_key)
+    if base_url:
+        os.environ.setdefault("OPENAI_BASE_URL", base_url)
+        os.environ.setdefault("OPENAI_API_BASE", base_url)
+    if model_name:
+        os.environ.setdefault("OPENAI_MODEL", model_name)
+
+    return api_key, base_url, model_name
+
+
+def build_mem0_config(base_url: str | None, model_name: str | None) -> dict[str, Any]:
+    """构建可选的 Mem0 配置字典。
+
+    Args:
+        base_url: OpenAI API base URL。
+        model_name: OpenAI 模型名称。
+
+    Returns:
+        dict[str, Any]: 仅包含已提供项的 Mem0 配置；为空时返回空字典。
+    """
+
+    llm_cfg: dict[str, Any] = {}
+    embedder_cfg: dict[str, Any] = {}
+    if base_url:
+        llm_cfg["openai_base_url"] = base_url
+        embedder_cfg["openai_base_url"] = base_url
+    if model_name:
+        llm_cfg["model"] = model_name
+
+    config: dict[str, Any] = {}
+    if llm_cfg:
+        config["llm"] = {"provider": "openai", "config": llm_cfg}
+    if embedder_cfg:
+        config["embedder"] = {"provider": "openai", "config": embedder_cfg}
+    return config
 
 def parse_csv_arg(raw: str) -> set[str]:
     """将逗号分隔字符串解析为去重后的集合。
@@ -272,6 +367,15 @@ def main() -> int:
 
     args = parse_args()
 
+    repo_root = Path(__file__).resolve().parents[2]
+    load_benchmark_dotenv(repo_root)
+    api_key, base_url, model_name = prepare_mem0_env()
+
+    if not api_key:
+        raise ReplayMem0Error(
+            "OPENAI_API_KEY is required for Mem0. Set BENCHMARK_OPENAI_API_KEY or OPENAI_API_KEY."
+        )
+
     input_path = Path(args.input)
     output_path = Path(args.output) if args.output else default_output_path()
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -293,7 +397,16 @@ def main() -> int:
         f"Replay start: input={input_path}, output={output_path}, isolation={args.isolation}, k={args.k}"
     )
 
-    memory = Memory()
+    mem0_config = build_mem0_config(base_url=base_url, model_name=model_name)
+    if mem0_config:
+        try:
+            memory = Memory(config=mem0_config)
+            logger.bind(group="memory").info("Mem0 initialized with env-based config")
+        except TypeError:
+            logger.bind(group="memory").warning("Memory(config=...) not supported, fallback to default Memory()")
+            memory = Memory()
+    else:
+        memory = Memory()
     with output_path.open("w", encoding="utf-8") as out_file:
         for event in read_jsonl(input_path):
             stats.total_events += 1
