@@ -13,7 +13,6 @@ from __future__ import annotations
 import argparse
 import difflib
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Any, TextIO
@@ -311,7 +310,7 @@ def main() -> int:
             else:
                 log.info(f"overwrite target exists: content changed (++ {plus_count}, -- {minus_count}) -> {out_path}")
 
-        os.replace(tmp_path, out_path)
+        tmp_path.replace(out_path)
         log.info(f"compiled {len(selected_conv_ids)} chapters, {total_lines} lines -> {out_path}")
         return 0
     except CompileEventsError as exc:
@@ -319,7 +318,7 @@ def main() -> int:
         if tmp_path.exists():
             tmp_path.unlink(missing_ok=True)
         return 1
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         log.warning(f"unexpected error: {exc}")
         if tmp_path.exists():
             tmp_path.unlink(missing_ok=True)
