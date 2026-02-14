@@ -5,12 +5,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from bench_logger import logger
 
@@ -126,11 +125,10 @@ def should_ingest(
     return True
 
 
-def read_jsonl(path: Path) -> list[dict[str, Any]]:
+def read_jsonl(path: Path) -> Iterator[dict[str, Any]]:
     if not path.exists():
         raise ReplayMem0Error(f"input file not found: {path}")
 
-    events: list[dict[str, Any]] = []
     with path.open("r", encoding="utf-8") as f:
         for i, line in enumerate(f, start=1):
             raw = line.strip()
@@ -143,8 +141,7 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
                 raise ReplayMem0Error(f"invalid JSON on line {i}: {exc}") from exc
             if not isinstance(obj, dict):
                 raise ReplayMem0Error(f"event line {i} must be JSON object")
-            events.append(obj)
-    return events
+            yield obj
 
 
 def default_output_path() -> Path:
@@ -184,7 +181,6 @@ def main() -> int:
             "mem0 is not installed. Install dependency group `memory_bench` first, e.g. `uv sync --group memory_bench`."
         ) from exc
 
-    events = read_jsonl(input_path)
     stats = ReplayStats()
 
     logger.bind(group="memory").info(
@@ -193,7 +189,7 @@ def main() -> int:
 
     memory = Memory()
     with output_path.open("w", encoding="utf-8") as out_file:
-        for event in events:
+        for event in read_jsonl(input_path):
             stats.total_events += 1
             tags_raw = event.get("tags", [])
             tags = {str(tag) for tag in tags_raw} if isinstance(tags_raw, list) else set()
@@ -203,6 +199,10 @@ def main() -> int:
             if "probe" in tags:
                 stats.probe_events += 1
                 query = str(event.get("content", "")).strip()
+                if not query:
+                    raise ReplayMem0Error(
+                        f"probe query is empty (conv_id={event.get('conv_id')}, turn_id={event.get('turn_id')})"
+                    )
                 started = time.perf_counter()
                 result = memory.search(query=query, user_id=user_id, limit=args.k)
                 latency_ms = round((time.perf_counter() - started) * 1000, 3)
