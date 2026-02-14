@@ -19,7 +19,8 @@ memory_bench/
 ├─ scripts/
 │  ├─ annotate_all.py
 │  ├─ bench_logger.py
-│  └─ build_index.py
+│  ├─ build_index.py
+│  └─ compile_events.py
 ├─ docs/
 │  ├─ 00_DOC_MAP.md
 │  ├─ 05_SCRIPTS_GUIDE.md
@@ -31,8 +32,10 @@ memory_bench/
 │  └─ 40_ANCHORS_AND_TEMPLATES.md
 └─ data/
    ├─ events/                 # 运行 annotate_all.py 后生成
-   │  └─ by_chapter/
-   │     └─ chXX.jsonl
+   │  ├─ by_chapter/
+   │  │  └─ chXX.jsonl
+   │  └─ compiled/
+   │     └─ all.jsonl
    └─ source/
       ├─ index.json
       ├─ raw/
@@ -114,7 +117,37 @@ uv run python memory_bench/scripts/annotate_all.py --only ch01,ch02
 - `skipped`：目标文件已存在且未加 `--force`
 - `failed`：LLM 调用/格式校验/字段校验等任一步骤失败
 
-### 3) 统一日志模块：`bench_logger.py`
+
+### 3) 事件拼接：`compile_events.py`
+
+脚本：`memory_bench/scripts/compile_events.py`
+
+功能：
+
+1. 读取 `memory_bench/data/source/index.json` 获取章节顺序；
+2. 从 `memory_bench/data/events/by_chapter/{conv_id}.jsonl` 逐章拼接；
+3. 逐行严格校验 JSONL（空行、非法 JSON、字段缺失、`conv_id` 不一致、`turn_id` 连续性）；
+4. 在 `preserve` 模式下按原始文本写出（不重排 JSON，不 `json.dumps`）；
+5. 原子写入 `memory_bench/data/events/compiled/all.jsonl`（先 `.tmp` 后 `os.replace`）。
+
+常用运行方式：
+
+```bash
+uv run python memory_bench/scripts/compile_events.py
+```
+
+只拼接指定章节（按 index 顺序过滤）：
+
+```bash
+uv run python memory_bench/scripts/compile_events.py --chapters ch01,ch02
+```
+
+输出路径：
+
+- 默认产物：`memory_bench/data/events/compiled/all.jsonl`
+- 可通过 `--out` 覆盖输出路径
+
+### 4) 统一日志模块：`bench_logger.py`
 
 `memory_bench/scripts/bench_logger.py` 为内部复用模块，提供统一日志格式（含 group 与 level），被 `build_index.py`、`annotate_all.py` 调用，不作为独立 CLI 使用。
 

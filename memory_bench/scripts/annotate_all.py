@@ -377,8 +377,7 @@ def validate_event_line(
     ):
         if got != expected:
             raise AnnotationError(
-                f"{_error_prefix(conv_id, file_line)} id mismatch "
-                f"(field={field!r}, expected={expected!r}, got={got!r})"
+                f"{_error_prefix(conv_id, file_line)} id mismatch (field={field!r}, expected={expected!r}, got={got!r})"
             )
 
     turn_id = obj["turn_id"]
