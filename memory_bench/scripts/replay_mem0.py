@@ -105,6 +105,22 @@ def prepare_mem0_env() -> tuple[str | None, str | None, str | None]:
 
 
 
+
+
+def redact_base_url(base_url: str | None) -> str:
+    """规整 base_url 以便日志输出。
+
+    Args:
+        base_url: 原始 base_url。
+
+    Returns:
+        str: 可读的 base_url 文本；未设置时返回 `<default>`。
+    """
+
+    if not base_url:
+        return "<default>"
+    return base_url.rstrip("/")
+
 def parse_csv_arg(raw: str) -> set[str]:
     """将逗号分隔字符串解析为去重后的集合。
 
@@ -422,6 +438,10 @@ def main() -> int:
 
     logger.bind(group="memory").info(
         f"Replay start: input={input_path}, output={output_path}, isolation={args.isolation}, k={args.k}"
+    )
+    logger.bind(group="memory").info(
+        "Mem0/OpenAI env: "
+        f"model={model_name or '<default>'}, base_url={redact_base_url(base_url)}"
     )
 
     try:
