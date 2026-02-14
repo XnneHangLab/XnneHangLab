@@ -88,5 +88,10 @@
     "id": "ch17",
     "raw_path": "memory_bench/data/source/raw/ch17_if_fly.md",
     "norm_path": "memory_bench/data/source/norm/ch17_if_fly.norm.md"
+  },
+  {
+    "id": "ch9999",
+    "raw_path": "memory_bench/data/source/raw/ch9999_bench.md",
+    "norm_path": "memory_bench/data/source/norm/ch9999_bench.norm.md"
   }
 ]

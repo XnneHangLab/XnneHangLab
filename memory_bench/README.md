@@ -231,7 +231,7 @@ uv sync --group memory_bench
 
 - `memory_bench/data/source/index.json` 存在；
 - 可被 `json.loads` 正常解析；
-- 列表长度与 `raw/` 下匹配 `ch\d\d_*.md` 文件数量一致；
+- 列表长度与 `raw/` 下匹配 `ch\d{2,}_*.md` 文件数量一致；
 - `raw_path` 全部非空。
 
 如果跑了 `annotate_all.py`，还建议补充确认：
