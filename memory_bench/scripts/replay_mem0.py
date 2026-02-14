@@ -329,8 +329,8 @@ def compact_hits_preview(hits: Any, k: int) -> list[dict[str, Any]]:
 
 
 
-def create_probe_progress() -> Any:
-    """创建 probe 检索进度条对象。
+def create_replay_progress() -> Any:
+    """创建 replay 全量进度条对象。
 
     Args:
         无。
@@ -349,10 +349,10 @@ def create_probe_progress() -> Any:
             def close(self) -> None:
                 return None
 
-        logger.bind(group="memory").warning("tqdm is not installed; probe progress bar is disabled")
+        logger.bind(group="memory").warning("tqdm is not installed; replay progress bar is disabled")
         return _NoopProgress()
 
-    return tqdm(desc="mem0 probe search", unit="probe", dynamic_ncols=True)
+    return tqdm(desc="mem0 replay", unit="event", dynamic_ncols=True)
 
 def main() -> int:
     """执行 Mem0 replay 主流程。
@@ -404,10 +404,11 @@ def main() -> int:
         logger.bind(group="memory").info("Mem0 initialized from environment variables")
     except Exception as exc:
         raise ReplayMem0Error(f"failed to initialize Mem0: {exc}") from exc
-    probe_progress = create_probe_progress()
+    replay_progress = create_replay_progress()
     with output_path.open("w", encoding="utf-8") as out_file:
         for event in read_jsonl(input_path):
             stats.total_events += 1
+            replay_progress.update(1)
             tags_raw = event.get("tags", [])
             tags = {str(tag) for tag in tags_raw} if isinstance(tags_raw, list) else set()
 
@@ -423,7 +424,7 @@ def main() -> int:
                 started = time.perf_counter()
                 result = memory.search(query=query, user_id=user_id, limit=args.k)
                 latency_ms = round((time.perf_counter() - started) * 1000, 3)
-                probe_progress.update(1)
+                replay_progress.set_postfix({"probes": stats.probe_events}, refresh=False)
 
                 if isinstance(result, list):
                     hits = result
@@ -458,7 +459,7 @@ def main() -> int:
             else:
                 stats.skipped_events += 1
 
-    probe_progress.close()
+    replay_progress.close()
 
     logger.bind(group="memory").info(
         "Replay done: "

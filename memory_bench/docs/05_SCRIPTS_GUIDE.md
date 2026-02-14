@@ -278,6 +278,8 @@ uv run python memory_bench/scripts/compile_events.py --out memory_bench/data/eve
 
 将 benchmark 事件 JSONL 回放到 Mem0，完成 `ingest + probe + logs` 闭环。
 
+脚本会显示 event 级实时进度条（非仅 probe 计数），即使当前事件不是 probe 也会前进。
+
 - 输入：
   - `memory_bench/data/events/compiled/all.jsonl`（默认）
   - 或 `memory_bench/data/events/by_chapter/chXX.jsonl`
