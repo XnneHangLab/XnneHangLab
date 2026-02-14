@@ -10,7 +10,10 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterator
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 from bench_logger import logger
 
@@ -34,8 +37,6 @@ class ReplayStats:
     ingested_events: int = 0
     skipped_events: int = 0
     probe_events: int = 0
-
-
 
 
 def load_benchmark_dotenv(repo_root: Path) -> None:
@@ -86,11 +87,7 @@ def prepare_mem0_env() -> tuple[str | None, str | None, str | None]:
     """
 
     api_key = get_env("BENCHMARK_OPENAI_API_KEY") or get_env("OPENAI_API_KEY")
-    base_url = (
-        get_env("BENCHMARK_OPENAI_BASE_URL")
-        or get_env("OPENAI_BASE_URL")
-        or get_env("OPENAI_API_BASE")
-    )
+    base_url = get_env("BENCHMARK_OPENAI_BASE_URL") or get_env("OPENAI_BASE_URL") or get_env("OPENAI_API_BASE")
     model_name = get_env("BENCHMARK_OPENAI_MODEL") or get_env("OPENAI_MODEL")
 
     if api_key:
@@ -102,9 +99,6 @@ def prepare_mem0_env() -> tuple[str | None, str | None, str | None]:
         os.environ.setdefault("OPENAI_MODEL", model_name)
 
     return api_key, base_url, model_name
-
-
-
 
 
 def redact_base_url(base_url: str | None) -> str:
@@ -120,6 +114,7 @@ def redact_base_url(base_url: str | None) -> str:
     if not base_url:
         return "<default>"
     return base_url.rstrip("/")
+
 
 def parse_csv_arg(raw: str) -> set[str]:
     """将逗号分隔字符串解析为去重后的集合。
@@ -465,10 +460,6 @@ def compact_hits_preview(hits: Any, k: int) -> list[dict[str, Any]]:
     return preview
 
 
-
-
-
-
 def count_replay_events(path: Path) -> int:
     """统计输入文件中可计入进度条的事件总数。
 
@@ -492,6 +483,7 @@ def count_replay_events(path: Path) -> int:
                 total += 1
     return total
 
+
 def create_replay_progress(total_events: int) -> Any:
     """创建 replay 全量进度条对象。
 
@@ -505,6 +497,7 @@ def create_replay_progress(total_events: int) -> Any:
     try:
         from tqdm import tqdm
     except ImportError:
+
         class _NoopProgress:
             def update(self, n: int = 1) -> None:
                 return None
@@ -516,6 +509,7 @@ def create_replay_progress(total_events: int) -> Any:
         return _NoopProgress()
 
     return tqdm(total=total_events, desc="mem0 replay", unit="event", dynamic_ncols=True)
+
 
 def main() -> int:
     """执行 Mem0 replay 主流程。
@@ -537,9 +531,7 @@ def main() -> int:
     api_key, base_url, model_name = prepare_mem0_env()
 
     if not api_key:
-        raise ReplayMem0Error(
-            "OPENAI_API_KEY is required for Mem0. Set BENCHMARK_OPENAI_API_KEY or OPENAI_API_KEY."
-        )
+        raise ReplayMem0Error("OPENAI_API_KEY is required for Mem0. Set BENCHMARK_OPENAI_API_KEY or OPENAI_API_KEY.")
     if args.batch_size <= 0:
         raise ReplayMem0Error("--batch-size must be a positive integer")
 
@@ -566,8 +558,7 @@ def main() -> int:
         f"k={args.k}, batch_size={args.batch_size}, store_raw={args.store_raw}"
     )
     logger.bind(group="memory").info(
-        "Mem0/OpenAI env: "
-        f"model={model_name or '<default>'}, base_url={redact_base_url(base_url)}"
+        f"Mem0/OpenAI env: model={model_name or '<default>'}, base_url={redact_base_url(base_url)}"
     )
 
     try:
@@ -653,7 +644,6 @@ def main() -> int:
                 stats.skipped_events += 1
 
     stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
-
 
     replay_progress.close()
 
