@@ -131,7 +131,7 @@ vtuber = [
 default-groups = ["base","funasr","whisper","dev", "yutto-uiya", "tts_base", "gpt_sovits", "vtuber", "database"]
 
 [tool.uv.workspace]
-members = []
+members = ["packages/yutto-uiya","packages/todo/","packages/gpt_sovits"]
 
 [[tool.uv.index]]
 name = "pytorch-cu118"
@@ -162,7 +162,7 @@ langsegment = { path = "./dist/LangSegment-0.3.5-py3-none-any.whl"}
 [tool.pyright]
 include = ["src/lab","tests"]
 pythonVersion = "3.11"
-typeCheckingMode = "off"
+typeCheckingMode = "strict"
 reportMissingTypeStubs = false
 
 [tool.ruff]
