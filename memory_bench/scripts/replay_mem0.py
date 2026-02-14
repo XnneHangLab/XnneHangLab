@@ -104,31 +104,6 @@ def prepare_mem0_env() -> tuple[str | None, str | None, str | None]:
     return api_key, base_url, model_name
 
 
-def build_mem0_config(base_url: str | None, model_name: str | None) -> dict[str, Any]:
-    """构建可选的 Mem0 配置字典。
-
-    Args:
-        base_url: OpenAI API base URL。
-        model_name: OpenAI 模型名称。
-
-    Returns:
-        dict[str, Any]: 仅包含已提供项的 Mem0 配置；为空时返回空字典。
-    """
-
-    llm_cfg: dict[str, Any] = {}
-    embedder_cfg: dict[str, Any] = {}
-    if base_url:
-        llm_cfg["openai_base_url"] = base_url
-        embedder_cfg["openai_base_url"] = base_url
-    if model_name:
-        llm_cfg["model"] = model_name
-
-    config: dict[str, Any] = {}
-    if llm_cfg:
-        config["llm"] = {"provider": "openai", "config": llm_cfg}
-    if embedder_cfg:
-        config["embedder"] = {"provider": "openai", "config": embedder_cfg}
-    return config
 
 def parse_csv_arg(raw: str) -> set[str]:
     """将逗号分隔字符串解析为去重后的集合。
@@ -397,16 +372,11 @@ def main() -> int:
         f"Replay start: input={input_path}, output={output_path}, isolation={args.isolation}, k={args.k}"
     )
 
-    mem0_config = build_mem0_config(base_url=base_url, model_name=model_name)
-    if mem0_config:
-        try:
-            memory = Memory(config=mem0_config)
-            logger.bind(group="memory").info("Mem0 initialized with env-based config")
-        except TypeError:
-            logger.bind(group="memory").warning("Memory(config=...) not supported, fallback to default Memory()")
-            memory = Memory()
-    else:
+    try:
         memory = Memory()
+        logger.bind(group="memory").info("Mem0 initialized from environment variables")
+    except Exception as exc:
+        raise ReplayMem0Error(f"failed to initialize Mem0: {exc}") from exc
     with output_path.open("w", encoding="utf-8") as out_file:
         for event in read_jsonl(input_path):
             stats.total_events += 1
