@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""按 index 章节顺序拼接 by_chapter JSONL 为单一 all.jsonl。"""
+"""按 index 章节顺序拼接 by_chapter JSONL 为单一 all.jsonl。
+
+该脚本读取 `memory_bench/data/source/index.json` 作为章节顺序来源，
+逐章读取 `memory_bench/data/events/by_chapter/{conv_id}.jsonl`，在
+`preserve` 模式下进行逐行校验并按原始文本拼接写出。
+
+输出采用原子写入：先写入同目录 `*.tmp`，全部校验通过后再 `os.replace`。
+"""
 
 from __future__ import annotations
 
@@ -9,7 +16,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 
 from bench_logger import logger
 
@@ -27,10 +34,22 @@ REQUIRED_FIELDS = [
 
 
 class CompileEventsError(RuntimeError):
-    """事件拼接失败异常。"""
+    """事件拼接失败异常。
+
+    该异常用于统一表示输入校验失败、章节过滤错误、文件不可用等可预期业务错误。
+    """
 
 
 def parse_args() -> argparse.Namespace:
+    """解析命令行参数。
+
+    Args:
+        None。
+
+    Returns:
+        argparse.Namespace: 解析后的参数对象，包含 `chapters`、`out` 与 `mode`。
+    """
+
     parser = argparse.ArgumentParser(description="Compile chapter JSONL files into one JSONL in index order")
     parser.add_argument(
         "--chapters",
@@ -54,6 +73,18 @@ def parse_args() -> argparse.Namespace:
 
 
 def load_index_order(index_path: Path) -> list[str]:
+    """从 index.json 读取章节顺序。
+
+    Args:
+        index_path: 章节索引文件路径。
+
+    Returns:
+        list[str]: 按 index 文件内顺序排列的章节 conv_id 列表。
+
+    Raises:
+        CompileEventsError: 当 index 文件不存在、JSON 非法、结构不合法或缺失 id 时抛出。
+    """
+
     if not index_path.exists():
         raise CompileEventsError(f"index file not found: {index_path}")
 
@@ -77,6 +108,19 @@ def load_index_order(index_path: Path) -> list[str]:
 
 
 def parse_chapter_filter(raw: str, known_conv_ids: list[str]) -> list[str]:
+    """解析并校验 `--chapters` 过滤器。
+
+    Args:
+        raw: 用户传入的 `--chapters` 原始字符串。
+        known_conv_ids: index 中已知章节列表（有序）。
+
+    Returns:
+        list[str]: 过滤后的章节列表，顺序与 index 保持一致。
+
+    Raises:
+        CompileEventsError: 当过滤器解析为空或包含未知章节时抛出。
+    """
+
     if not raw.strip():
         return known_conv_ids
 
@@ -94,6 +138,20 @@ def parse_chapter_filter(raw: str, known_conv_ids: list[str]) -> list[str]:
 
 
 def validate_required_fields(obj: Any, conv_id: str, file_line: int) -> None:
+    """校验单行 JSON 对象的必填字段。
+
+    Args:
+        obj: `json.loads` 后的对象。
+        conv_id: 当前章节 ID，用于错误定位。
+        file_line: 当前文件行号（从 1 开始）。
+
+    Returns:
+        None。
+
+    Raises:
+        CompileEventsError: 当 JSON 根节点不是对象，或缺少 required fields 时抛出。
+    """
+
     if not isinstance(obj, dict):
         raise CompileEventsError(f"[{conv_id}] line {file_line}: JSON root must be object")
 
@@ -103,6 +161,21 @@ def validate_required_fields(obj: Any, conv_id: str, file_line: int) -> None:
 
 
 def validate_turn_id(obj: dict[str, Any], conv_id: str, file_line: int, expected_turn_id: int) -> None:
+    """校验 `turn_id` 从 1 开始且严格递增。
+
+    Args:
+        obj: 当前行事件对象。
+        conv_id: 当前章节 ID，用于错误定位。
+        file_line: 当前文件行号（从 1 开始）。
+        expected_turn_id: 当前行期望的 turn_id。
+
+    Returns:
+        None。
+
+    Raises:
+        CompileEventsError: 当 turn_id 不是 int 或不等于期望值时抛出。
+    """
+
     turn_id = obj.get("turn_id")
     if not isinstance(turn_id, int):
         raise CompileEventsError(f"[{conv_id}] line {file_line}: turn_id must be int")
@@ -113,7 +186,22 @@ def validate_turn_id(obj: dict[str, Any], conv_id: str, file_line: int, expected
         )
 
 
-def append_chapter_preserve(chapter_path: Path, chapter_conv_id: str, out_file: Any) -> int:
+def append_chapter_preserve(chapter_path: Path, chapter_conv_id: str, out_file: TextIO) -> int:
+    """在 preserve 模式下拼接单章 JSONL 到目标输出。
+
+    Args:
+        chapter_path: 当前章节 JSONL 文件路径。
+        chapter_conv_id: 当前章节 conv_id。
+        out_file: 已打开的目标输出文件句柄。
+
+    Returns:
+        int: 成功追加的行数。
+
+    Raises:
+        CompileEventsError: 当章节文件不存在/为空、含空行、JSON 非法、
+            缺少必填字段、conv_id 不一致或 turn_id 不连续时抛出。
+    """
+
     if not chapter_path.exists():
         raise CompileEventsError(f"chapter file not found: {chapter_path}")
     if chapter_path.stat().st_size == 0:
@@ -143,7 +231,6 @@ def append_chapter_preserve(chapter_path: Path, chapter_conv_id: str, out_file: 
                 )
 
             validate_turn_id(obj, chapter_conv_id, file_line, expected_turn_id)
-
             out_file.write(raw + "\n")
             line_count += 1
             expected_turn_id += 1
@@ -153,7 +240,44 @@ def append_chapter_preserve(chapter_path: Path, chapter_conv_id: str, out_file: 
     return line_count
 
 
+def build_change_stats(old_path: Path, new_tmp_path: Path) -> tuple[int, int]:
+    """统计旧输出与新临时输出之间的增删行数。
+
+    Args:
+        old_path: 已存在的正式输出文件路径。
+        new_tmp_path: 新生成的临时输出文件路径。
+
+    Returns:
+        tuple[int, int]: `(plus_count, minus_count)`，分别表示新增与删除行数。
+    """
+
+    old_lines = old_path.read_text(encoding="utf-8").splitlines()
+    new_lines = new_tmp_path.read_text(encoding="utf-8").splitlines()
+    diff_lines = difflib.unified_diff(old_lines, new_lines, fromfile="old", tofile="new", lineterm="")
+
+    plus_count = 0
+    minus_count = 0
+    for line in diff_lines:
+        if line.startswith("+++") or line.startswith("---") or line.startswith("@@"):
+            continue
+        if line.startswith("+"):
+            plus_count += 1
+        elif line.startswith("-"):
+            minus_count += 1
+
+    return plus_count, minus_count
+
+
 def main() -> int:
+    """执行事件编译主流程。
+
+    Args:
+        None。
+
+    Returns:
+        int: 成功返回 `0`，失败返回 `1`。
+    """
+
     args = parse_args()
     log = logger.bind(group="memory")
     repo_root = Path(__file__).resolve().parents[2]
@@ -181,26 +305,11 @@ def main() -> int:
                 log.info(f"{conv_id}: appended {lines} lines")
 
         if out_path.exists():
-            old_lines = out_path.read_text(encoding="utf-8").splitlines()
-            new_lines = tmp_path.read_text(encoding="utf-8").splitlines()
-            diff_lines = difflib.unified_diff(old_lines, new_lines, fromfile="old", tofile="new", lineterm="")
-
-            plus_count = 0
-            minus_count = 0
-            for line in diff_lines:
-                if line.startswith("+++") or line.startswith("---") or line.startswith("@@"):
-                    continue
-                if line.startswith("+"):
-                    plus_count += 1
-                elif line.startswith("-"):
-                    minus_count += 1
-
+            plus_count, minus_count = build_change_stats(out_path, tmp_path)
             if plus_count == 0 and minus_count == 0:
                 log.info(f"overwrite target exists: no content change -> {out_path}")
             else:
-                log.info(
-                    f"overwrite target exists: content changed (++ {plus_count}, -- {minus_count}) -> {out_path}"
-                )
+                log.info(f"overwrite target exists: content changed (++ {plus_count}, -- {minus_count}) -> {out_path}")
 
         os.replace(tmp_path, out_path)
         log.info(f"compiled {len(selected_conv_ids)} chapters, {total_lines} lines -> {out_path}")

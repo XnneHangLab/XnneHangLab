@@ -11,13 +11,15 @@
 
 - `memory_bench/scripts/build_index.py`
 - `memory_bench/scripts/annotate_all.py`
+- `memory_bench/scripts/compile_events.py`
 - `memory_bench/scripts/bench_logger.py`
 
 建议执行顺序：
 
 1. 先跑 `build_index.py` 生成章节索引。
-2. 再跑 `annotate_all.py` 批量标注并产出 JSONL events。
-3. `bench_logger.py` 是被前两个脚本复用的日志模块，不是独立 CLI 工具。
+2. 再跑 `annotate_all.py` 批量标注并产出分章节 JSONL events。
+3. 跑 `compile_events.py` 将分章节结果拼接为 `all.jsonl`。
+4. `bench_logger.py` 是被前三个脚本复用的日志模块，不是独立 CLI 工具。
 
 ---
 
@@ -35,7 +37,7 @@ uv run python memory_bench/scripts/<script_name>.py
 uv run python memory_bench/scripts/<script_name>.py -h
 ```
 
-> 说明：当前仅 `annotate_all.py` 提供 `-h` 参数帮助；`build_index.py` 没有命令行参数。
+> 说明：`annotate_all.py` 与 `compile_events.py` 均提供 `-h` 参数帮助；`build_index.py` 没有命令行参数。
 
 ---
 
@@ -201,13 +203,80 @@ uv run python memory_bench/scripts/annotate_all.py --source norm
 
 ---
 
-## 5. `bench_logger.py`
+
+## 5. `compile_events.py`
 
 ### 5.1 作用
 
-提供统一彩色日志封装（按 group + level 渲染），被 `build_index.py` 与 `annotate_all.py` 调用。
+按 `memory_bench/data/source/index.json` 的章节顺序，拼接：
 
-### 5.2 如何使用（代码内）
+- 输入：`memory_bench/data/events/by_chapter/{conv_id}.jsonl`
+- 输出：`memory_bench/data/events/compiled/all.jsonl`（默认）
+
+并执行严格校验：
+
+- 文件不存在或空文件 -> 失败
+- 空行 -> 失败
+- 非法 JSON -> 失败
+- 缺少 required fields -> 失败
+- `obj["conv_id"]` 与当前章节不一致 -> 失败
+- `turn_id` 不是从 1 开始且严格 +1 -> 失败
+
+写入采用 preserve 模式：逐行 `json.loads(raw)` 仅校验，写出使用 `out.write(raw + "\n")`，不改原文本。
+
+### 5.2 CLI 帮助
+
+```bash
+uv run python memory_bench/scripts/compile_events.py -h
+```
+
+参数：
+
+- `--chapters ch01,ch02`：按 index 顺序过滤章节；包含未知章节会失败
+- `--out ...`：输出路径（默认 `memory_bench/data/events/compiled/all.jsonl`）
+- `--mode preserve`：默认也是唯一模式
+
+### 5.3 调用示例
+
+1) 默认全量拼接：
+
+```bash
+uv run python memory_bench/scripts/compile_events.py
+```
+
+2) 只拼接指定章节：
+
+```bash
+uv run python memory_bench/scripts/compile_events.py --chapters ch01,ch02
+```
+
+3) 自定义输出路径：
+
+```bash
+uv run python memory_bench/scripts/compile_events.py --out memory_bench/data/events/compiled/custom_all.jsonl
+```
+
+### 5.4 返回码
+
+- `0`：编译成功
+- `1`：任意校验失败
+
+### 5.5 原子写与覆写日志
+
+- 先写 `*.tmp`，成功后 `os.replace` 原子替换
+- 若目标文件已存在，替换前会输出变更摘要：
+  - 无变更：`no content change`
+  - 有变更：`(++ X, -- Y)`
+
+---
+
+## 6. `bench_logger.py`
+
+### 6.1 作用
+
+提供统一彩色日志封装（按 group + level 渲染），被 `build_index.py`、`annotate_all.py` 与 `compile_events.py` 调用。
+
+### 6.2 如何使用（代码内）
 
 ```python
 from bench_logger import logger
@@ -217,17 +286,17 @@ log.info("message")
 log.warning("warning message")
 ```
 
-### 5.3 是否可独立执行
+### 6.3 是否可独立执行
 
 - 不建议直接作为脚本运行（它是工具模块，不是 CLI）
 
-### 5.4 返回结果
+### 6.4 返回结果
 
 - 无单独“返回码”语义；由导入它的脚本负责进程退出逻辑。
 
 ---
 
-## 6. 一套可复制的完整流程（从原文到事件）
+## 7. 一套可复制的完整流程（从原文到事件）
 
 ```bash
 # 1) 先建索引
@@ -241,16 +310,20 @@ uv run python memory_bench/scripts/annotate_all.py --only ch01 --workers 1
 
 # 4) 再全量跑
 uv run python memory_bench/scripts/annotate_all.py --workers 6
+
+# 5) 拼接为单一 all.jsonl
+uv run python memory_bench/scripts/compile_events.py
 ```
 
 完成后重点看：
 
 - `memory_bench/data/events/by_chapter/*.jsonl`
+- `memory_bench/data/events/compiled/all.jsonl`
 - `memory_bench/logs/annotate_meta/*.json`
 
 ---
 
-## 7. 建议的维护方式
+## 8. 建议的维护方式
 
 - 以后新增脚本（例如 `patch_generator.py`）时，建议同步更新本文件：
   - 脚本作用
