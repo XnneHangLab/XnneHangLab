@@ -60,7 +60,7 @@ def parse_args() -> argparse.Namespace:
         "--out",
         type=str,
         default="memory_bench/data/events/compiled/all.jsonl",
-        help="输出 JSONL 路径（相对仓库根目录）",
+        help="输出 JSONL 路径（可写相对路径；最终必须位于 repo 根目录内）",
     )
     parser.add_argument(
         "--mode",
@@ -267,6 +267,33 @@ def build_change_stats(old_path: Path, new_tmp_path: Path) -> tuple[int, int]:
     return plus_count, minus_count
 
 
+def resolve_out_path(repo_root: Path, out_arg: str) -> Path:
+    """解析并校验输出路径必须位于仓库根目录下。
+
+    Args:
+        repo_root: 仓库根目录绝对路径。
+        out_arg: CLI 传入的 `--out` 路径字符串。
+
+    Returns:
+        Path: 解析后的绝对输出路径。
+
+    Raises:
+        CompileEventsError: 当 `--out` 为空，或解析后路径不在仓库根目录下时抛出。
+    """
+
+    raw = out_arg.strip()
+    if not raw:
+        raise CompileEventsError("--out must not be empty")
+
+    candidate = (repo_root / raw).resolve() if not Path(raw).is_absolute() else Path(raw).resolve()
+    try:
+        candidate.relative_to(repo_root)
+    except ValueError as exc:
+        raise CompileEventsError(f"--out must stay inside repo_root: {repo_root}") from exc
+
+    return candidate
+
+
 def main() -> int:
     """执行事件编译主流程。
 
@@ -283,10 +310,13 @@ def main() -> int:
 
     index_path = repo_root / "memory_bench" / "data" / "source" / "index.json"
     by_chapter_dir = repo_root / "memory_bench" / "data" / "events" / "by_chapter"
-    out_path = (repo_root / args.out).resolve() if not Path(args.out).is_absolute() else Path(args.out)
-    tmp_path = out_path.with_suffix(out_path.suffix + ".tmp")
+
+    out_path: Path | None = None
+    tmp_path: Path | None = None
 
     try:
+        out_path = resolve_out_path(repo_root, args.out)
+        tmp_path = out_path.with_suffix(out_path.suffix + ".tmp")
         all_conv_ids = load_index_order(index_path)
         selected_conv_ids = parse_chapter_filter(args.chapters, all_conv_ids)
 
@@ -315,12 +345,12 @@ def main() -> int:
         return 0
     except CompileEventsError as exc:
         log.warning(str(exc))
-        if tmp_path.exists():
+        if tmp_path and tmp_path.exists():
             tmp_path.unlink(missing_ok=True)
         return 1
     except Exception as exc:
         log.warning(f"unexpected error: {exc}")
-        if tmp_path.exists():
+        if tmp_path and tmp_path.exists():
             tmp_path.unlink(missing_ok=True)
         return 1
 
