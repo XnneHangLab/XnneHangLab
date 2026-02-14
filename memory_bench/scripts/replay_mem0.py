@@ -193,7 +193,88 @@ def parse_args() -> argparse.Namespace:
         default=16,
         help="Batch size for Memory.add writes",
     )
+    parser.add_argument(
+        "--store-raw",
+        action="store_true",
+        help="Store raw messages by setting infer=False when supported",
+    )
     return parser.parse_args()
+
+
+def build_event_metadata(event: dict[str, Any]) -> dict[str, Any]:
+    """构建用于 Mem0 写入的事件元信息。
+
+    Args:
+        event: 单条 bench 事件。
+
+    Returns:
+        dict[str, Any]: 可用于检索溯源的 metadata 字典。
+    """
+
+    meta_raw = event.get("meta", {})
+    meta = meta_raw if isinstance(meta_raw, dict) else {}
+    tags_raw = event.get("tags", [])
+    tags = [str(tag) for tag in tags_raw] if isinstance(tags_raw, list) else []
+    return {
+        "scene_id": event.get("scene_id"),
+        "character_id": event.get("character_id"),
+        "conv_id": event.get("conv_id"),
+        "turn_id": event.get("turn_id"),
+        "role_type": event.get("role_type"),
+        "role_name": event.get("role_name"),
+        "tags": tags,
+        "source_type": meta.get("source_type"),
+    }
+
+
+def compact_metadata(metadata: Any) -> dict[str, Any] | None:
+    """压缩 hit metadata 展示字段。
+
+    Args:
+        metadata: Mem0 返回的 metadata。
+
+    Returns:
+        dict[str, Any] | None: 紧凑的 metadata 视图；不可用时返回 None。
+    """
+
+    if not isinstance(metadata, dict):
+        return None
+    keys = ["conv_id", "turn_id", "role_type", "role_name", "scene_id", "character_id", "tags", "source_type"]
+    compact = {key: metadata.get(key) for key in keys if key in metadata}
+    return compact or None
+
+
+def add_memory_entry(
+    memory: Any,
+    user_id: str,
+    message: dict[str, str],
+    metadata: dict[str, Any],
+    store_raw: bool,
+) -> None:
+    """写入单条记忆，并兼容不同 Mem0 参数签名。
+
+    Args:
+        memory: Mem0 Memory 实例。
+        user_id: 当前隔离 user_id。
+        message: 单条消息。
+        metadata: 单条消息 metadata。
+        store_raw: 是否优先尝试 `infer=False`。
+
+    Returns:
+        None。
+    """
+
+    if store_raw:
+        try:
+            memory.add(messages=[message], user_id=user_id, metadata=metadata, infer=False)
+            return
+        except TypeError:
+            pass
+
+    try:
+        memory.add(messages=[message], user_id=user_id, metadata=metadata)
+    except TypeError:
+        memory.add(messages=[message], user_id=user_id)
 
 
 def to_mem0_message(role_type: str, content: str) -> dict[str, str] | None:
@@ -283,26 +364,30 @@ def should_ingest(
 def flush_ingest_batch(
     memory: Any,
     user_id: str | None,
-    pending_messages: list[dict[str, str]],
+    pending_items: list[tuple[dict[str, str], dict[str, Any]]],
+    store_raw: bool,
 ) -> int:
     """将积攒的 ingest 消息批量写入 Mem0。
 
     Args:
         memory: Mem0 Memory 实例。
         user_id: 当前批次对应的 user_id。
-        pending_messages: 待写入的消息列表，会在成功后被清空。
+        pending_items: 待写入的 `(message, metadata)` 列表，会在成功后被清空。
+        store_raw: 是否优先尝试 `infer=False` 存储原文。
 
     Returns:
         int: 本次实际写入的消息条数。
     """
 
-    if user_id is None or not pending_messages:
+    if user_id is None or not pending_items:
         return 0
 
-    message_count = len(pending_messages)
-    memory.add(messages=pending_messages, user_id=user_id)
-    pending_messages.clear()
-    return message_count
+    for message, metadata in pending_items:
+        add_memory_entry(memory=memory, user_id=user_id, message=message, metadata=metadata, store_raw=store_raw)
+
+    count = len(pending_items)
+    pending_items.clear()
+    return count
 
 
 def read_jsonl(path: Path) -> Iterator[dict[str, Any]]:
@@ -374,7 +459,7 @@ def compact_hits_preview(hits: Any, k: int) -> list[dict[str, Any]]:
         if not isinstance(hit, dict):
             continue
         content = str(hit.get("memory", "") or hit.get("content", ""))
-        metadata = hit.get("metadata", {})
+        metadata = compact_metadata(hit.get("metadata"))
         score = hit.get("score")
         preview.append({"content": content[:160], "score": score, "metadata": metadata})
     return preview
@@ -477,7 +562,8 @@ def main() -> int:
 
     logger.bind(group="memory").info(
         "Replay start: "
-        f"input={input_path}, output={output_path}, isolation={args.isolation}, k={args.k}, batch_size={args.batch_size}"
+        f"input={input_path}, output={output_path}, isolation={args.isolation}, "
+        f"k={args.k}, batch_size={args.batch_size}, store_raw={args.store_raw}"
     )
     logger.bind(group="memory").info(
         "Mem0/OpenAI env: "
@@ -491,7 +577,7 @@ def main() -> int:
         raise ReplayMem0Error(f"failed to initialize Mem0: {exc}") from exc
     total_events = count_replay_events(input_path)
     replay_progress = create_replay_progress(total_events)
-    pending_messages: list[dict[str, str]] = []
+    pending_items: list[tuple[dict[str, str], dict[str, Any]]] = []
     pending_user_id: str | None = None
 
     with output_path.open("w", encoding="utf-8") as out_file:
@@ -504,7 +590,7 @@ def main() -> int:
             user_id = build_user_id(event, args.isolation)
 
             if "probe" in tags:
-                stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_messages)
+                stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
                 pending_user_id = None
 
                 stats.probe_events += 1
@@ -528,10 +614,15 @@ def main() -> int:
 
                 log_record = {
                     "backend": "mem0",
+                    "user_id": user_id,
+                    "isolation": args.isolation,
+                    "k": args.k,
                     "conv_id": event.get("conv_id"),
                     "turn_id": event.get("turn_id"),
                     "scene_id": event.get("scene_id"),
                     "character_id": event.get("character_id"),
+                    "probe_role_type": event.get("role_type"),
+                    "probe_role_name": event.get("role_name"),
                     "probe_query": query,
                     "hits_count": len(hits),
                     "hits_preview": compact_hits_preview(hits, args.k),
@@ -548,20 +639,20 @@ def main() -> int:
                     continue
 
                 if pending_user_id is not None and pending_user_id != user_id:
-                    stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_messages)
+                    stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
                     pending_user_id = None
 
                 if pending_user_id is None:
                     pending_user_id = user_id
 
-                pending_messages.append(message)
-                if len(pending_messages) >= args.batch_size:
-                    stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_messages)
+                pending_items.append((message, build_event_metadata(event)))
+                if len(pending_items) >= args.batch_size:
+                    stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
                     pending_user_id = None
             else:
                 stats.skipped_events += 1
 
-    stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_messages)
+    stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
 
 
     replay_progress.close()

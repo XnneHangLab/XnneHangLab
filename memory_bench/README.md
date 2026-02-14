@@ -162,7 +162,7 @@ uv run python memory_bench/scripts/compile_events.py --chapters ch01,ch02
 3. 按规则写入 Mem0（默认仅 `human/assistant` 且过滤 `ui/tool/filler`）；
 4. 对 `tags` 包含 `probe` 的事件执行 `memory.search(...)`；
 5. 运行时显示 replay 全量实时进度条（event 级，含 total 与百分比）；
-6. 将每条 probe 结果写入 `memory_bench/logs/replay_mem0/run_YYYYMMDD_HHMMSS.jsonl`，包含 `hits_count/hits_preview/latency_ms`。
+6. 将每条 probe 结果写入 `memory_bench/logs/replay_mem0/run_YYYYMMDD_HHMMSS.jsonl`，包含 `probe_role_type/probe_role_name/user_id` 与 `hits_count/hits_preview/latency_ms`。
 
 常用运行方式：
 
@@ -183,6 +183,7 @@ uv run python memory_bench/scripts/replay_mem0.py --isolation per_chapter
 - `--only-tags canon_only,episodic,synthetic`
 - `--write-probes`（默认关闭，避免 probe 污染记忆）
 - `--batch-size 16`（批量写入 Memory.add，probe 前自动 flush）
+- `--store-raw`（写入时优先 `infer=False`，让命中更接近原文）
 
 环境变量（优先读取 bench 前缀）：
 

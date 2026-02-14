@@ -303,6 +303,7 @@ uv run python memory_bench/scripts/replay_mem0.py -h
 - `--only-tags`：可选 tag 白名单
 - `--write-probes`：是否将 probe 事件写入 Mem0（默认关闭）
 - `--batch-size`：批量写入大小（默认 16，遇到 probe 前会先 flush）
+- `--store-raw`：写入时优先 `infer=False`（若 Mem0 版本支持）
 
 环境变量（脚本会优先读取 `memory_bench/.env.benchmark`）：
 
@@ -342,9 +343,10 @@ uv run python memory_bench/scripts/replay_mem0.py --batch-size 32
 
 - `backend="mem0"`
 - `conv_id`, `turn_id`, `scene_id`, `character_id`
+- `probe_role_type`, `probe_role_name`（区分谁在问）
 - `probe_query`
 - `hits_count`
-- `hits_preview`（仅 top-k 预览）
+- `hits_preview`（仅 top-k 预览，含可溯源 metadata）
 - `latency_ms`
 
 ### 6.5 返回码与常见问题
