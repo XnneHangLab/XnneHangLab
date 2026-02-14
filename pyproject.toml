@@ -167,9 +167,8 @@ langsegment = { path = "./dist/LangSegment-0.3.5-py3-none-any.whl"}
 [tool.pyright]
 include = ["src/lab","tests"]
 pythonVersion = "3.11"
-typeCheckingMode = "off"
+typeCheckingMode = "strict"
 reportMissingTypeStubs = false
-reportMissingImports = false
 
 [tool.ruff]
 line-length = 120
