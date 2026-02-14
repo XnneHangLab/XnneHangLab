@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import os
 import sys
@@ -178,6 +179,28 @@ def main() -> int:
                 lines = append_chapter_preserve(chapter_path, conv_id, out_file)
                 total_lines += lines
                 log.info(f"{conv_id}: appended {lines} lines")
+
+        if out_path.exists():
+            old_lines = out_path.read_text(encoding="utf-8").splitlines()
+            new_lines = tmp_path.read_text(encoding="utf-8").splitlines()
+            diff_lines = difflib.unified_diff(old_lines, new_lines, fromfile="old", tofile="new", lineterm="")
+
+            plus_count = 0
+            minus_count = 0
+            for line in diff_lines:
+                if line.startswith("+++") or line.startswith("---") or line.startswith("@@"):
+                    continue
+                if line.startswith("+"):
+                    plus_count += 1
+                elif line.startswith("-"):
+                    minus_count += 1
+
+            if plus_count == 0 and minus_count == 0:
+                log.info(f"overwrite target exists: no content change -> {out_path}")
+            else:
+                log.info(
+                    f"overwrite target exists: content changed (++ {plus_count}, -- {minus_count}) -> {out_path}"
+                )
 
         os.replace(tmp_path, out_path)
         log.info(f"compiled {len(selected_conv_ids)} chapters, {total_lines} lines -> {out_path}")
