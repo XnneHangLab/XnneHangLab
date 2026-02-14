@@ -129,7 +129,6 @@ vtuber = [
 
 memory_bench = [
   "mem0ai>=0.1.115",
-  "tqdm>=4.67.1",
 ]
 
 [tool.uv]
