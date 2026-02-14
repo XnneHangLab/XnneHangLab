@@ -327,6 +327,33 @@ def compact_hits_preview(hits: Any, k: int) -> list[dict[str, Any]]:
     return preview
 
 
+
+
+def create_probe_progress() -> Any:
+    """创建 probe 检索进度条对象。
+
+    Args:
+        无。
+
+    Returns:
+        Any: tqdm 进度条对象；若 tqdm 不可用则返回空操作对象。
+    """
+
+    try:
+        from tqdm import tqdm
+    except ImportError:
+        class _NoopProgress:
+            def update(self, n: int = 1) -> None:
+                return None
+
+            def close(self) -> None:
+                return None
+
+        logger.bind(group="memory").warning("tqdm is not installed; probe progress bar is disabled")
+        return _NoopProgress()
+
+    return tqdm(desc="mem0 probe search", unit="probe", dynamic_ncols=True)
+
 def main() -> int:
     """执行 Mem0 replay 主流程。
 
@@ -377,6 +404,7 @@ def main() -> int:
         logger.bind(group="memory").info("Mem0 initialized from environment variables")
     except Exception as exc:
         raise ReplayMem0Error(f"failed to initialize Mem0: {exc}") from exc
+    probe_progress = create_probe_progress()
     with output_path.open("w", encoding="utf-8") as out_file:
         for event in read_jsonl(input_path):
             stats.total_events += 1
@@ -395,6 +423,7 @@ def main() -> int:
                 started = time.perf_counter()
                 result = memory.search(query=query, user_id=user_id, limit=args.k)
                 latency_ms = round((time.perf_counter() - started) * 1000, 3)
+                probe_progress.update(1)
 
                 if isinstance(result, list):
                     hits = result
@@ -428,6 +457,8 @@ def main() -> int:
                 stats.ingested_events += 1
             else:
                 stats.skipped_events += 1
+
+    probe_progress.close()
 
     logger.bind(group="memory").info(
         "Replay done: "
