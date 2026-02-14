@@ -296,7 +296,7 @@ def main() -> int:
         out_path.parent.mkdir(parents=True, exist_ok=True)
 
         total_lines = 0
-        with tmp_path.open("w", encoding="utf-8") as out_file:
+        with tmp_path.open("w", encoding="utf-8", newline="\n") as out_file:
             for conv_id in selected_conv_ids:
                 chapter_path = by_chapter_dir / f"{conv_id}.jsonl"
                 lines = append_chapter_preserve(chapter_path, conv_id, out_file)
