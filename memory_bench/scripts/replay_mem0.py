@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Replay memory bench events against Mem0 and log probe retrieval metrics."""
+"""回放 memory bench 事件到 Mem0 并记录 probe 检索日志。"""
 
 from __future__ import annotations
 
@@ -15,11 +15,20 @@ from bench_logger import logger
 
 
 class ReplayMem0Error(RuntimeError):
-    """Raised when replay input/config is invalid."""
+    """表示 replay 过程中的输入或配置错误。"""
 
 
 @dataclass(slots=True)
 class ReplayStats:
+    """记录 replay 执行统计信息。
+
+    Attributes:
+        total_events: 总事件数。
+        ingested_events: 成功写入 Mem0 的事件数。
+        skipped_events: 被过滤或跳过的事件数。
+        probe_events: 触发 probe 检索的事件数。
+    """
+
     total_events: int = 0
     ingested_events: int = 0
     skipped_events: int = 0
@@ -27,10 +36,28 @@ class ReplayStats:
 
 
 def parse_csv_arg(raw: str) -> set[str]:
+    """将逗号分隔字符串解析为去重后的集合。
+
+    Args:
+        raw: 原始逗号分隔字符串。
+
+    Returns:
+        set[str]: 去除空白项后的字符串集合。
+    """
+
     return {part.strip() for part in raw.split(",") if part.strip()}
 
 
 def parse_args() -> argparse.Namespace:
+    """解析命令行参数。
+
+    Args:
+        无。
+
+    Returns:
+        argparse.Namespace: 解析后的参数对象。
+    """
+
     parser = argparse.ArgumentParser(description="Replay benchmark events against Mem0")
     parser.add_argument(
         "--input",
@@ -78,6 +105,16 @@ def parse_args() -> argparse.Namespace:
 
 
 def to_mem0_message(role_type: str, content: str) -> dict[str, str] | None:
+    """将 bench 事件角色映射为 Mem0 消息格式。
+
+    Args:
+        role_type: bench 事件角色类型。
+        content: 事件文本内容。
+
+    Returns:
+        dict[str, str] | None: 可写入 Mem0 的消息字典；若角色不支持则返回 None。
+    """
+
     if role_type == "human":
         return {"role": "user", "content": content}
     if role_type == "assistant":
@@ -86,6 +123,19 @@ def to_mem0_message(role_type: str, content: str) -> dict[str, str] | None:
 
 
 def build_user_id(event: dict[str, Any], isolation: str) -> str:
+    """根据隔离策略生成 Mem0 user_id。
+
+    Args:
+        event: 单条 bench 事件。
+        isolation: 隔离模式，支持 `global` 与 `per_chapter`。
+
+    Returns:
+        str: 生成后的 user_id。
+
+    Raises:
+        ReplayMem0Error: 当必要字段缺失时抛出。
+    """
+
     scene_id = str(event.get("scene_id", "")).strip()
     character_id = str(event.get("character_id", "")).strip()
     conv_id = str(event.get("conv_id", "")).strip()
@@ -105,6 +155,19 @@ def should_ingest(
     only_tags: set[str],
     write_probes: bool,
 ) -> bool:
+    """判断事件是否应写入 Mem0。
+
+    Args:
+        event: 单条 bench 事件。
+        skip_roles: 需要跳过的角色集合。
+        skip_tags: 需要跳过的标签集合。
+        only_tags: 允许写入的标签白名单集合。
+        write_probes: 是否允许写入 probe 事件。
+
+    Returns:
+        bool: 若应写入 Mem0 返回 True，否则返回 False。
+    """
+
     role_type = str(event.get("role_type", "")).strip()
     content = str(event.get("content", "")).strip()
     tags_raw = event.get("tags", [])
@@ -126,6 +189,18 @@ def should_ingest(
 
 
 def read_jsonl(path: Path) -> Iterator[dict[str, Any]]:
+    """按行流式读取并校验事件 JSONL。
+
+    Args:
+        path: 输入 JSONL 文件路径。
+
+    Returns:
+        Iterator[dict[str, Any]]: 逐条产出的事件对象迭代器。
+
+    Raises:
+        ReplayMem0Error: 当文件不存在、JSON 非法或行对象类型错误时抛出。
+    """
+
     if not path.exists():
         raise ReplayMem0Error(f"input file not found: {path}")
 
@@ -145,11 +220,30 @@ def read_jsonl(path: Path) -> Iterator[dict[str, Any]]:
 
 
 def default_output_path() -> Path:
+    """生成默认 replay 日志输出路径。
+
+    Args:
+        无。
+
+    Returns:
+        Path: 带当前时间戳的默认输出路径。
+    """
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
     return Path(f"memory_bench/logs/replay_mem0/run_{timestamp}.jsonl")
 
 
 def compact_hits_preview(hits: Any, k: int) -> list[dict[str, Any]]:
+    """裁剪并规整检索结果预览字段。
+
+    Args:
+        hits: Mem0 返回的原始命中结果。
+        k: 预览的最大条数。
+
+    Returns:
+        list[dict[str, Any]]: 仅包含内容、分数与元数据的预览列表。
+    """
+
     if not isinstance(hits, list):
         return []
     preview: list[dict[str, Any]] = []
@@ -164,6 +258,18 @@ def compact_hits_preview(hits: Any, k: int) -> list[dict[str, Any]]:
 
 
 def main() -> int:
+    """执行 Mem0 replay 主流程。
+
+    Args:
+        无。
+
+    Returns:
+        int: 成功时返回 0。
+
+    Raises:
+        ReplayMem0Error: 当环境依赖、输入数据或 probe 查询非法时抛出。
+    """
+
     args = parse_args()
 
     input_path = Path(args.input)
