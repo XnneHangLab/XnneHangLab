@@ -329,11 +329,36 @@ def compact_hits_preview(hits: Any, k: int) -> list[dict[str, Any]]:
 
 
 
-def create_replay_progress() -> Any:
+
+
+def count_replay_events(path: Path) -> int:
+    """统计输入文件中可计入进度条的事件总数。
+
+    Args:
+        path: 输入 JSONL 文件路径。
+
+    Returns:
+        int: 非空行数量，用于 tqdm total 和百分比展示。
+
+    Raises:
+        ReplayMem0Error: 当输入文件不存在时抛出。
+    """
+
+    if not path.exists():
+        raise ReplayMem0Error(f"input file not found: {path}")
+
+    total = 0
+    with path.open("r", encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                total += 1
+    return total
+
+def create_replay_progress(total_events: int) -> Any:
     """创建 replay 全量进度条对象。
 
     Args:
-        无。
+        total_events: replay 事件总数。
 
     Returns:
         Any: tqdm 进度条对象；若 tqdm 不可用则返回空操作对象。
@@ -352,7 +377,7 @@ def create_replay_progress() -> Any:
         logger.bind(group="memory").warning("tqdm is not installed; replay progress bar is disabled")
         return _NoopProgress()
 
-    return tqdm(desc="mem0 replay", unit="event", dynamic_ncols=True)
+    return tqdm(total=total_events, desc="mem0 replay", unit="event", dynamic_ncols=True)
 
 def main() -> int:
     """执行 Mem0 replay 主流程。
@@ -404,7 +429,8 @@ def main() -> int:
         logger.bind(group="memory").info("Mem0 initialized from environment variables")
     except Exception as exc:
         raise ReplayMem0Error(f"failed to initialize Mem0: {exc}") from exc
-    replay_progress = create_replay_progress()
+    total_events = count_replay_events(input_path)
+    replay_progress = create_replay_progress(total_events)
     with output_path.open("w", encoding="utf-8") as out_file:
         for event in read_jsonl(input_path):
             stats.total_events += 1
