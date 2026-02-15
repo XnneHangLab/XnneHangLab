@@ -15,15 +15,15 @@ from typing import TypedDict
 
 from bench_logger import logger
 
-RAW_PATTERN = re.compile(r"^(ch\d{2})_.*\.md$")
-NORM_PATTERN = re.compile(r"^(ch\d{2})_.*\.norm\.md$")
+RAW_PATTERN = re.compile(r"^(ch\d{2,})_.*\.md$")
+NORM_PATTERN = re.compile(r"^(ch\d{2,})_.*\.norm\.md$")
 
 
 class IndexEntry(TypedDict):
     """单条章节索引记录。
 
     Attributes:
-        id: 章节 ID，格式为 `chXX`。
+        id: 章节 ID，格式为 `chNN`（至少两位数字）。
         raw_path: 原始章节文件（raw）相对于仓库根目录的路径。
         norm_path: 规范化章节文件（norm）相对路径；若缺失则为空字符串。
     """
@@ -40,7 +40,7 @@ def build_norm_map(repo_root: Path) -> dict[str, str]:
         repo_root: 仓库根目录路径。
 
     Returns:
-        以章节 ID（`chXX`）为键、norm 文件相对路径为值的映射。
+        以章节 ID（`chNN`）为键、norm 文件相对路径为值的映射。
         若 norm 目录不存在，则返回空映射。
     """
     norm_dir = repo_root / "memory_bench" / "data" / "source" / "norm"

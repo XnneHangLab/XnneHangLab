@@ -12,6 +12,7 @@
 - `memory_bench/scripts/build_index.py`
 - `memory_bench/scripts/annotate_all.py`
 - `memory_bench/scripts/compile_events.py`
+- `memory_bench/scripts/replay_mem0.py`
 - `memory_bench/scripts/bench_logger.py`
 
 建议执行顺序：
@@ -19,7 +20,8 @@
 1. 先跑 `build_index.py` 生成章节索引。
 2. 再跑 `annotate_all.py` 批量标注并产出分章节 JSONL events。
 3. 跑 `compile_events.py` 将分章节结果拼接为 `all.jsonl`。
-4. `bench_logger.py` 是被前三个脚本复用的日志模块，不是独立 CLI 工具。
+4. 跑 `replay_mem0.py` 将事件流回放到 Mem0 并输出 probe 检索日志。
+5. `bench_logger.py` 是被上述脚本复用的日志模块，不是独立 CLI 工具。
 
 ---
 
@@ -270,13 +272,103 @@ uv run python memory_bench/scripts/compile_events.py --out memory_bench/data/eve
 
 ---
 
-## 6. `bench_logger.py`
+## 6. `replay_mem0.py`
 
 ### 6.1 作用
 
-提供统一彩色日志封装（按 group + level 渲染），被 `build_index.py`、`annotate_all.py` 与 `compile_events.py` 调用。
+将 benchmark 事件 JSONL 回放到 Mem0，完成 `ingest + probe + logs` 闭环。
 
-### 6.2 如何使用（代码内）
+脚本会显示 event 级实时进度条（非仅 probe 计数），包含 total 与百分比；即使当前事件不是 probe 也会前进。
+
+- 输入：
+  - `memory_bench/data/events/compiled/all.jsonl`（默认）
+  - 或 `memory_bench/data/events/by_chapter/chXX.jsonl`
+- 输出：
+  - `memory_bench/logs/replay_mem0/run_YYYYMMDD_HHMMSS.jsonl`（默认）
+
+### 6.2 CLI 帮助
+
+```bash
+uv run python memory_bench/scripts/replay_mem0.py -h
+```
+
+关键参数：
+
+- `--input`：输入 JSONL 路径
+- `--output`：自定义输出日志路径
+- `--isolation {global,per_chapter}`：记忆隔离模式
+- `--k`：probe top-k
+- `--skip-role`：默认 `ui,tool`
+- `--skip-tags`：默认 `filler`
+- `--only-tags`：可选 tag 白名单
+- `--write-probes`：是否将 probe 事件写入 Mem0（默认关闭）
+- `--batch-size`：批量写入大小（默认 16，遇到 probe 前会先 flush）
+- `--store-raw`：写入时优先 `infer=False`（若 Mem0 版本支持）
+
+环境变量（脚本会优先读取 `memory_bench/.env.benchmark`）：
+
+- `BENCHMARK_OPENAI_API_KEY`（必需，或回退 `OPENAI_API_KEY`）
+- `BENCHMARK_OPENAI_BASE_URL`（可选，回退 `OPENAI_BASE_URL` / `OPENAI_API_BASE`）
+- `BENCHMARK_OPENAI_MODEL`（可选，回退 `OPENAI_MODEL`）
+
+### 6.3 运行示例
+
+1) 默认全量回放：
+
+```bash
+uv run python memory_bench/scripts/replay_mem0.py
+```
+
+2) 指定章节文件输入：
+
+```bash
+uv run python memory_bench/scripts/replay_mem0.py --input memory_bench/data/events/by_chapter/ch01.jsonl
+```
+
+3) 章节级隔离（ablation）：
+
+```bash
+uv run python memory_bench/scripts/replay_mem0.py --isolation per_chapter
+```
+
+4) 开启批量写入（通常更快）：
+
+```bash
+uv run python memory_bench/scripts/replay_mem0.py --batch-size 32
+```
+
+### 6.4 probe 日志字段
+
+每条 probe 写一行 JSON，核心字段包括：
+
+- `backend="mem0"`
+- `conv_id`, `turn_id`, `scene_id`, `character_id`
+- `probe_role_type`, `probe_role_name`（区分谁在问）
+- `probe_query`
+- `hits_count`
+- `hits_preview`（仅 top-k 预览，含可溯源 metadata）
+- `latency_ms`
+
+### 6.5 返回码与常见问题
+
+- `0`：回放成功
+- `1`：输入文件缺失、JSON 非法、probe query 为空、或 Mem0 依赖不可用
+
+常见问题：
+
+- **提示 mem0 未安装**：执行 `uv sync --group memory_bench`。
+- **提示缺少 OPENAI_API_KEY**：设置 `BENCHMARK_OPENAI_API_KEY` 或 `OPENAI_API_KEY`。
+- **出现空行 warning**：当前行为是 warning 并跳过该行，建议上游修复数据。
+
+---
+
+## 7. `bench_logger.py`
+
+### 7.1 作用
+
+提供统一彩色日志封装（按 group + level 渲染），被 `build_index.py`、`annotate_all.py`、`compile_events.py` 与 `replay_mem0.py` 调用。
+
+### 7.2 如何使用（代码内）
 
 ```python
 from bench_logger import logger
@@ -286,17 +378,17 @@ log.info("message")
 log.warning("warning message")
 ```
 
-### 6.3 是否可独立执行
+### 7.3 是否可独立执行
 
 - 不建议直接作为脚本运行（它是工具模块，不是 CLI）
 
-### 6.4 返回结果
+### 7.4 返回结果
 
 - 无单独“返回码”语义；由导入它的脚本负责进程退出逻辑。
 
 ---
 
-## 7. 一套可复制的完整流程（从原文到事件）
+## 8. 一套可复制的完整流程（从原文到事件）
 
 ```bash
 # 1) 先建索引
@@ -313,6 +405,9 @@ uv run python memory_bench/scripts/annotate_all.py --workers 6
 
 # 5) 拼接为单一 all.jsonl
 uv run python memory_bench/scripts/compile_events.py
+
+# 6) 回放到 Mem0（输出 probe 检索日志）
+uv run python memory_bench/scripts/replay_mem0.py
 ```
 
 完成后重点看：
@@ -323,7 +418,7 @@ uv run python memory_bench/scripts/compile_events.py
 
 ---
 
-## 8. 建议的维护方式
+## 9. 建议的维护方式
 
 - 以后新增脚本（例如 `patch_generator.py`）时，建议同步更新本文件：
   - 脚本作用

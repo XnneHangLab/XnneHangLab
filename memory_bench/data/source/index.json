@@ -1,10 +1,5 @@
 [
   {
-    "id": "ch00",
-    "raw_path": "memory_bench/data/source/raw/ch00_prelude_moon.md",
-    "norm_path": "memory_bench/data/source/norm/ch00_prelude_moon.norm.md"
-  },
-  {
     "id": "ch01",
     "raw_path": "memory_bench/data/source/raw/ch01_meet.md",
     "norm_path": "memory_bench/data/source/norm/ch01_meet.norm.md"
@@ -88,5 +83,15 @@
     "id": "ch17",
     "raw_path": "memory_bench/data/source/raw/ch17_if_fly.md",
     "norm_path": "memory_bench/data/source/norm/ch17_if_fly.norm.md"
+  },
+  {
+    "id": "ch9998",
+    "raw_path": "memory_bench/data/source/raw/ch9998_prelude_moon.md",
+    "norm_path": "memory_bench/data/source/norm/ch9998_prelude_moon.norm.md"
+  },
+  {
+    "id": "ch9999",
+    "raw_path": "memory_bench/data/source/raw/ch9999_bench.md",
+    "norm_path": "memory_bench/data/source/norm/ch9999_bench.norm.md"
   }
 ]

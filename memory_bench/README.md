@@ -20,7 +20,8 @@ memory_bench/
 │  ├─ annotate_all.py
 │  ├─ bench_logger.py
 │  ├─ build_index.py
-│  └─ compile_events.py
+│  ├─ compile_events.py
+│  └─ replay_mem0.py
 ├─ docs/
 │  ├─ 00_DOC_MAP.md
 │  ├─ 05_SCRIPTS_GUIDE.md
@@ -147,7 +148,52 @@ uv run python memory_bench/scripts/compile_events.py --chapters ch01,ch02
 - 默认产物：`memory_bench/data/events/compiled/all.jsonl`
 - 可通过 `--out` 覆盖输出路径
 
-### 4) 统一日志模块：`bench_logger.py`
+
+### 4) Mem0 重放：`replay_mem0.py`
+
+脚本：`memory_bench/scripts/replay_mem0.py`
+
+功能：
+
+1. 流式读取事件 JSONL（支持 compiled 与 by_chapter 输入）；
+2. 依据隔离模式生成 `user_id`：
+   - `--isolation global` -> `scene_id:character_id`
+   - `--isolation per_chapter` -> `scene_id:character_id:conv_id`
+3. 按规则写入 Mem0（默认仅 `human/assistant` 且过滤 `ui/tool/filler`）；
+4. 对 `tags` 包含 `probe` 的事件执行 `memory.search(...)`；
+5. 运行时显示 replay 全量实时进度条（event 级，含 total 与百分比）；
+6. 将每条 probe 结果写入 `memory_bench/logs/replay_mem0/run_YYYYMMDD_HHMMSS.jsonl`，包含 `probe_role_type/probe_role_name/user_id` 与 `hits_count/hits_preview/latency_ms`。
+
+常用运行方式：
+
+```bash
+uv run python memory_bench/scripts/replay_mem0.py --input memory_bench/data/events/compiled/all.jsonl
+```
+
+切换章节级隔离：
+
+```bash
+uv run python memory_bench/scripts/replay_mem0.py --isolation per_chapter
+```
+
+常用过滤参数：
+
+- `--skip-role ui,tool`
+- `--skip-tags filler`
+- `--only-tags canon_only,episodic,synthetic`
+- `--write-probes`（默认关闭，避免 probe 污染记忆）
+- `--batch-size 16`（批量写入 Memory.add，probe 前自动 flush）
+- `--store-raw`（写入时优先 `infer=False`，让命中更接近原文）
+
+环境变量（优先读取 bench 前缀）：
+
+- `BENCHMARK_OPENAI_API_KEY`（或 `OPENAI_API_KEY`）
+- `BENCHMARK_OPENAI_BASE_URL`（或 `OPENAI_BASE_URL` / `OPENAI_API_BASE`）
+- `BENCHMARK_OPENAI_MODEL`（可选，回退 `OPENAI_MODEL`）
+
+脚本会先尝试加载 `memory_bench/.env.benchmark`，并将上述值传递给 Mem0 初始化。
+
+### 5) 统一日志模块：`bench_logger.py`
 
 `memory_bench/scripts/bench_logger.py` 为内部复用模块，提供统一日志格式（含 group 与 level），被 `build_index.py`、`annotate_all.py` 调用，不作为独立 CLI 使用。
 
@@ -169,13 +215,24 @@ uv run python memory_bench/scripts/compile_events.py --chapters ch01,ch02
 - `raw_path`：相对仓库根目录路径，不能为空
 - `norm_path`：相对仓库根目录路径，可为空字符串（缺失时构建会产生 warning）
 
+
+## 依赖安装（memory_bench 组）
+
+仓库根 `pyproject.toml` 已增加 `memory_bench` dependency group（包含 `mem0ai`），并纳入默认组。
+
+如需单独安装该组，可执行：
+
+```bash
+uv sync --group memory_bench
+```
+
 ## Done 校验建议
 
 运行索引脚本后，至少确认：
 
 - `memory_bench/data/source/index.json` 存在；
 - 可被 `json.loads` 正常解析；
-- 列表长度与 `raw/` 下匹配 `ch\d\d_*.md` 文件数量一致；
+- 列表长度与 `raw/` 下匹配 `ch\d{2,}_*.md` 文件数量一致；
 - `raw_path` 全部非空。
 
 如果跑了 `annotate_all.py`，还建议补充确认：
