@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""回放 memory bench 事件到 Mem0 并记录 probe 检索日志。"""
+"""回放 memory bench 事件并支持增量更新、存储解耦与检索探针。"""
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import time
@@ -37,6 +38,35 @@ class ReplayStats:
     ingested_events: int = 0
     skipped_events: int = 0
     probe_events: int = 0
+
+
+@dataclass(slots=True)
+class IncrementalState:
+    """记录增量写入状态。"""
+
+    processed_keys: set[str]
+
+
+@dataclass(slots=True)
+class StoredEntry:
+    """解耦后的存储记录。"""
+
+    backend: str
+    user_id: str
+    event_key: str
+    message: dict[str, str]
+    metadata: dict[str, Any]
+    event: dict[str, Any]
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "backend": self.backend,
+            "user_id": self.user_id,
+            "event_key": self.event_key,
+            "message": self.message,
+            "metadata": self.metadata,
+            "event": self.event,
+        }
 
 
 def load_benchmark_dotenv(repo_root: Path) -> None:
@@ -140,8 +170,49 @@ def parse_args() -> argparse.Namespace:
     """
 
     parser = argparse.ArgumentParser(
-        description="Replay benchmark events against Mem0",
+        description="Replay benchmark events with incremental memory update/storage/probe",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument(
+        "--backend",
+        choices=["mem0", "zep", "cognee"],
+        default="mem0",
+        help="Target memory backend. zep/cognee currently run in storage-only compatible mode",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["replay", "update", "probe"],
+        default="replay",
+        help="Workflow mode: replay(update+probe), update(ingest only), probe(query only)",
+    )
+    parser.add_argument(
+        "--state-path",
+        type=str,
+        default="memory_bench/data/events/state/replay_mem_state.json",
+        help="Incremental state JSON path; already processed events are skipped",
+    )
+    parser.add_argument(
+        "--storage-path",
+        type=str,
+        default="memory_bench/data/events/storage/replay_mem_store.jsonl",
+        help="Decoupled memory store JSONL for later inference",
+    )
+    parser.add_argument(
+        "--probe-storage-only",
+        action="store_true",
+        help="Probe against decoupled local storage only (do not call backend.search)",
+    )
+    parser.add_argument(
+        "--probe-query",
+        type=str,
+        default="",
+        help="Standalone probe query used with --mode probe",
+    )
+    parser.add_argument(
+        "--probe-user-id",
+        type=str,
+        default="",
+        help="Optional user_id filter for --mode probe",
     )
     parser.add_argument(
         "--input",
@@ -419,6 +490,106 @@ def read_jsonl(path: Path) -> Iterator[dict[str, Any]]:
             yield obj
 
 
+def event_key(event: dict[str, Any]) -> str:
+    """生成稳定事件 key，用于增量更新去重。"""
+
+    conv_id = str(event.get("conv_id", ""))
+    turn_id = str(event.get("turn_id", ""))
+    role_type = str(event.get("role_type", ""))
+    content = str(event.get("content", ""))
+    digest = hashlib.sha1(content.encode("utf-8")).hexdigest()[:12]
+    return f"{conv_id}:{turn_id}:{role_type}:{digest}"
+
+
+def load_incremental_state(path: Path) -> IncrementalState:
+    """加载增量状态文件。"""
+
+    if not path.exists():
+        return IncrementalState(processed_keys=set())
+    data = json.loads(path.read_text(encoding="utf-8"))
+    keys_any = data.get("processed_keys", []) if isinstance(data, dict) else []
+    keys = {str(item) for item in keys_any if str(item).strip()}
+    return IncrementalState(processed_keys=keys)
+
+
+def save_incremental_state(path: Path, state: IncrementalState) -> None:
+    """持久化增量状态。"""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"processed_keys": sorted(state.processed_keys), "updated_at": datetime.now().isoformat()}
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def append_storage(path: Path, entries: list[StoredEntry]) -> None:
+    """将新增记忆写入解耦存储。"""
+
+    if not entries:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as f:
+        for entry in entries:
+            f.write(json.dumps(entry.to_json(), ensure_ascii=False) + "\n")
+
+
+def search_storage(
+    path: Path,
+    query: str,
+    user_id: str | None,
+    backend: str,
+    k: int,
+) -> list[dict[str, Any]]:
+    """在解耦存储中执行轻量检索（关键词匹配）。"""
+
+    if not path.exists():
+        return []
+    tokens = [part for part in query.lower().split() if part]
+    hits: list[dict[str, Any]] = []
+    with path.open("r", encoding="utf-8") as f:
+        for line in f:
+            raw = line.strip()
+            if not raw:
+                continue
+            item = json.loads(raw)
+            if not isinstance(item, dict):
+                continue
+            if str(item.get("backend")) != backend:
+                continue
+            if user_id and str(item.get("user_id")) != user_id:
+                continue
+            msg = item.get("message", {})
+            content = str(msg.get("content", "")).lower() if isinstance(msg, dict) else ""
+            score = sum(1 for tk in tokens if tk in content)
+            if tokens and score == 0:
+                continue
+            hits.append(
+                {
+                    "memory": content,
+                    "score": score,
+                    "metadata": item.get("metadata"),
+                    "event_key": item.get("event_key"),
+                }
+            )
+    hits.sort(key=lambda row: float(row.get("score", 0)), reverse=True)
+    return hits[:k]
+
+
+def create_memory_backend(args: argparse.Namespace) -> Any | None:
+    """创建后端实例。zep/cognee 采用解耦存储兼容模式。"""
+
+    if args.backend != "mem0":
+        logger.bind(group="memory").info(
+            f"backend={args.backend} runs in storage-only mode; keep native backend semantics outside this script"
+        )
+        return None
+    try:
+        from mem0 import Memory
+    except ImportError as exc:
+        raise ReplayMem0Error(
+            "mem0 is not installed. Install dependency group `memory_bench` first, e.g. `uv sync --group memory_bench`."
+        ) from exc
+    return Memory()
+
+
 def default_output_path() -> Path:
     """生成默认 replay 日志输出路径并避免文件名冲突。
 
@@ -533,46 +704,63 @@ def main() -> int:
     load_benchmark_dotenv(repo_root)
     api_key, base_url, model_name = prepare_mem0_env()
 
-    if not api_key:
+    if args.backend == "mem0" and not api_key:
         raise ReplayMem0Error("OPENAI_API_KEY is required for Mem0. Set BENCHMARK_OPENAI_API_KEY or OPENAI_API_KEY.")
     if args.batch_size <= 0:
         raise ReplayMem0Error("--batch-size must be a positive integer")
 
     input_path = Path(args.input)
     output_path = Path(args.output) if args.output else default_output_path()
+    state_path = Path(args.state_path)
+    storage_path = Path(args.storage_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     skip_roles = parse_csv_arg(args.skip_role)
     skip_tags = parse_csv_arg(args.skip_tags)
     only_tags = parse_csv_arg(args.only_tags)
 
-    try:
-        from mem0 import Memory
-    except ImportError as exc:
-        raise ReplayMem0Error(
-            "mem0 is not installed. Install dependency group `memory_bench` first, e.g. `uv sync --group memory_bench`."
-        ) from exc
-
     stats = ReplayStats()
 
     logger.bind(group="memory").info(
         "Replay start: "
         f"input={input_path}, output={output_path}, isolation={args.isolation}, "
-        f"k={args.k}, batch_size={args.batch_size}, store_raw={args.store_raw}"
+        f"backend={args.backend}, mode={args.mode}, k={args.k}, batch_size={args.batch_size}, store_raw={args.store_raw}"
     )
     logger.bind(group="memory").info(
         f"Mem0/OpenAI env: model={model_name or '<default>'}, base_url={redact_base_url(base_url)}"
     )
 
     try:
-        memory = Memory()
-        logger.bind(group="memory").info("Mem0 initialized from environment variables")
+        memory = create_memory_backend(args)
+        if args.backend == "mem0":
+            logger.bind(group="memory").info("Mem0 initialized from environment variables")
     except Exception as exc:
-        raise ReplayMem0Error(f"failed to initialize Mem0: {exc}") from exc
+        raise ReplayMem0Error(f"failed to initialize backend {args.backend}: {exc}") from exc
+
+    if args.mode == "probe":
+        query = args.probe_query.strip()
+        if not query:
+            raise ReplayMem0Error("--probe-query is required in probe mode")
+        user_id = args.probe_user_id.strip() or None
+        started = time.perf_counter()
+        if (memory is None) or args.probe_storage_only:
+            hits = search_storage(storage_path, query, user_id, args.backend, args.k)
+        else:
+            result = memory.search(query=query, user_id=user_id, limit=args.k)
+            hits = result if isinstance(result, list) else result.get("results", [])
+        latency_ms = round((time.perf_counter() - started) * 1000, 3)
+        logger.bind(group="memory").info(
+            f"probe done: backend={args.backend}, user_id={user_id or '<all>'}, hits={len(hits)}, latency_ms={latency_ms}"
+        )
+        print(json.dumps({"hits": compact_hits_preview(hits, args.k), "latency_ms": latency_ms}, ensure_ascii=False, indent=2))
+        return 0
+
+    state = load_incremental_state(state_path)
     total_events = count_replay_events(input_path)
     replay_progress = create_replay_progress(total_events)
     pending_items: list[tuple[dict[str, str], dict[str, Any]]] = []
     pending_user_id: str | None = None
+    storage_buffer: list[StoredEntry] = []
 
     with output_path.open("w", encoding="utf-8") as out_file:
         for event in read_jsonl(input_path):
@@ -580,11 +768,20 @@ def main() -> int:
             replay_progress.update(1)
             tags_raw = event.get("tags", [])
             tags = {str(tag) for tag in tags_raw} if isinstance(tags_raw, list) else set()
+            key = event_key(event)
+
+            if key in state.processed_keys:
+                stats.skipped_events += 1
+                continue
 
             user_id = build_user_id(event, args.isolation)
 
-            if "probe" in tags:
-                stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
+            if (args.mode != "update") and ("probe" in tags):
+                if memory is not None:
+                    stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
+                else:
+                    stats.ingested_events += len(pending_items)
+                    pending_items.clear()
                 pending_user_id = None
 
                 stats.probe_events += 1
@@ -594,7 +791,10 @@ def main() -> int:
                         f"probe query is empty (conv_id={event.get('conv_id')}, turn_id={event.get('turn_id')})"
                     )
                 started = time.perf_counter()
-                result = memory.search(query=query, user_id=user_id, limit=args.k)
+                if memory is None or args.probe_storage_only:
+                    result = search_storage(storage_path, query, user_id, args.backend, args.k)
+                else:
+                    result = memory.search(query=query, user_id=user_id, limit=args.k)
                 latency_ms = round((time.perf_counter() - started) * 1000, 3)
                 replay_progress.set_postfix({"probes": stats.probe_events}, refresh=False)
 
@@ -607,7 +807,7 @@ def main() -> int:
                     hits = []
 
                 log_record = {
-                    "backend": "mem0",
+                    "backend": args.backend,
                     "user_id": user_id,
                     "isolation": args.isolation,
                     "k": args.k,
@@ -633,20 +833,50 @@ def main() -> int:
                     continue
 
                 if pending_user_id is not None and pending_user_id != user_id:
-                    stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
+                    if memory is not None:
+                        stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
+                    else:
+                        stats.ingested_events += len(pending_items)
+                        pending_items.clear()
                     pending_user_id = None
 
                 if pending_user_id is None:
                     pending_user_id = user_id
 
                 pending_items.append((message, build_event_metadata(event)))
+                storage_buffer.append(
+                    StoredEntry(
+                        backend=args.backend,
+                        user_id=user_id,
+                        event_key=key,
+                        message=message,
+                        metadata=build_event_metadata(event),
+                        event=event,
+                    )
+                )
                 if len(pending_items) >= args.batch_size:
-                    stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
+                    if memory is not None:
+                        stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
+                    else:
+                        stats.ingested_events += len(pending_items)
+                        pending_items.clear()
                     pending_user_id = None
+                    append_storage(storage_path, storage_buffer)
+                    storage_buffer.clear()
+                    state.processed_keys.add(key)
             else:
                 stats.skipped_events += 1
 
-    stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
+            state.processed_keys.add(key)
+
+    if memory is not None:
+        stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
+    else:
+        stats.ingested_events += len(pending_items)
+        pending_items.clear()
+
+    append_storage(storage_path, storage_buffer)
+    save_incremental_state(state_path, state)
 
     replay_progress.close()
 

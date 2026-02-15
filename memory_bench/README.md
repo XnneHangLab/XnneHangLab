@@ -160,9 +160,13 @@ uv run python memory_bench/scripts/compile_events.py --chapters ch01,ch02
    - `--isolation global` -> `scene_id:character_id`
    - `--isolation per_chapter` -> `scene_id:character_id:conv_id`
 3. 按规则写入 Mem0（默认仅 `human/assistant` 且过滤 `ui/tool/filler`）；
-4. 对 `tags` 包含 `probe` 的事件执行 `memory.search(...)`；
-5. 运行时显示 replay 全量实时进度条（event 级，含 total 与百分比）；
-6. 将每条 probe 结果写入 `memory_bench/logs/replay_mem0/run_YYYYMMDD_HHMMSS.jsonl`，包含 `probe_role_type/probe_role_name/user_id` 与 `hits_count/hits_preview/latency_ms`。
+4. 默认对 `tags` 包含 `probe` 的事件执行检索（`--mode update` 可仅增量写入，不做检索）；
+5. 支持“更新/存储/推理”解耦：
+   - `--state-path` 保存增量状态，避免重复回放；
+   - `--storage-path` 以 JSONL 单独落盘记忆条目，便于后续独立推理；
+   - `--mode probe --probe-query ...` 支持仅检索模式（可加 `--probe-storage-only`）；
+6. 运行时显示 replay 全量实时进度条（event 级，含 total 与百分比）；
+7. 将每条 probe 结果写入 `memory_bench/logs/replay_mem0/run_YYYYMMDD_HHMMSS.jsonl`，包含 `probe_role_type/probe_role_name/user_id` 与 `hits_count/hits_preview/latency_ms`。
 
 常用运行方式：
 
@@ -174,6 +178,18 @@ uv run python memory_bench/scripts/replay_mem0.py --input memory_bench/data/even
 
 ```bash
 uv run python memory_bench/scripts/replay_mem0.py --isolation per_chapter
+```
+
+使用增量更新（只写新事件，不跑 probe）：
+
+```bash
+uv run python memory_bench/scripts/replay_mem0.py --mode update --backend mem0
+```
+
+仅做推理探针（基于解耦存储，不触发后端检索）：
+
+```bash
+uv run python memory_bench/scripts/replay_mem0.py --mode probe --backend zep --probe-storage-only --probe-query "where do I live now"
 ```
 
 常用过滤参数：
@@ -240,3 +256,23 @@ uv sync --group memory_bench
 - `memory_bench/data/events/by_chapter/` 下存在对应章节 `*.jsonl`；
 - `memory_bench/logs/annotate_meta/*.json` 中失败章节有明确 `error_message`；
 - 重跑时未加 `--force` 的章节会被 `skipped`（而不是被覆盖）。
+
+## Neo4j 对比评估（Mem0 / Zep / Cognee）
+
+可使用 `memory_bench/docker-compose.neo4j.yml` 启动三套独立 Neo4j 实例，分别跟踪不同记忆系统图谱演化：
+
+```bash
+docker compose -f memory_bench/docker-compose.neo4j.yml up -d
+```
+
+端口映射：
+
+- Mem0: `bolt://localhost:7687`（database: `mem0`）
+- Zep: `bolt://localhost:7688`（database: `zep`）
+- Cognee: `bolt://localhost:7689`（database: `cognee`）
+
+建议用同一批事件分别执行：
+
+- `--backend mem0`：直连 Mem0 + 解耦存储；
+- `--backend zep`：保持 Zep 的时间衰减/过期机制在其原生系统内处理，本脚本只做增量与外部可比存储；
+- `--backend cognee`：同上，保持 Cognee 原生特性不变。
