@@ -326,17 +326,26 @@ uv run python memory_bench/scripts/replay_mem0.py
 - 核心节点：`Scene/Character/Conversation/Role/Utterance`
 - 记忆节点：`CanonFact`（`canon_only`）、`EpisodicEvent`（`episodic`）
 - 核心关系：`SPOKE/IN_SCENE/IN_CONVERSATION/NEXT/HAS_CANON_FACT/AS_EPISODE`
+- 记忆层关系：`MemoryItem-[:DERIVED_FROM]->Utterance`（`--mode memory_items`）
 
 ### 7.2 常用调用
 
 > 注意：执行本节与下一节前，请先完成 Neo4j 本地部署。可参考 `memory_bench/docs/51_NEO4J_LOCAL_SETUP.md`。
 
 ```bash
+# 事件图（增量）
 uv run python memory_bench/scripts/replay_graphiti.py \
   --backend neo4j \
+  --mode events \
   --memory-system mem0 \
-  --input memory_bench/data/events/compiled/all.jsonl \
-  --clear
+  --input memory_bench/data/events/compiled/all.jsonl
+
+# 记忆层（增量，推荐默认）
+uv run python memory_bench/scripts/replay_graphiti.py \
+  --backend neo4j \
+  --mode memory_items \
+  --memory-system mem0 \
+  --input memory_bench/logs/replay_mem0/mem0_written.jsonl
 ```
 
 ### 7.3 常用参数
@@ -345,6 +354,7 @@ uv run python memory_bench/scripts/replay_graphiti.py \
 
 
 - `--backend neo4j`（当前仅支持 neo4j）
+- `--mode events|memory_items`（事件层 / 记忆层）
 - `--memory-system mem0|zep|cognee`（按记忆系统隔离图谱）
 - `--graph-name`（可选，显式指定图数据库/图名）
 - `--neo4j-uri` / `--neo4j-user` / `--neo4j-password` / `--database`
@@ -352,6 +362,7 @@ uv run python memory_bench/scripts/replay_graphiti.py \
 - `--skip-tags filler`
 - `--only-tags canon_only,episodic,probe`
 - `--dry-run`（仅做转换统计，不连接图数据库）
+- `--clear`（仅在全量重建时使用；默认建议不加，走增量回放）
 
 ---
 
@@ -403,13 +414,16 @@ uv run python memory_bench/scripts/annotate_all.py --workers 6
 # 3) 拼接为单一 all.jsonl
 uv run python memory_bench/scripts/compile_events.py
 
-# 4) 回放到 Mem0
-uv run python memory_bench/scripts/replay_mem0.py
+# 4) 回放到 Mem0（并导出 memory items）
+uv run python memory_bench/scripts/replay_mem0.py --memory-export memory_bench/logs/replay_mem0/mem0_written.jsonl
 
-# 5) 写入图谱（Neo4j）
-uv run python memory_bench/scripts/replay_graphiti.py --backend neo4j --memory-system mem0 --input memory_bench/data/events/compiled/all.jsonl --clear
+# 5) 写入图谱记忆层（Neo4j，默认增量）
+uv run python memory_bench/scripts/replay_graphiti.py --backend neo4j --mode memory_items --memory-system mem0 --input memory_bench/logs/replay_mem0/mem0_written.jsonl
 
-# 6) 执行图谱 probe
+# 6) （可选）写入事件层
+uv run python memory_bench/scripts/replay_graphiti.py --backend neo4j --mode events --memory-system mem0 --input memory_bench/data/events/compiled/all.jsonl
+
+# 7) 执行图谱 probe
 uv run python memory_bench/scripts/probe_graphiti.py --backend neo4j --memory-system mem0 --query "她最近在担心什么"
 ```
 

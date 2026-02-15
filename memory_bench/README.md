@@ -209,19 +209,26 @@ uv run python memory_bench/scripts/replay_mem0.py --isolation per_chapter
 
 功能：
 
-1. 将事件流写入 Neo4j 图谱；
-2. 创建 `Scene / Character / Conversation / Role / Utterance` 核心节点；
+1. 支持两类输入：`--mode events`（事件图）与 `--mode memory_items`（记忆产物图）；
+2. `events` 模式会创建 `Scene / Character / Conversation / Role / Utterance` 核心节点；
 3. 将 `canon_only` 写为 `CanonFact` 节点；
 4. 将 `episodic` 写为 `EpisodicEvent` 节点（含 `decay_score`）；
-5. 建立 `NEXT` 回合链与角色互动关系，便于 Browser/Graphiti 可视化。
+5. `memory_items` 模式写入 `MemoryItem`，并通过 `DERIVED_FROM` 关联回 `Utterance`；
+6. 默认建议采用增量回放（不加 `--clear`），保留历史图并幂等 MERGE 更新。
 
 后端通过 `--backend neo4j` 固定使用 Neo4j。
 
 常用运行方式：
 
 ```bash
-uv run python memory_bench/scripts/replay_graphiti.py --backend neo4j --memory-system mem0 --input memory_bench/data/events/compiled/all.jsonl --clear
+# 事件图（增量）
+uv run python memory_bench/scripts/replay_graphiti.py --backend neo4j --mode events --memory-system mem0 --input memory_bench/data/events/compiled/all.jsonl
+
+# 记忆层（增量，推荐默认）
+uv run python memory_bench/scripts/replay_graphiti.py --backend neo4j --mode memory_items --memory-system mem0 --input memory_bench/logs/replay_mem0/mem0_written.jsonl
 ```
+
+> 仅在需要全量重建时再使用 `--clear`。
 
 ### 7) 图谱 probe：`probe_graphiti.py`
 

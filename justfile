@@ -170,11 +170,42 @@ ci-lint:
 
 # memory-bench
 reply-graph:
+  just repply-graph-memory-mem0
+
+reply-graph-events:
   just repply-graph-mem0
+
+repply-graph-memory-mem0:
+  uv run python memory_bench/scripts/replay_graphiti.py \
+    --backend neo4j \
+    --mode memory_items \
+    --memory-system mem0 \
+    --neo4j-uri bolt://127.0.0.1:7687 \
+    --database neo4j \
+    --input memory_bench/logs/replay_mem0/mem0_written.jsonl
+
+repply-graph-memory-zep:
+  uv run python memory_bench/scripts/replay_graphiti.py \
+    --backend neo4j \
+    --mode memory_items \
+    --memory-system zep \
+    --neo4j-uri bolt://127.0.0.1:7688 \
+    --database neo4j \
+    --input memory_bench/logs/replay_mem0/zep_written.jsonl
+
+repply-graph-memory-cognee:
+  uv run python memory_bench/scripts/replay_graphiti.py \
+    --backend neo4j \
+    --mode memory_items \
+    --memory-system cognee \
+    --neo4j-uri bolt://127.0.0.1:7689 \
+    --database neo4j \
+    --input memory_bench/logs/replay_mem0/cognee_written.jsonl
 
 repply-graph-mem0:
   uv run python memory_bench/scripts/replay_graphiti.py \
     --backend neo4j \
+    --mode events \
     --memory-system mem0 \
     --neo4j-uri bolt://127.0.0.1:7687 \
     --database neo4j \
@@ -183,6 +214,7 @@ repply-graph-mem0:
 repply-graph-zep:
   uv run python memory_bench/scripts/replay_graphiti.py \
     --backend neo4j \
+    --mode events \
     --memory-system zep \
     --neo4j-uri bolt://127.0.0.1:7688 \
     --database neo4j \
@@ -191,6 +223,7 @@ repply-graph-zep:
 repply-graph-cognee:
   uv run python memory_bench/scripts/replay_graphiti.py \
     --backend neo4j \
+    --mode events \
     --memory-system cognee \
     --neo4j-uri bolt://127.0.0.1:7689 \
     --database neo4j \
