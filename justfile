@@ -44,6 +44,11 @@ server:
 db-server:
   uv run uvicorn src.lab.database.main:app --reload --host localhost --port 8000
 
+clean-and-restart-neo4j:
+  # 如果端口占用可以尝试调用
+  docker compose -f memory_bench/docker-compose.neo4j.yml down --remove-orphans
+  docker compose -f memory_bench/docker-compose.neo4j.yml up -d
+
 # API Router Test
 
 test-asr:
