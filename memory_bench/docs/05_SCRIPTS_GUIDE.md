@@ -13,6 +13,8 @@
 - `memory_bench/scripts/annotate_all.py`
 - `memory_bench/scripts/compile_events.py`
 - `memory_bench/scripts/replay_mem0.py`
+- `memory_bench/scripts/replay_graphiti.py`
+- `memory_bench/scripts/probe_graphiti.py`
 - `memory_bench/scripts/bench_logger.py`
 
 建议执行顺序：
@@ -21,7 +23,9 @@
 2. 再跑 `annotate_all.py` 批量标注并产出分章节 JSONL events。
 3. 跑 `compile_events.py` 将分章节结果拼接为 `all.jsonl`。
 4. 跑 `replay_mem0.py` 将事件流回放到 Mem0 并输出 probe 检索日志。
-5. `bench_logger.py` 是被上述脚本复用的日志模块，不是独立 CLI 工具。
+5. 跑 `replay_graphiti.py` 将事件流写入图谱（当前为 Neo4j）。
+6. 跑 `probe_graphiti.py` 执行图谱 probe 查询与结果导出。
+7. `bench_logger.py` 是被上述脚本复用的日志模块，不是独立 CLI 工具。
 
 ---
 
@@ -305,142 +309,25 @@ uv run python memory_bench/scripts/replay_mem0.py -h
 - `--batch-size`：批量写入大小（默认 16，遇到 probe 前会先 flush）
 - `--store-raw`：写入时优先 `infer=False`（若 Mem0 版本支持）
 
-环境变量（脚本会优先读取 `memory_bench/.env.benchmark`）：
-
-- `BENCHMARK_OPENAI_API_KEY`（必需，或回退 `OPENAI_API_KEY`）
-- `BENCHMARK_OPENAI_BASE_URL`（可选，回退 `OPENAI_BASE_URL` / `OPENAI_API_BASE`）
-- `BENCHMARK_OPENAI_MODEL`（可选，回退 `OPENAI_MODEL`）
-
 ### 6.3 运行示例
-
-1) 默认全量回放：
 
 ```bash
 uv run python memory_bench/scripts/replay_mem0.py
 ```
 
-2) 指定章节文件输入：
-
-```bash
-uv run python memory_bench/scripts/replay_mem0.py --input memory_bench/data/events/by_chapter/ch01.jsonl
-```
-
-3) 章节级隔离（ablation）：
-
-```bash
-uv run python memory_bench/scripts/replay_mem0.py --isolation per_chapter
-```
-
-4) 开启批量写入（通常更快）：
-
-```bash
-uv run python memory_bench/scripts/replay_mem0.py --batch-size 32
-```
-
-### 6.4 probe 日志字段
-
-每条 probe 写一行 JSON，核心字段包括：
-
-- `backend="mem0"`
-- `conv_id`, `turn_id`, `scene_id`, `character_id`
-- `probe_role_type`, `probe_role_name`（区分谁在问）
-- `probe_query`
-- `hits_count`
-- `hits_preview`（仅 top-k 预览，含可溯源 metadata）
-- `latency_ms`
-
-### 6.5 返回码与常见问题
-
-- `0`：回放成功
-- `1`：输入文件缺失、JSON 非法、probe query 为空、或 Mem0 依赖不可用
-
-常见问题：
-
-- **提示 mem0 未安装**：执行 `uv sync --group memory_bench`。
-- **提示缺少 OPENAI_API_KEY**：设置 `BENCHMARK_OPENAI_API_KEY` 或 `OPENAI_API_KEY`。
-- **出现空行 warning**：当前行为是 warning 并跳过该行，建议上游修复数据。
-
 ---
 
-## 7. `bench_logger.py`
+## 7. `replay_graphiti.py`
 
 ### 7.1 作用
 
-提供统一彩色日志封装（按 group + level 渲染），被 `build_index.py`、`annotate_all.py`、`compile_events.py` 与 `replay_mem0.py` 调用。
-
-### 7.2 如何使用（代码内）
-
-```python
-from bench_logger import logger
-
-log = logger.bind(group="memory")
-log.info("message")
-log.warning("warning message")
-```
-
-### 7.3 是否可独立执行
-
-- 不建议直接作为脚本运行（它是工具模块，不是 CLI）
-
-### 7.4 返回结果
-
-- 无单独“返回码”语义；由导入它的脚本负责进程退出逻辑。
-
----
-
-## 8. 一套可复制的完整流程（从原文到事件）
-
-```bash
-# 1) 先建索引
-uv run python memory_bench/scripts/build_index.py
-
-# 2) 查看标注脚本参数
-uv run python memory_bench/scripts/annotate_all.py -h
-
-# 3) 先小范围试跑
-uv run python memory_bench/scripts/annotate_all.py --only ch01 --workers 1
-
-# 4) 再全量跑
-uv run python memory_bench/scripts/annotate_all.py --workers 6
-
-# 5) 拼接为单一 all.jsonl
-uv run python memory_bench/scripts/compile_events.py
-
-# 6) 回放到 Mem0（输出 probe 检索日志）
-uv run python memory_bench/scripts/replay_mem0.py
-```
-
-完成后重点看：
-
-- `memory_bench/data/events/by_chapter/*.jsonl`
-- `memory_bench/data/events/compiled/all.jsonl`
-- `memory_bench/logs/annotate_meta/*.json`
-
----
-
-## 9. 建议的维护方式
-
-- 以后新增脚本（例如 `patch_generator.py`）时，建议同步更新本文件：
-  - 脚本作用
-  - `uv run ... -h` 参数解释
-  - 输入/输出路径
-  - 退出码与失败排查
-
-这样可以避免“脚本变长后，大家不知道怎么用”的问题。
-
----
-
-## 6. `replay_graphiti.py`
-
-### 6.1 作用
-
-将 `memory_bench` 事件流写入 Neo4j 图数据库，落地为可视化图结构（Graphiti-ready）：
+将 `memory_bench` 事件流写入图谱后端，落地为可视化图结构（Graphiti-ready，当前实现 Neo4j）：
 
 - 核心节点：`Scene/Character/Conversation/Role/Utterance`
 - 记忆节点：`CanonFact`（`canon_only`）、`EpisodicEvent`（`episodic`）
-- 核心关系：`SPOKE/IN_SCENE/IN_CONVERSATION/NEXT/HAS_CANON_FACT/AS_EPISODE` 等
+- 核心关系：`SPOKE/IN_SCENE/IN_CONVERSATION/NEXT/HAS_CANON_FACT/AS_EPISODE`
 
-### 6.2 常用调用
+### 7.2 常用调用
 
 ```bash
 uv run python memory_bench/scripts/replay_graphiti.py \
@@ -449,35 +336,28 @@ uv run python memory_bench/scripts/replay_graphiti.py \
   --clear
 ```
 
-### 6.3 常用参数
+### 7.3 常用参数
 
 - `--backend neo4j|cognee|zep`（当前仅 neo4j 已实现）
 - `--neo4j-uri` / `--neo4j-user` / `--neo4j-password` / `--database`
 - `--skip-role ui,tool`
 - `--skip-tags filler`
 - `--only-tags canon_only,episodic,probe`
-- `--dry-run`（仅做转换统计，不连接 Neo4j）
-
-### 6.4 输出行为
-
-- 成功：日志输出 `total/ingested/canon/episodic` 统计；
-- 失败：抛出输入数据缺失、Neo4j 连接失败或驱动缺失等错误。
+- `--dry-run`（仅做转换统计，不连接图数据库）
 
 ---
 
-## 7. `probe_graphiti.py`
+## 8. `probe_graphiti.py`
 
-### 7.1 作用
+### 8.1 作用
 
-对 Neo4j 图谱执行 probe 查询，输出结构化 JSON 结果，包含：
+对图谱执行 probe 查询，输出结构化 JSON 结果，包含：
 
-- 事件命中（`Utterance`）；
-- 关联稳定事实（`CanonFact`）和 episodic 节点（`EpisodicEvent`）；
-- 角色互动统计（`Role -> Role`）。
+- 事件命中（`Utterance`）
+- 关联稳定事实（`CanonFact`）与 episodic 节点（`EpisodicEvent`）
+- 角色互动统计（`Role -> Role`）
 
-### 7.2 常用调用
-
-单条查询：
+### 8.2 常用调用
 
 ```bash
 uv run python memory_bench/scripts/probe_graphiti.py \
@@ -486,16 +366,51 @@ uv run python memory_bench/scripts/probe_graphiti.py \
   --character-id elaina
 ```
 
-批量 probe：
+### 8.3 返回行为
+
+- 标准输出：每个 query 一条 JSON
+- 可选 `--output`：写入 JSONL 文件
+- 参数校验：必须提供 `--query` 或 `--probes-jsonl` 至少一个
+
+---
+
+## 9. `bench_logger.py`
+
+### 9.1 作用
+
+提供统一彩色日志封装（按 group + level 渲染），被 `build_index.py`、`annotate_all.py`、`compile_events.py`、`replay_mem0.py`、`replay_graphiti.py`、`probe_graphiti.py` 调用。
+
+---
+
+## 10. 一套可复制的完整流程（从原文到图谱）
 
 ```bash
-uv run python memory_bench/scripts/probe_graphiti.py \
-  --probes-jsonl memory_bench/data/events/compiled/all.jsonl \
-  --output memory_bench/logs/probe_graphiti/probe_results.jsonl
+# 1) 先建索引
+uv run python memory_bench/scripts/build_index.py
+
+# 2) 批量标注
+uv run python memory_bench/scripts/annotate_all.py --workers 6
+
+# 3) 拼接为单一 all.jsonl
+uv run python memory_bench/scripts/compile_events.py
+
+# 4) 回放到 Mem0
+uv run python memory_bench/scripts/replay_mem0.py
+
+# 5) 写入图谱（Neo4j）
+uv run python memory_bench/scripts/replay_graphiti.py --backend neo4j --input memory_bench/data/events/compiled/all.jsonl --clear
+
+# 6) 执行图谱 probe
+uv run python memory_bench/scripts/probe_graphiti.py --backend neo4j --query "她最近在担心什么"
 ```
 
-### 7.3 返回行为
+---
 
-- 标准输出：每个 query 一条 JSON；
-- 可选 `--output`：写入 JSONL 文件；
-- 参数校验：必须提供 `--query` 或 `--probes-jsonl` 至少一个。
+## 11. 建议的维护方式
+
+- 以后新增脚本时，建议同步更新本文件：
+  - 脚本作用
+  - `uv run ... -h` 参数解释
+  - 输入/输出路径
+  - 退出码与失败排查
+
