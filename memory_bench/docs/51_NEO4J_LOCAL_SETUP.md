@@ -42,7 +42,9 @@ docker run --name membench-neo4j \
 
 - https://calpa.me/blog/how-to-create-neo4j-database-using-docker-and-docker-compose/
 
-一个最小可用的 `docker-compose.yml` 示例：
+仓库已提供可直接使用的 Compose 文件：`memory_bench/docker-compose.neo4j.yml`。
+
+如需自定义，可参考下方最小示例：
 
 ```yaml
 services:
@@ -60,10 +62,10 @@ services:
       - ./neo4j/logs:/logs
 ```
 
-启动：
+启动（使用仓库内 compose 文件）：
 
 ```bash
-docker compose up -d
+docker compose -f memory_bench/docker-compose.neo4j.yml up -d
 ```
 
 ---
