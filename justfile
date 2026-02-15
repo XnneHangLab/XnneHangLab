@@ -170,8 +170,29 @@ ci-lint:
 
 # memory-bench
 reply-graph:
+  just repply-graph-mem0
+
+repply-graph-mem0:
   uv run python memory_bench/scripts/replay_graphiti.py \
     --backend neo4j \
     --memory-system mem0 \
+    --neo4j-uri bolt://127.0.0.1:7687 \
+    --database neo4j \
+    --input memory_bench/data/events/compiled/all.jsonl
+
+repply-graph-zep:
+  uv run python memory_bench/scripts/replay_graphiti.py \
+    --backend neo4j \
+    --memory-system zep \
+    --neo4j-uri bolt://127.0.0.1:7688 \
+    --database neo4j \
+    --input memory_bench/data/events/compiled/all.jsonl
+
+repply-graph-cognee:
+  uv run python memory_bench/scripts/replay_graphiti.py \
+    --backend neo4j \
+    --memory-system cognee \
+    --neo4j-uri bolt://127.0.0.1:7689 \
+    --database neo4j \
     --input memory_bench/data/events/compiled/all.jsonl
 
