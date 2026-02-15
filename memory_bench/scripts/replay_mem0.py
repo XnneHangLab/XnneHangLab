@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import ExitStack
 import json
 import os
 import time
@@ -196,6 +197,12 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Store raw messages by setting infer=False when supported",
     )
+    parser.add_argument(
+        "--memory-export",
+        type=str,
+        default="",
+        help="Optional output JSONL path for exported memory items (mem0 write outputs)",
+    )
     return parser.parse_args()
 
 
@@ -248,7 +255,7 @@ def add_memory_entry(
     message: dict[str, str],
     metadata: dict[str, Any],
     store_raw: bool,
-) -> None:
+) -> Any:
     """写入单条记忆，并兼容不同 Mem0 参数签名。
 
     Args:
@@ -264,15 +271,14 @@ def add_memory_entry(
 
     if store_raw:
         try:
-            memory.add(messages=[message], user_id=user_id, metadata=metadata, infer=False)
-            return
+            return memory.add(messages=[message], user_id=user_id, metadata=metadata, infer=False)
         except TypeError:
             pass
 
     try:
-        memory.add(messages=[message], user_id=user_id, metadata=metadata)
+        return memory.add(messages=[message], user_id=user_id, metadata=metadata)
     except TypeError:
-        memory.add(messages=[message], user_id=user_id)
+        return memory.add(messages=[message], user_id=user_id)
 
 
 def to_mem0_message(role_type: str, content: str) -> dict[str, str] | None:
@@ -364,6 +370,7 @@ def flush_ingest_batch(
     user_id: str | None,
     pending_items: list[tuple[dict[str, str], dict[str, Any]]],
     store_raw: bool,
+    memory_export_file: Any | None = None,
 ) -> int:
     """将积攒的 ingest 消息批量写入 Mem0。
 
@@ -381,7 +388,15 @@ def flush_ingest_batch(
         return 0
 
     for message, metadata in pending_items:
-        add_memory_entry(memory=memory, user_id=user_id, message=message, metadata=metadata, store_raw=store_raw)
+        add_result = add_memory_entry(memory=memory, user_id=user_id, message=message, metadata=metadata, store_raw=store_raw)
+        if memory_export_file is not None:
+            for memory_item in extract_memory_item_records(
+                add_result=add_result,
+                metadata=metadata,
+                message=message,
+                user_id=user_id,
+            ):
+                memory_export_file.write(json.dumps(memory_item, ensure_ascii=False) + "\n")
 
     count = len(pending_items)
     pending_items.clear()
@@ -437,6 +452,66 @@ def default_output_path() -> Path:
         candidate = Path(f"{base}_{suffix}.jsonl")
         suffix += 1
     return candidate
+
+
+def extract_memory_item_records(
+    add_result: Any,
+    metadata: dict[str, Any],
+    message: dict[str, str],
+    user_id: str,
+) -> list[dict[str, Any]]:
+    """将 Memory.add 返回值规整为统一 memory item 导出格式。"""
+
+    source_event_id = (
+        f"{metadata.get('scene_id')}:{metadata.get('character_id')}:{metadata.get('conv_id')}:{metadata.get('turn_id')}"
+    )
+
+    candidates: list[dict[str, Any]] = []
+    if isinstance(add_result, list):
+        candidates = [item for item in add_result if isinstance(item, dict)]
+    elif isinstance(add_result, dict):
+        payload = add_result.get("results") or add_result.get("memories") or add_result.get("data")
+        if isinstance(payload, list):
+            candidates = [item for item in payload if isinstance(item, dict)]
+        elif isinstance(payload, dict):
+            candidates = [payload]
+        else:
+            candidates = [add_result]
+
+    if not candidates:
+        fallback_id = f"mem0:{source_event_id}"
+        return [
+            {
+                "memory_system": "mem0",
+                "memory_id": fallback_id,
+                "content": message.get("content", ""),
+                "tags": metadata.get("tags", []),
+                "source_event_id": source_event_id,
+                "meta": {"user_id": user_id, "role": message.get("role"), "raw_add_result": add_result},
+            }
+        ]
+
+    exported: list[dict[str, Any]] = []
+    for i, item in enumerate(candidates, start=1):
+        memory_id = (
+            item.get("id")
+            or item.get("memory_id")
+            or item.get("uuid")
+            or item.get("key")
+            or f"mem0:{source_event_id}:{i}"
+        )
+        content = item.get("memory") or item.get("content") or message.get("content", "")
+        exported.append(
+            {
+                "memory_system": "mem0",
+                "memory_id": str(memory_id),
+                "content": str(content),
+                "tags": metadata.get("tags", []),
+                "source_event_id": source_event_id,
+                "meta": {"user_id": user_id, "metadata": metadata, "memory_raw": item},
+            }
+        )
+    return exported
 
 
 def compact_hits_preview(hits: Any, k: int) -> list[dict[str, Any]]:
@@ -541,6 +616,9 @@ def main() -> int:
     input_path = Path(args.input)
     output_path = Path(args.output) if args.output else default_output_path()
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    memory_export_path = Path(args.memory_export) if args.memory_export else None
+    if memory_export_path is not None:
+        memory_export_path.parent.mkdir(parents=True, exist_ok=True)
 
     skip_roles = parse_csv_arg(args.skip_role)
     skip_tags = parse_csv_arg(args.skip_tags)
@@ -574,7 +652,12 @@ def main() -> int:
     pending_items: list[tuple[dict[str, str], dict[str, Any]]] = []
     pending_user_id: str | None = None
 
-    with output_path.open("w", encoding="utf-8") as out_file:
+    with ExitStack() as stack:
+        out_file = stack.enter_context(output_path.open("w", encoding="utf-8"))
+        memory_export_file = (
+            stack.enter_context(memory_export_path.open("w", encoding="utf-8")) if memory_export_path is not None else None
+        )
+
         for event in read_jsonl(input_path):
             stats.total_events += 1
             replay_progress.update(1)
@@ -584,7 +667,7 @@ def main() -> int:
             user_id = build_user_id(event, args.isolation)
 
             if "probe" in tags:
-                stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
+                stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw, memory_export_file)
                 pending_user_id = None
 
                 stats.probe_events += 1
@@ -633,7 +716,7 @@ def main() -> int:
                     continue
 
                 if pending_user_id is not None and pending_user_id != user_id:
-                    stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
+                    stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw, memory_export_file)
                     pending_user_id = None
 
                 if pending_user_id is None:
@@ -641,19 +724,19 @@ def main() -> int:
 
                 pending_items.append((message, build_event_metadata(event)))
                 if len(pending_items) >= args.batch_size:
-                    stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
+                    stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw, memory_export_file)
                     pending_user_id = None
             else:
                 stats.skipped_events += 1
 
-    stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
+    stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw, memory_export_file)
 
     replay_progress.close()
 
     logger.bind(group="memory").info(
         "Replay done: "
         f"events={stats.total_events}, ingested={stats.ingested_events}, skipped={stats.skipped_events}, "
-        f"probes={stats.probe_events}, log={output_path}"
+        f"probes={stats.probe_events}, log={output_path}, memory_export={memory_export_path or '<disabled>'}"
     )
     return 0
 

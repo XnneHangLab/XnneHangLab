@@ -31,20 +31,18 @@ class GraphBackendConfig:
 
 
 class GraphReplayBackend(Protocol):
-    """Protocol for event replay backends."""
-
     def ensure_schema(self) -> None: ...
 
     def clear_graph(self) -> None: ...
 
     def upsert_event(self, event: dict[str, Any], max_turn_by_conv: dict[str, int]) -> tuple[bool, bool, bool]: ...
 
+    def upsert_memory_item(self, item: dict[str, Any]) -> bool: ...
+
     def close(self) -> None: ...
 
 
 class GraphProbeBackend(Protocol):
-    """Protocol for probe query backends."""
-
     def run_probe_query(
         self,
         query: str,
@@ -89,6 +87,7 @@ class Neo4jGraphBackend:
             "CREATE CONSTRAINT utterance_id_unique IF NOT EXISTS FOR (n:Utterance) REQUIRE n.event_id IS UNIQUE",
             "CREATE CONSTRAINT fact_id_unique IF NOT EXISTS FOR (n:CanonFact) REQUIRE n.fact_id IS UNIQUE",
             "CREATE CONSTRAINT episode_id_unique IF NOT EXISTS FOR (n:EpisodicEvent) REQUIRE n.episode_id IS UNIQUE",
+            "CREATE CONSTRAINT memory_item_id_unique IF NOT EXISTS FOR (n:MemoryItem) REQUIRE n.memory_id IS UNIQUE",
         ]
         with self._driver.session(database=self._database) as session:
             for stmt in statements:
@@ -99,8 +98,6 @@ class Neo4jGraphBackend:
             session.run("MATCH (n) DETACH DELETE n")
 
     def event_exists(self, event_id: str) -> bool:
-        """Check if event is already present to avoid duplicated writes."""
-
         with self._driver.session(database=self._database) as session:
             result = session.run(
                 "MATCH (u:Utterance {event_id: $event_id}) RETURN u.event_id AS event_id LIMIT 1",
@@ -230,7 +227,53 @@ class Neo4jGraphBackend:
                     },
                 )
 
-            return is_canon, is_episodic, True
+        return is_canon, is_episodic, True
+
+    def upsert_memory_item(self, item: dict[str, Any]) -> bool:
+        memory_id = str(item.get("memory_id", "")).strip()
+        if not memory_id:
+            return False
+
+        memory_system = str(item.get("memory_system", self._memory_system)).strip() or self._memory_system
+        source_event_id = str(item.get("source_event_id", "")).strip()
+        tags_raw = item.get("tags", [])
+        tags = [str(tag) for tag in tags_raw] if isinstance(tags_raw, list) else []
+        meta = item.get("meta", {}) if isinstance(item.get("meta", {}), dict) else {"raw_meta": item.get("meta")}
+        content = str(item.get("content", "")).strip()
+
+        with self._driver.session(database=self._database) as session:
+            session.run(
+                """
+                MERGE (m:MemoryItem {memory_id: $memory_id})
+                ON CREATE SET m.created_at = timestamp()
+                SET m.memory_system = $memory_system,
+                    m.content = $content,
+                    m.tags = $tags,
+                    m.meta = $meta,
+                    m.source_event_id = $source_event_id,
+                    m.updated_at = timestamp()
+                """,
+                {
+                    "memory_id": memory_id,
+                    "memory_system": memory_system,
+                    "content": content,
+                    "tags": tags,
+                    "meta": meta,
+                    "source_event_id": source_event_id,
+                },
+            )
+            if source_event_id:
+                session.run(
+                    """
+                    MATCH (m:MemoryItem {memory_id: $memory_id})
+                    OPTIONAL MATCH (u:Utterance {event_id: $source_event_id})
+                    FOREACH (_ IN CASE WHEN u IS NULL THEN [] ELSE [1] END |
+                        MERGE (m)-[:DERIVED_FROM]->(u)
+                    )
+                    """,
+                    {"memory_id": memory_id, "source_event_id": source_event_id},
+                )
+        return True
 
     def run_probe_query(
         self,
@@ -281,8 +324,6 @@ class Neo4jGraphBackend:
 
 
 def create_graph_backend(config: GraphBackendConfig) -> Neo4jGraphBackend:
-    """Factory method for graph backend creation."""
-
     backend = config.backend.strip().lower()
     if backend == "neo4j":
         return Neo4jGraphBackend(config)

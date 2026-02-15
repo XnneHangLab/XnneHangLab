@@ -74,6 +74,7 @@ uv run python memory_bench/scripts/replay_graphiti.py \
   --neo4j-uri bolt://127.0.0.1:7687 \
   --database neo4j \
   --input memory_bench/data/events/compiled/all.jsonl \
+  --mode events \
   --clear
 ```
 
@@ -86,6 +87,7 @@ uv run python memory_bench/scripts/replay_graphiti.py \
   --neo4j-uri bolt://127.0.0.1:7688 \
   --database neo4j \
   --input memory_bench/data/events/compiled/all.jsonl \
+  --mode events \
   --clear
 ```
 
@@ -98,6 +100,7 @@ uv run python memory_bench/scripts/replay_graphiti.py \
   --neo4j-uri bolt://127.0.0.1:7689 \
   --database neo4j \
   --input memory_bench/data/events/compiled/all.jsonl \
+  --mode events \
   --clear
 ```
 
@@ -148,3 +151,20 @@ uv run python memory_bench/scripts/probe_graphiti.py \
 - 当前图谱后端仅支持 `neo4j`。
 - probe 仅查询已有图谱，不会自动写入事件。
 - `memory_system` 用于标记与过滤；多系统隔离由多实例端口与独立数据目录保障。
+
+
+## 7. 写入 Memory Items（记忆层）
+
+当你已经有 Memory 系统导出 JSONL（如 `mem0_written.jsonl`）后，可执行：
+
+```bash
+uv run python memory_bench/scripts/replay_graphiti.py \
+  --backend neo4j \
+  --mode memory_items \
+  --memory-system mem0 \
+  --neo4j-uri bolt://127.0.0.1:7687 \
+  --database neo4j \
+  --input memory_bench/logs/replay_mem0/mem0_written.jsonl
+```
+
+> 提示：`replay_mem0.py` 支持 `--memory-export` 直接导出统一 MemoryItem JSONL。

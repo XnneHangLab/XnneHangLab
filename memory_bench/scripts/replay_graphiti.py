@@ -28,6 +28,8 @@ class ReplayGraphStats:
     skipped_existing_events: int = 0
     canon_facts: int = 0
     episodic_nodes: int = 0
+    total_memory_items: int = 0
+    ingested_memory_items: int = 0
 
 
 def get_env(name: str, default: str | None = None) -> str | None:
@@ -60,7 +62,8 @@ def parse_args() -> argparse.Namespace:
         description="Replay benchmark events into graph backend",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--input", type=str, default="memory_bench/data/events/compiled/all.jsonl", help="Input event JSONL")
+    parser.add_argument("--input", type=str, default="memory_bench/data/events/compiled/all.jsonl", help="Input JSONL (events or memory items)")
+    parser.add_argument("--mode", choices=["events", "memory_items"], default="events", help="Graph replay input mode")
     parser.add_argument(
         "--backend",
         choices=["neo4j"],
@@ -150,6 +153,17 @@ def main() -> int:
     max_turn_by_conv = collect_max_turn(input_path)
 
     if args.dry_run:
+        if args.mode == "memory_items":
+            for item in read_jsonl(input_path):
+                stats.total_memory_items += 1
+                if str(item.get("memory_id", "")).strip():
+                    stats.ingested_memory_items += 1
+            logger.bind(group="memory").info(
+                "dry-run memory-items done: total=%s valid=%s"
+                % (stats.total_memory_items, stats.ingested_memory_items)
+            )
+            return 0
+
         for event in read_jsonl(input_path):
             stats.total_events += 1
             if should_ingest(event, skip_roles, skip_tags, only_tags):
@@ -160,7 +174,7 @@ def main() -> int:
                 if isinstance(tags, list) and "episodic" in tags:
                     stats.episodic_nodes += 1
         logger.bind(group="memory").info(
-            "dry-run done: total=%s ingested=%s canon=%s episodic=%s"
+            "dry-run events done: total=%s ingested=%s canon=%s episodic=%s"
             % (stats.total_events, stats.ingested_events, stats.canon_facts, stats.episodic_nodes)
         )
         return 0
@@ -182,31 +196,43 @@ def main() -> int:
             backend.clear_graph()
             logger.bind(group="memory").warning("graph cleared before replay")
 
-        for event in read_jsonl(input_path):
-            stats.total_events += 1
-            if not should_ingest(event, skip_roles, skip_tags, only_tags):
-                continue
-            is_canon, is_episodic, inserted = backend.upsert_event(event=event, max_turn_by_conv=max_turn_by_conv)
-            if not inserted:
-                stats.skipped_existing_events += 1
-                continue
-            stats.ingested_events += 1
-            if is_canon:
-                stats.canon_facts += 1
-            if is_episodic:
-                stats.episodic_nodes += 1
+        if args.mode == "memory_items":
+            for item in read_jsonl(input_path):
+                stats.total_memory_items += 1
+                inserted = backend.upsert_memory_item(item)
+                if inserted:
+                    stats.ingested_memory_items += 1
+                else:
+                    stats.skipped_existing_events += 1
+        else:
+            for event in read_jsonl(input_path):
+                stats.total_events += 1
+                if not should_ingest(event, skip_roles, skip_tags, only_tags):
+                    continue
+                is_canon, is_episodic, inserted = backend.upsert_event(event=event, max_turn_by_conv=max_turn_by_conv)
+                if not inserted:
+                    stats.skipped_existing_events += 1
+                    continue
+                stats.ingested_events += 1
+                if is_canon:
+                    stats.canon_facts += 1
+                if is_episodic:
+                    stats.episodic_nodes += 1
     except GraphBackendError as exc:
         raise ReplayGraphError(str(exc)) from exc
     finally:
         backend.close()
 
     logger.bind(group="memory").info(
-        "replay graph done: backend=%s memory_system=%s total=%s ingested=%s skipped_existing=%s canon=%s episodic=%s"
+        "replay graph done: backend=%s mode=%s memory_system=%s events_total=%s events_ingested=%s memory_items_total=%s memory_items_ingested=%s skipped_existing=%s canon=%s episodic=%s"
         % (
             args.backend,
+            args.mode,
             args.memory_system,
             stats.total_events,
             stats.ingested_events,
+            stats.total_memory_items,
+            stats.ingested_memory_items,
             stats.skipped_existing_events,
             stats.canon_facts,
             stats.episodic_nodes,

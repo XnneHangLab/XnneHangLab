@@ -142,3 +142,35 @@ LIMIT 50
 - 默认数据库映射为 `{memory_system}_graph`，可用 `graph_name` 显式覆盖。
 - 回放写入前会检查 `event_id` 是否已存在，已存在事件只跳过，不重复写入（增量更新模式）。
 - probe 查询只在已有图谱上检索，不会触发事件重写。
+
+
+## 8. Memory Graph（记忆层）
+
+除事件图外，`replay_graphiti.py --mode memory_items` 支持将 Memory 系统导出的记忆条目写入图谱：
+
+- 节点：`(:MemoryItem {memory_id, memory_system, content, tags, meta, source_event_id})`
+- 关系：`(:MemoryItem)-[:DERIVED_FROM]->(:Utterance)`
+
+唯一约束：
+
+- `MemoryItem.memory_id`
+
+导出 JSONL 建议 schema：
+
+```json
+{
+  "memory_system": "mem0",
+  "memory_id": "mem0:1234abcd",
+  "content": "...",
+  "tags": ["canon_only"],
+  "source_event_id": "scene1:char1:conv1:turn05",
+  "meta": {}
+}
+```
+
+这样即可同时表达：
+
+1. 事件/对话链图（events mode）
+2. 记忆产物图（memory_items mode）
+
+并支持跨系统对比查询（例如 `mem0` vs `zep`）。
