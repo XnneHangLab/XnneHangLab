@@ -167,3 +167,13 @@ ci-fmt-check:
 
 ci-lint:
   just lint
+
+# memory-bench
+reply-graph:
+  uv run python memory_bench/scripts/replay_graphiti.py \
+    --backend neo4j \
+    --memory-system mem0 \
+    --input memory_bench/data/events/compiled/all.jsonl
+
+replay-graph:
+  just reply-graph
