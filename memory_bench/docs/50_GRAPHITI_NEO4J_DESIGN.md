@@ -2,6 +2,19 @@
 
 本文定义 `memory_bench/scripts/replay_graphiti.py` 写入 Neo4j 时采用的图谱模型，用于把 Mem0 replay 事件转为可视化图结构。
 
+
+## 0. 后端接口预留
+
+为后续接入 `cognee` / `zep`，脚本侧引入了统一后端工厂与协议：
+
+- `GraphReplayBackend`：`ensure_schema/clear_graph/upsert_event`
+- `GraphProbeBackend`：`run_probe_query`
+- `create_graph_backend(...)`：按 `--backend` 选择实现（当前落地 `neo4j`，`cognee/zep` 已预留保留位）
+
+因此上层 CLI（`replay_graphiti.py` / `probe_graphiti.py`）无需改业务参数即可切换后端实现。
+
+---
+
 ## 1. 设计目标
 
 - 将 `scene_id / character_id / conv_id / turn_id` 转换为稳定节点与关系。

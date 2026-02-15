@@ -444,12 +444,14 @@ uv run python memory_bench/scripts/replay_mem0.py
 
 ```bash
 uv run python memory_bench/scripts/replay_graphiti.py \
+  --backend neo4j \
   --input memory_bench/data/events/compiled/all.jsonl \
   --clear
 ```
 
 ### 6.3 常用参数
 
+- `--backend neo4j|cognee|zep`（当前仅 neo4j 已实现）
 - `--neo4j-uri` / `--neo4j-user` / `--neo4j-password` / `--database`
 - `--skip-role ui,tool`
 - `--skip-tags filler`
@@ -479,6 +481,7 @@ uv run python memory_bench/scripts/replay_graphiti.py \
 
 ```bash
 uv run python memory_bench/scripts/probe_graphiti.py \
+  --backend neo4j \
   --query "她最近在担心什么" \
   --character-id elaina
 ```

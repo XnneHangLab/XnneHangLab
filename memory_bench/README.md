@@ -213,10 +213,12 @@ uv run python memory_bench/scripts/replay_mem0.py --isolation per_chapter
 4. 将 `episodic` 写为 `EpisodicEvent` 节点（含 `decay_score`）；
 5. 建立 `NEXT` 回合链与角色互动关系，便于 Browser/Graphiti 可视化。
 
+后端通过 `--backend` 选择，当前已实现 `neo4j`，并预留 `cognee/zep` 扩展位。
+
 常用运行方式：
 
 ```bash
-uv run python memory_bench/scripts/replay_graphiti.py --input memory_bench/data/events/compiled/all.jsonl --clear
+uv run python memory_bench/scripts/replay_graphiti.py --backend neo4j --input memory_bench/data/events/compiled/all.jsonl --clear
 ```
 
 ### 7) 图谱 probe：`probe_graphiti.py`
@@ -233,7 +235,7 @@ uv run python memory_bench/scripts/replay_graphiti.py --input memory_bench/data/
 常用运行方式：
 
 ```bash
-uv run python memory_bench/scripts/probe_graphiti.py --query "她最近担心什么" --character-id elaina
+uv run python memory_bench/scripts/probe_graphiti.py --backend neo4j --query "她最近担心什么" --character-id elaina
 ```
 
 ## `index.json` 格式（供 annotate_all.py 消费）

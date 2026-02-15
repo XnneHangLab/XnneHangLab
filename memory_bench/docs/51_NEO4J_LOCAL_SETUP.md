@@ -54,6 +54,7 @@ export NEO4J_DATABASE=neo4j
 
 ```bash
 uv run python memory_bench/scripts/replay_graphiti.py \
+  --backend neo4j \
   --input memory_bench/data/events/compiled/all.jsonl \
   --clear
 ```
@@ -73,6 +74,7 @@ uv run python memory_bench/scripts/replay_graphiti.py \
 
 ```bash
 uv run python memory_bench/scripts/probe_graphiti.py \
+  --backend neo4j \
   --query "她最担心什么" \
   --character-id elaina
 ```
@@ -87,7 +89,13 @@ uv run python memory_bench/scripts/probe_graphiti.py \
 
 ---
 
-## 6. Neo4j Browser 可视化建议
+## 6. 多后端扩展说明
+
+当前可用后端为 `neo4j`。CLI 中 `--backend` 已预留 `cognee/zep` 选项，后续新增实现时无需变更调用协议。
+
+---
+
+## 7. Neo4j Browser 可视化建议
 
 打开 `http://localhost:7474` 后可执行：
 
