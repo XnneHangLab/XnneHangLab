@@ -39,6 +39,22 @@ def parse_csv_arg(raw: str) -> set[str]:
     return {part.strip() for part in raw.split(",") if part.strip()}
 
 
+def resolve_neo4j_uri(memory_system: str, explicit_uri: str) -> str:
+    if explicit_uri.strip():
+        return explicit_uri.strip()
+
+    system = memory_system.strip().lower()
+    by_system = {
+        "mem0": get_env("NEO4J_URI_MEM0"),
+        "zep": get_env("NEO4J_URI_ZEP"),
+        "cognee": get_env("NEO4J_URI_COGNEE"),
+    }
+    if by_system.get(system):
+        return str(by_system[system])
+
+    return get_env("NEO4J_URI", "bolt://127.0.0.1:7687") or "bolt://127.0.0.1:7687"
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Replay benchmark events into graph backend",
@@ -51,7 +67,7 @@ def parse_args() -> argparse.Namespace:
         default=get_env("GRAPH_BACKEND", "neo4j"),
         help="Graph storage backend (Neo4j only)",
     )
-    parser.add_argument("--neo4j-uri", type=str, default=get_env("NEO4J_URI", "bolt://localhost:7687"), help="Neo4j Bolt URI")
+    parser.add_argument("--neo4j-uri", type=str, default=get_env("NEO4J_URI", ""), help="Neo4j Bolt URI")
     parser.add_argument("--neo4j-user", type=str, default=get_env("NEO4J_USER", "neo4j"), help="Neo4j username")
     parser.add_argument(
         "--neo4j-password", type=str, default=get_env("NEO4J_PASSWORD", "neo4jneo4j"), help="Neo4j password"
@@ -152,7 +168,7 @@ def main() -> int:
     backend = create_graph_backend(
         GraphBackendConfig(
             backend=args.backend,
-            uri=args.neo4j_uri,
+            uri=resolve_neo4j_uri(memory_system=args.memory_system, explicit_uri=args.neo4j_uri),
             user=args.neo4j_user,
             password=args.neo4j_password,
             database=args.database,

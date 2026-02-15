@@ -14,55 +14,31 @@ uv sync --group memory_bench
 
 ---
 
-## 2. 启动 Neo4j（本地）
+## 2. 启动 Neo4j（推荐：Docker Compose 三实例）
 
-可任选一种方式：
+我们使用 Neo4j 社区版，建议采用**三容器隔离**方式，分别承载 `mem0/zep/cognee`。
 
-### 2.1 方式 A：本机安装 Neo4j Community
-
-- 下载并安装 Neo4j Community（5.x 建议）。
-- 启动后确认：
-  - Bolt: `bolt://localhost:7687`
-  - Browser: `http://localhost:7474`
-- 首次登录时设置 `neo4j` 用户密码（并同步到环境变量）。
-
-### 2.2 方式 B：容器方式（若本机有 Docker）
-
-```bash
-docker run --name membench-neo4j \
-  -p 7474:7474 -p 7687:7687 \
-  -e NEO4J_AUTH=neo4j/neo4jneo4j \
-  -d neo4j:5
-```
-
-
-### 2.3 方式 C：Docker Compose（推荐）
-
-如果你更习惯 `docker compose`，可参考：
+可参考：
 
 - https://calpa.me/blog/how-to-create-neo4j-database-using-docker-and-docker-compose/
 
-仓库已提供可直接使用的 Compose 文件：`memory_bench/docker-compose.neo4j.yml`。
+仓库已提供 Compose 文件：`memory_bench/docker-compose.neo4j.yml`。
 
-如需自定义，可参考下方最小示例：
+端口规划：
 
-```yaml
-services:
-  neo4j:
-    image: neo4j:5
-    container_name: membench-neo4j
-    restart: unless-stopped
-    ports:
-      - "7474:7474"
-      - "7687:7687"
-    environment:
-      - NEO4J_AUTH=neo4j/neo4jneo4j
-    volumes:
-      - ./neo4j/data:/data
-      - ./neo4j/logs:/logs
-```
+- `neo4j_mem0`: Browser `7474`, Bolt `7687`
+- `neo4j_zep`: Browser `7475`, Bolt `7688`
+- `neo4j_cognee`: Browser `7476`, Bolt `7689`
 
-启动（使用仓库内 compose 文件）：
+数据目录隔离：
+
+- `./neo4j-data/mem0/...`
+- `./neo4j-data/zep/...`
+- `./neo4j-data/cognee/...`
+
+> 如果你希望完全落到 D 盘，直接把 compose 里的挂载路径改成绝对路径，例如 `D:/membench/neo4j-data/mem0/data:/data`。
+
+启动命令：
 
 ```bash
 docker compose -f memory_bench/docker-compose.neo4j.yml up -d
@@ -70,100 +46,105 @@ docker compose -f memory_bench/docker-compose.neo4j.yml up -d
 
 ---
 
-## 3. 环境变量配置
-
-建议在 shell 或 `.env` 中设置：
+## 3. 环境变量配置（可选）
 
 ```bash
-export NEO4J_URI=bolt://localhost:7687
 export NEO4J_USER=neo4j
 export NEO4J_PASSWORD=neo4jneo4j
 export NEO4J_DATABASE=neo4j
+
+# 可选：按 memory_system 自动匹配 URI
+export NEO4J_URI_MEM0=bolt://127.0.0.1:7687
+export NEO4J_URI_ZEP=bolt://127.0.0.1:7688
+export NEO4J_URI_COGNEE=bolt://127.0.0.1:7689
 ```
 
 ---
 
 ## 4. 回放写入图谱
 
-> 前置要求：请先确保 Neo4j 实例可访问（Bolt `7687` / Browser `7474`）。
+> 前置要求：请先确保 Neo4j 实例可访问（Bolt 7687/7688/7689）。
+
+### 4.1 mem0（7687）
 
 ```bash
 uv run python memory_bench/scripts/replay_graphiti.py \
   --backend neo4j \
   --memory-system mem0 \
+  --neo4j-uri bolt://127.0.0.1:7687 \
+  --database neo4j \
   --input memory_bench/data/events/compiled/all.jsonl \
   --clear
 ```
 
-常用参数：
+### 4.2 zep（7688）
 
-- `--skip-role ui,tool`
-- `--skip-tags filler`
-- `--only-tags canon_only,episodic,probe`
-- `--dry-run`（只做转换统计，不连接数据库）
+```bash
+uv run python memory_bench/scripts/replay_graphiti.py \
+  --backend neo4j \
+  --memory-system zep \
+  --neo4j-uri bolt://127.0.0.1:7688 \
+  --database neo4j \
+  --input memory_bench/data/events/compiled/all.jsonl \
+  --clear
+```
+
+### 4.3 cognee（7689）
+
+```bash
+uv run python memory_bench/scripts/replay_graphiti.py \
+  --backend neo4j \
+  --memory-system cognee \
+  --neo4j-uri bolt://127.0.0.1:7689 \
+  --database neo4j \
+  --input memory_bench/data/events/compiled/all.jsonl \
+  --clear
+```
 
 ---
 
 ## 5. probe 查询图谱
 
-> 前置要求：probe 仅查询已有图谱，不会自动启动 Neo4j；请先完成上面的部署与回放。
-
-### 5.1 单条查询
+### 5.1 mem0（7687）
 
 ```bash
 uv run python memory_bench/scripts/probe_graphiti.py \
   --backend neo4j \
   --memory-system mem0 \
+  --neo4j-uri bolt://127.0.0.1:7687 \
+  --database neo4j \
   --query "她最担心什么" \
   --character-id elaina
 ```
 
-### 5.2 使用 probe 事件文件批量查询
+### 5.2 zep（7688）
 
 ```bash
 uv run python memory_bench/scripts/probe_graphiti.py \
-  --probes-jsonl memory_bench/data/events/compiled/all.jsonl \
-  --output memory_bench/logs/probe_graphiti/probe_results.jsonl
+  --backend neo4j \
+  --memory-system zep \
+  --neo4j-uri bolt://127.0.0.1:7688 \
+  --database neo4j \
+  --query "她最担心什么" \
+  --character-id elaina
+```
+
+### 5.3 cognee（7689）
+
+```bash
+uv run python memory_bench/scripts/probe_graphiti.py \
+  --backend neo4j \
+  --memory-system cognee \
+  --neo4j-uri bolt://127.0.0.1:7689 \
+  --database neo4j \
+  --query "她最担心什么" \
+  --character-id elaina
 ```
 
 ---
 
-## 6. 多后端扩展说明
+## 6. 说明
 
-当前图谱后端仅支持 `neo4j`。
-
-同时可用 `--memory-system mem0|zep|cognee` 隔离图谱存储；默认会映射到独立图数据库（例如 `mem0_graph` / `zep_graph` / `cognee_graph`），也可通过 `--graph-name` 显式覆盖。
-
----
-
-## 7. Neo4j Browser 可视化建议
-
-打开 `http://localhost:7474` 后可执行：
-
-```cypher
-MATCH (n)
-RETURN n
-LIMIT 200
-```
-
-以及更聚焦的查询：
-
-```cypher
-MATCH (c:Character)-[:OWNS_CONVERSATION]->(v:Conversation)<-[:IN_CONVERSATION]-(u:Utterance)
-RETURN c,v,u
-LIMIT 200
-```
-
-```cypher
-MATCH (u:Utterance)-[:MENTIONS_FACT]->(f:CanonFact)
-RETURN u,f
-LIMIT 200
-```
-
-```cypher
-MATCH (u:Utterance)-[:AS_EPISODE]->(e:EpisodicEvent)
-RETURN u,e
-LIMIT 200
-```
-
-以上三组查询可直接体现角色、场景、对话、稳定事实与 episodic 事件关系。
+- 当前图谱后端仅支持 `neo4j`。
+- probe 仅查询已有图谱，不会自动写入事件。
+- `memory_system` 用于标记与过滤；多系统隔离由多实例端口与独立数据目录保障。

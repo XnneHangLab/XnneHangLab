@@ -72,16 +72,13 @@ class Neo4jGraphBackend:
 
     @staticmethod
     def _resolve_database_name(config: GraphBackendConfig) -> str:
-        """Resolve isolated database name for each memory system."""
+        """Resolve database name (graph_name overrides database)."""
 
         if config.graph_name.strip():
             return config.graph_name.strip()
-
-        system = config.memory_system.strip().lower() or "mem0"
-        database = config.database.strip()
-        if database and database not in {"neo4j", ""}:
-            return database
-        return f"{system}_graph"
+        if config.database.strip():
+            return config.database.strip()
+        return "neo4j"
 
     def ensure_schema(self) -> None:
         statements = [
