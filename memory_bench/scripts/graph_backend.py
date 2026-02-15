@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import math
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -24,6 +26,8 @@ class GraphBackendConfig:
     user: str
     password: str
     database: str
+    memory_system: str = "mem0"
+    graph_name: str = ""
 
 
 class GraphReplayBackend(Protocol):
@@ -33,7 +37,7 @@ class GraphReplayBackend(Protocol):
 
     def clear_graph(self) -> None: ...
 
-    def upsert_event(self, event: dict[str, Any], max_turn_by_conv: dict[str, int]) -> tuple[bool, bool]: ...
+    def upsert_event(self, event: dict[str, Any], max_turn_by_conv: dict[str, int]) -> tuple[bool, bool, bool]: ...
 
     def close(self) -> None: ...
 
@@ -62,8 +66,22 @@ class Neo4jGraphBackend:
         except ImportError as exc:
             raise GraphBackendError("neo4j driver is required. Install with: uv sync --group memory_bench") from exc
 
-        self._database = config.database
+        self._memory_system = config.memory_system.strip().lower() or "mem0"
+        self._database = self._resolve_database_name(config=config)
         self._driver = GraphDatabase.driver(config.uri, auth=(config.user, config.password))
+
+    @staticmethod
+    def _resolve_database_name(config: GraphBackendConfig) -> str:
+        """Resolve isolated database name for each memory system."""
+
+        if config.graph_name.strip():
+            return config.graph_name.strip()
+
+        system = config.memory_system.strip().lower() or "mem0"
+        database = config.database.strip()
+        if database and database not in {"neo4j", ""}:
+            return database
+        return f"{system}_graph"
 
     def ensure_schema(self) -> None:
         statements = [
@@ -83,10 +101,17 @@ class Neo4jGraphBackend:
         with self._driver.session(database=self._database) as session:
             session.run("MATCH (n) DETACH DELETE n")
 
-    def upsert_event(self, event: dict[str, Any], max_turn_by_conv: dict[str, int]) -> tuple[bool, bool]:
-        import hashlib
-        import math
+    def event_exists(self, event_id: str) -> bool:
+        """Check if event is already present to avoid duplicated writes."""
 
+        with self._driver.session(database=self._database) as session:
+            result = session.run(
+                "MATCH (u:Utterance {event_id: $event_id}) RETURN u.event_id AS event_id LIMIT 1",
+                {"event_id": event_id},
+            )
+            return result.single() is not None
+
+    def upsert_event(self, event: dict[str, Any], max_turn_by_conv: dict[str, int]) -> tuple[bool, bool, bool]:
         scene_id = str(event.get("scene_id", "")).strip()
         character_id = str(event.get("character_id", "")).strip()
         conv_id = str(event.get("conv_id", "")).strip()
@@ -101,6 +126,12 @@ class Neo4jGraphBackend:
             raise GraphBackendError("event missing required graph keys: scene_id/character_id/conv_id/turn_id")
 
         event_id = f"{scene_id}:{character_id}:{conv_id}:{turn_id}"
+        is_canon = "canon_only" in tags
+        is_episodic = "episodic" in tags
+
+        if self.event_exists(event_id=event_id):
+            return is_canon, is_episodic, False
+
         role_key = f"{role_type}:{role_name or role_type}"
         decay_score = round(math.exp(-0.2 * max(max_turn_by_conv.get(conv_id, turn_id) - turn_id, 0)), 6)
 
@@ -110,7 +141,7 @@ class Neo4jGraphBackend:
                 MERGE (s:Scene {scene_id: $scene_id})
                 MERGE (c:Character {character_id: $character_id})
                 MERGE (v:Conversation {conv_id: $conv_id})
-                SET v.scene_id = $scene_id, v.character_id = $character_id
+                SET v.scene_id = $scene_id, v.character_id = $character_id, v.memory_system = $memory_system
                 MERGE (r:Role {role_key: $role_key})
                 SET r.role_type = $role_type, r.role_name = $role_name
                 MERGE (u:Utterance {event_id: $event_id})
@@ -121,7 +152,8 @@ class Neo4jGraphBackend:
                     u.role_name = $role_name,
                     u.scene_id = $scene_id,
                     u.character_id = $character_id,
-                    u.conv_id = $conv_id
+                    u.conv_id = $conv_id,
+                    u.memory_system = $memory_system
                 MERGE (c)-[:APPEARS_IN]->(s)
                 MERGE (c)-[:OWNS_CONVERSATION]->(v)
                 MERGE (v)-[:IN_SCENE]->(s)
@@ -129,7 +161,7 @@ class Neo4jGraphBackend:
                 MERGE (u)-[:IN_SCENE]->(s)
                 MERGE (r)-[:SPOKE]->(u)
                 WITH u
-                OPTIONAL MATCH (prev:Utterance {conv_id: $conv_id, turn_id: $turn_id - 1})
+                OPTIONAL MATCH (prev:Utterance {conv_id: $conv_id, turn_id: $turn_id - 1, memory_system: $memory_system})
                 FOREACH (_ IN CASE WHEN prev IS NULL THEN [] ELSE [1] END |
                     MERGE (prev)-[:NEXT]->(u)
                 )
@@ -145,15 +177,13 @@ class Neo4jGraphBackend:
                     "turn_id": turn_id,
                     "content": content,
                     "tags": tags,
+                    "memory_system": self._memory_system,
                 },
             )
 
-            is_canon = "canon_only" in tags
-            is_episodic = "episodic" in tags
-
             if is_canon:
                 digest = hashlib.sha1(content.encode("utf-8")).hexdigest()[:16]
-                fact_id = f"{character_id}:{digest}"
+                fact_id = f"{self._memory_system}:{character_id}:{digest}"
                 session.run(
                     """
                     MATCH (c:Character {character_id: $character_id})
@@ -162,7 +192,8 @@ class Neo4jGraphBackend:
                     SET f.character_id = $character_id,
                         f.content = $content,
                         f.conv_id = $conv_id,
-                        f.turn_id = $turn_id
+                        f.turn_id = $turn_id,
+                        f.memory_system = $memory_system
                     MERGE (c)-[:HAS_CANON_FACT]->(f)
                     MERGE (u)-[:MENTIONS_FACT]->(f)
                     """,
@@ -173,10 +204,12 @@ class Neo4jGraphBackend:
                         "content": content,
                         "conv_id": conv_id,
                         "turn_id": turn_id,
+                        "memory_system": self._memory_system,
                     },
                 )
 
             if is_episodic:
+                episode_id = f"{self._memory_system}:{conv_id}:{turn_id}"
                 session.run(
                     """
                     MATCH (v:Conversation {conv_id: $conv_id})
@@ -185,21 +218,23 @@ class Neo4jGraphBackend:
                     SET e.conv_id = $conv_id,
                         e.turn_id = $turn_id,
                         e.decay_score = $decay_score,
-                        e.content = $content
+                        e.content = $content,
+                        e.memory_system = $memory_system
                     MERGE (e)-[:EPISODE_OF]->(v)
                     MERGE (u)-[:AS_EPISODE]->(e)
                     """,
                     {
                         "conv_id": conv_id,
                         "event_id": event_id,
-                        "episode_id": f"{conv_id}:{turn_id}",
+                        "episode_id": episode_id,
                         "turn_id": turn_id,
                         "decay_score": decay_score,
                         "content": content,
+                        "memory_system": self._memory_system,
                     },
                 )
 
-            return is_canon, is_episodic
+            return is_canon, is_episodic, True
 
     def run_probe_query(
         self,
@@ -214,6 +249,7 @@ class Neo4jGraphBackend:
                 """
                 MATCH (u:Utterance)
                 WHERE toLower(u.content) CONTAINS toLower($query)
+                  AND u.memory_system = $memory_system
                   AND ($character_id = '' OR u.character_id = $character_id)
                   AND ($scene_id = '' OR u.scene_id = $scene_id)
                   AND ($conv_id = '' OR u.conv_id = $conv_id)
@@ -239,13 +275,16 @@ class Neo4jGraphBackend:
                     "scene_id": scene_id,
                     "conv_id": conv_id,
                     "limit": limit,
+                    "memory_system": self._memory_system,
                 },
             ).data()
 
             interaction_rows = session.run(
                 """
                 MATCH (r1:Role)-[:SPOKE]->(u1:Utterance)-[:NEXT]->(u2:Utterance)<-[:SPOKE]-(r2:Role)
-                WHERE ($character_id = '' OR u1.character_id = $character_id)
+                WHERE u1.memory_system = $memory_system
+                  AND u2.memory_system = $memory_system
+                  AND ($character_id = '' OR u1.character_id = $character_id)
                   AND ($scene_id = '' OR u1.scene_id = $scene_id)
                   AND ($conv_id = '' OR u1.conv_id = $conv_id)
                 RETURN r1.role_key AS source_role, r2.role_key AS target_role, count(*) AS exchanges
@@ -256,11 +295,13 @@ class Neo4jGraphBackend:
                     "character_id": character_id,
                     "scene_id": scene_id,
                     "conv_id": conv_id,
+                    "memory_system": self._memory_system,
                 },
             ).data()
 
         return {
             "query": query,
+            "memory_system": self._memory_system,
             "scope": {
                 "character_id": character_id,
                 "scene_id": scene_id,

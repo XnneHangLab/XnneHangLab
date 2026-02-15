@@ -134,3 +134,11 @@ LIMIT 50
 - 可把 `CanonFact` 作为长期记忆层；
 - 可把 `EpisodicEvent(decay_score)` 作为短期/情景层；
 - probe 查询可作为 Graphiti 视图过滤条件输入。
+
+
+## 7. 图谱隔离与增量更新
+
+- 通过 `memory_system`（`mem0/zep/cognee`）进行图谱命名空间隔离。
+- 默认数据库映射为 `{memory_system}_graph`，可用 `graph_name` 显式覆盖。
+- 回放写入前会检查 `event_id` 是否已存在，已存在事件只跳过，不重复写入（增量更新模式）。
+- probe 查询只在已有图谱上检索，不会触发事件重写。

@@ -25,6 +25,7 @@ class ReplayGraphError(RuntimeError):
 class ReplayGraphStats:
     total_events: int = 0
     ingested_events: int = 0
+    skipped_existing_events: int = 0
     canon_facts: int = 0
     episodic_nodes: int = 0
 
@@ -55,7 +56,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--neo4j-password", type=str, default=get_env("NEO4J_PASSWORD", "neo4jneo4j"), help="Neo4j password"
     )
-    parser.add_argument("--database", type=str, default=get_env("NEO4J_DATABASE", "neo4j"), help="Database name")
+    parser.add_argument("--database", type=str, default=get_env("NEO4J_DATABASE", "neo4j"), help="Database name (base or explicit)")
+    parser.add_argument(
+        "--memory-system",
+        choices=["mem0", "zep", "cognee"],
+        default=get_env("MEMORY_SYSTEM", "mem0"),
+        help="Memory system namespace for graph isolation",
+    )
+    parser.add_argument(
+        "--graph-name",
+        type=str,
+        default=get_env("GRAPH_NAME", ""),
+        help="Optional explicit graph/database name override",
+    )
     parser.add_argument("--skip-role", type=str, default="ui,tool", help="Comma separated role_type values to skip")
     parser.add_argument("--skip-tags", type=str, default="filler", help="Comma separated tags to skip")
     parser.add_argument("--only-tags", type=str, default="", help="Optional allow-list tags")
@@ -143,6 +156,8 @@ def main() -> int:
             user=args.neo4j_user,
             password=args.neo4j_password,
             database=args.database,
+            memory_system=args.memory_system,
+            graph_name=args.graph_name,
         )
     )
     try:
@@ -155,7 +170,10 @@ def main() -> int:
             stats.total_events += 1
             if not should_ingest(event, skip_roles, skip_tags, only_tags):
                 continue
-            is_canon, is_episodic = backend.upsert_event(event=event, max_turn_by_conv=max_turn_by_conv)
+            is_canon, is_episodic, inserted = backend.upsert_event(event=event, max_turn_by_conv=max_turn_by_conv)
+            if not inserted:
+                stats.skipped_existing_events += 1
+                continue
             stats.ingested_events += 1
             if is_canon:
                 stats.canon_facts += 1
@@ -167,8 +185,16 @@ def main() -> int:
         backend.close()
 
     logger.bind(group="memory").info(
-        "replay graph done: backend=%s total=%s ingested=%s canon=%s episodic=%s"
-        % (args.backend, stats.total_events, stats.ingested_events, stats.canon_facts, stats.episodic_nodes)
+        "replay graph done: backend=%s memory_system=%s total=%s ingested=%s skipped_existing=%s canon=%s episodic=%s"
+        % (
+            args.backend,
+            args.memory_system,
+            stats.total_events,
+            stats.ingested_events,
+            stats.skipped_existing_events,
+            stats.canon_facts,
+            stats.episodic_nodes,
+        )
     )
     return 0
 

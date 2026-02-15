@@ -218,7 +218,7 @@ uv run python memory_bench/scripts/replay_mem0.py --isolation per_chapter
 常用运行方式：
 
 ```bash
-uv run python memory_bench/scripts/replay_graphiti.py --backend neo4j --input memory_bench/data/events/compiled/all.jsonl --clear
+uv run python memory_bench/scripts/replay_graphiti.py --backend neo4j --memory-system mem0 --input memory_bench/data/events/compiled/all.jsonl --clear
 ```
 
 ### 7) 图谱 probe：`probe_graphiti.py`
@@ -235,7 +235,7 @@ uv run python memory_bench/scripts/replay_graphiti.py --backend neo4j --input me
 常用运行方式：
 
 ```bash
-uv run python memory_bench/scripts/probe_graphiti.py --backend neo4j --query "她最近担心什么" --character-id elaina
+uv run python memory_bench/scripts/probe_graphiti.py --backend neo4j --memory-system mem0 --query "她最近担心什么" --character-id elaina
 ```
 
 ## `index.json` 格式（供 annotate_all.py 消费）

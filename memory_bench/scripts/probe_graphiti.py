@@ -44,7 +44,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--neo4j-password", type=str, default=get_env("NEO4J_PASSWORD", "neo4jneo4j"), help="Neo4j password"
     )
-    parser.add_argument("--database", type=str, default=get_env("NEO4J_DATABASE", "neo4j"), help="Database name")
+    parser.add_argument("--database", type=str, default=get_env("NEO4J_DATABASE", "neo4j"), help="Database name (base or explicit)")
+    parser.add_argument(
+        "--memory-system",
+        choices=["mem0", "zep", "cognee"],
+        default=get_env("MEMORY_SYSTEM", "mem0"),
+        help="Memory system namespace for graph isolation",
+    )
+    parser.add_argument(
+        "--graph-name",
+        type=str,
+        default=get_env("GRAPH_NAME", ""),
+        help="Optional explicit graph/database name override",
+    )
     parser.add_argument("--output", type=str, default="", help="Optional JSONL output file")
     return parser.parse_args()
 
@@ -92,6 +104,8 @@ def main() -> int:
             user=args.neo4j_user,
             password=args.neo4j_password,
             database=args.database,
+            memory_system=args.memory_system,
+            graph_name=args.graph_name,
         )
     )
 
@@ -137,7 +151,9 @@ def main() -> int:
                 f.write(json.dumps(record, ensure_ascii=False) + "\n")
         logger.bind(group="memory").info(f"probe result written to {output_path}")
 
-    logger.bind(group="memory").info(f"probe done: backend={args.backend} query_runs={len(results)}")
+    logger.bind(group="memory").info(
+        f"probe done: backend={args.backend} memory_system={args.memory_system} query_runs={len(results)}"
+    )
     return 0
 
 
