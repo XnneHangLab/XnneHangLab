@@ -35,9 +35,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--probes-jsonl", type=str, default="", help="Optional probe events JSONL path")
     parser.add_argument(
         "--backend",
-        choices=["neo4j", "cognee", "zep"],
+        choices=["neo4j"],
         default=get_env("GRAPH_BACKEND", "neo4j"),
-        help="Graph query backend",
+        help="Graph query backend (Neo4j only)",
     )
     parser.add_argument("--neo4j-uri", type=str, default=get_env("NEO4J_URI", "bolt://localhost:7687"), help="Neo4j Bolt URI")
     parser.add_argument("--neo4j-user", type=str, default=get_env("NEO4J_USER", "neo4j"), help="Neo4j username")

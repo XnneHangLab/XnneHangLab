@@ -213,7 +213,7 @@ uv run python memory_bench/scripts/replay_mem0.py --isolation per_chapter
 4. 将 `episodic` 写为 `EpisodicEvent` 节点（含 `decay_score`）；
 5. 建立 `NEXT` 回合链与角色互动关系，便于 Browser/Graphiti 可视化。
 
-后端通过 `--backend` 选择，当前已实现 `neo4j`，并预留 `cognee/zep` 扩展位。
+后端通过 `--backend neo4j` 固定使用 Neo4j。
 
 常用运行方式：
 

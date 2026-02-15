@@ -126,12 +126,11 @@ class Neo4jGraphBackend:
             raise GraphBackendError("event missing required graph keys: scene_id/character_id/conv_id/turn_id")
 
         event_id = f"{scene_id}:{character_id}:{conv_id}:{turn_id}"
+        if self.event_exists(event_id=event_id):
+            return False, False, False
+
         is_canon = "canon_only" in tags
         is_episodic = "episodic" in tags
-
-        if self.event_exists(event_id=event_id):
-            return is_canon, is_episodic, False
-
         role_key = f"{role_type}:{role_name or role_type}"
         decay_score = round(math.exp(-0.2 * max(max_turn_by_conv.get(conv_id, turn_id) - turn_id, 0)), 6)
 
@@ -253,19 +252,13 @@ class Neo4jGraphBackend:
                   AND ($character_id = '' OR u.character_id = $character_id)
                   AND ($scene_id = '' OR u.scene_id = $scene_id)
                   AND ($conv_id = '' OR u.conv_id = $conv_id)
-                OPTIONAL MATCH (r:Role)-[:SPOKE]->(u)
-                OPTIONAL MATCH (u)-[:MENTIONS_FACT]->(f:CanonFact)
-                OPTIONAL MATCH (u)-[:AS_EPISODE]->(e:EpisodicEvent)
                 RETURN u.event_id AS event_id,
                        u.content AS content,
                        u.turn_id AS turn_id,
                        u.role_type AS role_type,
                        u.role_name AS role_name,
                        u.conv_id AS conv_id,
-                       u.scene_id AS scene_id,
-                       collect(DISTINCT r.role_key) AS roles,
-                       collect(DISTINCT f.fact_id) AS canon_facts,
-                       collect(DISTINCT e.episode_id) AS episodes
+                       u.scene_id AS scene_id
                 ORDER BY u.turn_id ASC
                 LIMIT $limit
                 """,
@@ -279,37 +272,11 @@ class Neo4jGraphBackend:
                 },
             ).data()
 
-            interaction_rows = session.run(
-                """
-                MATCH (r1:Role)-[:SPOKE]->(u1:Utterance)-[:NEXT]->(u2:Utterance)<-[:SPOKE]-(r2:Role)
-                WHERE u1.memory_system = $memory_system
-                  AND u2.memory_system = $memory_system
-                  AND ($character_id = '' OR u1.character_id = $character_id)
-                  AND ($scene_id = '' OR u1.scene_id = $scene_id)
-                  AND ($conv_id = '' OR u1.conv_id = $conv_id)
-                RETURN r1.role_key AS source_role, r2.role_key AS target_role, count(*) AS exchanges
-                ORDER BY exchanges DESC
-                LIMIT 20
-                """,
-                {
-                    "character_id": character_id,
-                    "scene_id": scene_id,
-                    "conv_id": conv_id,
-                    "memory_system": self._memory_system,
-                },
-            ).data()
-
         return {
             "query": query,
             "memory_system": self._memory_system,
-            "scope": {
-                "character_id": character_id,
-                "scene_id": scene_id,
-                "conv_id": conv_id,
-            },
             "hits_count": len(hit_rows),
             "hits": hit_rows,
-            "interactions": interaction_rows,
         }
 
     def close(self) -> None:
@@ -322,8 +289,4 @@ def create_graph_backend(config: GraphBackendConfig) -> Neo4jGraphBackend:
     backend = config.backend.strip().lower()
     if backend == "neo4j":
         return Neo4jGraphBackend(config)
-    if backend in {"cognee", "zep"}:
-        raise UnsupportedGraphBackendError(
-            f"backend '{backend}' is reserved but not implemented yet; please use --backend neo4j for now"
-        )
-    raise UnsupportedGraphBackendError(f"unsupported backend '{backend}'")
+    raise UnsupportedGraphBackendError(f"Unsupported backend '{backend}'")

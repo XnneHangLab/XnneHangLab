@@ -3,13 +3,13 @@
 本文定义 `memory_bench/scripts/replay_graphiti.py` 写入 Neo4j 时采用的图谱模型，用于把 Mem0 replay 事件转为可视化图结构。
 
 
-## 0. 后端接口预留
+## 0. 后端接口说明（Neo4j）
 
-为后续接入 `cognee` / `zep`，脚本侧引入了统一后端工厂与协议：
+脚本侧引入统一后端工厂与协议，当前只启用 Neo4j：
 
 - `GraphReplayBackend`：`ensure_schema/clear_graph/upsert_event`
 - `GraphProbeBackend`：`run_probe_query`
-- `create_graph_backend(...)`：按 `--backend` 选择实现（当前落地 `neo4j`，`cognee/zep` 已预留保留位）
+- `create_graph_backend(...)`：当前图谱后端固定为 `neo4j`（不再提供 cognee/zep 后端实现）
 
 因此上层 CLI（`replay_graphiti.py` / `probe_graphiti.py`）无需改业务参数即可切换后端实现。
 

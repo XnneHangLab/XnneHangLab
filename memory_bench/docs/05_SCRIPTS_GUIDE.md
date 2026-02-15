@@ -342,7 +342,7 @@ uv run python memory_bench/scripts/replay_graphiti.py \
 > 说明：`replay_graphiti.py` 内置 event 去重检查（基于 `event_id`），同一事件重复回放会计为 `skipped_existing`，用于增量更新而不是全量重复写入。
 
 
-- `--backend neo4j|cognee|zep`（当前仅 neo4j 已实现）
+- `--backend neo4j`（当前仅支持 neo4j）
 - `--memory-system mem0|zep|cognee`（按记忆系统隔离图谱）
 - `--graph-name`（可选，显式指定图数据库/图名）
 - `--neo4j-uri` / `--neo4j-user` / `--neo4j-password` / `--database`

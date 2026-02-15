@@ -93,7 +93,7 @@ uv run python memory_bench/scripts/probe_graphiti.py \
 
 ## 6. 多后端扩展说明
 
-当前可用后端为 `neo4j`。CLI 中 `--backend` 已预留 `cognee/zep` 选项，后续新增实现时无需变更调用协议。
+当前图谱后端仅支持 `neo4j`。
 
 同时可用 `--memory-system mem0|zep|cognee` 隔离图谱存储；默认会映射到独立图数据库（例如 `mem0_graph` / `zep_graph` / `cognee_graph`），也可通过 `--graph-name` 显式覆盖。
 
