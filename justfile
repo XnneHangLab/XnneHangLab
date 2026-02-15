@@ -196,3 +196,8 @@ repply-graph-cognee:
     --database neo4j \
     --input memory_bench/data/events/compiled/all.jsonl
 
+
+# 如果端口占用可以尝试调用
+clean-and-restart-neo4j:
+  docker compose -f memory_bench/docker-compose.neo4j.yml down --remove-orphans
+  docker compose -f memory_bench/docker-compose.neo4j.yml up -d
