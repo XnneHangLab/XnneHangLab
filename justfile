@@ -175,5 +175,3 @@ reply-graph:
     --memory-system mem0 \
     --input memory_bench/data/events/compiled/all.jsonl
 
-replay-graph:
-  just reply-graph
