@@ -329,6 +329,8 @@ uv run python memory_bench/scripts/replay_mem0.py
 
 ### 7.2 常用调用
 
+> 注意：执行本节与下一节前，请先完成 Neo4j 本地部署。可参考 `memory_bench/docs/51_NEO4J_LOCAL_SETUP.md`。
+
 ```bash
 uv run python memory_bench/scripts/replay_graphiti.py \
   --backend neo4j \

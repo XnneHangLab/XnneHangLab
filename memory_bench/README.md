@@ -203,6 +203,8 @@ uv run python memory_bench/scripts/replay_mem0.py --isolation per_chapter
 
 ### 6) 图谱回放：`replay_graphiti.py`
 
+运行前请先完成 Neo4j 本地部署（见 `memory_bench/docs/51_NEO4J_LOCAL_SETUP.md`）。
+
 脚本：`memory_bench/scripts/replay_graphiti.py`
 
 功能：

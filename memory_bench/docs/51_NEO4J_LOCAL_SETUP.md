@@ -35,6 +35,37 @@ docker run --name membench-neo4j \
   -d neo4j:5
 ```
 
+
+### 2.3 方式 C：Docker Compose（推荐）
+
+如果你更习惯 `docker compose`，可参考：
+
+- https://calpa.me/blog/how-to-create-neo4j-database-using-docker-and-docker-compose/
+
+一个最小可用的 `docker-compose.yml` 示例：
+
+```yaml
+services:
+  neo4j:
+    image: neo4j:5
+    container_name: membench-neo4j
+    restart: unless-stopped
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      - NEO4J_AUTH=neo4j/neo4jneo4j
+    volumes:
+      - ./neo4j/data:/data
+      - ./neo4j/logs:/logs
+```
+
+启动：
+
+```bash
+docker compose up -d
+```
+
 ---
 
 ## 3. 环境变量配置
@@ -51,6 +82,8 @@ export NEO4J_DATABASE=neo4j
 ---
 
 ## 4. 回放写入图谱
+
+> 前置要求：请先确保 Neo4j 实例可访问（Bolt `7687` / Browser `7474`）。
 
 ```bash
 uv run python memory_bench/scripts/replay_graphiti.py \
@@ -70,6 +103,8 @@ uv run python memory_bench/scripts/replay_graphiti.py \
 ---
 
 ## 5. probe 查询图谱
+
+> 前置要求：probe 仅查询已有图谱，不会自动启动 Neo4j；请先完成上面的部署与回放。
 
 ### 5.1 单条查询
 
