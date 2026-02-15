@@ -427,3 +427,72 @@ uv run python memory_bench/scripts/replay_mem0.py
   - 退出码与失败排查
 
 这样可以避免“脚本变长后，大家不知道怎么用”的问题。
+
+---
+
+## 6. `replay_graphiti.py`
+
+### 6.1 作用
+
+将 `memory_bench` 事件流写入 Neo4j 图数据库，落地为可视化图结构（Graphiti-ready）：
+
+- 核心节点：`Scene/Character/Conversation/Role/Utterance`
+- 记忆节点：`CanonFact`（`canon_only`）、`EpisodicEvent`（`episodic`）
+- 核心关系：`SPOKE/IN_SCENE/IN_CONVERSATION/NEXT/HAS_CANON_FACT/AS_EPISODE` 等
+
+### 6.2 常用调用
+
+```bash
+uv run python memory_bench/scripts/replay_graphiti.py \
+  --input memory_bench/data/events/compiled/all.jsonl \
+  --clear
+```
+
+### 6.3 常用参数
+
+- `--neo4j-uri` / `--neo4j-user` / `--neo4j-password` / `--database`
+- `--skip-role ui,tool`
+- `--skip-tags filler`
+- `--only-tags canon_only,episodic,probe`
+- `--dry-run`（仅做转换统计，不连接 Neo4j）
+
+### 6.4 输出行为
+
+- 成功：日志输出 `total/ingested/canon/episodic` 统计；
+- 失败：抛出输入数据缺失、Neo4j 连接失败或驱动缺失等错误。
+
+---
+
+## 7. `probe_graphiti.py`
+
+### 7.1 作用
+
+对 Neo4j 图谱执行 probe 查询，输出结构化 JSON 结果，包含：
+
+- 事件命中（`Utterance`）；
+- 关联稳定事实（`CanonFact`）和 episodic 节点（`EpisodicEvent`）；
+- 角色互动统计（`Role -> Role`）。
+
+### 7.2 常用调用
+
+单条查询：
+
+```bash
+uv run python memory_bench/scripts/probe_graphiti.py \
+  --query "她最近在担心什么" \
+  --character-id elaina
+```
+
+批量 probe：
+
+```bash
+uv run python memory_bench/scripts/probe_graphiti.py \
+  --probes-jsonl memory_bench/data/events/compiled/all.jsonl \
+  --output memory_bench/logs/probe_graphiti/probe_results.jsonl
+```
+
+### 7.3 返回行为
+
+- 标准输出：每个 query 一条 JSON；
+- 可选 `--output`：写入 JSONL 文件；
+- 参数校验：必须提供 `--query` 或 `--probes-jsonl` 至少一个。

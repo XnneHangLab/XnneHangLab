@@ -22,6 +22,10 @@
    - 评测 patch 生成提示词（inject/probe/filler）。
 9. `40_ANCHORS_AND_TEMPLATES.md`
    - Event JSONL schema、锚点规范、命名规则。
+10. `50_GRAPHITI_NEO4J_DESIGN.md`
+   - Mem0 事件到 Neo4j/Graphiti 图结构设计。
+11. `51_NEO4J_LOCAL_SETUP.md`
+   - Neo4j 本地部署、脚本接入与 Browser 查询示例。
 
 ## 推荐阅读顺序
 
@@ -32,6 +36,8 @@
 - 第四步：`20_ANNOTATOR_PROMPT.md`
 - 第五步：`40_ANCHORS_AND_TEMPLATES.md`
 - 第六步：`30_GENERATOR_PROMPT.md`
+- 第七步：`50_GRAPHITI_NEO4J_DESIGN.md`
+- 第八步：`51_NEO4J_LOCAL_SETUP.md`
 
 ## 职责分工（Docs Responsibilities）
 

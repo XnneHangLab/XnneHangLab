@@ -21,7 +21,9 @@ memory_bench/
 │  ├─ bench_logger.py
 │  ├─ build_index.py
 │  ├─ compile_events.py
-│  └─ replay_mem0.py
+│  ├─ replay_mem0.py
+│  ├─ replay_graphiti.py
+│  └─ probe_graphiti.py
 ├─ docs/
 │  ├─ 00_DOC_MAP.md
 │  ├─ 05_SCRIPTS_GUIDE.md
@@ -30,7 +32,9 @@ memory_bench/
 │  ├─ 21_SCENE_CANON.md
 │  ├─ 22_PERSONA_CANON.md
 │  ├─ 30_GENERATOR_PROMPT.md
-│  └─ 40_ANCHORS_AND_TEMPLATES.md
+│  ├─ 40_ANCHORS_AND_TEMPLATES.md
+│  ├─ 50_GRAPHITI_NEO4J_DESIGN.md
+│  └─ 51_NEO4J_LOCAL_SETUP.md
 └─ data/
    ├─ events/                 # 运行 annotate_all.py 后生成
    │  ├─ by_chapter/
@@ -196,6 +200,41 @@ uv run python memory_bench/scripts/replay_mem0.py --isolation per_chapter
 ### 5) 统一日志模块：`bench_logger.py`
 
 `memory_bench/scripts/bench_logger.py` 为内部复用模块，提供统一日志格式（含 group 与 level），被 `build_index.py`、`annotate_all.py` 调用，不作为独立 CLI 使用。
+
+### 6) 图谱回放：`replay_graphiti.py`
+
+脚本：`memory_bench/scripts/replay_graphiti.py`
+
+功能：
+
+1. 将事件流写入 Neo4j 图谱；
+2. 创建 `Scene / Character / Conversation / Role / Utterance` 核心节点；
+3. 将 `canon_only` 写为 `CanonFact` 节点；
+4. 将 `episodic` 写为 `EpisodicEvent` 节点（含 `decay_score`）；
+5. 建立 `NEXT` 回合链与角色互动关系，便于 Browser/Graphiti 可视化。
+
+常用运行方式：
+
+```bash
+uv run python memory_bench/scripts/replay_graphiti.py --input memory_bench/data/events/compiled/all.jsonl --clear
+```
+
+### 7) 图谱 probe：`probe_graphiti.py`
+
+脚本：`memory_bench/scripts/probe_graphiti.py`
+
+功能：
+
+1. 按 probe 文本检索 `Utterance` 内容；
+2. 返回命中的 `CanonFact` / `EpisodicEvent` 关联；
+3. 汇总 `Role -> Role` 的互动统计；
+4. 支持单条查询和 probe JSONL 批量查询。
+
+常用运行方式：
+
+```bash
+uv run python memory_bench/scripts/probe_graphiti.py --query "她最近担心什么" --character-id elaina
+```
 
 ## `index.json` 格式（供 annotate_all.py 消费）
 
