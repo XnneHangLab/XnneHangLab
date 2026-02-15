@@ -167,3 +167,10 @@ ci-fmt-check:
 
 ci-lint:
   just lint
+
+# memory bench
+
+clean-and-restart-neo4j:
+  # 如果端口占用可以尝试调用
+  docker compose -f memory_bench/docker-compose.neo4j.yml down --remove-orphans
+  docker compose -f memory_bench/docker-compose.neo4j.yml up -d
