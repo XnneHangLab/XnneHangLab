@@ -139,7 +139,10 @@ def parse_args() -> argparse.Namespace:
         argparse.Namespace: 解析后的参数对象。
     """
 
-    parser = argparse.ArgumentParser(description="Replay benchmark events against Mem0")
+    parser = argparse.ArgumentParser(
+        description="Replay benchmark events against Mem0",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     parser.add_argument(
         "--input",
         type=str,
@@ -185,7 +188,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--batch-size",
         type=int,
-        default=16,
+        default=1,
         help="Batch size for Memory.add writes",
     )
     parser.add_argument(
