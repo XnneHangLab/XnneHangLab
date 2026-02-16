@@ -201,9 +201,10 @@ uv run python memory_bench/scripts/replay_mem0.py export
 
 - `BENCHMARK_OPENAI_API_KEY`（或 `OPENAI_API_KEY`）
 - `BENCHMARK_OPENAI_BASE_URL`（或 `OPENAI_BASE_URL` / `OPENAI_API_BASE`）
-- `BENCHMARK_OPENAI_MODEL`（可选，回退 `OPENAI_MODEL`）
+- `BENCHMARK_OPENAI_MODEL`（推荐显式设置；回退 `OPENAI_MODEL`）
+- `BENCHMARK_OPENAI_EMBEDDING_MODEL`（推荐显式设置；回退 `OPENAI_EMBEDDING_MODEL`）
 
-脚本会先尝试加载 `memory_bench/.env.benchmark`，并将上述值传递给 Mem0 初始化。
+脚本会先尝试加载 `memory_bench/.env.benchmark`，并将上述值显式写入 Mem0 的 `llm/embedder/vector_store` 配置，避免兼容 API 下模型默认值不匹配。
 
 ### 5) 统一日志模块：`bench_logger.py`
 

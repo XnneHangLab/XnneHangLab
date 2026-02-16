@@ -60,12 +60,17 @@ def get_env(name: str, default: str | None = None) -> str | None:
     return value if value not in (None, "") else default
 
 
-def prepare_mem0_env() -> tuple[str | None, str | None, str | None]:
+def prepare_mem0_env() -> tuple[str | None, str | None, str | None, str | None]:
     """从 bench/openai 环境变量准备 Mem0 所需配置。"""
 
     api_key = get_env("BENCHMARK_OPENAI_API_KEY") or get_env("OPENAI_API_KEY")
     base_url = get_env("BENCHMARK_OPENAI_BASE_URL") or get_env("OPENAI_BASE_URL") or get_env("OPENAI_API_BASE")
     model_name = get_env("BENCHMARK_OPENAI_MODEL") or get_env("OPENAI_MODEL")
+    embedding_model = (
+        get_env("BENCHMARK_OPENAI_EMBEDDING_MODEL")
+        or get_env("OPENAI_EMBEDDING_MODEL")
+        or get_env("OPENAI_EMBED_MODEL")
+    )
 
     if api_key:
         os.environ.setdefault("OPENAI_API_KEY", api_key)
@@ -74,8 +79,10 @@ def prepare_mem0_env() -> tuple[str | None, str | None, str | None]:
         os.environ.setdefault("OPENAI_API_BASE", base_url)
     if model_name:
         os.environ.setdefault("OPENAI_MODEL", model_name)
+    if embedding_model:
+        os.environ.setdefault("OPENAI_EMBEDDING_MODEL", embedding_model)
 
-    return api_key, base_url, model_name
+    return api_key, base_url, model_name, embedding_model
 
 
 def redact_base_url(base_url: str | None) -> str:
@@ -469,23 +476,56 @@ def save_checkpoint(path: Path, payload: dict[str, Any]) -> None:
     os.replace(tmp_path, path)
 
 
-def build_mem0_config(state_dir: Path, isolation: str) -> dict[str, Any]:
-    """构建持久化 Mem0 配置。"""
+def build_mem0_config(
+    state_dir: Path,
+    isolation: str,
+    api_key: str,
+    llm_model: str,
+    embedding_model: str,
+    base_url: str | None,
+) -> dict[str, Any]:
+    """构建持久化 Mem0 配置（vector_store + llm + embedder）。"""
 
     qdrant_path = state_dir / "qdrant_storage"
     qdrant_path.mkdir(parents=True, exist_ok=True)
+
+    openai_common: dict[str, Any] = {"api_key": api_key}
+    if base_url:
+        openai_common["openai_base_url"] = base_url
+
     return {
+        "llm": {
+            "provider": "openai",
+            "config": {
+                **openai_common,
+                "model": llm_model,
+            },
+        },
+        "embedder": {
+            "provider": "openai",
+            "config": {
+                **openai_common,
+                "model": embedding_model,
+            },
+        },
         "vector_store": {
             "provider": "qdrant",
             "config": {
                 "collection_name": f"memory_bench_{isolation}",
                 "path": str(qdrant_path),
             },
-        }
+        },
     }
 
 
-def init_memory(state_dir: Path, isolation: str) -> Any:
+def init_memory(
+    state_dir: Path,
+    isolation: str,
+    api_key: str,
+    llm_model: str,
+    embedding_model: str,
+    base_url: str | None,
+) -> Any:
     """初始化 Mem0 客户端并绑定本地持久化向量存储。"""
 
     try:
@@ -495,7 +535,14 @@ def init_memory(state_dir: Path, isolation: str) -> Any:
             "mem0 is not installed. Install dependency group `memory_bench` first, e.g. `uv sync --group memory_bench`."
         ) from exc
 
-    config = build_mem0_config(state_dir=state_dir, isolation=isolation)
+    config = build_mem0_config(
+        state_dir=state_dir,
+        isolation=isolation,
+        api_key=api_key,
+        llm_model=llm_model,
+        embedding_model=embedding_model,
+        base_url=base_url,
+    )
     try:
         return Memory.from_config(config)
     except Exception as exc:
@@ -773,10 +820,13 @@ def main() -> int:
     args = parse_args()
     repo_root = Path(__file__).resolve().parents[2]
     load_benchmark_dotenv(repo_root)
-    api_key, base_url, model_name = prepare_mem0_env()
+    api_key, base_url, model_name, embedding_model = prepare_mem0_env()
 
     if not api_key:
         raise ReplayMem0Error("OPENAI_API_KEY is required for Mem0. Set BENCHMARK_OPENAI_API_KEY or OPENAI_API_KEY.")
+
+    llm_model = model_name or "gpt-4o-mini"
+    embed_model = embedding_model or "text-embedding-3-small"
 
     input_path = Path(args.input)
     if not input_path.exists():
@@ -784,10 +834,18 @@ def main() -> int:
 
     state_dir = Path(getattr(args, "state_dir", str(DEFAULT_STATE_DIR)))
     logger.bind(group="memory").info(
-        f"Mem0/OpenAI env: model={model_name or '<default>'}, base_url={redact_base_url(base_url)}, state_dir={state_dir}"
+        f"Mem0/OpenAI env: llm_model={llm_model}, embedding_model={embed_model}, "
+        f"base_url={redact_base_url(base_url)}, state_dir={state_dir}"
     )
 
-    memory = init_memory(state_dir=state_dir, isolation=args.isolation)
+    memory = init_memory(
+        state_dir=state_dir,
+        isolation=args.isolation,
+        api_key=api_key,
+        llm_model=llm_model,
+        embedding_model=embed_model,
+        base_url=base_url,
+    )
     if args.command == "ingest":
         return run_ingest(args, memory, input_path)
     if args.command == "probe":

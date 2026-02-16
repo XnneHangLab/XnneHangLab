@@ -325,7 +325,10 @@ uv run python memory_bench/scripts/replay_mem0.py -h
 
 - `BENCHMARK_OPENAI_API_KEY`（必需，或回退 `OPENAI_API_KEY`）
 - `BENCHMARK_OPENAI_BASE_URL`（可选，回退 `OPENAI_BASE_URL` / `OPENAI_API_BASE`）
-- `BENCHMARK_OPENAI_MODEL`（可选，回退 `OPENAI_MODEL`）
+- `BENCHMARK_OPENAI_MODEL`（推荐显式设置；回退 `OPENAI_MODEL`）
+- `BENCHMARK_OPENAI_EMBEDDING_MODEL`（推荐显式设置；回退 `OPENAI_EMBEDDING_MODEL`）
+
+Mem0 默认将 llm/embedder 显式注入配置（默认回退 `gpt-4o-mini` 与 `text-embedding-3-small`），以兼容 OpenAI-compatible API。
 
 ### 6.3 运行示例
 
