@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""回放 memory bench 事件到 Mem0 并记录 probe 检索日志。"""
+"""将 memory bench 的 Mem0 回放流程拆分为 ingest/probe/export 三阶段。"""
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -24,14 +25,7 @@ class ReplayMem0Error(RuntimeError):
 
 @dataclass(slots=True)
 class ReplayStats:
-    """记录 replay 执行统计信息。
-
-    Attributes:
-        total_events: 总事件数。
-        ingested_events: 成功写入 Mem0 的事件数。
-        skipped_events: 被过滤或跳过的事件数。
-        probe_events: 触发 probe 检索的事件数。
-    """
+    """记录 ingest/probe 执行统计信息。"""
 
     total_events: int = 0
     ingested_events: int = 0
@@ -39,15 +33,13 @@ class ReplayStats:
     probe_events: int = 0
 
 
+DEFAULT_INPUT = "memory_bench/data/events/compiled/all.jsonl"
+DEFAULT_STATE_DIR = Path("memory_bench/state")
+DEFAULT_LOG_DIR = Path("memory_bench/logs/replay_mem0")
+
+
 def load_benchmark_dotenv(repo_root: Path) -> None:
-    """加载 bench 专用 dotenv 文件。
-
-    Args:
-        repo_root: 仓库根目录路径。
-
-    Returns:
-        None。
-    """
+    """加载 bench 专用 dotenv 文件。"""
 
     dotenv_path = repo_root / "memory_bench" / ".env.benchmark"
     if not dotenv_path.exists():
@@ -62,29 +54,14 @@ def load_benchmark_dotenv(repo_root: Path) -> None:
 
 
 def get_env(name: str, default: str | None = None) -> str | None:
-    """读取环境变量并处理空字符串。
-
-    Args:
-        name: 环境变量名。
-        default: 变量不存在或为空时的默认值。
-
-    Returns:
-        str | None: 读取到的值或默认值。
-    """
+    """读取环境变量并处理空字符串。"""
 
     value = os.environ.get(name)
     return value if value not in (None, "") else default
 
 
 def prepare_mem0_env() -> tuple[str | None, str | None, str | None]:
-    """从 bench/openai 环境变量准备 Mem0 所需配置。
-
-    Args:
-        无。
-
-    Returns:
-        tuple[str | None, str | None, str | None]: `(api_key, base_url, model_name)`。
-    """
+    """从 bench/openai 环境变量准备 Mem0 所需配置。"""
 
     api_key = get_env("BENCHMARK_OPENAI_API_KEY") or get_env("OPENAI_API_KEY")
     base_url = get_env("BENCHMARK_OPENAI_BASE_URL") or get_env("OPENAI_BASE_URL") or get_env("OPENAI_API_BASE")
@@ -102,14 +79,7 @@ def prepare_mem0_env() -> tuple[str | None, str | None, str | None]:
 
 
 def redact_base_url(base_url: str | None) -> str:
-    """规整 base_url 以便日志输出。
-
-    Args:
-        base_url: 原始 base_url。
-
-    Returns:
-        str: 可读的 base_url 文本；未设置时返回 `<default>`。
-    """
+    """规整 base_url 以便日志输出。"""
 
     if not base_url:
         return "<default>"
@@ -117,43 +87,19 @@ def redact_base_url(base_url: str | None) -> str:
 
 
 def parse_csv_arg(raw: str) -> set[str]:
-    """将逗号分隔字符串解析为去重后的集合。
-
-    Args:
-        raw: 原始逗号分隔字符串。
-
-    Returns:
-        set[str]: 去除空白项后的字符串集合。
-    """
+    """将逗号分隔字符串解析为去重后的集合。"""
 
     return {part.strip() for part in raw.split(",") if part.strip()}
 
 
-def parse_args() -> argparse.Namespace:
-    """解析命令行参数。
+def add_common_input_args(parser: argparse.ArgumentParser) -> None:
+    """为子命令添加输入与隔离参数。"""
 
-    Args:
-        无。
-
-    Returns:
-        argparse.Namespace: 解析后的参数对象。
-    """
-
-    parser = argparse.ArgumentParser(
-        description="Replay benchmark events against Mem0",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
     parser.add_argument(
         "--input",
         type=str,
-        default="memory_bench/data/events/compiled/all.jsonl",
+        default=DEFAULT_INPUT,
         help="Input event JSONL, e.g. compiled/all.jsonl or by_chapter/chXX.jsonl",
-    )
-    parser.add_argument(
-        "--output",
-        type=str,
-        default="",
-        help="Optional output log JSONL path. Defaults to logs/replay_mem0/run_YYYYMMDD_HHMMSS.jsonl",
     )
     parser.add_argument(
         "--isolation",
@@ -161,53 +107,96 @@ def parse_args() -> argparse.Namespace:
         default="global",
         help="Mem0 user isolation mode",
     )
-    parser.add_argument("--k", type=int, default=5, help="Top-k for probe retrieval")
-    parser.add_argument(
+
+
+def parse_args() -> argparse.Namespace:
+    """解析命令行参数。"""
+
+    parser = argparse.ArgumentParser(
+        description="Replay benchmark events against Mem0 (ingest/probe/export)",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    ingest = subparsers.add_parser("ingest", help="Ingest non-probe events into Mem0")
+    add_common_input_args(ingest)
+    ingest.add_argument(
         "--skip-role",
         type=str,
         default="ui,tool",
         help="Comma separated role_type values to skip",
     )
-    parser.add_argument(
+    ingest.add_argument(
         "--skip-tags",
         type=str,
         default="filler",
         help="Comma separated tags. If event has any, skip ingest",
     )
-    parser.add_argument(
+    ingest.add_argument(
         "--only-tags",
         type=str,
         default="",
         help="Optional allow-list tags. If set, events must include at least one listed tag to ingest",
     )
-    parser.add_argument(
+    ingest.add_argument(
         "--write-probes",
         action="store_true",
         help="Write probe events into Mem0 (default: false)",
     )
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=1,
-        help="Batch size for Memory.add writes",
-    )
-    parser.add_argument(
+    ingest.add_argument("--batch-size", type=int, default=1, help="Batch size for Memory.add writes")
+    ingest.add_argument(
         "--store-raw",
         action="store_true",
         help="Store raw messages by setting infer=False when supported",
     )
+    ingest.add_argument(
+        "--checkpoint-interval",
+        type=int,
+        default=50,
+        help="Persist checkpoint every N successfully ingested events",
+    )
+    ingest.add_argument(
+        "--state-dir",
+        type=str,
+        default=str(DEFAULT_STATE_DIR),
+        help="Directory for ingest checkpoint files",
+    )
+    ingest.add_argument(
+        "--force",
+        action="store_true",
+        help="Restart ingest from line 1 even if checkpoint exists or input hash changed",
+    )
+
+    probe = subparsers.add_parser("probe", help="Run probe queries against existing Mem0 state")
+    add_common_input_args(probe)
+    probe.add_argument("--k", type=int, default=5, help="Top-k for probe retrieval")
+    probe.add_argument(
+        "--output",
+        type=str,
+        default="",
+        help="Optional output log JSONL path. Defaults to logs/replay_mem0/probe_YYYYMMDD_HHMMSS.jsonl",
+    )
+
+    export_cmd = subparsers.add_parser("export", help="Export current Mem0 state snapshot")
+    add_common_input_args(export_cmd)
+    export_cmd.add_argument(
+        "--output",
+        type=str,
+        default="",
+        help="Output JSONL path. Defaults to logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl",
+    )
+    export_cmd.add_argument(
+        "--user-id",
+        type=str,
+        default="",
+        help="Optional fixed user_id; if empty, derive all user_ids from --input",
+    )
+
     return parser.parse_args()
 
 
 def build_event_metadata(event: dict[str, Any]) -> dict[str, Any]:
-    """构建用于 Mem0 写入的事件元信息。
-
-    Args:
-        event: 单条 bench 事件。
-
-    Returns:
-        dict[str, Any]: 可用于检索溯源的 metadata 字典。
-    """
+    """构建用于 Mem0 写入的事件元信息。"""
 
     meta_raw = event.get("meta", {})
     meta = meta_raw if isinstance(meta_raw, dict) else {}
@@ -226,14 +215,7 @@ def build_event_metadata(event: dict[str, Any]) -> dict[str, Any]:
 
 
 def compact_metadata(metadata: Any) -> dict[str, Any] | None:
-    """压缩 hit metadata 展示字段。
-
-    Args:
-        metadata: Mem0 返回的 metadata。
-
-    Returns:
-        dict[str, Any] | None: 紧凑的 metadata 视图；不可用时返回 None。
-    """
+    """压缩 hit metadata 展示字段。"""
 
     if not isinstance(metadata, dict):
         return None
@@ -249,18 +231,7 @@ def add_memory_entry(
     metadata: dict[str, Any],
     store_raw: bool,
 ) -> None:
-    """写入单条记忆，并兼容不同 Mem0 参数签名。
-
-    Args:
-        memory: Mem0 Memory 实例。
-        user_id: 当前隔离 user_id。
-        message: 单条消息。
-        metadata: 单条消息 metadata。
-        store_raw: 是否优先尝试 `infer=False`。
-
-    Returns:
-        None。
-    """
+    """写入单条记忆，并兼容不同 Mem0 参数签名。"""
 
     if store_raw:
         try:
@@ -276,15 +247,7 @@ def add_memory_entry(
 
 
 def to_mem0_message(role_type: str, content: str) -> dict[str, str] | None:
-    """将 bench 事件角色映射为 Mem0 消息格式。
-
-    Args:
-        role_type: bench 事件角色类型。
-        content: 事件文本内容。
-
-    Returns:
-        dict[str, str] | None: 可写入 Mem0 的消息字典；若角色不支持则返回 None。
-    """
+    """将 bench 事件角色映射为 Mem0 消息格式。"""
 
     if role_type == "human":
         return {"role": "user", "content": content}
@@ -294,18 +257,7 @@ def to_mem0_message(role_type: str, content: str) -> dict[str, str] | None:
 
 
 def build_user_id(event: dict[str, Any], isolation: str) -> str:
-    """根据隔离策略生成 Mem0 user_id。
-
-    Args:
-        event: 单条 bench 事件。
-        isolation: 隔离模式，支持 `global` 与 `per_chapter`。
-
-    Returns:
-        str: 生成后的 user_id。
-
-    Raises:
-        ReplayMem0Error: 当必要字段缺失时抛出。
-    """
+    """根据隔离策略生成 Mem0 user_id。"""
 
     scene_id = str(event.get("scene_id", "")).strip()
     character_id = str(event.get("character_id", "")).strip()
@@ -326,18 +278,7 @@ def should_ingest(
     only_tags: set[str],
     write_probes: bool,
 ) -> bool:
-    """判断事件是否应写入 Mem0。
-
-    Args:
-        event: 单条 bench 事件。
-        skip_roles: 需要跳过的角色集合。
-        skip_tags: 需要跳过的标签集合。
-        only_tags: 允许写入的标签白名单集合。
-        write_probes: 是否允许写入 probe 事件。
-
-    Returns:
-        bool: 若应写入 Mem0 返回 True，否则返回 False。
-    """
+    """判断事件是否应写入 Mem0。"""
 
     role_type = str(event.get("role_type", "")).strip()
     content = str(event.get("content", "")).strip()
@@ -365,17 +306,7 @@ def flush_ingest_batch(
     pending_items: list[tuple[dict[str, str], dict[str, Any]]],
     store_raw: bool,
 ) -> int:
-    """将积攒的 ingest 消息批量写入 Mem0。
-
-    Args:
-        memory: Mem0 Memory 实例。
-        user_id: 当前批次对应的 user_id。
-        pending_items: 待写入的 `(message, metadata)` 列表，会在成功后被清空。
-        store_raw: 是否优先尝试 `infer=False` 存储原文。
-
-    Returns:
-        int: 本次实际写入的消息条数。
-    """
+    """将积攒的 ingest 消息批量写入 Mem0。"""
 
     if user_id is None or not pending_items:
         return 0
@@ -388,18 +319,8 @@ def flush_ingest_batch(
     return count
 
 
-def read_jsonl(path: Path) -> Iterator[dict[str, Any]]:
-    """按行流式读取并校验事件 JSONL。
-
-    Args:
-        path: 输入 JSONL 文件路径。
-
-    Returns:
-        Iterator[dict[str, Any]]: 逐条产出的事件对象迭代器。
-
-    Raises:
-        ReplayMem0Error: 当文件不存在、JSON 非法或行对象类型错误时抛出。
-    """
+def read_jsonl(path: Path) -> Iterator[tuple[int, dict[str, Any]]]:
+    """按行流式读取并校验事件 JSONL，返回行号与对象。"""
 
     if not path.exists():
         raise ReplayMem0Error(f"input file not found: {path}")
@@ -416,21 +337,14 @@ def read_jsonl(path: Path) -> Iterator[dict[str, Any]]:
                 raise ReplayMem0Error(f"invalid JSON on line {i}: {exc}") from exc
             if not isinstance(obj, dict):
                 raise ReplayMem0Error(f"event line {i} must be JSON object")
-            yield obj
+            yield i, obj
 
 
-def default_output_path() -> Path:
-    """生成默认 replay 日志输出路径并避免文件名冲突。
-
-    Args:
-        无。
-
-    Returns:
-        Path: 唯一的默认输出路径（至少秒级粒度，必要时追加序号）。
-    """
+def default_output_path(prefix: str) -> Path:
+    """生成默认输出路径并避免文件名冲突。"""
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    base = Path(f"memory_bench/logs/replay_mem0/run_{timestamp}")
+    base = DEFAULT_LOG_DIR / f"{prefix}_{timestamp}"
     candidate = base.with_suffix(".jsonl")
     suffix = 1
     while candidate.exists():
@@ -440,15 +354,7 @@ def default_output_path() -> Path:
 
 
 def compact_hits_preview(hits: Any, k: int) -> list[dict[str, Any]]:
-    """裁剪并规整检索结果预览字段。
-
-    Args:
-        hits: Mem0 返回的原始命中结果。
-        k: 预览的最大条数。
-
-    Returns:
-        list[dict[str, Any]]: 仅包含内容、分数与元数据的预览列表。
-    """
+    """裁剪并规整检索结果预览字段。"""
 
     if not isinstance(hits, list):
         return []
@@ -464,17 +370,7 @@ def compact_hits_preview(hits: Any, k: int) -> list[dict[str, Any]]:
 
 
 def count_replay_events(path: Path) -> int:
-    """统计输入文件中可计入进度条的事件总数。
-
-    Args:
-        path: 输入 JSONL 文件路径。
-
-    Returns:
-        int: 非空行数量，用于 tqdm total 和百分比展示。
-
-    Raises:
-        ReplayMem0Error: 当输入文件不存在时抛出。
-    """
+    """统计输入文件中可计入进度条的事件总数。"""
 
     if not path.exists():
         raise ReplayMem0Error(f"input file not found: {path}")
@@ -487,15 +383,8 @@ def count_replay_events(path: Path) -> int:
     return total
 
 
-def create_replay_progress(total_events: int) -> Any:
-    """创建 replay 全量进度条对象。
-
-    Args:
-        total_events: replay 事件总数。
-
-    Returns:
-        Any: tqdm 进度条对象；若 tqdm 不可用则返回空操作对象。
-    """
+def create_replay_progress(total_events: int, desc: str) -> Any:
+    """创建进度条对象。"""
 
     try:
         from tqdm import tqdm
@@ -505,46 +394,64 @@ def create_replay_progress(total_events: int) -> Any:
             def update(self, n: int = 1) -> None:
                 return None
 
+            def set_postfix(self, _: dict[str, Any], refresh: bool = False) -> None:
+                return None
+
             def close(self) -> None:
                 return None
 
         logger.bind(group="memory").warning("tqdm is not installed; replay progress bar is disabled")
         return _NoopProgress()
 
-    return tqdm(total=total_events, desc="mem0 replay", unit="event", dynamic_ncols=True)
+    return tqdm(total=total_events, desc=desc, unit="event", dynamic_ncols=True)
 
 
-def main() -> int:
-    """执行 Mem0 replay 主流程。
+def sha256_file(path: Path) -> str:
+    """计算文件 SHA256。"""
 
-    Args:
-        无。
+    digest = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return f"sha256:{digest.hexdigest()}"
 
-    Returns:
-        int: 成功时返回 0。
 
-    Raises:
-        ReplayMem0Error: 当环境依赖、输入数据或 probe 查询非法时抛出。
-    """
+def now_iso() -> str:
+    """返回 UTC ISO 时间字符串。"""
 
-    args = parse_args()
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
-    repo_root = Path(__file__).resolve().parents[2]
-    load_benchmark_dotenv(repo_root)
-    api_key, base_url, model_name = prepare_mem0_env()
 
-    if not api_key:
-        raise ReplayMem0Error("OPENAI_API_KEY is required for Mem0. Set BENCHMARK_OPENAI_API_KEY or OPENAI_API_KEY.")
-    if args.batch_size <= 0:
-        raise ReplayMem0Error("--batch-size must be a positive integer")
+def build_checkpoint_path(input_path: Path, isolation: str, state_dir: Path) -> Path:
+    """构建 checkpoint 文件路径。"""
 
-    input_path = Path(args.input)
-    output_path = Path(args.output) if args.output else default_output_path()
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    stem = input_path.stem.replace(".", "_")
+    name = f"mem0_{isolation}_{stem}.checkpoint.json"
+    return state_dir / name
 
-    skip_roles = parse_csv_arg(args.skip_role)
-    skip_tags = parse_csv_arg(args.skip_tags)
-    only_tags = parse_csv_arg(args.only_tags)
+
+def load_checkpoint(path: Path) -> dict[str, Any] | None:
+    """读取 checkpoint。"""
+
+    if not path.exists():
+        return None
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ReplayMem0Error(f"invalid checkpoint format: {path}")
+    return payload
+
+
+def save_checkpoint(path: Path, payload: dict[str, Any]) -> None:
+    """原子写入 checkpoint。"""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(".tmp")
+    tmp_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    os.replace(tmp_path, path)
+
+
+def init_memory() -> Any:
+    """初始化 Mem0 客户端。"""
 
     try:
         from mem0 import Memory
@@ -553,109 +460,304 @@ def main() -> int:
             "mem0 is not installed. Install dependency group `memory_bench` first, e.g. `uv sync --group memory_bench`."
         ) from exc
 
-    stats = ReplayStats()
-
-    logger.bind(group="memory").info(
-        "Replay start: "
-        f"input={input_path}, output={output_path}, isolation={args.isolation}, "
-        f"k={args.k}, batch_size={args.batch_size}, store_raw={args.store_raw}"
-    )
-    logger.bind(group="memory").info(
-        f"Mem0/OpenAI env: model={model_name or '<default>'}, base_url={redact_base_url(base_url)}"
-    )
-
     try:
-        memory = Memory()
-        logger.bind(group="memory").info("Mem0 initialized from environment variables")
+        return Memory()
     except Exception as exc:
         raise ReplayMem0Error(f"failed to initialize Mem0: {exc}") from exc
+
+
+def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
+    """执行 ingest 子命令。"""
+
+    if args.batch_size <= 0:
+        raise ReplayMem0Error("--batch-size must be a positive integer")
+    if args.checkpoint_interval <= 0:
+        raise ReplayMem0Error("--checkpoint-interval must be a positive integer")
+
+    skip_roles = parse_csv_arg(args.skip_role)
+    skip_tags = parse_csv_arg(args.skip_tags)
+    only_tags = parse_csv_arg(args.only_tags)
+
+    state_dir = Path(args.state_dir)
+    checkpoint_path = build_checkpoint_path(input_path=input_path, isolation=args.isolation, state_dir=state_dir)
+    file_hash = sha256_file(input_path)
+    checkpoint = load_checkpoint(checkpoint_path)
+    resume_line = 1
+
+    if checkpoint and not args.force:
+        cp_hash = str(checkpoint.get("input_file_hash", ""))
+        if cp_hash and cp_hash != file_hash:
+            raise ReplayMem0Error(
+                f"input hash changed for {input_path}; use --force to restart ingest. "
+                f"checkpoint={cp_hash}, current={file_hash}"
+            )
+        resume_line = int(checkpoint.get("last_ingested_line", 0)) + 1
+    elif args.force:
+        logger.bind(group="memory").warning("--force enabled: restart ingest from line 1")
+
+    stats = ReplayStats()
     total_events = count_replay_events(input_path)
-    replay_progress = create_replay_progress(total_events)
+    replay_progress = create_replay_progress(total_events, desc="mem0 ingest")
+
     pending_items: list[tuple[dict[str, str], dict[str, Any]]] = []
     pending_user_id: str | None = None
+    pending_last_line: int | None = None
+    pending_last_event: dict[str, Any] | None = None
+    since_last_checkpoint = 0
+    last_ingested_line = max(0, resume_line - 1)
+    last_ingested_event: dict[str, Any] | None = None
+
+    for line_no, event in read_jsonl(input_path):
+        stats.total_events += 1
+        replay_progress.update(1)
+
+        if line_no < resume_line:
+            continue
+
+        user_id = build_user_id(event, args.isolation)
+        if should_ingest(event, skip_roles, skip_tags, only_tags, args.write_probes):
+            role_type = str(event.get("role_type", "")).strip()
+            content = str(event.get("content", "")).strip()
+            message = to_mem0_message(role_type, content)
+            if message is None:
+                stats.skipped_events += 1
+                continue
+
+            if pending_user_id is not None and pending_user_id != user_id:
+                flushed = flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
+                stats.ingested_events += flushed
+                pending_user_id = None
+                if flushed > 0:
+                    since_last_checkpoint += flushed
+                    if pending_last_line is not None:
+                        last_ingested_line = pending_last_line
+                    last_ingested_event = pending_last_event
+                pending_last_line = None
+                pending_last_event = None
+
+            if pending_user_id is None:
+                pending_user_id = user_id
+
+            pending_items.append((message, build_event_metadata(event)))
+            pending_last_line = line_no
+            pending_last_event = {"conv_id": event.get("conv_id"), "turn_id": event.get("turn_id")}
+            if len(pending_items) >= args.batch_size:
+                flushed = flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
+                stats.ingested_events += flushed
+                pending_user_id = None
+                if flushed > 0:
+                    if pending_last_line is not None:
+                        last_ingested_line = pending_last_line
+                    last_ingested_event = pending_last_event
+                    since_last_checkpoint += flushed
+                pending_last_line = None
+                pending_last_event = None
+        else:
+            stats.skipped_events += 1
+
+        if since_last_checkpoint >= args.checkpoint_interval and last_ingested_event is not None:
+            save_checkpoint(
+                checkpoint_path,
+                {
+                    "backend": "mem0",
+                    "input_file": str(input_path),
+                    "input_file_hash": file_hash,
+                    "last_ingested_line": last_ingested_line,
+                    "last_ingested_event": last_ingested_event,
+                    "updated_at": now_iso(),
+                },
+            )
+            since_last_checkpoint = 0
+
+    flushed = flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
+    stats.ingested_events += flushed
+    if flushed > 0:
+        if pending_last_line is not None:
+            last_ingested_line = pending_last_line
+        last_ingested_event = pending_last_event
+
+    replay_progress.close()
+
+    if stats.ingested_events > 0:
+        save_checkpoint(
+            checkpoint_path,
+            {
+                "backend": "mem0",
+                "input_file": str(input_path),
+                "input_file_hash": file_hash,
+                "last_ingested_line": last_ingested_line,
+                "last_ingested_event": last_ingested_event,
+                "updated_at": now_iso(),
+            },
+        )
+
+    logger.bind(group="memory").info(
+        "Ingest done: "
+        f"events={stats.total_events}, ingested={stats.ingested_events}, skipped={stats.skipped_events}, "
+        f"checkpoint={checkpoint_path}"
+    )
+    return 0
+
+
+def normalize_search_result(result: Any) -> list[dict[str, Any]]:
+    """将 Mem0 search 的不同返回格式统一为 list[dict]。"""
+
+    if isinstance(result, list):
+        return [item for item in result if isinstance(item, dict)]
+    if isinstance(result, dict):
+        hits_any = result.get("results") or result.get("memories") or []
+        if isinstance(hits_any, list):
+            return [item for item in hits_any if isinstance(item, dict)]
+    return []
+
+
+def run_probe(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
+    """执行 probe 子命令。"""
+
+    output_path = Path(args.output) if args.output else default_output_path("probe")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    stats = ReplayStats()
+    total_events = count_replay_events(input_path)
+    replay_progress = create_replay_progress(total_events, desc="mem0 probe")
 
     with output_path.open("w", encoding="utf-8") as out_file:
-        for event in read_jsonl(input_path):
+        for _, event in read_jsonl(input_path):
             stats.total_events += 1
             replay_progress.update(1)
             tags_raw = event.get("tags", [])
             tags = {str(tag) for tag in tags_raw} if isinstance(tags_raw, list) else set()
+            if "probe" not in tags:
+                continue
 
             user_id = build_user_id(event, args.isolation)
+            stats.probe_events += 1
+            replay_progress.set_postfix({"probes": stats.probe_events}, refresh=False)
 
-            if "probe" in tags:
-                stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
-                pending_user_id = None
+            query = str(event.get("content", "")).strip()
+            if not query:
+                raise ReplayMem0Error(
+                    f"probe query is empty (conv_id={event.get('conv_id')}, turn_id={event.get('turn_id')})"
+                )
 
-                stats.probe_events += 1
-                query = str(event.get("content", "")).strip()
-                if not query:
-                    raise ReplayMem0Error(
-                        f"probe query is empty (conv_id={event.get('conv_id')}, turn_id={event.get('turn_id')})"
-                    )
-                started = time.perf_counter()
-                result = memory.search(query=query, user_id=user_id, limit=args.k)
-                latency_ms = round((time.perf_counter() - started) * 1000, 3)
-                replay_progress.set_postfix({"probes": stats.probe_events}, refresh=False)
+            started = time.perf_counter()
+            result = memory.search(query=query, user_id=user_id, limit=args.k)
+            latency_ms = round((time.perf_counter() - started) * 1000, 3)
+            hits = normalize_search_result(result)
 
-                if isinstance(result, list):
-                    hits = result
-                elif isinstance(result, dict):
-                    hits_any = result.get("results") or result.get("memories") or []
-                    hits = hits_any if isinstance(hits_any, list) else []
-                else:
-                    hits = []
-
-                log_record = {
-                    "backend": "mem0",
-                    "user_id": user_id,
-                    "isolation": args.isolation,
-                    "k": args.k,
-                    "conv_id": event.get("conv_id"),
-                    "turn_id": event.get("turn_id"),
-                    "scene_id": event.get("scene_id"),
-                    "character_id": event.get("character_id"),
-                    "probe_role_type": event.get("role_type"),
-                    "probe_role_name": event.get("role_name"),
-                    "probe_query": query,
-                    "hits_count": len(hits),
-                    "hits_preview": compact_hits_preview(hits, args.k),
-                    "latency_ms": latency_ms,
-                }
-                out_file.write(json.dumps(log_record, ensure_ascii=False) + "\n")
-
-            if should_ingest(event, skip_roles, skip_tags, only_tags, args.write_probes):
-                role_type = str(event.get("role_type", "")).strip()
-                content = str(event.get("content", "")).strip()
-                message = to_mem0_message(role_type, content)
-                if message is None:
-                    stats.skipped_events += 1
-                    continue
-
-                if pending_user_id is not None and pending_user_id != user_id:
-                    stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
-                    pending_user_id = None
-
-                if pending_user_id is None:
-                    pending_user_id = user_id
-
-                pending_items.append((message, build_event_metadata(event)))
-                if len(pending_items) >= args.batch_size:
-                    stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
-                    pending_user_id = None
-            else:
-                stats.skipped_events += 1
-
-    stats.ingested_events += flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
+            log_record = {
+                "backend": "mem0",
+                "user_id": user_id,
+                "isolation": args.isolation,
+                "k": args.k,
+                "conv_id": event.get("conv_id"),
+                "turn_id": event.get("turn_id"),
+                "scene_id": event.get("scene_id"),
+                "character_id": event.get("character_id"),
+                "probe_role_type": event.get("role_type"),
+                "probe_role_name": event.get("role_name"),
+                "probe_query": query,
+                "hits_count": len(hits),
+                "hits_preview": compact_hits_preview(hits, args.k),
+                "latency_ms": latency_ms,
+            }
+            out_file.write(json.dumps(log_record, ensure_ascii=False) + "\n")
 
     replay_progress.close()
-
     logger.bind(group="memory").info(
-        "Replay done: "
-        f"events={stats.total_events}, ingested={stats.ingested_events}, skipped={stats.skipped_events}, "
-        f"probes={stats.probe_events}, log={output_path}"
+        f"Probe done: events={stats.total_events}, probes={stats.probe_events}, output={output_path}"
     )
     return 0
+
+
+def collect_user_ids(input_path: Path, isolation: str) -> list[str]:
+    """从输入事件中提取去重后的 user_id 列表。"""
+
+    user_ids: dict[str, None] = {}
+    for _, event in read_jsonl(input_path):
+        user_ids[build_user_id(event, isolation)] = None
+    return list(user_ids.keys())
+
+
+def fetch_user_memories(memory: Any, user_id: str) -> Any:
+    """导出单个 user_id 的全量记忆，兼容不同 API 签名。"""
+
+    attempts = [
+        lambda: memory.get_all(user_id=user_id),
+        lambda: memory.get_all(user_id),
+        lambda: memory.get(user_id=user_id),
+        lambda: memory.get(user_id),
+    ]
+    last_exc: Exception | None = None
+    for attempt in attempts:
+        try:
+            return attempt()
+        except TypeError as exc:
+            last_exc = exc
+        except AttributeError as exc:
+            last_exc = exc
+    raise ReplayMem0Error(f"Mem0 client does not support export API for user_id={user_id}: {last_exc}")
+
+
+def run_export(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
+    """执行 export 子命令。"""
+
+    output_path = Path(args.output) if args.output else default_output_path("export")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if args.user_id:
+        user_ids = [args.user_id]
+    else:
+        user_ids = collect_user_ids(input_path, args.isolation)
+
+    with output_path.open("w", encoding="utf-8") as out_file:
+        for user_id in user_ids:
+            memories = fetch_user_memories(memory, user_id)
+            out_file.write(
+                json.dumps(
+                    {
+                        "backend": "mem0",
+                        "user_id": user_id,
+                        "isolation": args.isolation,
+                        "exported_at": now_iso(),
+                        "memories": memories,
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n"
+            )
+
+    logger.bind(group="memory").info(f"Export done: users={len(user_ids)}, output={output_path}")
+    return 0
+
+
+def main() -> int:
+    """执行 Mem0 replay 主流程。"""
+
+    args = parse_args()
+    repo_root = Path(__file__).resolve().parents[2]
+    load_benchmark_dotenv(repo_root)
+    api_key, base_url, model_name = prepare_mem0_env()
+
+    if not api_key:
+        raise ReplayMem0Error("OPENAI_API_KEY is required for Mem0. Set BENCHMARK_OPENAI_API_KEY or OPENAI_API_KEY.")
+
+    input_path = Path(args.input)
+    if not input_path.exists():
+        raise ReplayMem0Error(f"input file not found: {input_path}")
+
+    logger.bind(group="memory").info(
+        f"Mem0/OpenAI env: model={model_name or '<default>'}, base_url={redact_base_url(base_url)}"
+    )
+
+    memory = init_memory()
+    if args.command == "ingest":
+        return run_ingest(args, memory, input_path)
+    if args.command == "probe":
+        return run_probe(args, memory, input_path)
+    if args.command == "export":
+        return run_export(args, memory, input_path)
+    raise ReplayMem0Error(f"unknown command: {args.command}")
 
 
 if __name__ == "__main__":

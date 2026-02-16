@@ -276,15 +276,21 @@ uv run python memory_bench/scripts/compile_events.py --out memory_bench/data/eve
 
 ### 6.1 作用
 
-将 benchmark 事件 JSONL 回放到 Mem0，完成 `ingest + probe + logs` 闭环。
+将 benchmark 事件 JSONL 回放流程拆分为 3 个子命令：
 
-脚本会显示 event 级实时进度条（非仅 probe 计数），包含 total 与百分比；即使当前事件不是 probe 也会前进。
+- `ingest`：增量写入 Mem0，并保存本地 checkpoint
+- `probe`：对已有 Mem0 状态执行 probe 查询并输出日志
+- `export`：导出当前 Mem0 状态快照
+
+`ingest/probe` 都会显示 event 级实时进度条（含 total 与百分比）。
 
 - 输入：
   - `memory_bench/data/events/compiled/all.jsonl`（默认）
   - 或 `memory_bench/data/events/by_chapter/chXX.jsonl`
 - 输出：
-  - `memory_bench/logs/replay_mem0/run_YYYYMMDD_HHMMSS.jsonl`（默认）
+  - `probe` 默认输出 `memory_bench/logs/replay_mem0/probe_YYYYMMDD_HHMMSS.jsonl`
+  - `export` 默认输出 `memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl`
+  - `ingest` checkpoint 默认写入 `memory_bench/state/*.checkpoint.json`
 
 ### 6.2 CLI 帮助
 
@@ -292,18 +298,26 @@ uv run python memory_bench/scripts/compile_events.py --out memory_bench/data/eve
 uv run python memory_bench/scripts/replay_mem0.py -h
 ```
 
-关键参数：
+关键参数（按子命令）：
 
 - `--input`：输入 JSONL 路径
-- `--output`：自定义输出日志路径
 - `--isolation {global,per_chapter}`：记忆隔离模式
-- `--k`：probe top-k
-- `--skip-role`：默认 `ui,tool`
-- `--skip-tags`：默认 `filler`
-- `--only-tags`：可选 tag 白名单
-- `--write-probes`：是否将 probe 事件写入 Mem0（默认关闭）
-- `--batch-size`：批量写入大小（默认 16，遇到 probe 前会先 flush）
-- `--store-raw`：写入时优先 `infer=False`（若 Mem0 版本支持）
+- `ingest`:
+  - `--skip-role`：默认 `ui,tool`
+  - `--skip-tags`：默认 `filler`
+  - `--only-tags`：可选 tag 白名单
+  - `--write-probes`：是否将 probe 事件写入 Mem0（默认关闭）
+  - `--batch-size`：批量写入大小
+  - `--store-raw`：写入时优先 `infer=False`（若 Mem0 版本支持）
+  - `--checkpoint-interval`：每 N 条 ingest 成功后保存一次 checkpoint
+  - `--state-dir`：checkpoint 目录
+  - `--force`：忽略旧 checkpoint 强制从头 ingest
+- `probe`:
+  - `--k`：probe top-k
+  - `--output`：输出 probe 日志路径
+- `export`:
+  - `--output`：输出快照路径
+  - `--user-id`：仅导出指定 user_id（不传则按输入文件中 user_id 全量导出）
 
 环境变量（脚本会优先读取 `memory_bench/.env.benchmark`）：
 
@@ -313,28 +327,28 @@ uv run python memory_bench/scripts/replay_mem0.py -h
 
 ### 6.3 运行示例
 
-1) 默认全量回放：
+1) 增量 ingest（默认输入）：
 
 ```bash
-uv run python memory_bench/scripts/replay_mem0.py
+uv run python memory_bench/scripts/replay_mem0.py ingest
 ```
 
-2) 指定章节文件输入：
+2) 运行 probe：
 
 ```bash
-uv run python memory_bench/scripts/replay_mem0.py --input memory_bench/data/events/by_chapter/ch01.jsonl
+uv run python memory_bench/scripts/replay_mem0.py probe --input memory_bench/data/events/by_chapter/ch01.jsonl
 ```
 
 3) 章节级隔离（ablation）：
 
 ```bash
-uv run python memory_bench/scripts/replay_mem0.py --isolation per_chapter
+uv run python memory_bench/scripts/replay_mem0.py ingest --isolation per_chapter
 ```
 
-4) 开启批量写入（通常更快）：
+4) 导出快照：
 
 ```bash
-uv run python memory_bench/scripts/replay_mem0.py --batch-size 32
+uv run python memory_bench/scripts/replay_mem0.py export
 ```
 
 ### 6.4 probe 日志字段
@@ -349,7 +363,24 @@ uv run python memory_bench/scripts/replay_mem0.py --batch-size 32
 - `hits_preview`（仅 top-k 预览，含可溯源 metadata）
 - `latency_ms`
 
-### 6.5 返回码与常见问题
+### 6.5 checkpoint 机制（ingest）
+
+checkpoint 文件默认位于：
+
+- `memory_bench/state/mem0_{isolation}_{input_stem}.checkpoint.json`
+
+字段包括：
+
+- `backend`
+- `input_file`
+- `input_file_hash`（SHA256）
+- `last_ingested_line`
+- `last_ingested_event`
+- `updated_at`
+
+若输入文件 hash 变化，脚本会报错并提示使用 `--force` 从头 ingest。
+
+### 6.6 返回码与常见问题
 
 - `0`：回放成功
 - `1`：输入文件缺失、JSON 非法、probe query 为空、或 Mem0 依赖不可用
