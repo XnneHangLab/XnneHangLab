@@ -233,17 +233,36 @@ def add_memory_entry(
 ) -> None:
     """写入单条记忆，并兼容不同 Mem0 参数签名。"""
 
+    result: Any
     if store_raw:
         try:
-            memory.add(messages=[message], user_id=user_id, metadata=metadata, infer=False)
-            return
+            result = memory.add(messages=[message], user_id=user_id, metadata=metadata, infer=False)
         except TypeError:
-            pass
+            result = _add_memory_entry_fallback(memory=memory, user_id=user_id, message=message, metadata=metadata)
+    else:
+        result = _add_memory_entry_fallback(memory=memory, user_id=user_id, message=message, metadata=metadata)
+
+    if isinstance(result, dict):
+        results = result.get("results", [])
+        added = len(results) if isinstance(results, list) else -1
+    elif isinstance(result, list):
+        added = len(result)
+    else:
+        added = -1
+
+    if added == 0:
+        logger.bind(group="memory").warning(
+            f"Mem0 add returned 0 memories for user={user_id}, content={message['content'][:80]}..."
+        )
+
+
+def _add_memory_entry_fallback(memory: Any, user_id: str, message: dict[str, str], metadata: dict[str, Any]) -> Any:
+    """兼容不同 Mem0 版本 add 参数签名。"""
 
     try:
-        memory.add(messages=[message], user_id=user_id, metadata=metadata)
+        return memory.add(messages=[message], user_id=user_id, metadata=metadata)
     except TypeError:
-        memory.add(messages=[message], user_id=user_id)
+        return memory.add(messages=[message], user_id=user_id)
 
 
 def to_mem0_message(role_type: str, content: str) -> dict[str, str] | None:
