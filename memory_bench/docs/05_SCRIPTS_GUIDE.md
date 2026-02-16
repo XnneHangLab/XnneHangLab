@@ -323,12 +323,12 @@ uv run python memory_bench/scripts/replay_mem0.py -h
 
 环境变量（脚本会优先读取 `memory_bench/.env.benchmark`）：
 
-- `BENCHMARK_OPENAI_API_KEY`（必需，或回退 `OPENAI_API_KEY`）
-- `BENCHMARK_OPENAI_BASE_URL`（默认 `https://api.openai.com/v1`，建议显式配置）
-- `BENCHMARK_OPENAI_MODEL`（推荐显式设置；回退 `OPENAI_MODEL`）
-- `BENCHMARK_OPENAI_EMBEDDING_MODEL`（推荐显式设置；回退 `OPENAI_EMBEDDING_MODEL`）
+- `BENCHMARK_OPENAI_API_KEY`（必需）
+- `BENCHMARK_OPENAI_BASE_URL`（必需）
+- `BENCHMARK_OPENAI_MODEL`（必需）
+- `BENCHMARK_OPENAI_EMBEDDING_MODEL`（必需）
 
-Mem0 默认将 llm/embedder 显式注入配置（默认回退 `gpt-4o-mini` 与 `text-embedding-3-small`），以兼容 OpenAI-compatible API；且不依赖 Mem0 对 `OPENAI_BASE_URL` 的隐式读取。
+Mem0 默认将 llm/embedder 显式注入配置；且不依赖 Mem0 对 `OPENAI_BASE_URL` 的隐式读取。
 
 ### 6.3 运行示例
 
@@ -393,7 +393,7 @@ checkpoint 文件默认位于：
 常见问题：
 
 - **提示 mem0 未安装**：执行 `uv sync --group memory_bench`。
-- **提示缺少 OPENAI_API_KEY**：设置 `BENCHMARK_OPENAI_API_KEY` 或 `OPENAI_API_KEY`。
+- **提示缺少 BENCHMARK 环境变量**：请在 `memory_bench/.env.benchmark` 中补全 `BENCHMARK_OPENAI_API_KEY/BENCHMARK_OPENAI_BASE_URL/BENCHMARK_OPENAI_MODEL/BENCHMARK_OPENAI_EMBEDDING_MODEL`。
 - **出现空行 warning**：当前行为是 warning 并跳过该行，建议上游修复数据。
 
 ---

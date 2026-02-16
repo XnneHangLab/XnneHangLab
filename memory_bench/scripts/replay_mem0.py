@@ -50,7 +50,10 @@ def load_benchmark_dotenv(repo_root: Path) -> None:
     except ImportError:
         return
 
-    load_dotenv(dotenv_path=dotenv_path, override=False)
+    for key in ("OPENAI_API_KEY", "OPENAI_BASE_URL", "OPENAI_API_BASE"):
+        os.environ.pop(key, None)
+
+    load_dotenv(dotenv_path=dotenv_path, override=True)
 
 
 def get_env(name: str, default: str | None = None) -> str | None:
@@ -88,21 +91,33 @@ def get_env_float(name: str, default: float) -> float:
         return default
 
 
-def prepare_mem0_env() -> tuple[str | None, str, str | None, str | None, float, int]:
-    """从 bench 环境变量准备 Mem0 显式配置。"""
+def prepare_mem0_env() -> tuple[str, str, str, str, float, int]:
+    """从 BENCHMARK_ 环境变量准备 Mem0 显式配置。"""
 
-    api_key = get_env("BENCHMARK_OPENAI_API_KEY") or get_env("OPENAI_API_KEY")
-    base_url = get_env("BENCHMARK_OPENAI_BASE_URL", "https://api.openai.com/v1") or "https://api.openai.com/v1"
-    model_name = get_env("BENCHMARK_OPENAI_MODEL") or get_env("OPENAI_MODEL")
-    embedding_model = (
-        get_env("BENCHMARK_OPENAI_EMBEDDING_MODEL")
-        or get_env("OPENAI_EMBEDDING_MODEL")
-        or get_env("OPENAI_EMBED_MODEL")
-    )
+    api_key = get_env("BENCHMARK_OPENAI_API_KEY")
+    base_url = get_env("BENCHMARK_OPENAI_BASE_URL")
+    model_name = get_env("BENCHMARK_OPENAI_MODEL")
+    embedding_model = get_env("BENCHMARK_OPENAI_EMBEDDING_MODEL")
 
-    # 注意：这里不向 OPENAI_BASE_URL / OPENAI_API_BASE 回填，避免依赖 Mem0 的隐式环境读取。
-    if api_key:
-        os.environ.setdefault("OPENAI_API_KEY", api_key)
+    missing: list[str] = []
+    if not api_key:
+        missing.append("BENCHMARK_OPENAI_API_KEY")
+    if not base_url:
+        missing.append("BENCHMARK_OPENAI_BASE_URL")
+    if not model_name:
+        missing.append("BENCHMARK_OPENAI_MODEL")
+    if not embedding_model:
+        missing.append("BENCHMARK_OPENAI_EMBEDDING_MODEL")
+
+    if missing:
+        required = ", ".join(missing)
+        raise ReplayMem0Error(
+            f"missing required benchmark env vars: {required}. "
+            "Please set them in memory_bench/.env.benchmark."
+        )
+
+    # 显式传给 Mem0，同时避免依赖 Mem0 对 base/model 的隐式环境读取。
+    os.environ["OPENAI_API_KEY"] = api_key
 
     llm_temperature = get_env_float("BENCHMARK_OPENAI_TEMPERATURE", 0.0)
     llm_max_tokens = get_env_int("BENCHMARK_OPENAI_MAX_TOKENS", 2000)
@@ -853,13 +868,7 @@ def main() -> int:
     args = parse_args()
     repo_root = Path(__file__).resolve().parents[2]
     load_benchmark_dotenv(repo_root)
-    api_key, base_url, model_name, embedding_model, llm_temperature, llm_max_tokens = prepare_mem0_env()
-
-    if not api_key:
-        raise ReplayMem0Error("OPENAI_API_KEY is required for Mem0. Set BENCHMARK_OPENAI_API_KEY or OPENAI_API_KEY.")
-
-    llm_model = model_name or "gpt-4o-mini"
-    embed_model = embedding_model or "text-embedding-3-small"
+    api_key, base_url, llm_model, embed_model, llm_temperature, llm_max_tokens = prepare_mem0_env()
 
     input_path = Path(args.input)
     if not input_path.exists():
