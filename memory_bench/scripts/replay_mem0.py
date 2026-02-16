@@ -107,6 +107,12 @@ def add_common_input_args(parser: argparse.ArgumentParser) -> None:
         default="global",
         help="Mem0 user isolation mode",
     )
+    parser.add_argument(
+        "--state-dir",
+        type=str,
+        default=str(DEFAULT_STATE_DIR),
+        help="State root directory for checkpoint files and qdrant local storage",
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -154,12 +160,6 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=50,
         help="Persist checkpoint every N successfully ingested events",
-    )
-    ingest.add_argument(
-        "--state-dir",
-        type=str,
-        default=str(DEFAULT_STATE_DIR),
-        help="Directory for ingest checkpoint files",
     )
     ingest.add_argument(
         "--force",
@@ -450,8 +450,24 @@ def save_checkpoint(path: Path, payload: dict[str, Any]) -> None:
     os.replace(tmp_path, path)
 
 
-def init_memory() -> Any:
-    """初始化 Mem0 客户端。"""
+def build_mem0_config(state_dir: Path, isolation: str) -> dict[str, Any]:
+    """构建持久化 Mem0 配置。"""
+
+    qdrant_path = state_dir / "qdrant_storage"
+    qdrant_path.mkdir(parents=True, exist_ok=True)
+    return {
+        "vector_store": {
+            "provider": "qdrant",
+            "config": {
+                "collection_name": f"memory_bench_{isolation}",
+                "path": str(qdrant_path),
+            },
+        }
+    }
+
+
+def init_memory(state_dir: Path, isolation: str) -> Any:
+    """初始化 Mem0 客户端并绑定本地持久化向量存储。"""
 
     try:
         from mem0 import Memory
@@ -460,8 +476,9 @@ def init_memory() -> Any:
             "mem0 is not installed. Install dependency group `memory_bench` first, e.g. `uv sync --group memory_bench`."
         ) from exc
 
+    config = build_mem0_config(state_dir=state_dir, isolation=isolation)
     try:
-        return Memory()
+        return Memory.from_config(config)
     except Exception as exc:
         raise ReplayMem0Error(f"failed to initialize Mem0: {exc}") from exc
 
@@ -746,11 +763,12 @@ def main() -> int:
     if not input_path.exists():
         raise ReplayMem0Error(f"input file not found: {input_path}")
 
+    state_dir = Path(getattr(args, "state_dir", str(DEFAULT_STATE_DIR)))
     logger.bind(group="memory").info(
-        f"Mem0/OpenAI env: model={model_name or '<default>'}, base_url={redact_base_url(base_url)}"
+        f"Mem0/OpenAI env: model={model_name or '<default>'}, base_url={redact_base_url(base_url)}, state_dir={state_dir}"
     )
 
-    memory = init_memory()
+    memory = init_memory(state_dir=state_dir, isolation=args.isolation)
     if args.command == "ingest":
         return run_ingest(args, memory, input_path)
     if args.command == "probe":

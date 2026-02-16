@@ -282,6 +282,8 @@ uv run python memory_bench/scripts/compile_events.py --out memory_bench/data/eve
 - `probe`：对已有 Mem0 状态执行 probe 查询并输出日志
 - `export`：导出当前 Mem0 状态快照
 
+Mem0 使用本地持久化 Qdrant 向量存储（默认 `memory_bench/state/qdrant_storage`，按 isolation 选择 collection），`ingest/probe/export` 可跨进程共享状态。
+
 `ingest/probe` 都会显示 event 级实时进度条（含 total 与百分比）。
 
 - 输入：
@@ -302,6 +304,7 @@ uv run python memory_bench/scripts/replay_mem0.py -h
 
 - `--input`：输入 JSONL 路径
 - `--isolation {global,per_chapter}`：记忆隔离模式
+- `--state-dir`：状态根目录（checkpoint + Qdrant 本地存储）
 - `ingest`:
   - `--skip-role`：默认 `ui,tool`
   - `--skip-tags`：默认 `filler`
@@ -310,7 +313,6 @@ uv run python memory_bench/scripts/replay_mem0.py -h
   - `--batch-size`：批量写入大小
   - `--store-raw`：写入时优先 `infer=False`（若 Mem0 版本支持）
   - `--checkpoint-interval`：每 N 条 ingest 成功后保存一次 checkpoint
-  - `--state-dir`：checkpoint 目录
   - `--force`：忽略旧 checkpoint 强制从头 ingest
 - `probe`:
   - `--k`：probe top-k

@@ -162,9 +162,10 @@ uv run python memory_bench/scripts/compile_events.py --chapters ch01,ch02
 2. 依据隔离模式生成 `user_id`：
    - `--isolation global` -> `scene_id:character_id`
    - `--isolation per_chapter` -> `scene_id:character_id:conv_id`
-3. ingest 支持 checkpoint 断点续跑（默认保存到 `memory_bench/state/`，记录 input hash 与 last_ingested_line）；
-4. probe 输出标准化检索日志到 `memory_bench/logs/replay_mem0/probe_YYYYMMDD_HHMMSS.jsonl`；
-5. export 输出快照到 `memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl`。
+3. Mem0 使用本地持久化 Qdrant 向量存储（默认 `memory_bench/state/qdrant_storage`，collection 为 `memory_bench_{isolation}`），可跨进程复用；
+4. ingest 支持 checkpoint 断点续跑（默认保存到 `memory_bench/state/`，记录 input hash 与 last_ingested_line）；
+5. probe 输出标准化检索日志到 `memory_bench/logs/replay_mem0/probe_YYYYMMDD_HHMMSS.jsonl`；
+6. export 输出快照到 `memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl`。
 
 常用运行方式：
 
@@ -192,6 +193,7 @@ uv run python memory_bench/scripts/replay_mem0.py export
 - `--write-probes`（默认关闭，避免 probe 污染记忆）
 - `--batch-size 16`（批量写入 Memory.add）
 - `--store-raw`（写入时优先 `infer=False`，让命中更接近原文）
+- `--state-dir memory_bench/state`（checkpoint 与 Qdrant 本地存储根目录）
 - `--checkpoint-interval 50`（每 N 条 ingest 成功后更新 checkpoint）
 - `--force`（忽略旧 checkpoint，从头 ingest）
 
