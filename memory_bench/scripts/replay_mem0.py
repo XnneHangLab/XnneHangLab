@@ -60,7 +60,35 @@ def get_env(name: str, default: str | None = None) -> str | None:
     return value if value not in (None, "") else default
 
 
-def prepare_mem0_env() -> tuple[str | None, str | None, str | None, str | None]:
+
+
+def get_env_int(name: str, default: int) -> int:
+    """读取整型环境变量，解析失败时返回默认值。"""
+
+    raw = get_env(name)
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        logger.bind(group="memory").warning(f"invalid integer env {name}={raw!r}; fallback to {default}")
+        return default
+
+
+def get_env_float(name: str, default: float) -> float:
+    """读取浮点环境变量，解析失败时返回默认值。"""
+
+    raw = get_env(name)
+    if raw is None:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        logger.bind(group="memory").warning(f"invalid float env {name}={raw!r}; fallback to {default}")
+        return default
+
+
+def prepare_mem0_env() -> tuple[str | None, str | None, str | None, str | None, float, int]:
     """从 bench/openai 环境变量准备 Mem0 所需配置。"""
 
     api_key = get_env("BENCHMARK_OPENAI_API_KEY") or get_env("OPENAI_API_KEY")
@@ -82,7 +110,10 @@ def prepare_mem0_env() -> tuple[str | None, str | None, str | None, str | None]:
     if embedding_model:
         os.environ.setdefault("OPENAI_EMBEDDING_MODEL", embedding_model)
 
-    return api_key, base_url, model_name, embedding_model
+    llm_temperature = get_env_float("BENCHMARK_OPENAI_TEMPERATURE", 0.0)
+    llm_max_tokens = get_env_int("BENCHMARK_OPENAI_MAX_TOKENS", 2000)
+
+    return api_key, base_url, model_name, embedding_model, llm_temperature, llm_max_tokens
 
 
 def redact_base_url(base_url: str | None) -> str:
@@ -483,6 +514,8 @@ def build_mem0_config(
     llm_model: str,
     embedding_model: str,
     base_url: str | None,
+    llm_temperature: float,
+    llm_max_tokens: int,
 ) -> dict[str, Any]:
     """构建持久化 Mem0 配置（vector_store + llm + embedder）。"""
 
@@ -499,6 +532,8 @@ def build_mem0_config(
             "config": {
                 **openai_common,
                 "model": llm_model,
+                "temperature": llm_temperature,
+                "max_tokens": llm_max_tokens,
             },
         },
         "embedder": {
@@ -525,6 +560,8 @@ def init_memory(
     llm_model: str,
     embedding_model: str,
     base_url: str | None,
+    llm_temperature: float,
+    llm_max_tokens: int,
 ) -> Any:
     """初始化 Mem0 客户端并绑定本地持久化向量存储。"""
 
@@ -542,6 +579,8 @@ def init_memory(
         llm_model=llm_model,
         embedding_model=embedding_model,
         base_url=base_url,
+        llm_temperature=llm_temperature,
+        llm_max_tokens=llm_max_tokens,
     )
     try:
         return Memory.from_config(config)
@@ -820,7 +859,7 @@ def main() -> int:
     args = parse_args()
     repo_root = Path(__file__).resolve().parents[2]
     load_benchmark_dotenv(repo_root)
-    api_key, base_url, model_name, embedding_model = prepare_mem0_env()
+    api_key, base_url, model_name, embedding_model, llm_temperature, llm_max_tokens = prepare_mem0_env()
 
     if not api_key:
         raise ReplayMem0Error("OPENAI_API_KEY is required for Mem0. Set BENCHMARK_OPENAI_API_KEY or OPENAI_API_KEY.")
@@ -835,6 +874,7 @@ def main() -> int:
     state_dir = Path(getattr(args, "state_dir", str(DEFAULT_STATE_DIR)))
     logger.bind(group="memory").info(
         f"Mem0/OpenAI env: llm_model={llm_model}, embedding_model={embed_model}, "
+        f"temperature={llm_temperature}, max_tokens={llm_max_tokens}, "
         f"base_url={redact_base_url(base_url)}, state_dir={state_dir}"
     )
 
@@ -845,6 +885,8 @@ def main() -> int:
         llm_model=llm_model,
         embedding_model=embed_model,
         base_url=base_url,
+        llm_temperature=llm_temperature,
+        llm_max_tokens=llm_max_tokens,
     )
     if args.command == "ingest":
         return run_ingest(args, memory, input_path)
