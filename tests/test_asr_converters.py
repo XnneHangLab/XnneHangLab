@@ -16,7 +16,7 @@ def test_funasr_converter_split_sentence_on_gap_and_rewrite_text() -> None:
         "timestamp": [[0, 900], [900, 1999], [2700, 3500]],
     }
 
-    sentences = convert_asr_response_to_sentences(input_data)
+    sentences = convert_asr_response_to_sentences(input_data)  # type: ignore[arg-type]
 
     assert len(sentences) == 2
 
@@ -45,8 +45,8 @@ def test_funasr_converter_raises_on_mismatched_text_and_timestamps() -> None:
         "timestamp": [[0, 1]],
     }
 
-    with pytest.raises(AssertionError):
-        convert_asr_response_to_sentences(input_data)
+    with pytest.raises(AssertionError):  # type: ignore
+        convert_asr_response_to_sentences(input_data)  # type: ignore[arg-type]
 
 
 def test_rewrite_sentence_text_by_words_spacing_rule() -> None:
@@ -59,7 +59,7 @@ def test_rewrite_sentence_text_by_words_spacing_rule() -> None:
         {"text": "国", "start": 5, "end": 6},
     ]
 
-    assert rewrite_sentence_text_by_words(words) == "你好 inspired by 德国"
+    assert rewrite_sentence_text_by_words(words) == "你好 inspired by 德国"  # type: ignore[arg-type]
 
 
 def test_whisper_converter_ms_conversion_and_skip_empty_segment() -> None:
@@ -98,7 +98,7 @@ def test_whisper_converter_ms_conversion_and_skip_empty_segment() -> None:
         ],
     }
 
-    sentences = convert_whisper_response_to_sentences(input_data)
+    sentences = convert_whisper_response_to_sentences(input_data)  # type: ignore[arg-type]
 
     assert len(sentences) == 1
     assert sentences[0]["text"] == "hello world"
