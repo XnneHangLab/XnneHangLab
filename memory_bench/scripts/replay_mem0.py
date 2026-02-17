@@ -1,6 +1,25 @@
 #!/usr/bin/env python3
 """将 memory bench 的 Mem0 回放流程拆分为 ingest/probe/export 三阶段。"""
 
+# ============================================================
+# Mem0 框架隐性行为备忘（踩坑记录）
+# ============================================================
+#
+# 1. qdrant 本地模式默认 on_disk=False 时，每次 Memory() 初始化
+#    会 shutil.rmtree 删除整个存储目录，数据跨进程不持久化。
+#    修复：config 中显式设置 on_disk=True。
+#
+# 2. 只传 user_id 不传 agent_id 时，assistant 消息的记忆不被提取。
+#    mem0 通过 _should_use_agent_memory_extraction() 判断：
+#    需要 agent_id 存在 且 messages 含 role="assistant" 才提取 assistant 记忆。
+#    修复：同时传入 user_id 和 agent_id，保留原始 role 映射。
+#
+# 3. 传入 agent_id 后，NONE 事件会触发 vector=None 的 qdrant 写入，
+#    导致 PointStruct ValidationError。
+#    修复：monkey-patch vector_store.update，vector=None 时用 set_payload。
+#
+# ============================================================
+
 from __future__ import annotations
 
 import argparse
@@ -351,6 +370,13 @@ def compact_metadata(metadata: Any) -> dict[str, Any] | None:
     return compact or None
 
 
+# IMPORTANT: 必须同时传入 user_id 和 agent_id。
+# mem0 的 _should_use_agent_memory_extraction() 要求两个条件同时满足：
+#   1. metadata 中存在 agent_id
+#   2. messages 中包含 role="assistant" 的消息
+# 缺少任一条件，mem0 只从 user 消息提取记忆，assistant 消息被静默忽略。
+# 参见: mem0/memory/main.py Memory._should_use_agent_memory_extraction
+
 def add_memory_entry(
     memory: Any,
     user_id: str,
@@ -419,6 +445,11 @@ def _add_memory_entry_fallback(memory: Any, user_id: str, agent_id: str, message
     except TypeError:
         return memory.add(messages=[message], user_id=user_id, agent_id=agent_id)
 
+
+# IMPORTANT: 必须保留原始 role（user/assistant），不能全部映射为 "user"。
+# mem0 依赖 role="assistant" 的存在来决定是否启用 agent memory extraction。
+# 如果所有消息都是 role="user"，即使传了 agent_id，
+# _should_use_agent_memory_extraction() 仍然返回 False。
 
 def to_mem0_message(role_type: str, content: str) -> dict[str, str] | None:
     """将 bench 事件转换为 Mem0 消息格式。
@@ -810,6 +841,12 @@ def build_mem0_config(
             "config": {
                 "collection_name": f"memory_bench_{isolation}",
                 "path": str(qdrant_path),
+                # CRITICAL: mem0 的 qdrant 本地模式默认 on_disk=False，
+                # 此时每次 Memory() 初始化都会 shutil.rmtree 清空存储目录，
+                # 导致跨进程（ingest→export/probe）时数据丢失。
+                # 必须显式设为 True 才能持久化。
+                # 参见: mem0/vector_stores/qdrant.py Qdrant.__init__
+                "on_disk": True,
             },
         },
     }
@@ -863,6 +900,12 @@ def init_memory(
     except Exception as exc:
         raise ReplayMem0Error(f"failed to initialize Mem0: {exc}") from exc
 
+    # WORKAROUND: mem0 bug - _add_to_vector_store 处理 NONE 事件时
+    # 调用 vector_store.update(vector=None, ...) 更新 session ID，
+    # 但 qdrant PointStruct 不接受 vector=None。
+    # 当 vector=None 时，使用 qdrant set_payload API 只更新 payload，
+    # 或读取现有 vector 后重新写入。
+    # 参见: mem0/memory/main.py _add_to_vector_store 中 event_type == "NONE" 分支
     vector_store = getattr(memory, "vector_store", None)
     original_update = getattr(vector_store, "update", None)
     if callable(original_update):
