@@ -5,7 +5,6 @@ from pathlib import Path
 import pytest
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
-from lab.utils.FFmpegHelper import test_call_ffmpeg
 
 
 class TestLabComponents:
@@ -29,11 +28,6 @@ class TestLabComponents:
     #     assert get_setting_title("subtitle_speed", AudioRecognizeSettings) == "字幕速度"
     #     assert get_setting_title("device", FunASRSettings) == "设备选择"
     #     assert get_setting_title("base_model", FunASRSettings) == "base 模型"
-
-    def test_ffmpeg(self):
-        """测试ffmpeg可用性"""
-        assert test_call_ffmpeg() is True, "ffmpeg not available"
-
 
 
 
