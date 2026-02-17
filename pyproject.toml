@@ -128,7 +128,9 @@ vtuber = [
 ]
 
 memory_bench = [
-  "mem0ai>=0.1.115",
+  # Pin Mem0 because replay_mem0 monkey-patches internal vector_store.update behavior
+  # for the NONE-event/vector=None bug path. Version drift may break this workaround.
+  "mem0ai==1.0.3",
 ]
 
 [tool.uv]
