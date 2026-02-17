@@ -55,6 +55,8 @@ class ReplayStats:
 DEFAULT_INPUT = "memory_bench/data/events/compiled/all.jsonl"
 DEFAULT_STATE_DIR = Path("memory_bench/state")
 DEFAULT_LOG_DIR = Path("memory_bench/logs/replay_mem0")
+_CHUNK_MAX_SIZE = 10
+_CHUNK_OVERLAP = 2
 
 
 def load_benchmark_dotenv(repo_root: Path) -> None:
@@ -461,6 +463,87 @@ def add_memory_batch(
     )
 
 
+def _split_messages_into_chunks(
+    messages: list[dict[str, str]],
+    max_size: int,
+    overlap: int,
+) -> list[list[dict[str, str]]]:
+    """将单个会话消息按滑动窗口切分为多个 chunk。
+
+    Args:
+        messages: 同一 `conv_id` 下按时间顺序排列的消息列表。
+        max_size: 每个 chunk 的最大消息条数。
+        overlap: 相邻 chunk 的重叠消息条数。
+
+    Returns:
+        list[list[dict[str, str]]]：切分后的 chunk 列表。
+
+    Raises:
+        ReplayMem0Error: 当 `max_size` 非正或 `overlap` 非法时抛出。
+    """
+
+    if max_size <= 0:
+        raise ReplayMem0Error("max_size must be > 0")
+    if overlap < 0:
+        raise ReplayMem0Error("overlap must be >= 0")
+    if overlap >= max_size:
+        raise ReplayMem0Error("overlap must be smaller than max_size")
+    if len(messages) <= max_size:
+        return [messages]
+
+    step = max_size - overlap
+    chunks: list[list[dict[str, str]]] = []
+    for start in range(0, len(messages), step):
+        chunk = messages[start : start + max_size]
+        if not chunk:
+            break
+        if start > 0 and len(chunk) < overlap:
+            break
+        chunks.append(chunk)
+
+    return chunks
+
+
+def _ingest_single_conversation(
+    memory: Any,
+    user_id: str,
+    agent_id: str,
+    messages: list[dict[str, str]],
+    metadata: dict[str, Any],
+    store_raw: bool,
+) -> int:
+    """将单个 conv_id 的消息按窗口切分后写入 Mem0。
+
+    Args:
+        memory: Mem0 Memory 实例。
+        user_id: 用户隔离标识。
+        agent_id: 智能体隔离标识。
+        messages: 单个会话完整消息列表。
+        metadata: 会话级元数据（包含 conv_id）。
+        store_raw: 是否优先使用 `infer=False` 原文写入。
+
+    Returns:
+        int：本次会话写入的消息总条数。
+    """
+
+    chunks = _split_messages_into_chunks(messages, _CHUNK_MAX_SIZE, _CHUNK_OVERLAP)
+    for chunk in chunks:
+        add_memory_batch(
+            memory=memory,
+            user_id=user_id,
+            agent_id=agent_id,
+            messages=chunk,
+            metadata=metadata,
+            store_raw=store_raw,
+        )
+
+    logger.bind(group="memory").info(
+        f"Mem0 add conversation: conv_id={metadata.get('conv_id')}, "
+        f"total_messages={len(messages)}, chunks={len(chunks)}"
+    )
+    return len(messages)
+
+
 # NOTE: ingest 主流程已改用 add_memory_batch() 按 conv_id 分组写入。
 # 此函数保留作为单条写入的工具方法。
 def add_memory_entry(
@@ -668,7 +751,7 @@ def flush_ingest_batch(
     if user_id is None or agent_id is None or not pending_messages:
         return 0
 
-    add_memory_batch(
+    return _ingest_single_conversation(
         memory=memory,
         user_id=user_id,
         agent_id=agent_id,
@@ -676,7 +759,6 @@ def flush_ingest_batch(
         metadata=pending_metadata,
         store_raw=store_raw,
     )
-    return len(pending_messages)
 
 
 def read_jsonl(path: Path) -> Iterator[tuple[int, dict[str, Any]]]:
