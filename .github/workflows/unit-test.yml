@@ -36,29 +36,6 @@ jobs:
       - name: Install dependencies
         run: |
           just ci-install
-          
-      - name: Cache FFmpeg
-        id: cache-ffmpeg
-        uses: actions/cache@v4
-        with:
-          path: ~/.local/bin/ffmpeg
-          key: ${{ runner.os }}-ffmpeg-static-6.0 # 使用一个清晰的键，例如包含版本号
-
-      - name: Download FFmpeg if not cached
-        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
-        run: |
-          FFMPEG_URL="https://github.com/eugeneware/ffmpeg-static/releases/download/b6.0/ffmpeg-linux-x64"
-          mkdir -p ~/.local/bin
-          curl -L $FFMPEG_URL -o ~/.local/bin/ffmpeg
-          chmod +x ~/.local/bin/ffmpeg
-
-      - name: Add FFmpeg to PATH
-        run: |
-          echo "~/.local/bin" >> $GITHUB_PATH
-
-      - name: Verify FFmpeg
-        run: |
-          ffmpeg -version
 
       - name: Run unit tests
         run: |
