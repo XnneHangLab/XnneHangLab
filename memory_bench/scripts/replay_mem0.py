@@ -173,8 +173,7 @@ def prepare_mem0_env() -> tuple[str, str, str, str, float, int]:
             f"missing required benchmark env vars: {required}. Please set them in memory_bench/.env.benchmark."
         )
 
-    # 显式传给 Mem0，同时避免依赖 Mem0 对 base/model 的隐式环境读取。
-    os.environ["OPENAI_API_KEY"] = api_key
+    # 显式通过返回值将配置传给 Mem0，避免依赖或修改全局环境变量。
 
     llm_temperature = get_env_float("BENCHMARK_OPENAI_TEMPERATURE", 0.0)
     llm_max_tokens = get_env_int("BENCHMARK_OPENAI_MAX_TOKENS", 2000)
