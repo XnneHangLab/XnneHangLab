@@ -20,6 +20,10 @@ def test_funasr_converter_split_sentence_on_gap_and_rewrite_text() -> None:
 
     assert len(sentences) == 2
 
+    for sentence in sentences:
+        assert sentence["start"] == sentence["Words"][0]["start"]
+        assert sentence["end"] == sentence["Words"][-1]["end"]
+
     assert sentences[0]["text"] == "你好"
     assert sentences[0]["start"] == 0
     assert sentences[0]["end"] == 1999
