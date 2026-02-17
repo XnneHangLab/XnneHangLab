@@ -518,8 +518,6 @@ def _split_messages_into_chunks(
         chunk = messages[start : start + max_size]
         if not chunk:
             break
-        if start > 0 and len(chunk) < overlap:
-            break
         chunks.append(chunk)
 
     return chunks
