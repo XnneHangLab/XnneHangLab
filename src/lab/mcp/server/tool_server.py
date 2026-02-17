@@ -167,7 +167,7 @@ def _is_probably_private_host(host: str) -> bool:
     if not host:
         return True
     h = host.lower().strip()
-    if h in {"localhost"}:
+    if h == "localhost":
         return True
     if h.endswith(".local"):
         return True

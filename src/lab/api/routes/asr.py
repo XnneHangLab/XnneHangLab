@@ -59,7 +59,7 @@ async def funasr_with_punc(file: UploadFile = file_default) -> dict[str, Any]:
     """
     # 定义临时文件路径，如果文件名不存在则使用默认值
     temp_audio_path = Path(lab_settings.asr.cache_dir) / (
-        file.filename if file.filename else f"temp_audio_{get_time_tag_with_millis()}.wav"
+        file.filename or f"temp_audio_{get_time_tag_with_millis()}.wav"
     )
     # 确保缓存目录存在
     temp_audio_path.parent.mkdir(parents=True, exist_ok=True)
@@ -96,7 +96,7 @@ async def funasr_no_punc(
     """
     # 定义临时文件路径，如果文件名不存在则使用默认值
     temp_audio_path = Path(lab_settings.asr.cache_dir) / (
-        file.filename if file.filename else f"temp_audio_{get_time_tag_with_millis()}.wav"
+        file.filename or f"temp_audio_{get_time_tag_with_millis()}.wav"
     )
     # 确保缓存目录存在
     temp_audio_path.parent.mkdir(parents=True, exist_ok=True)
@@ -132,7 +132,7 @@ async def funasr_vad_audio_activity(
     """
     # 定义临时文件路径，如果文件名不存在则使用默认值
     temp_audio_path = Path(lab_settings.asr.cache_dir) / (
-        file.filename if file.filename else f"temp_audio_{get_time_tag_with_millis()}.wav"
+        file.filename or f"temp_audio_{get_time_tag_with_millis()}.wav"
     )
     # 确保缓存目录存在
     temp_audio_path.parent.mkdir(parents=True, exist_ok=True)
@@ -162,7 +162,7 @@ async def whisper_with_punc(
     """
     # 定义临时文件路径，如果文件名不存在则使用默认值
     temp_audio_path = Path(lab_settings.asr.cache_dir) / (
-        file.filename if file.filename else f"temp_audio_{get_time_tag_with_millis()}.wav"
+        file.filename or f"temp_audio_{get_time_tag_with_millis()}.wav"
     )
     # 确保缓存目录存在
     temp_audio_path.parent.mkdir(parents=True, exist_ok=True)
