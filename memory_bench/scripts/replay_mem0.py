@@ -664,9 +664,7 @@ def flush_ingest_batch(
         metadata=pending_metadata,
         store_raw=store_raw,
     )
-    count = len(pending_messages)
-    pending_messages.clear()
-    return count
+    return len(pending_messages)
 
 
 def read_jsonl(path: Path) -> Iterator[tuple[int, dict[str, Any]]]:
@@ -1178,6 +1176,8 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
             )
             since_last_checkpoint = 0
 
+    # NOTE: 如果整个文件只有一个 conv_id，循环内不会触发 flush，
+    # 所有消息在此处一次性写入，checkpoint 由下方的最终保存处理。
     flushed = flush_ingest_batch(
         memory,
         pending_user_id,
