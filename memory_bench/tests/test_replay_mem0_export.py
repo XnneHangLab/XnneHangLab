@@ -28,16 +28,24 @@ def load_replay_mem0_module() -> Any:
     sys.modules["bench_logger"] = bench_module
     bench_spec.loader.exec_module(bench_module)
 
-    replay_spec = importlib.util.spec_from_file_location("replay_mem0", scripts_dir / "replay_mem0.py")
+    replay_spec = importlib.util.spec_from_file_location("replay_mem0_testshim", scripts_dir / "replay_mem0.py")
     if replay_spec is None or replay_spec.loader is None:
         raise RuntimeError("failed to create module spec for replay_mem0")
     replay_module = importlib.util.module_from_spec(replay_spec)
-    sys.modules["replay_mem0"] = replay_module
+    sys.modules["replay_mem0_testshim"] = replay_module
     replay_spec.loader.exec_module(replay_module)
     return replay_module
 
 
-replay_mem0 = load_replay_mem0_module()
+@pytest.fixture(scope="session")
+def replay_mem0() -> Any:
+    """提供按路径加载的 replay_mem0 模块夹具。
+
+    Returns:
+        Any: 已加载的 replay_mem0 模块对象。
+    """
+
+    return load_replay_mem0_module()
 
 
 class DummyClientPaging:
@@ -154,7 +162,9 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in lines if line.strip()]
 
 
-def test_export_collection_snapshot_paging(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_export_collection_snapshot_paging(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, replay_mem0: Any
+) -> None:
     """验证分页导出会写出全部 points 且计数正确。
 
     Args:
@@ -179,12 +189,16 @@ def test_export_collection_snapshot_paging(tmp_path: Path, monkeypatch: pytest.M
         assert row["isolation"] == "global"
         assert row["exported_at"] == "2020-01-01T00:00:00Z"
         assert "payload" in row
+    assert client.calls[0]["with_vectors"] is False
+    assert client.calls[0]["offset"] is None
+    assert client.calls[1]["offset"] == "next"
 
 
 @pytest.mark.parametrize("message", ["Collection not found", "Collection does not exist"])
 def test_export_collection_snapshot_collection_not_found_treated_as_empty(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    replay_mem0: Any,
     message: str,
 ) -> None:
     """验证 collection 不存在异常会被当作空快照处理。
@@ -209,7 +223,7 @@ def test_export_collection_snapshot_collection_not_found_treated_as_empty(
     assert out_path.read_text(encoding="utf-8") == ""
 
 
-def test_export_collection_snapshot_requires_scroll(tmp_path: Path) -> None:
+def test_export_collection_snapshot_requires_scroll(tmp_path: Path, replay_mem0: Any) -> None:
     """验证当客户端不支持 scroll 时抛出 ReplayMem0Error。
 
     Args:
