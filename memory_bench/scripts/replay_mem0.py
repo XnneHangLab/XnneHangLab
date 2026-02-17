@@ -306,18 +306,23 @@ def parse_args() -> argparse.Namespace:
     )
 
     export_cmd = subparsers.add_parser("export", help="Export current Mem0 state snapshot")
-    add_common_input_args(export_cmd)
+    export_cmd.add_argument(
+        "--isolation",
+        choices=["per_chapter", "global"],
+        default="global",
+        help="Mem0 user isolation mode",
+    )
+    export_cmd.add_argument(
+        "--state-dir",
+        type=str,
+        default=str(DEFAULT_STATE_DIR),
+        help="State root directory for checkpoint files and qdrant local storage",
+    )
     export_cmd.add_argument(
         "--output",
         type=str,
         default="",
         help="Output JSONL path. Defaults to logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl",
-    )
-    export_cmd.add_argument(
-        "--user-id",
-        type=str,
-        default="",
-        help="Optional fixed user_id; if empty, derive all user_ids from --input",
     )
 
     return parser.parse_args()
@@ -1418,59 +1423,56 @@ def run_probe(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
     return 0
 
 
-def collect_user_ids(input_path: Path, isolation: str) -> list[tuple[str, str]]:
-    """从输入事件中收集去重后的 (user_id, agent_id) 对。
-
-    Args:
-        input_path: 输入 JSONL 路径。
-        isolation: 隔离模式（global/per_chapter）。
-
-    Returns:
-        list[tuple[str, str]]：去重后的 `(user_id, agent_id)` 列表。
-    """
-
-    user_agent_pairs: dict[tuple[str, str], None] = {}
-    for _, event in read_jsonl(input_path):
-        user_id = build_user_id(event, isolation)
-        agent_id = build_agent_id(event)
-        user_agent_pairs[(user_id, agent_id)] = None
-    return list(user_agent_pairs.keys())
-
-
-def fetch_user_memories(memory: Any, user_id: str, agent_id: str) -> Any:
-    """导出指定 user/agent 组合的记忆快照，兼容多种 API 签名。
+def export_collection_snapshot(memory: Any, output_path: Path, isolation: str) -> int:
+    """直接从 Qdrant collection scroll 全量导出点位快照。
 
     Args:
         memory: Mem0 Memory 实例。
-        user_id: 用户隔离标识。
-        agent_id: 智能体隔离标识（通常来自 character_id）。
+        output_path: 输出 JSONL 路径。
+        isolation: 隔离模式（用于 fallback collection 命名）。
 
     Returns:
-        Any：Mem0 返回的记忆快照对象。
+        int：导出的 point 总数。
 
     Raises:
-        ReplayMem0Error: 无可用导出 API 签名时抛出。
+        ReplayMem0Error: vector store client 不支持 scroll 时抛出。
     """
 
-    attempts = [
-        lambda: memory.get_all(user_id=user_id, agent_id=agent_id),
-        lambda: memory.get_all(user_id=user_id),
-        lambda: memory.get_all(user_id),
-        lambda: memory.get(user_id=user_id, agent_id=agent_id),
-        lambda: memory.get(user_id=user_id),
-        lambda: memory.get(user_id),
-    ]
-    last_exc: Exception | None = None
-    for attempt in attempts:
-        try:
-            return attempt()
-        except TypeError as exc:
-            last_exc = exc
-        except AttributeError as exc:
-            last_exc = exc
-    raise ReplayMem0Error(
-        f"Mem0 client does not support export API for user_id={user_id}, agent_id={agent_id}: {last_exc}"
+    vector_store = getattr(memory, "vector_store", None)
+    client = getattr(vector_store, "client", None)
+    if client is None or not hasattr(client, "scroll"):
+        raise ReplayMem0Error("vector_store client has no scroll(); cannot export full DB snapshot")
+
+    collection_name = (
+        getattr(memory, "collection_name", None)
+        or getattr(vector_store, "collection_name", None)
+        or f"memory_bench_{isolation}"
     )
+
+    total = 0
+    next_offset: Any = None
+    with output_path.open("w", encoding="utf-8") as out_file:
+        while True:
+            points, next_offset = client.scroll(
+                collection_name=collection_name,
+                limit=256,
+                with_payload=True,
+                with_vectors=False,
+                offset=next_offset,
+            )
+            if not points:
+                break
+
+            for point in points:
+                point_id = point.get("id") if isinstance(point, dict) else getattr(point, "id", None)
+                payload = point.get("payload") if isinstance(point, dict) else getattr(point, "payload", None)
+                out_file.write(json.dumps({"id": point_id, "payload": payload}, ensure_ascii=False) + "\n")
+                total += 1
+
+            if next_offset is None:
+                break
+
+    return total
 
 
 def run_export(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
@@ -1485,39 +1487,14 @@ def run_export(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
         int：成功返回 0。
 
     Raises:
-        ReplayMem0Error: 指定 user_id 在输入中不存在等异常时抛出。
+        ReplayMem0Error: 向量存储客户端不支持全量导出时抛出。
     """
 
     output_path = Path(args.output) if args.output else default_output_path("export")
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    if args.user_id:
-        all_pairs = collect_user_ids(input_path, args.isolation)
-        user_agent_pairs = [pair for pair in all_pairs if pair[0] == args.user_id]
-        if not user_agent_pairs:
-            raise ReplayMem0Error(f"no matched user_id in input for export: {args.user_id}")
-    else:
-        user_agent_pairs = collect_user_ids(input_path, args.isolation)
-
-    with output_path.open("w", encoding="utf-8") as out_file:
-        for user_id, agent_id in user_agent_pairs:
-            memories = fetch_user_memories(memory, user_id, agent_id)
-            out_file.write(
-                json.dumps(
-                    {
-                        "backend": "mem0",
-                        "user_id": user_id,
-                        "agent_id": agent_id,
-                        "isolation": args.isolation,
-                        "exported_at": now_iso(),
-                        "memories": memories,
-                    },
-                    ensure_ascii=False,
-                )
-                + "\n"
-            )
-
-    logger.bind(group="memory").info(f"Export done: users={len(user_agent_pairs)}, output={output_path}")
+    points = export_collection_snapshot(memory, output_path, args.isolation)
+    logger.bind(group="memory").info(f"Export done: points={points}, output={output_path}")
     return 0
 
 
@@ -1536,8 +1513,8 @@ def main() -> int:
     load_benchmark_dotenv(repo_root)
     api_key, base_url, llm_model, embed_model, llm_temperature, llm_max_tokens = prepare_mem0_env()
 
-    input_path = Path(args.input)
-    if not input_path.exists():
+    input_path = Path(args.input) if hasattr(args, "input") else Path(DEFAULT_INPUT)
+    if args.command in {"ingest", "probe"} and not input_path.exists():
         raise ReplayMem0Error(f"input file not found: {input_path}")
 
     state_dir = Path(args.state_dir)
