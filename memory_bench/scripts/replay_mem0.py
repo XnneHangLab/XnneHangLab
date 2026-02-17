@@ -280,7 +280,6 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Write probe events into Mem0 (default: false)",
     )
-    ingest.add_argument("--batch-size", type=int, default=1, help="Batch size for Memory.add writes")
     ingest.add_argument(
         "--store-raw",
         action="store_true",
@@ -352,6 +351,16 @@ def build_event_metadata(event: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def build_group_metadata(event: dict[str, Any]) -> dict[str, Any]:
+    """构建 conv_id 分组级别的元数据。取自该组第一条事件。"""
+
+    return {
+        "scene_id": event.get("scene_id"),
+        "character_id": event.get("character_id"),
+        "conv_id": event.get("conv_id"),
+    }
+
+
 def compact_metadata(metadata: Any) -> dict[str, Any] | None:
     """裁剪命中结果中的 metadata，仅保留关键信息用于展示。
 
@@ -377,6 +386,69 @@ def compact_metadata(metadata: Any) -> dict[str, Any] | None:
 # 参见: mem0/memory/main.py Memory._should_use_agent_memory_extraction
 
 
+def add_memory_batch(
+    memory: Any,
+    user_id: str,
+    agent_id: str,
+    messages: list[dict[str, str]],
+    metadata: dict[str, Any],
+    store_raw: bool,
+) -> None:
+    """将多轮对话消息打包写入 mem0。
+
+    # IMPORTANT: mem0 的 memory.add(messages=[多条]) 会将整个对话
+    # 作为上下文传给 LLM 提取记忆，比逐条写入的提取质量显著更高。
+    """
+
+    result: Any
+    if store_raw:
+        try:
+            result = memory.add(
+                messages=messages,
+                user_id=user_id,
+                agent_id=agent_id,
+                metadata=metadata,
+                infer=False,
+            )
+        except TypeError:
+            result = memory.add(
+                messages=messages,
+                user_id=user_id,
+                agent_id=agent_id,
+                metadata=metadata,
+            )
+    else:
+        try:
+            result = memory.add(
+                messages=messages,
+                user_id=user_id,
+                agent_id=agent_id,
+                metadata=metadata,
+            )
+        except TypeError:
+            result = memory.add(
+                messages=messages,
+                user_id=user_id,
+                agent_id=agent_id,
+            )
+
+    if isinstance(result, dict):
+        results = result.get("results", [])
+        added = len(results) if isinstance(results, list) else -1
+    elif isinstance(result, list):
+        added = len(result)
+    else:
+        added = -1
+
+    msg_preview = messages[0]["content"][:60] if messages else ""
+    logger.bind(group="memory").info(
+        f"Mem0 add batch: {len(messages)} messages → {added} memories "
+        f"for user={user_id}, first_msg={msg_preview}..."
+    )
+
+
+# NOTE: ingest 主流程已改用 add_memory_batch() 按 conv_id 分组写入。
+# 此函数保留作为单条写入的工具方法。
 def add_memory_entry(
     memory: Any,
     user_id: str,
@@ -563,32 +635,37 @@ def flush_ingest_batch(
     memory: Any,
     user_id: str | None,
     agent_id: str | None,
-    pending_items: list[tuple[dict[str, str], dict[str, Any]]],
+    pending_messages: list[dict[str, str]],
+    pending_metadata: dict[str, Any],
     store_raw: bool,
 ) -> int:
-    """批量刷写缓存消息到 Mem0，并在成功后清空缓存。
+    """将同一 conv_id 的消息打包写入 mem0。
 
     Args:
         memory: Mem0 Memory 实例。
         user_id: 用户隔离标识。
         agent_id: 智能体隔离标识（通常来自 character_id）。
-        pending_items: 待刷写的消息缓存列表。
+        pending_messages: 待刷写的消息缓存列表。
+        pending_metadata: 当前消息组的元数据。
         store_raw: 是否优先使用 `infer=False` 原文写入。
 
     Returns:
         int：本次成功刷写的消息条数。
     """
 
-    if user_id is None or agent_id is None or not pending_items:
+    if user_id is None or agent_id is None or not pending_messages:
         return 0
 
-    for message, metadata in pending_items:
-        add_memory_entry(
-            memory=memory, user_id=user_id, agent_id=agent_id, message=message, metadata=metadata, store_raw=store_raw
-        )
-
-    count = len(pending_items)
-    pending_items.clear()
+    add_memory_batch(
+        memory=memory,
+        user_id=user_id,
+        agent_id=agent_id,
+        messages=pending_messages,
+        metadata=pending_metadata,
+        store_raw=store_raw,
+    )
+    count = len(pending_messages)
+    pending_messages.clear()
     return count
 
 
@@ -987,8 +1064,6 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
         ReplayMem0Error: 参数非法、输入变更或事件数据不合法时抛出。
     """
 
-    if args.batch_size <= 0:
-        raise ReplayMem0Error("--batch-size must be a positive integer")
     if args.checkpoint_interval <= 0:
         raise ReplayMem0Error("--checkpoint-interval must be a positive integer")
 
@@ -1017,9 +1092,11 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
     total_events = count_replay_events(input_path)
     replay_progress = create_replay_progress(total_events, desc="mem0 ingest")
 
-    pending_items: list[tuple[dict[str, str], dict[str, Any]]] = []
+    pending_messages: list[dict[str, str]] = []
+    pending_conv_id: str | None = None
     pending_user_id: str | None = None
     pending_agent_id: str | None = None
+    pending_metadata: dict[str, Any] = {}
     pending_last_line: int | None = None
     pending_last_event: dict[str, Any] | None = None
     since_last_checkpoint = 0
@@ -1035,6 +1112,7 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
 
         user_id = build_user_id(event, args.isolation)
         agent_id = build_agent_id(event)
+        conv_id = str(event.get("conv_id", "")).strip()
         if should_ingest(event, skip_roles, skip_tags, only_tags, args.write_probes):
             role_type = str(event.get("role_type", "")).strip()
             content = str(event.get("content", "")).strip()
@@ -1043,11 +1121,29 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
                 stats.skipped_events += 1
                 continue
 
-            if pending_user_id is not None and (pending_user_id != user_id or pending_agent_id != agent_id):
-                flushed = flush_ingest_batch(memory, pending_user_id, pending_agent_id, pending_items, args.store_raw)
+            # IMPORTANT: mem0 的 memory.add(messages=[...]) 会将整个 messages 列表
+            # 作为对话上下文传给 LLM 进行记忆提取。逐条写入时 LLM 缺少上下文，
+            # 例如 "他是谁" "哪部作品" 等指代关系无法解析。
+            # 因此按 conv_id 分组，把同一段对话的所有消息打包后一次性传入。
+            # JSONL 事件流在 compile 阶段已按 conv_id 排序，
+            # 此处只需检测 conv_id 边界即可，无需额外排序或 batch-size 参数。
+            if pending_conv_id is not None and (
+                pending_conv_id != conv_id or pending_user_id != user_id or pending_agent_id != agent_id
+            ):
+                flushed = flush_ingest_batch(
+                    memory,
+                    pending_user_id,
+                    pending_agent_id,
+                    pending_messages,
+                    pending_metadata,
+                    args.store_raw,
+                )
                 stats.ingested_events += flushed
+                pending_messages = []
+                pending_conv_id = None
                 pending_user_id = None
                 pending_agent_id = None
+                pending_metadata = {}
                 if flushed > 0:
                     since_last_checkpoint += flushed
                     if pending_last_line is not None:
@@ -1056,25 +1152,15 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
                 pending_last_line = None
                 pending_last_event = None
 
-            if pending_user_id is None:
+            if pending_conv_id is None:
+                pending_conv_id = conv_id
                 pending_user_id = user_id
                 pending_agent_id = agent_id
+                pending_metadata = build_group_metadata(event)
 
-            pending_items.append((message, build_event_metadata(event)))
+            pending_messages.append(message)
             pending_last_line = line_no
             pending_last_event = {"conv_id": event.get("conv_id"), "turn_id": event.get("turn_id")}
-            if len(pending_items) >= args.batch_size:
-                flushed = flush_ingest_batch(memory, pending_user_id, pending_agent_id, pending_items, args.store_raw)
-                stats.ingested_events += flushed
-                pending_user_id = None
-                pending_agent_id = None
-                if flushed > 0:
-                    if pending_last_line is not None:
-                        last_ingested_line = pending_last_line
-                    last_ingested_event = pending_last_event
-                    since_last_checkpoint += flushed
-                pending_last_line = None
-                pending_last_event = None
         else:
             stats.skipped_events += 1
 
@@ -1092,7 +1178,14 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
             )
             since_last_checkpoint = 0
 
-    flushed = flush_ingest_batch(memory, pending_user_id, pending_agent_id, pending_items, args.store_raw)
+    flushed = flush_ingest_batch(
+        memory,
+        pending_user_id,
+        pending_agent_id,
+        pending_messages,
+        pending_metadata,
+        args.store_raw,
+    )
     stats.ingested_events += flushed
     if flushed > 0:
         if pending_last_line is not None:
