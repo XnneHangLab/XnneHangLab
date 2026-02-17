@@ -149,31 +149,40 @@ uv run python memory_bench/scripts/compile_events.py --chapters ch01,ch02
 - 可通过 `--out` 覆盖输出路径
 
 
-### 4) Mem0 重放：`replay_mem0.py`
+### 4) Mem0 重放：`replay_mem0.py`（ingest / probe / export）
 
 脚本：`memory_bench/scripts/replay_mem0.py`
 
 功能：
 
-1. 流式读取事件 JSONL（支持 compiled 与 by_chapter 输入）；
+1. 将流程拆分为三个子命令：
+   - `ingest`：增量写入事件到 Mem0，并维护 checkpoint
+   - `probe`：只读取 `tags` 含 `probe` 的事件做检索，不写入 memory
+   - `export`：导出当前 memory 状态快照（按 user_id）
 2. 依据隔离模式生成 `user_id`：
    - `--isolation global` -> `scene_id:character_id`
    - `--isolation per_chapter` -> `scene_id:character_id:conv_id`
-3. 按规则写入 Mem0（默认仅 `human/assistant` 且过滤 `ui/tool/filler`）；
-4. 对 `tags` 包含 `probe` 的事件执行 `memory.search(...)`；
-5. 运行时显示 replay 全量实时进度条（event 级，含 total 与百分比）；
-6. 将每条 probe 结果写入 `memory_bench/logs/replay_mem0/run_YYYYMMDD_HHMMSS.jsonl`，包含 `probe_role_type/probe_role_name/user_id` 与 `hits_count/hits_preview/latency_ms`。
+3. Mem0 使用本地持久化 Qdrant 向量存储（默认 `memory_bench/state/qdrant_storage`，collection 为 `memory_bench_{isolation}`），可跨进程复用；
+4. ingest 支持 checkpoint 断点续跑（默认保存到 `memory_bench/state/`，记录 input hash 与 last_ingested_line）；
+5. probe 输出标准化检索日志到 `memory_bench/logs/replay_mem0/probe_YYYYMMDD_HHMMSS.jsonl`；
+6. export 输出快照到 `memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl`。
 
 常用运行方式：
 
 ```bash
-uv run python memory_bench/scripts/replay_mem0.py --input memory_bench/data/events/compiled/all.jsonl
+uv run python memory_bench/scripts/replay_mem0.py ingest --input memory_bench/data/events/compiled/all.jsonl
 ```
 
-切换章节级隔离：
+独立运行 probe（可反复执行不同参数）：
 
 ```bash
-uv run python memory_bench/scripts/replay_mem0.py --isolation per_chapter
+uv run python memory_bench/scripts/replay_mem0.py probe --k 10 --output memory_bench/logs/replay_mem0/probe_k10.jsonl
+```
+
+导出当前记忆快照：
+
+```bash
+uv run python memory_bench/scripts/replay_mem0.py export
 ```
 
 常用过滤参数：
@@ -182,16 +191,20 @@ uv run python memory_bench/scripts/replay_mem0.py --isolation per_chapter
 - `--skip-tags filler`
 - `--only-tags canon_only,episodic,synthetic`
 - `--write-probes`（默认关闭，避免 probe 污染记忆）
-- `--batch-size 16`（批量写入 Memory.add，probe 前自动 flush）
+- `--batch-size 16`（批量写入 Memory.add）
 - `--store-raw`（写入时优先 `infer=False`，让命中更接近原文）
+- `--state-dir memory_bench/state`（checkpoint 与 Qdrant 本地存储根目录）
+- `--checkpoint-interval 50`（每 N 条 ingest 成功后更新 checkpoint）
+- `--force`（忽略旧 checkpoint，从头 ingest）
 
 环境变量（优先读取 bench 前缀）：
 
-- `BENCHMARK_OPENAI_API_KEY`（或 `OPENAI_API_KEY`）
-- `BENCHMARK_OPENAI_BASE_URL`（或 `OPENAI_BASE_URL` / `OPENAI_API_BASE`）
-- `BENCHMARK_OPENAI_MODEL`（可选，回退 `OPENAI_MODEL`）
+- `BENCHMARK_OPENAI_API_KEY`（必需）
+- `BENCHMARK_OPENAI_BASE_URL`（必需）
+- `BENCHMARK_OPENAI_MODEL`（必需）
+- `BENCHMARK_OPENAI_EMBEDDING_MODEL`（必需）
 
-脚本会先尝试加载 `memory_bench/.env.benchmark`，并将上述值传递给 Mem0 初始化。
+脚本会先尝试加载 `memory_bench/.env.benchmark`（`override=True`），并显式写入 Mem0 的 `llm/embedder/vector_store` 配置；不会回退读取 `OPENAI_*`。
 
 ### 5) 统一日志模块：`bench_logger.py`
 
