@@ -391,8 +391,12 @@ def add_memory_entry(
         added = -1
 
     if added == 0:
-        logger.bind(group="memory").warning(
+        logger.bind(group="memory").debug(
             f"Mem0 add returned 0 memories for user={user_id}, content={message['content'][:80]}..."
+        )
+    else:
+        logger.bind(group="memory").debug(
+            f"Mem0 add inserted {added} memories for user={user_id}, content={message['content'][:80]}..."
         )
 
 
