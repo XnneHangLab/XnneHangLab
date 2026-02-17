@@ -354,6 +354,7 @@ def compact_metadata(metadata: Any) -> dict[str, Any] | None:
 def add_memory_entry(
     memory: Any,
     user_id: str,
+    agent_id: str,
     message: dict[str, str],
     metadata: dict[str, Any],
     store_raw: bool,
@@ -363,6 +364,7 @@ def add_memory_entry(
     Args:
         memory: 参数。
         user_id: 参数。
+        agent_id: 参数。
         message: 参数。
         metadata: 参数。
         store_raw: 参数。
@@ -374,11 +376,11 @@ def add_memory_entry(
     result: Any
     if store_raw:
         try:
-            result = memory.add(messages=[message], user_id=user_id, metadata=metadata, infer=False)
+            result = memory.add(messages=[message], user_id=user_id, agent_id=agent_id, metadata=metadata, infer=False)
         except TypeError:
-            result = _add_memory_entry_fallback(memory=memory, user_id=user_id, message=message, metadata=metadata)
+            result = _add_memory_entry_fallback(memory=memory, user_id=user_id, agent_id=agent_id, message=message, metadata=metadata)
     else:
-        result = _add_memory_entry_fallback(memory=memory, user_id=user_id, message=message, metadata=metadata)
+        result = _add_memory_entry_fallback(memory=memory, user_id=user_id, agent_id=agent_id, message=message, metadata=metadata)
 
     if isinstance(result, dict):
         results = result.get("results", [])
@@ -394,12 +396,13 @@ def add_memory_entry(
         )
 
 
-def _add_memory_entry_fallback(memory: Any, user_id: str, message: dict[str, str], metadata: dict[str, Any]) -> Any:
+def _add_memory_entry_fallback(memory: Any, user_id: str, agent_id: str, message: dict[str, str], metadata: dict[str, Any]) -> Any:
     """在参数签名不兼容时回退调用 Memory.add。
 
     Args:
         memory: 参数。
         user_id: 参数。
+        agent_id: 参数。
         message: 参数。
         metadata: 参数。
 
@@ -408,9 +411,9 @@ def _add_memory_entry_fallback(memory: Any, user_id: str, message: dict[str, str
     """
 
     try:
-        return memory.add(messages=[message], user_id=user_id, metadata=metadata)
+        return memory.add(messages=[message], user_id=user_id, agent_id=agent_id, metadata=metadata)
     except TypeError:
-        return memory.add(messages=[message], user_id=user_id)
+        return memory.add(messages=[message], user_id=user_id, agent_id=agent_id)
 
 
 def to_mem0_message(role_type: str, content: str) -> dict[str, str] | None:
@@ -497,6 +500,7 @@ def should_ingest(
 def flush_ingest_batch(
     memory: Any,
     user_id: str | None,
+    agent_id: str | None,
     pending_items: list[tuple[dict[str, str], dict[str, Any]]],
     store_raw: bool,
 ) -> int:
@@ -505,6 +509,7 @@ def flush_ingest_batch(
     Args:
         memory: 参数。
         user_id: 参数。
+        agent_id: 参数。
         pending_items: 参数。
         store_raw: 参数。
 
@@ -512,11 +517,11 @@ def flush_ingest_batch(
         返回结果。
     """
 
-    if user_id is None or not pending_items:
+    if user_id is None or agent_id is None or not pending_items:
         return 0
 
     for message, metadata in pending_items:
-        add_memory_entry(memory=memory, user_id=user_id, message=message, metadata=metadata, store_raw=store_raw)
+        add_memory_entry(memory=memory, user_id=user_id, agent_id=agent_id, message=message, metadata=metadata, store_raw=store_raw)
 
     count = len(pending_items)
     pending_items.clear()
@@ -882,6 +887,7 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
 
     pending_items: list[tuple[dict[str, str], dict[str, Any]]] = []
     pending_user_id: str | None = None
+    pending_agent_id: str | None = None
     pending_last_line: int | None = None
     pending_last_event: dict[str, Any] | None = None
     since_last_checkpoint = 0
@@ -896,6 +902,7 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
             continue
 
         user_id = build_user_id(event, args.isolation)
+        agent_id = str(event.get("character_id", "")).strip()
         if should_ingest(event, skip_roles, skip_tags, only_tags, args.write_probes):
             role_type = str(event.get("role_type", "")).strip()
             content = str(event.get("content", "")).strip()
@@ -904,10 +911,11 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
                 stats.skipped_events += 1
                 continue
 
-            if pending_user_id is not None and pending_user_id != user_id:
-                flushed = flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
+            if pending_user_id is not None and (pending_user_id != user_id or pending_agent_id != agent_id):
+                flushed = flush_ingest_batch(memory, pending_user_id, pending_agent_id, pending_items, args.store_raw)
                 stats.ingested_events += flushed
                 pending_user_id = None
+                pending_agent_id = None
                 if flushed > 0:
                     since_last_checkpoint += flushed
                     if pending_last_line is not None:
@@ -918,14 +926,16 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
 
             if pending_user_id is None:
                 pending_user_id = user_id
+                pending_agent_id = agent_id
 
             pending_items.append((message, build_event_metadata(event)))
             pending_last_line = line_no
             pending_last_event = {"conv_id": event.get("conv_id"), "turn_id": event.get("turn_id")}
             if len(pending_items) >= args.batch_size:
-                flushed = flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
+                flushed = flush_ingest_batch(memory, pending_user_id, pending_agent_id, pending_items, args.store_raw)
                 stats.ingested_events += flushed
                 pending_user_id = None
+                pending_agent_id = None
                 if flushed > 0:
                     if pending_last_line is not None:
                         last_ingested_line = pending_last_line
@@ -950,7 +960,7 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
             )
             since_last_checkpoint = 0
 
-    flushed = flush_ingest_batch(memory, pending_user_id, pending_items, args.store_raw)
+    flushed = flush_ingest_batch(memory, pending_user_id, pending_agent_id, pending_items, args.store_raw)
     stats.ingested_events += flushed
     if flushed > 0:
         if pending_last_line is not None:
