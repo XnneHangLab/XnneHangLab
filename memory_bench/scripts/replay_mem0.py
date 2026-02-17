@@ -39,7 +39,14 @@ DEFAULT_LOG_DIR = Path("memory_bench/logs/replay_mem0")
 
 
 def load_benchmark_dotenv(repo_root: Path) -> None:
-    """加载 bench 专用 dotenv 文件。"""
+    """加载 benchmark 专用环境变量文件。
+
+    Args:
+        repo_root: 参数。
+
+    Returns:
+        None。
+    """
 
     dotenv_path = repo_root / "memory_bench" / ".env.benchmark"
     if not dotenv_path.exists():
@@ -57,7 +64,15 @@ def load_benchmark_dotenv(repo_root: Path) -> None:
 
 
 def get_env(name: str, default: str | None = None) -> str | None:
-    """读取环境变量并处理空字符串。"""
+    """读取环境变量并处理空值。
+
+    Args:
+        name: 参数。
+        default: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     value = os.environ.get(name)
     return value if value not in (None, "") else default
@@ -66,7 +81,15 @@ def get_env(name: str, default: str | None = None) -> str | None:
 
 
 def get_env_int(name: str, default: int) -> int:
-    """读取整型环境变量，解析失败时返回默认值。"""
+    """读取并解析整型环境变量。
+
+    Args:
+        name: 参数。
+        default: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     raw = get_env(name)
     if raw is None:
@@ -79,7 +102,15 @@ def get_env_int(name: str, default: int) -> int:
 
 
 def get_env_float(name: str, default: float) -> float:
-    """读取浮点环境变量，解析失败时返回默认值。"""
+    """读取并解析浮点环境变量。
+
+    Args:
+        name: 参数。
+        default: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     raw = get_env(name)
     if raw is None:
@@ -92,7 +123,14 @@ def get_env_float(name: str, default: float) -> float:
 
 
 def prepare_mem0_env() -> tuple[str, str, str, str, float, int]:
-    """从 BENCHMARK_ 环境变量准备 Mem0 显式配置。"""
+    """整理 Mem0 运行所需的 benchmark 配置。
+
+    Args:
+        无。
+
+    Returns:
+        返回结果。
+    """
 
     api_key = get_env("BENCHMARK_OPENAI_API_KEY")
     base_url = get_env("BENCHMARK_OPENAI_BASE_URL")
@@ -126,7 +164,14 @@ def prepare_mem0_env() -> tuple[str, str, str, str, float, int]:
 
 
 def redact_base_url(base_url: str | None) -> str:
-    """规整 base_url 以便日志输出。"""
+    """规整 base_url 以便日志输出。
+
+    Args:
+        base_url: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     if not base_url:
         return "<default>"
@@ -134,13 +179,27 @@ def redact_base_url(base_url: str | None) -> str:
 
 
 def parse_csv_arg(raw: str) -> set[str]:
-    """将逗号分隔字符串解析为去重后的集合。"""
+    """将逗号分隔参数解析为集合。
+
+    Args:
+        raw: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     return {part.strip() for part in raw.split(",") if part.strip()}
 
 
 def add_common_input_args(parser: argparse.ArgumentParser) -> None:
-    """为子命令添加输入与隔离参数。"""
+    """为子命令补充通用输入参数。
+
+    Args:
+        parser: 参数。
+
+    Returns:
+        None。
+    """
 
     parser.add_argument(
         "--input",
@@ -163,7 +222,14 @@ def add_common_input_args(parser: argparse.ArgumentParser) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    """解析命令行参数。"""
+    """解析命令行参数。
+
+    Args:
+        无。
+
+    Returns:
+        返回结果。
+    """
 
     parser = argparse.ArgumentParser(
         description="Replay benchmark events against Mem0 (ingest/probe/export)",
@@ -243,7 +309,14 @@ def parse_args() -> argparse.Namespace:
 
 
 def build_event_metadata(event: dict[str, Any]) -> dict[str, Any]:
-    """构建用于 Mem0 写入的事件元信息。"""
+    """构建事件写入所需元数据。
+
+    Args:
+        event: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     meta_raw = event.get("meta", {})
     meta = meta_raw if isinstance(meta_raw, dict) else {}
@@ -262,7 +335,14 @@ def build_event_metadata(event: dict[str, Any]) -> dict[str, Any]:
 
 
 def compact_metadata(metadata: Any) -> dict[str, Any] | None:
-    """压缩 hit metadata 展示字段。"""
+    """压缩命中结果中的元数据字段。
+
+    Args:
+        metadata: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     if not isinstance(metadata, dict):
         return None
@@ -278,7 +358,18 @@ def add_memory_entry(
     metadata: dict[str, Any],
     store_raw: bool,
 ) -> None:
-    """写入单条记忆，并兼容不同 Mem0 参数签名。"""
+    """写入单条记忆并兼容不同 Mem0 签名。
+
+    Args:
+        memory: 参数。
+        user_id: 参数。
+        message: 参数。
+        metadata: 参数。
+        store_raw: 参数。
+
+    Returns:
+        None。
+    """
 
     result: Any
     if store_raw:
@@ -304,7 +395,17 @@ def add_memory_entry(
 
 
 def _add_memory_entry_fallback(memory: Any, user_id: str, message: dict[str, str], metadata: dict[str, Any]) -> Any:
-    """兼容不同 Mem0 版本 add 参数签名。"""
+    """在参数签名不兼容时回退调用 Memory.add。
+
+    Args:
+        memory: 参数。
+        user_id: 参数。
+        message: 参数。
+        metadata: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     try:
         return memory.add(messages=[message], user_id=user_id, metadata=metadata)
@@ -313,7 +414,15 @@ def _add_memory_entry_fallback(memory: Any, user_id: str, message: dict[str, str
 
 
 def to_mem0_message(role_type: str, content: str) -> dict[str, str] | None:
-    """将 bench 事件角色映射为 Mem0 消息格式。"""
+    """将 bench 事件转换为 Mem0 消息格式。
+
+    Args:
+        role_type: 参数。
+        content: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     if role_type == "human":
         return {"role": "user", "content": content}
@@ -323,7 +432,15 @@ def to_mem0_message(role_type: str, content: str) -> dict[str, str] | None:
 
 
 def build_user_id(event: dict[str, Any], isolation: str) -> str:
-    """根据隔离策略生成 Mem0 user_id。"""
+    """根据隔离策略构建 user_id。
+
+    Args:
+        event: 参数。
+        isolation: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     scene_id = str(event.get("scene_id", "")).strip()
     character_id = str(event.get("character_id", "")).strip()
@@ -344,7 +461,18 @@ def should_ingest(
     only_tags: set[str],
     write_probes: bool,
 ) -> bool:
-    """判断事件是否应写入 Mem0。"""
+    """判断事件是否应执行 ingest。
+
+    Args:
+        event: 参数。
+        skip_roles: 参数。
+        skip_tags: 参数。
+        only_tags: 参数。
+        write_probes: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     role_type = str(event.get("role_type", "")).strip()
     content = str(event.get("content", "")).strip()
@@ -372,7 +500,17 @@ def flush_ingest_batch(
     pending_items: list[tuple[dict[str, str], dict[str, Any]]],
     store_raw: bool,
 ) -> int:
-    """将积攒的 ingest 消息批量写入 Mem0。"""
+    """将待写入消息批量落库。
+
+    Args:
+        memory: 参数。
+        user_id: 参数。
+        pending_items: 参数。
+        store_raw: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     if user_id is None or not pending_items:
         return 0
@@ -386,7 +524,14 @@ def flush_ingest_batch(
 
 
 def read_jsonl(path: Path) -> Iterator[tuple[int, dict[str, Any]]]:
-    """按行流式读取并校验事件 JSONL，返回行号与对象。"""
+    """按行读取并校验 JSONL 事件。
+
+    Args:
+        path: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     if not path.exists():
         raise ReplayMem0Error(f"input file not found: {path}")
@@ -407,7 +552,14 @@ def read_jsonl(path: Path) -> Iterator[tuple[int, dict[str, Any]]]:
 
 
 def default_output_path(prefix: str) -> Path:
-    """生成默认输出路径并避免文件名冲突。"""
+    """生成默认输出文件路径。
+
+    Args:
+        prefix: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     base = DEFAULT_LOG_DIR / f"{prefix}_{timestamp}"
@@ -420,7 +572,15 @@ def default_output_path(prefix: str) -> Path:
 
 
 def compact_hits_preview(hits: Any, k: int) -> list[dict[str, Any]]:
-    """裁剪并规整检索结果预览字段。"""
+    """裁剪检索命中结果预览。
+
+    Args:
+        hits: 参数。
+        k: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     if not isinstance(hits, list):
         return []
@@ -436,7 +596,14 @@ def compact_hits_preview(hits: Any, k: int) -> list[dict[str, Any]]:
 
 
 def count_replay_events(path: Path) -> int:
-    """统计输入文件中可计入进度条的事件总数。"""
+    """统计输入文件中的有效事件数。
+
+    Args:
+        path: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     if not path.exists():
         raise ReplayMem0Error(f"input file not found: {path}")
@@ -450,7 +617,15 @@ def count_replay_events(path: Path) -> int:
 
 
 def create_replay_progress(total_events: int, desc: str) -> Any:
-    """创建进度条对象。"""
+    """创建进度条对象。
+
+    Args:
+        total_events: 参数。
+        desc: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     try:
         from tqdm import tqdm
@@ -473,7 +648,14 @@ def create_replay_progress(total_events: int, desc: str) -> Any:
 
 
 def sha256_file(path: Path) -> str:
-    """计算文件 SHA256。"""
+    """计算文件 SHA256 哈希。
+
+    Args:
+        path: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     digest = hashlib.sha256()
     with path.open("rb") as f:
@@ -483,13 +665,29 @@ def sha256_file(path: Path) -> str:
 
 
 def now_iso() -> str:
-    """返回 UTC ISO 时间字符串。"""
+    """生成 UTC ISO 时间字符串。
+
+    Args:
+        无。
+
+    Returns:
+        返回结果。
+    """
 
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def build_checkpoint_path(input_path: Path, isolation: str, state_dir: Path) -> Path:
-    """构建 checkpoint 文件路径。"""
+    """构建 checkpoint 文件路径。
+
+    Args:
+        input_path: 参数。
+        isolation: 参数。
+        state_dir: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     stem = input_path.stem.replace(".", "_")
     name = f"mem0_{isolation}_{stem}.checkpoint.json"
@@ -497,7 +695,14 @@ def build_checkpoint_path(input_path: Path, isolation: str, state_dir: Path) -> 
 
 
 def load_checkpoint(path: Path) -> dict[str, Any] | None:
-    """读取 checkpoint。"""
+    """加载 checkpoint 内容。
+
+    Args:
+        path: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     if not path.exists():
         return None
@@ -508,7 +713,15 @@ def load_checkpoint(path: Path) -> dict[str, Any] | None:
 
 
 def save_checkpoint(path: Path, payload: dict[str, Any]) -> None:
-    """原子写入 checkpoint。"""
+    """原子写入 checkpoint 文件。
+
+    Args:
+        path: 参数。
+        payload: 参数。
+
+    Returns:
+        None。
+    """
 
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(".tmp")
@@ -526,7 +739,21 @@ def build_mem0_config(
     llm_temperature: float,
     llm_max_tokens: int,
 ) -> dict[str, Any]:
-    """构建持久化 Mem0 配置（vector_store + llm + embedder）。"""
+    """构建 Mem0 显式配置。
+
+    Args:
+        state_dir: 参数。
+        isolation: 参数。
+        api_key: 参数。
+        llm_model: 参数。
+        embedding_model: 参数。
+        base_url: 参数。
+        llm_temperature: 参数。
+        llm_max_tokens: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     qdrant_path = state_dir / "qdrant_storage"
     qdrant_path.mkdir(parents=True, exist_ok=True)
@@ -572,7 +799,21 @@ def init_memory(
     llm_temperature: float,
     llm_max_tokens: int,
 ) -> Any:
-    """初始化 Mem0 客户端并绑定本地持久化向量存储。"""
+    """初始化 Mem0 客户端。
+
+    Args:
+        state_dir: 参数。
+        isolation: 参数。
+        api_key: 参数。
+        llm_model: 参数。
+        embedding_model: 参数。
+        base_url: 参数。
+        llm_temperature: 参数。
+        llm_max_tokens: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     try:
         from mem0 import Memory
@@ -598,7 +839,16 @@ def init_memory(
 
 
 def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
-    """执行 ingest 子命令。"""
+    """执行 ingest 子命令。
+
+    Args:
+        args: 参数。
+        memory: 参数。
+        input_path: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     if args.batch_size <= 0:
         raise ReplayMem0Error("--batch-size must be a positive integer")
@@ -731,7 +981,14 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
 
 
 def normalize_search_result(result: Any) -> list[dict[str, Any]]:
-    """将 Mem0 search 的不同返回格式统一为 list[dict]。"""
+    """统一 search 返回格式。
+
+    Args:
+        result: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     if isinstance(result, list):
         return [item for item in result if isinstance(item, dict)]
@@ -743,7 +1000,16 @@ def normalize_search_result(result: Any) -> list[dict[str, Any]]:
 
 
 def run_probe(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
-    """执行 probe 子命令。"""
+    """执行 probe 子命令。
+
+    Args:
+        args: 参数。
+        memory: 参数。
+        input_path: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     output_path = Path(args.output) if args.output else default_output_path("probe")
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -802,7 +1068,15 @@ def run_probe(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
 
 
 def collect_user_ids(input_path: Path, isolation: str) -> list[str]:
-    """从输入事件中提取去重后的 user_id 列表。"""
+    """从输入事件收集 user_id。
+
+    Args:
+        input_path: 参数。
+        isolation: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     user_ids: dict[str, None] = {}
     for _, event in read_jsonl(input_path):
@@ -811,7 +1085,15 @@ def collect_user_ids(input_path: Path, isolation: str) -> list[str]:
 
 
 def fetch_user_memories(memory: Any, user_id: str) -> Any:
-    """导出单个 user_id 的全量记忆，兼容不同 API 签名。"""
+    """读取指定 user 的记忆快照。
+
+    Args:
+        memory: 参数。
+        user_id: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     attempts = [
         lambda: memory.get_all(user_id=user_id),
@@ -831,7 +1113,16 @@ def fetch_user_memories(memory: Any, user_id: str) -> Any:
 
 
 def run_export(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
-    """执行 export 子命令。"""
+    """执行 export 子命令。
+
+    Args:
+        args: 参数。
+        memory: 参数。
+        input_path: 参数。
+
+    Returns:
+        返回结果。
+    """
 
     output_path = Path(args.output) if args.output else default_output_path("export")
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -863,7 +1154,14 @@ def run_export(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
 
 
 def main() -> int:
-    """执行 Mem0 replay 主流程。"""
+    """执行脚本主流程。
+
+    Args:
+        无。
+
+    Returns:
+        返回结果。
+    """
 
     args = parse_args()
     repo_root = Path(__file__).resolve().parents[2]
