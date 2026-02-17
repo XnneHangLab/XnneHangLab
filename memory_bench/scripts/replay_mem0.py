@@ -1450,16 +1450,23 @@ def export_collection_snapshot(memory: Any, output_path: Path, isolation: str) -
     )
 
     total = 0
-    next_offset: Any = None
+    next_page_offset: Any = None
     with output_path.open("w", encoding="utf-8") as out_file:
         while True:
-            points, next_offset = client.scroll(
-                collection_name=collection_name,
-                limit=256,
-                with_payload=True,
-                with_vectors=False,
-                offset=next_offset,
-            )
+            try:
+                points, next_page_offset = client.scroll(
+                    collection_name=collection_name,
+                    limit=256,
+                    with_payload=True,
+                    with_vectors=False,
+                    offset=next_page_offset,
+                )
+            except Exception as exc:
+                logger.bind(group="memory").warning(
+                    f"export scroll failed for collection={collection_name}: {exc}; treat as empty snapshot"
+                )
+                break
+
             if not points:
                 break
 
@@ -1469,19 +1476,18 @@ def export_collection_snapshot(memory: Any, output_path: Path, isolation: str) -
                 out_file.write(json.dumps({"id": point_id, "payload": payload}, ensure_ascii=False) + "\n")
                 total += 1
 
-            if next_offset is None:
+            if next_page_offset is None:
                 break
 
     return total
 
 
-def run_export(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
+def run_export(args: argparse.Namespace, memory: Any) -> int:
     """执行 export 子命令：导出当前 Mem0 状态快照。
 
     Args:
         args: 命令行参数对象。
         memory: Mem0 Memory 实例。
-        input_path: 输入 JSONL 路径。
 
     Returns:
         int：成功返回 0。
@@ -1513,9 +1519,10 @@ def main() -> int:
     load_benchmark_dotenv(repo_root)
     api_key, base_url, llm_model, embed_model, llm_temperature, llm_max_tokens = prepare_mem0_env()
 
-    input_path = Path(args.input) if hasattr(args, "input") else Path(DEFAULT_INPUT)
-    if args.command in {"ingest", "probe"} and not input_path.exists():
-        raise ReplayMem0Error(f"input file not found: {input_path}")
+    if args.command in {"ingest", "probe"}:
+        input_path = Path(args.input)
+        if not input_path.exists():
+            raise ReplayMem0Error(f"input file not found: {input_path}")
 
     state_dir = Path(args.state_dir)
     logger.bind(group="memory").info(
@@ -1539,7 +1546,7 @@ def main() -> int:
     if args.command == "probe":
         return run_probe(args, memory, input_path)
     if args.command == "export":
-        return run_export(args, memory, input_path)
+        return run_export(args, memory)
     raise ReplayMem0Error(f"unknown command: {args.command}")
 
 
