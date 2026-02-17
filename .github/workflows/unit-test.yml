@@ -37,35 +37,6 @@ jobs:
         run: |
           just ci-install
           
-      # 首先尝试恢复缓存
-      - name: cache model
-        id: model-cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ./models/nlp_gte_sentence-embedding_chinese-base
-            ./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch
-            ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch
-            ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch
-            ./models/SenseVoiceSmall
-          key: model-cache
-          
-      # 如果缓存未命中，则下载模型
-      - name: Download model if needed
-        if: steps.model-cache.outputs.cache-hit != 'true'
-        run: |
-          just install-embedding-model
-          just install-model
-          just install-sensevoice
-      # 然后验证模型文件
-      - name: Verify cached files
-        run: |
-          echo "Checking cached model folders:"
-          ls -la ./models/nlp_gte_sentence-embedding_chinese-base/
-          ls -la ./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch/
-          ls -la ./models/speech_fsmn_vad_zh-cn-16k-common-pytorch/
-          ls -la ./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch/
-          ls -la ./models/SenseVoiceSmall/
       - name: Cache FFmpeg
         id: cache-ffmpeg
         uses: actions/cache@v4
