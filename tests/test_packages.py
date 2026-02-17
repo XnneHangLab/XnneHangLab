@@ -38,5 +38,14 @@ def test_memory_bench_mem0_pinned_version() -> None:
     )
 
 
+def test_mem0_runtime_version_if_installed() -> None:
+    """若运行环境安装了 mem0，则校验其运行时版本号。"""
+
+    mem0 = pytest.importorskip("mem0")
+    assert getattr(mem0, "__version__", "") == "1.0.3", (
+        f"mem0 运行时版本应为 1.0.3，实际为 {getattr(mem0, '__version__', '<missing>')}"
+    )
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v", "-s"]))
