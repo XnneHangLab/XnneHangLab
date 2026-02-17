@@ -838,9 +838,50 @@ def init_memory(
         llm_max_tokens=llm_max_tokens,
     )
     try:
-        return Memory.from_config(config)
+        memory = Memory.from_config(config)
     except Exception as exc:
         raise ReplayMem0Error(f"failed to initialize Mem0: {exc}") from exc
+
+    vector_store = getattr(memory, "vector_store", None)
+    original_update = getattr(vector_store, "update", None)
+    if callable(original_update):
+
+        def _patched_update(vector_id: str, vector: Any = None, payload: dict[str, Any] | None = None) -> None:
+            if vector is None:
+                client = getattr(vector_store, "client", None)
+                if client is not None and hasattr(client, "set_payload"):
+                    collection_name = getattr(memory, "collection_name", None) or getattr(vector_store, "collection_name", None)
+                    if collection_name:
+                        client.set_payload(
+                            collection_name=collection_name,
+                            payload=payload or {},
+                            points=[vector_id],
+                        )
+                        return
+
+                existing = None
+                get_func = getattr(vector_store, "get", None)
+                if callable(get_func):
+                    try:
+                        existing = get_func(vector_id=vector_id)
+                    except TypeError:
+                        existing = get_func(vector_id)
+
+                existing_vector = getattr(existing, "vector", None)
+                if existing_vector is not None:
+                    original_update(vector_id=vector_id, vector=existing_vector, payload=payload)
+                    return
+
+                logger.bind(group="memory").warning(
+                    f"skip vector_store.update for {vector_id}: vector=None and no fallback available"
+                )
+                return
+
+            original_update(vector_id=vector_id, vector=vector, payload=payload)
+
+        vector_store.update = _patched_update
+
+    return memory
 
 
 def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
