@@ -209,6 +209,28 @@ def parse_csv_arg(raw: str) -> set[str]:
     return {part.strip() for part in raw.split(",") if part.strip()}
 
 
+def add_common_state_args(parser: argparse.ArgumentParser) -> None:
+    """为子命令补充通用状态参数。
+
+    Args:
+        parser: argparse 解析器对象。
+
+    """
+
+    parser.add_argument(
+        "--isolation",
+        choices=["per_chapter", "global"],
+        default="global",
+        help="Mem0 user isolation mode",
+    )
+    parser.add_argument(
+        "--state-dir",
+        type=str,
+        default=str(DEFAULT_STATE_DIR),
+        help="State root directory for checkpoint files and qdrant local storage",
+    )
+
+
 def add_common_input_args(parser: argparse.ArgumentParser) -> None:
     """为子命令补充通用输入参数。
 
@@ -223,18 +245,7 @@ def add_common_input_args(parser: argparse.ArgumentParser) -> None:
         default=DEFAULT_INPUT,
         help="Input event JSONL, e.g. compiled/all.jsonl or by_chapter/chXX.jsonl",
     )
-    parser.add_argument(
-        "--isolation",
-        choices=["per_chapter", "global"],
-        default="global",
-        help="Mem0 user isolation mode",
-    )
-    parser.add_argument(
-        "--state-dir",
-        type=str,
-        default=str(DEFAULT_STATE_DIR),
-        help="State root directory for checkpoint files and qdrant local storage",
-    )
+    add_common_state_args(parser)
 
 
 def parse_args() -> argparse.Namespace:
@@ -306,18 +317,7 @@ def parse_args() -> argparse.Namespace:
     )
 
     export_cmd = subparsers.add_parser("export", help="Export current Mem0 state snapshot")
-    export_cmd.add_argument(
-        "--isolation",
-        choices=["per_chapter", "global"],
-        default="global",
-        help="Mem0 user isolation mode",
-    )
-    export_cmd.add_argument(
-        "--state-dir",
-        type=str,
-        default=str(DEFAULT_STATE_DIR),
-        help="State root directory for checkpoint files and qdrant local storage",
-    )
+    add_common_state_args(export_cmd)
     export_cmd.add_argument(
         "--output",
         type=str,
@@ -1435,7 +1435,7 @@ def export_collection_snapshot(memory: Any, output_path: Path, isolation: str) -
         int：导出的 point 总数。
 
     Raises:
-        ReplayMem0Error: vector store client 不支持 scroll 时抛出。
+        ReplayMem0Error: vector store client 不支持 scroll 或导出过程中发生非 collection-not-found 异常时抛出。
     """
 
     vector_store = getattr(memory, "vector_store", None)
@@ -1451,6 +1451,7 @@ def export_collection_snapshot(memory: Any, output_path: Path, isolation: str) -
 
     total = 0
     next_page_offset: Any = None
+    exported_at = now_iso()
     with output_path.open("w", encoding="utf-8") as out_file:
         while True:
             try:
@@ -1462,10 +1463,13 @@ def export_collection_snapshot(memory: Any, output_path: Path, isolation: str) -
                     offset=next_page_offset,
                 )
             except Exception as exc:
-                logger.bind(group="memory").warning(
-                    f"export scroll failed for collection={collection_name}: {exc}; treat as empty snapshot"
-                )
-                break
+                exc_message = str(exc).lower()
+                if "not found" in exc_message or "does not exist" in exc_message:
+                    logger.bind(group="memory").warning(
+                        f"collection not found during export (collection={collection_name}): {exc}; treat as empty snapshot"
+                    )
+                    break
+                raise ReplayMem0Error(f"export scroll failed for collection={collection_name}: {exc}") from exc
 
             if not points:
                 break
@@ -1473,7 +1477,19 @@ def export_collection_snapshot(memory: Any, output_path: Path, isolation: str) -
             for point in points:
                 point_id = point.get("id") if isinstance(point, dict) else getattr(point, "id", None)
                 payload = point.get("payload") if isinstance(point, dict) else getattr(point, "payload", None)
-                out_file.write(json.dumps({"id": point_id, "payload": payload}, ensure_ascii=False) + "\n")
+                out_file.write(
+                    json.dumps(
+                        {
+                            "id": point_id,
+                            "payload": payload,
+                            "collection": collection_name,
+                            "isolation": isolation,
+                            "exported_at": exported_at,
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n"
+                )
                 total += 1
 
             if next_page_offset is None:
