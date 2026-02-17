@@ -352,7 +352,16 @@ def build_event_metadata(event: dict[str, Any]) -> dict[str, Any]:
 
 
 def build_group_metadata(event: dict[str, Any]) -> dict[str, Any]:
-    """构建 conv_id 分组级别的元数据。取自该组第一条事件。"""
+    """构建 conv_id 分组级别的元数据。
+
+    该元数据取自分组中的第一条事件，用于整组消息写入 mem0 时的溯源信息。
+
+    Args:
+        event: 当前分组第一条事件对象。
+
+    Returns:
+        dict[str, Any]：包含 `scene_id`、`character_id`、`conv_id` 的分组元数据。
+    """
 
     return {
         "scene_id": event.get("scene_id"),
@@ -396,8 +405,19 @@ def add_memory_batch(
 ) -> None:
     """将多轮对话消息打包写入 mem0。
 
-    # IMPORTANT: mem0 的 memory.add(messages=[多条]) 会将整个对话
-    # 作为上下文传给 LLM 提取记忆，比逐条写入的提取质量显著更高。
+    IMPORTANT: mem0 的 `memory.add(messages=[多条])` 会将整段对话作为上下文
+    传给 LLM 进行记忆提取，比逐条写入更有利于解析跨轮指代关系。
+
+    Args:
+        memory: Mem0 Memory 实例。
+        user_id: 用户隔离标识。
+        agent_id: 智能体隔离标识（通常来自 character_id）。
+        messages: 同一 conv_id 下按时间顺序积攒的消息列表。
+        metadata: 当前消息组的分组级元数据。
+        store_raw: 是否优先使用 `infer=False` 原文写入。
+
+    Returns:
+        None。
     """
 
     result: Any
