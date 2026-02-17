@@ -63,8 +63,6 @@ def load_benchmark_dotenv(repo_root: Path) -> None:
     Args:
         repo_root: 仓库根目录路径。
 
-    Returns:
-        None。
     """
 
     dotenv_path = repo_root / "memory_bench" / ".env.benchmark"
@@ -215,8 +213,6 @@ def add_common_input_args(parser: argparse.ArgumentParser) -> None:
     Args:
         parser: argparse 解析器对象。
 
-    Returns:
-        None。
     """
 
     parser.add_argument(
@@ -416,8 +412,6 @@ def add_memory_batch(
         metadata: 当前消息组的分组级元数据。
         store_raw: 是否优先使用 `infer=False` 原文写入。
 
-    Returns:
-        None。
     """
 
     result: Any
@@ -487,8 +481,6 @@ def add_memory_entry(
         metadata: 事件或命中的元数据对象。
         store_raw: 是否优先使用 `infer=False` 原文写入。
 
-    Returns:
-        None。
     """
 
     result: Any
@@ -892,8 +884,6 @@ def save_checkpoint(path: Path, payload: dict[str, Any]) -> None:
         path: 文件路径。
         payload: 待写入 checkpoint 的内容。
 
-    Returns:
-        None。
     """
 
     path.parent.mkdir(parents=True, exist_ok=True)
