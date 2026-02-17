@@ -365,6 +365,7 @@ def add_memory_entry(
         memory: 参数。
         user_id: 参数。
         agent_id: 参数。
+        agent_id: 参数。
         message: 参数。
         metadata: 参数。
         store_raw: 参数。
@@ -395,9 +396,7 @@ def add_memory_entry(
             f"Mem0 add returned 0 memories for user={user_id}, content={message['content'][:80]}..."
         )
     else:
-        logger.bind(group="memory").info(
-            f"Mem0 add inserted {added} memories for user={user_id}, content={message['content'][:80]}..."
-        )
+        logger.info(f"Mem0 add returned {added} memories for user={user_id}, content={message['content'][:80]}...")
 
 
 def _add_memory_entry_fallback(memory: Any, user_id: str, agent_id: str, message: dict[str, str], metadata: dict[str, Any]) -> Any:
@@ -406,6 +405,7 @@ def _add_memory_entry_fallback(memory: Any, user_id: str, agent_id: str, message
     Args:
         memory: 参数。
         user_id: 参数。
+        agent_id: 参数。
         agent_id: 参数。
         message: 参数。
         metadata: 参数。
@@ -461,6 +461,22 @@ def build_user_id(event: dict[str, Any], isolation: str) -> str:
     return f"{scene_id}:{character_id}:{conv_id}"
 
 
+def build_agent_id(event: dict[str, Any]) -> str:
+    """从事件中提取 agent_id。
+
+    Args:
+        event: 参数。
+
+    Returns:
+        返回结果。
+    """
+
+    agent_id = str(event.get("character_id", "")).strip()
+    if not agent_id:
+        raise ReplayMem0Error("event missing character_id for agent_id")
+    return agent_id
+
+
 def should_ingest(
     event: dict[str, Any],
     skip_roles: set[str],
@@ -513,6 +529,7 @@ def flush_ingest_batch(
     Args:
         memory: 参数。
         user_id: 参数。
+        agent_id: 参数。
         agent_id: 参数。
         pending_items: 参数。
         store_raw: 参数。
@@ -947,7 +964,7 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
             continue
 
         user_id = build_user_id(event, args.isolation)
-        agent_id = str(event.get("character_id", "")).strip()
+        agent_id = build_agent_id(event)
         if should_ingest(event, skip_roles, skip_tags, only_tags, args.write_probes):
             role_type = str(event.get("role_type", "")).strip()
             content = str(event.get("content", "")).strip()
@@ -1083,6 +1100,7 @@ def run_probe(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
                 continue
 
             user_id = build_user_id(event, args.isolation)
+            agent_id = build_agent_id(event)
             stats.probe_events += 1
             replay_progress.set_postfix({"probes": stats.probe_events}, refresh=False)
 
@@ -1093,13 +1111,14 @@ def run_probe(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
                 )
 
             started = time.perf_counter()
-            result = memory.search(query=query, user_id=user_id, limit=args.k)
+            result = memory.search(query=query, user_id=user_id, agent_id=agent_id, limit=args.k)
             latency_ms = round((time.perf_counter() - started) * 1000, 3)
             hits = normalize_search_result(result)
 
             log_record = {
                 "backend": "mem0",
                 "user_id": user_id,
+                "agent_id": agent_id,
                 "isolation": args.isolation,
                 "k": args.k,
                 "conv_id": event.get("conv_id"),
@@ -1122,8 +1141,8 @@ def run_probe(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
     return 0
 
 
-def collect_user_ids(input_path: Path, isolation: str) -> list[str]:
-    """从输入事件收集 user_id。
+def collect_user_ids(input_path: Path, isolation: str) -> list[tuple[str, str]]:
+    """从输入事件收集 user_id 与 agent_id 对。
 
     Args:
         input_path: 参数。
@@ -1133,26 +1152,31 @@ def collect_user_ids(input_path: Path, isolation: str) -> list[str]:
         返回结果。
     """
 
-    user_ids: dict[str, None] = {}
+    user_agent_pairs: dict[tuple[str, str], None] = {}
     for _, event in read_jsonl(input_path):
-        user_ids[build_user_id(event, isolation)] = None
-    return list(user_ids.keys())
+        user_id = build_user_id(event, isolation)
+        agent_id = build_agent_id(event)
+        user_agent_pairs[(user_id, agent_id)] = None
+    return list(user_agent_pairs.keys())
 
 
-def fetch_user_memories(memory: Any, user_id: str) -> Any:
+def fetch_user_memories(memory: Any, user_id: str, agent_id: str) -> Any:
     """读取指定 user 的记忆快照。
 
     Args:
         memory: 参数。
         user_id: 参数。
+        agent_id: 参数。
 
     Returns:
         返回结果。
     """
 
     attempts = [
+        lambda: memory.get_all(user_id=user_id, agent_id=agent_id),
         lambda: memory.get_all(user_id=user_id),
         lambda: memory.get_all(user_id),
+        lambda: memory.get(user_id=user_id, agent_id=agent_id),
         lambda: memory.get(user_id=user_id),
         lambda: memory.get(user_id),
     ]
@@ -1164,7 +1188,7 @@ def fetch_user_memories(memory: Any, user_id: str) -> Any:
             last_exc = exc
         except AttributeError as exc:
             last_exc = exc
-    raise ReplayMem0Error(f"Mem0 client does not support export API for user_id={user_id}: {last_exc}")
+    raise ReplayMem0Error(f"Mem0 client does not support export API for user_id={user_id}, agent_id={agent_id}: {last_exc}")
 
 
 def run_export(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
@@ -1183,18 +1207,22 @@ def run_export(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     if args.user_id:
-        user_ids = [args.user_id]
+        all_pairs = collect_user_ids(input_path, args.isolation)
+        user_agent_pairs = [pair for pair in all_pairs if pair[0] == args.user_id]
+        if not user_agent_pairs:
+            raise ReplayMem0Error(f"no matched user_id in input for export: {args.user_id}")
     else:
-        user_ids = collect_user_ids(input_path, args.isolation)
+        user_agent_pairs = collect_user_ids(input_path, args.isolation)
 
     with output_path.open("w", encoding="utf-8") as out_file:
-        for user_id in user_ids:
-            memories = fetch_user_memories(memory, user_id)
+        for user_id, agent_id in user_agent_pairs:
+            memories = fetch_user_memories(memory, user_id, agent_id)
             out_file.write(
                 json.dumps(
                     {
                         "backend": "mem0",
                         "user_id": user_id,
+                        "agent_id": agent_id,
                         "isolation": args.isolation,
                         "exported_at": now_iso(),
                         "memories": memories,
@@ -1204,7 +1232,7 @@ def run_export(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
                 + "\n"
             )
 
-    logger.bind(group="memory").info(f"Export done: users={len(user_ids)}, output={output_path}")
+    logger.bind(group="memory").info(f"Export done: users={len(user_agent_pairs)}, output={output_path}")
     return 0
 
 
