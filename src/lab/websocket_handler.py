@@ -96,15 +96,10 @@ def _format_history_message_for_display(message: HistoryMessage) -> dict[str, An
         display_message = DisplayHistoryMessage.model_validate(message)
     except ValidationError:
         logger.warning("Failed to validate history message for display; fallback to raw message")
-        fallback_message = dict(message)
-        fallback_content = str(fallback_message.get("content", ""))
-        fallback_message["content"] = f"❓ {fallback_content}"
-        return fallback_message
+        return dict(message)
 
     if display_message.role in {"user", "human"}:
         display_message.content = _extract_user_prompt_for_display(display_message.content)
-    elif display_message.role != "assistant":
-        display_message.content = f"❓ {display_message.content}"
 
     return display_message.model_dump(exclude_none=True)
 

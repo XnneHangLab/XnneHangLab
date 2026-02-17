@@ -427,26 +427,21 @@ def add_memory_batch(
                 infer=False,
             )
         except TypeError:
-            result = memory.add(
-                messages=messages,
+            result = _add_memory_batch_fallback(
+                memory=memory,
                 user_id=user_id,
                 agent_id=agent_id,
+                messages=messages,
                 metadata=metadata,
             )
     else:
-        try:
-            result = memory.add(
-                messages=messages,
-                user_id=user_id,
-                agent_id=agent_id,
-                metadata=metadata,
-            )
-        except TypeError:
-            result = memory.add(
-                messages=messages,
-                user_id=user_id,
-                agent_id=agent_id,
-            )
+        result = _add_memory_batch_fallback(
+            memory=memory,
+            user_id=user_id,
+            agent_id=agent_id,
+            messages=messages,
+            metadata=metadata,
+        )
 
     if isinstance(result, dict):
         results = result.get("results", [])
@@ -461,6 +456,32 @@ def add_memory_batch(
         f"Mem0 add batch: {len(messages)} messages → {added} memories "
         f"for user={user_id}, first_msg={msg_preview}..."
     )
+
+
+def _add_memory_batch_fallback(
+    memory: Any,
+    user_id: str,
+    agent_id: str,
+    messages: list[dict[str, str]],
+    metadata: dict[str, Any],
+) -> Any:
+    """在主写入参数签名不兼容时，按回退签名调用 Memory.add。
+
+    Args:
+        memory: Mem0 Memory 实例。
+        user_id: 用户隔离标识。
+        agent_id: 智能体隔离标识（通常来自 character_id）。
+        messages: 多条 Mem0 消息对象。
+        metadata: 事件或命中的元数据对象。
+
+    Returns:
+        Any：底层 Memory.add 的返回值。
+    """
+
+    try:
+        return memory.add(messages=messages, user_id=user_id, agent_id=agent_id, metadata=metadata)
+    except TypeError:
+        return memory.add(messages=messages, user_id=user_id, agent_id=agent_id)
 
 
 def _split_messages_into_chunks(
