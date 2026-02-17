@@ -28,7 +28,7 @@ import json
 import os
 import time
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -738,7 +738,7 @@ def now_iso() -> str:
         返回结果。
     """
 
-    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")  # noqa: UP017
 
 
 def build_checkpoint_path(input_path: Path, isolation: str, state_dir: Path) -> Path:
@@ -799,7 +799,7 @@ def build_mem0_config(
     api_key: str,
     llm_model: str,
     embedding_model: str,
-    base_url: str | None,
+    base_url: str,
     llm_temperature: float,
     llm_max_tokens: int,
 ) -> dict[str, Any]:
@@ -822,9 +822,7 @@ def build_mem0_config(
     qdrant_path = state_dir / "qdrant_storage"
     qdrant_path.mkdir(parents=True, exist_ok=True)
 
-    openai_common: dict[str, Any] = {"api_key": api_key}
-    if base_url:
-        openai_common["openai_base_url"] = base_url
+    openai_common: dict[str, Any] = {"api_key": api_key, "openai_base_url": base_url}
 
     return {
         "llm": {
@@ -865,7 +863,7 @@ def init_memory(
     api_key: str,
     llm_model: str,
     embedding_model: str,
-    base_url: str | None,
+    base_url: str,
     llm_temperature: float,
     llm_max_tokens: int,
 ) -> Any:
