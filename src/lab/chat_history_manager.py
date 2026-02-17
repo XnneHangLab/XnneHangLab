@@ -302,7 +302,7 @@ def get_history_list(conf_uid: str) -> list[dict[str, Any]]:
                 except Exception as e:
                     logger.error(f"Failed to remove empty history file {uid}: {e}")
 
-        histories.sort(key=lambda x: x["timestamp"] or "", reverse=True)  # type: ignore
+        histories.sort(key=lambda x: x["timestamp"] if x["timestamp"] else "", reverse=True)  # type: ignore
         return histories  # type: ignore
 
     except Exception as e:

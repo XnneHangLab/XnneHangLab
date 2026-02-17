@@ -215,44 +215,51 @@ with BOTSave:
                 basic=BasicSettingsDict(
                     device=device,  # type: ignore
                     custom_output_dir=custom_output_dir,
-                    ffmpeg_path=ffmpeg_path or initial_settings["basic"]["ffmpeg_path"],
-                    cache_dir=cache_dir or initial_settings["basic"]["cache_dir"],
-                    output_dir=output_dir or initial_settings["basic"]["output_dir"],
+                    ffmpeg_path=ffmpeg_path if ffmpeg_path else initial_settings["basic"]["ffmpeg_path"],
+                    cache_dir=cache_dir if cache_dir else initial_settings["basic"]["cache_dir"],
+                    output_dir=output_dir if output_dir else initial_settings["basic"]["output_dir"],
                     asr_model_provider=asr_model_provider,
                 ),
                 funasr=FunASRSettingsDict(
-                    base_model=base_model or initial_settings["funasr"]["base_model"],
-                    punc_model=punc_model or initial_settings["funasr"]["punc_model"],
-                    vad_model=vad_model or initial_settings["funasr"]["vad_model"],
-                    hot_words_path=hot_words_path or initial_settings["funasr"]["hot_words_path"],
+                    base_model=base_model if base_model else initial_settings["funasr"]["base_model"],
+                    punc_model=punc_model if punc_model else initial_settings["funasr"]["punc_model"],
+                    vad_model=vad_model if vad_model else initial_settings["funasr"]["vad_model"],
+                    hot_words_path=hot_words_path if hot_words_path else initial_settings["funasr"]["hot_words_path"],
                     batch_size_s=batch_size_s,
                 ),
                 whisper=WhisperSettingsDict(
                     whisper_models_base_dir=whisper_models_base_dir
-                    or initial_settings["whisper"]["whisper_models_base_dir"],
+                    if whisper_models_base_dir
+                    else initial_settings["whisper"]["whisper_models_base_dir"],
                     whisper_model_size=whisper_model_size,
                 ),
             )
 
             if current_settings != initial_settings:  # Compare dictionaries
                 asr_settings.zh_set_value("device", device)
-                asr_settings.custom_output_dir = custom_output_dir or initial_settings["basic"]["custom_output_dir"]
-                asr_settings.FFMPEG_PATH = ffmpeg_path or initial_settings["basic"]["ffmpeg_path"]
-                asr_settings.cache_dir = cache_dir or initial_settings["basic"]["cache_dir"]
-                asr_settings.output_dir = output_dir or initial_settings["basic"]["output_dir"]
+                asr_settings.custom_output_dir = (
+                    custom_output_dir if custom_output_dir else initial_settings["basic"]["custom_output_dir"]
+                )
+                asr_settings.FFMPEG_PATH = ffmpeg_path if ffmpeg_path else initial_settings["basic"]["ffmpeg_path"]
+                asr_settings.cache_dir = cache_dir if cache_dir else initial_settings["basic"]["cache_dir"]
+                asr_settings.output_dir = output_dir if output_dir else initial_settings["basic"]["output_dir"]
                 asr_settings.zh_set_value("asr_model_provider", asr_model_provider)  # type: ignore
 
                 funasr_settings.batch_size_s = batch_size_s
-                funasr_settings.base_model = base_model or initial_settings["funasr"]["base_model"]
-                funasr_settings.punc_model = punc_model or initial_settings["funasr"]["punc_model"]
-                funasr_settings.vad_model = vad_model or initial_settings["funasr"]["vad_model"]
-                funasr_settings.hot_words_path = hot_words_path or initial_settings["funasr"]["hot_words_path"]
+                funasr_settings.base_model = base_model if base_model else initial_settings["funasr"]["base_model"]
+                funasr_settings.punc_model = punc_model if punc_model else initial_settings["funasr"]["punc_model"]
+                funasr_settings.vad_model = vad_model if vad_model else initial_settings["funasr"]["vad_model"]
+                funasr_settings.hot_words_path = (
+                    hot_words_path if hot_words_path else initial_settings["funasr"]["hot_words_path"]
+                )
 
                 whisper_settings.whisper_models_base_dir = (
-                    whisper_models_base_dir or initial_settings["whisper"]["whisper_models_base_dir"]
+                    whisper_models_base_dir
+                    if whisper_models_base_dir
+                    else initial_settings["whisper"]["whisper_models_base_dir"]
                 )
                 whisper_settings.whisper_model_size = (
-                    whisper_model_size or initial_settings["whisper"]["whisper_model_size"]
+                    whisper_model_size if whisper_model_size else initial_settings["whisper"]["whisper_model_size"]
                 )
 
                 asr_settings.whisper = whisper_settings

@@ -195,7 +195,7 @@ class ServiceContext:
             if self.server_config is None:
                 logger.error("server_config is None, cannot switch configuration")
                 raise ValueError("server_config cannot be None")
-            if config_file_name != "lab.toml":
+            if config_file_name not in {"lab.toml"}:
                 raise ValueError("Only lab.toml is supported")
 
             new_config = load_settings_file(
