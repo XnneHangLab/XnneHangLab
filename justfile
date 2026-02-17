@@ -152,6 +152,7 @@ fmt-docs:
 
 test:
   uv run pytest tests -vvv
+  uv run pytest memory_bench/tests -vvv
 
 # CI-workflow
 
