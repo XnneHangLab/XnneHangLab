@@ -28,7 +28,7 @@ import json
 import os
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -95,8 +95,6 @@ def get_env(name: str, default: str | None = None) -> str | None:
 
     value = os.environ.get(name)
     return value if value not in (None, "") else default
-
-
 
 
 def get_env_int(name: str, default: int) -> int:
@@ -169,8 +167,7 @@ def prepare_mem0_env() -> tuple[str, str, str, str, float, int]:
     if missing:
         required = ", ".join(missing)
         raise ReplayMem0Error(
-            f"missing required benchmark env vars: {required}. "
-            "Please set them in memory_bench/.env.benchmark."
+            f"missing required benchmark env vars: {required}. Please set them in memory_bench/.env.benchmark."
         )
 
     # 显式传给 Mem0，同时避免依赖 Mem0 对 base/model 的隐式环境读取。
@@ -377,6 +374,7 @@ def compact_metadata(metadata: Any) -> dict[str, Any] | None:
 # 缺少任一条件，mem0 只从 user 消息提取记忆，assistant 消息被静默忽略。
 # 参见: mem0/memory/main.py Memory._should_use_agent_memory_extraction
 
+
 def add_memory_entry(
     memory: Any,
     user_id: str,
@@ -405,9 +403,13 @@ def add_memory_entry(
         try:
             result = memory.add(messages=[message], user_id=user_id, agent_id=agent_id, metadata=metadata, infer=False)
         except TypeError:
-            result = _add_memory_entry_fallback(memory=memory, user_id=user_id, agent_id=agent_id, message=message, metadata=metadata)
+            result = _add_memory_entry_fallback(
+                memory=memory, user_id=user_id, agent_id=agent_id, message=message, metadata=metadata
+            )
     else:
-        result = _add_memory_entry_fallback(memory=memory, user_id=user_id, agent_id=agent_id, message=message, metadata=metadata)
+        result = _add_memory_entry_fallback(
+            memory=memory, user_id=user_id, agent_id=agent_id, message=message, metadata=metadata
+        )
 
     if isinstance(result, dict):
         results = result.get("results", [])
@@ -425,7 +427,9 @@ def add_memory_entry(
         logger.info(f"Mem0 add returned {added} memories for user={user_id}, content={message['content'][:80]}...")
 
 
-def _add_memory_entry_fallback(memory: Any, user_id: str, agent_id: str, message: dict[str, str], metadata: dict[str, Any]) -> Any:
+def _add_memory_entry_fallback(
+    memory: Any, user_id: str, agent_id: str, message: dict[str, str], metadata: dict[str, Any]
+) -> Any:
     """在参数签名不兼容时回退调用 Memory.add。
 
     Args:
@@ -450,6 +454,7 @@ def _add_memory_entry_fallback(memory: Any, user_id: str, agent_id: str, message
 # mem0 依赖 role="assistant" 的存在来决定是否启用 agent memory extraction。
 # 如果所有消息都是 role="user"，即使传了 agent_id，
 # _should_use_agent_memory_extraction() 仍然返回 False。
+
 
 def to_mem0_message(role_type: str, content: str) -> dict[str, str] | None:
     """将 bench 事件转换为 Mem0 消息格式。
@@ -573,7 +578,9 @@ def flush_ingest_batch(
         return 0
 
     for message, metadata in pending_items:
-        add_memory_entry(memory=memory, user_id=user_id, agent_id=agent_id, message=message, metadata=metadata, store_raw=store_raw)
+        add_memory_entry(
+            memory=memory, user_id=user_id, agent_id=agent_id, message=message, metadata=metadata, store_raw=store_raw
+        )
 
     count = len(pending_items)
     pending_items.clear()
@@ -731,7 +738,7 @@ def now_iso() -> str:
         返回结果。
     """
 
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def build_checkpoint_path(input_path: Path, isolation: str, state_dir: Path) -> Path:
@@ -783,7 +790,7 @@ def save_checkpoint(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(".tmp")
     tmp_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    os.replace(tmp_path, path)
+    tmp_path.replace(path)
 
 
 def build_mem0_config(
@@ -914,7 +921,9 @@ def init_memory(
             if vector is None:
                 client = getattr(vector_store, "client", None)
                 if client is not None and hasattr(client, "set_payload"):
-                    collection_name = getattr(memory, "collection_name", None) or getattr(vector_store, "collection_name", None)
+                    collection_name = getattr(memory, "collection_name", None) or getattr(
+                        vector_store, "collection_name", None
+                    )
                     if collection_name:
                         client.set_payload(
                             collection_name=collection_name,
@@ -1231,7 +1240,9 @@ def fetch_user_memories(memory: Any, user_id: str, agent_id: str) -> Any:
             last_exc = exc
         except AttributeError as exc:
             last_exc = exc
-    raise ReplayMem0Error(f"Mem0 client does not support export API for user_id={user_id}, agent_id={agent_id}: {last_exc}")
+    raise ReplayMem0Error(
+        f"Mem0 client does not support export API for user_id={user_id}, agent_id={agent_id}: {last_exc}"
+    )
 
 
 def run_export(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
