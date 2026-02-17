@@ -1158,6 +1158,19 @@ def init_memory(
     return memory
 
 
+def maybe_reset_memory(memory: Any) -> None:
+    reset_fn = getattr(memory, "reset", None)
+    if not callable(reset_fn):
+        logger.bind(group="memory").warning("--force enabled but memory.reset() is not available; skip reset")
+        return
+
+    try:
+        reset_fn()
+        logger.bind(group="memory").warning("--force enabled: memory.reset() called")
+    except Exception as exc:
+        logger.bind(group="memory").warning(f"--force enabled but memory.reset() failed; skip reset: {exc}")
+
+
 def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
     """执行 ingest 子命令：增量写入事件并维护 checkpoint。
 
@@ -1196,6 +1209,7 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
         resume_line = int(checkpoint.get("last_ingested_line", 0)) + 1
     elif args.force:
         logger.bind(group="memory").warning("--force enabled: restart ingest from line 1")
+        maybe_reset_memory(memory)
 
     stats = ReplayStats()
     total_events = count_replay_events(input_path)
