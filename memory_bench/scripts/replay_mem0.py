@@ -1307,7 +1307,7 @@ def main() -> int:
     if not input_path.exists():
         raise ReplayMem0Error(f"input file not found: {input_path}")
 
-    state_dir = Path(getattr(args, "state_dir", str(DEFAULT_STATE_DIR)))
+    state_dir = Path(args.state_dir)
     logger.bind(group="memory").info(
         f"Mem0/OpenAI env: llm_model={llm_model}, embedding_model={embed_model}, "
         f"temperature={llm_temperature}, max_tokens={llm_max_tokens}, "
