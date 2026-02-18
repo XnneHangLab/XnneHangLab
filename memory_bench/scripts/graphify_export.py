@@ -66,7 +66,15 @@ PROVENANCE_KEYS = ["processed_key", "source_point_id", "exported_at", "created_a
 
 @dataclass(slots=True)
 class GraphArtifacts:
-    """描述一次 graphify 执行产生的输出文件路径。"""
+    """描述一次 graphify 执行产生的输出文件路径。
+
+    Attributes:
+        report_path: 报告文件 `graphify_report_*.json` 的路径。
+        nodes_path: 节点 JSONL 文件路径；`dry-run` 时为 None。
+        edges_path: 边 JSONL 文件路径；`dry-run` 时为 None。
+        nodes_csv_path: 节点 CSV 文件路径；未启用 `jsonl+csv` 或 `dry-run` 时为 None。
+        edges_csv_path: 边 CSV 文件路径；未启用 `jsonl+csv` 或 `dry-run` 时为 None。
+    """
 
     report_path: Path
     nodes_path: Path | None = None
@@ -77,7 +85,17 @@ class GraphArtifacts:
 
 @dataclass(slots=True)
 class ParsedRecord:
-    """表示通过基础校验后的输入记录。"""
+    """表示通过基础校验后的输入记录。
+
+    Attributes:
+        source_line: 记录在输入文件中的行号（从 1 开始）。
+        source_point_id: 顶层 `id` 字段字符串化后的 point id。
+        payload: 原始 payload 对象。
+        collection: 顶层 `collection` 字段值。
+        isolation: 顶层 `isolation` 字段值。
+        exported_at: 顶层 `exported_at` 字段值。
+        processed_key: 按规则计算出的增量去重键。
+    """
 
     source_line: int
     source_point_id: str
