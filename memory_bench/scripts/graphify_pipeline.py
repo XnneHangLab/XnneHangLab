@@ -111,7 +111,7 @@ def print_next_steps(export_artifacts: ExportArtifacts) -> None:
     if constraints is None or import_path is None:
         return
 
-    logger.info("\n=== Next steps (Neo4j) ===")
+    logger.info("=== Next steps (Neo4j) ===")
     logger.info(f"1) Run constraints: {constraints}")
     logger.info(f"2) Run import script: {import_path}")
     logger.info("3) Validate in Neo4j Browser:")
