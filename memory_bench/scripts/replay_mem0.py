@@ -18,8 +18,9 @@
 #    导致 PointStruct ValidationError。
 #    修复：monkey-patch vector_store.update，vector=None 时用 set_payload。
 #
-# 4. memory.reset() 只会重置内存/索引层状态，不会清空本地 Qdrant 持久化 points。
-#    因此 ingest --force 想要“从零开始”，必须删除/重建 collection（或删除所有 points）。
+# 4. memory.reset() 只会重置内存/索引层，不会清空 qdrant 本地持久化 points。
+#    且本地模式下 delete_collection 等 API 并不总是可用/可靠。
+#    因此 ingest --force 需要直接删除 state_dir/qdrant_storage/.../storage.sqlite 才能真正从零开始。
 #
 # ============================================================
 
@@ -1166,36 +1167,34 @@ def init_memory(
     return memory
 
 
-def try_drop_vector_store_collection(memory: Any, isolation: str) -> None:
-    # 注意：memory.reset() 仅重置内存层；要清理持久化数据需操作底层 collection。
-    vector_store = getattr(memory, "vector_store", None)
-    client = getattr(vector_store, "client", None)
-    collection_name = (
-        getattr(memory, "collection_name", None)
-        or getattr(vector_store, "collection_name", None)
-        or f"memory_bench_{isolation}"
-    )
-    delete_fn = getattr(client, "delete_collection", None) if client is not None else None
-    if not callable(delete_fn):
-        logger.bind(group="memory").warning(
-            f"--force enabled but vector_store client has no delete_collection(); "
-            f"cannot drop collection={collection_name}; skip purge"
-        )
-        return
-    try:
-        delete_fn(collection_name=collection_name)
-        logger.bind(group="memory").warning(f"--force enabled: dropped collection={collection_name}")
-    except TypeError:
+def purge_local_qdrant_storage(state_dir: Path, isolation: str) -> None:
+    collection_dir = state_dir / "qdrant_storage" / "collection" / f"memory_bench_{isolation}"
+    sqlite_path = collection_dir / "storage.sqlite"
+    wal_path = collection_dir / "storage.sqlite-wal"
+    shm_path = collection_dir / "storage.sqlite-shm"
+    for path in (sqlite_path, wal_path, shm_path):
         try:
-            delete_fn(collection_name)
-            logger.bind(group="memory").warning(f"--force enabled: dropped collection={collection_name}")
+            if path.exists():
+                path.unlink()
+                logger.bind(group="memory").warning(f"--force enabled: deleted {path}")
+            else:
+                logger.bind(group="memory").warning(f"--force enabled: file not found, skip delete: {path}")
         except Exception as exc:
+            logger.bind(group="memory").warning(f"--force enabled but failed to delete {path}: {exc}")
+
+
+def purge_checkpoint_file(checkpoint_path: Path) -> None:
+    try:
+        if checkpoint_path.exists():
+            checkpoint_path.unlink()
+            logger.bind(group="memory").warning(f"--force enabled: deleted checkpoint {checkpoint_path}")
+        else:
             logger.bind(group="memory").warning(
-                f"--force enabled but drop collection failed; skip purge: collection={collection_name}, err={exc}"
+                f"--force enabled: checkpoint not found, skip delete: {checkpoint_path}"
             )
     except Exception as exc:
         logger.bind(group="memory").warning(
-            f"--force enabled but drop collection failed; skip purge: collection={collection_name}, err={exc}"
+            f"--force enabled but failed to delete checkpoint {checkpoint_path}: {exc}"
         )
 
 
@@ -1237,7 +1236,8 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
         resume_line = int(checkpoint.get("last_ingested_line", 0)) + 1
     elif args.force:
         logger.bind(group="memory").warning("--force enabled: restart ingest from line 1")
-        try_drop_vector_store_collection(memory, args.isolation)
+        purge_local_qdrant_storage(state_dir=state_dir, isolation=args.isolation)
+        purge_checkpoint_file(checkpoint_path)
 
     stats = ReplayStats()
     total_events = count_replay_events(input_path)
