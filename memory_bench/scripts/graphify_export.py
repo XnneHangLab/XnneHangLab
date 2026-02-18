@@ -89,19 +89,31 @@ class ParsedRecord:
 
 
 def now_utc_ts() -> str:
-    """返回 UTC 时间戳（用于文件名）。"""
+    """返回用于产物命名的 UTC 时间戳。
+
+    Returns:
+        str: 形如 `YYYYMMDD_HHMMSS` 的 UTC 时间字符串。
+    """
 
     return datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
 
 def now_iso() -> str:
-    """返回 ISO-8601 UTC 时间字符串。"""
+    """返回 ISO-8601 格式的 UTC 时间字符串。
+
+    Returns:
+        str: 形如 `2026-02-18T05:41:25Z` 的 UTC 时间字符串。
+    """
 
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """构建 CLI 参数解析器。"""
+    """构建 graphify_export 的命令行参数解析器。
+
+    Returns:
+        argparse.ArgumentParser: 已配置 `reset`、`add`、`dry-run` 子命令与相关参数的解析器。
+    """
 
     parser = argparse.ArgumentParser(
         description="Graphify replay_mem0 export JSONL into graph nodes/edges (V0 metadata ownership graph)",
@@ -139,7 +151,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def ensure_state_db(state_db: Path) -> sqlite3.Connection:
-    """创建并初始化 state.sqlite。"""
+    """创建并初始化 state.sqlite 数据库。
+
+    Args:
+        state_db: state.sqlite 文件路径。
+
+    Returns:
+        sqlite3.Connection: 已创建表结构并可写入的 SQLite 连接。
+    """
 
     state_db.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(state_db)
@@ -158,7 +177,13 @@ def ensure_state_db(state_db: Path) -> sqlite3.Connection:
 
 
 def reset_state(state_db: Path, reset_output: bool, out_dir: Path) -> None:
-    """执行 reset：重建 state.sqlite，按需清理输出文件。"""
+    """执行 reset：重建 state.sqlite，并按需清理输出目录。
+
+    Args:
+        state_db: state.sqlite 文件路径。
+        reset_output: 是否同时清理图谱输出产物。
+        out_dir: 图谱输出目录。
+    """
 
     log = logger.bind(group="memory") if hasattr(logger, "bind") else logger
     if state_db.exists():
@@ -178,7 +203,15 @@ def reset_state(state_db: Path, reset_output: bool, out_dir: Path) -> None:
 
 
 def make_node_id(label: str, value: str) -> str:
-    """按 spec 3.4.1 生成节点 ID。"""
+    """按 spec 3.4.1 规则生成节点 ID。
+
+    Args:
+        label: 节点主标签，如 `MemoryItem`、`User`。
+        value: 对应实体主键值。
+
+    Returns:
+        str: 带类型前缀的稳定节点 ID。
+    """
 
     prefix_map = {
         "MemoryItem": "mem",
@@ -192,7 +225,15 @@ def make_node_id(label: str, value: str) -> str:
 
 
 def compute_processed_key(source_point_id: Any, payload: dict[str, Any] | None) -> str | None:
-    """计算 processed_key：payload.hash 优先，否则 top-level id。"""
+    """计算 processed_key（`payload.hash` 优先，否则顶层 `id`）。
+
+    Args:
+        source_point_id: 顶层 `id` 字段值。
+        payload: 记录的 payload 对象。
+
+    Returns:
+        str | None: 可用时返回 processed_key；两者都不可用时返回 None。
+    """
 
     payload_hash = None
     if isinstance(payload, dict):
@@ -207,7 +248,13 @@ def compute_processed_key(source_point_id: Any, payload: dict[str, Any] | None) 
 
 
 def warn_or_fail(strict: bool, warnings: list[str], message: str) -> None:
-    """在 strict 模式下抛错；否则记录 warning。"""
+    """在严格模式抛错，否则将 warning 追加到列表。
+
+    Args:
+        strict: 是否启用严格模式。
+        warnings: warning 列表。
+        message: warning 或异常消息。
+    """
 
     if strict:
         raise ValueError(message)
@@ -334,13 +381,30 @@ def parse_record(
 
 
 def edge_id(edge_type: str, src: str, dst: str) -> str:
-    """按 spec 3.4.2 生成稳定边 ID。"""
+    """按 spec 3.4.2 生成稳定边 ID。
+
+    Args:
+        edge_type: 边类型。
+        src: 源节点 ID。
+        dst: 目标节点 ID。
+
+    Returns:
+        str: 形如 `edge:{type}:{src}:{dst}` 的稳定边 ID。
+    """
 
     return f"edge:{edge_type}:{src}:{dst}"
 
 
 def build_graph_from_record(record: ParsedRecord, stats: dict[str, int]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """将单条记录映射为 V0 节点与边。"""
+    """将单条有效记录映射为 V0 节点与边。
+
+    Args:
+        record: 通过基础校验与 processed_key 计算后的记录对象。
+        stats: 统计计数字典，函数内可能更新 `skipped_missing_memory_id`。
+
+    Returns:
+        tuple[list[dict[str, Any]], list[dict[str, Any]]]: 该记录生成的节点列表与边列表。
+    """
 
     nodes: list[dict[str, Any]] = []
     edges: list[dict[str, Any]] = []
@@ -433,7 +497,12 @@ def build_graph_from_record(record: ParsedRecord, stats: dict[str, int]) -> tupl
 
 
 def write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
-    """写入 UTF-8 JSONL。"""
+    """写入 UTF-8 JSONL 文件。
+
+    Args:
+        path: 输出文件路径。
+        rows: 待写入的对象列表（每个元素写一行 JSON）。
+    """
 
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as fp:
@@ -442,7 +511,12 @@ def write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
 
 
 def write_csv_nodes(path: Path, nodes: list[dict[str, Any]]) -> None:
-    """写出节点 CSV（jsonl+csv 可选格式）。"""
+    """写出节点 CSV（`jsonl+csv` 可选格式）。
+
+    Args:
+        path: 输出 CSV 文件路径。
+        nodes: 节点对象列表。
+    """
 
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as fp:
@@ -459,7 +533,12 @@ def write_csv_nodes(path: Path, nodes: list[dict[str, Any]]) -> None:
 
 
 def write_csv_edges(path: Path, edges: list[dict[str, Any]]) -> None:
-    """写出边 CSV（jsonl+csv 可选格式）。"""
+    """写出边 CSV（`jsonl+csv` 可选格式）。
+
+    Args:
+        path: 输出 CSV 文件路径。
+        edges: 边对象列表。
+    """
 
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as fp:
@@ -488,7 +567,22 @@ def run_graphify(
     max_warnings: int,
     warn_duplicate_keys: bool,
 ) -> GraphArtifacts:
-    """执行 add/dry-run 主流程。"""
+    """执行 `add`/`dry-run` 的主流程。
+
+    Args:
+        command: 子命令，取值为 `add` 或 `dry-run`。
+        input_path: 输入 JSONL 文件路径。
+        out_dir: 输出目录路径。
+        state_db: 增量状态数据库路径。
+        output_format: 输出格式，`jsonl` 或 `jsonl+csv`。
+        strict: 严格模式开关。
+        prefix: 节点/边输出文件名前缀。
+        max_warnings: report 中保留 warning 的最大条数。
+        warn_duplicate_keys: 是否为重复 processed_key 写 warning。
+
+    Returns:
+        GraphArtifacts: 本次运行生成的产物路径信息。
+    """
 
     log = logger.bind(group="memory") if hasattr(logger, "bind") else logger
     if not input_path.exists():
@@ -670,7 +764,11 @@ def run_graphify(
 
 
 def main() -> int:
-    """CLI 入口。"""
+    """命令行入口函数。
+
+    Returns:
+        int: 退出码，成功返回 0，失败返回 1。
+    """
 
     args = build_parser().parse_args()
 
