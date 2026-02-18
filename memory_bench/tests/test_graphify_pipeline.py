@@ -26,10 +26,18 @@ def load_module() -> Any:
     if spec is None or spec.loader is None:
         raise RuntimeError(f"failed to load script module: {SCRIPT_PATH}")
     module = importlib.util.module_from_spec(spec)
-    sys.path.insert(0, str(SCRIPTS_DIR))
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+    inserted = False
+    scripts_dir = str(SCRIPTS_DIR)
+    if scripts_dir not in sys.path:
+        sys.path.insert(0, scripts_dir)
+        inserted = True
+    try:
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        if inserted:
+            sys.path.remove(scripts_dir)
 
 
 def test_run_pipeline_generates_cypher_files(tmp_path: Path) -> None:
@@ -71,8 +79,9 @@ def test_resolve_skip_cypher_defaults() -> None:
 
     module = load_module()
     assert module.resolve_skip_cypher(command="dry-run", cypher_flag=None) is True
+    assert module.resolve_skip_cypher(command="dry-run", cypher_flag=True) is True
     assert module.resolve_skip_cypher(command="run", cypher_flag=None) is False
-    assert module.resolve_skip_cypher(command="dry-run", cypher_flag=True) is False
+    assert module.resolve_skip_cypher(command="run", cypher_flag=False) is True
 
 
 def test_main_dry_run_default_does_not_error(tmp_path: Path) -> None:
@@ -99,5 +108,39 @@ def test_main_dry_run_default_does_not_error(tmp_path: Path) -> None:
             str(state_db),
         ]
         assert module.main() == 0
+    finally:
+        sys.argv = argv_backup
+
+
+def test_main_dry_run_rejects_cypher_flag(tmp_path: Path) -> None:
+    """验证 dry-run 子命令不接受 --cypher 参数。
+
+    Args:
+        tmp_path: pytest 提供的临时目录。
+    """
+
+    module = load_module()
+    out_dir = tmp_path / "graphify"
+    state_db = tmp_path / "state.sqlite"
+    argv_backup = sys.argv
+
+    try:
+        sys.argv = [
+            "graphify_pipeline.py",
+            "dry-run",
+            "--input",
+            str(FIXTURE_PATH),
+            "--out-dir",
+            str(out_dir),
+            "--state-db",
+            str(state_db),
+            "--cypher",
+        ]
+        try:
+            module.main()
+        except SystemExit as exc:
+            assert exc.code == 2
+        else:  # pragma: no cover
+            raise AssertionError("dry-run should reject --cypher")
     finally:
         sys.argv = argv_backup

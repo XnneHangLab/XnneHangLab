@@ -35,32 +35,43 @@ def build_parser() -> argparse.ArgumentParser:
     reset_parser.add_argument("--out-dir", type=str, default=str(DEFAULT_OUT_DIR))
     reset_parser.add_argument("--reset-output", action="store_true")
 
-    for cmd in ("run", "dry-run"):
-        cmd_parser = subparsers.add_parser(cmd, help=f"{cmd} graphify pipeline")
-        cmd_parser.add_argument("--input", type=str, required=True)
-        cmd_parser.add_argument("--out-dir", type=str, default=str(DEFAULT_OUT_DIR))
-        cmd_parser.add_argument("--state-db", type=str, default=str(DEFAULT_STATE_DB))
-        cmd_parser.add_argument("--prefix", type=str, default="graph")
-        cmd_parser.add_argument("--format", choices=("jsonl", "jsonl+csv"), default="jsonl")
-        cmd_parser.add_argument("--strict", action="store_true")
-        cmd_parser.add_argument("--max-warnings", type=int, default=100)
-        cmd_parser.add_argument("--warn-duplicate-keys", action=argparse.BooleanOptionalAction, default=None)
-        cmd_parser.add_argument(
-            "--cypher-out-dir",
-            type=str,
-            default=None,
-            help="Directory for neo4j cypher outputs (default: <out-dir>/neo4j)",
-        )
-        cmd_parser.add_argument(
-            "--cypher",
-            action=argparse.BooleanOptionalAction,
-            default=None,
-            help=(
-                "Enable/disable neo4j_export_cypher step. "
-                "Defaults: run=True, dry-run=False. "
-                "Use --cypher to force, --no-cypher to skip."
-            ),
-        )
+    run_parser = subparsers.add_parser("run", help="run graphify pipeline")
+    run_parser.add_argument("--input", type=str, required=True)
+    run_parser.add_argument("--out-dir", type=str, default=str(DEFAULT_OUT_DIR))
+    run_parser.add_argument("--state-db", type=str, default=str(DEFAULT_STATE_DB))
+    run_parser.add_argument("--prefix", type=str, default="graph")
+    run_parser.add_argument("--format", choices=("jsonl", "jsonl+csv"), default="jsonl")
+    run_parser.add_argument("--strict", action="store_true")
+    run_parser.add_argument("--max-warnings", type=int, default=100)
+    run_parser.add_argument("--warn-duplicate-keys", action=argparse.BooleanOptionalAction, default=None)
+    run_parser.add_argument(
+        "--cypher-out-dir",
+        type=str,
+        default=None,
+        help="Directory for neo4j cypher outputs (default: <out-dir>/neo4j)",
+    )
+    run_parser.add_argument(
+        "--cypher",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enable/disable neo4j_export_cypher step. Default: enabled. Use --no-cypher to skip.",
+    )
+
+    dry_run_parser = subparsers.add_parser("dry-run", help="dry-run graphify pipeline")
+    dry_run_parser.add_argument("--input", type=str, required=True)
+    dry_run_parser.add_argument("--out-dir", type=str, default=str(DEFAULT_OUT_DIR))
+    dry_run_parser.add_argument("--state-db", type=str, default=str(DEFAULT_STATE_DB))
+    dry_run_parser.add_argument("--prefix", type=str, default="graph")
+    dry_run_parser.add_argument("--format", choices=("jsonl", "jsonl+csv"), default="jsonl")
+    dry_run_parser.add_argument("--strict", action="store_true")
+    dry_run_parser.add_argument("--max-warnings", type=int, default=100)
+    dry_run_parser.add_argument("--warn-duplicate-keys", action=argparse.BooleanOptionalAction, default=None)
+    dry_run_parser.add_argument(
+        "--cypher-out-dir",
+        type=str,
+        default=None,
+        help="Directory for neo4j cypher outputs (default: <out-dir>/neo4j)",
+    )
 
     return parser
 
@@ -69,19 +80,21 @@ def resolve_skip_cypher(command: str, cypher_flag: bool | None) -> bool:
     """解析是否跳过 cypher 导出步骤。
 
     默认行为：
-    - `run`: 导出 cypher
-    - `dry-run`: 跳过 cypher（更符合 dry-run 语义）
+    - `run`: 导出 cypher（可用 `--no-cypher` 关闭）
+    - `dry-run`: 始终跳过 cypher（不支持 `--cypher`）
 
     Args:
         command: 当前子命令，支持 `run` 或 `dry-run`。
-        cypher_flag: 来自 `--cypher/--no-cypher` 的显式开关；为 None 表示使用默认。
+        cypher_flag: `run` 子命令下来自 `--cypher/--no-cypher` 的显式开关。
 
     Returns:
         bool: True 表示跳过 cypher 导出；False 表示执行 cypher 导出。
     """
 
+    if command == "dry-run":
+        return True
     if cypher_flag is None:
-        return command == "dry-run"
+        return False
     return not bool(cypher_flag)
 
 
@@ -194,7 +207,7 @@ def main() -> int:
     warn_duplicate_keys = (
         (args.command == "run") if args.warn_duplicate_keys is None else bool(args.warn_duplicate_keys)
     )
-    skip_cypher = resolve_skip_cypher(command=args.command, cypher_flag=args.cypher)
+    skip_cypher = resolve_skip_cypher(command=args.command, cypher_flag=getattr(args, "cypher", None))
 
     graph_artifacts, export_artifacts = run_pipeline(
         command=args.command,
@@ -215,7 +228,7 @@ def main() -> int:
         print(f"neo4j export report: {export_artifacts.report_path}")
         print_next_steps(export_artifacts)
     else:
-        print("neo4j export skipped (--no-cypher)")
+        print("neo4j export skipped (cypher disabled)")
 
     return 0
 
