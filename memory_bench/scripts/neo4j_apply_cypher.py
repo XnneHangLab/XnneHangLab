@@ -10,10 +10,15 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from bench_logger import logger
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from memory_bench.scripts.bench_logger import logger
 
 GROUP = "neo4j_import"
 DEFAULT_GRAPHIFY_OUT_DIR = Path("memory_bench/logs/replay_mem0/graphify")
+log = logger.bind(group=GROUP)
 
 
 @dataclass(frozen=True)
@@ -157,7 +162,7 @@ def main(argv: list[str]) -> int:
         dry_run,
     )
 
-    if not dry_run and shutil.which("docker") is None:
+    if shutil.which("docker") is None:
         log.error("docker command not found. Please install Docker first.")
         return 127
 
@@ -201,8 +206,6 @@ def main(argv: list[str]) -> int:
     log.info("All done. Open Neo4j Browser: %s", config.browser_url)
     return 0
 
-
-log = logger.bind(group=GROUP)
 
 if __name__ == "__main__":
     raise SystemExit(main(sys.argv[1:]))
