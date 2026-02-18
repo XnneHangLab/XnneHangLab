@@ -18,6 +18,10 @@
 #    导致 PointStruct ValidationError。
 #    修复：monkey-patch vector_store.update，vector=None 时用 set_payload。
 #
+# 4. memory.reset() 只会重置内存/索引层，不会清空 qdrant 本地持久化 points。
+#    且本地模式下 delete_collection 等 API 并不总是可用/可靠。
+#    因此 ingest --force 需要直接删除 state_dir/qdrant_storage/.../storage.sqlite 才能真正从零开始。
+#
 # ============================================================
 
 from __future__ import annotations
@@ -1163,6 +1167,52 @@ def init_memory(
     return memory
 
 
+def purge_local_qdrant_storage(state_dir: Path, isolation: str) -> None:
+    """在 --force 场景下清理本地 Qdrant SQLite 持久化文件。
+
+    Args:
+        state_dir: 状态目录根路径。
+        isolation: Mem0 隔离模式（用于拼接 collection 名）。
+
+    """
+
+    collection_dir = state_dir / "qdrant_storage" / "collection" / f"memory_bench_{isolation}"
+    sqlite_path = collection_dir / "storage.sqlite"
+    wal_path = collection_dir / "storage.sqlite-wal"
+    shm_path = collection_dir / "storage.sqlite-shm"
+    for path in (sqlite_path, wal_path, shm_path):
+        try:
+            if path.exists():
+                path.unlink()
+                logger.bind(group="memory").warning(f"--force enabled: deleted {path}")
+            else:
+                logger.bind(group="memory").warning(f"--force enabled: file not found, skip delete: {path}")
+        except Exception as exc:
+            logger.bind(group="memory").warning(f"--force enabled but failed to delete {path}: {exc}")
+
+
+def purge_checkpoint_file(checkpoint_path: Path) -> None:
+    """在 --force 场景下删除 checkpoint 文件，避免后续恢复偏移干扰。
+
+    Args:
+        checkpoint_path: checkpoint 文件路径。
+
+    """
+
+    try:
+        if checkpoint_path.exists():
+            checkpoint_path.unlink()
+            logger.bind(group="memory").warning(f"--force enabled: deleted checkpoint {checkpoint_path}")
+        else:
+            logger.bind(group="memory").warning(
+                f"--force enabled: checkpoint not found, skip delete: {checkpoint_path}"
+            )
+    except Exception as exc:
+        logger.bind(group="memory").warning(
+            f"--force enabled but failed to delete checkpoint {checkpoint_path}: {exc}"
+        )
+
+
 def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
     """执行 ingest 子命令：增量写入事件并维护 checkpoint。
 
@@ -1535,6 +1585,7 @@ def main() -> int:
     load_benchmark_dotenv(repo_root)
     api_key, base_url, llm_model, embed_model, llm_temperature, llm_max_tokens = prepare_mem0_env()
 
+    input_path: Path | None = None
     if args.command in {"ingest", "probe"}:
         input_path = Path(args.input)
         if not input_path.exists():
@@ -1547,6 +1598,12 @@ def main() -> int:
         f"base_url={redact_base_url(base_url)}, state_dir={state_dir}"
     )
 
+    if args.command == "ingest" and args.force:
+        assert input_path is not None
+        checkpoint_path = build_checkpoint_path(input_path=input_path, isolation=args.isolation, state_dir=state_dir)
+        purge_local_qdrant_storage(state_dir=state_dir, isolation=args.isolation)
+        purge_checkpoint_file(checkpoint_path)
+
     memory = init_memory(
         state_dir=state_dir,
         isolation=args.isolation,
@@ -1558,8 +1615,10 @@ def main() -> int:
         llm_max_tokens=llm_max_tokens,
     )
     if args.command == "ingest":
+        assert input_path is not None
         return run_ingest(args, memory, input_path)
     if args.command == "probe":
+        assert input_path is not None
         return run_probe(args, memory, input_path)
     if args.command == "export":
         return run_export(args, memory)
