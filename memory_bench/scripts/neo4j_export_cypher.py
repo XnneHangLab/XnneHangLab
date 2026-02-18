@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Convert graphify_export(V0) nodes/edges JSONL into Neo4j import Cypher files."""
+"""Convert graphify_export(V0) nodes/edges JSONL into Neo4j import Cypher files.
+
+V0 notes:
+- Relationship `props` are always preserved in `r.props_json` as full-fidelity fallback.
+- `SET r += <map>` only writes Neo4j property-compatible values (primitive/list-of-primitive).
+  Non-compatible nested structures are intentionally skipped from top-level relationship attrs.
+"""
 
 from __future__ import annotations
 
@@ -39,6 +45,25 @@ def _escape_cypher_string(value: str) -> str:
     return value.replace("\\", "\\\\").replace("'", "\\'")
 
 
+def _escape_cypher_identifier(value: str) -> str:
+    """Escape Cypher backtick identifier by doubling backticks."""
+
+    return value.replace("`", "``")
+
+
+def _is_neo4j_property_value(value: Any) -> bool:
+    """Return True when value is Neo4j property-compatible.
+
+    Neo4j property values support primitive scalars and list of primitive scalars.
+    """
+
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return True
+    if isinstance(value, list):
+        return all(item is None or isinstance(item, (bool, int, float, str)) for item in value)
+    return False
+
+
 def _to_cypher_literal(value: Any) -> str:
     if value is None:
         return "null"
@@ -53,7 +78,7 @@ def _to_cypher_literal(value: Any) -> str:
     if isinstance(value, dict):
         parts: list[str] = []
         for key, item in value.items():
-            parts.append(f"`{key}`: {_to_cypher_literal(item)}")
+            parts.append(f"`{_escape_cypher_identifier(str(key))}`: {_to_cypher_literal(item)}")
         return "{" + ", ".join(parts) + "}"
     return f"'{_escape_cypher_string(json.dumps(value, ensure_ascii=False))}'"
 
@@ -126,6 +151,9 @@ def _build_edge_merge(edge: dict[str, Any]) -> str | None:
         return None
 
     props_raw = edge.get("props") if isinstance(edge.get("props"), dict) else {}
+    props_for_set = {
+        key: value for key, value in props_raw.items() if _is_neo4j_property_value(value)
+    }
     props_json = json.dumps(props_raw, ensure_ascii=False)
     return "\n".join(
         [
@@ -138,7 +166,7 @@ def _build_edge_merge(edge: dict[str, Any]) -> str | None:
                 f"r.dst = {_to_cypher_literal(str(dst))}, "
                 f"r.props_json = {_to_cypher_literal(props_json)}"
             ),
-            f"SET r += {_to_cypher_literal(props_raw)};",
+            f"SET r += {_to_cypher_literal(props_for_set)};",
         ]
     )
 

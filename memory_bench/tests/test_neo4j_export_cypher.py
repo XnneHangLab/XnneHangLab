@@ -37,6 +37,16 @@ def test_to_cypher_literal_escapes_single_quote_and_backslash() -> None:
     assert literal == "'a\\'b\\\\c'"
 
 
+
+
+def test_to_cypher_literal_escapes_backtick_in_dict_key() -> None:
+    """dict key backticks should be escaped for Cypher map literal."""
+
+    module = load_module()
+    literal = module._to_cypher_literal({"a`b": "x"})
+    assert literal == "{`a``b`: 'x'}"
+
+
 def test_run_export_dry_run_only_writes_report(tmp_path: Path) -> None:
     """dry-run should only create report and leave cypher paths empty in report."""
 
@@ -131,3 +141,41 @@ def test_run_export_writes_all_outputs_and_counts_valid_rows(tmp_path: Path) -> 
     import_text = artifacts.import_path.read_text(encoding="utf-8")
     assert "SET r += {`processed_key`: 'h1'" in import_text
     assert "r.props_json" in import_text
+
+
+def test_run_export_keeps_nested_props_only_in_props_json(tmp_path: Path) -> None:
+    """nested dict props should not be written by SET r += map, but remain in props_json."""
+
+    module = load_module()
+    nodes_path = tmp_path / "nodes_nested.jsonl"
+    edges_path = tmp_path / "edges_nested.jsonl"
+    out_dir = tmp_path / "out_nested"
+
+    write_fixture_jsonl(
+        nodes_path,
+        [json.dumps({"id": "memory:1", "labels": ["MemoryItem"], "props": {"k": "v"}})],
+    )
+    write_fixture_jsonl(
+        edges_path,
+        [
+            json.dumps(
+                {
+                    "id": "edge:1",
+                    "type": "OWNS_MEMORY",
+                    "src": "user:1",
+                    "dst": "memory:1",
+                    "props": {
+                        "processed_key": "h1",
+                        "nested": {"a": 1},
+                    },
+                }
+            )
+        ],
+    )
+
+    artifacts = module.run_export(nodes_path, edges_path, out_dir, prefix="graph", dry_run=False)
+    import_text = artifacts.import_path.read_text(encoding="utf-8")
+
+    assert "SET r += {`processed_key`: 'h1'};" in import_text
+    assert "`nested`" not in import_text
+    assert '"nested": {"a": 1}' in import_text
