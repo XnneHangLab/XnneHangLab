@@ -63,6 +63,8 @@ V0 仅包含上述节点之间的固定元数据关系（见第 3.3 节）。
 
 记为：`processed_key`。
 
+> 一致性要求：`processed_key` 与 `MemoryItem.id` 的主键选择必须使用同一套优先级规则（`payload.hash` 优先，否则 top-level `id`），避免增量去重与节点 ID 不一致。
+
 - `state.sqlite` 中将持久化 `processed_key`。
 - `add` 仅处理 `processed_key` 尚未出现的记录。
 - 若两者都不可用，则该记录跳过并计入 `skipped_missing_processed_key`。
@@ -115,6 +117,7 @@ V0 仅包含上述节点之间的固定元数据关系（见第 3.3 节）。
 
 - V0 应输出稳定 `id`（推荐，见第 3.4 节）。
 - `type` 必须来自第 3.3 节固定关系集合。
+- `edges.props` 推荐包含 provenance 字段（如 `processed_key`、`source_point_id`、`exported_at`、`created_at`），用于审计与回放。
 
 ### 3.3 V0 固定关系类型集合（必须）
 
@@ -150,6 +153,7 @@ V0 第一层仅允许以下关系类型与方向：
 - `MemoryItem`：`mem:{memory_key}`
   - `memory_key = payload.hash`（优先）
   - 若 `payload.hash` 缺失，`memory_key = point:{id}`
+  - 该优先级与第 2.4 节 `processed_key` 必须严格一致
 - `User`：`user:{user_id}`
 - `Agent`：`agent:{agent_id}`
 - `Conversation`：`conv:{conv_id}`
@@ -188,6 +192,7 @@ V0 第一层仅允许以下关系类型与方向：
 - `edges_by_type` (object)
 - `duration_ms`
 - `warnings` (array[string])
+- `edge_props_provenance_recommended` (array[string], 建议值：`["processed_key","source_point_id","exported_at","created_at"]`)
 
 其中：
 
@@ -200,12 +205,11 @@ V0 第一层仅允许以下关系类型与方向：
 脚本建议：`memory_bench/scripts/graphify_export.py`
 
 ```bash
-uv run python memory_bench/scripts/graphify_export.py add \
+uv run python memory_bench/scripts/graphify_export.py dry-run \
   --input memory_bench/logs/replay_mem0/export_20260218_031242.jsonl \
   --out-dir memory_bench/logs/replay_mem0/graphify \
   --state-db memory_bench/state/graphify/state.sqlite \
-  --format jsonl \
-  --dry-run
+  --format jsonl
 ```
 
 ### 4.1 子命令（必须）
@@ -290,7 +294,7 @@ uv run python memory_bench/scripts/graphify_export.py add \
 ### 7.2 edges.jsonl 示例行
 
 ```json
-{"id":"edge:OWNS_MEMORY:user:chill_ai_chat:congyin:mem:d82ae1eafae11287f949b39cb11dd939","type":"OWNS_MEMORY","src":"user:chill_ai_chat:congyin","dst":"mem:d82ae1eafae11287f949b39cb11dd939","props":{}}
+{"id":"edge:OWNS_MEMORY:user:chill_ai_chat:congyin:mem:d82ae1eafae11287f949b39cb11dd939","type":"OWNS_MEMORY","src":"user:chill_ai_chat:congyin","dst":"mem:d82ae1eafae11287f949b39cb11dd939","props":{"processed_key":"d82ae1eafae11287f949b39cb11dd939","source_point_id":"074bbc5d-2eb3-4859-80db-c4f898e8820c","exported_at":"2026-02-18T03:12:42Z","created_at":"2026-02-17T19:12:27.733459-08:00"}}
 {"id":"edge:TARGETS_AGENT:mem:d82ae1eafae11287f949b39cb11dd939:agent:congyin","type":"TARGETS_AGENT","src":"mem:d82ae1eafae11287f949b39cb11dd939","dst":"agent:congyin","props":{}}
 {"id":"edge:FROM_CONV:mem:d82ae1eafae11287f949b39cb11dd939:conv:ch9998","type":"FROM_CONV","src":"mem:d82ae1eafae11287f949b39cb11dd939","dst":"conv:ch9998","props":{}}
 {"id":"edge:IN_SCENE:mem:d82ae1eafae11287f949b39cb11dd939:scene:chill_ai_chat","type":"IN_SCENE","src":"mem:d82ae1eafae11287f949b39cb11dd939","dst":"scene:chill_ai_chat","props":{}}
