@@ -18,6 +18,9 @@
 #    导致 PointStruct ValidationError。
 #    修复：monkey-patch vector_store.update，vector=None 时用 set_payload。
 #
+# 4. memory.reset() 只会重置内存/索引层状态，不会清空本地 Qdrant 持久化 points。
+#    因此 ingest --force 想要“从零开始”，必须删除/重建 collection（或删除所有 points）。
+#
 # ============================================================
 
 from __future__ import annotations
@@ -1163,16 +1166,37 @@ def init_memory(
     return memory
 
 
-def maybe_reset_memory(memory: Any) -> None:
-    reset_fn = getattr(memory, "reset", None)
-    if not callable(reset_fn):
-        logger.bind(group="memory").warning("--force enabled but memory.reset() is not available; skip reset")
+def try_drop_vector_store_collection(memory: Any, isolation: str) -> None:
+    # 注意：memory.reset() 仅重置内存层；要清理持久化数据需操作底层 collection。
+    vector_store = getattr(memory, "vector_store", None)
+    client = getattr(vector_store, "client", None)
+    collection_name = (
+        getattr(memory, "collection_name", None)
+        or getattr(vector_store, "collection_name", None)
+        or f"memory_bench_{isolation}"
+    )
+    delete_fn = getattr(client, "delete_collection", None) if client is not None else None
+    if not callable(delete_fn):
+        logger.bind(group="memory").warning(
+            f"--force enabled but vector_store client has no delete_collection(); "
+            f"cannot drop collection={collection_name}; skip purge"
+        )
         return
     try:
-        reset_fn()
-        logger.bind(group="memory").warning("--force enabled: memory.reset() called")
+        delete_fn(collection_name=collection_name)
+        logger.bind(group="memory").warning(f"--force enabled: dropped collection={collection_name}")
+    except TypeError:
+        try:
+            delete_fn(collection_name)
+            logger.bind(group="memory").warning(f"--force enabled: dropped collection={collection_name}")
+        except Exception as exc:
+            logger.bind(group="memory").warning(
+                f"--force enabled but drop collection failed; skip purge: collection={collection_name}, err={exc}"
+            )
     except Exception as exc:
-        logger.bind(group="memory").warning(f"--force enabled but memory.reset() failed; skip reset: {exc}")
+        logger.bind(group="memory").warning(
+            f"--force enabled but drop collection failed; skip purge: collection={collection_name}, err={exc}"
+        )
 
 
 def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
@@ -1213,7 +1237,7 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
         resume_line = int(checkpoint.get("last_ingested_line", 0)) + 1
     elif args.force:
         logger.bind(group="memory").warning("--force enabled: restart ingest from line 1")
-        maybe_reset_memory(memory)
+        try_drop_vector_store_collection(memory, args.isolation)
 
     stats = ReplayStats()
     total_events = count_replay_events(input_path)
