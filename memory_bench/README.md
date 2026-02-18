@@ -226,6 +226,8 @@ uv run python memory_bench/scripts/replay_mem0.py export
 docker compose -f memory_bench/docker-compose.neo4j.yml up -d neo4j_mem0
 ```
 
+一键导入 Cypher（含 mem0/zep/cognee 示例）请参考：`docs/neo4j_import_v0.md`。
+
 #### Pipeline 示例（基于 export sample fixture）
 
 ```bash
