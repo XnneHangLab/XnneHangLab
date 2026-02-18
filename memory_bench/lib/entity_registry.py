@@ -1,4 +1,8 @@
-"""Entity registry helpers (PR1 minimal implementation)."""
+"""实体注册表工具（PR1 最小实现）。
+
+该模块提供实体名归一化、基础表结构初始化与基于 `(type, normalized)`
+精确匹配的实体解析/创建能力，不包含 aliases 相关逻辑。
+"""
 
 from __future__ import annotations
 
@@ -64,7 +68,14 @@ _REMOVE_CHARS = {
 
 
 def _to_halfwidth_ascii(text: str) -> str:
-    """Convert fullwidth ASCII variants to halfwidth."""
+    """将全角 ASCII 变体转换为半角字符。
+
+    Args:
+        text: 原始输入字符串。
+
+    Returns:
+        转换后的字符串。
+    """
 
     converted: list[str] = []
     for ch in text:
@@ -79,7 +90,16 @@ def _to_halfwidth_ascii(text: str) -> str:
 
 
 def normalize_name(name: str) -> str:
-    """Normalize entity name for deterministic matching."""
+    """对实体名做稳定归一化处理。
+
+    处理规则包括：全角 ASCII 转半角、拉丁字母小写化、去除空白与常见中英文标点。
+
+    Args:
+        name: 待归一化名称；若不是字符串则返回空字符串。
+
+    Returns:
+        归一化后的名称；若输入无效或归一化后为空可能返回空字符串。
+    """
 
     if not isinstance(name, str):
         return ""
@@ -91,7 +111,11 @@ def normalize_name(name: str) -> str:
 
 
 def ensure_entities_tables(conn: sqlite3.Connection) -> None:
-    """Create PR1 minimal entities table and index if missing."""
+    """确保 PR1 所需的 entities 表存在。
+
+    Args:
+        conn: SQLite 连接对象。
+    """
 
     conn.execute(
         """
@@ -108,6 +132,16 @@ def ensure_entities_tables(conn: sqlite3.Connection) -> None:
 
 
 def _stable_entity_id(entity_type: str, normalized: str) -> str:
+    """根据实体类型与归一化名称生成稳定实体 ID。
+
+    Args:
+        entity_type: 实体类型。
+        normalized: 归一化名称。
+
+    Returns:
+        稳定的实体 ID，格式为 `ent:{type}:{hash}`。
+    """
+
     digest = hashlib.sha1(f"{entity_type}:{normalized}".encode("utf-8")).hexdigest()[:32]
     return f"ent:{entity_type}:{digest}"
 
@@ -119,7 +153,17 @@ def resolve_entity(
     *,
     create: bool = True,
 ) -> str | None:
-    """Resolve or create entity by exact (type, normalized) match."""
+    """按 `(type, normalized)` 精确匹配解析实体，必要时创建。
+
+    Args:
+        conn: SQLite 连接对象。
+        type: 实体类型。
+        name: 原始实体名称；若不是字符串则返回 `None`。
+        create: 未命中时是否创建实体，默认为 `True`。
+
+    Returns:
+        命中或创建成功时返回 `entity_id`；输入无效、未命中且不创建时返回 `None`。
+    """
 
     ensure_entities_tables(conn)
 
