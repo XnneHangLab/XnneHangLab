@@ -12,6 +12,7 @@
 
    说明：若 `--state-db` 不存在，dry-run 会将其视为“无已处理记录”，
    但不会创建 state 文件或表；若 state 已存在，则会只读打开并统计/跳过重复 processed_key。
+   且默认不会为重复 key 写 warning（仅统计 skipped_already_processed）；可用 --warn-duplicate-keys 显式开启。
 
 2) reset（重建 state，可选清理输出目录）：
    uv run python memory_bench/scripts/graphify_export.py reset \
@@ -25,6 +26,8 @@
      --out-dir memory_bench/logs/replay_mem0/graphify \
      --state-db memory_bench/state/graphify/state.sqlite \
      --format jsonl
+
+   说明：add 默认会为重复 key 记录 warning，但受 --max-warnings 限制。
 
 输出文件位于 `--out-dir` 下：
 - graph_nodes_YYYYMMDD_HHMMSS.jsonl（及可选 CSV）
@@ -119,6 +122,18 @@ def build_parser() -> argparse.ArgumentParser:
         cmd_parser.add_argument("--prefix", type=str, default="graph")
         cmd_parser.add_argument("--format", choices=("jsonl", "jsonl+csv"), default="jsonl")
         cmd_parser.add_argument("--strict", action="store_true", help="Fail on schema issues instead of warning+skip")
+        cmd_parser.add_argument(
+            "--max-warnings",
+            type=int,
+            default=100,
+            help="Maximum warning entries kept in report warnings array",
+        )
+        cmd_parser.add_argument(
+            "--warn-duplicate-keys",
+            action=argparse.BooleanOptionalAction,
+            default=None,
+            help="Emit warnings for skipped duplicate processed_key records",
+        )
 
     return parser
 
@@ -199,6 +214,18 @@ def warn_or_fail(strict: bool, warnings: list[str], message: str) -> None:
     warnings.append(message)
 
 
+
+
+def append_warning(warnings: list[str], message: str, max_warnings: int, warning_meta: dict[str, int | bool]) -> None:
+    """按上限追加 warning；超限后仅计数不追加。"""
+
+    warning_meta["warnings_count_total_estimate"] = int(warning_meta["warnings_count_total_estimate"]) + 1
+    if len(warnings) < max_warnings:
+        warnings.append(message)
+        return
+    warning_meta["warnings_truncated"] = True
+
+
 def parse_record(
     raw_line: str,
     line_no: int,
@@ -206,48 +233,71 @@ def parse_record(
     strict: bool,
     stats: dict[str, int],
     warnings: list[str],
+    max_warnings: int,
+    warning_meta: dict[str, int | bool],
 ) -> ParsedRecord | None:
     """解析并校验单行输入记录。"""
 
     if not raw_line.strip():
         stats["skipped_empty_line"] += 1
-        warn_or_fail(strict, warnings, f"line {line_no}: empty line skipped")
+        if strict:
+            warn_or_fail(strict, warnings, f"line {line_no}: empty line skipped")
+        else:
+            append_warning(warnings, f"line {line_no}: empty line skipped", max_warnings, warning_meta)
         return None
 
     try:
         row = json.loads(raw_line)
     except json.JSONDecodeError as exc:
         stats["skipped_invalid_json"] += 1
-        warn_or_fail(strict, warnings, f"line {line_no}: invalid json ({exc})")
+        if strict:
+            warn_or_fail(strict, warnings, f"line {line_no}: invalid json ({exc})")
+        else:
+            append_warning(warnings, f"line {line_no}: invalid json ({exc})", max_warnings, warning_meta)
         return None
 
     if not isinstance(row, dict):
         stats["skipped_invalid_json"] += 1
-        warn_or_fail(strict, warnings, f"line {line_no}: json value is not an object")
+        if strict:
+            warn_or_fail(strict, warnings, f"line {line_no}: json value is not an object")
+        else:
+            append_warning(warnings, f"line {line_no}: json value is not an object", max_warnings, warning_meta)
         return None
 
     missing_top = [key for key in TOP_LEVEL_REQUIRED if key not in row]
     if missing_top:
         stats["skipped_missing_top_level"] += 1
-        warn_or_fail(strict, warnings, f"line {line_no}: missing top-level fields {','.join(missing_top)}")
+        if strict:
+            warn_or_fail(strict, warnings, f"line {line_no}: missing top-level fields {','.join(missing_top)}")
+        else:
+            append_warning(warnings, f"line {line_no}: missing top-level fields {','.join(missing_top)}", max_warnings, warning_meta)
         return None
 
     payload = row.get("payload")
     if payload is None:
         stats["skipped_null_payload"] += 1
-        warn_or_fail(strict, warnings, f"line {line_no}: payload is null")
+        if strict:
+            warn_or_fail(strict, warnings, f"line {line_no}: payload is null")
+        else:
+            append_warning(warnings, f"line {line_no}: payload is null", max_warnings, warning_meta)
         return None
 
     if not isinstance(payload, dict):
         stats["skipped_invalid_json"] += 1
-        warn_or_fail(strict, warnings, f"line {line_no}: payload must be object or null")
+        if strict:
+            warn_or_fail(strict, warnings, f"line {line_no}: payload must be object or null")
+        else:
+            append_warning(warnings, f"line {line_no}: payload must be object or null", max_warnings, warning_meta)
         return None
 
     source_point_id = str(row["id"])
     processed_key = compute_processed_key(row.get("id"), payload)
     if not processed_key:
         stats["skipped_missing_processed_key"] += 1
-        warn_or_fail(strict, warnings, f"line {line_no}: missing processed_key from payload.hash/id")
+        if strict:
+            warn_or_fail(strict, warnings, f"line {line_no}: missing processed_key from payload.hash/id")
+        else:
+            append_warning(warnings, f"line {line_no}: missing processed_key from payload.hash/id", max_warnings, warning_meta)
         return None
 
     return ParsedRecord(
@@ -413,6 +463,8 @@ def run_graphify(
     output_format: str,
     strict: bool,
     prefix: str,
+    max_warnings: int,
+    warn_duplicate_keys: bool,
 ) -> GraphArtifacts:
     """执行 add/dry-run 主流程。"""
 
@@ -430,6 +482,7 @@ def run_graphify(
 
     stats: dict[str, int] = defaultdict(int)
     warnings: list[str] = []
+    warning_meta: dict[str, int | bool] = {"warnings_truncated": False, "warnings_count_total_estimate": 0}
     stats_keys = [
         "records_total",
         "records_valid",
@@ -463,7 +516,7 @@ def run_graphify(
         with input_path.open("r", encoding="utf-8") as fp:
             for line_no, raw_line in enumerate(fp, start=1):
                 stats["records_total"] += 1
-                parsed = parse_record(raw_line, line_no, input_path, strict, stats, warnings)
+                parsed = parse_record(raw_line, line_no, input_path, strict, stats, warnings, max_warnings, warning_meta)
                 if parsed is None:
                     continue
 
@@ -474,7 +527,13 @@ def run_graphify(
                     ).fetchone()
                     if existing:
                         stats["skipped_already_processed"] += 1
-                        warnings.append(f"line {line_no}: processed_key already exists, skipped ({parsed.processed_key})")
+                        if warn_duplicate_keys:
+                            append_warning(
+                                warnings,
+                                f"line {line_no}: processed_key already exists, skipped ({parsed.processed_key})",
+                                max_warnings,
+                                warning_meta,
+                            )
                         continue
 
                 record_nodes, record_edges = build_graph_from_record(parsed, stats)
@@ -566,6 +625,10 @@ def run_graphify(
         "edges_by_type": dict(sorted(edges_by_type.items())),
         "duration_ms": duration_ms,
         "warnings": warnings,
+        "warnings_truncated": bool(warning_meta["warnings_truncated"]),
+        "warnings_count_total_estimate": int(warning_meta["warnings_count_total_estimate"]),
+        "max_warnings": max_warnings,
+        "warn_duplicate_keys": warn_duplicate_keys,
         "edge_props_provenance_recommended": PROVENANCE_KEYS,
     }
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -606,6 +669,8 @@ def main() -> int:
             output_format=args.format,
             strict=bool(args.strict),
             prefix=args.prefix,
+            max_warnings=max(0, int(args.max_warnings)),
+            warn_duplicate_keys=(args.command == "add") if args.warn_duplicate_keys is None else bool(args.warn_duplicate_keys),
         )
         return 0
     except Exception as exc:
