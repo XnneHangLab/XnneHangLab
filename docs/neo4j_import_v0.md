@@ -86,7 +86,6 @@ $env:GRAPHIFY_OUT_DIR="memory_bench/logs/replay_mem0/graphify"; uv run python me
 
 ---
 
-> 註：`neo4j_apply_cypher.sh` 仍可供 Unix/macOS 使用；跨平台（特別是 Windows/PowerShell）請優先使用 Python 版 CLI。
 
 ## 4) Neo4j Browser 連線資訊
 
