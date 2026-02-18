@@ -246,7 +246,8 @@ def make_node_id(label: str, value: str) -> str:
     """
 
     if label not in ALLOWED_NODE_LABELS:
-        raise ValueError(f"unsupported node label: {label}")
+        allowed_labels = ", ".join(sorted(ALLOWED_NODE_LABELS))
+        raise ValueError(f"unsupported node label: {label}; allowed labels: {allowed_labels}")
 
     prefix_map = {
         "MemoryItem": "mem",
@@ -455,9 +456,6 @@ def build_graph_from_record(
     # MemoryItem id 规则必须与 processed_key 一致。
     memory_key = record.processed_key if payload.get("hash") else f"point:{record.source_point_id}"
     memory_id = make_node_id("MemoryItem", memory_key)
-    if not memory_id:
-        stats["skipped_missing_memory_id"] += 1
-        return nodes, edges
 
     node_refs: dict[str, str] = {
         "MemoryItem": memory_id,
@@ -715,19 +713,14 @@ def run_graphify(
                         "INSERT INTO processed_records(processed_key, processed_at, source_file, source_line) VALUES (?, ?, ?, ?)",
                         (parsed.processed_key, now_iso(), str(input_path), parsed.source_line),
                     )
-
         should_commit_state = True
-    finally:
-        if command != "add" and conn is not None:
-            conn.close()
 
-    nodes = list(nodes_map.values())
-    edges = list(edges_map.values())
-    stats["nodes_total"] = len(nodes)
-    stats["edges_total"] = len(edges)
+        nodes = list(nodes_map.values())
+        edges = list(edges_map.values())
+        stats["nodes_total"] = len(nodes)
+        stats["edges_total"] = len(edges)
 
-    if command == "add":
-        try:
+        if command == "add":
             write_jsonl(nodes_path, nodes)
             write_jsonl(edges_path, edges)
             if output_format == "jsonl+csv":
@@ -736,78 +729,78 @@ def run_graphify(
 
             if conn is not None and should_commit_state:
                 conn.commit()
-        except Exception:
-            if conn is not None:
-                conn.rollback()
-            raise
-        finally:
-            if conn is not None:
-                conn.close()
-    else:
-        nodes_path = None
-        edges_path = None
-        nodes_csv_path = None
-        edges_csv_path = None
+        else:
+            nodes_path = None
+            edges_path = None
+            nodes_csv_path = None
+            edges_csv_path = None
 
-    nodes_by_label: dict[str, int] = defaultdict(int)
-    edges_by_type: dict[str, int] = defaultdict(int)
-    for node in nodes:
-        for label in node.get("labels", []):
-            nodes_by_label[str(label)] += 1
-    for edge in edges:
-        edges_by_type[str(edge.get("type", ""))] += 1
+        nodes_by_label: dict[str, int] = defaultdict(int)
+        edges_by_type: dict[str, int] = defaultdict(int)
+        for node in nodes:
+            for label in node.get("labels", []):
+                nodes_by_label[str(label)] += 1
+        for edge in edges:
+            edges_by_type[str(edge.get("type", ""))] += 1
 
-    stats["records_skipped"] = (
-        stats["skipped_empty_line"]
-        + stats["skipped_invalid_json"]
-        + stats["skipped_missing_top_level"]
-        + stats["skipped_null_payload"]
-        + stats["skipped_missing_processed_key"]
-        + stats["skipped_missing_memory_id"]
-        + stats["skipped_already_processed"]
-    )
+        stats["records_skipped"] = (
+            stats["skipped_empty_line"]
+            + stats["skipped_invalid_json"]
+            + stats["skipped_missing_top_level"]
+            + stats["skipped_null_payload"]
+            + stats["skipped_missing_processed_key"]
+            + stats["skipped_missing_memory_id"]
+            + stats["skipped_already_processed"]
+        )
 
-    duration_ms = int((time.perf_counter() - start) * 1000)
-    report = {
-        "input_path": str(input_path),
-        "nodes_path": str(nodes_path) if nodes_path else "",
-        "edges_path": str(edges_path) if edges_path else "",
-        "records_total": stats["records_total"],
-        "records_valid": stats["records_valid"],
-        "records_skipped": stats["records_skipped"],
-        "skipped_empty_line": stats["skipped_empty_line"],
-        "skipped_invalid_json": stats["skipped_invalid_json"],
-        "skipped_missing_top_level": stats["skipped_missing_top_level"],
-        "skipped_null_payload": stats["skipped_null_payload"],
-        "skipped_missing_processed_key": stats["skipped_missing_processed_key"],
-        "skipped_missing_memory_id": stats["skipped_missing_memory_id"],
-        "skipped_already_processed": stats["skipped_already_processed"],
-        "nodes_total": stats["nodes_total"],
-        "edges_total": stats["edges_total"],
-        "nodes_by_label": dict(sorted(nodes_by_label.items())),
-        "edges_by_type": dict(sorted(edges_by_type.items())),
-        "duration_ms": duration_ms,
-        "warnings": warnings,
-        "warnings_truncated": bool(warning_meta["warnings_truncated"]),
-        "warnings_count_total_estimate": int(warning_meta["warnings_count_total_estimate"]),
-        "max_warnings": max_warnings,
-        "warn_duplicate_keys": warn_duplicate_keys,
-        "edge_props_provenance_recommended": PROVENANCE_KEYS,
-    }
-    report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        duration_ms = int((time.perf_counter() - start) * 1000)
+        report = {
+            "input_path": str(input_path),
+            "nodes_path": str(nodes_path) if nodes_path else "",
+            "edges_path": str(edges_path) if edges_path else "",
+            "records_total": stats["records_total"],
+            "records_valid": stats["records_valid"],
+            "records_skipped": stats["records_skipped"],
+            "skipped_empty_line": stats["skipped_empty_line"],
+            "skipped_invalid_json": stats["skipped_invalid_json"],
+            "skipped_missing_top_level": stats["skipped_missing_top_level"],
+            "skipped_null_payload": stats["skipped_null_payload"],
+            "skipped_missing_processed_key": stats["skipped_missing_processed_key"],
+            "skipped_missing_memory_id": stats["skipped_missing_memory_id"],
+            "skipped_already_processed": stats["skipped_already_processed"],
+            "nodes_total": stats["nodes_total"],
+            "edges_total": stats["edges_total"],
+            "nodes_by_label": dict(sorted(nodes_by_label.items())),
+            "edges_by_type": dict(sorted(edges_by_type.items())),
+            "duration_ms": duration_ms,
+            "warnings": warnings,
+            "warnings_truncated": bool(warning_meta["warnings_truncated"]),
+            "warnings_count_total_estimate": int(warning_meta["warnings_count_total_estimate"]),
+            "max_warnings": max_warnings,
+            "warn_duplicate_keys": warn_duplicate_keys,
+            "edge_props_provenance_recommended": PROVENANCE_KEYS,
+        }
+        report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
-    log.info(
-        f"graphify {command} done: records_total={stats['records_total']}, valid={stats['records_valid']}, "
-        f"nodes={stats['nodes_total']}, edges={stats['edges_total']}, report={report_path}"
-    )
+        log.info(
+            f"graphify {command} done: records_total={stats['records_total']}, valid={stats['records_valid']}, "
+            f"nodes={stats['nodes_total']}, edges={stats['edges_total']}, report={report_path}"
+        )
 
-    return GraphArtifacts(
-        report_path=report_path,
-        nodes_path=nodes_path,
-        edges_path=edges_path,
-        nodes_csv_path=nodes_csv_path,
-        edges_csv_path=edges_csv_path,
-    )
+        return GraphArtifacts(
+            report_path=report_path,
+            nodes_path=nodes_path,
+            edges_path=edges_path,
+            nodes_csv_path=nodes_csv_path,
+            edges_csv_path=edges_csv_path,
+        )
+    except Exception:
+        if command == "add" and conn is not None:
+            conn.rollback()
+        raise
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 def main() -> int:
