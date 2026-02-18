@@ -1,0 +1,605 @@
+#!/usr/bin/env python3
+"""将 replay_mem0 导出的 JSONL 转为图谱节点/边（V0 metadata 归属图）。
+
+最小自测命令（基于 `memory_bench/tests/fixtures/export_sample.jsonl`）：
+
+1) dry-run（仅校验与统计，不写 nodes/edges/state）：
+   uv run python memory_bench/scripts/graphify_export.py dry-run \
+     --input memory_bench/tests/fixtures/export_sample.jsonl \
+     --out-dir memory_bench/logs/replay_mem0/graphify \
+     --state-db memory_bench/state/graphify/state.sqlite \
+     --format jsonl
+
+2) reset（重建 state，可选清理输出目录）：
+   uv run python memory_bench/scripts/graphify_export.py reset \
+     --state-db memory_bench/state/graphify/state.sqlite \
+     --reset-output \
+     --out-dir memory_bench/logs/replay_mem0/graphify
+
+3) add（增量写出 nodes/edges 并写入 state）：
+   uv run python memory_bench/scripts/graphify_export.py add \
+     --input memory_bench/tests/fixtures/export_sample.jsonl \
+     --out-dir memory_bench/logs/replay_mem0/graphify \
+     --state-db memory_bench/state/graphify/state.sqlite \
+     --format jsonl
+
+输出文件位于 `--out-dir` 下：
+- graph_nodes_YYYYMMDD_HHMMSS.jsonl（及可选 CSV）
+- graph_edges_YYYYMMDD_HHMMSS.jsonl（及可选 CSV）
+- graphify_report_YYYYMMDD_HHMMSS.json
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import sqlite3
+import time
+from collections import defaultdict
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+try:
+    from bench_logger import logger
+except ImportError:  # pragma: no cover - fallback for standalone usage
+    import logging
+
+    logger = logging.getLogger("graphify_export")
+    if not logger.handlers:
+        logging.basicConfig(level=logging.INFO)
+
+
+DEFAULT_OUT_DIR = Path("memory_bench/logs/replay_mem0/graphify")
+DEFAULT_STATE_DB = Path("memory_bench/state/graphify/state.sqlite")
+TOP_LEVEL_REQUIRED = ("id", "collection", "isolation", "exported_at")
+PROVENANCE_KEYS = ["processed_key", "source_point_id", "exported_at", "created_at"]
+
+
+@dataclass(slots=True)
+class GraphArtifacts:
+    """描述一次 graphify 执行产生的输出文件路径。"""
+
+    report_path: Path
+    nodes_path: Path | None = None
+    edges_path: Path | None = None
+    nodes_csv_path: Path | None = None
+    edges_csv_path: Path | None = None
+
+
+@dataclass(slots=True)
+class ParsedRecord:
+    """表示通过基础校验后的输入记录。"""
+
+    source_line: int
+    source_point_id: str
+    payload: dict[str, Any]
+    collection: str
+    isolation: str
+    exported_at: str
+    processed_key: str
+
+
+@dataclass(slots=True)
+class GraphEntity:
+    """统一的节点/边输出结构。"""
+
+    id: str
+    fields: dict[str, Any]
+
+
+def now_utc_ts() -> str:
+    """返回 UTC 时间戳（用于文件名）。"""
+
+    return datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+
+
+def now_iso() -> str:
+    """返回 ISO-8601 UTC 时间字符串。"""
+
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """构建 CLI 参数解析器。"""
+
+    parser = argparse.ArgumentParser(
+        description="Graphify replay_mem0 export JSONL into graph nodes/edges (V0 metadata ownership graph)",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    reset_parser = subparsers.add_parser("reset", help="Recreate state sqlite and optionally cleanup output files")
+    reset_parser.add_argument("--state-db", type=str, default=str(DEFAULT_STATE_DB), required=False)
+    reset_parser.add_argument("--reset-output", action="store_true", help="Also remove graphify output files in --out-dir")
+    reset_parser.add_argument("--out-dir", type=str, default=str(DEFAULT_OUT_DIR), required=False)
+
+    for cmd in ("add", "dry-run"):
+        cmd_parser = subparsers.add_parser(cmd, help=f"{cmd} graphify processing")
+        cmd_parser.add_argument("--input", type=str, required=True, help="Input UTF-8 JSONL file")
+        cmd_parser.add_argument("--out-dir", type=str, default=str(DEFAULT_OUT_DIR), required=False)
+        cmd_parser.add_argument("--state-db", type=str, default=str(DEFAULT_STATE_DB), required=False)
+        cmd_parser.add_argument("--prefix", type=str, default="graph")
+        cmd_parser.add_argument("--format", choices=("jsonl", "jsonl+csv"), default="jsonl")
+        cmd_parser.add_argument("--strict", action="store_true", help="Fail on schema issues instead of warning+skip")
+
+    return parser
+
+
+def ensure_state_db(state_db: Path) -> sqlite3.Connection:
+    """创建并初始化 state.sqlite。"""
+
+    state_db.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(state_db)
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS processed_records (
+            processed_key TEXT PRIMARY KEY,
+            processed_at TEXT NOT NULL,
+            source_file TEXT,
+            source_line INTEGER
+        )
+        """
+    )
+    conn.commit()
+    return conn
+
+
+def reset_state(state_db: Path, reset_output: bool, out_dir: Path) -> None:
+    """执行 reset：重建 state.sqlite，按需清理输出文件。"""
+
+    log = logger.bind(group="memory") if hasattr(logger, "bind") else logger
+    if state_db.exists():
+        state_db.unlink()
+    conn = ensure_state_db(state_db)
+    conn.close()
+
+    removed = 0
+    if reset_output:
+        out_dir.mkdir(parents=True, exist_ok=True)
+        patterns = ("graph_nodes_*.jsonl", "graph_edges_*.jsonl", "graph_nodes_*.csv", "graph_edges_*.csv", "graphify_report_*.json")
+        for pattern in patterns:
+            for path in out_dir.glob(pattern):
+                path.unlink(missing_ok=True)
+                removed += 1
+    log.info(f"reset completed: state_db={state_db}, reset_output={reset_output}, removed_outputs={removed}")
+
+
+def make_node_id(label: str, value: str) -> str:
+    """按 spec 3.4.1 生成节点 ID。"""
+
+    prefix_map = {
+        "MemoryItem": "mem",
+        "User": "user",
+        "Agent": "agent",
+        "Conversation": "conv",
+        "Scene": "scene",
+        "Character": "char",
+    }
+    return f"{prefix_map[label]}:{value}"
+
+
+def compute_processed_key(source_point_id: Any, payload: dict[str, Any] | None) -> str | None:
+    """计算 processed_key：payload.hash 优先，否则 top-level id。"""
+
+    payload_hash = None
+    if isinstance(payload, dict):
+        raw_hash = payload.get("hash")
+        if isinstance(raw_hash, str) and raw_hash.strip():
+            payload_hash = raw_hash.strip()
+    if payload_hash:
+        return payload_hash
+    if source_point_id is None:
+        return None
+    return str(source_point_id)
+
+
+def warn_or_fail(strict: bool, warnings: list[str], message: str) -> None:
+    """在 strict 模式下抛错；否则记录 warning。"""
+
+    if strict:
+        raise ValueError(message)
+    warnings.append(message)
+
+
+def parse_record(
+    raw_line: str,
+    line_no: int,
+    input_path: Path,
+    strict: bool,
+    stats: dict[str, int],
+    warnings: list[str],
+) -> ParsedRecord | None:
+    """解析并校验单行输入记录。"""
+
+    if not raw_line.strip():
+        stats["skipped_empty_line"] += 1
+        warn_or_fail(strict, warnings, f"line {line_no}: empty line skipped")
+        return None
+
+    try:
+        row = json.loads(raw_line)
+    except json.JSONDecodeError as exc:
+        stats["skipped_invalid_json"] += 1
+        warn_or_fail(strict, warnings, f"line {line_no}: invalid json ({exc})")
+        return None
+
+    if not isinstance(row, dict):
+        stats["skipped_invalid_json"] += 1
+        warn_or_fail(strict, warnings, f"line {line_no}: json value is not an object")
+        return None
+
+    missing_top = [key for key in TOP_LEVEL_REQUIRED if key not in row]
+    if missing_top:
+        stats["skipped_missing_top_level"] += 1
+        warn_or_fail(strict, warnings, f"line {line_no}: missing top-level fields {','.join(missing_top)}")
+        return None
+
+    payload = row.get("payload")
+    if payload is None:
+        stats["skipped_null_payload"] += 1
+        warn_or_fail(strict, warnings, f"line {line_no}: payload is null")
+        return None
+
+    if not isinstance(payload, dict):
+        stats["skipped_invalid_json"] += 1
+        warn_or_fail(strict, warnings, f"line {line_no}: payload must be object or null")
+        return None
+
+    source_point_id = str(row["id"])
+    processed_key = compute_processed_key(row.get("id"), payload)
+    if not processed_key:
+        stats["skipped_missing_processed_key"] += 1
+        warn_or_fail(strict, warnings, f"line {line_no}: missing processed_key from payload.hash/id")
+        return None
+
+    return ParsedRecord(
+        source_line=line_no,
+        source_point_id=source_point_id,
+        payload=payload,
+        collection=str(row["collection"]),
+        isolation=str(row["isolation"]),
+        exported_at=str(row["exported_at"]),
+        processed_key=processed_key,
+    )
+
+
+def edge_id(edge_type: str, src: str, dst: str) -> str:
+    """按 spec 3.4.2 生成稳定边 ID。"""
+
+    return f"edge:{edge_type}:{src}:{dst}"
+
+
+def build_graph_from_record(record: ParsedRecord, stats: dict[str, int]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """将单条记录映射为 V0 节点与边。"""
+
+    nodes: list[dict[str, Any]] = []
+    edges: list[dict[str, Any]] = []
+    payload = record.payload
+
+    # MemoryItem id 规则必须与 processed_key 一致。
+    memory_key = record.processed_key if payload.get("hash") else f"point:{record.source_point_id}"
+    memory_id = make_node_id("MemoryItem", memory_key)
+    if not memory_id:
+        stats["skipped_missing_memory_id"] += 1
+        return nodes, edges
+
+    node_refs: dict[str, str] = {
+        "MemoryItem": memory_id,
+    }
+
+    nodes.append(
+        {
+            "id": memory_id,
+            "labels": ["MemoryItem"],
+            "props": {
+                "point_id": record.source_point_id,
+                "payload_hash": payload.get("hash"),
+                "data": payload.get("data"),
+                "created_at": payload.get("created_at"),
+                "collection": record.collection,
+                "isolation": record.isolation,
+                "exported_at": record.exported_at,
+            },
+        }
+    )
+
+    entity_fields: list[tuple[str, str, str]] = [
+        ("User", "user_id", "user"),
+        ("Agent", "agent_id", "agent"),
+        ("Conversation", "conv_id", "conv"),
+        ("Scene", "scene_id", "scene"),
+        ("Character", "character_id", "char"),
+    ]
+
+    for label, payload_key, prop_key in entity_fields:
+        raw_value = payload.get(payload_key)
+        if raw_value is None or str(raw_value).strip() == "":
+            continue
+        entity_value = str(raw_value)
+        node_id = make_node_id(label, entity_value)
+        node_refs[label] = node_id
+        nodes.append(
+            {
+                "id": node_id,
+                "labels": [label],
+                "props": {payload_key: entity_value},
+            }
+        )
+
+    provenance_props = {
+        "processed_key": record.processed_key,
+        "source_point_id": record.source_point_id,
+        "exported_at": record.exported_at,
+        "created_at": payload.get("created_at"),
+    }
+
+    def add_edge(edge_type_name: str, src_label: str, dst_label: str) -> None:
+        src_id = node_refs.get(src_label)
+        dst_id = node_refs.get(dst_label)
+        if not src_id or not dst_id:
+            return
+        edges.append(
+            {
+                "id": edge_id(edge_type_name, src_id, dst_id),
+                "type": edge_type_name,
+                "src": src_id,
+                "dst": dst_id,
+                "props": provenance_props,
+            }
+        )
+
+    # 3.3 固定关系集合与方向（必须严格一致）
+    add_edge("OWNS_MEMORY", "User", "MemoryItem")
+    add_edge("TARGETS_AGENT", "MemoryItem", "Agent")
+    add_edge("FROM_CONV", "MemoryItem", "Conversation")
+    add_edge("IN_SCENE", "MemoryItem", "Scene")
+    add_edge("HAS_CHARACTER", "MemoryItem", "Character")
+    add_edge("CONV_IN_SCENE", "Conversation", "Scene")
+    add_edge("CONV_HAS_CHARACTER", "Conversation", "Character")
+    add_edge("USER_IN_SCENE", "User", "Scene")
+    add_edge("AGENT_IS_CHARACTER", "Agent", "Character")
+
+    return nodes, edges
+
+
+def write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
+    """写入 UTF-8 JSONL。"""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as fp:
+        for row in rows:
+            fp.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
+def write_csv_nodes(path: Path, nodes: list[dict[str, Any]]) -> None:
+    """写出节点 CSV（jsonl+csv 可选格式）。"""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as fp:
+        writer = csv.DictWriter(fp, fieldnames=["id", "labels", "props"])
+        writer.writeheader()
+        for node in nodes:
+            writer.writerow(
+                {
+                    "id": node["id"],
+                    "labels": json.dumps(node["labels"], ensure_ascii=False),
+                    "props": json.dumps(node["props"], ensure_ascii=False),
+                }
+            )
+
+
+def write_csv_edges(path: Path, edges: list[dict[str, Any]]) -> None:
+    """写出边 CSV（jsonl+csv 可选格式）。"""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as fp:
+        writer = csv.DictWriter(fp, fieldnames=["id", "type", "src", "dst", "props"])
+        writer.writeheader()
+        for edge in edges:
+            writer.writerow(
+                {
+                    "id": edge["id"],
+                    "type": edge["type"],
+                    "src": edge["src"],
+                    "dst": edge["dst"],
+                    "props": json.dumps(edge["props"], ensure_ascii=False),
+                }
+            )
+
+
+def run_graphify(
+    command: str,
+    input_path: Path,
+    out_dir: Path,
+    state_db: Path,
+    output_format: str,
+    strict: bool,
+    prefix: str,
+) -> GraphArtifacts:
+    """执行 add/dry-run 主流程。"""
+
+    log = logger.bind(group="memory") if hasattr(logger, "bind") else logger
+    if not input_path.exists():
+        raise FileNotFoundError(f"input file not found: {input_path}")
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = now_utc_ts()
+    nodes_path = out_dir / f"{prefix}_nodes_{timestamp}.jsonl"
+    edges_path = out_dir / f"{prefix}_edges_{timestamp}.jsonl"
+    nodes_csv_path = out_dir / f"{prefix}_nodes_{timestamp}.csv"
+    edges_csv_path = out_dir / f"{prefix}_edges_{timestamp}.csv"
+    report_path = out_dir / f"graphify_report_{timestamp}.json"
+
+    stats: dict[str, int] = defaultdict(int)
+    warnings: list[str] = []
+    stats_keys = [
+        "records_total",
+        "records_valid",
+        "records_skipped",
+        "skipped_empty_line",
+        "skipped_invalid_json",
+        "skipped_missing_top_level",
+        "skipped_null_payload",
+        "skipped_missing_processed_key",
+        "skipped_missing_memory_id",
+        "skipped_already_processed",
+        "nodes_total",
+        "edges_total",
+    ]
+    for key in stats_keys:
+        stats[key] = 0
+
+    nodes_map: dict[str, dict[str, Any]] = {}
+    edges_map: dict[str, dict[str, Any]] = {}
+
+    start = time.perf_counter()
+    conn = ensure_state_db(state_db)
+    try:
+        with input_path.open("r", encoding="utf-8") as fp:
+            for line_no, raw_line in enumerate(fp, start=1):
+                stats["records_total"] += 1
+                parsed = parse_record(raw_line, line_no, input_path, strict, stats, warnings)
+                if parsed is None:
+                    continue
+
+                if command == "add":
+                    existing = conn.execute(
+                        "SELECT 1 FROM processed_records WHERE processed_key = ?",
+                        (parsed.processed_key,),
+                    ).fetchone()
+                    if existing:
+                        stats["skipped_already_processed"] += 1
+                        warnings.append(f"line {line_no}: processed_key already exists, skipped ({parsed.processed_key})")
+                        continue
+
+                record_nodes, record_edges = build_graph_from_record(parsed, stats)
+                if not record_nodes:
+                    continue
+
+                for node in record_nodes:
+                    nodes_map.setdefault(node["id"], node)
+                for edge in record_edges:
+                    edges_map.setdefault(edge["id"], edge)
+
+                stats["records_valid"] += 1
+
+                if command == "add":
+                    conn.execute(
+                        "INSERT INTO processed_records(processed_key, processed_at, source_file, source_line) VALUES (?, ?, ?, ?)",
+                        (parsed.processed_key, now_iso(), str(input_path), parsed.source_line),
+                    )
+
+        if command == "add":
+            conn.commit()
+    finally:
+        conn.close()
+
+    nodes = list(nodes_map.values())
+    edges = list(edges_map.values())
+    stats["nodes_total"] = len(nodes)
+    stats["edges_total"] = len(edges)
+
+    if command == "add":
+        write_jsonl(nodes_path, nodes)
+        write_jsonl(edges_path, edges)
+        if output_format == "jsonl+csv":
+            write_csv_nodes(nodes_csv_path, nodes)
+            write_csv_edges(edges_csv_path, edges)
+    else:
+        nodes_path = None
+        edges_path = None
+        nodes_csv_path = None
+        edges_csv_path = None
+
+    nodes_by_label: dict[str, int] = defaultdict(int)
+    edges_by_type: dict[str, int] = defaultdict(int)
+    for node in nodes:
+        for label in node.get("labels", []):
+            nodes_by_label[str(label)] += 1
+    for edge in edges:
+        edges_by_type[str(edge.get("type", ""))] += 1
+
+    stats["records_skipped"] = (
+        stats["skipped_empty_line"]
+        + stats["skipped_invalid_json"]
+        + stats["skipped_missing_top_level"]
+        + stats["skipped_null_payload"]
+        + stats["skipped_missing_processed_key"]
+        + stats["skipped_missing_memory_id"]
+        + stats["skipped_already_processed"]
+    )
+
+    duration_ms = int((time.perf_counter() - start) * 1000)
+    report = {
+        "input_path": str(input_path),
+        "nodes_path": str(nodes_path) if nodes_path else "",
+        "edges_path": str(edges_path) if edges_path else "",
+        "records_total": stats["records_total"],
+        "records_valid": stats["records_valid"],
+        "records_skipped": stats["records_skipped"],
+        "skipped_empty_line": stats["skipped_empty_line"],
+        "skipped_invalid_json": stats["skipped_invalid_json"],
+        "skipped_missing_top_level": stats["skipped_missing_top_level"],
+        "skipped_null_payload": stats["skipped_null_payload"],
+        "skipped_missing_processed_key": stats["skipped_missing_processed_key"],
+        "skipped_missing_memory_id": stats["skipped_missing_memory_id"],
+        "skipped_already_processed": stats["skipped_already_processed"],
+        "nodes_total": stats["nodes_total"],
+        "edges_total": stats["edges_total"],
+        "nodes_by_label": dict(sorted(nodes_by_label.items())),
+        "edges_by_type": dict(sorted(edges_by_type.items())),
+        "duration_ms": duration_ms,
+        "warnings": warnings,
+        "edge_props_provenance_recommended": PROVENANCE_KEYS,
+    }
+    report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    log.info(
+        f"graphify {command} done: records_total={stats['records_total']}, valid={stats['records_valid']}, "
+        f"nodes={stats['nodes_total']}, edges={stats['edges_total']}, report={report_path}"
+    )
+
+    return GraphArtifacts(
+        report_path=report_path,
+        nodes_path=nodes_path,
+        edges_path=edges_path,
+        nodes_csv_path=nodes_csv_path,
+        edges_csv_path=edges_csv_path,
+    )
+
+
+def main() -> int:
+    """CLI 入口。"""
+
+    args = build_parser().parse_args()
+
+    try:
+        if args.command == "reset":
+            reset_state(
+                state_db=Path(args.state_db),
+                reset_output=bool(args.reset_output),
+                out_dir=Path(args.out_dir),
+            )
+            return 0
+
+        run_graphify(
+            command=args.command,
+            input_path=Path(args.input),
+            out_dir=Path(args.out_dir),
+            state_db=Path(args.state_db),
+            output_format=args.format,
+            strict=bool(args.strict),
+            prefix=args.prefix,
+        )
+        return 0
+    except Exception as exc:
+        log = logger.bind(group="memory") if hasattr(logger, "bind") else logger
+        log.warning(f"graphify failed: {exc}")
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
