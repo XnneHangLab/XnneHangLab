@@ -1,4 +1,4 @@
-"""Tests for graphify_pipeline V0 workflow."""
+"""graphify_pipeline V0 工作流测试。"""
 
 from __future__ import annotations
 
@@ -16,7 +16,11 @@ SCRIPTS_DIR = REPO_ROOT / "memory_bench/scripts"
 
 
 def load_module():
-    """Dynamically load graphify_pipeline script module."""
+    """动态加载 graphify_pipeline 脚本模块。
+
+    Returns:
+        Any: 已加载的脚本模块对象。
+    """
 
     unique_name = f"graphify_pipeline_{uuid.uuid4().hex}"
     spec = importlib.util.spec_from_file_location(unique_name, SCRIPT_PATH)
@@ -30,7 +34,11 @@ def load_module():
 
 
 def test_run_pipeline_generates_cypher_files(tmp_path: Path) -> None:
-    """run pipeline should produce neo4j cypher artifacts in tmp_path."""
+    """验证 run pipeline 可在临时目录生成 cypher 文件。
+
+    Args:
+        tmp_path: pytest 提供的临时目录。
+    """
 
     module = load_module()
     out_dir = tmp_path / "graphify"
@@ -60,7 +68,7 @@ def test_run_pipeline_generates_cypher_files(tmp_path: Path) -> None:
 
 
 def test_resolve_skip_cypher_defaults() -> None:
-    """dry-run should skip cypher by default; run should export by default."""
+    """验证 resolve_skip_cypher 的默认策略。"""
 
     module = load_module()
     assert module.resolve_skip_cypher(command="dry-run", cypher_flag=None) is True
@@ -69,7 +77,12 @@ def test_resolve_skip_cypher_defaults() -> None:
 
 
 def test_main_dry_run_default_does_not_error(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """CLI dry-run without --no-cypher should skip cypher instead of raising."""
+    """验证 CLI dry-run 默认跳过 cypher 且不会报错。
+
+    Args:
+        monkeypatch: pytest monkeypatch 工具。
+        tmp_path: pytest 提供的临时目录。
+    """
 
     module = load_module()
     out_dir = tmp_path / "graphify"

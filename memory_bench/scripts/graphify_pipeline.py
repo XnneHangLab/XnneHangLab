@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""V0 pipeline: 串联 graphify_export 与 neo4j_export_cypher。"""
+"""Graphify V0 一体化流水线入口。
+
+该模块通过复用既有 `graphify_export` 与 `neo4j_export_cypher`，提供
+可重跑、可复位、默认幂等的命令行工作流。
+"""
 
 from __future__ import annotations
 
@@ -14,7 +18,11 @@ DEFAULT_STATE_DB = Path("memory_bench/state/graphify/state.sqlite")
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """构建参数解析器。"""
+    """构建命令行参数解析器。
+
+    Returns:
+        argparse.ArgumentParser: 已注册 `run`、`dry-run`、`reset` 子命令的解析器。
+    """
 
     parser = argparse.ArgumentParser(
         description="Run graphify_export + neo4j_export_cypher as an idempotent V0 pipeline",
@@ -58,11 +66,18 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def resolve_skip_cypher(command: str, cypher_flag: bool | None) -> bool:
-    """解析 cypher 导出开关。
+    """解析是否跳过 cypher 导出步骤。
 
     默认行为：
-    - run: 导出 cypher
-    - dry-run: 跳过 cypher（更符合 dry-run 语义）
+    - `run`: 导出 cypher
+    - `dry-run`: 跳过 cypher（更符合 dry-run 语义）
+
+    Args:
+        command: 当前子命令，支持 `run` 或 `dry-run`。
+        cypher_flag: 来自 `--cypher/--no-cypher` 的显式开关；为 None 表示使用默认。
+
+    Returns:
+        bool: True 表示跳过 cypher 导出；False 表示执行 cypher 导出。
     """
 
     if cypher_flag is None:
@@ -71,7 +86,11 @@ def resolve_skip_cypher(command: str, cypher_flag: bool | None) -> bool:
 
 
 def print_next_steps(export_artifacts: ExportArtifacts) -> None:
-    """打印 Neo4j 下一步操作说明。"""
+    """打印 Neo4j 导入后的下一步说明。
+
+    Args:
+        export_artifacts: Cypher 导出产物对象，包含约束与导入脚本路径。
+    """
 
     constraints = export_artifacts.constraints_path
     import_path = export_artifacts.import_path
@@ -99,7 +118,25 @@ def run_pipeline(
     cypher_out_dir: Path,
     skip_cypher: bool,
 ) -> tuple[GraphArtifacts, ExportArtifacts | None]:
-    """执行 run/dry-run pipeline。"""
+    """执行 pipeline 的主流程。
+
+    Args:
+        command: 子命令，支持 `run` 与 `dry-run`。
+        input_path: replay 导出的 JSONL 输入路径。
+        out_dir: graphify 输出目录。
+        state_db: graphify 增量状态数据库路径。
+        prefix: graph/cypher 文件前缀。
+        output_format: graphify 输出格式（`jsonl` 或 `jsonl+csv`）。
+        strict: 是否启用严格模式。
+        max_warnings: 最多保留 warning 条数。
+        warn_duplicate_keys: 是否记录重复 processed_key warning。
+        cypher_out_dir: neo4j cypher 输出目录。
+        skip_cypher: 是否跳过 cypher 导出。
+
+    Returns:
+        tuple[GraphArtifacts, ExportArtifacts | None]:
+            graphify 产物与可选的 cypher 导出产物。
+    """
 
     graphify_command = "add" if command == "run" else "dry-run"
     graph_artifacts = run_graphify(
@@ -134,7 +171,11 @@ def run_pipeline(
 
 
 def main() -> int:
-    """CLI 入口。"""
+    """命令行入口函数。
+
+    Returns:
+        int: 退出码；成功返回 0。
+    """
 
     args = build_parser().parse_args()
 
