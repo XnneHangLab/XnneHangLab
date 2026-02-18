@@ -210,6 +210,47 @@ uv run python memory_bench/scripts/replay_mem0.py export
 
 `memory_bench/scripts/bench_logger.py` 为内部复用模块，提供统一日志格式（含 group 与 level），被 `build_index.py`、`annotate_all.py` 调用，不作为独立 CLI 使用。
 
+### 6) Graphify + Neo4j V0 Pipeline：`graphify_pipeline.py`
+
+脚本：`memory_bench/scripts/graphify_pipeline.py`
+
+功能：
+
+1. `run`：串联 `graphify_export.py add` 与 `neo4j_export_cypher.py export`；
+2. `dry-run`：执行 `graphify_export.py dry-run`（可配合 `--no-cypher` 跳过 cypher 导出）；
+3. `reset`：执行 `graphify_export.py reset`（可加 `--reset-output` 清理产物）。
+
+#### 启动 Neo4j（docker compose）
+
+```bash
+docker compose -f memory_bench/docker-compose.neo4j.yml up -d neo4j_mem0
+```
+
+#### Pipeline 示例（基于 export sample fixture）
+
+```bash
+uv run python memory_bench/scripts/graphify_pipeline.py run \
+  --input memory_bench/tests/fixtures/export_sample.jsonl \
+  --out-dir memory_bench/logs/replay_mem0/graphify \
+  --state-db memory_bench/state/graphify/state.sqlite \
+  --cypher-out-dir memory_bench/logs/replay_mem0/graphify/neo4j
+```
+
+```bash
+uv run python memory_bench/scripts/graphify_pipeline.py dry-run \
+  --input memory_bench/tests/fixtures/export_sample.jsonl \
+  --out-dir memory_bench/logs/replay_mem0/graphify \
+  --state-db memory_bench/state/graphify/state.sqlite \
+  --no-cypher
+```
+
+```bash
+uv run python memory_bench/scripts/graphify_pipeline.py reset \
+  --state-db memory_bench/state/graphify/state.sqlite \
+  --out-dir memory_bench/logs/replay_mem0/graphify \
+  --reset-output
+```
+
 ## `index.json` 格式（供 annotate_all.py 消费）
 
 ```json
