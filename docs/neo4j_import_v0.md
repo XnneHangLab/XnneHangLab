@@ -6,7 +6,7 @@
 
 - 已安裝 Docker 與 Docker Compose。
 - 已有輸入 JSONL（例如：`memory_bench/tests/fixtures/export_sample.jsonl`）。
-- 使用本 repo 新增腳本：`memory_bench/scripts/neo4j_apply_cypher.sh`。
+- 使用本 repo 新增腳本：`memory_bench/scripts/neo4j_apply_cypher.py`。
 
 ---
 
@@ -59,25 +59,34 @@ uv run python memory_bench/scripts/graphify_pipeline.py run \
 - `zep` -> `membench-neo4j-zep` / database `zep`
 - `cognee` -> `membench-neo4j-cognee` / database `cognee`
 
-並使用：
-
-- `docker exec -i <container> cypher-shell -u neo4j -p neo4jneo4j -d <db> < <file>`
+並使用 Python 讀取 Cypher 檔內容後，透過 `docker exec -i <container> cypher-shell -u neo4j -p neo4jneo4j -d <db>` 的 stdin 餵入。
 
 ### 指令示例（mem0 / zep / cognee 各一條）
 
 ```bash
-./memory_bench/scripts/neo4j_apply_cypher.sh mem0 memory_bench/logs/replay_mem0/graphify/neo4j graph
-./memory_bench/scripts/neo4j_apply_cypher.sh zep  memory_bench/logs/replay_zep/graphify/neo4j graph
-./memory_bench/scripts/neo4j_apply_cypher.sh cognee memory_bench/logs/replay_cognee/graphify/neo4j graph
+uv run python memory_bench/scripts/neo4j_apply_cypher.py mem0 memory_bench/logs/replay_mem0/graphify/neo4j graph
+uv run python memory_bench/scripts/neo4j_apply_cypher.py zep  memory_bench/logs/replay_zep/graphify/neo4j graph
+uv run python memory_bench/scripts/neo4j_apply_cypher.py cognee memory_bench/logs/replay_cognee/graphify/neo4j graph
 ```
 
-若你省略 `cypher_dir`，腳本會使用：`<GRAPHIFY_OUT_DIR>/neo4j`（預設 `GRAPHIFY_OUT_DIR=memory_bench/logs/replay_mem0/graphify`）：
+若你省略 `cypher_dir`，腳本會使用：`<GRAPHIFY_OUT_DIR>/neo4j`（預設 `GRAPHIFY_OUT_DIR=memory_bench/logs/replay_mem0/graphify`）。
+
+bash：
 
 ```bash
-./memory_bench/scripts/neo4j_apply_cypher.sh mem0 graph
+GRAPHIFY_OUT_DIR=memory_bench/logs/replay_mem0/graphify \
+  uv run python memory_bench/scripts/neo4j_apply_cypher.py mem0 graph
+```
+
+PowerShell：
+
+```powershell
+$env:GRAPHIFY_OUT_DIR="memory_bench/logs/replay_mem0/graphify"; uv run python memory_bench/scripts/neo4j_apply_cypher.py mem0 graph
 ```
 
 ---
+
+> 註：`neo4j_apply_cypher.sh` 仍可供 Unix/macOS 使用；跨平台（特別是 Windows/PowerShell）請優先使用 Python 版 CLI。
 
 ## 4) Neo4j Browser 連線資訊
 
@@ -152,4 +161,4 @@ RETURN m.id AS id, m.data AS data, m.created_at AS created_at;
 
 - `Container ... is not running`：先 `docker compose ... up -d neo4j_<target>`。
 - `Constraints/Import file not found`：檢查 `<prefix>_constraints.cypher`、`<prefix>_import.cypher` 檔名與路徑。
-- 匯入失敗時，腳本會輸出 `[ERROR]` 並以非 0 退出碼結束，可直接用於 CI 或 shell pipeline。
+- 匯入失敗時，腳本會透過統一 logger 輸出錯誤並以非 0 退出碼結束，可直接用於 CI 或 shell pipeline。

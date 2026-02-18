@@ -37,17 +37,22 @@ class _BoundLogger:
         group = kwargs.get("group", self._group)
         return _BoundLogger(self._logger, str(group))
 
-    def warning(self, message: str) -> None:
-        self._emit(logging.WARNING, "WARNING", message)
+    def warning(self, message: str, *args: object) -> None:
+        self._emit(logging.WARNING, "WARNING", message, *args)
 
-    def info(self, message: str) -> None:
-        self._emit(logging.INFO, "INFO", message)
+    def info(self, message: str, *args: object) -> None:
+        self._emit(logging.INFO, "INFO", message, *args)
 
-    def _emit(self, level_no: int, level_name: str, message: str) -> None:
+    def error(self, message: str, *args: object) -> None:
+        self._emit(logging.ERROR, "ERROR", message, *args)
+
+    def _emit(self, level_no: int, level_name: str, message: str, *args: object) -> None:
         frame = inspect.currentframe()
         caller = frame.f_back.f_back if frame and frame.f_back and frame.f_back.f_back else None
         module_name = caller.f_globals.get("__name__", "") if caller else ""
         line_no = caller.f_lineno if caller else 0
+
+        rendered_message = message % args if args else message
 
         group_color = GROUP_COLOR.get(self._group, GROUP_COLOR["chore"])
         level_color = LEVEL_COLOR.get(level_name, "")
@@ -57,7 +62,7 @@ class _BoundLogger:
         if level_color:
             level_text = f"{level_color}{level_name:<5}{RESET}"
 
-        rendered = f"{group_text} | {level_text} | {DIM}{module_name}:{line_no}{RESET} | {message}"
+        rendered = f"{group_text} | {level_text} | {DIM}{module_name}:{line_no}{RESET} | {rendered_message}"
         self._logger.log(level_no, rendered)
 
 
