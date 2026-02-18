@@ -120,14 +120,14 @@ def run_cypher_file(file_path: Path, config: TargetConfig, phase: str, dry_run: 
         log.info("%s phase: dry-run skipped execution", phase)
         return 0
 
-    cypher_text = file_path.read_text(encoding="utf-8")
-    result = subprocess.run(docker_cmd, input=cypher_text, text=True, check=False, capture_output=True)
+    cypher_bytes = file_path.read_bytes()
+    result = subprocess.run(docker_cmd, input=cypher_bytes, text=False, check=False, capture_output=True)
     if result.returncode == 0:
         log.info("%s phase: success (%s)", phase, file_path)
         return 0
 
-    stderr = (result.stderr or "").strip()
-    stdout = (result.stdout or "").strip()
+    stderr = (result.stderr or b"").decode("utf-8", errors="replace").strip()
+    stdout = (result.stdout or b"").decode("utf-8", errors="replace").strip()
     if stderr:
         log.error("%s phase: failed (%s), stderr: %s", phase, file_path, stderr)
     elif stdout:
