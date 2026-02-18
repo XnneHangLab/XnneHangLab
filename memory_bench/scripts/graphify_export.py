@@ -44,7 +44,7 @@ import sqlite3
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -95,7 +95,7 @@ def now_utc_ts() -> str:
         str: 形如 `YYYYMMDD_HHMMSS` 的 UTC 时间字符串。
     """
 
-    return datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    return datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
 
 
 def now_iso() -> str:
@@ -105,7 +105,7 @@ def now_iso() -> str:
         str: 形如 `2026-02-18T05:41:25Z` 的 UTC 时间字符串。
     """
 
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -123,7 +123,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     reset_parser = subparsers.add_parser("reset", help="Recreate state sqlite and optionally cleanup output files")
     reset_parser.add_argument("--state-db", type=str, default=str(DEFAULT_STATE_DB), required=False)
-    reset_parser.add_argument("--reset-output", action="store_true", help="Also remove graphify output files in --out-dir")
+    reset_parser.add_argument(
+        "--reset-output", action="store_true", help="Also remove graphify output files in --out-dir"
+    )
     reset_parser.add_argument("--out-dir", type=str, default=str(DEFAULT_OUT_DIR), required=False)
 
     for cmd in ("add", "dry-run"):
@@ -261,8 +263,6 @@ def warn_or_fail(strict: bool, warnings: list[str], message: str) -> None:
     warnings.append(message)
 
 
-
-
 def append_warning(warnings: list[str], message: str, max_warnings: int, warning_meta: dict[str, int | bool]) -> None:
     """按上限追加 warning，并维护 warning 截断统计。
 
@@ -339,7 +339,12 @@ def parse_record(
         if strict:
             warn_or_fail(strict, warnings, f"line {line_no}: missing top-level fields {','.join(missing_top)}")
         else:
-            append_warning(warnings, f"line {line_no}: missing top-level fields {','.join(missing_top)}", max_warnings, warning_meta)
+            append_warning(
+                warnings,
+                f"line {line_no}: missing top-level fields {','.join(missing_top)}",
+                max_warnings,
+                warning_meta,
+            )
         return None
 
     payload = row.get("payload")
@@ -366,7 +371,9 @@ def parse_record(
         if strict:
             warn_or_fail(strict, warnings, f"line {line_no}: missing processed_key from payload.hash/id")
         else:
-            append_warning(warnings, f"line {line_no}: missing processed_key from payload.hash/id", max_warnings, warning_meta)
+            append_warning(
+                warnings, f"line {line_no}: missing processed_key from payload.hash/id", max_warnings, warning_meta
+            )
         return None
 
     return ParsedRecord(
@@ -395,7 +402,9 @@ def edge_id(edge_type: str, src: str, dst: str) -> str:
     return f"edge:{edge_type}:{src}:{dst}"
 
 
-def build_graph_from_record(record: ParsedRecord, stats: dict[str, int]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def build_graph_from_record(
+    record: ParsedRecord, stats: dict[str, int]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """将单条有效记录映射为 V0 节点与边。
 
     Args:
@@ -445,7 +454,7 @@ def build_graph_from_record(record: ParsedRecord, stats: dict[str, int]) -> tupl
         ("Character", "character_id", "char"),
     ]
 
-    for label, payload_key, prop_key in entity_fields:
+    for label, payload_key, _prop_key in entity_fields:
         raw_value = payload.get(payload_key)
         if raw_value is None or str(raw_value).strip() == "":
             continue
@@ -632,7 +641,9 @@ def run_graphify(
         with input_path.open("r", encoding="utf-8") as fp:
             for line_no, raw_line in enumerate(fp, start=1):
                 stats["records_total"] += 1
-                parsed = parse_record(raw_line, line_no, input_path, strict, stats, warnings, max_warnings, warning_meta)
+                parsed = parse_record(
+                    raw_line, line_no, input_path, strict, stats, warnings, max_warnings, warning_meta
+                )
                 if parsed is None:
                     continue
 
@@ -790,7 +801,9 @@ def main() -> int:
             strict=bool(args.strict),
             prefix=args.prefix,
             max_warnings=max(0, int(args.max_warnings)),
-            warn_duplicate_keys=(args.command == "add") if args.warn_duplicate_keys is None else bool(args.warn_duplicate_keys),
+            warn_duplicate_keys=(args.command == "add")
+            if args.warn_duplicate_keys is None
+            else bool(args.warn_duplicate_keys),
         )
         return 0
     except Exception as exc:
