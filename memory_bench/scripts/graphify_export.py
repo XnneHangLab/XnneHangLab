@@ -44,7 +44,7 @@ import sqlite3
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -62,6 +62,18 @@ DEFAULT_OUT_DIR = Path("memory_bench/logs/replay_mem0/graphify")
 DEFAULT_STATE_DB = Path("memory_bench/state/graphify/state.sqlite")
 TOP_LEVEL_REQUIRED = ("id", "collection", "isolation", "exported_at")
 PROVENANCE_KEYS = ["processed_key", "source_point_id", "exported_at", "created_at"]
+ALLOWED_NODE_LABELS = {"MemoryItem", "User", "Agent", "Conversation", "Scene", "Character"}
+ALLOWED_EDGE_TYPES = {
+    "OWNS_MEMORY",
+    "TARGETS_AGENT",
+    "FROM_CONV",
+    "IN_SCENE",
+    "HAS_CHARACTER",
+    "CONV_IN_SCENE",
+    "CONV_HAS_CHARACTER",
+    "USER_IN_SCENE",
+    "AGENT_IS_CHARACTER",
+}
 
 
 @dataclass(slots=True)
@@ -113,7 +125,7 @@ def now_utc_ts() -> str:
         str: 形如 `YYYYMMDD_HHMMSS` 的 UTC 时间字符串。
     """
 
-    return datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    return datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")  # noqa: UP017
 
 
 def now_iso() -> str:
@@ -123,7 +135,7 @@ def now_iso() -> str:
         str: 形如 `2026-02-18T05:41:25Z` 的 UTC 时间字符串。
     """
 
-    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")  # noqa: UP017
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -232,6 +244,9 @@ def make_node_id(label: str, value: str) -> str:
     Returns:
         str: 带类型前缀的稳定节点 ID。
     """
+
+    if label not in ALLOWED_NODE_LABELS:
+        raise ValueError(f"unsupported node label: {label}")
 
     prefix_map = {
         "MemoryItem": "mem",
@@ -464,15 +479,15 @@ def build_graph_from_record(
         }
     )
 
-    entity_fields: list[tuple[str, str, str]] = [
-        ("User", "user_id", "user"),
-        ("Agent", "agent_id", "agent"),
-        ("Conversation", "conv_id", "conv"),
-        ("Scene", "scene_id", "scene"),
-        ("Character", "character_id", "char"),
+    entity_fields: list[tuple[str, str]] = [
+        ("User", "user_id"),
+        ("Agent", "agent_id"),
+        ("Conversation", "conv_id"),
+        ("Scene", "scene_id"),
+        ("Character", "character_id"),
     ]
 
-    for label, payload_key, _prop_key in entity_fields:
+    for label, payload_key in entity_fields:
         raw_value = payload.get(payload_key)
         if raw_value is None or str(raw_value).strip() == "":
             continue
@@ -495,6 +510,9 @@ def build_graph_from_record(
     }
 
     def add_edge(edge_type_name: str, src_label: str, dst_label: str) -> None:
+        if edge_type_name not in ALLOWED_EDGE_TYPES:
+            raise ValueError(f"unsupported edge type: {edge_type_name}")
+
         src_id = node_refs.get(src_label)
         dst_id = node_refs.get(dst_label)
         if not src_id or not dst_id:
