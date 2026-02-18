@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Convert graphify_export(V0) nodes/edges JSONL into Neo4j import Cypher files.
+"""将 graphify_export(V0) 的 nodes/edges JSONL 转为 Neo4j 可导入 Cypher 文件。
 
-V0 notes:
-- Relationship `props` are always preserved in `r.props_json` as full-fidelity fallback.
-- `SET r += <map>` only writes Neo4j property-compatible values (primitive/list-of-primitive).
-  Non-compatible nested structures are intentionally skipped from top-level relationship attrs.
+V0 约定说明：
+- 关系原始 `props` 会完整保存在 `r.props_json`，用于兜底与回溯。
+- `SET r += <map>` 只投影 Neo4j 支持的属性类型（标量或标量列表）。
+- 对于嵌套 dict/list[dict] 等不受支持类型，不会直接写为关系顶层属性。
 """
 
 from __future__ import annotations
@@ -19,7 +19,13 @@ from typing import Any
 
 @dataclass(slots=True)
 class ExportArtifacts:
-    """Output artifact paths for one export run."""
+    """描述一次导出任务的产物路径。
+
+    Attributes:
+        constraints_path: 约束 Cypher 文件路径；`dry-run` 时为 None。
+        import_path: 导入 Cypher 文件路径；`dry-run` 时为 None。
+        report_path: 统计报告 JSON 文件路径。
+    """
 
     constraints_path: Path | None
     import_path: Path | None
@@ -27,7 +33,11 @@ class ExportArtifacts:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Build CLI parser."""
+    """构建命令行参数解析器。
+
+    Returns:
+        argparse.ArgumentParser: 已配置输入/输出参数的解析器。
+    """
 
     parser = argparse.ArgumentParser(
         description="Convert graphify_export(V0) nodes/edges JSONL into Neo4j import cypher files",
@@ -42,19 +52,41 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _escape_cypher_string(value: str) -> str:
+    """转义 Cypher 字符串字面量中的特殊字符。
+
+    Args:
+        value: 原始字符串。
+
+    Returns:
+        str: 完成反斜线与单引号转义后的字符串。
+    """
+
     return value.replace("\\", "\\\\").replace("'", "\\'")
 
 
 def _escape_cypher_identifier(value: str) -> str:
-    """Escape Cypher backtick identifier by doubling backticks."""
+    """转义 Cypher 反引号标识符。
+
+    Args:
+        value: 原始标识符文本。
+
+    Returns:
+        str: 将反引号翻倍后的可安全嵌入值。
+    """
 
     return value.replace("`", "``")
 
 
 def _is_neo4j_property_value(value: Any) -> bool:
-    """Return True when value is Neo4j property-compatible.
+    """判断值是否可作为 Neo4j 属性写入。
 
-    Neo4j property values support primitive scalars and list of primitive scalars.
+    支持类型：None、bool、int、float、str，以及上述类型构成的 list。
+
+    Args:
+        value: 待判断值。
+
+    Returns:
+        bool: True 表示可安全用于 `SET r +=`，False 表示应仅保留在 `props_json`。
     """
 
     if value is None or isinstance(value, (bool, int, float, str)):
@@ -65,6 +97,15 @@ def _is_neo4j_property_value(value: Any) -> bool:
 
 
 def _to_cypher_literal(value: Any) -> str:
+    """将 Python 值编码为 Cypher 字面量。
+
+    Args:
+        value: 待编码值。
+
+    Returns:
+        str: 可直接拼接到 Cypher 语句中的字面量文本。
+    """
+
     if value is None:
         return "null"
     if isinstance(value, bool):
@@ -84,6 +125,15 @@ def _to_cypher_literal(value: Any) -> str:
 
 
 def _normalize_labels(raw: Any) -> list[str]:
+    """规范化节点标签列表。
+
+    Args:
+        raw: 原始 `labels` 字段值。
+
+    Returns:
+        list[str]: 过滤非字符串与空白后的标签列表。
+    """
+
     if not isinstance(raw, list):
         return []
     normalized: list[str] = []
@@ -97,6 +147,22 @@ def _normalize_labels(raw: Any) -> list[str]:
 
 
 def _read_jsonl(path: Path, stats: dict[str, Any], kind: str) -> list[dict[str, Any]]:
+    """读取并严格解析 JSONL 文件。
+
+    解析规则：
+    - 空行跳过并累计 `skipped_empty_line`
+    - 非法 JSON 累计 `skipped_invalid_json`
+    - 非对象 JSON 累计 `skipped_invalid_{kind}`
+
+    Args:
+        path: 输入 JSONL 文件路径。
+        stats: 统计字典（原地更新）。
+        kind: 数据类型名称（`node` 或 `edge`）。
+
+    Returns:
+        list[dict[str, Any]]: 解析成功且为对象的记录列表。
+    """
+
     rows: list[dict[str, Any]] = []
     with path.open("r", encoding="utf-8") as fp:
         for raw in fp:
@@ -117,6 +183,12 @@ def _read_jsonl(path: Path, stats: dict[str, Any], kind: str) -> list[dict[str, 
 
 
 def _build_constraints_cypher() -> str:
+    """构建 Neo4j 约束 Cypher 文本。
+
+    Returns:
+        str: 包含节点/关系唯一约束的脚本内容。
+    """
+
     return "\n".join(
         [
             "// Auto-generated constraints for graphify_export(V0)",
@@ -128,6 +200,15 @@ def _build_constraints_cypher() -> str:
 
 
 def _build_node_merge(node: dict[str, Any]) -> str | None:
+    """构建单条节点导入语句。
+
+    Args:
+        node: 单条节点对象，期望包含 `id`、`labels`、`props` 字段。
+
+    Returns:
+        str | None: 可执行的 MERGE+SET 语句；若节点缺失有效 id 则返回 None。
+    """
+
     node_id = node.get("id")
     if node_id is None or str(node_id).strip() == "":
         return None
@@ -143,6 +224,15 @@ def _build_node_merge(node: dict[str, Any]) -> str | None:
 
 
 def _build_edge_merge(edge: dict[str, Any]) -> str | None:
+    """构建单条关系导入语句。
+
+    Args:
+        edge: 单条边对象，期望包含 `id`、`type`、`src`、`dst` 与可选 `props`。
+
+    Returns:
+        str | None: 关系 MATCH+MERGE+SET 语句；关键字段缺失时返回 None。
+    """
+
     edge_id = edge.get("id")
     edge_type = edge.get("type")
     src = edge.get("src")
@@ -172,7 +262,18 @@ def _build_edge_merge(edge: dict[str, Any]) -> str | None:
 
 
 def run_export(nodes_path: Path, edges_path: Path, out_dir: Path, prefix: str, dry_run: bool) -> ExportArtifacts:
-    """Run export and emit report/cypher artifacts."""
+    """执行转换并写出产物。
+
+    Args:
+        nodes_path: 节点 JSONL 输入路径。
+        edges_path: 边 JSONL 输入路径。
+        out_dir: 输出目录。
+        prefix: 输出文件名前缀。
+        dry_run: 是否仅统计不写 Cypher 文件。
+
+    Returns:
+        ExportArtifacts: 本次执行生成的产物路径。
+    """
 
     stats: dict[str, Any] = {
         "nodes_total": 0,
@@ -250,6 +351,8 @@ def run_export(nodes_path: Path, edges_path: Path, out_dir: Path, prefix: str, d
 
 
 def main() -> None:
+    """命令行入口。"""
+
     parser = build_parser()
     args = parser.parse_args()
     run_export(
