@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Apply Graphify-exported Neo4j cypher files into target Neo4j container."""
+"""将 Graphify 导出的 Cypher 一键导入指定 Neo4j 容器。"""
 
 from __future__ import annotations
 
@@ -19,6 +19,13 @@ log = logger.bind(group=GROUP)
 
 @dataclass(frozen=True)
 class TargetConfig:
+    """描述单个 Neo4j 导入目标的运行配置。
+
+    Attributes:
+        container: Docker 容器名称。
+        browser_url: 对应 Neo4j Browser 地址。
+    """
+
     container: str
     browser_url: str
 
@@ -57,10 +64,23 @@ Environment:
 
 
 def print_usage() -> None:
+    """打印命令行使用说明。"""
+
     print(USAGE.strip())
 
 
 def parse_args(argv: list[str]) -> tuple[bool, str, Path, str] | None:
+    """解析并校验命令行参数。
+
+    Args:
+        argv: 命令行参数列表（不含程序名）。
+
+    Returns:
+        tuple[bool, str, Path, str] | None:
+            解析成功时返回 `(dry_run, target, cypher_dir, prefix)`；
+            参数不合法时返回 None。
+    """
+
     dry_run = False
     positional = list(argv)
 
@@ -91,6 +111,17 @@ def parse_args(argv: list[str]) -> tuple[bool, str, Path, str] | None:
 
 
 def check_container_running(container_name: str) -> tuple[bool, str]:
+    """检查目标容器是否处于运行状态。
+
+    Args:
+        container_name: 需要匹配的容器名（完全匹配）。
+
+    Returns:
+        tuple[bool, str]:
+            第一个值表示容器是否在运行；
+            第二个值在 `docker ps` 失败时返回错误消息，否则为空字符串。
+    """
+
     cmd = ["docker", "ps", "--format", "{{.Names}}"]
     result = subprocess.run(cmd, check=False, capture_output=True, text=True)
     if result.returncode != 0:
@@ -102,6 +133,18 @@ def check_container_running(container_name: str) -> tuple[bool, str]:
 
 
 def run_cypher_file(file_path: Path, config: TargetConfig, phase: str, dry_run: bool) -> int:
+    """执行单个 Cypher 文件导入步骤。
+
+    Args:
+        file_path: 待执行的 Cypher 文件路径。
+        config: 目标容器配置。
+        phase: 当前阶段名称（`constraints` 或 `import`）。
+        dry_run: 是否仅打印计划命令而不实际执行。
+
+    Returns:
+        int: 子进程退出码；成功返回 0。
+    """
+
     log.info("%s phase: start (%s)", phase, file_path)
 
     docker_cmd = [
@@ -139,6 +182,15 @@ def run_cypher_file(file_path: Path, config: TargetConfig, phase: str, dry_run: 
 
 
 def main(argv: list[str]) -> int:
+    """命令行主入口。
+
+    Args:
+        argv: 命令行参数列表（不含程序名）。
+
+    Returns:
+        int: 进程退出码。
+    """
+
     parsed = parse_args(argv)
     if parsed is None:
         return 2
