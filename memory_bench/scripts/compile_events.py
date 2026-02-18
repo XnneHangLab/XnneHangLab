@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 from typing import Any, TextIO
 
-from bench_logger import logger
+from memory_bench.scripts.bench_logger import logger
 
 REQUIRED_FIELDS = [
     "scene_id",

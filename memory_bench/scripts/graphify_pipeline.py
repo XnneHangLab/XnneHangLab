@@ -10,9 +10,9 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from bench_logger import logger
-from graphify_export import GraphArtifacts, run_graphify
-from neo4j_export_cypher import ExportArtifacts, run_export
+from memory_bench.scripts.bench_logger import logger
+from memory_bench.scripts.graphify_export import GraphArtifacts, run_graphify
+from memory_bench.scripts.neo4j_export_cypher import ExportArtifacts, run_export
 
 DEFAULT_OUT_DIR = Path("memory_bench/logs/replay_mem0/graphify")
 DEFAULT_STATE_DB = Path("memory_bench/state/graphify/state.sqlite")
@@ -194,7 +194,7 @@ def main() -> int:
     args = build_parser().parse_args()
 
     if args.command == "reset":
-        from graphify_export import reset_state
+        from memory_bench.scripts.graphify_export import reset_state
 
         reset_state(
             state_db=Path(args.state_db),

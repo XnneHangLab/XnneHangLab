@@ -13,7 +13,7 @@ import re
 from pathlib import Path
 from typing import TypedDict
 
-from bench_logger import logger
+from memory_bench.scripts.bench_logger import logger
 
 RAW_PATTERN = re.compile(r"^(ch\d{2,})_.*\.md$")
 NORM_PATTERN = re.compile(r"^(ch\d{2,})_.*\.norm\.md$")

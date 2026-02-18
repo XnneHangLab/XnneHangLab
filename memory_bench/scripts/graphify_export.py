@@ -48,15 +48,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-try:
-    from bench_logger import logger
-except ImportError:  # pragma: no cover - fallback for standalone usage
-    import logging
-
-    logger = logging.getLogger("graphify_export")
-    if not logger.handlers:
-        logging.basicConfig(level=logging.INFO)
-
+from memory_bench.scripts.bench_logger import logger
 
 DEFAULT_OUT_DIR = Path("memory_bench/logs/replay_mem0/graphify")
 DEFAULT_STATE_DB = Path("memory_bench/state/graphify/state.sqlite")
