@@ -226,12 +226,12 @@ uv run python memory_bench/scripts/replay_mem0.py export
 docker compose -f memory_bench/docker-compose.neo4j.yml up -d neo4j_mem0
 ```
 
-一键导入 Cypher（含 mem0/zep/cognee 示例）请参考：`docs/neo4j_import_v0.md`（主推跨平台 Python CLI：`uv run python memory_bench/scripts/neo4j_apply_cypher.py ...`）。
+一键导入 Cypher（含 mem0/zep/cognee 示例）请参考：`docs/neo4j_import_v0.md`（主推跨平台 Python CLI：`uv run python -m memory_bench.scripts.neo4j_apply_cypher ...`）。
 
 #### Pipeline 示例（基于 export sample fixture）
 
 ```bash
-uv run python memory_bench/scripts/graphify_pipeline.py run \
+uv run python -m memory_bench.scripts.graphify_pipeline run \
   --input memory_bench/tests/fixtures/export_sample.jsonl \
   --out-dir memory_bench/logs/replay_mem0/graphify \
   --state-db memory_bench/state/graphify/state.sqlite \
@@ -239,7 +239,7 @@ uv run python memory_bench/scripts/graphify_pipeline.py run \
 ```
 
 ```bash
-uv run python memory_bench/scripts/graphify_pipeline.py dry-run \
+uv run python -m memory_bench.scripts.graphify_pipeline dry-run \
   --input memory_bench/tests/fixtures/export_sample.jsonl \
   --out-dir memory_bench/logs/replay_mem0/graphify \
   --state-db memory_bench/state/graphify/state.sqlite
@@ -247,7 +247,7 @@ uv run python memory_bench/scripts/graphify_pipeline.py dry-run \
 
 
 ```bash
-uv run python memory_bench/scripts/graphify_pipeline.py reset \
+uv run python -m memory_bench.scripts.graphify_pipeline reset \
   --state-db memory_bench/state/graphify/state.sqlite \
   --out-dir memory_bench/logs/replay_mem0/graphify \
   --reset-output

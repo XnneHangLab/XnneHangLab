@@ -230,7 +230,7 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 
 [tool.hatch.build.targets.wheel]
 
-packages = ["src/lab","packages/todo/src/todo","packages/yutto-uiya/src/uiya","packages/gpt_sovits/src/gsv"]
+packages = ["src/lab","packages/todo/src/todo","packages/yutto-uiya/src/uiya","packages/gpt_sovits/src/gsv","memory_bench"]
 
 [build-system]
 requires = ["hatchling"]

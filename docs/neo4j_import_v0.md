@@ -30,14 +30,14 @@ docker compose -f memory_bench/docker-compose.neo4j.yml up -d neo4j_cognee
 > 預設 `--cypher-out-dir` 為 `<out_dir>/neo4j`。
 
 ```bash
-uv run python memory_bench/scripts/graphify_pipeline.py reset \
+uv run python -m memory_bench.scripts.graphify_pipeline reset \
   --state-db memory_bench/state/graphify/state.sqlite \
   --out-dir memory_bench/logs/replay_mem0/graphify \
   --reset-output
 ```
 
 ```bash
-uv run python memory_bench/scripts/graphify_pipeline.py run \
+uv run python -m memory_bench.scripts.graphify_pipeline run \
   --input memory_bench/tests/fixtures/export_sample.jsonl \
   --out-dir memory_bench/logs/replay_mem0/graphify \
   --state-db memory_bench/state/graphify/state.sqlite \
@@ -64,9 +64,9 @@ uv run python memory_bench/scripts/graphify_pipeline.py run \
 ### 指令示例（mem0 / zep / cognee 各一條）
 
 ```bash
-uv run python memory_bench/scripts/neo4j_apply_cypher.py mem0 memory_bench/logs/replay_mem0/graphify/neo4j graph
-uv run python memory_bench/scripts/neo4j_apply_cypher.py zep  memory_bench/logs/replay_zep/graphify/neo4j graph
-uv run python memory_bench/scripts/neo4j_apply_cypher.py cognee memory_bench/logs/replay_cognee/graphify/neo4j graph
+uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 memory_bench/logs/replay_mem0/graphify/neo4j graph
+uv run python -m memory_bench.scripts.neo4j_apply_cypher zep  memory_bench/logs/replay_zep/graphify/neo4j graph
+uv run python -m memory_bench.scripts.neo4j_apply_cypher cognee memory_bench/logs/replay_cognee/graphify/neo4j graph
 ```
 
 若你省略 `cypher_dir`，腳本會使用：`<GRAPHIFY_OUT_DIR>/neo4j`（預設 `GRAPHIFY_OUT_DIR=memory_bench/logs/replay_mem0/graphify`）。
@@ -75,13 +75,13 @@ bash：
 
 ```bash
 GRAPHIFY_OUT_DIR=memory_bench/logs/replay_mem0/graphify \
-  uv run python memory_bench/scripts/neo4j_apply_cypher.py mem0 graph
+  uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 graph
 ```
 
 PowerShell：
 
 ```powershell
-$env:GRAPHIFY_OUT_DIR="memory_bench/logs/replay_mem0/graphify"; uv run python memory_bench/scripts/neo4j_apply_cypher.py mem0 graph
+$env:GRAPHIFY_OUT_DIR="memory_bench/logs/replay_mem0/graphify"; uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 graph
 ```
 
 ---

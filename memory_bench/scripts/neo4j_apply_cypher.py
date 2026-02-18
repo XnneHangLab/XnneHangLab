@@ -10,10 +10,6 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
 from memory_bench.scripts.bench_logger import logger
 
 GROUP = "neo4j_import"
@@ -34,16 +30,16 @@ TARGETS: dict[str, TargetConfig] = {
 }
 
 USAGE = """Usage:
-  uv run python memory_bench/scripts/neo4j_apply_cypher.py <target> <cypher_dir> <prefix>
-  uv run python memory_bench/scripts/neo4j_apply_cypher.py <target> <prefix>
-  uv run python memory_bench/scripts/neo4j_apply_cypher.py [--dry-run] <target> <cypher_dir> <prefix>
-  uv run python memory_bench/scripts/neo4j_apply_cypher.py [--dry-run] <target> <prefix>
+  uv run python -m memory_bench.scripts.neo4j_apply_cypher <target> <cypher_dir> <prefix>
+  uv run python -m memory_bench.scripts.neo4j_apply_cypher <target> <prefix>
+  uv run python -m memory_bench.scripts.neo4j_apply_cypher [--dry-run] <target> <cypher_dir> <prefix>
+  uv run python -m memory_bench.scripts.neo4j_apply_cypher [--dry-run] <target> <prefix>
 
 Examples:
-  uv run python memory_bench/scripts/neo4j_apply_cypher.py mem0 memory_bench/logs/replay_mem0/graphify/neo4j graph
-  uv run python memory_bench/scripts/neo4j_apply_cypher.py zep  memory_bench/logs/replay_zep/graphify/neo4j graph
-  uv run python memory_bench/scripts/neo4j_apply_cypher.py cognee memory_bench/logs/replay_cognee/graphify/neo4j graph
-  uv run python memory_bench/scripts/neo4j_apply_cypher.py mem0 graph
+  uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 memory_bench/logs/replay_mem0/graphify/neo4j graph
+  uv run python -m memory_bench.scripts.neo4j_apply_cypher zep  memory_bench/logs/replay_zep/graphify/neo4j graph
+  uv run python -m memory_bench.scripts.neo4j_apply_cypher cognee memory_bench/logs/replay_cognee/graphify/neo4j graph
+  uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 graph
 
 Arguments:
   target      Neo4j target instance: mem0 | zep | cognee
