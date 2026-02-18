@@ -64,11 +64,11 @@ def _escape_cypher_string(value: str) -> str:
     return value.replace("\\", "\\\\").replace("'", "\\'")
 
 
-def _escape_cypher_identifier(value: str) -> str:
-    """转义 Cypher 反引号标识符。
+def _escape_cypher_key(value: str) -> str:
+    """转义 Cypher map key 中的反引号。
 
     Args:
-        value: 原始标识符文本。
+        value: 原始 key 文本。
 
     Returns:
         str: 将反引号翻倍后的可安全嵌入值。
@@ -77,7 +77,7 @@ def _escape_cypher_identifier(value: str) -> str:
     return value.replace("`", "``")
 
 
-def _is_neo4j_property_value(value: Any) -> bool:
+def _is_neo4j_prop_value(value: Any) -> bool:
     """判断值是否可作为 Neo4j 属性写入。
 
     支持类型：None、bool、int、float、str，以及上述类型构成的 list。
@@ -94,6 +94,19 @@ def _is_neo4j_property_value(value: Any) -> bool:
     if isinstance(value, list):
         return all(item is None or isinstance(item, (bool, int, float, str)) for item in value)
     return False
+
+
+def _filter_neo4j_props(props: dict[str, Any]) -> dict[str, Any]:
+    """过滤可安全写入 Neo4j 顶层属性的键值。
+
+    Args:
+        props: 原始关系属性字典。
+
+    Returns:
+        dict[str, Any]: 仅包含 Neo4j property-compatible 值的新字典。
+    """
+
+    return {str(key): value for key, value in props.items() if _is_neo4j_prop_value(value)}
 
 
 def _to_cypher_literal(value: Any) -> str:
@@ -119,7 +132,7 @@ def _to_cypher_literal(value: Any) -> str:
     if isinstance(value, dict):
         parts: list[str] = []
         for key, item in value.items():
-            parts.append(f"`{_escape_cypher_identifier(str(key))}`: {_to_cypher_literal(item)}")
+            parts.append(f"`{_escape_cypher_key(str(key))}`: {_to_cypher_literal(item)}")
         return "{" + ", ".join(parts) + "}"
     return f"'{_escape_cypher_string(json.dumps(value, ensure_ascii=False))}'"
 
@@ -241,9 +254,7 @@ def _build_edge_merge(edge: dict[str, Any]) -> str | None:
         return None
 
     props_raw = edge.get("props") if isinstance(edge.get("props"), dict) else {}
-    props_for_set = {
-        key: value for key, value in props_raw.items() if _is_neo4j_property_value(value)
-    }
+    props_filtered = _filter_neo4j_props(props_raw)
     props_json = json.dumps(props_raw, ensure_ascii=False)
     return "\n".join(
         [
@@ -256,7 +267,7 @@ def _build_edge_merge(edge: dict[str, Any]) -> str | None:
                 f"r.dst = {_to_cypher_literal(str(dst))}, "
                 f"r.props_json = {_to_cypher_literal(props_json)}"
             ),
-            f"SET r += {_to_cypher_literal(props_for_set)};",
+            f"SET r += {_to_cypher_literal(props_filtered)};",
         ]
     )
 

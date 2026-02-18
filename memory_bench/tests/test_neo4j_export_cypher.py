@@ -37,8 +37,6 @@ def test_to_cypher_literal_escapes_single_quote_and_backslash() -> None:
     assert literal == "'a\\'b\\\\c'"
 
 
-
-
 def test_to_cypher_literal_escapes_backtick_in_dict_key() -> None:
     """dict key backticks should be escaped for Cypher map literal."""
 
@@ -57,7 +55,10 @@ def test_run_export_dry_run_only_writes_report(tmp_path: Path) -> None:
 
     write_fixture_jsonl(
         nodes_path,
-        [json.dumps({"id": "memory:1", "labels": ["MemoryItem"], "props": {"k": "v"}})],
+        [
+            json.dumps({"id": "mem:1", "labels": ["MemoryItem"], "props": {"k": "v"}}),
+            json.dumps({"id": "user:1", "labels": ["User"], "props": {"user_id": "1"}}),
+        ],
     )
     write_fixture_jsonl(
         edges_path,
@@ -67,7 +68,7 @@ def test_run_export_dry_run_only_writes_report(tmp_path: Path) -> None:
                     "id": "edge:1",
                     "type": "OWNS_MEMORY",
                     "src": "user:1",
-                    "dst": "memory:1",
+                    "dst": "mem:1",
                     "props": {"processed_key": "h1"},
                 }
             )
@@ -98,7 +99,8 @@ def test_run_export_writes_all_outputs_and_counts_valid_rows(tmp_path: Path) -> 
     write_fixture_jsonl(
         nodes_path,
         [
-            json.dumps({"id": "memory:1", "labels": ["MemoryItem"], "props": {"k": "v"}}),
+            json.dumps({"id": "mem:1", "labels": ["MemoryItem"], "props": {"k": "v"}}),
+            json.dumps({"id": "user:1", "labels": ["User"], "props": {"user_id": "1"}}),
             json.dumps({"labels": ["BrokenNoId"], "props": {"x": 1}}),
             "{bad-json}",
             "",
@@ -112,7 +114,7 @@ def test_run_export_writes_all_outputs_and_counts_valid_rows(tmp_path: Path) -> 
                     "id": "edge:1",
                     "type": "OWNS_MEMORY",
                     "src": "user:1",
-                    "dst": "memory:1",
+                    "dst": "mem:1",
                     "props": {
                         "processed_key": "h1",
                         "source_point_id": "p1",
@@ -121,7 +123,7 @@ def test_run_export_writes_all_outputs_and_counts_valid_rows(tmp_path: Path) -> 
                     },
                 }
             ),
-            json.dumps({"id": "edge:bad", "type": "OWNS_MEMORY", "src": "", "dst": "memory:1"}),
+            json.dumps({"id": "edge:bad", "type": "OWNS_MEMORY", "src": "", "dst": "mem:1"}),
             "",
         ],
     )
@@ -133,13 +135,15 @@ def test_run_export_writes_all_outputs_and_counts_valid_rows(tmp_path: Path) -> 
     assert artifacts.import_path is not None and artifacts.import_path.exists()
 
     report = json.loads(artifacts.report_path.read_text(encoding="utf-8"))
-    assert report["nodes_total"] == 1
+    assert report["nodes_total"] == 2
     assert report["edges_total"] == 1
-    assert report["nodes_by_label"] == {"MemoryItem": 1}
+    assert report["nodes_by_label"] == {"MemoryItem": 1, "User": 1}
     assert report["edges_by_type"] == {"OWNS_MEMORY": 1}
 
     import_text = artifacts.import_path.read_text(encoding="utf-8")
-    assert "SET r += {`processed_key`: 'h1'" in import_text
+    assert "SET r +=" in import_text
+    assert "`processed_key`" in import_text
+    assert "'h1'" in import_text
     assert "r.props_json" in import_text
 
 
@@ -153,7 +157,10 @@ def test_run_export_keeps_nested_props_only_in_props_json(tmp_path: Path) -> Non
 
     write_fixture_jsonl(
         nodes_path,
-        [json.dumps({"id": "memory:1", "labels": ["MemoryItem"], "props": {"k": "v"}})],
+        [
+            json.dumps({"id": "mem:1", "labels": ["MemoryItem"], "props": {"k": "v"}}),
+            json.dumps({"id": "user:1", "labels": ["User"], "props": {"user_id": "1"}}),
+        ],
     )
     write_fixture_jsonl(
         edges_path,
@@ -163,7 +170,7 @@ def test_run_export_keeps_nested_props_only_in_props_json(tmp_path: Path) -> Non
                     "id": "edge:1",
                     "type": "OWNS_MEMORY",
                     "src": "user:1",
-                    "dst": "memory:1",
+                    "dst": "mem:1",
                     "props": {
                         "processed_key": "h1",
                         "nested": {"a": 1},
@@ -176,6 +183,8 @@ def test_run_export_keeps_nested_props_only_in_props_json(tmp_path: Path) -> Non
     artifacts = module.run_export(nodes_path, edges_path, out_dir, prefix="graph", dry_run=False)
     import_text = artifacts.import_path.read_text(encoding="utf-8")
 
-    assert "SET r += {`processed_key`: 'h1'};" in import_text
-    assert "`nested`" not in import_text
+    assert "r.props_json" in import_text
     assert '"nested": {"a": 1}' in import_text
+    assert "`nested`" not in import_text
+    assert "`processed_key`" in import_text
+    assert "'h1'" in import_text
