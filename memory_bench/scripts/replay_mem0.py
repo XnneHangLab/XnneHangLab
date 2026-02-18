@@ -1585,6 +1585,7 @@ def main() -> int:
     load_benchmark_dotenv(repo_root)
     api_key, base_url, llm_model, embed_model, llm_temperature, llm_max_tokens = prepare_mem0_env()
 
+    input_path: Path | None = None
     if args.command in {"ingest", "probe"}:
         input_path = Path(args.input)
         if not input_path.exists():
@@ -1598,6 +1599,7 @@ def main() -> int:
     )
 
     if args.command == "ingest" and args.force:
+        assert input_path is not None
         checkpoint_path = build_checkpoint_path(input_path=input_path, isolation=args.isolation, state_dir=state_dir)
         purge_local_qdrant_storage(state_dir=state_dir, isolation=args.isolation)
         purge_checkpoint_file(checkpoint_path)
@@ -1613,8 +1615,10 @@ def main() -> int:
         llm_max_tokens=llm_max_tokens,
     )
     if args.command == "ingest":
+        assert input_path is not None
         return run_ingest(args, memory, input_path)
     if args.command == "probe":
+        assert input_path is not None
         return run_probe(args, memory, input_path)
     if args.command == "export":
         return run_export(args, memory)
