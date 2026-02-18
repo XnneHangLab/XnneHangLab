@@ -19,14 +19,13 @@ DEFAULT_GRAPHIFY_OUT_DIR = Path("memory_bench/logs/replay_mem0/graphify")
 @dataclass(frozen=True)
 class TargetConfig:
     container: str
-    database: str
     browser_url: str
 
 
 TARGETS: dict[str, TargetConfig] = {
-    "mem0": TargetConfig("membench-neo4j-mem0", "mem0", "http://localhost:7474"),
-    "zep": TargetConfig("membench-neo4j-zep", "zep", "http://localhost:7475"),
-    "cognee": TargetConfig("membench-neo4j-cognee", "cognee", "http://localhost:7476"),
+    "mem0": TargetConfig("membench-neo4j-mem0", "http://localhost:7474"),
+    "zep": TargetConfig("membench-neo4j-zep", "http://localhost:7475"),
+    "cognee": TargetConfig("membench-neo4j-cognee", "http://localhost:7476"),
 }
 
 USAGE = """Usage:
@@ -114,8 +113,6 @@ def run_cypher_file(file_path: Path, config: TargetConfig, phase: str, dry_run: 
         "neo4j",
         "-p",
         "neo4jneo4j",
-        "-d",
-        config.database,
     ]
 
     if dry_run:
@@ -152,10 +149,9 @@ def main(argv: list[str]) -> int:
     import_path = cypher_dir / f"{prefix}_import.cypher"
 
     log.info(
-        "Apply config: target=%s container=%s db=%s cypher_dir=%s prefix=%s dry_run=%s",
+        "Apply config: target=%s container=%s cypher_dir=%s prefix=%s dry_run=%s",
         target,
         config.container,
-        config.database,
         cypher_dir,
         prefix,
         dry_run,

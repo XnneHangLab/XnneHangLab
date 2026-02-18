@@ -7,7 +7,7 @@ services:
     restart: unless-stopped
     environment:
       - NEO4J_AUTH=neo4j/neo4jneo4j
-      - NEO4J_dbms_default__database=mem0
+      - NEO4J_dbms_default__database=neo4j
     ports:
       - "7474:7474"
       - "7687:7687"
@@ -21,7 +21,7 @@ services:
     restart: unless-stopped
     environment:
       - NEO4J_AUTH=neo4j/neo4jneo4j
-      - NEO4J_dbms_default__database=zep
+      - NEO4J_dbms_default__database=neo4j
     ports:
       - "7475:7474"
       - "7688:7687"
@@ -35,7 +35,7 @@ services:
     restart: unless-stopped
     environment:
       - NEO4J_AUTH=neo4j/neo4jneo4j
-      - NEO4J_dbms_default__database=cognee
+      - NEO4J_dbms_default__database=neo4j
     ports:
       - "7476:7474"
       - "7689:7687"

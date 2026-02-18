@@ -55,11 +55,11 @@ uv run python memory_bench/scripts/graphify_pipeline.py run \
 
 腳本會自動依 target 對應：
 
-- `mem0` -> `membench-neo4j-mem0` / database `mem0`
-- `zep` -> `membench-neo4j-zep` / database `zep`
-- `cognee` -> `membench-neo4j-cognee` / database `cognee`
+- `mem0` -> `membench-neo4j-mem0`
+- `zep` -> `membench-neo4j-zep`
+- `cognee` -> `membench-neo4j-cognee`
 
-並使用 Python 讀取 Cypher 檔內容後，透過 `docker exec -i <container> cypher-shell -u neo4j -p neo4jneo4j -d <db>` 的 stdin 餵入。
+並使用 Python 讀取 Cypher 檔內容後，透過 `docker exec -i <container> cypher-shell -u neo4j -p neo4jneo4j` 的 stdin 餵入（使用容器預設 database）。
 
 ### 指令示例（mem0 / zep / cognee 各一條）
 
@@ -100,7 +100,7 @@ $env:GRAPHIFY_OUT_DIR="memory_bench/logs/replay_mem0/graphify"; uv run python me
 - username: `neo4j`
 - password: `neo4jneo4j`
 
-建議在 Browser 右上角確認目前 database 分別為：`mem0` / `zep` / `cognee`。
+Browser 預設 database 為 `neo4j`，一般不需要手動切換 database。
 
 ---
 
