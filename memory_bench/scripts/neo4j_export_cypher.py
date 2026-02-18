@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""将 graphify_export(V0) 产出的 nodes/edges JSONL 转为 Neo4j 可导入 Cypher 文件。"""
+"""Convert graphify_export(V0) nodes/edges JSONL into Neo4j import Cypher files."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from typing import Any
 
 @dataclass(slots=True)
 class ExportArtifacts:
-    """描述 neo4j_export_cypher 的产物路径。"""
+    """Output artifact paths for one export run."""
 
     constraints_path: Path | None
     import_path: Path | None
@@ -21,7 +21,7 @@ class ExportArtifacts:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """构建命令行参数解析器。"""
+    """Build CLI parser."""
 
     parser = argparse.ArgumentParser(
         description="Convert graphify_export(V0) nodes/edges JSONL into Neo4j import cypher files",
@@ -51,7 +51,10 @@ def _to_cypher_literal(value: Any) -> str:
     if isinstance(value, list):
         return "[" + ", ".join(_to_cypher_literal(item) for item in value) + "]"
     if isinstance(value, dict):
-        return "{" + ", ".join(f"`{k}`: {_to_cypher_literal(v)}" for k, v in value.items()) + "}"
+        parts: list[str] = []
+        for key, item in value.items():
+            parts.append(f"`{key}`: {_to_cypher_literal(item)}")
+        return "{" + ", ".join(parts) + "}"
     return f"'{_escape_cypher_string(json.dumps(value, ensure_ascii=False))}'"
 
 
@@ -122,25 +125,26 @@ def _build_edge_merge(edge: dict[str, Any]) -> str | None:
     if any(v is None or str(v).strip() == "" for v in (edge_id, edge_type, src, dst)):
         return None
 
-    props_raw = edge.get("props", {})
+    props_raw = edge.get("props") if isinstance(edge.get("props"), dict) else {}
     props_json = json.dumps(props_raw, ensure_ascii=False)
     return "\n".join(
         [
             f"MATCH (s:Node {{id: {_to_cypher_literal(str(src))}}})",
             f"MATCH (t:Node {{id: {_to_cypher_literal(str(dst))}}})",
+            f"MERGE (s)-[r:REL {{id: {_to_cypher_literal(str(edge_id))}}}]->(t)",
             (
-                f"MERGE (s)-[r:REL {{id: {_to_cypher_literal(str(edge_id))}}}]->(t) "
                 f"SET r.type = {_to_cypher_literal(str(edge_type))}, "
                 f"r.src = {_to_cypher_literal(str(src))}, "
                 f"r.dst = {_to_cypher_literal(str(dst))}, "
-                f"r.props_json = {_to_cypher_literal(props_json)};"
+                f"r.props_json = {_to_cypher_literal(props_json)}"
             ),
+            f"SET r += {_to_cypher_literal(props_raw)};",
         ]
     )
 
 
 def run_export(nodes_path: Path, edges_path: Path, out_dir: Path, prefix: str, dry_run: bool) -> ExportArtifacts:
-    """执行转换并输出 report/cypher 文件。"""
+    """Run export and emit report/cypher artifacts."""
 
     stats: dict[str, Any] = {
         "nodes_total": 0,
@@ -178,8 +182,7 @@ def run_export(nodes_path: Path, edges_path: Path, out_dir: Path, prefix: str, d
             continue
         edge_merges.append(merge_stmt)
         stats["edges_total"] += 1
-        edge_type = str(edge.get("type"))
-        edges_by_type[edge_type] += 1
+        edges_by_type[str(edge.get("type"))] += 1
 
     stats["nodes_by_label"] = dict(sorted(nodes_by_label.items()))
     stats["edges_by_type"] = dict(sorted(edges_by_type.items()))
