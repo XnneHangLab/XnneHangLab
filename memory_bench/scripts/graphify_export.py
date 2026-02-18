@@ -217,7 +217,15 @@ def warn_or_fail(strict: bool, warnings: list[str], message: str) -> None:
 
 
 def append_warning(warnings: list[str], message: str, max_warnings: int, warning_meta: dict[str, int | bool]) -> None:
-    """按上限追加 warning；超限后仅计数不追加。"""
+    """按上限追加 warning，并维护 warning 截断统计。
+
+    Args:
+        warnings: 最终写入 report 的 warning 文本列表。
+        message: 待写入的 warning 消息。
+        max_warnings: `warnings` 允许保留的最大条数。
+        warning_meta: warning 元信息字典，要求包含
+            `warnings_truncated` 与 `warnings_count_total_estimate`。
+    """
 
     warning_meta["warnings_count_total_estimate"] = int(warning_meta["warnings_count_total_estimate"]) + 1
     if len(warnings) < max_warnings:
@@ -236,7 +244,21 @@ def parse_record(
     max_warnings: int,
     warning_meta: dict[str, int | bool],
 ) -> ParsedRecord | None:
-    """解析并校验单行输入记录。"""
+    """解析并校验单行输入记录。
+
+    Args:
+        raw_line: 输入 JSONL 的原始行文本。
+        line_no: 当前行号（从 1 开始）。
+        input_path: 输入文件路径（用于上下文日志）。
+        strict: 是否启用严格模式。
+        stats: 统计计数器字典，会在函数内原地更新。
+        warnings: warning 列表，会在函数内按策略原地追加。
+        max_warnings: warning 列表保留上限。
+        warning_meta: warning 元信息字典，会更新截断与累计计数。
+
+    Returns:
+        ParsedRecord | None: 通过校验时返回解析结果；否则返回 None。
+    """
 
     if not raw_line.strip():
         stats["skipped_empty_line"] += 1
