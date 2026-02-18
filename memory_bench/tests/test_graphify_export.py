@@ -6,6 +6,7 @@ import importlib.util
 import json
 import sqlite3
 import sys
+import uuid
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -16,7 +17,8 @@ FIXTURE_PATH = REPO_ROOT / "memory_bench/tests/fixtures/export_sample.jsonl"
 def load_graphify_module():
     """动态加载 graphify_export.py 脚本模块。"""
 
-    spec = importlib.util.spec_from_file_location("graphify_export", SCRIPT_PATH)
+    unique_name = f"graphify_export_{uuid.uuid4().hex}"
+    spec = importlib.util.spec_from_file_location(unique_name, SCRIPT_PATH)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"failed to load script module: {SCRIPT_PATH}")
     module = importlib.util.module_from_spec(spec)
@@ -58,7 +60,7 @@ def read_report(path: Path) -> dict[str, object]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def test_compute_processed_key_prefers_hash(tmp_path: Path) -> None:
+def test_compute_processed_key_prefers_hash() -> None:
     """A. payload.hash 优先于顶层 id。"""
 
     module = load_graphify_module()
