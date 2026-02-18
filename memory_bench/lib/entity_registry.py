@@ -81,6 +81,9 @@ def _to_halfwidth_ascii(text: str) -> str:
 def normalize_name(name: str) -> str:
     """Normalize entity name for deterministic matching."""
 
+    if not isinstance(name, str):
+        return ""
+
     normalized = _to_halfwidth_ascii(name)
     normalized = normalized.lower()
     normalized = "".join(ch for ch in normalized if ch not in _REMOVE_CHARS)
@@ -102,6 +105,7 @@ def ensure_entities_tables(conn: sqlite3.Connection) -> None:
         )
         """
     )
+    conn.commit()
 
 
 def _stable_entity_id(entity_type: str, normalized: str) -> str:
@@ -138,7 +142,7 @@ def resolve_entity(
         return None
 
     entity_id = _stable_entity_id(type, normalized)
-    created_at = datetime.now(timezone.utc).isoformat()
+    created_at = datetime.now(timezone.utc).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     try:
         conn.execute(
@@ -148,6 +152,7 @@ def resolve_entity(
             """,
             (entity_id, type, name, normalized, created_at),
         )
+        conn.commit()
     except sqlite3.IntegrityError:
         row = conn.execute(
             "SELECT entity_id FROM entities WHERE type = ? AND normalized = ?",

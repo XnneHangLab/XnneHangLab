@@ -32,6 +32,7 @@ def test_normalize_name_pr1_rules() -> None:
     assert base == spaced == quoted
     assert module.normalize_name("ABC") == module.normalize_name("abc")
     assert module.normalize_name("  ") == ""
+    assert module.normalize_name(None) == ""
 
 
 def test_resolve_entity_is_idempotent_and_create_flag(tmp_path: Path) -> None:
