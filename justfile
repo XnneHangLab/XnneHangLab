@@ -174,4 +174,23 @@ ci-lint:
 clean-and-restart-neo4j:
   # 如果端口占用可以尝试调用
   docker compose -f memory_bench/docker-compose.neo4j.yml down --remove-orphans
+  rm -rf memory_bench/neo4j-data/mem0/data
+  rm -rf memory_bench/neo4j-data/zep/data
+  rm -rf memory_bench/neo4j-data/cognee/data
   docker compose -f memory_bench/docker-compose.neo4j.yml up -d
+
+reset-graphify-pipeline:
+  uv run python -m memory_bench.scripts.graphify_pipeline reset \
+    --state-db memory_bench/state/graphify/state.sqlite \
+    --out-dir memory_bench/logs/replay_mem0/graphify \
+    --reset-output
+
+graphify-pipeline:
+  uv run python -m memory_bench.scripts.graphify_pipeline run \
+    --input memory_bench/logs/replay_mem0/export_20260218_145358.jsonl \
+    --out-dir memory_bench/logs/replay_mem0/graphify \
+    --state-db memory_bench/state/graphify/state.sqlite \
+    --prefix graph
+
+neo4j-apply-cypher:
+  uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 memory_bench/logs/replay_mem0/graphify/neo4j graph

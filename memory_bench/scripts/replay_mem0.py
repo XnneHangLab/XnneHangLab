@@ -39,7 +39,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-from bench_logger import logger
+from memory_bench.scripts.bench_logger import logger
 
 
 class ReplayMem0Error(RuntimeError):

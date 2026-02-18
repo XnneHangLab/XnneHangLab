@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from bench_logger import logger
+from memory_bench.scripts.bench_logger import logger
 
 ALLOWED_ROLE_TYPES = {"human", "assistant", "ui", "tool"}
 ALLOWED_TAGS = {"canon_only", "episodic", "filler", "inject", "probe"}
