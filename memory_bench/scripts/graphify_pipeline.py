@@ -8,15 +8,14 @@
 from __future__ import annotations
 
 import argparse
-import logging
 from pathlib import Path
 
+from bench_logger import logger
 from graphify_export import GraphArtifacts, run_graphify
 from neo4j_export_cypher import ExportArtifacts, run_export
 
 DEFAULT_OUT_DIR = Path("memory_bench/logs/replay_mem0/graphify")
 DEFAULT_STATE_DB = Path("memory_bench/state/graphify/state.sqlite")
-logger = logging.getLogger(__name__)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -113,8 +112,8 @@ def print_next_steps(export_artifacts: ExportArtifacts) -> None:
         return
 
     logger.info("\n=== Next steps (Neo4j) ===")
-    logger.info("1) Run constraints: %s", constraints)
-    logger.info("2) Run import script: %s", import_path)
+    logger.info(f"1) Run constraints: {constraints}")
+    logger.info(f"2) Run import script: {import_path}")
     logger.info("3) Validate in Neo4j Browser:")
     logger.info("   MATCH (n:Node) RETURN count(n) AS node_count;")
     logger.info("   MATCH ()-[r:REL]->() RETURN count(r) AS rel_count;")
@@ -225,9 +224,9 @@ def main() -> int:
         skip_cypher=skip_cypher,
     )
 
-    logger.info("graphify report: %s", graph_artifacts.report_path)
+    logger.info(f"graphify report: {graph_artifacts.report_path}")
     if export_artifacts is not None:
-        logger.info("neo4j export report: %s", export_artifacts.report_path)
+        logger.info(f"neo4j export report: {export_artifacts.report_path}")
         print_next_steps(export_artifacts)
     else:
         logger.info("neo4j export skipped (cypher disabled)")
