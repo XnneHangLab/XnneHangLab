@@ -10,6 +10,9 @@
      --state-db memory_bench/state/graphify/state.sqlite \
      --format jsonl
 
+   说明：若 `--state-db` 不存在，dry-run 会将其视为“无已处理记录”，
+   但不会创建 state 文件或表；若 state 已存在，则会只读打开并统计/跳过重复 processed_key。
+
 2) reset（重建 state，可选清理输出目录）：
    uv run python memory_bench/scripts/graphify_export.py reset \
      --state-db memory_bench/state/graphify/state.sqlite \
@@ -82,14 +85,6 @@ class ParsedRecord:
     processed_key: str
 
 
-@dataclass(slots=True)
-class GraphEntity:
-    """统一的节点/边输出结构。"""
-
-    id: str
-    fields: dict[str, Any]
-
-
 def now_utc_ts() -> str:
     """返回 UTC 时间戳（用于文件名）。"""
 
@@ -159,7 +154,7 @@ def reset_state(state_db: Path, reset_output: bool, out_dir: Path) -> None:
     removed = 0
     if reset_output:
         out_dir.mkdir(parents=True, exist_ok=True)
-        patterns = ("graph_nodes_*.jsonl", "graph_edges_*.jsonl", "graph_nodes_*.csv", "graph_edges_*.csv", "graphify_report_*.json")
+        patterns = ("*_nodes_*.jsonl", "*_edges_*.jsonl", "*_nodes_*.csv", "*_edges_*.csv", "graphify_report_*.json")
         for pattern in patterns:
             for path in out_dir.glob(pattern):
                 path.unlink(missing_ok=True)
@@ -456,7 +451,14 @@ def run_graphify(
     edges_map: dict[str, dict[str, Any]] = {}
 
     start = time.perf_counter()
-    conn = ensure_state_db(state_db)
+    conn: sqlite3.Connection | None = None
+    should_commit_state = False
+    if command == "add":
+        conn = ensure_state_db(state_db)
+    elif state_db.exists():
+        state_uri = f"file:{state_db.resolve().as_posix()}?mode=ro"
+        conn = sqlite3.connect(state_uri, uri=True)
+
     try:
         with input_path.open("r", encoding="utf-8") as fp:
             for line_no, raw_line in enumerate(fp, start=1):
@@ -465,7 +467,7 @@ def run_graphify(
                 if parsed is None:
                     continue
 
-                if command == "add":
+                if conn is not None:
                     existing = conn.execute(
                         "SELECT 1 FROM processed_records WHERE processed_key = ?",
                         (parsed.processed_key,),
@@ -486,16 +488,16 @@ def run_graphify(
 
                 stats["records_valid"] += 1
 
-                if command == "add":
+                if command == "add" and conn is not None:
                     conn.execute(
                         "INSERT INTO processed_records(processed_key, processed_at, source_file, source_line) VALUES (?, ?, ?, ?)",
                         (parsed.processed_key, now_iso(), str(input_path), parsed.source_line),
                     )
 
-        if command == "add":
-            conn.commit()
+        should_commit_state = True
     finally:
-        conn.close()
+        if command != "add" and conn is not None:
+            conn.close()
 
     nodes = list(nodes_map.values())
     edges = list(edges_map.values())
@@ -503,11 +505,22 @@ def run_graphify(
     stats["edges_total"] = len(edges)
 
     if command == "add":
-        write_jsonl(nodes_path, nodes)
-        write_jsonl(edges_path, edges)
-        if output_format == "jsonl+csv":
-            write_csv_nodes(nodes_csv_path, nodes)
-            write_csv_edges(edges_csv_path, edges)
+        try:
+            write_jsonl(nodes_path, nodes)
+            write_jsonl(edges_path, edges)
+            if output_format == "jsonl+csv":
+                write_csv_nodes(nodes_csv_path, nodes)
+                write_csv_edges(edges_csv_path, edges)
+
+            if conn is not None and should_commit_state:
+                conn.commit()
+        except Exception:
+            if conn is not None:
+                conn.rollback()
+            raise
+        finally:
+            if conn is not None:
+                conn.close()
     else:
         nodes_path = None
         edges_path = None
