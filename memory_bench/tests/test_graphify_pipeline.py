@@ -6,8 +6,7 @@ import importlib.util
 import sys
 import uuid
 from pathlib import Path
-
-import pytest
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = REPO_ROOT / "memory_bench/scripts/graphify_pipeline.py"
@@ -15,7 +14,7 @@ FIXTURE_PATH = REPO_ROOT / "memory_bench/tests/fixtures/export_sample.jsonl"
 SCRIPTS_DIR = REPO_ROOT / "memory_bench/scripts"
 
 
-def load_module():
+def load_module() -> Any:
     """动态加载 graphify_pipeline 脚本模块。
 
     Returns:
@@ -76,22 +75,20 @@ def test_resolve_skip_cypher_defaults() -> None:
     assert module.resolve_skip_cypher(command="dry-run", cypher_flag=True) is False
 
 
-def test_main_dry_run_default_does_not_error(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_main_dry_run_default_does_not_error(tmp_path: Path) -> None:
     """验证 CLI dry-run 默认跳过 cypher 且不会报错。
 
     Args:
-        monkeypatch: pytest monkeypatch 工具。
         tmp_path: pytest 提供的临时目录。
     """
 
     module = load_module()
     out_dir = tmp_path / "graphify"
     state_db = tmp_path / "state.sqlite"
+    argv_backup = sys.argv
 
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        [
+    try:
+        sys.argv = [
             "graphify_pipeline.py",
             "dry-run",
             "--input",
@@ -100,7 +97,7 @@ def test_main_dry_run_default_does_not_error(monkeypatch: pytest.MonkeyPatch, tm
             str(out_dir),
             "--state-db",
             str(state_db),
-        ],
-    )
-
-    assert module.main() == 0
+        ]
+        assert module.main() == 0
+    finally:
+        sys.argv = argv_backup

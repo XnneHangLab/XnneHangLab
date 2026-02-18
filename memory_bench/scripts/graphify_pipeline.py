@@ -191,7 +191,9 @@ def main() -> int:
 
     out_dir = Path(args.out_dir)
     cypher_out_dir = Path(args.cypher_out_dir) if args.cypher_out_dir else out_dir / "neo4j"
-    warn_duplicate_keys = (args.command == "run") if args.warn_duplicate_keys is None else bool(args.warn_duplicate_keys)
+    warn_duplicate_keys = (
+        (args.command == "run") if args.warn_duplicate_keys is None else bool(args.warn_duplicate_keys)
+    )
     skip_cypher = resolve_skip_cypher(command=args.command, cypher_flag=args.cypher)
 
     graph_artifacts, export_artifacts = run_pipeline(
