@@ -22,9 +22,6 @@
 #    且本地模式下 delete_collection 等 API 并不总是可用/可靠。
 #    因此 ingest --force 需要直接删除 state_dir/qdrant_storage/.../storage.sqlite 才能真正从零开始。
 #
-# 5. Windows 下 QdrantLocal 会锁定 storage.sqlite；若在 Memory 初始化后再删，
-#    可能触发 [WinError 32]。因此强制清理必须前移到 init_memory() 之前执行。
-#
 # ============================================================
 
 from __future__ import annotations
@@ -1171,6 +1168,14 @@ def init_memory(
 
 
 def purge_local_qdrant_storage(state_dir: Path, isolation: str) -> None:
+    """在 --force 场景下清理本地 Qdrant SQLite 持久化文件。
+
+    Args:
+        state_dir: 状态目录根路径。
+        isolation: Mem0 隔离模式（用于拼接 collection 名）。
+
+    """
+
     collection_dir = state_dir / "qdrant_storage" / "collection" / f"memory_bench_{isolation}"
     sqlite_path = collection_dir / "storage.sqlite"
     wal_path = collection_dir / "storage.sqlite-wal"
@@ -1187,6 +1192,13 @@ def purge_local_qdrant_storage(state_dir: Path, isolation: str) -> None:
 
 
 def purge_checkpoint_file(checkpoint_path: Path) -> None:
+    """在 --force 场景下删除 checkpoint 文件，避免后续恢复偏移干扰。
+
+    Args:
+        checkpoint_path: checkpoint 文件路径。
+
+    """
+
     try:
         if checkpoint_path.exists():
             checkpoint_path.unlink()
