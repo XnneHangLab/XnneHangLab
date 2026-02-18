@@ -22,6 +22,9 @@
 #    且本地模式下 delete_collection 等 API 并不总是可用/可靠。
 #    因此 ingest --force 需要直接删除 state_dir/qdrant_storage/.../storage.sqlite 才能真正从零开始。
 #
+# 5. Windows 下 QdrantLocal 会锁定 storage.sqlite；若在 Memory 初始化后再删，
+#    可能触发 [WinError 32]。因此强制清理必须前移到 init_memory() 之前执行。
+#
 # ============================================================
 
 from __future__ import annotations
@@ -1236,8 +1239,6 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
         resume_line = int(checkpoint.get("last_ingested_line", 0)) + 1
     elif args.force:
         logger.bind(group="memory").warning("--force enabled: restart ingest from line 1")
-        purge_local_qdrant_storage(state_dir=state_dir, isolation=args.isolation)
-        purge_checkpoint_file(checkpoint_path)
 
     stats = ReplayStats()
     total_events = count_replay_events(input_path)
@@ -1583,6 +1584,11 @@ def main() -> int:
         f"temperature={llm_temperature}, max_tokens={llm_max_tokens}, "
         f"base_url={redact_base_url(base_url)}, state_dir={state_dir}"
     )
+
+    if args.command == "ingest" and args.force:
+        checkpoint_path = build_checkpoint_path(input_path=input_path, isolation=args.isolation, state_dir=state_dir)
+        purge_local_qdrant_storage(state_dir=state_dir, isolation=args.isolation)
+        purge_checkpoint_file(checkpoint_path)
 
     memory = init_memory(
         state_dir=state_dir,
