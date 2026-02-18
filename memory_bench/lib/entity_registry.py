@@ -10,7 +10,6 @@ import hashlib
 import sqlite3
 from datetime import datetime, timezone
 
-
 _FULLWIDTH_SPACE = "\u3000"
 
 # 常见中英文符号、引号、括号、书名号等。
@@ -142,7 +141,7 @@ def _stable_entity_id(entity_type: str, normalized: str) -> str:
         稳定的实体 ID，格式为 `ent:{type}:{hash}`。
     """
 
-    digest = hashlib.sha1(f"{entity_type}:{normalized}".encode("utf-8")).hexdigest()[:32]
+    digest = hashlib.sha1(f"{entity_type}:{normalized}".encode()).hexdigest()[:32]
     return f"ent:{entity_type}:{digest}"
 
 
@@ -185,7 +184,7 @@ def resolve_entity(
         return None
 
     entity_id = _stable_entity_id(type, normalized)
-    created_at = datetime.now(timezone.utc).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
+    created_at = datetime.now(timezone.utc).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")  # noqa: UP017
 
     try:
         conn.execute(
