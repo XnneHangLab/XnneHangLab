@@ -180,14 +180,17 @@ clean-and-restart-neo4j:
   docker compose -f memory_bench/docker-compose.neo4j.yml up -d
 
 reset-graphify-pipeline:
-  uv run python memory_bench/scripts/graphify_pipeline.py reset \
+  uv run memory_bench/scripts/graphify_pipeline.py reset \
     --state-db memory_bench/state/graphify/state.sqlite \
     --out-dir memory_bench/logs/replay_mem0/graphify \
     --reset-output
 
 graphify-pipeline:
-  uv run python memory_bench/scripts/graphify_pipeline.py run \
+  uv run memory_bench/scripts/graphify_pipeline.py run \
     --input memory_bench/logs/replay_mem0/export_20260218_145358.jsonl \
     --out-dir memory_bench/logs/replay_mem0/graphify \
     --state-db memory_bench/state/graphify/state.sqlite \
     --prefix graph
+
+neo4j-apply-cypher:
+  uv run memory_bench/scripts/neo4j_apply_cypher.py mem0 memory_bench/logs/replay_mem0/graphify/neo4j graph
