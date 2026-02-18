@@ -105,7 +105,6 @@ def ensure_entities_tables(conn: sqlite3.Connection) -> None:
         )
         """
     )
-    conn.commit()
 
 
 def _stable_entity_id(entity_type: str, normalized: str) -> str:
