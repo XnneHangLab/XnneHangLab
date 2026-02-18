@@ -44,12 +44,30 @@ def build_parser() -> argparse.ArgumentParser:
             help="Directory for neo4j cypher outputs (default: <out-dir>/neo4j)",
         )
         cmd_parser.add_argument(
-            "--no-cypher",
-            action="store_true",
-            help="Skip neo4j_export_cypher step (useful for dry-run)",
+            "--cypher",
+            action=argparse.BooleanOptionalAction,
+            default=None,
+            help=(
+                "Enable/disable neo4j_export_cypher step. "
+                "Defaults: run=True, dry-run=False. "
+                "Use --cypher to force, --no-cypher to skip."
+            ),
         )
 
     return parser
+
+
+def resolve_skip_cypher(command: str, cypher_flag: bool | None) -> bool:
+    """解析 cypher 导出开关。
+
+    默认行为：
+    - run: 导出 cypher
+    - dry-run: 跳过 cypher（更符合 dry-run 语义）
+    """
+
+    if cypher_flag is None:
+        return command == "dry-run"
+    return not bool(cypher_flag)
 
 
 def print_next_steps(export_artifacts: ExportArtifacts) -> None:
@@ -100,7 +118,10 @@ def run_pipeline(
         return graph_artifacts, None
 
     if graph_artifacts.nodes_path is None or graph_artifacts.edges_path is None:
-        raise ValueError("cypher export requires graph nodes/edges artifacts; use `run` or pass --no-cypher")
+        raise ValueError(
+            "cypher export requires graph nodes/edges artifacts; "
+            "for dry-run use default --no-cypher, or use `run --cypher` to generate cypher files"
+        )
 
     export_artifacts = run_export(
         nodes_path=graph_artifacts.nodes_path,
@@ -130,6 +151,7 @@ def main() -> int:
     out_dir = Path(args.out_dir)
     cypher_out_dir = Path(args.cypher_out_dir) if args.cypher_out_dir else out_dir / "neo4j"
     warn_duplicate_keys = (args.command == "run") if args.warn_duplicate_keys is None else bool(args.warn_duplicate_keys)
+    skip_cypher = resolve_skip_cypher(command=args.command, cypher_flag=args.cypher)
 
     graph_artifacts, export_artifacts = run_pipeline(
         command=args.command,
@@ -142,7 +164,7 @@ def main() -> int:
         max_warnings=max(0, int(args.max_warnings)),
         warn_duplicate_keys=warn_duplicate_keys,
         cypher_out_dir=cypher_out_dir,
-        skip_cypher=bool(args.no_cypher),
+        skip_cypher=skip_cypher,
     )
 
     print(f"graphify report: {graph_artifacts.report_path}")

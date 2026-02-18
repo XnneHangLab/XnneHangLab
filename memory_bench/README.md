@@ -217,7 +217,7 @@ uv run python memory_bench/scripts/replay_mem0.py export
 功能：
 
 1. `run`：串联 `graphify_export.py add` 与 `neo4j_export_cypher.py export`；
-2. `dry-run`：执行 `graphify_export.py dry-run`（可配合 `--no-cypher` 跳过 cypher 导出）；
+2. `dry-run`：执行 `graphify_export.py dry-run`（默认不导出 cypher，可用 `--cypher` 显式开启）；
 3. `reset`：执行 `graphify_export.py reset`（可加 `--reset-output` 清理产物）。
 
 #### 启动 Neo4j（docker compose）
@@ -240,8 +240,13 @@ uv run python memory_bench/scripts/graphify_pipeline.py run \
 uv run python memory_bench/scripts/graphify_pipeline.py dry-run \
   --input memory_bench/tests/fixtures/export_sample.jsonl \
   --out-dir memory_bench/logs/replay_mem0/graphify \
-  --state-db memory_bench/state/graphify/state.sqlite \
-  --no-cypher
+  --state-db memory_bench/state/graphify/state.sqlite
+```
+
+如需在 `dry-run` 时也尝试继续 cypher 流程，可显式追加：
+
+```bash
+uv run python memory_bench/scripts/graphify_pipeline.py dry-run --cypher ...
 ```
 
 ```bash
