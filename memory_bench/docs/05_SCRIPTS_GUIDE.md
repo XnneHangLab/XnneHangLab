@@ -1,595 +1,535 @@
 # Memory Bench 脚本使用手册（scripts/）
 
-> 目标：解释 `memory_bench/scripts/` 下每个脚本的作用、调用示例、输入输出、常见返回结果与排错方式。  
-> 适合“第一次接触 bench”的同学，尽量避免需要读源码才能知道怎么用。
+> 目标：解释 `memory_bench/scripts/` 下每个脚本的作用、调用示例、输入输出、返回码与排错方式。
+> 适合“第一次接触 bench”的同学：尽量不需要读源码也能跑通。
 
 ---
 
 ## 1. 脚本总览
 
-当前脚本目录：
+当前脚本目录（与仓库当前状态对齐）：
 
-- `memory_bench/scripts/build_index.py`
-- `memory_bench/scripts/annotate_all.py`
-- `memory_bench/scripts/compile_events.py`
-- `memory_bench/scripts/replay_mem0.py`
-- `memory_bench/scripts/claimify_all.py`
-- `memory_bench/scripts/bench_logger.py`
-- `memory_bench/scripts/compiled_claims.py`
+- 数据构建 / 标注
+  - `memory_bench/scripts/build_index.py`
+  - `memory_bench/scripts/annotate_all.py`
+  - `memory_bench/scripts/compile_events.py`
 
-建议执行顺序：
+- 回放（Mem0）
+  - `memory_bench/scripts/replay_mem0.py`
 
-1. 先跑 `build_index.py` 生成章节索引。
-2. 再跑 `annotate_all.py` 批量标注并产出分章节 JSONL events。
-3. 跑 `compile_events.py` 将分章节结果拼接为 `all.jsonl`。
-4. 跑 `replay_mem0.py` 将事件流回放到 Mem0 并输出 probe 检索日志。
-5. 跑 `claimify_all.py` 从 `replay_mem0.py export` 的 memory export JSONL 批量抽取 claim/entity。
-6. 跑 `compiled_claims.py` 将 `by_conv` 产物汇总为全局去重后的 compiled JSONL。
-7. `bench_logger.py` 是被上述脚本复用的日志模块，不是独立 CLI 工具。
+- 语义抽取（Claim/Entity）
+  - `memory_bench/scripts/claimify_all.py`
+  - `memory_bench/scripts/compiled_claims.py`
+  - `memory_bench/scripts/tag_registry.py`（工具模块）
+
+- 图谱导出（Graphify V0 + Neo4j）
+  - `memory_bench/scripts/graphify_export.py`
+  - `memory_bench/scripts/neo4j_export_cypher.py`
+  - `memory_bench/scripts/graphify_pipeline.py`
+  - `memory_bench/scripts/neo4j_apply_cypher.py`
+
+- 统一日志
+  - `memory_bench/scripts/bench_logger.py`（工具模块）
 
 ---
 
-## 2. 通用运行方式（推荐）
+## 2. 推荐执行顺序（从原文到图谱）
+
+### A) 原文 → events → Mem0
+
+1) `build_index.py` 生成章节索引
+2) `annotate_all.py` 章节标注为 events JSONL
+3) `compile_events.py` 拼接为 `compiled/all.jsonl`
+4) `replay_mem0.py ingest` 回放写入 Mem0
+5) `replay_mem0.py probe`（可选）跑检索 probe 日志
+6) `replay_mem0.py export` 导出记忆快照
+
+### B) export → claim/entity（语义图谱旁路）
+
+7) `claimify_all.py` 抽取 claim/entity（按 conv_id 分组、按 chunk 调 LLM）
+8) `compiled_claims.py` 汇总去重为全局 compiled JSONL
+
+### C) export → graphify（元数据归属图）→ Neo4j
+
+9) `graphify_pipeline.py run`（推荐）一键：
+   - graphify_export(add)：生成 nodes/edges + state.sqlite 增量
+   - neo4j_export_cypher：生成约束与导入脚本
+
+10) `neo4j_apply_cypher.py` 将 cypher 导入指定 Neo4j docker 容器实例
+
+---
+
+## 3. 通用运行方式（推荐）
 
 在仓库根目录执行：
-
-```bash
-uv run python memory_bench/scripts/<script_name>.py
-```
-
-查看 CLI 帮助（支持 `-h` 的脚本）：
 
 ```bash
 uv run python memory_bench/scripts/<script_name>.py -h
 ```
 
-> 说明：`annotate_all.py` 与 `compile_events.py` 均提供 `-h` 参数帮助；`build_index.py` 没有命令行参数。
+对以模块形式提供 CLI 的脚本：
+
+```bash
+uv run python -m memory_bench.scripts.<module_name> -h
+```
 
 ---
 
-## 3. `build_index.py`
+## 4. `build_index.py`
 
-### 3.1 作用
+### 4.1 作用
 
-扫描 `memory_bench/data/source/raw/` 章节文件，并尝试关联 `memory_bench/data/source/norm/`，生成统一索引文件：
+扫描 `memory_bench/data/source/raw/` 章节文件，并尝试关联 `memory_bench/data/source/norm/`，生成：
 
 - `memory_bench/data/source/index.json`
 
-这个索引是 `annotate_all.py` 的输入前置。
+这是 `annotate_all.py` 与 `compile_events.py` 的前置输入。
 
-### 3.2 调用示例
+### 4.2 调用示例
 
 ```bash
 uv run python memory_bench/scripts/build_index.py
 ```
 
-### 3.3 输入来源
+### 4.3 输入 / 输出
 
-- raw 目录：`memory_bench/data/source/raw/*.md`
-- norm 目录：`memory_bench/data/source/norm/*.norm.md`（可缺省）
+- 输入：
+  - `memory_bench/data/source/raw/*.md`
+  - `memory_bench/data/source/norm/*.norm.md`（可缺省）
+- 输出：
+  - `memory_bench/data/source/index.json`
 
-### 3.4 输出结果
+### 4.4 返回码
 
-- 成功写入：`memory_bench/data/source/index.json`
-- 日志输出：
-  - 章节数统计（info）
-  - 缺失 norm 的章节告警（warning）
-
-### 3.5 返回行为
-
-- 正常运行结束：进程退出码 `0`
-- 若发生未捕获异常（例如路径权限问题）：退出非 `0`
-
-### 3.6 常见问题
-
-- **index.json 没有 norm_path**：通常是对应章节缺少 norm 文件，允许存在，会由后续 `annotate_all --source auto` 自动回退 raw。
+- 正常：0
+- 未捕获异常：非 0（例如路径权限）
 
 ---
 
-## 4. `annotate_all.py`
+## 5. `annotate_all.py`
 
-### 4.1 作用
+### 5.1 作用
 
-批量读取章节文本，调用 LLM 标注为严格 JSONL event 流，并进行强校验后写入：
+批量读取章节文本，调用 LLM 标注为**严格 JSONL event 流**并强校验后写入：
 
-- 事件文件：`memory_bench/data/events/by_chapter/{conv_id}.jsonl`
+- 正式事件文件：`memory_bench/data/events/by_chapter/{conv_id}.jsonl`
 - 调试日志：
   - `memory_bench/logs/annotate_prompt/{conv_id}.txt`
   - `memory_bench/logs/annotate_raw/{conv_id}.txt`
   - `memory_bench/logs/annotate_meta/{conv_id}.json`
 
-### 4.2 CLI 帮助（推荐先看）
+### 5.2 CLI 帮助
 
 ```bash
 uv run python memory_bench/scripts/annotate_all.py -h
 ```
 
-你将看到参数：
+常用参数：
 
 - `--workers`：并发章节数
-- `--force`：强制重跑已存在章节
-- `--only`：仅处理指定 conv_id（逗号分隔）
-- `--scene-id`
-- `--character-id`
+- `--force`：覆盖重跑
+- `--only ch01,ch02`：仅处理指定 conv_id
+- `--scene-id` / `--character-id`
 - `--model`
 - `--source {auto,raw,norm}`
 
-### 4.3 最常用调用示例
-
-1) 默认批量跑：
+### 5.3 最常用调用
 
 ```bash
 uv run python memory_bench/scripts/annotate_all.py --workers 6
 ```
 
-2) 仅跑两个章节：
+仅跑两个章节：
 
 ```bash
 uv run python memory_bench/scripts/annotate_all.py --only ch05,ch06
 ```
 
-3) 强制覆盖重跑：
-
-```bash
-uv run python memory_bench/scripts/annotate_all.py --force --workers 4
-```
-
-4) 强制只读 norm：
-
-```bash
-uv run python memory_bench/scripts/annotate_all.py --source norm
-```
-
-### 4.4 环境变量与配置优先级
-
-脚本会优先尝试加载：
-
-- `memory_bench/.env.benchmark`
-
-关键变量：
+### 5.4 环境变量（`memory_bench/.env.benchmark`）
 
 - `BENCHMARK_OPENAI_API_KEY`（必须）
 - `BENCHMARK_OPENAI_MODEL`（可选）
-- `BENCHMARK_OPENAI_BASE_URL`（默认 `https://api.openai.com/v1`）
+- `BENCHMARK_OPENAI_BASE_URL`（可选，默认走 SDK 默认）
 - `BENCHMARK_WORKERS` / `BENCHMARK_SOURCE` / `BENCHMARK_SCENE_ID` / `BENCHMARK_CHARACTER_ID`（可选）
 
-优先级：
+优先级：CLI > `BENCHMARK_` 环境变量 > 脚本默认值。
 
-- CLI 参数 > `BENCHMARK_` 环境变量 > 脚本默认值
+### 5.5 返回码
 
-可参考模板：
-
-- `memory_bench/.env.benchmark.example`
-
-
-### 4.4.1 模型选择建议（很重要）
-
-为了获得稳定且接近人工标注质量的 JSONL，建议至少使用 `gpt-5.1-2025-11-13` 这一档规格（或同等级更强模型）。
-
-- 过于老旧/轻量的模型，常见问题是：
-  - 混入解释文字，破坏“纯 JSONL”
-  - `turn_id` 不连续
-  - `tags` 误判（例如全部打成 `canon_only`）
-- 通常模型能力越强，输出越接近真实标注预期，返工成本越低。
-
-### 4.5 成功/失败/跳过的判定
-
-- **ok**：LLM 输出通过严格 JSONL 校验，并成功原子写入最终 jsonl。
-- **skipped**：目标 jsonl 已存在且未开启 `--force`。
-- **failed**：任意环节失败（调用失败、非法 JSONL、字段/枚举/顺序不合法等）。
-
-### 4.6 返回码（非常重要）
-
-- `0`：所有章节都 `ok` 或 `skipped`
+- `0`：全部章节 `ok` 或 `skipped`
 - `1`：任意章节 `failed`
 
-### 4.7 你最关心的“失败后会留下什么”
+### 5.6 失败定位
 
-即使失败，也会保留定位信息：
+失败也会保留三类日志，便于回溯：
 
 - prompt：`logs/annotate_prompt/{conv_id}.txt`
-- 原始输出：`logs/annotate_raw/{conv_id}.txt`
-- 元信息：`logs/annotate_meta/{conv_id}.json`（含 `error_message`）
+- raw：`logs/annotate_raw/{conv_id}.txt`
+- meta：`logs/annotate_meta/{conv_id}.json`（含 `error_message`）
 
-并且失败时不会留下半截正式结果：
-
-- 先写 `.tmp`，校验通过后才原子替换正式 jsonl
-
-### 4.8 常见报错与处理
-
-- **缺少 API key**：
-  - 报错包含 `BENCHMARK_OPENAI_API_KEY`
-  - 处理：设置环境变量或写入 `.env.benchmark`
-- **openai SDK 未安装**：
-  - 处理：安装 `openai` 包
-- **source=norm 找不到文件**：
-  - 处理：补 norm 文件，或改用 `--source auto`
-- **输出不是纯 JSONL**（有解释文字/代码块/空行）：
-  - 这是预期失败保护，需调整提示词或模型输出
+并且失败不会留下半截正式产物（先写 `.tmp`，校验通过后再替换）。
 
 ---
 
+## 6. `compile_events.py`
 
-## 5. `compile_events.py`
+### 6.1 作用
 
-### 5.1 作用
-
-按 `memory_bench/data/source/index.json` 的章节顺序，拼接：
+按 `memory_bench/data/source/index.json` 的章节顺序拼接：
 
 - 输入：`memory_bench/data/events/by_chapter/{conv_id}.jsonl`
 - 输出：`memory_bench/data/events/compiled/all.jsonl`（默认）
 
-并执行严格校验：
+并做严格校验：
 
-- 文件不存在或空文件 -> 失败
+- 文件不存在/空文件 -> 失败
 - 空行 -> 失败
 - 非法 JSON -> 失败
 - 缺少 required fields -> 失败
-- `obj["conv_id"]` 与当前章节不一致 -> 失败
-- `turn_id` 不是从 1 开始且严格 +1 -> 失败
+- `obj["conv_id"]` 不等于当前章节 -> 失败
+- `turn_id` 必须从 1 开始严格 +1 -> 失败
 
-写入采用 preserve 模式：逐行 `json.loads(raw)` 仅校验，写出使用 `out.write(raw + "\n")`，不改原文本。
+输出为 `preserve` 模式：逐行校验，但写出时保留原始 JSON 文本行。
 
-### 5.2 CLI 帮助
+### 6.2 CLI 帮助与示例
 
 ```bash
 uv run python memory_bench/scripts/compile_events.py -h
 ```
 
-参数：
-
-- `--chapters ch01,ch02`：按 index 顺序过滤章节；包含未知章节会失败
-- `--out ...`：输出路径（默认 `memory_bench/data/events/compiled/all.jsonl`）
-- `--mode preserve`：默认也是唯一模式
-
-### 5.3 调用示例
-
-1) 默认全量拼接：
+全量拼接：
 
 ```bash
 uv run python memory_bench/scripts/compile_events.py
 ```
 
-2) 只拼接指定章节：
+仅拼接指定章节（按 index 顺序过滤）：
 
 ```bash
 uv run python memory_bench/scripts/compile_events.py --chapters ch01,ch02
 ```
 
-3) 自定义输出路径：
+### 6.3 返回码
 
-```bash
-uv run python memory_bench/scripts/compile_events.py --out memory_bench/data/events/compiled/custom_all.jsonl
-```
-
-### 5.4 返回码
-
-- `0`：编译成功
-- `1`：任意校验失败
-
-### 5.5 原子写与覆写日志
-
-- 先写 `*.tmp`，成功后 `os.replace` 原子替换
-- 若目标文件已存在，替换前会输出变更摘要：
-  - 无变更：`no content change`
-  - 有变更：`(++ X, -- Y)`
+- `0`：成功
+- `1`：失败（任意校验失败）
 
 ---
 
-## 6. `replay_mem0.py`
+## 7. `replay_mem0.py`（ingest / probe / export）
 
-### 6.1 作用
+### 7.1 作用
 
-将 benchmark 事件 JSONL 回放流程拆分为 3 个子命令：
+将 benchmark 事件 JSONL 回放拆为 3 个子命令：
 
-- `ingest`：增量写入 Mem0，并保存本地 checkpoint
-- `probe`：对已有 Mem0 状态执行 probe 查询并输出日志
-- `export`：导出当前 Mem0 状态快照
+- `ingest`：将事件流按 conv 分组写入 Mem0，并保存 checkpoint（支持断点续跑）
+- `probe`：只对 tags 含 `probe` 的事件做 Mem0 检索并输出日志
+- `export`：导出当前 Mem0 collection 的全量快照（Qdrant scroll）
 
-Mem0 使用本地持久化 Qdrant 向量存储（默认 `memory_bench/state/qdrant_storage`，按 isolation 选择 collection），`ingest/probe/export` 可跨进程共享状态。
+Mem0 使用本地持久化 Qdrant（默认 `memory_bench/state/qdrant_storage`），可跨进程共享状态。
 
-`ingest/probe` 都会显示 event 级实时进度条（含 total 与百分比）。
-
-- 输入：
-  - `memory_bench/data/events/compiled/all.jsonl`（默认）
-  - 或 `memory_bench/data/events/by_chapter/chXX.jsonl`
-- 输出：
-  - `probe` 默认输出 `memory_bench/logs/replay_mem0/probe_YYYYMMDD_HHMMSS.jsonl`
-  - `export` 默认输出 `memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl`
-  - `ingest` checkpoint 默认写入 `memory_bench/state/*.checkpoint.json`
-
-### 6.2 CLI 帮助
+### 7.2 CLI 帮助
 
 ```bash
 uv run python memory_bench/scripts/replay_mem0.py -h
 ```
 
-关键参数（按子命令）：
+### 7.3 必需环境变量（强校验）
 
-- `--input`：输入 JSONL 路径
-- `--isolation {global,per_chapter}`：记忆隔离模式
-- `--state-dir`：状态根目录（checkpoint + Qdrant 本地存储）
-- `ingest`:
-  - `--skip-role`：默认 `ui,tool`
-  - `--skip-tags`：默认 `filler`
-  - `--only-tags`：可选 tag 白名单
-  - `--write-probes`：是否将 probe 事件写入 Mem0（默认关闭）
-  - `--batch-size`：批量写入大小
-  - `--store-raw`：写入时优先 `infer=False`（若 Mem0 版本支持）
-  - `--checkpoint-interval`：每 N 条 ingest 成功后保存一次 checkpoint
-  - `--force`：忽略旧 checkpoint 强制从头 ingest
-- `probe`:
-  - `--k`：probe top-k
-  - `--output`：输出 probe 日志路径
-- `export`:
-  - `--output`：输出快照路径
-  - `--user-id`：仅导出指定 user_id（不传则按输入文件中 user_id 全量导出）
+脚本会读取 `memory_bench/.env.benchmark`（override=True），并强制要求：
 
-环境变量（脚本会优先读取 `memory_bench/.env.benchmark`）：
+- `BENCHMARK_OPENAI_API_KEY`
+- `BENCHMARK_OPENAI_BASE_URL`
+- `BENCHMARK_OPENAI_MODEL`
+- `BENCHMARK_OPENAI_EMBEDDING_MODEL`
 
-- `BENCHMARK_OPENAI_API_KEY`（必需）
-- `BENCHMARK_OPENAI_BASE_URL`（必需）
-- `BENCHMARK_OPENAI_MODEL`（必需）
-- `BENCHMARK_OPENAI_EMBEDDING_MODEL`（必需）
+### 7.4 常用示例
 
-Mem0 默认将 llm/embedder 显式注入配置；且不依赖 Mem0 对 `OPENAI_BASE_URL` 的隐式读取。
-
-### 6.3 运行示例
-
-1) 增量 ingest（默认输入）：
+增量 ingest：
 
 ```bash
 uv run python memory_bench/scripts/replay_mem0.py ingest
 ```
 
-2) 运行 probe：
-
-```bash
-uv run python memory_bench/scripts/replay_mem0.py probe --input memory_bench/data/events/by_chapter/ch01.jsonl
-```
-
-3) 章节级隔离（ablation）：
+章节级隔离（ablation）：
 
 ```bash
 uv run python memory_bench/scripts/replay_mem0.py ingest --isolation per_chapter
 ```
 
-4) 导出快照：
+probe：
+
+```bash
+uv run python memory_bench/scripts/replay_mem0.py probe --k 10
+```
+
+export：
 
 ```bash
 uv run python memory_bench/scripts/replay_mem0.py export
 ```
 
-### 6.4 probe 日志字段
+### 7.5 返回码
 
-每条 probe 写一行 JSON，核心字段包括：
-
-- `backend="mem0"`
-- `conv_id`, `turn_id`, `scene_id`, `character_id`
-- `probe_role_type`, `probe_role_name`（区分谁在问）
-- `probe_query`
-- `hits_count`
-- `hits_preview`（仅 top-k 预览，含可溯源 metadata）
-- `latency_ms`
-
-### 6.5 checkpoint 机制（ingest）
-
-checkpoint 文件默认位于：
-
-- `memory_bench/state/mem0_{isolation}_{input_stem}.checkpoint.json`
-
-字段包括：
-
-- `backend`
-- `input_file`
-- `input_file_hash`（SHA256）
-- `last_ingested_line`
-- `last_ingested_event`
-- `updated_at`
-
-若输入文件 hash 变化，脚本会报错并提示使用 `--force` 从头 ingest。
-
-### 6.6 返回码与常见问题
-
-- `0`：回放成功
-- `1`：输入文件缺失、JSON 非法、probe query 为空、或 Mem0 依赖不可用
-
-常见问题：
-
-- **提示 mem0 未安装**：执行 `uv sync --group memory_bench`。
-- **提示缺少 BENCHMARK 环境变量**：请在 `memory_bench/.env.benchmark` 中补全 `BENCHMARK_OPENAI_API_KEY/BENCHMARK_OPENAI_BASE_URL/BENCHMARK_OPENAI_MODEL/BENCHMARK_OPENAI_EMBEDDING_MODEL`。
-- **出现空行 warning**：当前行为是 warning 并跳过该行，建议上游修复数据。
+- `0`：成功
+- `1`：失败（输入缺失、JSON 非法、env 缺失或 mem0 不可用等）
 
 ---
 
-## 7. `claimify_all.py`
+## 8. `claimify_all.py`
 
-### 7.1 作用
+### 8.1 作用
 
-读取 `replay_mem0.py export` 导出的 memory export JSONL（每行一个 memory item），按 `conv_id` 分组调用 LLM，抽取并严格校验 claim/entity JSONL：
+读取 `replay_mem0.py export` 导出的 JSONL（每行一个 memory item），按 `conv_id` 分组、并按 chunk 调用 LLM 抽取并严格校验 claim/entity JSONL：
 
 - 正式产物：`memory_bench/data/claims/by_conv/{conv_id}.jsonl`
-- 调试日志：
-  - `memory_bench/logs/claimify_prompt/{conv_id}.txt`
-  - `memory_bench/logs/claimify_raw/{conv_id}.txt`
+- 调试日志（按 conv + chunk）：
+  - `memory_bench/logs/claimify_prompt/{conv_id}__cXX.txt`
+  - `memory_bench/logs/claimify_raw/{conv_id}__cXX.txt`
   - `memory_bench/logs/claimify_meta/{conv_id}.json`
 
-默认提示词来源：`memory_bench/docs/23_CLAIM_EXTRACTOR_PROMPT.md`。
+默认提示词：`memory_bench/docs/23_CLAIM_EXTRACTOR_PROMPT.md`
 
-### 7.2 CLI 帮助
+此外会维护 tag registry（用于候选 tag 复用，减少近义重复）：
+
+- registry 路径：`memory_bench/resources/tag_registry.json`
+- 行为：
+  - 文件不存在时：脚本会创建一个空 registry（version=1, tags=[]）再写入；
+  - 抽取成功后：会从本次产出的 Tag 实体增量更新 `tags[]` 的 count/first_seen/last_seen；
+  - 下次抽取时：会把 TopK 候选 tags 注入 prompt（见 prompt 中的 `[CANDIDATE_TAGS]`）。
+
+### 8.2 CLI 帮助
 
 ```bash
 uv run python memory_bench/scripts/claimify_all.py -h
 ```
 
-主要参数：
+关键参数：
 
-- `--input`（必填）：mem0 export JSONL 文件路径
+- `--input`（必填）：mem0 export JSONL
 - `--workers`：并发 conv 数
 - `--force`：覆盖重跑
-- `--only`：仅处理指定 conv_id（逗号分隔）
-- `--model`：LLM 模型名
+- `--only ch01,ch02`
+- `--model`
 - `--scene-id` / `--character-id`：输入强一致性校验（不一致直接失败）
+- `--max-items-per-chunk` / `--max-chars-per-chunk`：chunk 切分控制
 - `--out-dir`：输出根目录（默认 `memory_bench/data/claims`）
 
-### 7.3 常用示例
-
-1) 默认批量跑：
+### 8.3 常用示例
 
 ```bash
-uv run python memory_bench/scripts/claimify_all.py --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl
+uv run python memory_bench/scripts/claimify_all.py \
+  --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl
 ```
 
-2) 仅处理两个会话：
-
-```bash
-uv run python memory_bench/scripts/claimify_all.py --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl --only ch01,ch02
-```
-
-3) 强制覆盖重跑：
-
-```bash
-uv run python memory_bench/scripts/claimify_all.py --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl --force --workers 4
-```
-
-### 7.4 校验与返回码
-
-- 输出必须是严格 JSONL（不允许空行、markdown、非法 JSON）
-- `record_type` 仅允许 `entity` / `claim`
-- claim 的 `predicate/domain/status/confidence/evidence` 会做强校验
-- evidence 必须能回链到输入 memory item（point_id 或 `mem:<hash>`）
-
-返回码：
+### 8.4 返回码
 
 - `0`：全部 `ok` 或 `skipped`
 - `1`：任意 conv `failed`
 
-失败时会保留 raw/prompt/meta 日志，便于调试模型输出。
-
 ---
 
+## 9. `compiled_claims.py`
 
-## 8. `compiled_claims.py`
+### 9.1 作用
 
-### 8.1 作用
-
-将 `claimify_all.py` 产出的分会话文件（`memory_bench/data/claims/by_conv/*.jsonl`）做全量汇总，输出全局去重后的两份 JSONL（Neo4j 友好）：
+将 `claimify_all.py` 产出的 `memory_bench/data/claims/by_conv/*.jsonl` 全量汇总去重，输出：
 
 - `memory_bench/data/claims/compiled/entities.jsonl`
 - `memory_bench/data/claims/compiled/claims.jsonl`
-
-并输出汇总元信息：
-
 - `memory_bench/data/claims/compiled/compiled_meta.json`
 
-### 8.2 CLI 帮助
+### 9.2 调用方式（模块运行）
 
 ```bash
 uv run python -m memory_bench.scripts.compiled_claims -h
 ```
 
-主要参数：
-
-- `--in-dir`：输入目录（默认 `memory_bench/data/claims/by_conv`）
-- `--out-dir`：输出目录（默认 `memory_bench/data/claims/compiled`）
-- `--force`：允许覆盖输出
-
-### 8.3 常用示例
+常用：
 
 ```bash
-uv run python -m memory_bench.scripts.compiled_claims \
-  --in-dir memory_bench/data/claims/by_conv \
-  --out-dir memory_bench/data/claims/compiled \
-  --force
-```
-
-### 8.4 合并与去重规则（摘要）
-
-- 扫描顺序：按文件名字典序，文件内按行序；
-- Entity：`entity_id` 去重，`props` 冲突保留先到者，`aliases/tags` 稳定并集，`confidence=max`；
-- Claim：`claim_id` 去重，`status` 只要任一 active 则 active，`updated_at` 取较大字符串，`confidence=max`；
-- Claim rank：允许 `None -> int` 补全，若两边均为 int 且不同则报错；
-- Evidence：按 `point_id`（优先）或 `memory_item_id` 去重，最终按 `created_at` 排序。
-
-### 8.5 输出稳定性
-
-- `entities.jsonl`：按 `(entity_type, entity_id)` 排序；
-- `claims.jsonl`：按 `(domain, predicate, claim_id)` 排序；
-- JSONL 输出：`ensure_ascii=False, separators=(",", ":")`。
-
----
-
-## 9. `bench_logger.py`
-
-### 9.1 作用
-
-提供统一彩色日志封装（按 group + level 渲染），被 `build_index.py`、`annotate_all.py`、`compile_events.py` 与 `replay_mem0.py` 调用。
-
-### 9.2 如何使用（代码内）
-
-```python
-from bench_logger import logger
-
-log = logger.bind(group="memory")
-log.info("message")
-log.warning("warning message")
-```
-
-### 9.3 是否可独立执行
-
-- 不建议直接作为脚本运行（它是工具模块，不是 CLI）
-
-### 9.4 返回结果
-
-- 无单独“返回码”语义；由导入它的脚本负责进程退出逻辑。
-
----
-
-## 10. 一套可复制的完整流程（从原文到 Claim）
-
-```bash
-# 1) 先建索引
-uv run python memory_bench/scripts/build_index.py
-
-# 2) 查看标注脚本参数
-uv run python memory_bench/scripts/annotate_all.py -h
-
-# 3) 先小范围试跑
-uv run python memory_bench/scripts/annotate_all.py --only ch01 --workers 1
-
-# 4) 再全量跑
-uv run python memory_bench/scripts/annotate_all.py --workers 6
-
-# 5) 拼接为单一 all.jsonl
-uv run python memory_bench/scripts/compile_events.py
-
-# 6) 回放到 Mem0（输出 probe 检索日志）
-uv run python memory_bench/scripts/replay_mem0.py ingest
-
-# 7) 导出 memory export JSONL
-uv run python memory_bench/scripts/replay_mem0.py export
-
-# 8) 对 export 结果抽取 claim/entity
-uv run python memory_bench/scripts/claimify_all.py --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl
-
-# 9) 将 by_conv 汇总为全局 compiled JSONL
 uv run python -m memory_bench.scripts.compiled_claims --force
 ```
 
-完成后重点看：
+### 9.3 返回码
 
-- `memory_bench/data/events/by_chapter/*.jsonl`
-- `memory_bench/data/events/compiled/all.jsonl`
-- `memory_bench/logs/annotate_meta/*.json`
+- 正常：0
+- 输入/校验失败：抛异常（uv 会显示 traceback）
 
 ---
 
-## 11. 建议的维护方式
+## 10. `graphify_export.py`（V0 元数据归属图）
 
-- 以后新增脚本（例如 `patch_generator.py`）时，建议同步更新本文件：
-  - 脚本作用
-  - `uv run ... -h` 参数解释
-  - 输入/输出路径
-  - 退出码与失败排查
+### 10.1 作用
 
-这样可以避免“脚本变长后，大家不知道怎么用”的问题。
+消费 mem0 export JSONL，输出 V0 图谱结构（只做元数据归属图，不做语义抽取）：
+
+- nodes JSONL
+- edges JSONL
+- report JSON
+- 支持增量幂等：`state.sqlite` 记录 processed_key（payload.hash 优先，否则 point id）
+
+子命令：
+
+- `reset`：重建 state.sqlite，可选清理输出
+- `add`：增量写 nodes/edges + 更新 state
+- `dry-run`：只解析/统计，不写产物、不写 state
+
+### 10.2 CLI 帮助与示例
+
+```bash
+uv run python memory_bench/scripts/graphify_export.py -h
+```
+
+dry-run：
+
+```bash
+uv run python memory_bench/scripts/graphify_export.py dry-run \
+  --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl
+```
+
+add：
+
+```bash
+uv run python memory_bench/scripts/graphify_export.py add \
+  --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl \
+  --out-dir memory_bench/logs/replay_mem0/graphify \
+  --state-db memory_bench/state/graphify/state.sqlite
+```
+
+### 10.3 返回码
+
+- `0`：成功
+- `1`：失败（输入不可读/解析异常/strict 模式报错等）
+
+---
+
+## 11. `neo4j_export_cypher.py`
+
+### 11.1 作用
+
+将 graphify 输出的 nodes/edges JSONL 转为 Neo4j 可导入的 cypher：
+
+- `<prefix>_constraints.cypher`
+- `<prefix>_import.cypher`
+- `<prefix>_report.json`
+
+### 11.2 CLI 示例
+
+```bash
+uv run python memory_bench/scripts/neo4j_export_cypher.py \
+  --nodes memory_bench/logs/replay_mem0/graphify/graph_nodes_*.jsonl \
+  --edges memory_bench/logs/replay_mem0/graphify/graph_edges_*.jsonl \
+  --out-dir memory_bench/logs/replay_mem0/graphify/neo4j \
+  --prefix graph
+```
+
+---
+
+## 12. `graphify_pipeline.py`（推荐入口）
+
+### 12.1 作用
+
+一体化串联：
+
+- `graphify_export(add|dry-run)`
+- `neo4j_export_cypher`（仅 run 时默认启用，dry-run 固定跳过）
+
+### 12.2 调用方式（模块运行）
+
+```bash
+uv run python -m memory_bench.scripts.graphify_pipeline -h
+```
+
+run：
+
+```bash
+uv run python -m memory_bench.scripts.graphify_pipeline run \
+  --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl \
+  --out-dir memory_bench/logs/replay_mem0/graphify \
+  --state-db memory_bench/state/graphify/state.sqlite
+```
+
+dry-run：
+
+```bash
+uv run python -m memory_bench.scripts.graphify_pipeline dry-run \
+  --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl
+```
+
+reset：
+
+```bash
+uv run python -m memory_bench.scripts.graphify_pipeline reset \
+  --state-db memory_bench/state/graphify/state.sqlite \
+  --out-dir memory_bench/logs/replay_mem0/graphify \
+  --reset-output
+```
+
+---
+
+## 13. `neo4j_apply_cypher.py`
+
+### 13.1 作用
+
+将 `neo4j_export_cypher.py` 生成的 cypher 文件，一键导入指定 Neo4j docker 容器。
+
+目标实例枚举：
+
+- `mem0`
+- `zep`
+- `cognee`
+
+### 13.2 调用方式（模块运行）
+
+```bash
+uv run python -m memory_bench.scripts.neo4j_apply_cypher --dry-run mem0 graph
+```
+
+实际执行（示例）：
+
+```bash
+uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 \
+  memory_bench/logs/replay_mem0/graphify/neo4j graph
+```
+
+---
+
+## 14. 工具模块说明
+
+- `bench_logger.py`：统一彩色日志（被多数脚本复用），非 CLI
+- `tag_registry.py`：tag 归一化与候选选择工具（由 claimify 使用），非 CLI 主入口
+  - 默认 registry 文件：`memory_bench/resources/tag_registry.json`
+
+---
+
+## 15. 一套可复制的完整流程（从原文到 Claim + Graphify）
+
+```bash
+# 1) index
+uv run python memory_bench/scripts/build_index.py
+
+# 2) annotate
+uv run python memory_bench/scripts/annotate_all.py --only ch01 --workers 1
+uv run python memory_bench/scripts/annotate_all.py --workers 6
+
+# 3) compile
+uv run python memory_bench/scripts/compile_events.py
+
+# 4) mem0 ingest + export
+uv run python memory_bench/scripts/replay_mem0.py ingest
+uv run python memory_bench/scripts/replay_mem0.py export
+
+# 5) claimify + compile claims
+uv run python memory_bench/scripts/claimify_all.py \
+  --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl
+uv run python -m memory_bench.scripts.compiled_claims --force
+
+# 6) graphify + neo4j cypher
+uv run python -m memory_bench.scripts.graphify_pipeline run \
+  --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl \
+  --out-dir memory_bench/logs/replay_mem0/graphify \
+  --state-db memory_bench/state/graphify/state.sqlite
+```
+
+```
