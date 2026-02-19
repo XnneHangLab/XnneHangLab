@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from importlib.metadata import version
+
 import pytest
 
 
 def test_package_versions() -> None:
-    """测试核心包版本号是否符合预期。"""
+    """测试核心包版本号；funasr 用 metadata 取版号以避开重型导入。"""
 
-    import funasr
     import todo.__version__ as todo_version
     import uiya.__version__ as uiya_version
 
@@ -15,7 +16,8 @@ def test_package_versions() -> None:
     assert uiya_version.VERSION == "1.1.4", f"UIYA 版本应为 1.1.4，实际为 {uiya_version.VERSION}"
     assert todo_version.VERSION == "0.1.0", f"TODO 版本应为 0.1.0，实际为 {todo_version.VERSION}"
     assert VERSION == "0.0.5", f"LAB 版本应为 0.0.5，实际为 {VERSION}"
-    assert funasr.__version__ == "1.2.6", f"funasr 版本应为 1.2.6，实际为 {funasr.__version__}"
+    # 避免直接 import funasr：其 __init__ 会递归导入大量子模块，pytest 下成本会被放大。
+    assert version("funasr") == "1.2.6"
 
 
 def test_mem0_runtime_version() -> None:
