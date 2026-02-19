@@ -292,7 +292,11 @@ uv run python memory_bench/scripts/replay_mem0.py export
 
 此外会维护 tag registry（用于候选 tag 复用，减少近义重复）：
 
-- `memory_bench/resources/tag_registry.json`
+- registry 路径：`memory_bench/resources/tag_registry.json`
+- 行为：
+  - 文件不存在时：脚本会创建一个空 registry（version=1, tags=[]）再写入；
+  - 抽取成功后：会从本次产出的 Tag 实体增量更新 `tags[]` 的 count/first_seen/last_seen；
+  - 下次抽取时：会把 TopK 候选 tags 注入 prompt（见 prompt 中的 `[CANDIDATE_TAGS]`）。
 
 ### 8.2 CLI 帮助
 
@@ -495,6 +499,7 @@ uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 \
 
 - `bench_logger.py`：统一彩色日志（被多数脚本复用），非 CLI
 - `tag_registry.py`：tag 归一化与候选选择工具（由 claimify 使用），非 CLI 主入口
+  - 默认 registry 文件：`memory_bench/resources/tag_registry.json`
 
 ---
 

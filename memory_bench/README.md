@@ -42,6 +42,8 @@ memory_bench/
 │  ├─ graphify_pipeline.py
 │  ├─ neo4j_export_cypher.py
 │  └─ neo4j_apply_cypher.py
+├─ resources/
+│  └─ tag_registry.json
 ├─ data/
 │  ├─ source/
 │  │  ├─ index.json
@@ -141,6 +143,12 @@ uv run python memory_bench/scripts/replay_mem0.py export
 uv run python memory_bench/scripts/claimify_all.py \
   --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl
 
+说明：
+- `claimify_all.py` 会维护一个 Tag 归一化/复用用的注册表：
+  `memory_bench/resources/tag_registry.json`
+- 该文件用于向 LLM 提供 TopK 候选 canonical tags，减少近义重复 Tag。
+- 初始可为空；首次运行后会自动写入/更新。
+
 # 7) 汇总 by_conv 到全局 compiled（Neo4j 友好）
 uv run python -m memory_bench.scripts.compiled_claims --force
 ```
@@ -185,6 +193,7 @@ uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 \
 - `compile_events.py`：按 index 顺序拼接 → `events/compiled/all.jsonl`
 - `replay_mem0.py`：ingest/probe/export（本地 qdrant 持久化 + checkpoint）
 - `claimify_all.py`：mem0 export → claim/entity JSONL（by_conv + chunk 日志）+ tag registry 复用
+  - registry：`memory_bench/resources/tag_registry.json`
 - `compiled_claims.py`：by_conv 汇总去重 → compiled entities/claims
 - `graphify_export.py`：mem0 export → V0 graph nodes/edges（增量/幂等）
 - `neo4j_export_cypher.py`：nodes/edges JSONL → Neo4j cypher 脚本
