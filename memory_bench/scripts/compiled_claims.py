@@ -84,10 +84,19 @@ def _validate_entity(entity_obj: dict[str, Any]) -> None:
         raise ValueError("entity_type must be a non-empty string")
     if not isinstance(entity_obj["props"], dict):
         raise ValueError("entity props must be a dict")
+    confidence = entity_obj["confidence"]
+    if not isinstance(confidence, (int, float)):
+        raise ValueError("entity confidence must be a number")
+    if not 0 <= float(confidence) <= 1:
+        raise ValueError("entity confidence must be in range [0, 1]")
     if not isinstance(entity_obj["aliases"], list):
         raise ValueError("entity aliases must be a list")
+    if any(not isinstance(item, str) for item in entity_obj["aliases"]):
+        raise ValueError("entity aliases must be list[str]")
     if not isinstance(entity_obj["tags"], list):
         raise ValueError("entity tags must be a list")
+    if any(not isinstance(item, str) for item in entity_obj["tags"]):
+        raise ValueError("entity tags must be list[str]")
 
 
 def _validate_claim(claim_obj: dict[str, Any]) -> None:
@@ -107,6 +116,11 @@ def _validate_claim(claim_obj: dict[str, Any]) -> None:
             raise ValueError(f"claim {key}.entity_type must be non-empty string")
         if not isinstance(value.get("entity_id"), str) or not value.get("entity_id"):
             raise ValueError(f"claim {key}.entity_id must be non-empty string")
+    confidence = claim_obj["confidence"]
+    if not isinstance(confidence, (int, float)):
+        raise ValueError("claim confidence must be a number")
+    if not 0 <= float(confidence) <= 1:
+        raise ValueError("claim confidence must be in range [0, 1]")
     if claim_obj["status"] not in {"active", "candidate"}:
         raise ValueError(f"invalid claim status: {claim_obj['status']}")
     rank = claim_obj["rank"]
@@ -114,11 +128,17 @@ def _validate_claim(claim_obj: dict[str, Any]) -> None:
         raise ValueError("claim rank must be int or null")
     if not isinstance(claim_obj["evidence"], list):
         raise ValueError("claim evidence must be a list")
+    if not claim_obj["evidence"]:
+        raise ValueError("claim evidence must be a non-empty list")
     for evidence in claim_obj["evidence"]:
         if not isinstance(evidence, dict):
             raise ValueError("claim evidence item must be object")
         point_id = evidence.get("point_id")
         memory_item_id = evidence.get("memory_item_id")
+        if point_id is not None and (not isinstance(point_id, str) or not point_id.strip()):
+            raise ValueError("claim evidence point_id must be a non-empty string when provided")
+        if memory_item_id is not None and (not isinstance(memory_item_id, str) or not memory_item_id.strip()):
+            raise ValueError("claim evidence memory_item_id must be a non-empty string when provided")
         if not point_id and not memory_item_id:
             raise ValueError("claim evidence item must include point_id or memory_item_id")
 
