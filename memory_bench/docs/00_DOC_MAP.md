@@ -18,9 +18,11 @@
    - 场景宪法：`chill_ai_chat` 的世界边界、主题范围与一致性约束。
 7. `22_PERSONA_CANON.md`
    - 角色圣典：聪音的人设事实、风格与行为边界。
-8. `30_GENERATOR_PROMPT.md`
+8. `23_CLAIM_EXTRACTOR_PROMPT.md`
+   - Claim/Entity 抽取提示词（Mem0 export → claim/entity JSONL）。
+9. `30_GENERATOR_PROMPT.md`
    - 评测 patch 生成提示词（inject/probe/filler）。
-9. `40_ANCHORS_AND_TEMPLATES.md`
+10. `40_ANCHORS_AND_TEMPLATES.md`
    - Event JSONL schema、锚点规范、命名规则。
 
 ## 推荐阅读顺序
@@ -30,8 +32,9 @@
 - 第二步：`22_PERSONA_CANON.md`
 - 第三步：`10_SYSTEM_PROMPTS.md`
 - 第四步：`20_ANNOTATOR_PROMPT.md`
-- 第五步：`40_ANCHORS_AND_TEMPLATES.md`
-- 第六步：`30_GENERATOR_PROMPT.md`
+- 第五步：`23_CLAIM_EXTRACTOR_PROMPT.md`
+- 第六步：`40_ANCHORS_AND_TEMPLATES.md`
+- 第七步：`30_GENERATOR_PROMPT.md`
 
 ## 职责分工（Docs Responsibilities）
 
@@ -44,6 +47,9 @@
 - `20_ANNOTATOR_PROMPT.md`
   - 约束标注产出为可解析、可重放的事件 JSONL。
   - 统一 `turn_id`、`role_type`、`tags`、`meta` 等字段语义。
+- `23_CLAIM_EXTRACTOR_PROMPT.md`
+  - 约束 Mem0 memory export 到 Claim/Entity JSONL 的抽取规则。
+  - 统一 entity/predicate 白名单、evidence 回链、confidence/status 约束。
 - `30_GENERATOR_PROMPT.md`
   - 约束评测 patch 的生成类型、数量下限与 expected 结构。
   - 保证 probe 覆盖 recall / persona-style / scene-boundary。
