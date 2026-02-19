@@ -4,6 +4,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -122,3 +124,79 @@ def test_compiled_claims_end_to_end(tmp_path: Path, monkeypatch) -> None:
     assert meta["records_read"] == 4
     assert meta["entities_count"] == 1
     assert meta["claims_count"] == 1
+
+
+def test_compiled_claims_rank_conflict_raises(tmp_path: Path, monkeypatch) -> None:
+    in_dir = tmp_path / "by_conv"
+    out_dir = tmp_path / "compiled"
+    in_dir.mkdir(parents=True)
+
+    claim_id = "claim:PREFERS_TOPIC|daily|agent:congyin|topic:马克杯"
+    base_claim = {
+        "record_type": "claim",
+        "claim_id": claim_id,
+        "predicate": "PREFERS_TOPIC",
+        "subject": {"entity_type": "Agent", "entity_id": "agent:congyin"},
+        "object": {"entity_type": "Topic", "entity_id": "topic:马克杯"},
+        "domain": "daily",
+        "confidence": 0.8,
+        "status": "active",
+        "updated_at": "2026-02-19T04:31:36.222172-08:00",
+        "evidence": [{"memory_item_id": "mem:a", "point_id": "point-1", "created_at": "2026-02-19T00:00:00+00:00"}],
+    }
+    claim_rank_1 = {**base_claim, "rank": 1}
+    claim_rank_2 = {
+        **base_claim,
+        "rank": 2,
+        "evidence": [{"memory_item_id": "mem:b", "point_id": "point-2", "created_at": "2026-02-20T00:00:00+00:00"}],
+    }
+
+    (in_dir / "ch01.jsonl").write_text(json.dumps(claim_rank_1, ensure_ascii=False) + "\n", encoding="utf-8")
+    (in_dir / "ch02.jsonl").write_text(json.dumps(claim_rank_2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["compiled_claims", "--in-dir", str(in_dir), "--out-dir", str(out_dir), "--force"],
+    )
+
+    with pytest.raises(ValueError, match="rank mismatch|claim"):
+        main()
+
+
+def test_compiled_claims_predicate_mismatch_raises(tmp_path: Path, monkeypatch) -> None:
+    in_dir = tmp_path / "by_conv"
+    out_dir = tmp_path / "compiled"
+    in_dir.mkdir(parents=True)
+
+    claim_id = "claim:PREFERS_TOPIC|daily|agent:congyin|topic:马克杯"
+    claim_a = {
+        "record_type": "claim",
+        "claim_id": claim_id,
+        "predicate": "PREFERS_TOPIC",
+        "subject": {"entity_type": "Agent", "entity_id": "agent:congyin"},
+        "object": {"entity_type": "Topic", "entity_id": "topic:马克杯"},
+        "domain": "daily",
+        "confidence": 0.8,
+        "status": "active",
+        "rank": None,
+        "updated_at": "2026-02-19T04:31:36.222172-08:00",
+        "evidence": [{"memory_item_id": "mem:a", "point_id": "point-1", "created_at": "2026-02-19T00:00:00+00:00"}],
+    }
+    claim_b = {
+        **claim_a,
+        "predicate": "SELF_TRAIT",
+        "evidence": [{"memory_item_id": "mem:b", "point_id": "point-2", "created_at": "2026-02-20T00:00:00+00:00"}],
+    }
+
+    (in_dir / "ch01.jsonl").write_text(json.dumps(claim_a, ensure_ascii=False) + "\n", encoding="utf-8")
+    (in_dir / "ch02.jsonl").write_text(json.dumps(claim_b, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["compiled_claims", "--in-dir", str(in_dir), "--out-dir", str(out_dir), "--force"],
+    )
+
+    with pytest.raises(ValueError, match="claim_id=.*mismatch on predicate"):
+        main()
