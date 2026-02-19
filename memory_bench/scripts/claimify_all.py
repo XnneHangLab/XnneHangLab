@@ -30,6 +30,7 @@ ALLOWED_PREDICATES = {
     "PREFERS_TOPIC",
 }
 REQUIRED_PAYLOAD_KEYS = ["conv_id", "hash", "data", "created_at", "scene_id", "character_id"]
+DROPPED_PREDICATE = "AUTHOR_WROTE_WORK"
 
 
 class ClaimifyError(RuntimeError):
@@ -306,7 +307,7 @@ def validate_jsonl_output(
     scene_id: str,
     character_id: str,
     input_items: list[ParsedMemoryLine],
-) -> list[str]:
+) -> tuple[list[str], dict[str, int]]:
     if not raw_output.strip():
         raise ClaimifyError(f"[{conv_id}] file_line=0: model output is empty")
     if "```" in raw_output:
@@ -315,6 +316,7 @@ def validate_jsonl_output(
     input_point_ids = {str(item.obj["id"]) for item in input_items}
     input_hashes = {str(item.obj["payload"]["hash"]) for item in input_items}
     validated_lines: list[str] = []
+    dropped_claims: dict[str, int] = {}
     non_empty_lines: list[tuple[int, str]] = [
         (file_line, line)
         for file_line, line in enumerate(raw_output.splitlines(), start=1)
@@ -337,9 +339,14 @@ def validate_jsonl_output(
             raise ClaimifyError(f"[{conv_id}] file_line={file_line}: invalid record_type")
         if rt == "entity":
             _validate_entity(obj, conv_id, file_line)
-        else:
-            _validate_claim(obj, conv_id, scene_id, input_point_ids, input_hashes, file_line)
+            validated_lines.append(line)
+            continue
 
+        if obj.get("predicate") == DROPPED_PREDICATE:
+            dropped_claims[DROPPED_PREDICATE] = dropped_claims.get(DROPPED_PREDICATE, 0) + 1
+            continue
+
+        _validate_claim(obj, conv_id, scene_id, input_point_ids, input_hashes, file_line)
         validated_lines.append(line)
 
     if not validated_lines:
@@ -352,7 +359,7 @@ def validate_jsonl_output(
         if payload["character_id"] != character_id:
             raise ClaimifyError(f"[{conv_id}] input payload.character_id inconsistent within conv")
 
-    return validated_lines
+    return validated_lines, dropped_claims
 
 
 def write_atomic(path: Path, content: str) -> None:
@@ -422,7 +429,7 @@ def process_one(
         raw_output = call_llm(prompt, model)
         write_atomic(raw_log, raw_output)
 
-        lines = validate_jsonl_output(
+        lines, dropped_claims = validate_jsonl_output(
             raw_output,
             conv_id=conv_id,
             scene_id=scene_id,
@@ -430,6 +437,9 @@ def process_one(
             input_items=job.items,
         )
         write_atomic(final_jsonl, "\n".join(lines) + "\n")
+
+        if dropped_claims:
+            meta["dropped"] = dropped_claims
 
         meta["status"] = "ok"
         meta["duration_ms"] = int(time.time() * 1000) - start_ms
