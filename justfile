@@ -140,8 +140,8 @@ install-gsv-model:
 # Code Quality Check
 
 fmt: # 似乎不会检查被 .gitignore 忽略的文件
-  uv run ruff check --fix --select I . --exclude packages
-  uv run ruff format . --exclude packages
+  uv run ruff check --fix --select I . --exclude packages --exclude .git
+  uv run ruff format . --exclude packages --exclude .git
 
 lint:
   uv run pyright src/lab tests
