@@ -184,6 +184,15 @@ def build_jobs(parsed_lines: list[ParsedMemoryLine], only_set: set[str] | None) 
 
 
 def _format_candidate_tags_block(candidates: list[dict[str, str]]) -> str:
+    """构造注入到 prompt 的候选 Tag 文本块。
+
+    Args:
+        candidates: 候选 canonical tag 列表。
+
+    Returns:
+        str: 可直接拼接进 prompt 的文本。
+    """
+
     lines = [
         "[CANDIDATE_TAGS]",
         "CANDIDATE_TAGS (canonical, prefer reusing these; do not create near-duplicates):",
@@ -198,7 +207,16 @@ def _format_candidate_tags_block(candidates: list[dict[str, str]]) -> str:
 
 
 def chunk_items(items: list[ParsedMemoryLine], max_items: int, max_chars: int) -> list[list[ParsedMemoryLine]]:
-    """Split items into ordered chunks with item-count and char-count limits."""
+    """按顺序切分 MemoryItem 列表为多个 chunk。
+
+    Args:
+        items: 待切分的输入记录。
+        max_items: 每个 chunk 最多包含的记录数。
+        max_chars: 每个 chunk 最多包含的原始字符数（按 raw_line 近似）。
+
+    Returns:
+        list[list[ParsedMemoryLine]]: 切分后的 chunk 列表，且不包含空 chunk。
+    """
 
     if max_items <= 0:
         raise ClaimifyError("max_items_per_chunk must be > 0")
@@ -370,7 +388,14 @@ def _validate_claim(
 
 
 def compute_canonical_claim_id(obj: dict[str, Any]) -> str:
-    """Return deterministic claim_id: claim:{predicate}|{domain}|{subject.entity_id}|{object.entity_id}."""
+    """计算可重算、跨 chunk 稳定的 canonical claim_id。
+
+    Args:
+        obj: 已通过 claim schema 校验的记录对象。
+
+    Returns:
+        str: 格式为 `claim:{predicate}|{domain}|{subject.entity_id}|{object.entity_id}` 的 ID。
+    """
 
     predicate = obj.get("predicate")
     domain = obj.get("domain")
@@ -405,6 +430,15 @@ def _stable_union(base: list[str], incoming: list[str]) -> list[str]:
 
 
 def _canonicalize_tag_records(objs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """将 records 中的 Tag 实体与 claim.object 统一改写为 canonical tag_id。
+
+    Args:
+        objs: 待改写的 records。
+
+    Returns:
+        list[dict[str, Any]]: 改写后的 records 副本。
+    """
+
     rewritten: list[dict[str, Any]] = []
     tag_id_map: dict[str, str] = {}
 
@@ -449,6 +483,16 @@ def _canonicalize_tag_records(objs: list[dict[str, Any]]) -> list[dict[str, Any]
 
 
 def normalize_records(objs: list[dict[str, Any]], conv_id: str) -> list[dict[str, Any]]:
+    """对单个 conv 的 records 做全局归一化与去重合并。
+
+    Args:
+        objs: 校验通过后的 records。
+        conv_id: 当前 conv_id。
+
+    Returns:
+        list[dict[str, Any]]: 稳定排序后的归一化 records。
+    """
+
     canonical_objs = _canonicalize_tag_records(objs)
     entities: dict[str, dict[str, Any]] = {}
     claims: dict[str, dict[str, Any]] = {}
@@ -649,6 +693,25 @@ def process_one(
     max_items_per_chunk: int,
     max_chars_per_chunk: int,
 ) -> JobResult:
+    """处理单个 conv：按 chunk 调用 LLM，并输出单一归并结果。
+
+    Args:
+        repo_root: 仓库根目录。
+        prompt_base: 抽取基础提示词。
+        input_path: 输入 JSONL 路径。
+        out_root: claims 输出根目录。
+        job: 当前 conv 任务。
+        model: LLM 模型名。
+        force: 是否强制覆盖。
+        workers: 并发 worker 数（写入 meta）。
+        tag_registry: 当前 tag registry。
+        max_items_per_chunk: 每个 chunk 的最大条目数。
+        max_chars_per_chunk: 每个 chunk 的最大字符数。
+
+    Returns:
+        JobResult: 当前 conv 的处理结果。
+    """
+
     conv_id = job.conv_id
     log = logger.bind(group="memory")
 

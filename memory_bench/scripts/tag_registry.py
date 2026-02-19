@@ -33,10 +33,25 @@ QUOTE_CHARS = "《》“”\"''"
 
 
 def _now_iso() -> str:
+    """生成当前 UTC 时间的 ISO8601 字符串。
+
+    Returns:
+        str: 形如 `YYYY-MM-DDTHH:MM:SSZ` 的时间字符串。
+    """
+
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def load_tag_registry(path: Path) -> dict[str, Any]:
+    """加载 Tag Registry；文件不存在时返回空 registry。
+
+    Args:
+        path: registry 文件路径。
+
+    Returns:
+        dict[str, Any]: registry 字典，至少包含 `version/updated_at/tags`。
+    """
+
     if not path.exists():
         return {"version": 1, "updated_at": _now_iso(), "tags": []}
 
@@ -52,12 +67,28 @@ def load_tag_registry(path: Path) -> dict[str, Any]:
 
 
 def save_tag_registry(path: Path, registry_dict: dict[str, Any]) -> None:
+    """保存 Tag Registry 到磁盘。
+
+    Args:
+        path: registry 文件路径。
+        registry_dict: 待保存的 registry 数据。
+    """
+
     path.parent.mkdir(parents=True, exist_ok=True)
     registry_dict["updated_at"] = _now_iso()
     path.write_text(json.dumps(registry_dict, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def normalize_tag_name(name: str) -> str:
+    """对 Tag 名称执行确定性去语境清洗。
+
+    Args:
+        name: 原始 tag 名称文本。
+
+    Returns:
+        str: 清洗后的核心短语。
+    """
+
     value = str(name or "")
     for ch in QUOTE_CHARS:
         value = value.replace(ch, "")
@@ -76,11 +107,30 @@ def normalize_tag_name(name: str) -> str:
 
 
 def canonical_tag_id(name: str) -> str:
+    """将 Tag 名称转换为 canonical tag_id。
+
+    Args:
+        name: 原始或已清洗的 tag 名称。
+
+    Returns:
+        str: 规范化后的 `tag:{name}`。
+    """
+
     normalized = normalize_tag_name(name)
     return f"tag:{normalized}"
 
 
 def update_registry_from_records(registry: dict[str, Any], records: list[dict[str, Any]]) -> dict[str, Any]:
+    """根据本次抽取记录增量更新 registry。
+
+    Args:
+        registry: 现有 registry。
+        records: 本次写出的 records（entity/claim）。
+
+    Returns:
+        dict[str, Any]: 更新后的 registry。
+    """
+
     tags = registry.setdefault("tags", [])
     tag_by_id = {
         str(item.get("tag_id")): item
@@ -123,6 +173,17 @@ def update_registry_from_records(registry: dict[str, Any], records: list[dict[st
 
 
 def select_topk_tags_for_chunk(registry: dict[str, Any], chunk_text: str, k: int = 20) -> list[dict[str, Any]]:
+    """为一个 chunk 选择最相关的 TopK canonical tags。
+
+    Args:
+        registry: 当前 tag registry。
+        chunk_text: 当前 chunk 的文本内容。
+        k: 返回候选数量上限。
+
+    Returns:
+        list[dict[str, Any]]: 候选列表，元素至少包含 `tag_id` 与 `name`。
+    """
+
     tags = registry.get("tags") if isinstance(registry, dict) else []
     if not isinstance(tags, list):
         return []
