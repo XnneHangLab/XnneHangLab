@@ -388,6 +388,7 @@ def _canonicalize_tag_records(objs: list[dict[str, Any]]) -> list[dict[str, Any]
             item["entity_id"] = canonical_id
             if isinstance(item.get("props"), dict):
                 item["props"]["name"] = normalized
+                item["props"]["display"] = normalized
             rewritten.append(item)
             continue
 
@@ -479,8 +480,12 @@ def normalize_records(objs: list[dict[str, Any]], conv_id: str) -> list[dict[str
             raise ClaimifyError(f"[{conv_id}] claim merge conflict: subject.entity_id mismatch for claim_id={claim_id!r}")
         if current["object"].get("entity_id") != obj["object"].get("entity_id"):
             raise ClaimifyError(f"[{conv_id}] claim merge conflict: object.entity_id mismatch for claim_id={claim_id!r}")
-        if current["rank"] != obj["rank"]:
+        current_rank = current["rank"]
+        incoming_rank = obj["rank"]
+        if current_rank is not None and incoming_rank is not None and current_rank != incoming_rank:
             raise ClaimifyError(f"[{conv_id}] claim merge conflict: rank mismatch for claim_id={claim_id!r}")
+        if current_rank is None and incoming_rank is not None:
+            current["rank"] = incoming_rank
 
         current["confidence"] = max(float(current["confidence"]), float(obj["confidence"]))
         current["status"] = "active" if current["status"] == "active" or obj["status"] == "active" else "candidate"
