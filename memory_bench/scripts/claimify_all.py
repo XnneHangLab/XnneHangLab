@@ -305,6 +305,31 @@ def _validate_claim(
 
 
 
+def compute_canonical_claim_id(obj: dict[str, Any]) -> str:
+    """Return deterministic claim_id: claim:{predicate}|{domain}|{subject.entity_id}|{object.entity_id}."""
+
+    predicate = obj.get("predicate")
+    domain = obj.get("domain")
+    subject = obj.get("subject")
+    object_ = obj.get("object")
+
+    if not isinstance(predicate, str) or not predicate.strip():
+        raise ClaimifyError("canonical claim_id requires non-empty predicate")
+    if not isinstance(domain, str) or not domain.strip():
+        raise ClaimifyError("canonical claim_id requires non-empty domain")
+    if not isinstance(subject, dict) or not isinstance(object_, dict):
+        raise ClaimifyError("canonical claim_id requires subject/object")
+
+    subject_id = subject.get("entity_id")
+    object_id = object_.get("entity_id")
+    if not isinstance(subject_id, str) or not subject_id.strip():
+        raise ClaimifyError("canonical claim_id requires non-empty subject.entity_id")
+    if not isinstance(object_id, str) or not object_id.strip():
+        raise ClaimifyError("canonical claim_id requires non-empty object.entity_id")
+
+    return f"claim:{predicate}|{domain}|{subject_id}|{object_id}"
+
+
 def _stable_union(base: list[str], incoming: list[str]) -> list[str]:
     merged = list(base)
     seen = set(base)
@@ -347,7 +372,8 @@ def normalize_records(objs: list[dict[str, Any]], conv_id: str) -> list[dict[str
             current["confidence"] = max(float(current["confidence"]), float(obj["confidence"]))
             continue
 
-        claim_id = str(obj["claim_id"])
+        claim_id = compute_canonical_claim_id(obj)
+        obj["claim_id"] = claim_id
         if claim_id not in claims:
             claim = {
                 "record_type": "claim",
@@ -374,9 +400,16 @@ def normalize_records(objs: list[dict[str, Any]], conv_id: str) -> list[dict[str
             continue
 
         current = claims[claim_id]
-        for field in ("predicate", "subject", "object", "domain", "rank"):
+        for field in ("predicate", "subject", "object", "domain"):
             if current[field] != obj[field]:
                 raise ClaimifyError(f"[{conv_id}] claim merge conflict: {field} mismatch for claim_id={claim_id!r}")
+
+        if current["subject"].get("entity_id") != obj["subject"].get("entity_id"):
+            raise ClaimifyError(f"[{conv_id}] claim merge conflict: subject.entity_id mismatch for claim_id={claim_id!r}")
+        if current["object"].get("entity_id") != obj["object"].get("entity_id"):
+            raise ClaimifyError(f"[{conv_id}] claim merge conflict: object.entity_id mismatch for claim_id={claim_id!r}")
+        if current["rank"] != obj["rank"]:
+            raise ClaimifyError(f"[{conv_id}] claim merge conflict: rank mismatch for claim_id={claim_id!r}")
 
         current["confidence"] = max(float(current["confidence"]), float(obj["confidence"]))
         current["status"] = "active" if current["status"] == "active" or obj["status"] == "active" else "candidate"
