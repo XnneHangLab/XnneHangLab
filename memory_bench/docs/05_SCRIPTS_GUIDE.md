@@ -260,6 +260,18 @@ uv run python memory_bench/scripts/compile_events.py --chapters ch01,ch02
 uv run python memory_bench/scripts/compile_events.py --out memory_bench/data/events/compiled/custom_all.jsonl
 ```
 
+### 5.4 返回码
+
+- `0`：编译成功
+- `1`：任意校验失败
+
+### 5.5 原子写与覆写日志
+
+- 先写 `*.tmp`，成功后 `os.replace` 原子替换
+- 若目标文件已存在，替换前会输出变更摘要：
+  - 无变更：`no content change`
+  - 有变更：`(++ X, -- Y)`
+
 ---
 
 ## 6. `claimify_all.py`
@@ -326,23 +338,11 @@ uv run python memory_bench/scripts/claimify_all.py --input memory_bench/logs/rep
 
 失败时会保留 raw/prompt/meta 日志，便于调试模型输出。
 
-### 5.4 返回码
-
-- `0`：编译成功
-- `1`：任意校验失败
-
-### 5.5 原子写与覆写日志
-
-- 先写 `*.tmp`，成功后 `os.replace` 原子替换
-- 若目标文件已存在，替换前会输出变更摘要：
-  - 无变更：`no content change`
-  - 有变更：`(++ X, -- Y)`
-
 ---
 
-## 6. `replay_mem0.py`
+## 7. `replay_mem0.py`
 
-### 6.1 作用
+### 7.1 作用
 
 将 benchmark 事件 JSONL 回放流程拆分为 3 个子命令：
 
@@ -362,7 +362,7 @@ Mem0 使用本地持久化 Qdrant 向量存储（默认 `memory_bench/state/qdra
   - `export` 默认输出 `memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl`
   - `ingest` checkpoint 默认写入 `memory_bench/state/*.checkpoint.json`
 
-### 6.2 CLI 帮助
+### 7.2 CLI 帮助
 
 ```bash
 uv run python memory_bench/scripts/replay_mem0.py -h
@@ -398,7 +398,7 @@ uv run python memory_bench/scripts/replay_mem0.py -h
 
 Mem0 默认将 llm/embedder 显式注入配置；且不依赖 Mem0 对 `OPENAI_BASE_URL` 的隐式读取。
 
-### 6.3 运行示例
+### 7.3 运行示例
 
 1) 增量 ingest（默认输入）：
 
@@ -424,7 +424,7 @@ uv run python memory_bench/scripts/replay_mem0.py ingest --isolation per_chapter
 uv run python memory_bench/scripts/replay_mem0.py export
 ```
 
-### 6.4 probe 日志字段
+### 7.4 probe 日志字段
 
 每条 probe 写一行 JSON，核心字段包括：
 
@@ -436,7 +436,7 @@ uv run python memory_bench/scripts/replay_mem0.py export
 - `hits_preview`（仅 top-k 预览，含可溯源 metadata）
 - `latency_ms`
 
-### 6.5 checkpoint 机制（ingest）
+### 7.5 checkpoint 机制（ingest）
 
 checkpoint 文件默认位于：
 
@@ -453,7 +453,7 @@ checkpoint 文件默认位于：
 
 若输入文件 hash 变化，脚本会报错并提示使用 `--force` 从头 ingest。
 
-### 6.6 返回码与常见问题
+### 7.6 返回码与常见问题
 
 - `0`：回放成功
 - `1`：输入文件缺失、JSON 非法、probe query 为空、或 Mem0 依赖不可用
@@ -466,13 +466,13 @@ checkpoint 文件默认位于：
 
 ---
 
-## 7. `bench_logger.py`
+## 8. `bench_logger.py`
 
-### 7.1 作用
+### 8.1 作用
 
 提供统一彩色日志封装（按 group + level 渲染），被 `build_index.py`、`annotate_all.py`、`compile_events.py` 与 `replay_mem0.py` 调用。
 
-### 7.2 如何使用（代码内）
+### 8.2 如何使用（代码内）
 
 ```python
 from bench_logger import logger
@@ -482,17 +482,17 @@ log.info("message")
 log.warning("warning message")
 ```
 
-### 7.3 是否可独立执行
+### 8.3 是否可独立执行
 
 - 不建议直接作为脚本运行（它是工具模块，不是 CLI）
 
-### 7.4 返回结果
+### 8.4 返回结果
 
 - 无单独“返回码”语义；由导入它的脚本负责进程退出逻辑。
 
 ---
 
-## 8. 一套可复制的完整流程（从原文到事件）
+## 9. 一套可复制的完整流程（从原文到 Claim）
 
 ```bash
 # 1) 先建索引
@@ -511,7 +511,13 @@ uv run python memory_bench/scripts/annotate_all.py --workers 6
 uv run python memory_bench/scripts/compile_events.py
 
 # 6) 回放到 Mem0（输出 probe 检索日志）
-uv run python memory_bench/scripts/replay_mem0.py
+uv run python memory_bench/scripts/replay_mem0.py ingest
+
+# 7) 导出 memory export JSONL
+uv run python memory_bench/scripts/replay_mem0.py export
+
+# 8) 对 export 结果抽取 claim/entity
+uv run python memory_bench/scripts/claimify_all.py --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl
 ```
 
 完成后重点看：
@@ -522,7 +528,7 @@ uv run python memory_bench/scripts/replay_mem0.py
 
 ---
 
-## 9. 建议的维护方式
+## 10. 建议的维护方式
 
 - 以后新增脚本（例如 `patch_generator.py`）时，建议同步更新本文件：
   - 脚本作用
