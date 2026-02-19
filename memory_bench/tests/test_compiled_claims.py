@@ -88,7 +88,9 @@ def test_compiled_claims_end_to_end(tmp_path: Path, monkeypatch: MonkeyPatch) ->
         },
     ]
 
-    (in_dir / "ch09.jsonl").write_text("\n".join(json.dumps(item, ensure_ascii=False) for item in ch09) + "\n", encoding="utf-8")
+    (in_dir / "ch09.jsonl").write_text(
+        "\n".join(json.dumps(item, ensure_ascii=False) for item in ch09) + "\n", encoding="utf-8"
+    )
     (in_dir / "ch9998.jsonl").write_text(
         "\n".join(json.dumps(item, ensure_ascii=False) for item in ch9998) + "\n", encoding="utf-8"
     )
