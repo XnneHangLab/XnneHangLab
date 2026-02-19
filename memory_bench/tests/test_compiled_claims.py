@@ -3,8 +3,12 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import pytest
+
+if TYPE_CHECKING:
+    from _pytest.monkeypatch import MonkeyPatch
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
@@ -13,12 +17,12 @@ if str(ROOT) not in sys.path:
 from memory_bench.scripts.compiled_claims import main  # noqa: E402
 
 
-def test_compiled_claims_end_to_end(tmp_path: Path, monkeypatch) -> None:
+def test_compiled_claims_end_to_end(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     in_dir = tmp_path / "by_conv"
     out_dir = tmp_path / "compiled"
     in_dir.mkdir(parents=True)
 
-    ch09 = [
+    ch09: list[dict[str, Any]] = [
         {
             "record_type": "entity",
             "entity_type": "Agent",
@@ -48,7 +52,7 @@ def test_compiled_claims_end_to_end(tmp_path: Path, monkeypatch) -> None:
             ],
         },
     ]
-    ch9998 = [
+    ch9998: list[dict[str, Any]] = [
         {
             "record_type": "entity",
             "entity_type": "Agent",
@@ -126,7 +130,7 @@ def test_compiled_claims_end_to_end(tmp_path: Path, monkeypatch) -> None:
     assert meta["claims_count"] == 1
 
 
-def test_compiled_claims_rank_conflict_raises(tmp_path: Path, monkeypatch) -> None:
+def test_compiled_claims_rank_conflict_raises(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     in_dir = tmp_path / "by_conv"
     out_dir = tmp_path / "compiled"
     in_dir.mkdir(parents=True)
@@ -164,7 +168,7 @@ def test_compiled_claims_rank_conflict_raises(tmp_path: Path, monkeypatch) -> No
         main()
 
 
-def test_compiled_claims_predicate_mismatch_raises(tmp_path: Path, monkeypatch) -> None:
+def test_compiled_claims_predicate_mismatch_raises(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     in_dir = tmp_path / "by_conv"
     out_dir = tmp_path / "compiled"
     in_dir.mkdir(parents=True)

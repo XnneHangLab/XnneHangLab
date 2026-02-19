@@ -12,7 +12,7 @@ import json
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from memory_bench.scripts.bench_logger import logger
 
@@ -35,7 +35,7 @@ log = logger.bind(group="memory")
 
 
 def parse_args() -> argparse.Namespace:
-    """解析命令行参数。 
+    """解析命令行参数。
 
     Returns:
         argparse.Namespace: 解析后的 CLI 参数对象。
@@ -78,7 +78,7 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
                 raise ValueError(f"{path}:{line_no} invalid JSON: {exc}") from exc
             if not isinstance(obj, dict):
                 raise ValueError(f"{path}:{line_no} each JSONL line must be an object")
-            rows.append(obj)
+            rows.append(cast("dict[str, Any]", obj))
     return rows
 
 
@@ -126,11 +126,13 @@ def _validate_entity(entity_obj: dict[str, Any]) -> None:
         raise ValueError("entity confidence must be in range [0, 1]")
     if not isinstance(entity_obj["aliases"], list):
         raise ValueError("entity aliases must be a list")
-    if any(not isinstance(item, str) for item in entity_obj["aliases"]):
+    aliases = cast("list[Any]", entity_obj["aliases"])
+    if any(not isinstance(item, str) for item in aliases):
         raise ValueError("entity aliases must be list[str]")
     if not isinstance(entity_obj["tags"], list):
         raise ValueError("entity tags must be a list")
-    if any(not isinstance(item, str) for item in entity_obj["tags"]):
+    tags = cast("list[Any]", entity_obj["tags"])
+    if any(not isinstance(item, str) for item in tags):
         raise ValueError("entity tags must be list[str]")
 
 
@@ -150,9 +152,10 @@ def _validate_claim(claim_obj: dict[str, Any]) -> None:
         if not isinstance(claim_obj[key], str) or not claim_obj[key]:
             raise ValueError(f"claim {key} must be a non-empty string")
     for key in ("subject", "object"):
-        value = claim_obj[key]
-        if not isinstance(value, dict):
+        value_raw = claim_obj[key]
+        if not isinstance(value_raw, dict):
             raise ValueError(f"claim {key} must be an object")
+        value = cast("dict[str, Any]", value_raw)
         if not isinstance(value.get("entity_type"), str) or not value.get("entity_type"):
             raise ValueError(f"claim {key}.entity_type must be non-empty string")
         if not isinstance(value.get("entity_id"), str) or not value.get("entity_id"):
@@ -171,9 +174,10 @@ def _validate_claim(claim_obj: dict[str, Any]) -> None:
         raise ValueError("claim evidence must be a list")
     if not claim_obj["evidence"]:
         raise ValueError("claim evidence must be a non-empty list")
-    for evidence in claim_obj["evidence"]:
-        if not isinstance(evidence, dict):
+    for evidence_raw in cast("list[Any]", claim_obj["evidence"]):
+        if not isinstance(evidence_raw, dict):
             raise ValueError("claim evidence item must be object")
+        evidence = cast("dict[str, Any]", evidence_raw)
         point_id = evidence.get("point_id")
         memory_item_id = evidence.get("memory_item_id")
         if point_id is not None and (not isinstance(point_id, str) or not point_id.strip()):
@@ -364,7 +368,7 @@ def main() -> int:
         "entities_count": len(entities_out),
         "claims_count": len(claims_out),
         "elapsed_seconds": round(elapsed_s, 6),
-        "updated_at": datetime.now(tz=timezone.utc).isoformat(),
+        "updated_at": datetime.now(tz=timezone.utc).isoformat(),  # noqa: UP017
     }
     out_dir.mkdir(parents=True, exist_ok=True)
     out_meta.write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
