@@ -121,7 +121,9 @@ def _require_non_empty_str(value: Any, field: str, conv_id: str, file_line: int)
     return value
 
 
-def load_input_jsonl(input_path: Path, expected_scene_id: str | None, expected_character_id: str | None) -> list[ParsedMemoryLine]:
+def load_input_jsonl(
+    input_path: Path, expected_scene_id: str | None, expected_character_id: str | None
+) -> list[ParsedMemoryLine]:
     if not input_path.exists():
         raise ClaimifyError(f"input file not found: {input_path}")
 
@@ -250,7 +252,9 @@ def chunk_items(items: list[ParsedMemoryLine], max_items: int, max_chars: int) -
     return [chunk for chunk in chunks if chunk]
 
 
-def build_prompt(prompt_base: str, conv_id: str, items: list[ParsedMemoryLine], candidate_tags: list[dict[str, str]]) -> str:
+def build_prompt(
+    prompt_base: str, conv_id: str, items: list[ParsedMemoryLine], candidate_tags: list[dict[str, str]]
+) -> str:
     first_payload = items[0].obj["payload"]
     scene_id = first_payload["scene_id"]
     character_id = first_payload["character_id"]
@@ -364,7 +368,9 @@ def _validate_claim(
     for idx, ev in enumerate(evidence, start=1):
         if not isinstance(ev, dict):
             raise ClaimifyError(f"[{conv_id}] file_line={file_line}: evidence[{idx}] must be object")
-        memory_item_id = _require_non_empty_str(ev.get("memory_item_id"), f"evidence[{idx}].memory_item_id", conv_id, file_line)
+        memory_item_id = _require_non_empty_str(
+            ev.get("memory_item_id"), f"evidence[{idx}].memory_item_id", conv_id, file_line
+        )
         point_id = _require_non_empty_str(ev.get("point_id"), f"evidence[{idx}].point_id", conv_id, file_line)
         ev_conv_id = _require_non_empty_str(ev.get("conv_id"), f"evidence[{idx}].conv_id", conv_id, file_line)
         ev_scene_id = _require_non_empty_str(ev.get("scene_id"), f"evidence[{idx}].scene_id", conv_id, file_line)
@@ -383,8 +389,6 @@ def _validate_claim(
                 f"[{conv_id}] file_line={file_line}: evidence[{idx}] cannot link to input items "
                 f"(point_id={point_id!r}, memory_item_id={memory_item_id!r})"
             )
-
-
 
 
 def compute_canonical_claim_id(obj: dict[str, Any]) -> str:
@@ -558,9 +562,13 @@ def normalize_records(objs: list[dict[str, Any]], conv_id: str) -> list[dict[str
                 raise ClaimifyError(f"[{conv_id}] claim merge conflict: {field} mismatch for claim_id={claim_id!r}")
 
         if current["subject"].get("entity_id") != obj["subject"].get("entity_id"):
-            raise ClaimifyError(f"[{conv_id}] claim merge conflict: subject.entity_id mismatch for claim_id={claim_id!r}")
+            raise ClaimifyError(
+                f"[{conv_id}] claim merge conflict: subject.entity_id mismatch for claim_id={claim_id!r}"
+            )
         if current["object"].get("entity_id") != obj["object"].get("entity_id"):
-            raise ClaimifyError(f"[{conv_id}] claim merge conflict: object.entity_id mismatch for claim_id={claim_id!r}")
+            raise ClaimifyError(
+                f"[{conv_id}] claim merge conflict: object.entity_id mismatch for claim_id={claim_id!r}"
+            )
         current_rank = current["rank"]
         incoming_rank = obj["rank"]
         if current_rank is not None and incoming_rank is not None and current_rank != incoming_rank:
@@ -610,9 +618,7 @@ def validate_jsonl_output(
     records: list[dict[str, Any]] = []
     dropped_claims: dict[str, int] = {}
     non_empty_lines: list[tuple[int, str]] = [
-        (file_line, line)
-        for file_line, line in enumerate(raw_output.splitlines(), start=1)
-        if line.strip()
+        (file_line, line) for file_line, line in enumerate(raw_output.splitlines(), start=1) if line.strip()
     ]
 
     for file_line, line in non_empty_lines:
@@ -651,10 +657,7 @@ def validate_jsonl_output(
         records.append(obj)
 
     normalized_records = normalize_records(records, conv_id)
-    validated_lines = [
-        json.dumps(record, ensure_ascii=False, separators=(",", ":"))
-        for record in normalized_records
-    ]
+    validated_lines = [json.dumps(record, ensure_ascii=False, separators=(",", ":")) for record in normalized_records]
 
     if not validated_lines:
         raise ClaimifyError(f"[{conv_id}] file_line=0: model output is empty")

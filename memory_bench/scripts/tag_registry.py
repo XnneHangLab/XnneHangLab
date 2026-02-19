@@ -135,9 +135,7 @@ def update_registry_from_records(registry: dict[str, Any], records: list[dict[st
 
     tags = registry.setdefault("tags", [])
     tag_by_id = {
-        str(item.get("tag_id")): item
-        for item in tags
-        if isinstance(item, dict) and isinstance(item.get("tag_id"), str)
+        str(item.get("tag_id")): item for item in tags if isinstance(item, dict) and isinstance(item.get("tag_id"), str)
     }
     now = _now_iso()
 
