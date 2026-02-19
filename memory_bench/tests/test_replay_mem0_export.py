@@ -162,9 +162,7 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in lines if line.strip()]
 
 
-def test_export_collection_snapshot_paging(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, replay_mem0: Any
-) -> None:
+def test_export_collection_snapshot_paging(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, replay_mem0: Any) -> None:
     """验证分页导出会写出全部 points 且计数正确。
 
     Args:

@@ -45,8 +45,6 @@ def test_split_messages_sliding_window_for_20_messages() -> None:
     assert chunk1[-2:] == chunk2[:2]
 
 
-
-
 def test_split_messages_does_not_drop_tail_for_25_messages() -> None:
     messages = _build_messages(25)
 
@@ -55,6 +53,7 @@ def test_split_messages_does_not_drop_tail_for_25_messages() -> None:
     assert chunks[-1][-1]["content"] == "m-24"
     flattened = [m["content"] for chunk in chunks for m in chunk]
     assert "m-24" in flattened
+
 
 @pytest.mark.parametrize(
     ("max_size", "overlap"),

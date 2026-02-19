@@ -462,8 +462,7 @@ def add_memory_batch(
 
     msg_preview = messages[0]["content"][:60] if messages else ""
     logger.bind(group="memory").info(
-        f"Mem0 add batch: {len(messages)} messages → {added} memories "
-        f"for user={user_id}, first_msg={msg_preview}..."
+        f"Mem0 add batch: {len(messages)} messages → {added} memories for user={user_id}, first_msg={msg_preview}..."
     )
 
 
@@ -1208,9 +1207,7 @@ def purge_checkpoint_file(checkpoint_path: Path) -> None:
                 f"--force enabled: checkpoint not found, skip delete: {checkpoint_path}"
             )
     except Exception as exc:
-        logger.bind(group="memory").warning(
-            f"--force enabled but failed to delete checkpoint {checkpoint_path}: {exc}"
-        )
+        logger.bind(group="memory").warning(f"--force enabled but failed to delete checkpoint {checkpoint_path}: {exc}")
 
 
 def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
