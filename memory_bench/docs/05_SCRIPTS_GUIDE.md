@@ -274,75 +274,9 @@ uv run python memory_bench/scripts/compile_events.py --out memory_bench/data/eve
 
 ---
 
-## 6. `claimify_all.py`
+## 6. `replay_mem0.py`
 
 ### 6.1 作用
-
-读取 `replay_mem0.py export` 导出的 memory export JSONL（每行一个 memory item），按 `conv_id` 分组调用 LLM，抽取并严格校验 claim/entity JSONL：
-
-- 正式产物：`memory_bench/data/claims/by_conv/{conv_id}.jsonl`
-- 调试日志：
-  - `memory_bench/logs/claimify_prompt/{conv_id}.txt`
-  - `memory_bench/logs/claimify_raw/{conv_id}.txt`
-  - `memory_bench/logs/claimify_meta/{conv_id}.json`
-
-默认提示词来源：`memory_bench/docs/23_CLAIM_EXTRACTOR_PROMPT.md`。
-
-### 6.2 CLI 帮助
-
-```bash
-uv run python memory_bench/scripts/claimify_all.py -h
-```
-
-主要参数：
-
-- `--input`（必填）：mem0 export JSONL 文件路径
-- `--workers`：并发 conv 数
-- `--force`：覆盖重跑
-- `--only`：仅处理指定 conv_id（逗号分隔）
-- `--model`：LLM 模型名
-- `--scene-id` / `--character-id`：输入强一致性校验（不一致直接失败）
-- `--out-dir`：输出根目录（默认 `memory_bench/data/claims`）
-
-### 6.3 常用示例
-
-1) 默认批量跑：
-
-```bash
-uv run python memory_bench/scripts/claimify_all.py --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl
-```
-
-2) 仅处理两个会话：
-
-```bash
-uv run python memory_bench/scripts/claimify_all.py --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl --only ch01,ch02
-```
-
-3) 强制覆盖重跑：
-
-```bash
-uv run python memory_bench/scripts/claimify_all.py --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl --force --workers 4
-```
-
-### 6.4 校验与返回码
-
-- 输出必须是严格 JSONL（不允许空行、markdown、非法 JSON）
-- `record_type` 仅允许 `entity` / `claim`
-- claim 的 `predicate/domain/status/confidence/evidence` 会做强校验
-- evidence 必须能回链到输入 memory item（point_id 或 `mem:<hash>`）
-
-返回码：
-
-- `0`：全部 `ok` 或 `skipped`
-- `1`：任意 conv `failed`
-
-失败时会保留 raw/prompt/meta 日志，便于调试模型输出。
-
----
-
-## 7. `replay_mem0.py`
-
-### 7.1 作用
 
 将 benchmark 事件 JSONL 回放流程拆分为 3 个子命令：
 
@@ -362,7 +296,7 @@ Mem0 使用本地持久化 Qdrant 向量存储（默认 `memory_bench/state/qdra
   - `export` 默认输出 `memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl`
   - `ingest` checkpoint 默认写入 `memory_bench/state/*.checkpoint.json`
 
-### 7.2 CLI 帮助
+### 6.2 CLI 帮助
 
 ```bash
 uv run python memory_bench/scripts/replay_mem0.py -h
@@ -398,7 +332,7 @@ uv run python memory_bench/scripts/replay_mem0.py -h
 
 Mem0 默认将 llm/embedder 显式注入配置；且不依赖 Mem0 对 `OPENAI_BASE_URL` 的隐式读取。
 
-### 7.3 运行示例
+### 6.3 运行示例
 
 1) 增量 ingest（默认输入）：
 
@@ -424,7 +358,7 @@ uv run python memory_bench/scripts/replay_mem0.py ingest --isolation per_chapter
 uv run python memory_bench/scripts/replay_mem0.py export
 ```
 
-### 7.4 probe 日志字段
+### 6.4 probe 日志字段
 
 每条 probe 写一行 JSON，核心字段包括：
 
@@ -436,7 +370,7 @@ uv run python memory_bench/scripts/replay_mem0.py export
 - `hits_preview`（仅 top-k 预览，含可溯源 metadata）
 - `latency_ms`
 
-### 7.5 checkpoint 机制（ingest）
+### 6.5 checkpoint 机制（ingest）
 
 checkpoint 文件默认位于：
 
@@ -453,7 +387,7 @@ checkpoint 文件默认位于：
 
 若输入文件 hash 变化，脚本会报错并提示使用 `--force` 从头 ingest。
 
-### 7.6 返回码与常见问题
+### 6.6 返回码与常见问题
 
 - `0`：回放成功
 - `1`：输入文件缺失、JSON 非法、probe query 为空、或 Mem0 依赖不可用
@@ -463,6 +397,72 @@ checkpoint 文件默认位于：
 - **提示 mem0 未安装**：执行 `uv sync --group memory_bench`。
 - **提示缺少 BENCHMARK 环境变量**：请在 `memory_bench/.env.benchmark` 中补全 `BENCHMARK_OPENAI_API_KEY/BENCHMARK_OPENAI_BASE_URL/BENCHMARK_OPENAI_MODEL/BENCHMARK_OPENAI_EMBEDDING_MODEL`。
 - **出现空行 warning**：当前行为是 warning 并跳过该行，建议上游修复数据。
+
+---
+
+## 7. `claimify_all.py`
+
+### 7.1 作用
+
+读取 `replay_mem0.py export` 导出的 memory export JSONL（每行一个 memory item），按 `conv_id` 分组调用 LLM，抽取并严格校验 claim/entity JSONL：
+
+- 正式产物：`memory_bench/data/claims/by_conv/{conv_id}.jsonl`
+- 调试日志：
+  - `memory_bench/logs/claimify_prompt/{conv_id}.txt`
+  - `memory_bench/logs/claimify_raw/{conv_id}.txt`
+  - `memory_bench/logs/claimify_meta/{conv_id}.json`
+
+默认提示词来源：`memory_bench/docs/23_CLAIM_EXTRACTOR_PROMPT.md`。
+
+### 7.2 CLI 帮助
+
+```bash
+uv run python memory_bench/scripts/claimify_all.py -h
+```
+
+主要参数：
+
+- `--input`（必填）：mem0 export JSONL 文件路径
+- `--workers`：并发 conv 数
+- `--force`：覆盖重跑
+- `--only`：仅处理指定 conv_id（逗号分隔）
+- `--model`：LLM 模型名
+- `--scene-id` / `--character-id`：输入强一致性校验（不一致直接失败）
+- `--out-dir`：输出根目录（默认 `memory_bench/data/claims`）
+
+### 7.3 常用示例
+
+1) 默认批量跑：
+
+```bash
+uv run python memory_bench/scripts/claimify_all.py --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl
+```
+
+2) 仅处理两个会话：
+
+```bash
+uv run python memory_bench/scripts/claimify_all.py --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl --only ch01,ch02
+```
+
+3) 强制覆盖重跑：
+
+```bash
+uv run python memory_bench/scripts/claimify_all.py --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl --force --workers 4
+```
+
+### 7.4 校验与返回码
+
+- 输出必须是严格 JSONL（不允许空行、markdown、非法 JSON）
+- `record_type` 仅允许 `entity` / `claim`
+- claim 的 `predicate/domain/status/confidence/evidence` 会做强校验
+- evidence 必须能回链到输入 memory item（point_id 或 `mem:<hash>`）
+
+返回码：
+
+- `0`：全部 `ok` 或 `skipped`
+- `1`：任意 conv `failed`
+
+失败时会保留 raw/prompt/meta 日志，便于调试模型输出。
 
 ---
 
