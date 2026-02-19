@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from difflib import SequenceMatcher
 from typing import TYPE_CHECKING, Any
 
@@ -41,7 +41,7 @@ def _now_iso() -> str:
         str: 形如 `YYYY-MM-DDTHH:MM:SSZ` 的时间字符串。
     """
 
-    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")  # noqa: UP017
 
 
 def load_tag_registry(path: Path) -> dict[str, Any]:
