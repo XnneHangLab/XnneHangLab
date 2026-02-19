@@ -7,8 +7,8 @@ import argparse
 import json
 import os
 import time
-from copy import deepcopy
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any

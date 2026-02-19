@@ -5,10 +5,12 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from difflib import SequenceMatcher
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 PREFIXES = [
     "在写作中",
@@ -39,7 +41,7 @@ def _now_iso() -> str:
         str: 形如 `YYYY-MM-DDTHH:MM:SSZ` 的时间字符串。
     """
 
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def load_tag_registry(path: Path) -> dict[str, Any]:
