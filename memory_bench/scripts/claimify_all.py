@@ -98,6 +98,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--scene-id", type=str, default=None, help="仅接受该 scene_id")
     parser.add_argument("--character-id", type=str, default=None, help="仅接受该 character_id")
     parser.add_argument("--out-dir", type=str, default=None, help="输出根目录，默认 memory_bench/data/claims")
+    parser.add_argument("--max-items-per-chunk", type=int, default=30, help="每个 chunk 最大 memory item 数")
+    parser.add_argument("--max-chars-per-chunk", type=int, default=20000, help="每个 chunk 最大原始 JSONL 字符数")
     return parser.parse_args()
 
 
@@ -193,6 +195,41 @@ def _format_candidate_tags_block(candidates: list[dict[str, str]]) -> str:
         lines.append("- (empty)")
     lines.append("(TopK=20)")
     return "\n".join(lines) + "\n\n"
+
+
+def chunk_items(items: list[ParsedMemoryLine], max_items: int, max_chars: int) -> list[list[ParsedMemoryLine]]:
+    """Split items into ordered chunks with item-count and char-count limits."""
+
+    if max_items <= 0:
+        raise ClaimifyError("max_items_per_chunk must be > 0")
+    if max_chars <= 0:
+        raise ClaimifyError("max_chars_per_chunk must be > 0")
+
+    chunks: list[list[ParsedMemoryLine]] = []
+    current: list[ParsedMemoryLine] = []
+    current_chars = 0
+
+    for item in items:
+        line_len = len(item.raw_line) + 1
+        would_exceed_items = len(current) >= max_items
+        would_exceed_chars = current and (current_chars + line_len > max_chars)
+        if would_exceed_items or would_exceed_chars:
+            chunks.append(current)
+            current = []
+            current_chars = 0
+
+        current.append(item)
+        current_chars += line_len
+
+        if line_len > max_chars:
+            chunks.append(current)
+            current = []
+            current_chars = 0
+
+    if current:
+        chunks.append(current)
+
+    return [chunk for chunk in chunks if chunk]
 
 
 def build_prompt(prompt_base: str, conv_id: str, items: list[ParsedMemoryLine], candidate_tags: list[dict[str, str]]) -> str:
@@ -609,6 +646,8 @@ def process_one(
     force: bool,
     workers: int,
     tag_registry: dict[str, Any],
+    max_items_per_chunk: int,
+    max_chars_per_chunk: int,
 ) -> JobResult:
     conv_id = job.conv_id
     log = logger.bind(group="memory")
@@ -621,8 +660,6 @@ def process_one(
         path.mkdir(parents=True, exist_ok=True)
 
     final_jsonl = claims_dir / f"{conv_id}.jsonl"
-    raw_log = raw_dir / f"{conv_id}.txt"
-    prompt_log = prompt_dir / f"{conv_id}.txt"
     meta_log = meta_dir / f"{conv_id}.json"
 
     first_payload = job.items[0].obj["payload"]
@@ -650,35 +687,54 @@ def process_one(
 
     raw_output = ""
     try:
-        chunk_text = "\n".join(item.obj["payload"]["data"] for item in job.items)
-        candidate_tags = select_topk_tags_for_chunk(tag_registry, chunk_text, k=20)
-        prompt = build_prompt(prompt_base, conv_id, job.items, candidate_tags)
-        write_atomic(prompt_log, prompt)
+        chunks = chunk_items(job.items, max_items=max_items_per_chunk, max_chars=max_chars_per_chunk)
+        meta["chunks_total"] = len(chunks)
+        meta["chunks_ok"] = 0
 
-        raw_output = call_llm(prompt, model)
-        write_atomic(raw_log, raw_output)
+        all_records: list[dict[str, Any]] = []
+        dropped_claims_total: dict[str, int] = {}
 
-        lines, dropped_claims = validate_jsonl_output(
-            raw_output,
-            conv_id=conv_id,
-            scene_id=scene_id,
-            character_id=character_id,
-            input_items=job.items,
-        )
-        write_atomic(final_jsonl, "\n".join(lines) + "\n")
-        normalized_records = [json.loads(line) for line in lines]
+        for idx, chunk in enumerate(chunks, start=1):
+            chunk_text = "\n".join(item.obj["payload"]["data"] for item in chunk)
+            candidate_tags = select_topk_tags_for_chunk(tag_registry, chunk_text, k=20)
+            prompt = build_prompt(prompt_base, conv_id, chunk, candidate_tags)
 
-        if dropped_claims:
-            meta["dropped"] = dropped_claims
+            chunk_suffix = f"__c{idx:02d}"
+            chunk_prompt_log = prompt_dir / f"{conv_id}{chunk_suffix}.txt"
+            chunk_raw_log = raw_dir / f"{conv_id}{chunk_suffix}.txt"
+
+            write_atomic(chunk_prompt_log, prompt)
+            raw_output = call_llm(prompt, model)
+            write_atomic(chunk_raw_log, raw_output)
+
+            lines, dropped_claims = validate_jsonl_output(
+                raw_output,
+                conv_id=conv_id,
+                scene_id=scene_id,
+                character_id=character_id,
+                input_items=chunk,
+            )
+            all_records.extend(json.loads(line) for line in lines)
+            for key, value in dropped_claims.items():
+                dropped_claims_total[key] = dropped_claims_total.get(key, 0) + int(value)
+            meta["chunks_ok"] = int(meta["chunks_ok"]) + 1
+
+        final_records = normalize_records(all_records, conv_id)
+        final_lines = [json.dumps(record, ensure_ascii=False, separators=(",", ":")) for record in final_records]
+        if not final_lines:
+            raise ClaimifyError(f"[{conv_id}] file_line=0: model output is empty")
+
+        write_atomic(final_jsonl, "\n".join(final_lines) + "\n")
+
+        if dropped_claims_total:
+            meta["dropped"] = dropped_claims_total
 
         meta["status"] = "ok"
         meta["duration_ms"] = int(time.time() * 1000) - start_ms
         write_meta(meta_log, meta)
         log.info(f"{conv_id}: ok -> {final_jsonl}")
-        return JobResult(conv_id=conv_id, status="ok", records=normalized_records)
+        return JobResult(conv_id=conv_id, status="ok", records=final_records)
     except Exception as exc:
-        if not raw_log.exists():
-            write_atomic(raw_log, raw_output)
         meta["status"] = "failed"
         meta["error_message"] = str(exc)
         meta["duration_ms"] = int(time.time() * 1000) - start_ms
@@ -713,7 +769,10 @@ def main() -> int:
     save_tag_registry(registry_path, tag_registry)
 
     log = logger.bind(group="memory")
-    log.info(f"Start claimify: convs={len(jobs)}, workers={workers}, model={model}, input={input_path}")
+    log.info(
+        f"Start claimify: convs={len(jobs)}, workers={workers}, model={model}, input={input_path}, "
+        f"max_items_per_chunk={args.max_items_per_chunk}, max_chars_per_chunk={args.max_chars_per_chunk}"
+    )
 
     results: list[JobResult] = []
     with ThreadPoolExecutor(max_workers=workers) as executor:
@@ -729,6 +788,8 @@ def main() -> int:
                 args.force,
                 workers,
                 tag_registry,
+                args.max_items_per_chunk,
+                args.max_chars_per_chunk,
             ): job
             for job in jobs
         }
