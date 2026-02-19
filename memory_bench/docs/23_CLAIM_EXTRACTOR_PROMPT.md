@@ -224,6 +224,24 @@ Claim 是可争议/可版本化/可多证据支持的“主张”。
 
 ---
 
+
+## 9.1) Tag 命名与候选复用规则（必须）
+
+- Tag 必须使用「去语境后的核心短语」作为 `props.name` 与 `entity_id`，不要把 `读起来/写作/看起来/觉得/自认为/可能` 等语境词放进 tag 名称。
+  - 例：把“读起来不够有趣 / 写作不够有趣”统一成 `tag:不够有趣`。
+- 系统会在 prompt 中提供 `CANDIDATE_TAGS`（TopK=20）。若语义可覆盖，必须优先复用列表中的 canonical tag（直接复用 tag_id/name），不要新建近义 tag。
+- 只有当候选列表无法覆盖时才新建 tag；新建 tag 也必须短、去语境、可泛化。
+
+示例（调用方会动态注入）：
+
+```text
+[CANDIDATE_TAGS]
+CANDIDATE_TAGS (canonical, prefer reusing these; do not create near-duplicates):
+- tag_id: tag:不够有趣, name: 不够有趣
+- tag_id: tag:旁观者视角叙事, name: 旁观者视角叙事
+(TopK=20)
+```
+
 ## 10) 抽取流程（你必须按此执行）
 
 对每条 MemoryItem：

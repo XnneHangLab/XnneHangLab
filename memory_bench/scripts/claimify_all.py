@@ -7,12 +7,21 @@ import argparse
 import json
 import os
 import time
+from copy import deepcopy
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from memory_bench.scripts.bench_logger import logger
+from memory_bench.scripts.tag_registry import (
+    canonical_tag_id,
+    load_tag_registry,
+    normalize_tag_name,
+    save_tag_registry,
+    select_topk_tags_for_chunk,
+    update_registry_from_records,
+)
 
 ALLOWED_RECORD_TYPES = {"entity", "claim"}
 ALLOWED_ENTITY_TYPES = {"Agent", "User", "Author", "Work", "Chapter", "Topic", "Tag"}
@@ -60,6 +69,7 @@ class JobResult:
     conv_id: str
     status: str
     error_message: str | None = None
+    records: list[dict[str, Any]] | None = None
 
 
 def load_benchmark_dotenv(repo_root: Path) -> None:
@@ -171,13 +181,30 @@ def build_jobs(parsed_lines: list[ParsedMemoryLine], only_set: set[str] | None) 
     return jobs
 
 
-def build_prompt(prompt_base: str, conv_id: str, items: list[ParsedMemoryLine]) -> str:
+def _format_candidate_tags_block(candidates: list[dict[str, str]]) -> str:
+    lines = [
+        "[CANDIDATE_TAGS]",
+        "CANDIDATE_TAGS (canonical, prefer reusing these; do not create near-duplicates):",
+    ]
+    if candidates:
+        for item in candidates:
+            lines.append(f"- tag_id: {item['tag_id']}, name: {item['name']}")
+    else:
+        lines.append("- (empty)")
+    lines.append("(TopK=20)")
+    return "\n".join(lines) + "\n\n"
+
+
+def build_prompt(prompt_base: str, conv_id: str, items: list[ParsedMemoryLine], candidate_tags: list[dict[str, str]]) -> str:
     first_payload = items[0].obj["payload"]
     scene_id = first_payload["scene_id"]
     character_id = first_payload["character_id"]
     lines = "\n".join(item.raw_line for item in items)
+    candidates_block = _format_candidate_tags_block(candidate_tags)
     user_block = (
-        "\n\n[INPUT_META]\n"
+        "\n\n"
+        f"{candidates_block}"
+        "[INPUT_META]\n"
         f"scene_id={scene_id}\n"
         f"character_id={character_id}\n"
         f"conv_id={conv_id}\n\n"
@@ -340,11 +367,55 @@ def _stable_union(base: list[str], incoming: list[str]) -> list[str]:
     return merged
 
 
+def _canonicalize_tag_records(objs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rewritten: list[dict[str, Any]] = []
+    tag_id_map: dict[str, str] = {}
+
+    for obj in objs:
+        item = deepcopy(obj)
+        if item.get("record_type") == "entity" and item.get("entity_type") == "Tag":
+            props = item.get("props") if isinstance(item.get("props"), dict) else {}
+            raw_name = props.get("name") or props.get("display") or item.get("entity_id", "")
+            if isinstance(raw_name, str) and raw_name.startswith("tag:"):
+                raw_name = raw_name[4:]
+            normalized = normalize_tag_name(str(raw_name))
+            if not normalized:
+                normalized = str(raw_name).strip()
+            canonical_id = canonical_tag_id(normalized)
+            old_id = str(item.get("entity_id", ""))
+            if old_id:
+                tag_id_map[old_id] = canonical_id
+            item["entity_id"] = canonical_id
+            if isinstance(item.get("props"), dict):
+                item["props"]["name"] = normalized
+            rewritten.append(item)
+            continue
+
+        rewritten.append(item)
+
+    for item in rewritten:
+        if item.get("record_type") != "claim":
+            continue
+        obj = item.get("object")
+        if not isinstance(obj, dict):
+            continue
+        if obj.get("entity_type") != "Tag":
+            continue
+        obj_id = str(obj.get("entity_id", ""))
+        if obj_id in tag_id_map:
+            obj["entity_id"] = tag_id_map[obj_id]
+        elif obj_id.startswith("tag:"):
+            obj["entity_id"] = canonical_tag_id(obj_id[4:])
+
+    return rewritten
+
+
 def normalize_records(objs: list[dict[str, Any]], conv_id: str) -> list[dict[str, Any]]:
+    canonical_objs = _canonicalize_tag_records(objs)
     entities: dict[str, dict[str, Any]] = {}
     claims: dict[str, dict[str, Any]] = {}
 
-    for obj in objs:
+    for obj in canonical_objs:
         if obj["record_type"] == "entity":
             entity_id = str(obj["entity_id"])
             if entity_id not in entities:
@@ -532,6 +603,7 @@ def process_one(
     model: str,
     force: bool,
     workers: int,
+    tag_registry: dict[str, Any],
 ) -> JobResult:
     conv_id = job.conv_id
     log = logger.bind(group="memory")
@@ -573,7 +645,9 @@ def process_one(
 
     raw_output = ""
     try:
-        prompt = build_prompt(prompt_base, conv_id, job.items)
+        chunk_text = "\n".join(item.obj["payload"]["data"] for item in job.items)
+        candidate_tags = select_topk_tags_for_chunk(tag_registry, chunk_text, k=20)
+        prompt = build_prompt(prompt_base, conv_id, job.items, candidate_tags)
         write_atomic(prompt_log, prompt)
 
         raw_output = call_llm(prompt, model)
@@ -587,6 +661,7 @@ def process_one(
             input_items=job.items,
         )
         write_atomic(final_jsonl, "\n".join(lines) + "\n")
+        normalized_records = [json.loads(line) for line in lines]
 
         if dropped_claims:
             meta["dropped"] = dropped_claims
@@ -595,7 +670,7 @@ def process_one(
         meta["duration_ms"] = int(time.time() * 1000) - start_ms
         write_meta(meta_log, meta)
         log.info(f"{conv_id}: ok -> {final_jsonl}")
-        return JobResult(conv_id=conv_id, status="ok")
+        return JobResult(conv_id=conv_id, status="ok", records=normalized_records)
     except Exception as exc:
         if not raw_log.exists():
             write_atomic(raw_log, raw_output)
@@ -628,6 +703,9 @@ def main() -> int:
     )
     jobs = build_jobs(parsed_lines, only_set)
     prompt_base = read_prompt_base(repo_root)
+    registry_path = repo_root / "memory_bench" / "resources" / "tag_registry.json"
+    tag_registry = load_tag_registry(registry_path)
+    save_tag_registry(registry_path, tag_registry)
 
     log = logger.bind(group="memory")
     log.info(f"Start claimify: convs={len(jobs)}, workers={workers}, model={model}, input={input_path}")
@@ -645,6 +723,7 @@ def main() -> int:
                 model,
                 args.force,
                 workers,
+                tag_registry,
             ): job
             for job in jobs
         }
@@ -660,6 +739,13 @@ def main() -> int:
     if failed:
         print(f"Failed convs ({len(failed)}): {', '.join(failed)}")
         return 1
+
+    written_records: list[dict[str, Any]] = []
+    for result in results:
+        if result.status == "ok" and result.records:
+            written_records.extend(result.records)
+    tag_registry = update_registry_from_records(tag_registry, written_records)
+    save_tag_registry(registry_path, tag_registry)
 
     skipped = sum(1 for result in results if result.status == "skipped")
     ok = sum(1 for result in results if result.status == "ok")
