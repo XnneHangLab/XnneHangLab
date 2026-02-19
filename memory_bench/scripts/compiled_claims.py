@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Compile all by-conversation claim JSONL files into global entity/claim JSONL outputs."""
+"""将 by-conv 的 claim/entity JSONL 全量汇总为全局去重产物。
+
+该模块提供可执行 CLI，用于扫描 `memory_bench/data/claims/by_conv/*.jsonl`，
+并输出 Neo4j 友好的 `entities.jsonl`、`claims.jsonl` 与 `compiled_meta.json`。
+"""
 
 from __future__ import annotations
 
@@ -31,6 +35,12 @@ log = logger.bind(group="memory")
 
 
 def parse_args() -> argparse.Namespace:
+    """解析命令行参数。 
+
+    Returns:
+        argparse.Namespace: 解析后的 CLI 参数对象。
+    """
+
     parser = argparse.ArgumentParser(description="Compile by-conv claim/entity JSONL into global deduplicated JSONL")
     parser.add_argument(
         "--in-dir",
@@ -47,6 +57,15 @@ def parse_args() -> argparse.Namespace:
 
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
+    """读取 JSONL 文件并返回对象列表。
+
+    Args:
+        path: JSONL 文件路径。
+
+    Returns:
+        list[dict[str, Any]]: 逐行解析后的 JSON 对象列表。
+    """
+
     rows: list[dict[str, Any]] = []
     with path.open("r", encoding="utf-8") as fh:
         for line_no, raw in enumerate(fh, start=1):
@@ -64,6 +83,16 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
 
 
 def _stable_union(base: list[Any], incoming: list[Any]) -> list[Any]:
+    """执行稳定并集，保留先出现元素的顺序。
+
+    Args:
+        base: 现有列表。
+        incoming: 待合并列表。
+
+    Returns:
+        list[Any]: 去重后的稳定并集结果。
+    """
+
     out = list(base)
     seen = set(base)
     for item in incoming:
@@ -75,6 +104,12 @@ def _stable_union(base: list[Any], incoming: list[Any]) -> list[Any]:
 
 
 def _validate_entity(entity_obj: dict[str, Any]) -> None:
+    """校验单条 entity 记录字段与类型是否合法。
+
+    Args:
+        entity_obj: 待校验的 entity 记录。
+    """
+
     missing = REQUIRED_ENTITY_FIELDS - entity_obj.keys()
     if missing:
         raise ValueError(f"entity missing required fields: {sorted(missing)}")
@@ -100,6 +135,12 @@ def _validate_entity(entity_obj: dict[str, Any]) -> None:
 
 
 def _validate_claim(claim_obj: dict[str, Any]) -> None:
+    """校验单条 claim 记录字段与类型是否合法。
+
+    Args:
+        claim_obj: 待校验的 claim 记录。
+    """
+
     missing = REQUIRED_CLAIM_FIELDS - claim_obj.keys()
     if missing:
         raise ValueError(f"claim missing required fields: {sorted(missing)}")
@@ -144,6 +185,13 @@ def _validate_claim(claim_obj: dict[str, Any]) -> None:
 
 
 def merge_entities(global_entities: dict[str, dict[str, Any]], entity_obj: dict[str, Any]) -> None:
+    """将单条 entity 合并进全局实体表。
+
+    Args:
+        global_entities: 全局实体字典，key 为 `entity_id`。
+        entity_obj: 当前待合并的 entity 记录。
+    """
+
     _validate_entity(entity_obj)
     key = entity_obj["entity_id"]
     current = global_entities.get(key)
@@ -167,6 +215,17 @@ def merge_entities(global_entities: dict[str, dict[str, Any]], entity_obj: dict[
 
 
 def dedupe_and_sort_evidence(evidence_list: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """按规则对 evidence 去重并按创建时间排序。
+
+    去重 key 优先使用 `point_id`，其次使用 `memory_item_id`。
+
+    Args:
+        evidence_list: 待处理的 evidence 列表。
+
+    Returns:
+        list[dict[str, Any]]: 去重并按 `created_at` 排序后的 evidence 列表。
+    """
+
     keyed: dict[str, dict[str, Any]] = {}
     for evidence in evidence_list:
         point_id = evidence.get("point_id")
@@ -182,6 +241,13 @@ def dedupe_and_sort_evidence(evidence_list: list[dict[str, Any]]) -> list[dict[s
 
 
 def merge_claims(global_claims: dict[str, dict[str, Any]], claim_obj: dict[str, Any]) -> None:
+    """将单条 claim 合并进全局 claim 表。
+
+    Args:
+        global_claims: 全局 claim 字典，key 为 `claim_id`。
+        claim_obj: 当前待合并的 claim 记录。
+    """
+
     _validate_claim(claim_obj)
     key = claim_obj["claim_id"]
     current = global_claims.get(key)
@@ -219,6 +285,13 @@ def merge_claims(global_claims: dict[str, dict[str, Any]], claim_obj: dict[str, 
 
 
 def write_jsonl_atomic(path: Path, records: list[dict[str, Any]]) -> None:
+    """以原子方式写出 JSONL 文件。
+
+    Args:
+        path: 输出 JSONL 文件路径。
+        records: 待写出的记录列表。
+    """
+
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     with tmp_path.open("w", encoding="utf-8") as fh:
@@ -229,6 +302,12 @@ def write_jsonl_atomic(path: Path, records: list[dict[str, Any]]) -> None:
 
 
 def main() -> int:
+    """执行 compiled_claims 主流程。
+
+    Returns:
+        int: 进程退出码，成功时为 0。
+    """
+
     args = parse_args()
     start_ts = time.perf_counter()
 
