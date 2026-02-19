@@ -15,6 +15,7 @@
 - `memory_bench/scripts/replay_mem0.py`
 - `memory_bench/scripts/claimify_all.py`
 - `memory_bench/scripts/bench_logger.py`
+- `memory_bench/scripts/compiled_claims.py`
 
 建议执行顺序：
 
@@ -23,7 +24,8 @@
 3. 跑 `compile_events.py` 将分章节结果拼接为 `all.jsonl`。
 4. 跑 `replay_mem0.py` 将事件流回放到 Mem0 并输出 probe 检索日志。
 5. 跑 `claimify_all.py` 从 `replay_mem0.py export` 的 memory export JSONL 批量抽取 claim/entity。
-6. `bench_logger.py` 是被上述脚本复用的日志模块，不是独立 CLI 工具。
+6. 跑 `compiled_claims.py` 将 `by_conv` 产物汇总为全局去重后的 compiled JSONL。
+7. `bench_logger.py` 是被上述脚本复用的日志模块，不是独立 CLI 工具。
 
 ---
 
@@ -466,13 +468,64 @@ uv run python memory_bench/scripts/claimify_all.py --input memory_bench/logs/rep
 
 ---
 
-## 8. `bench_logger.py`
+
+## 8. `compiled_claims.py`
 
 ### 8.1 作用
 
+将 `claimify_all.py` 产出的分会话文件（`memory_bench/data/claims/by_conv/*.jsonl`）做全量汇总，输出全局去重后的两份 JSONL（Neo4j 友好）：
+
+- `memory_bench/data/claims/compiled/entities.jsonl`
+- `memory_bench/data/claims/compiled/claims.jsonl`
+
+并输出汇总元信息：
+
+- `memory_bench/data/claims/compiled/compiled_meta.json`
+
+### 8.2 CLI 帮助
+
+```bash
+uv run python -m memory_bench.scripts.compiled_claims -h
+```
+
+主要参数：
+
+- `--in-dir`：输入目录（默认 `memory_bench/data/claims/by_conv`）
+- `--out-dir`：输出目录（默认 `memory_bench/data/claims/compiled`）
+- `--force`：允许覆盖输出
+
+### 8.3 常用示例
+
+```bash
+uv run python -m memory_bench.scripts.compiled_claims \
+  --in-dir memory_bench/data/claims/by_conv \
+  --out-dir memory_bench/data/claims/compiled \
+  --force
+```
+
+### 8.4 合并与去重规则（摘要）
+
+- 扫描顺序：按文件名字典序，文件内按行序；
+- Entity：`entity_id` 去重，`props` 冲突保留先到者，`aliases/tags` 稳定并集，`confidence=max`；
+- Claim：`claim_id` 去重，`status` 只要任一 active 则 active，`updated_at` 取较大字符串，`confidence=max`；
+- Claim rank：允许 `None -> int` 补全，若两边均为 int 且不同则报错；
+- Evidence：按 `point_id`（优先）或 `memory_item_id` 去重，最终按 `created_at` 排序。
+
+### 8.5 输出稳定性
+
+- `entities.jsonl`：按 `(entity_type, entity_id)` 排序；
+- `claims.jsonl`：按 `(domain, predicate, claim_id)` 排序；
+- JSONL 输出：`ensure_ascii=False, separators=(",", ":")`。
+
+---
+
+## 9. `bench_logger.py`
+
+### 9.1 作用
+
 提供统一彩色日志封装（按 group + level 渲染），被 `build_index.py`、`annotate_all.py`、`compile_events.py` 与 `replay_mem0.py` 调用。
 
-### 8.2 如何使用（代码内）
+### 9.2 如何使用（代码内）
 
 ```python
 from bench_logger import logger
@@ -482,17 +535,17 @@ log.info("message")
 log.warning("warning message")
 ```
 
-### 8.3 是否可独立执行
+### 9.3 是否可独立执行
 
 - 不建议直接作为脚本运行（它是工具模块，不是 CLI）
 
-### 8.4 返回结果
+### 9.4 返回结果
 
 - 无单独“返回码”语义；由导入它的脚本负责进程退出逻辑。
 
 ---
 
-## 9. 一套可复制的完整流程（从原文到 Claim）
+## 10. 一套可复制的完整流程（从原文到 Claim）
 
 ```bash
 # 1) 先建索引
@@ -518,6 +571,9 @@ uv run python memory_bench/scripts/replay_mem0.py export
 
 # 8) 对 export 结果抽取 claim/entity
 uv run python memory_bench/scripts/claimify_all.py --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl
+
+# 9) 将 by_conv 汇总为全局 compiled JSONL
+uv run python -m memory_bench.scripts.compiled_claims --force
 ```
 
 完成后重点看：
@@ -528,7 +584,7 @@ uv run python memory_bench/scripts/claimify_all.py --input memory_bench/logs/rep
 
 ---
 
-## 10. 建议的维护方式
+## 11. 建议的维护方式
 
 - 以后新增脚本（例如 `patch_generator.py`）时，建议同步更新本文件：
   - 脚本作用

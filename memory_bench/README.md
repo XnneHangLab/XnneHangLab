@@ -21,6 +21,7 @@ memory_bench/
 │  ├─ bench_logger.py
 │  ├─ build_index.py
 │  ├─ compile_events.py
+│  ├─ compiled_claims.py
 │  └─ replay_mem0.py
 ├─ docs/
 │  ├─ 00_DOC_MAP.md
@@ -210,7 +211,37 @@ uv run python memory_bench/scripts/replay_mem0.py export
 
 `memory_bench/scripts/bench_logger.py` 为内部复用模块，提供统一日志格式（含 group 与 level），被 `build_index.py`、`annotate_all.py` 调用，不作为独立 CLI 使用。
 
-### 6) Graphify + Neo4j V0 Pipeline：`graphify_pipeline.py`
+### 6) Claim 全局汇总：`compiled_claims.py`
+
+脚本：`memory_bench/scripts/compiled_claims.py`
+
+功能：
+
+1. 全量扫描 `memory_bench/data/claims/by_conv/*.jsonl`（按文件名字典序）；
+2. 逐行读取并校验 `record_type` 为 `entity` / `claim`；
+3. 全局去重合并 entity（key=`entity_id`）与 claim（key=`claim_id`）；
+4. 输出 Neo4j 友好的全局 JSONL 到 `memory_bench/data/claims/compiled/`：
+   - `entities.jsonl`
+   - `claims.jsonl`
+   - `compiled_meta.json`
+
+常用运行方式：
+
+```bash
+uv run python -m memory_bench.scripts.compiled_claims \
+  --in-dir memory_bench/data/claims/by_conv \
+  --out-dir memory_bench/data/claims/compiled \
+  --force
+```
+
+输出稳定性（deterministic）：
+
+- 输入扫描顺序固定：文件名字典序 + 文件内行序；
+- entity 输出排序：`(entity_type, entity_id)`；
+- claim 输出排序：`(domain, predicate, claim_id)`；
+- JSONL 行采用 `ensure_ascii=False, separators=(",", ":")`。
+
+### 7) Graphify + Neo4j V0 Pipeline：`graphify_pipeline.py`
 
 脚本：`memory_bench/scripts/graphify_pipeline.py`
 
