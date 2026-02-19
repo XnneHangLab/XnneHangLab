@@ -48,3 +48,4 @@ jobs:
       - name: format check
         run: |
           just ci-fmt-check
+          git diff --exit-code

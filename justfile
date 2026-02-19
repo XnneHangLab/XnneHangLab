@@ -164,7 +164,8 @@ ci-test:
   just test
 
 ci-fmt-check:
-  just fmt
+  uv run ruff check --select I . --exclude packages
+  uv run ruff format . --exclude packages --check
 
 ci-lint:
   just lint
