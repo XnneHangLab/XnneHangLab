@@ -316,10 +316,13 @@ def validate_jsonl_output(
     input_point_ids = {str(item.obj["id"]) for item in input_items}
     input_hashes = {str(item.obj["payload"]["hash"]) for item in input_items}
     validated_lines: list[str] = []
+    non_empty_lines: list[tuple[int, str]] = [
+        (file_line, line)
+        for file_line, line in enumerate(raw_output.splitlines(), start=1)
+        if line.strip()
+    ]
 
-    for file_line, line in enumerate(raw_output.splitlines(), start=1):
-        if not line.strip():
-            raise ClaimifyError(f"[{conv_id}] file_line={file_line}: empty line is not allowed in JSONL")
+    for file_line, line in non_empty_lines:
         try:
             obj = json.loads(line)
         except json.JSONDecodeError as exc:
