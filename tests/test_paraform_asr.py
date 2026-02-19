@@ -30,6 +30,5 @@ class TestLabComponents:
     #     assert get_setting_title("base_model", FunASRSettings) == "base 模型"
 
 
-
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
