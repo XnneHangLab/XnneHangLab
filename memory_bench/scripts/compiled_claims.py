@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from memory_bench.scripts.bench_logger import logger
+
 ALLOWED_RECORD_TYPES = {"entity", "claim"}
 REQUIRED_ENTITY_FIELDS = {"entity_id", "entity_type", "props", "aliases", "tags", "confidence"}
 REQUIRED_CLAIM_FIELDS = {
@@ -24,6 +26,8 @@ REQUIRED_CLAIM_FIELDS = {
     "updated_at",
     "evidence",
 }
+
+log = logger.bind(group="memory")
 
 
 def parse_args() -> argparse.Namespace:
@@ -193,6 +197,7 @@ def write_jsonl_atomic(path: Path, records: list[dict[str, Any]]) -> None:
         for record in records:
             fh.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")
     tmp_path.replace(path)
+    log.info("wrote %s records -> %s", len(records), path)
 
 
 def main() -> int:
@@ -208,6 +213,8 @@ def main() -> int:
     if not in_dir.exists() or not in_dir.is_dir():
         raise ValueError(f"input directory not found: {in_dir}")
 
+    log.info("start compiling claims: in_dir=%s out_dir=%s", in_dir, out_dir)
+
     if not args.force:
         existing = [path for path in (out_entities, out_claims, out_meta) if path.exists()]
         if existing:
@@ -215,11 +222,13 @@ def main() -> int:
             raise ValueError(f"output already exists, use --force to overwrite: {joined}")
 
     file_paths = sorted(path for path in in_dir.glob("*.jsonl") if path.is_file())
+    log.info("discovered %s by-conv files", len(file_paths))
     global_entities: dict[str, dict[str, Any]] = {}
     global_claims: dict[str, dict[str, Any]] = {}
 
     records_read = 0
     for path in file_paths:
+        log.info("scanning file: %s", path)
         for record in read_jsonl(path):
             records_read += 1
             record_type = record.get("record_type")
@@ -252,6 +261,15 @@ def main() -> int:
     }
     out_dir.mkdir(parents=True, exist_ok=True)
     out_meta.write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    log.info("wrote meta -> %s", out_meta)
+    log.info(
+        "compile done: files=%s records=%s entities=%s claims=%s elapsed=%.3fs",
+        len(file_paths),
+        records_read,
+        len(entities_out),
+        len(claims_out),
+        elapsed_s,
+    )
     return 0
 
 
