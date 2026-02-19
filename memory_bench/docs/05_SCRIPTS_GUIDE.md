@@ -13,6 +13,7 @@
 - `memory_bench/scripts/annotate_all.py`
 - `memory_bench/scripts/compile_events.py`
 - `memory_bench/scripts/replay_mem0.py`
+- `memory_bench/scripts/claimify_all.py`
 - `memory_bench/scripts/bench_logger.py`
 
 建议执行顺序：
@@ -21,7 +22,8 @@
 2. 再跑 `annotate_all.py` 批量标注并产出分章节 JSONL events。
 3. 跑 `compile_events.py` 将分章节结果拼接为 `all.jsonl`。
 4. 跑 `replay_mem0.py` 将事件流回放到 Mem0 并输出 probe 检索日志。
-5. `bench_logger.py` 是被上述脚本复用的日志模块，不是独立 CLI 工具。
+5. 跑 `claimify_all.py` 从 `replay_mem0.py export` 的 memory export JSONL 批量抽取 claim/entity。
+6. `bench_logger.py` 是被上述脚本复用的日志模块，不是独立 CLI 工具。
 
 ---
 
@@ -257,6 +259,72 @@ uv run python memory_bench/scripts/compile_events.py --chapters ch01,ch02
 ```bash
 uv run python memory_bench/scripts/compile_events.py --out memory_bench/data/events/compiled/custom_all.jsonl
 ```
+
+---
+
+## 6. `claimify_all.py`
+
+### 6.1 作用
+
+读取 `replay_mem0.py export` 导出的 memory export JSONL（每行一个 memory item），按 `conv_id` 分组调用 LLM，抽取并严格校验 claim/entity JSONL：
+
+- 正式产物：`memory_bench/data/claims/by_conv/{conv_id}.jsonl`
+- 调试日志：
+  - `memory_bench/logs/claimify_prompt/{conv_id}.txt`
+  - `memory_bench/logs/claimify_raw/{conv_id}.txt`
+  - `memory_bench/logs/claimify_meta/{conv_id}.json`
+
+默认提示词来源：`memory_bench/docs/23_CLAIM_EXTRACTOR_PROMPT.md`。
+
+### 6.2 CLI 帮助
+
+```bash
+uv run python memory_bench/scripts/claimify_all.py -h
+```
+
+主要参数：
+
+- `--input`（必填）：mem0 export JSONL 文件路径
+- `--workers`：并发 conv 数
+- `--force`：覆盖重跑
+- `--only`：仅处理指定 conv_id（逗号分隔）
+- `--model`：LLM 模型名
+- `--scene-id` / `--character-id`：输入强一致性校验（不一致直接失败）
+- `--out-dir`：输出根目录（默认 `memory_bench/data/claims`）
+
+### 6.3 常用示例
+
+1) 默认批量跑：
+
+```bash
+uv run python memory_bench/scripts/claimify_all.py --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl
+```
+
+2) 仅处理两个会话：
+
+```bash
+uv run python memory_bench/scripts/claimify_all.py --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl --only ch01,ch02
+```
+
+3) 强制覆盖重跑：
+
+```bash
+uv run python memory_bench/scripts/claimify_all.py --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl --force --workers 4
+```
+
+### 6.4 校验与返回码
+
+- 输出必须是严格 JSONL（不允许空行、markdown、非法 JSON）
+- `record_type` 仅允许 `entity` / `claim`
+- claim 的 `predicate/domain/status/confidence/evidence` 会做强校验
+- evidence 必须能回链到输入 memory item（point_id 或 `mem:<hash>`）
+
+返回码：
+
+- `0`：全部 `ok` 或 `skipped`
+- `1`：任意 conv `failed`
+
+失败时会保留 raw/prompt/meta 日志，便于调试模型输出。
 
 ### 5.4 返回码
 
