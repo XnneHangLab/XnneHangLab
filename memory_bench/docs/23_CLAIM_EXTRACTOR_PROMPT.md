@@ -155,10 +155,11 @@ Claim 是可争议/可版本化/可多证据支持的“主张”。
 ### A) 小说阅读/文学偏好（domain="reading"）
 - `PREFERS_AUTHOR`：喜欢某作家（“喜欢/很喜欢/最喜欢作家之一/最喜欢的作家是…”）
 - `FAVORITE_WORK`：最喜欢/特别喜欢某作品（对象 Work）
-- `AUTHOR_WROTE_WORK`：作者-作品归属（对象 Work；主语 Author）
 - `DISCUSSED_WORK`：聊到/讨论过某作品（主语可为 Agent 或 User 或两者各一条）
 - `DISCUSSED_CHAPTER`：聊到/讨论过某篇章（同上）
 - `PREFERS_NARRATIVE_STYLE`：偏好叙事方式（对象 Topic，例如“旁观者视角叙事”）
+
+- **硬规则（v1）**：禁止输出作者-作品归属类 claim（例如 `AUTHOR_WROTE_WORK`），除非输入 `evidence.text` 明确直述“X 是 Y 的作者”这类句式；本版本不输出该 predicate。
 
 ### B) 写作/创作相关（domain="writing"）
 - `SELF_TRAIT`：对自我的稳定/半稳定描述（对象 Tag/Topic，例如“写作不够诚实”）
@@ -255,7 +256,6 @@ Claim 是可争议/可版本化/可多证据支持的“主张”。
 {"record_type":"entity","entity_type":"Work","entity_id":"work:我是猫","props":{"title":"我是猫","display":"《我是猫》"},"aliases":["《我是猫》"],"tags":[],"confidence":0.92}
 {"record_type":"entity","entity_type":"Topic","entity_id":"topic:旁观者视角叙事","props":{"name":"旁观者视角叙事","display":"旁观者视角叙事"},"aliases":["旁观者视角的叙事方式"],"tags":[],"confidence":0.80}
 
-{"record_type":"claim","claim_id":"claim:AUTHOR_WROTE_WORK|author:夏目漱石|work:我是猫|0","predicate":"AUTHOR_WROTE_WORK","subject":{"entity_type":"Author","entity_id":"author:夏目漱石"},"object":{"entity_type":"Work","entity_id":"work:我是猫"},"domain":"reading","confidence":0.82,"status":"active","rank":null,"updated_at":"2026-02-17T22:45:46.523192-08:00","evidence":[{"memory_item_id":"mem:488aa7e455848c4be3513254c7538844","point_id":"8dac908c-c298-42ad-beac-6fdd89377eac","conv_id":"ch9998","scene_id":"chill_ai_chat","created_at":"2026-02-17T22:45:46.523192-08:00","text":"最喜欢夏目漱石的作品是《我是猫》"}]}
 {"record_type":"claim","claim_id":"claim:FAVORITE_WORK|agent:congyin|work:我是猫|1","predicate":"FAVORITE_WORK","subject":{"entity_type":"Agent","entity_id":"agent:congyin"},"object":{"entity_type":"Work","entity_id":"work:我是猫"},"domain":"reading","confidence":0.93,"status":"active","rank":1,"updated_at":"2026-02-17T22:45:46.523192-08:00","evidence":[{"memory_item_id":"mem:488aa7e455848c4be3513254c7538844","point_id":"8dac908c-c298-42ad-beac-6fdd89377eac","conv_id":"ch9998","scene_id":"chill_ai_chat","created_at":"2026-02-17T22:45:46.523192-08:00","text":"最喜欢夏目漱石的作品是《我是猫》"}]}
 {"record_type":"claim","claim_id":"claim:PREFERS_NARRATIVE_STYLE|agent:congyin|topic:旁观者视角叙事|0","predicate":"PREFERS_NARRATIVE_STYLE","subject":{"entity_type":"Agent","entity_id":"agent:congyin"},"object":{"entity_type":"Topic","entity_id":"topic:旁观者视角叙事"},"domain":"reading","confidence":0.86,"status":"active","rank":null,"updated_at":"2026-02-17T22:45:46.537362-08:00","evidence":[{"memory_item_id":"mem:e6f02dd31aa5cbb779011f823cd58aab","point_id":"965f6683-4210-4fa9-bff0-50ae7f83db41","conv_id":"ch9998","scene_id":"chill_ai_chat","created_at":"2026-02-17T22:45:46.537362-08:00","text":"喜欢带有旁观者视角的叙事方式"}]}
 ```
