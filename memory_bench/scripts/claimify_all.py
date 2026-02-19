@@ -247,9 +247,11 @@ def _validate_claim(
     input_point_ids: set[str],
     input_hashes: set[str],
     file_line: int,
+    allow_dropped_predicate: bool = False,
 ) -> None:
     _require_non_empty_str(obj.get("claim_id"), "claim_id", conv_id, file_line)
-    if obj.get("predicate") not in ALLOWED_PREDICATES:
+    predicate = obj.get("predicate")
+    if predicate not in ALLOWED_PREDICATES and not (allow_dropped_predicate and predicate == DROPPED_PREDICATE):
         raise ClaimifyError(f"[{conv_id}] file_line={file_line}: invalid predicate")
 
     for side in ("subject", "object"):
@@ -301,6 +303,106 @@ def _validate_claim(
             )
 
 
+
+
+def _stable_union(base: list[str], incoming: list[str]) -> list[str]:
+    merged = list(base)
+    seen = set(base)
+    for item in incoming:
+        if item not in seen:
+            merged.append(item)
+            seen.add(item)
+    return merged
+
+
+def normalize_records(objs: list[dict[str, Any]], conv_id: str) -> list[dict[str, Any]]:
+    entities: dict[str, dict[str, Any]] = {}
+    claims: dict[str, dict[str, Any]] = {}
+
+    for obj in objs:
+        if obj["record_type"] == "entity":
+            entity_id = str(obj["entity_id"])
+            if entity_id not in entities:
+                entities[entity_id] = {
+                    "record_type": "entity",
+                    "entity_type": obj["entity_type"],
+                    "entity_id": entity_id,
+                    "props": dict(obj["props"]),
+                    "aliases": list(obj["aliases"]),
+                    "tags": list(obj["tags"]),
+                    "confidence": float(obj["confidence"]),
+                }
+                continue
+
+            current = entities[entity_id]
+            if current["entity_type"] != obj["entity_type"]:
+                raise ClaimifyError(
+                    f"[{conv_id}] entity merge conflict: entity_type mismatch for entity_id={entity_id!r}"
+                )
+            for key, value in obj["props"].items():
+                if key not in current["props"]:
+                    current["props"][key] = value
+            current["aliases"] = _stable_union(current["aliases"], list(obj["aliases"]))
+            current["tags"] = _stable_union(current["tags"], list(obj["tags"]))
+            current["confidence"] = max(float(current["confidence"]), float(obj["confidence"]))
+            continue
+
+        claim_id = str(obj["claim_id"])
+        if claim_id not in claims:
+            claim = {
+                "record_type": "claim",
+                "claim_id": claim_id,
+                "predicate": obj["predicate"],
+                "subject": dict(obj["subject"]),
+                "object": dict(obj["object"]),
+                "domain": obj["domain"],
+                "confidence": float(obj["confidence"]),
+                "status": obj["status"],
+                "rank": obj["rank"],
+                "updated_at": obj["updated_at"],
+                "evidence": [],
+            }
+            seen_ev_keys: set[str] = set()
+            for ev in obj["evidence"]:
+                key = f"p:{ev.get('point_id')}" if ev.get("point_id") else f"m:{ev.get('memory_item_id')}"
+                if key in seen_ev_keys:
+                    continue
+                claim["evidence"].append(dict(ev))
+                seen_ev_keys.add(key)
+            claim["_evidence_keys"] = seen_ev_keys
+            claims[claim_id] = claim
+            continue
+
+        current = claims[claim_id]
+        for field in ("predicate", "subject", "object", "domain", "rank"):
+            if current[field] != obj[field]:
+                raise ClaimifyError(f"[{conv_id}] claim merge conflict: {field} mismatch for claim_id={claim_id!r}")
+
+        current["confidence"] = max(float(current["confidence"]), float(obj["confidence"]))
+        current["status"] = "active" if current["status"] == "active" or obj["status"] == "active" else "candidate"
+        if str(obj["updated_at"]) > str(current["updated_at"]):
+            current["updated_at"] = obj["updated_at"]
+
+        seen_ev_keys = current["_evidence_keys"]
+        for ev in obj["evidence"]:
+            key = f"p:{ev.get('point_id')}" if ev.get("point_id") else f"m:{ev.get('memory_item_id')}"
+            if key in seen_ev_keys:
+                continue
+            current["evidence"].append(dict(ev))
+            seen_ev_keys.add(key)
+
+    entity_records = sorted(entities.values(), key=lambda x: (str(x["entity_type"]), str(x["entity_id"])))
+
+    claim_records: list[dict[str, Any]] = []
+    for claim in claims.values():
+        claim.pop("_evidence_keys", None)
+        claim["evidence"] = sorted(claim["evidence"], key=lambda ev: str(ev.get("created_at", "")))
+        claim_records.append(claim)
+    claim_records = sorted(claim_records, key=lambda x: (str(x["domain"]), str(x["predicate"]), str(x["claim_id"])))
+
+    return entity_records + claim_records
+
+
 def validate_jsonl_output(
     raw_output: str,
     conv_id: str,
@@ -315,7 +417,7 @@ def validate_jsonl_output(
 
     input_point_ids = {str(item.obj["id"]) for item in input_items}
     input_hashes = {str(item.obj["payload"]["hash"]) for item in input_items}
-    validated_lines: list[str] = []
+    records: list[dict[str, Any]] = []
     dropped_claims: dict[str, int] = {}
     non_empty_lines: list[tuple[int, str]] = [
         (file_line, line)
@@ -339,15 +441,30 @@ def validate_jsonl_output(
             raise ClaimifyError(f"[{conv_id}] file_line={file_line}: invalid record_type")
         if rt == "entity":
             _validate_entity(obj, conv_id, file_line)
-            validated_lines.append(line)
+            records.append(obj)
             continue
 
-        if obj.get("predicate") == DROPPED_PREDICATE:
+        predicate = obj.get("predicate")
+        _validate_claim(
+            obj,
+            conv_id,
+            scene_id,
+            input_point_ids,
+            input_hashes,
+            file_line,
+            allow_dropped_predicate=True,
+        )
+        if predicate == DROPPED_PREDICATE:
             dropped_claims[DROPPED_PREDICATE] = dropped_claims.get(DROPPED_PREDICATE, 0) + 1
             continue
 
-        _validate_claim(obj, conv_id, scene_id, input_point_ids, input_hashes, file_line)
-        validated_lines.append(line)
+        records.append(obj)
+
+    normalized_records = normalize_records(records, conv_id)
+    validated_lines = [
+        json.dumps(record, ensure_ascii=False, separators=(",", ":"))
+        for record in normalized_records
+    ]
 
     if not validated_lines:
         raise ClaimifyError(f"[{conv_id}] file_line=0: model output is empty")
