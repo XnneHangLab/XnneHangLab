@@ -192,9 +192,17 @@ def merge_claims(global_claims: dict[str, dict[str, Any]], claim_obj: dict[str, 
         global_claims[key]["evidence"] = dedupe_and_sort_evidence(list(claim_obj["evidence"]))
         return
 
-    for field in ("predicate", "subject", "object", "domain"):
-        if current[field] != claim_obj[field]:
-            raise ValueError(f"claim {key} field mismatch on {field}")
+    checks: list[tuple[str, Any, Any]] = [
+        ("predicate", current["predicate"], claim_obj["predicate"]),
+        ("domain", current["domain"], claim_obj["domain"]),
+        ("subject.entity_type", current["subject"].get("entity_type"), claim_obj["subject"].get("entity_type")),
+        ("subject.entity_id", current["subject"].get("entity_id"), claim_obj["subject"].get("entity_id")),
+        ("object.entity_type", current["object"].get("entity_type"), claim_obj["object"].get("entity_type")),
+        ("object.entity_id", current["object"].get("entity_id"), claim_obj["object"].get("entity_id")),
+    ]
+    for field, left, right in checks:
+        if left != right:
+            raise ValueError(f"claim_id={key} mismatch on {field}: {left!r} != {right!r}")
 
     current["confidence"] = max(float(current["confidence"]), float(claim_obj["confidence"]))
     current["status"] = "active" if (current["status"] == "active" or claim_obj["status"] == "active") else "candidate"
