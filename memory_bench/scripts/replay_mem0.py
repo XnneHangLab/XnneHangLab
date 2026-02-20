@@ -961,21 +961,41 @@ def infer_memory_owner(
 
     conv_bucket = event_index.get(conv_id)
     if conv_bucket and data:
-        assistant_hits = [turn_id for content, turn_id in conv_bucket["assistant"] if (data in content or content in data)]
+        assistant_hits = [
+            turn_id for content, turn_id in conv_bucket["assistant"] if (data in content or content in data)
+        ]
         human_hits = [turn_id for content, turn_id in conv_bucket["human"] if (data in content or content in data)]
 
         if assistant_hits and human_hits:
             owner_id = agent_id or user_id or "unknown"
             owner_type = "Agent" if agent_id else "User"
-            return owner_type, owner_id, "ambiguous", str(assistant_hits[0]) if assistant_hits[0] is not None else None, "ambiguous"
+            return (
+                owner_type,
+                owner_id,
+                "ambiguous",
+                str(assistant_hits[0]) if assistant_hits[0] is not None else None,
+                "ambiguous",
+            )
         if assistant_hits:
             owner_id = agent_id or user_id or "unknown"
             owner_type = "Agent" if agent_id else "User"
-            return owner_type, owner_id, "matched_event", str(assistant_hits[0]) if assistant_hits[0] is not None else None, "matched"
+            return (
+                owner_type,
+                owner_id,
+                "matched_event",
+                str(assistant_hits[0]) if assistant_hits[0] is not None else None,
+                "matched",
+            )
         if human_hits:
             owner_id = user_id or agent_id or "unknown"
             owner_type = "User" if user_id else "Agent"
-            return owner_type, owner_id, "matched_event", str(human_hits[0]) if human_hits[0] is not None else None, "matched"
+            return (
+                owner_type,
+                owner_id,
+                "matched_event",
+                str(human_hits[0]) if human_hits[0] is not None else None,
+                "matched",
+            )
 
     owner_type = fallback_owner
     owner_id = agent_id if owner_type == "Agent" else user_id
