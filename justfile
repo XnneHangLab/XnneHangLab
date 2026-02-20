@@ -187,8 +187,8 @@ reset-graphify-pipeline:
     --reset-output
 
 graphify-pipeline:
-  uv run python -m memory_bench.scripts.graphify_pipeline run \
-    --input memory_bench/logs/replay_mem0/export_20260219_203142.jsonl \
+  uv run python -m memory_bench.scripts.graphify_pipeline_latest \
+    --export-dir memory_bench/logs/replay_mem0 \
     --out-dir memory_bench/logs/replay_mem0/graphify \
     --state-db memory_bench/state/graphify/state.sqlite \
     --prefix graph

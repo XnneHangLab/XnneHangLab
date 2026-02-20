@@ -26,6 +26,7 @@
   - `memory_bench/scripts/graphify_export.py`
   - `memory_bench/scripts/neo4j_export_cypher.py`
   - `memory_bench/scripts/graphify_pipeline.py`
+  - `memory_bench/scripts/graphify_pipeline_latest.py`
   - `memory_bench/scripts/neo4j_apply_cypher.py`
 
 - 统一日志
@@ -51,7 +52,7 @@
 
 ### C) export → graphify（元数据归属图）→ Neo4j
 
-9) `graphify_pipeline.py run`（推荐）一键：
+9) `graphify_pipeline_latest.py`（推荐）自动选择最新 export 并一键运行：
    - graphify_export(add)：生成 nodes/edges + state.sqlite 增量
    - neo4j_export_cypher：生成约束与导入脚本
 
@@ -486,9 +487,35 @@ uv run python -m memory_bench.scripts.graphify_pipeline reset \
 
 ---
 
-## 13. `neo4j_apply_cypher.py`
+## 13. `graphify_pipeline_latest.py`（自动选择最新 export）
 
 ### 13.1 作用
+
+- 自动扫描 `memory_bench/logs/replay_mem0/` 下的 `export_*.jsonl`
+- 选择时间线上最新的一个作为输入
+- 调用 `graphify_pipeline.run` 执行 graphify + neo4j_export_cypher（默认开启）
+- 若目录下没有任何 export 文件，直接报错退出
+
+### 13.2 调用方式（模块运行）
+
+```bash
+uv run python -m memory_bench.scripts.graphify_pipeline_latest -h
+```
+
+常用：
+
+```bash
+uv run python -m memory_bench.scripts.graphify_pipeline_latest \
+  --export-dir memory_bench/logs/replay_mem0 \
+  --out-dir memory_bench/logs/replay_mem0/graphify \
+  --state-db memory_bench/state/graphify/state.sqlite
+```
+
+---
+
+## 14. `neo4j_apply_cypher.py`
+
+### 14.1 作用
 
 将 `neo4j_export_cypher.py` 生成的 cypher 文件，一键导入指定 Neo4j docker 容器。
 
@@ -498,7 +525,7 @@ uv run python -m memory_bench.scripts.graphify_pipeline reset \
 - `zep`
 - `cognee`
 
-### 13.2 调用方式（模块运行）
+### 14.2 调用方式（模块运行）
 
 ```bash
 uv run python -m memory_bench.scripts.neo4j_apply_cypher --dry-run mem0 graph
@@ -513,7 +540,7 @@ uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 \
 
 ---
 
-## 14. 工具模块说明
+## 15. 工具模块说明
 
 - `bench_logger.py`：统一彩色日志（被多数脚本复用），非 CLI
 - `tag_registry.py`：tag 归一化与候选选择工具（由 claimify 使用），非 CLI 主入口
@@ -521,7 +548,7 @@ uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 \
 
 ---
 
-## 15. 一套可复制的完整流程（从原文到 Claim + Graphify）
+## 16. 一套可复制的完整流程（从原文到 Claim + Graphify）
 
 ```bash
 # 1) index
@@ -543,9 +570,9 @@ uv run python memory_bench/scripts/claimify_all.py \
   --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl
 uv run python -m memory_bench.scripts.compiled_claims --force
 
-# 6) graphify + neo4j cypher
-uv run python -m memory_bench.scripts.graphify_pipeline run \
-  --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl \
+# 6) graphify + neo4j cypher（自动选择最新 export）
+uv run python -m memory_bench.scripts.graphify_pipeline_latest \
+  --export-dir memory_bench/logs/replay_mem0 \
   --out-dir memory_bench/logs/replay_mem0/graphify \
   --state-db memory_bench/state/graphify/state.sqlite
 ```
