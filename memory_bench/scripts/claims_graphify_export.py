@@ -94,11 +94,49 @@ def map_subject_to_tree_root(entity_type: str, entity_id: str) -> tuple[str, str
     }
 
 
+def extract_character_id(tree_subject_id: str) -> str:
+    if tree_subject_id.startswith("char:"):
+        return tree_subject_id[5:]
+    return tree_subject_id
+
+
+def build_domain_predicate_nav(
+    tree_subject_id: str,
+    domain: str,
+    predicate: str,
+) -> tuple[str, dict[str, Any], str, dict[str, Any]]:
+    """为 claim 构建树状导航节点（Domain/Predicate）。"""
+
+    character_id = extract_character_id(tree_subject_id)
+    domain_value = domain or "unknown"
+    predicate_value = predicate or "UNKNOWN"
+
+    domain_node_id = f"dom:{tree_subject_id}:{domain_value}"
+    domain_props = {
+        "domain": domain_value,
+        "character_id": character_id,
+        "display": domain_value,
+        "name": domain_value,
+    }
+
+    predicate_node_id = f"pred:{tree_subject_id}:{domain_value}:{predicate_value}"
+    pred_display = f"{predicate_value} ({domain_value})"
+    predicate_props = {
+        "predicate": predicate_value,
+        "domain": domain_value,
+        "character_id": character_id,
+        "display": pred_display,
+        "name": pred_display,
+    }
+    return domain_node_id, domain_props, predicate_node_id, predicate_props
+
+
 def build_graph(
     entities_rows: list[dict[str, Any]],
     claims_rows: list[dict[str, Any]],
     rewrite_user_id: bool,
     benchmark_user_id: str,
+    emit_shortcut_predicate_edges: bool,
 ) -> BuildResult:
     nodes_by_id: dict[str, dict[str, Any]] = {}
     edges_by_id: dict[str, dict[str, Any]] = {}
@@ -207,6 +245,14 @@ def build_graph(
         tree_subject_id, tree_subject_label, tree_subject_props = map_subject_to_tree_root(subject_type, subject_id_rewritten)
         upsert_node(tree_subject_id, [tree_subject_label], tree_subject_props)
 
+        domain_node_id, domain_props, predicate_node_id, predicate_props = build_domain_predicate_nav(
+            tree_subject_id=tree_subject_id,
+            domain=domain,
+            predicate=predicate,
+        )
+        upsert_node(domain_node_id, ["Domain"], domain_props)
+        upsert_node(predicate_node_id, ["Predicate"], predicate_props)
+
         object_display = benchmark_user_id if object_type == "User" and rewrite_user_id else object_id
         upsert_node(
             object_id,
@@ -221,10 +267,24 @@ def build_graph(
             "confidence": claim.get("confidence"),
             "updated_at": claim.get("updated_at"),
         }
-        add_edge(f"has_claim:{tree_subject_id}:{claim_id}", "HAS_CLAIM", tree_subject_id, claim_id, edge_trace_props)
+        add_edge(
+            f"has_domain:{tree_subject_id}:{domain_props['domain']}",
+            "HAS_DOMAIN",
+            tree_subject_id,
+            domain_node_id,
+            {"character_id": domain_props["character_id"], "domain": domain_props["domain"]},
+        )
+        add_edge(
+            f"has_predicate:{domain_node_id}:{predicate_node_id}",
+            "HAS_PREDICATE",
+            domain_node_id,
+            predicate_node_id,
+            {"domain": predicate_props["domain"], "predicate": predicate_props["predicate"]},
+        )
+        add_edge(f"has_claim:{predicate_node_id}:{claim_id}", "HAS_CLAIM", predicate_node_id, claim_id, edge_trace_props)
         add_edge(f"about:{claim_id}:{object_id}", "ABOUT", claim_id, object_id, edge_trace_props)
 
-        if predicate:
+        if emit_shortcut_predicate_edges and predicate:
             add_edge(
                 f"pred:{predicate}:{tree_subject_id}:{object_id}:{claim_id}",
                 predicate,
@@ -308,6 +368,12 @@ def build_parser() -> argparse.ArgumentParser:
             default=True,
             help="Rewrite User entity_id to user:{BENCHMARK_USER_ID}",
         )
+        sub.add_argument(
+            "--emit-shortcut-predicate-edges",
+            action=argparse.BooleanOptionalAction,
+            default=False,
+            help="Emit Character-[:<PREDICATE>]->Object shortcut edges (default: disabled)",
+        )
     return parser
 
 
@@ -325,6 +391,7 @@ def main() -> int:
         claims_rows=claims_rows,
         rewrite_user_id=bool(args.rewrite_user_id),
         benchmark_user_id=benchmark_user_id,
+        emit_shortcut_predicate_edges=bool(args.emit_shortcut_predicate_edges),
     )
 
     ts = now_utc_ts()
@@ -337,6 +404,7 @@ def main() -> int:
     report["format"] = args.format
     report["prefix"] = args.prefix
     report["rewrite_user_id"] = bool(args.rewrite_user_id)
+    report["emit_shortcut_predicate_edges"] = bool(args.emit_shortcut_predicate_edges)
     report["benchmark_user_id"] = benchmark_user_id
 
     report_path = out_dir / f"claims_report_{ts}.json"
@@ -360,6 +428,7 @@ def main() -> int:
                 "edges_total": report["edges_total"],
                 "rewritten_user_entities": report["rewritten_user_entities"],
                 "rewritten_user_claim_refs": report["rewritten_user_claim_refs"],
+                "emit_shortcut_predicate_edges": report["emit_shortcut_predicate_edges"],
             },
             ensure_ascii=False,
         ),
