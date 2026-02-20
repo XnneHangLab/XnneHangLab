@@ -338,6 +338,24 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="Output JSONL path. Defaults to logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl",
     )
+    export_cmd.add_argument(
+        "--events",
+        type=str,
+        default=DEFAULT_INPUT,
+        help="Event JSONL used for owner inference in export payload",
+    )
+    export_cmd.add_argument(
+        "--infer-owner",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Infer unique owner_type/owner_id from event texts",
+    )
+    export_cmd.add_argument(
+        "--owner-fallback",
+        choices=["Agent", "User"],
+        default="Agent",
+        help="Fallback owner_type when owner inference is not matched",
+    )
 
     return parser.parse_args()
 
@@ -869,6 +887,74 @@ def compact_hits_preview(hits: Any, k: int) -> list[dict[str, Any]]:
         score = hit.get("score")
         preview.append({"content": content[:160], "score": score, "metadata": metadata})
     return preview
+
+
+def normalize_text(value: Any) -> str:
+    """将文本规范化为便于子串匹配的形式。"""
+
+    return " ".join(str(value or "").split())
+
+
+def build_owner_event_index(events_path: Path) -> dict[str, dict[str, list[tuple[str, str | None]]]]:
+    """按 conv_id 构建 human/assistant 文本索引，用于 owner 推断。"""
+
+    index: dict[str, dict[str, list[tuple[str, str | None]]]] = {}
+    for _, event in read_jsonl(events_path):
+        conv_id = str(event.get("conv_id", "")).strip()
+        role_type = str(event.get("role_type", "")).strip()
+        content = normalize_text(event.get("content", ""))
+        if not conv_id or role_type not in {"human", "assistant"} or not content:
+            continue
+        conv_bucket = index.setdefault(conv_id, {"human": [], "assistant": []})
+        conv_bucket[role_type].append((content, event.get("turn_id")))
+    return index
+
+
+def infer_memory_owner(
+    payload: dict[str, Any],
+    event_index: dict[str, dict[str, list[tuple[str, str | None]]]],
+    infer_owner: bool,
+    fallback_owner: str,
+) -> tuple[str, str, str, str | None, str]:
+    """为单条 memory payload 推断唯一 owner。"""
+
+    user_id = str(payload.get("user_id", "")).strip()
+    agent_id = str(payload.get("agent_id", "")).strip()
+    conv_id = str(payload.get("conv_id", "")).strip()
+    data = normalize_text(payload.get("data", ""))
+
+    if not infer_owner:
+        owner_type = fallback_owner
+        owner_id = agent_id if owner_type == "Agent" else user_id
+        if not owner_id:
+            owner_type = "Agent" if agent_id else "User"
+            owner_id = agent_id or user_id or "unknown"
+        return owner_type, owner_id, "fallback", None, "fallback"
+
+    conv_bucket = event_index.get(conv_id)
+    if conv_bucket and data:
+        assistant_hits = [turn_id for content, turn_id in conv_bucket["assistant"] if (data in content or content in data)]
+        human_hits = [turn_id for content, turn_id in conv_bucket["human"] if (data in content or content in data)]
+
+        if assistant_hits and human_hits:
+            owner_id = agent_id or user_id or "unknown"
+            owner_type = "Agent" if agent_id else "User"
+            return owner_type, owner_id, "ambiguous", str(assistant_hits[0]) if assistant_hits[0] is not None else None, "ambiguous"
+        if assistant_hits:
+            owner_id = agent_id or user_id or "unknown"
+            owner_type = "Agent" if agent_id else "User"
+            return owner_type, owner_id, "matched_event", str(assistant_hits[0]) if assistant_hits[0] is not None else None, "matched"
+        if human_hits:
+            owner_id = user_id or agent_id or "unknown"
+            owner_type = "User" if user_id else "Agent"
+            return owner_type, owner_id, "matched_event", str(human_hits[0]) if human_hits[0] is not None else None, "matched"
+
+    owner_type = fallback_owner
+    owner_id = agent_id if owner_type == "Agent" else user_id
+    if not owner_id:
+        owner_type = "Agent" if agent_id else "User"
+        owner_id = agent_id or user_id or "unknown"
+    return owner_type, owner_id, "fallback", None, "fallback"
 
 
 def count_replay_events(path: Path) -> int:
@@ -1479,7 +1565,14 @@ def run_probe(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
     return 0
 
 
-def export_collection_snapshot(memory: Any, output_path: Path, isolation: str) -> int:
+def export_collection_snapshot(
+    memory: Any,
+    output_path: Path,
+    isolation: str,
+    event_index: dict[str, dict[str, list[tuple[str, str | None]]]],
+    infer_owner: bool,
+    fallback_owner: str,
+) -> tuple[int, dict[str, int]]:
     """直接从 Qdrant collection scroll 全量导出点位快照。
 
     Args:
@@ -1488,7 +1581,7 @@ def export_collection_snapshot(memory: Any, output_path: Path, isolation: str) -
         isolation: 隔离模式（用于 fallback collection 命名）。
 
     Returns:
-        int：导出的 point 总数。
+        tuple[int, dict[str, int]]：导出的 point 总数及 owner 推断统计。
 
     Raises:
         ReplayMem0Error: vector store client 不支持 scroll 或导出过程中发生非 collection-not-found 异常时抛出。
@@ -1506,6 +1599,7 @@ def export_collection_snapshot(memory: Any, output_path: Path, isolation: str) -
     )
 
     total = 0
+    owner_stats = {"matched": 0, "fallback": 0, "ambiguous": 0}
     next_page_offset: Any = None
     exported_at = now_iso()
     with output_path.open("w", encoding="utf-8") as out_file:
@@ -1533,11 +1627,27 @@ def export_collection_snapshot(memory: Any, output_path: Path, isolation: str) -
             for point in points:
                 point_id = point.get("id") if isinstance(point, dict) else getattr(point, "id", None)
                 payload = point.get("payload") if isinstance(point, dict) else getattr(point, "payload", None)
+                payload_obj = payload if isinstance(payload, dict) else {}
+                owner_type, owner_id, owner_infer, owner_turn_id, owner_bucket = infer_memory_owner(
+                    payload_obj,
+                    event_index=event_index,
+                    infer_owner=infer_owner,
+                    fallback_owner=fallback_owner,
+                )
+                owner_stats[owner_bucket] += 1
+                payload_obj = {
+                    **payload_obj,
+                    "owner_type": owner_type,
+                    "owner_id": owner_id,
+                    "owner_infer": owner_infer,
+                }
+                if owner_turn_id:
+                    payload_obj["owner_turn_id"] = owner_turn_id
                 out_file.write(
                     json.dumps(
                         {
                             "id": point_id,
-                            "payload": payload,
+                            "payload": payload_obj,
                             "collection": collection_name,
                             "isolation": isolation,
                             "exported_at": exported_at,
@@ -1551,7 +1661,7 @@ def export_collection_snapshot(memory: Any, output_path: Path, isolation: str) -
             if next_page_offset is None:
                 break
 
-    return total
+    return total, owner_stats
 
 
 def run_export(args: argparse.Namespace, memory: Any) -> int:
@@ -1571,9 +1681,19 @@ def run_export(args: argparse.Namespace, memory: Any) -> int:
     output_path = Path(args.output) if args.output else default_output_path("export")
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    points = export_collection_snapshot(memory, output_path, args.isolation)
+    event_index = build_owner_event_index(Path(args.events)) if args.infer_owner else {}
+    points, owner_stats = export_collection_snapshot(
+        memory,
+        output_path,
+        args.isolation,
+        event_index=event_index,
+        infer_owner=args.infer_owner,
+        fallback_owner=str(args.owner_fallback),
+    )
     logger.bind(group="memory").info(
-        f"Export done: points={points}, user_id={get_benchmark_user_id()}, output={output_path}"
+        f"Export done: points={points}, user_id={get_benchmark_user_id()}, "
+        f"owner_matched={owner_stats['matched']}, owner_ambiguous={owner_stats['ambiguous']}, "
+        f"owner_fallback={owner_stats['fallback']}, output={output_path}"
     )
     return 0
 
