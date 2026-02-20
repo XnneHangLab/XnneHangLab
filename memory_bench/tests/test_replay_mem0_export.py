@@ -177,9 +177,17 @@ def test_export_collection_snapshot_paging(tmp_path: Path, monkeypatch: pytest.M
     memory = DummyMemory(vs)
     out_path = tmp_path / "export.jsonl"
 
-    points = replay_mem0.export_collection_snapshot(memory, out_path, isolation="global")
+    points, owner_stats = replay_mem0.export_collection_snapshot(
+        memory,
+        out_path,
+        isolation="global",
+        event_index={},
+        infer_owner=False,
+        fallback_owner="Agent",
+    )
 
     assert points == 3
+    assert owner_stats == {"matched": 0, "fallback": 3, "ambiguous": 0}
     rows = read_jsonl(out_path)
     assert [row["id"] for row in rows] == ["p1", "p2", "p3"]
     for row in rows:
@@ -214,9 +222,17 @@ def test_export_collection_snapshot_collection_not_found_treated_as_empty(
     memory = DummyMemory(vs)
     out_path = tmp_path / "export.jsonl"
 
-    points = replay_mem0.export_collection_snapshot(memory, out_path, isolation="global")
+    points, owner_stats = replay_mem0.export_collection_snapshot(
+        memory,
+        out_path,
+        isolation="global",
+        event_index={},
+        infer_owner=False,
+        fallback_owner="Agent",
+    )
 
     assert points == 0
+    assert owner_stats == {"matched": 0, "fallback": 0, "ambiguous": 0}
     assert out_path.exists()
     assert out_path.read_text(encoding="utf-8") == ""
 
@@ -236,4 +252,11 @@ def test_export_collection_snapshot_requires_scroll(tmp_path: Path, replay_mem0:
     out_path = tmp_path / "export.jsonl"
 
     with pytest.raises(replay_mem0.ReplayMem0Error):
-        replay_mem0.export_collection_snapshot(memory, out_path, isolation="global")
+        replay_mem0.export_collection_snapshot(
+            memory,
+            out_path,
+            isolation="global",
+            event_index={},
+            infer_owner=False,
+            fallback_owner="Agent",
+        )

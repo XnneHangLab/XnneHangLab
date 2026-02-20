@@ -39,11 +39,13 @@ def ensure_fixture_path(tmp_path: Path) -> Path:
             "scene_id": "chill_ai_chat",
             "character_id": "congyin",
             "conv_id": "ch9998",
-            "user_id": "chill_ai_chat:congyin",
+            "user_id": "xnne",
             "agent_id": "congyin",
             "data": "很喜欢夏目漱石",
             "hash": "d82ae1eafae11287f949b39cb11dd939",
             "created_at": "2026-02-17T19:12:27.733459-08:00",
+            "owner_type": "Character",
+            "owner_id": "congyin",
         },
         "collection": "memory_bench_global",
         "isolation": "global",
@@ -111,7 +113,7 @@ def test_run_graphify_dry_run_does_not_create_state_db_when_missing(tmp_path: Pa
     assert report["records_total"] == 1
     assert report["records_valid"] == 1
     assert report["nodes_total"] == 6
-    assert report["edges_total"] == 9
+    assert report["edges_total"] == 8
     assert report["nodes_path"] == ""
     assert report["edges_path"] == ""
 
@@ -149,7 +151,7 @@ def test_run_graphify_add_creates_state_and_outputs(tmp_path: Path) -> None:
     nodes_lines = artifacts.nodes_path.read_text(encoding="utf-8").splitlines()
     edges_lines = artifacts.edges_path.read_text(encoding="utf-8").splitlines()
     assert len(nodes_lines) == 6
-    assert len(edges_lines) == 9
+    assert len(edges_lines) == 8
 
     report = read_report(artifacts.report_path)
     assert report["records_valid"] == 1

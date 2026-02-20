@@ -41,6 +41,7 @@ def _write_jsonl(path: Path, events: list[dict[str, Any]]) -> None:
 
 def test_run_ingest_flushes_per_conv_id(monkeypatch: Any, tmp_path: Path) -> None:
     monkeypatch.setattr(replay_mem0, "create_replay_progress", lambda *_args, **_kwargs: DummyProgress())
+    monkeypatch.setenv("BENCHMARK_USER_ID", "xnne")
 
     scene_id = "sceneA"
     character_id = "charA"
@@ -132,7 +133,7 @@ def test_run_ingest_flushes_per_conv_id(monkeypatch: Any, tmp_path: Path) -> Non
     assert len(second_call["messages"]) == 2
     assert any(msg["role"] == "assistant" for msg in second_call["messages"])
 
-    expected_user_id = f"{scene_id}:{character_id}"
+    expected_user_id = "xnne"
     assert first_call["user_id"] == expected_user_id
     assert second_call["user_id"] == expected_user_id
     assert first_call["agent_id"] == character_id
