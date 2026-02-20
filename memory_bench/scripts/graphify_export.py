@@ -436,7 +436,7 @@ def build_graph_from_record(
 
     Args:
         record: 通过基础校验与 processed_key 计算后的记录对象。
-        stats: 统计计数字典，函数内可能更新 `skipped_missing_memory_id`。
+        stats: 统计计数字典，函数内可能更新 owner 回退相关计数。
 
     Returns:
         tuple[list[dict[str, Any]], list[dict[str, Any]]]: 该记录生成的节点列表与边列表。

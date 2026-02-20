@@ -891,13 +891,29 @@ def compact_hits_preview(hits: Any, k: int) -> list[dict[str, Any]]:
 
 
 def normalize_text(value: Any) -> str:
-    """将文本规范化为便于子串匹配的形式。"""
+    """将任意输入规范化为便于子串匹配的紧凑文本。
+
+    Args:
+        value: 原始输入值，可为字符串或其他任意对象。
+
+    Returns:
+        str：去除多余空白后的单行文本。
+    """
 
     return " ".join(str(value or "").split())
 
 
 def build_owner_event_index(events_path: Path) -> dict[str, dict[str, list[tuple[str, str | None]]]]:
-    """按 conv_id 构建 human/assistant 文本索引，用于 owner 推断。"""
+    """按会话维度构建 owner 推断索引。
+
+    Args:
+        events_path: 事件 JSONL 文件路径。
+
+    Returns:
+        dict[str, dict[str, list[tuple[str, str | None]]]]：
+            以 `conv_id` 为键的文本索引，内部区分 `human` 与 `assistant`，
+            每条记录为 `(normalized_content, turn_id)`。
+    """
 
     index: dict[str, dict[str, list[tuple[str, str | None]]]] = {}
     for _, event in read_jsonl(events_path):
@@ -917,7 +933,18 @@ def infer_memory_owner(
     infer_owner: bool,
     fallback_owner: str,
 ) -> tuple[str, str, str, str | None, str]:
-    """为单条 memory payload 推断唯一 owner。"""
+    """为单条 memory payload 推断唯一 owner。
+
+    Args:
+        payload: 单条 memory 的 payload。
+        event_index: 由 `build_owner_event_index` 构建的会话文本索引。
+        infer_owner: 是否启用文本匹配推断 owner。
+        fallback_owner: 未匹配时的回退 owner 类型（`Agent` 或 `User`）。
+
+    Returns:
+        tuple[str, str, str, str | None, str]：
+            `(owner_type, owner_id, owner_infer, owner_turn_id, owner_bucket)`。
+    """
 
     user_id = str(payload.get("user_id", "")).strip()
     agent_id = str(payload.get("agent_id", "")).strip()
