@@ -66,6 +66,7 @@ ALLOWED_EDGE_TYPES = {
     "USER_IN_SCENE",
     "AGENT_IS_CHARACTER",
 }
+MEMORY_DISPLAY_PREVIEW_LEN = 40
 
 
 @dataclass(slots=True)
@@ -445,6 +446,20 @@ def build_graph_from_record(
     edges: list[dict[str, Any]] = []
     payload = record.payload
 
+    def build_memory_display() -> str:
+        raw_data = payload.get("data")
+        preview = " ".join(str(raw_data).split())[:MEMORY_DISPLAY_PREVIEW_LEN] if raw_data is not None else ""
+        hash_value = str(payload.get("hash") or "").strip()
+        hash_suffix = f" #{hash_value[:8]}" if hash_value else ""
+        if preview:
+            return f"{preview}{hash_suffix}".strip()
+        if hash_value:
+            return f"hash:{hash_value[:8]}"
+        point_id = str(record.source_point_id).strip()
+        if point_id:
+            return f"point:{point_id[:12]}"
+        return "memory"
+
     # MemoryItem id 规则必须与 processed_key 一致。
     memory_key = record.processed_key if payload.get("hash") else f"point:{record.source_point_id}"
     memory_id = make_node_id("MemoryItem", memory_key)
@@ -453,6 +468,7 @@ def build_graph_from_record(
         "MemoryItem": memory_id,
     }
 
+    mem_display = build_memory_display()
     nodes.append(
         {
             "id": memory_id,
@@ -465,6 +481,8 @@ def build_graph_from_record(
                 "collection": record.collection,
                 "isolation": record.isolation,
                 "exported_at": record.exported_at,
+                "display": mem_display,
+                "name": mem_display,
             },
         }
     )
@@ -488,7 +506,7 @@ def build_graph_from_record(
             {
                 "id": node_id,
                 "labels": [label],
-                "props": {payload_key: entity_value},
+                "props": {payload_key: entity_value, "display": entity_value, "name": entity_value},
             }
         )
 
