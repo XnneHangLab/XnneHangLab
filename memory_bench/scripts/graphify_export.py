@@ -561,7 +561,6 @@ def build_graph_from_record(
 
     # 3.3 固定关系集合与方向（必须严格一致）
     add_edge("OWNS_MEMORY", owner_type, "MemoryItem")
-    add_edge("TARGETS_AGENT", "MemoryItem", "Agent")
     add_edge("FROM_CONV", "MemoryItem", "Conversation")
     add_edge("IN_SCENE", "MemoryItem", "Scene")
     add_edge("HAS_CHARACTER", "MemoryItem", "Character")
