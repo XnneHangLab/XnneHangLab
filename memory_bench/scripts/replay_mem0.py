@@ -101,6 +101,16 @@ def get_env(name: str, default: str | None = None) -> str | None:
     return value if value not in (None, "") else default
 
 
+def get_benchmark_user_id() -> str:
+    """读取 BENCHMARK_USER_ID，缺失时使用默认 bench 用户。
+
+    Returns:
+        str：bench 用户 ID（保证非空）。
+    """
+
+    user_id = str(get_env("BENCHMARK_USER_ID", "xnnehang") or "").strip()
+    return user_id or "xnnehang"
+
 def get_env_int(name: str, default: int) -> int:
     """读取整型环境变量，解析失败时回退到默认值并记录日志。
 
@@ -679,19 +689,17 @@ def build_user_id(event: dict[str, Any], isolation: str) -> str:
         str：按隔离策略构建的 user_id。
 
     Raises:
-        ReplayMem0Error: 缺失 scene_id/character_id 或 per_chapter 缺失 conv_id 时抛出。
+        ReplayMem0Error: per_chapter 缺失 conv_id 时抛出。
     """
 
-    scene_id = str(event.get("scene_id", "")).strip()
-    character_id = str(event.get("character_id", "")).strip()
-    conv_id = str(event.get("conv_id", "")).strip()
-    if not scene_id or not character_id:
-        raise ReplayMem0Error("event missing scene_id/character_id")
+    benchmark_user_id = get_benchmark_user_id()
     if isolation == "global":
-        return f"{scene_id}:{character_id}"
+        return benchmark_user_id
+
+    conv_id = str(event.get("conv_id", "")).strip()
     if not conv_id:
         raise ReplayMem0Error("event missing conv_id for per_chapter isolation")
-    return f"{scene_id}:{character_id}:{conv_id}"
+    return f"{benchmark_user_id}:{conv_id}"
 
 
 def build_agent_id(event: dict[str, Any]) -> str:
@@ -1373,7 +1381,7 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
     logger.bind(group="memory").info(
         "Ingest done: "
         f"events={stats.total_events}, ingested={stats.ingested_events}, skipped={stats.skipped_events}, "
-        f"checkpoint={checkpoint_path}"
+        f"user_id={get_benchmark_user_id()}, checkpoint={checkpoint_path}"
     )
     return 0
 
@@ -1465,7 +1473,8 @@ def run_probe(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
 
     replay_progress.close()
     logger.bind(group="memory").info(
-        f"Probe done: events={stats.total_events}, probes={stats.probe_events}, output={output_path}"
+        f"Probe done: events={stats.total_events}, probes={stats.probe_events}, "
+        f"user_id={get_benchmark_user_id()}, output={output_path}"
     )
     return 0
 
@@ -1563,7 +1572,9 @@ def run_export(args: argparse.Namespace, memory: Any) -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     points = export_collection_snapshot(memory, output_path, args.isolation)
-    logger.bind(group="memory").info(f"Export done: points={points}, output={output_path}")
+    logger.bind(group="memory").info(
+        f"Export done: points={points}, user_id={get_benchmark_user_id()}, output={output_path}"
+    )
     return 0
 
 
