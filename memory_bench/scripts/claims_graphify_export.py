@@ -157,16 +157,24 @@ def map_subject_to_tree_root(entity_type: str, entity_id: str) -> tuple[str, str
     if entity_type == "Agent":
         character_id = entity_id.removeprefix("agent:")
         char_node_id = f"char:{character_id}"
-        return char_node_id, "Character", {
-            "character_id": character_id,
-            "display": character_id,
-            "name": character_id,
-        }
-    return entity_id, entity_type, {
-        "entity_type": entity_type,
-        "display": entity_id,
-        "name": entity_id,
-    }
+        return (
+            char_node_id,
+            "Character",
+            {
+                "character_id": character_id,
+                "display": character_id,
+                "name": character_id,
+            },
+        )
+    return (
+        entity_id,
+        entity_type,
+        {
+            "entity_type": entity_type,
+            "display": entity_id,
+            "name": entity_id,
+        },
+    )
 
 
 def extract_character_id(tree_subject_id: str) -> str:
@@ -349,7 +357,9 @@ def build_graph(
         if rewrite_user_id and object_type == "User" and object_id != raw_object_id:
             rewritten_user_claim_refs += 1
 
-        tree_subject_id, tree_subject_label, tree_subject_props = map_subject_to_tree_root(subject_type, subject_id_rewritten)
+        tree_subject_id, tree_subject_label, tree_subject_props = map_subject_to_tree_root(
+            subject_type, subject_id_rewritten
+        )
         upsert_node(tree_subject_id, [tree_subject_label], tree_subject_props)
 
         domain_node_id, domain_props, predicate_node_id, predicate_props = build_domain_predicate_nav(
@@ -388,7 +398,9 @@ def build_graph(
             predicate_node_id,
             {"domain": predicate_props["domain"], "predicate": predicate_props["predicate"]},
         )
-        add_edge(f"has_claim:{predicate_node_id}:{claim_id}", "HAS_CLAIM", predicate_node_id, claim_id, edge_trace_props)
+        add_edge(
+            f"has_claim:{predicate_node_id}:{claim_id}", "HAS_CLAIM", predicate_node_id, claim_id, edge_trace_props
+        )
         add_edge(f"about:{claim_id}:{object_id}", "ABOUT", claim_id, object_id, edge_trace_props)
 
         if emit_shortcut_predicate_edges and predicate:
