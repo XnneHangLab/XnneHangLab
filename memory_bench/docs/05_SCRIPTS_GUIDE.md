@@ -267,7 +267,18 @@ export：
 
 ```bash
 uv run python memory_bench/scripts/replay_mem0.py export
+
+# 可选：显式指定 owner 推断输入与回退策略
+uv run python memory_bench/scripts/replay_mem0.py export \
+  --events memory_bench/data/events/compiled/all.jsonl \
+  --infer-owner \
+  --owner-fallback Agent
 ```
+
+说明：
+
+- `export` 默认会将 owner 推断结果写入 payload（如 `owner_type`/`owner_id` 等字段）；
+- 基准用户 ID 默认 `xnne`（可由 `BENCHMARK_USER_ID` 覆盖）。
 
 ### 7.5 返回码
 
@@ -368,6 +379,13 @@ uv run python -m memory_bench.scripts.compiled_claims --force
 - edges JSONL
 - report JSON
 - 支持增量幂等：`state.sqlite` 记录 processed_key（payload.hash 优先，否则 point id）
+
+当前边语义（收敛版）：
+
+- `Character -[:OWNS_MEMORY]-> MemoryItem`（唯一 owner）；
+- `Agent -[:ACTOR]-> Character`（Agent 身份映射）；
+- `MemoryItem -[:HAS_CHARACTER]-> Character` 仍保留；
+- 不再生成 `MemoryItem -[:TARGETS_AGENT]-> Agent`。
 
 子命令：
 

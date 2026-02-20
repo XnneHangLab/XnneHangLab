@@ -64,8 +64,9 @@ ALLOWED_EDGE_TYPES = {
     "CONV_IN_SCENE",
     "CONV_HAS_CHARACTER",
     "USER_IN_SCENE",
-    "AGENT_IS_CHARACTER",
+    "ACTOR",
 }
+MEMORY_DISPLAY_PREVIEW_LEN = 40
 
 
 @dataclass(slots=True)
@@ -435,7 +436,7 @@ def build_graph_from_record(
 
     Args:
         record: 通过基础校验与 processed_key 计算后的记录对象。
-        stats: 统计计数字典，函数内可能更新 `skipped_missing_memory_id`。
+        stats: 统计计数字典，函数内可能更新 owner 回退相关计数。
 
     Returns:
         tuple[list[dict[str, Any]], list[dict[str, Any]]]: 该记录生成的节点列表与边列表。
@@ -445,6 +446,20 @@ def build_graph_from_record(
     edges: list[dict[str, Any]] = []
     payload = record.payload
 
+    def build_memory_display() -> str:
+        raw_data = payload.get("data")
+        preview = " ".join(str(raw_data).split())[:MEMORY_DISPLAY_PREVIEW_LEN] if raw_data is not None else ""
+        hash_value = str(payload.get("hash") or "").strip()
+        hash_suffix = f" #{hash_value[:8]}" if hash_value else ""
+        if preview:
+            return f"{preview}{hash_suffix}".strip()
+        if hash_value:
+            return f"hash:{hash_value[:8]}"
+        point_id = str(record.source_point_id).strip()
+        if point_id:
+            return f"point:{point_id[:12]}"
+        return "memory"
+
     # MemoryItem id 规则必须与 processed_key 一致。
     memory_key = record.processed_key if payload.get("hash") else f"point:{record.source_point_id}"
     memory_id = make_node_id("MemoryItem", memory_key)
@@ -453,6 +468,7 @@ def build_graph_from_record(
         "MemoryItem": memory_id,
     }
 
+    mem_display = build_memory_display()
     nodes.append(
         {
             "id": memory_id,
@@ -465,6 +481,8 @@ def build_graph_from_record(
                 "collection": record.collection,
                 "isolation": record.isolation,
                 "exported_at": record.exported_at,
+                "display": mem_display,
+                "name": mem_display,
             },
         }
     )
@@ -488,7 +506,7 @@ def build_graph_from_record(
             {
                 "id": node_id,
                 "labels": [label],
-                "props": {payload_key: entity_value},
+                "props": {payload_key: entity_value, "display": entity_value, "name": entity_value},
             }
         )
 
@@ -517,16 +535,36 @@ def build_graph_from_record(
             }
         )
 
+    owner_character_id = str(payload.get("character_id") or "").strip()
+    if not owner_character_id:
+        owner_type = str(payload.get("owner_type") or "").strip()
+        owner_id = str(payload.get("owner_id") or "").strip()
+        if owner_type == "Agent" and owner_id:
+            owner_character_id = owner_id
+            stats["owner_fallback_character_from_owner_agent"] += 1
+        else:
+            owner_character_id = f"unknown:{record.source_point_id}"
+            stats["owner_fallback_character_unknown"] += 1
+
+    owner_node_id = make_node_id("Character", owner_character_id)
+    node_refs["Character"] = owner_node_id
+    nodes.append(
+        {
+            "id": owner_node_id,
+            "labels": ["Character"],
+            "props": {"character_id": owner_character_id, "display": owner_character_id, "name": owner_character_id},
+        }
+    )
+
     # 3.3 固定关系集合与方向（必须严格一致）
-    add_edge("OWNS_MEMORY", "User", "MemoryItem")
-    add_edge("TARGETS_AGENT", "MemoryItem", "Agent")
+    add_edge("OWNS_MEMORY", "Character", "MemoryItem")
     add_edge("FROM_CONV", "MemoryItem", "Conversation")
     add_edge("IN_SCENE", "MemoryItem", "Scene")
     add_edge("HAS_CHARACTER", "MemoryItem", "Character")
     add_edge("CONV_IN_SCENE", "Conversation", "Scene")
     add_edge("CONV_HAS_CHARACTER", "Conversation", "Character")
     add_edge("USER_IN_SCENE", "User", "Scene")
-    add_edge("AGENT_IS_CHARACTER", "Agent", "Character")
+    add_edge("ACTOR", "Agent", "Character")
 
     return nodes, edges
 
