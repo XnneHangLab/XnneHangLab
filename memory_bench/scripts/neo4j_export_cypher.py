@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -69,6 +70,19 @@ def _escape_cypher_key(value: str) -> str:
 
     Args:
         value: 原始 key 文本。
+
+    Returns:
+        str: 将反引号翻倍后的可安全嵌入值。
+    """
+
+    return value.replace("`", "``")
+
+
+def _escape_cypher_rel_type(value: str) -> str:
+    """转义关系类型标识符中的反引号。
+
+    Args:
+        value: 原始关系类型文本。
 
     Returns:
         str: 将反引号翻倍后的可安全嵌入值。
@@ -195,21 +209,32 @@ def _read_jsonl(path: Path, stats: dict[str, Any], kind: str) -> list[dict[str, 
     return rows
 
 
-def _build_constraints_cypher() -> str:
+def _build_constraints_cypher(edge_types: list[str]) -> str:
     """构建 Neo4j 约束 Cypher 文本。
+
+    Args:
+        edge_types: 已规范化的关系类型集合。
 
     Returns:
         str: 包含节点/关系唯一约束的脚本内容。
     """
 
-    return "\n".join(
-        [
-            "// Auto-generated constraints for graphify_export(V0)",
-            "CREATE CONSTRAINT node_id_unique IF NOT EXISTS FOR (n:Node) REQUIRE n.id IS UNIQUE;",
-            "CREATE CONSTRAINT rel_id_unique IF NOT EXISTS FOR ()-[r:REL]-() REQUIRE r.id IS UNIQUE;",
-            "",
-        ]
-    )
+    lines = [
+        "// Auto-generated constraints for graphify_export(V0)",
+        "CREATE CONSTRAINT node_id_unique IF NOT EXISTS FOR (n:Node) REQUIRE n.id IS UNIQUE;",
+    ]
+    for edge_type in edge_types:
+        edge_type_escaped = _escape_cypher_rel_type(edge_type)
+        safe_constraint_type = re.sub(r"[^0-9A-Za-z_]", "_", edge_type).strip("_")
+        if not safe_constraint_type:
+            safe_constraint_type = "REL"
+        lines.append(
+            "CREATE CONSTRAINT "
+            f"rel_{safe_constraint_type}_id_unique IF NOT EXISTS "
+            f"FOR ()-[r:`{edge_type_escaped}`]-() REQUIRE r.id IS UNIQUE;"
+        )
+    lines.append("")
+    return "\n".join(lines)
 
 
 def _build_node_merge(node: dict[str, Any]) -> str | None:
@@ -256,11 +281,12 @@ def _build_edge_merge(edge: dict[str, Any]) -> str | None:
     props_raw = edge.get("props") if isinstance(edge.get("props"), dict) else {}
     props_filtered = _filter_neo4j_props(props_raw)
     props_json = json.dumps(props_raw, ensure_ascii=False)
+    edge_type_escaped = _escape_cypher_rel_type(str(edge_type))
     return "\n".join(
         [
             f"MATCH (s:Node {{id: {_to_cypher_literal(str(src))}}})",
             f"MATCH (t:Node {{id: {_to_cypher_literal(str(dst))}}})",
-            f"MERGE (s)-[r:REL {{id: {_to_cypher_literal(str(edge_id))}}}]->(t)",
+            f"MERGE (s)-[r:`{edge_type_escaped}` {{id: {_to_cypher_literal(str(edge_id))}}}]->(t)",
             (
                 f"SET r.type = {_to_cypher_literal(str(edge_type))}, "
                 f"r.src = {_to_cypher_literal(str(src))}, "
@@ -326,6 +352,7 @@ def run_export(nodes_path: Path, edges_path: Path, out_dir: Path, prefix: str, d
 
     stats["nodes_by_label"] = dict(sorted(nodes_by_label.items()))
     stats["edges_by_type"] = dict(sorted(edges_by_type.items()))
+    edge_types = sorted(edge_type for edge_type in edges_by_type.keys() if edge_type.strip())
 
     out_dir.mkdir(parents=True, exist_ok=True)
     report_path = out_dir / f"{prefix}_report.json"
@@ -333,7 +360,7 @@ def run_export(nodes_path: Path, edges_path: Path, out_dir: Path, prefix: str, d
     import_path = out_dir / f"{prefix}_import.cypher"
 
     if not dry_run:
-        constraints_path.write_text(_build_constraints_cypher(), encoding="utf-8")
+        constraints_path.write_text(_build_constraints_cypher(edge_types), encoding="utf-8")
         import_body = [
             "// Auto-generated import cypher for graphify_export(V0)",
             "// Nodes",
