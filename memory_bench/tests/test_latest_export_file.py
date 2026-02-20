@@ -17,7 +17,11 @@ SCRIPTS_DIR = REPO_ROOT / "memory_bench/scripts"
 
 
 def load_module() -> Any:
-    """动态加载 latest_export_file 脚本模块。"""
+    """动态加载 latest_export_file 脚本模块。
+
+    Returns:
+        Any: 已加载的脚本模块对象。
+    """
 
     unique_name = f"latest_export_file_{uuid.uuid4().hex}"
     spec = importlib.util.spec_from_file_location(unique_name, SCRIPT_PATH)
@@ -39,7 +43,11 @@ def load_module() -> Any:
 
 
 def test_find_latest_export_returns_newest_file(tmp_path: Path) -> None:
-    """验证脚本会选择目录中最新的 export 文件。"""
+    """验证脚本会选择目录中最新的 export 文件。
+
+    Args:
+        tmp_path: pytest 提供的临时目录。
+    """
 
     module = load_module()
     older = tmp_path / "export_20260220_194920.jsonl"
@@ -53,7 +61,11 @@ def test_find_latest_export_returns_newest_file(tmp_path: Path) -> None:
 
 
 def test_find_latest_export_raises_when_missing(tmp_path: Path) -> None:
-    """验证目录下无 export 文件时会报错。"""
+    """验证目录下无 export 文件时会报错。
+
+    Args:
+        tmp_path: pytest 提供的临时目录。
+    """
 
     module = load_module()
     with pytest.raises(FileNotFoundError):
@@ -61,7 +73,12 @@ def test_find_latest_export_raises_when_missing(tmp_path: Path) -> None:
 
 
 def test_main_prints_latest_export_path(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """验证 main 会输出最新 export 文件路径到 stdout。"""
+    """验证 main 会输出最新 export 文件路径到 stdout。
+
+    Args:
+        tmp_path: pytest 提供的临时目录。
+        capsys: pytest 标准输出捕获夹具。
+    """
 
     module = load_module()
     older = tmp_path / "export_20260220_194920.jsonl"

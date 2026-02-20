@@ -12,7 +12,17 @@ DEFAULT_EXPORT_DIR = Path("memory_bench/logs/replay_mem0")
 
 
 def find_latest_export(export_dir: Path) -> Path:
-    """从目录中选择时间线上最新的 export_*.jsonl 文件。"""
+    """从目录中选择时间线上最新的 ``export_*.jsonl`` 文件。
+
+    Args:
+        export_dir: 存放 replay_mem0 导出文件的目录路径。
+
+    Returns:
+        Path: 目录中时间线最新的 export 文件路径。
+
+    Raises:
+        FileNotFoundError: 当目录下不存在任何 ``export_*.jsonl`` 文件时抛出。
+    """
 
     candidates = [path for path in export_dir.glob("export_*.jsonl") if path.is_file()]
     if not candidates:
@@ -21,7 +31,11 @@ def find_latest_export(export_dir: Path) -> Path:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """构建命令行参数解析器。"""
+    """构建命令行参数解析器。
+
+    Returns:
+        argparse.ArgumentParser: 配置完成的命令行参数解析器。
+    """
 
     parser = argparse.ArgumentParser(
         description="Print latest replay_mem0 export JSONL path",
@@ -32,7 +46,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
-    """命令行入口。"""
+    """执行命令行流程并输出最新 export 文件路径。
+
+    Returns:
+        int: 进程退出码，成功时返回 0。
+    """
 
     args = build_parser().parse_args()
     latest_path = find_latest_export(Path(args.export_dir))
