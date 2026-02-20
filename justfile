@@ -187,8 +187,9 @@ reset-graphify-pipeline:
     --reset-output
 
 graphify-pipeline:
-  uv run python -m memory_bench.scripts.graphify_pipeline_latest \
-    --export-dir memory_bench/logs/replay_mem0 \
+  latest_export=$(uv run python -m memory_bench.scripts.latest_export_file --export-dir memory_bench/logs/replay_mem0) && \
+  uv run python -m memory_bench.scripts.graphify_pipeline run \
+    --input "$latest_export" \
     --out-dir memory_bench/logs/replay_mem0/graphify \
     --state-db memory_bench/state/graphify/state.sqlite \
     --prefix graph

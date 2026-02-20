@@ -25,8 +25,8 @@
 - 图谱导出（Graphify V0 + Neo4j）
   - `memory_bench/scripts/graphify_export.py`
   - `memory_bench/scripts/neo4j_export_cypher.py`
+  - `memory_bench/scripts/latest_export_file.py`
   - `memory_bench/scripts/graphify_pipeline.py`
-  - `memory_bench/scripts/graphify_pipeline_latest.py`
   - `memory_bench/scripts/neo4j_apply_cypher.py`
 
 - 统一日志
@@ -52,7 +52,8 @@
 
 ### C) export → graphify（元数据归属图）→ Neo4j
 
-9) `graphify_pipeline_latest.py`（推荐）自动选择最新 export 并一键运行：
+9) `latest_export_file.py` + `graphify_pipeline.py run`（推荐）在 justfile 中动态拼接：
+   - latest_export_file：获取最新 export_*.jsonl
    - graphify_export(add)：生成 nodes/edges + state.sqlite 增量
    - neo4j_export_cypher：生成约束与导入脚本
 
@@ -487,28 +488,32 @@ uv run python -m memory_bench.scripts.graphify_pipeline reset \
 
 ---
 
-## 13. `graphify_pipeline_latest.py`（自动选择最新 export）
+## 13. `latest_export_file.py`（仅获取最新 export）
 
 ### 13.1 作用
 
 - 自动扫描 `memory_bench/logs/replay_mem0/` 下的 `export_*.jsonl`
-- 选择时间线上最新的一个作为输入
-- 调用 `graphify_pipeline.run` 执行 graphify + neo4j_export_cypher（默认开启）
+- 仅输出时间线上最新文件路径（stdout）
 - 若目录下没有任何 export 文件，直接报错退出
 
 ### 13.2 调用方式（模块运行）
 
 ```bash
-uv run python -m memory_bench.scripts.graphify_pipeline_latest -h
+uv run python -m memory_bench.scripts.latest_export_file -h
 ```
 
 常用：
 
 ```bash
-uv run python -m memory_bench.scripts.graphify_pipeline_latest \
-  --export-dir memory_bench/logs/replay_mem0 \
-  --out-dir memory_bench/logs/replay_mem0/graphify \
-  --state-db memory_bench/state/graphify/state.sqlite
+uv run python -m memory_bench.scripts.latest_export_file \
+  --export-dir memory_bench/logs/replay_mem0
+```
+
+在 justfile 里组合示例：
+
+```bash
+latest_export=$(uv run python -m memory_bench.scripts.latest_export_file --export-dir memory_bench/logs/replay_mem0)
+uv run python -m memory_bench.scripts.graphify_pipeline run --input "$latest_export"
 ```
 
 ---
@@ -570,9 +575,10 @@ uv run python memory_bench/scripts/claimify_all.py \
   --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl
 uv run python -m memory_bench.scripts.compiled_claims --force
 
-# 6) graphify + neo4j cypher（自动选择最新 export）
-uv run python -m memory_bench.scripts.graphify_pipeline_latest \
-  --export-dir memory_bench/logs/replay_mem0 \
+# 6) graphify + neo4j cypher（先取最新 export，再拼接执行）
+latest_export=$(uv run python -m memory_bench.scripts.latest_export_file --export-dir memory_bench/logs/replay_mem0)
+uv run python -m memory_bench.scripts.graphify_pipeline run \
+  --input "$latest_export" \
   --out-dir memory_bench/logs/replay_mem0/graphify \
   --state-db memory_bench/state/graphify/state.sqlite
 ```

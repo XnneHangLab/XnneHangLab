@@ -1,4 +1,4 @@
-"""graphify_pipeline_latest 脚本测试。"""
+"""latest_export_file 脚本测试。"""
 
 from __future__ import annotations
 
@@ -12,14 +12,14 @@ from typing import Any
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCRIPT_PATH = REPO_ROOT / "memory_bench/scripts/graphify_pipeline_latest.py"
+SCRIPT_PATH = REPO_ROOT / "memory_bench/scripts/latest_export_file.py"
 SCRIPTS_DIR = REPO_ROOT / "memory_bench/scripts"
 
 
 def load_module() -> Any:
-    """动态加载 graphify_pipeline_latest 脚本模块。"""
+    """动态加载 latest_export_file 脚本模块。"""
 
-    unique_name = f"graphify_pipeline_latest_{uuid.uuid4().hex}"
+    unique_name = f"latest_export_file_{uuid.uuid4().hex}"
     spec = importlib.util.spec_from_file_location(unique_name, SCRIPT_PATH)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"failed to load script module: {SCRIPT_PATH}")
@@ -60,44 +60,27 @@ def test_find_latest_export_raises_when_missing(tmp_path: Path) -> None:
         module.find_latest_export(tmp_path)
 
 
-def test_main_uses_latest_export(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """验证主函数会把最新 export 文件传给 run_pipeline。"""
+def test_main_prints_latest_export_path(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """验证 main 会输出最新 export 文件路径到 stdout。"""
 
     module = load_module()
-    export_dir = tmp_path / "exports"
-    export_dir.mkdir(parents=True, exist_ok=True)
-    older = export_dir / "export_20260220_194920.jsonl"
-    newer = export_dir / "export_20260220_195920.jsonl"
+    older = tmp_path / "export_20260220_194920.jsonl"
+    newer = tmp_path / "export_20260220_195920.jsonl"
     older.write_text("{}\n", encoding="utf-8")
     newer.write_text("{}\n", encoding="utf-8")
     os.utime(older, (1000, 1000))
     os.utime(newer, (2000, 2000))
 
-    captured: dict[str, Any] = {}
-
-    class DummyGraphArtifacts:
-        report_path = Path("graph_report.json")
-
-    def fake_run_pipeline(**kwargs: Any) -> tuple[Any, Any]:
-        captured.update(kwargs)
-        return DummyGraphArtifacts(), None
-
-    monkeypatch.setattr(module, "run_pipeline", fake_run_pipeline)
-
     argv_backup = sys.argv
     try:
         sys.argv = [
-            "graphify_pipeline_latest.py",
+            "latest_export_file.py",
             "--export-dir",
-            str(export_dir),
-            "--out-dir",
-            str(tmp_path / "out"),
-            "--state-db",
-            str(tmp_path / "state.sqlite"),
+            str(tmp_path),
         ]
         assert module.main() == 0
     finally:
         sys.argv = argv_backup
 
-    assert captured["input_path"] == newer
-    assert captured["command"] == "run"
+    out = capsys.readouterr().out.strip()
+    assert out == str(newer)

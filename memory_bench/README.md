@@ -40,7 +40,7 @@ memory_bench/
 │  ├─ tag_registry.py
 │  ├─ graphify_export.py
 │  ├─ graphify_pipeline.py
-│  ├─ graphify_pipeline_latest.py
+│  ├─ latest_export_file.py
 │  ├─ neo4j_export_cypher.py
 │  └─ neo4j_apply_cypher.py
 ├─ resources/
@@ -182,8 +182,9 @@ uv run python -m memory_bench.scripts.compiled_claims --force
 
 ```bash
 # 8) Graphify pipeline：增量 graphify_export(add) + neo4j_export_cypher
-uv run python -m memory_bench.scripts.graphify_pipeline_latest \
-  --export-dir memory_bench/logs/replay_mem0 \
+latest_export=$(uv run python -m memory_bench.scripts.latest_export_file --export-dir memory_bench/logs/replay_mem0)
+uv run python -m memory_bench.scripts.graphify_pipeline run \
+  --input "$latest_export" \
   --out-dir memory_bench/logs/replay_mem0/graphify \
   --state-db memory_bench/state/graphify/state.sqlite \
   --cypher-out-dir memory_bench/logs/replay_mem0/graphify/neo4j
@@ -210,8 +211,8 @@ uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 \
 - `compiled_claims.py`：by_conv 汇总去重 → compiled entities/claims
 - `graphify_export.py`：mem0 export → V0 graph nodes/edges（增量/幂等）
 - `neo4j_export_cypher.py`：nodes/edges JSONL → Neo4j cypher 脚本
-- `graphify_pipeline.py`：graphify_export + neo4j_export_cypher 一体化入口（手动指定 input）
-- `graphify_pipeline_latest.py`：自动选择 replay_mem0 目录下最新 export_*.jsonl 再运行 pipeline
+- `latest_export_file.py`：仅用于获取 replay_mem0 目录下最新 `export_*.jsonl` 文件路径
+- `graphify_pipeline.py`：graphify_export + neo4j_export_cypher 一体化入口（由 justfile 组合 `--input`）
 - `neo4j_apply_cypher.py`：将 cypher 导入指定 Neo4j docker 容器
 - `bench_logger.py` / `tag_registry.py`：内部复用工具模块（非主 CLI）
 
