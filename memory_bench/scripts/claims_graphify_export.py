@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""将 compiled claims/entities 导出为 Graphify V0 节点与边。"""
+"""将 compiled claims/entities 导出为 Graphify V0 节点与边。
+
+该脚本读取 claims 编译产物，输出 Graphify V0 兼容 `nodes.jsonl`、`edges.jsonl`
+以及统计 `report.json`，用于后续 Neo4j Cypher 导入流程。
+"""
 
 from __future__ import annotations
 
@@ -21,7 +25,13 @@ DEFAULT_USER_ID = "xnnehang"
 
 @dataclass(slots=True)
 class BuildResult:
-    """保存构图结果与统计信息。"""
+    """封装一次构图执行的结果。
+
+    Attributes:
+        nodes: 导出的节点记录列表，元素结构为 `{"id", "labels", "props"}`。
+        edges: 导出的关系记录列表，元素结构为 `{"id", "type", "src", "dst", "props"}`。
+        stats: 构图统计信息字典，用于写入 report。
+    """
 
     nodes: list[dict[str, Any]]
     edges: list[dict[str, Any]]
@@ -29,10 +39,25 @@ class BuildResult:
 
 
 def now_utc_ts() -> str:
+    """生成 UTC 时间戳字符串，用于输出文件命名。
+
+    Returns:
+        str: 形如 `YYYYMMDD_HHMMSS` 的 UTC 时间戳。
+    """
+
     return datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")  # noqa: UP017
 
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
+    """读取 JSONL 文件并返回对象列表。
+
+    Args:
+        path: 待读取的 UTF-8 JSONL 文件路径。
+
+    Returns:
+        list[dict[str, Any]]: 逐行解析得到的 JSON 对象列表（仅保留 dict）。
+    """
+
     rows: list[dict[str, Any]] = []
     with path.open("r", encoding="utf-8") as fp:
         for raw in fp:
@@ -46,6 +71,13 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
 
 
 def write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
+    """将对象列表写入 JSONL 文件。
+
+    Args:
+        path: 输出文件路径。
+        rows: 待写入的对象列表。
+    """
+
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as fp:
         for row in rows:
@@ -53,6 +85,18 @@ def write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
 
 
 def choose_display(props: dict[str, Any], fallback: str) -> str:
+    """从属性中选择展示名。
+
+    优先顺序：`display` -> `name` -> `fallback`。
+
+    Args:
+        props: 节点属性字典。
+        fallback: 当属性中无可用显示名时的回退值。
+
+    Returns:
+        str: 最终显示名称。
+    """
+
     for key in ("display", "name"):
         val = props.get(key)
         if isinstance(val, str) and val.strip():
@@ -61,6 +105,15 @@ def choose_display(props: dict[str, Any], fallback: str) -> str:
 
 
 def normalize_list(value: Any) -> list[str]:
+    """将输入规范化为字符串列表。
+
+    Args:
+        value: 任意输入值。
+
+    Returns:
+        list[str]: 仅包含字符串元素的新列表；非 list 输入返回空列表。
+    """
+
     if not isinstance(value, list):
         return []
     out: list[str] = []
@@ -71,13 +124,35 @@ def normalize_list(value: Any) -> list[str]:
 
 
 def rewrite_user_ref(entity_type: str, entity_id: str, benchmark_user_id: str, enabled: bool) -> str:
+    """按配置重写 User 实体 ID。
+
+    Args:
+        entity_type: 实体类型。
+        entity_id: 原始实体 ID。
+        benchmark_user_id: 基准用户 ID（不含 `user:` 前缀）。
+        enabled: 是否开启重写。
+
+    Returns:
+        str: 重写后的实体 ID；若不满足条件则返回原值。
+    """
+
     if enabled and entity_type == "User":
         return f"user:{benchmark_user_id}"
     return entity_id
 
 
 def map_subject_to_tree_root(entity_type: str, entity_id: str) -> tuple[str, str, dict[str, Any]]:
-    """将 claims 主体映射到树根节点：Agent -> Character，其它保持原类型。"""
+    """将 claim 主体映射到树状根节点。
+
+    规则：当主体为 Agent 时映射到 Character；其它类型保持原样。
+
+    Args:
+        entity_type: 主体实体类型。
+        entity_id: 主体实体 ID。
+
+    Returns:
+        tuple[str, str, dict[str, Any]]: `(node_id, label, props)` 三元组。
+    """
 
     if entity_type == "Agent":
         character_id = entity_id[6:] if entity_id.startswith("agent:") else entity_id
@@ -95,6 +170,15 @@ def map_subject_to_tree_root(entity_type: str, entity_id: str) -> tuple[str, str
 
 
 def extract_character_id(tree_subject_id: str) -> str:
+    """从树根节点 ID 中提取 character_id。
+
+    Args:
+        tree_subject_id: 树根主体节点 ID，例如 `char:congyin`。
+
+    Returns:
+        str: 提取后的 character_id；若非 `char:` 前缀则返回原值。
+    """
+
     if tree_subject_id.startswith("char:"):
         return tree_subject_id[5:]
     return tree_subject_id
@@ -105,7 +189,17 @@ def build_domain_predicate_nav(
     domain: str,
     predicate: str,
 ) -> tuple[str, dict[str, Any], str, dict[str, Any]]:
-    """为 claim 构建树状导航节点（Domain/Predicate）。"""
+    """构建 Domain/Predicate 导航节点信息。
+
+    Args:
+        tree_subject_id: 树根主体节点 ID。
+        domain: claim 的 domain 值。
+        predicate: claim 的 predicate 值。
+
+    Returns:
+        tuple[str, dict[str, Any], str, dict[str, Any]]:
+            依次为 `(domain_node_id, domain_props, predicate_node_id, predicate_props)`。
+    """
 
     character_id = extract_character_id(tree_subject_id)
     domain_value = domain or "unknown"
@@ -138,6 +232,19 @@ def build_graph(
     benchmark_user_id: str,
     emit_shortcut_predicate_edges: bool,
 ) -> BuildResult:
+    """根据 entities/claims 构建 Graphify V0 节点与关系。
+
+    Args:
+        entities_rows: entities.jsonl 解析结果。
+        claims_rows: claims.jsonl 解析结果。
+        rewrite_user_id: 是否重写 User 节点与引用 ID。
+        benchmark_user_id: 目标用户 ID（不含 `user:` 前缀）。
+        emit_shortcut_predicate_edges: 是否输出 `Character-[:<PREDICATE>]->Object` 快捷边。
+
+    Returns:
+        BuildResult: 构图结果对象，包含 nodes、edges 与统计信息。
+    """
+
     nodes_by_id: dict[str, dict[str, Any]] = {}
     edges_by_id: dict[str, dict[str, Any]] = {}
 
@@ -349,6 +456,12 @@ def build_graph(
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """构建命令行参数解析器。
+
+    Returns:
+        argparse.ArgumentParser: 已配置 `add`/`dry-run` 子命令和公共参数的解析器。
+    """
+
     parser = argparse.ArgumentParser(
         description="Convert compiled claims/entities JSONL into Graphify V0 nodes/edges",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -378,6 +491,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    """执行 CLI 流程并按命令导出节点、关系与报告。
+
+    Returns:
+        int: 进程退出码，成功时返回 0。
+    """
+
     args = build_parser().parse_args()
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
