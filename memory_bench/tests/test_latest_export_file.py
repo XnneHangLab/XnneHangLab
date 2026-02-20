@@ -101,3 +101,54 @@ def test_main_prints_latest_export_path(tmp_path: Path, capsys: pytest.CaptureFi
 
     out = capsys.readouterr().out.strip()
     assert out == str(newer)
+
+
+def test_find_latest_file_with_custom_glob(tmp_path: Path) -> None:
+    """验证自定义 glob 可用于 claims 节点/边等文件选择。
+
+    Args:
+        tmp_path: pytest 提供的临时目录。
+    """
+
+    module = load_module()
+    older = tmp_path / "claims_nodes_20260220_131651.jsonl"
+    newer = tmp_path / "claims_nodes_20260220_131900.jsonl"
+    older.write_text("{}\n", encoding="utf-8")
+    newer.write_text("{}\n", encoding="utf-8")
+    os.utime(older, (1000, 1000))
+    os.utime(newer, (2000, 2000))
+
+    assert module.find_latest_file(tmp_path, "claims_nodes_*.jsonl") == newer
+
+
+def test_main_prints_latest_path_with_custom_glob(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """验证 main 支持 --glob 选择最新 claims edges 文件。
+
+    Args:
+        tmp_path: pytest 提供的临时目录。
+        capsys: pytest 标准输出捕获夹具。
+    """
+
+    module = load_module()
+    older = tmp_path / "claims_edges_20260220_131651.jsonl"
+    newer = tmp_path / "claims_edges_20260220_131900.jsonl"
+    older.write_text("{}\n", encoding="utf-8")
+    newer.write_text("{}\n", encoding="utf-8")
+    os.utime(older, (1000, 1000))
+    os.utime(newer, (2000, 2000))
+
+    argv_backup = sys.argv
+    try:
+        sys.argv = [
+            "latest_export_file.py",
+            "--export-dir",
+            str(tmp_path),
+            "--glob",
+            "claims_edges_*.jsonl",
+        ]
+        assert module.main() == 0
+    finally:
+        sys.argv = argv_backup
+
+    out = capsys.readouterr().out.strip()
+    assert out == str(newer)

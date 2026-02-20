@@ -40,7 +40,8 @@ memory_bench/
 │  ├─ tag_registry.py
 │  ├─ graphify_export.py
 │  ├─ graphify_pipeline.py
-│  ├─ latest_export_file.py
+│  ├─ latest_file.py
+│  ├─ latest_export_file.py  (兼容别名入口)
 │  ├─ neo4j_export_cypher.py
 │  └─ neo4j_apply_cypher.py
 ├─ resources/
@@ -182,7 +183,7 @@ uv run python -m memory_bench.scripts.compiled_claims --force
 
 ```bash
 # 8) Graphify pipeline：增量 graphify_export(add) + neo4j_export_cypher
-latest_export=$(uv run python -m memory_bench.scripts.latest_export_file --export-dir memory_bench/logs/replay_mem0)
+latest_export=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/replay_mem0 --glob "export_*.jsonl")
 uv run python -m memory_bench.scripts.graphify_pipeline run \
   --input "$latest_export" \
   --out-dir memory_bench/logs/replay_mem0/graphify \
@@ -211,7 +212,8 @@ uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 \
 - `compiled_claims.py`：by_conv 汇总去重 → compiled entities/claims
 - `graphify_export.py`：mem0 export → V0 graph nodes/edges（增量/幂等）
 - `neo4j_export_cypher.py`：nodes/edges JSONL → Neo4j cypher 脚本
-- `latest_export_file.py`：仅用于获取 replay_mem0 目录下最新 `export_*.jsonl` 文件路径
+- `latest_file.py`：获取目录下按 glob 匹配的最新文件路径（默认 `export_*.jsonl`，也可用于 `claims_nodes_*.jsonl` / `claims_edges_*.jsonl`）
+- `latest_export_file.py`：兼容旧命令入口，内部转发到 `latest_file.py`
 - `graphify_pipeline.py`：graphify_export + neo4j_export_cypher 一体化入口（由 justfile 组合 `--input`）
 - `neo4j_apply_cypher.py`：将 cypher 导入指定 Neo4j docker 容器
 - `bench_logger.py` / `tag_registry.py`：内部复用工具模块（非主 CLI）
@@ -255,4 +257,17 @@ uv sync --group memory_bench
 - `claimify_all.py` 后：`data/claims/by_conv/chXX.jsonl` 存在
 - `compiled_claims.py` 后：`data/claims/compiled/*.jsonl` + `compiled_meta.json` 存在
 - `graphify_pipeline run` 后：`logs/replay_mem0/graphify/*nodes*.jsonl`、`*edges*.jsonl`、`neo4j/*.cypher` 存在
+```
+
+
+### Claims 图谱 nodes/edges 转 Cypher（示例）
+
+```bash
+claim_nodes=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/claims/graphify --glob "claims_nodes_*.jsonl")
+claim_edges=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/claims/graphify --glob "claims_edges_*.jsonl")
+uv run python memory_bench/scripts/neo4j_export_cypher.py \
+  --nodes "$claim_nodes" \
+  --edges "$claim_edges" \
+  --out-dir memory_bench/logs/claims/graphify/neo4j \
+  --prefix claims
 ```

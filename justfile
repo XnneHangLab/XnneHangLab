@@ -187,7 +187,7 @@ reset-graphify-pipeline:
     --reset-output
 
 graphify-pipeline:
-  latest_export=$(uv run python -m memory_bench.scripts.latest_export_file --export-dir memory_bench/logs/replay_mem0) && \
+  latest_export=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/replay_mem0) && \
   uv run python -m memory_bench.scripts.graphify_pipeline run \
     --input "$latest_export" \
     --out-dir memory_bench/logs/replay_mem0/graphify \
@@ -207,6 +207,13 @@ neo4j-apply-cypher:
   uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 memory_bench/logs/replay_mem0/graphify/neo4j graph
 
 calim-all:
-  latest_export=$(uv run python -m memory_bench.scripts.latest_export_file --export-dir memory_bench/logs/replay_mem0) && \
+  latest_export=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/replay_mem0) && \
   uv run ./memory_bench/scripts/claimify_all.py --input "$latest_export" --workers 2 --force
   uv run ./memory_bench/scripts/compiled_claims.py --force
+
+claim-nodes-edges-to-cypher:
+  uv run python memory_bench/scripts/neo4j_export_cypher.py \
+    --nodes memory_bench/logs/claims/graphify/claims_nodes_20260220_131651.jsonl \
+    --edges memory_bench/logs/claims/graphify/claims_edges_20260220_131651.jsonl \
+    --out-dir memory_bench/logs/claims/graphify/neo4j \
+    --prefix claims
