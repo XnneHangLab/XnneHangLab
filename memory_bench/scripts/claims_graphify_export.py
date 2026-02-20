@@ -155,7 +155,7 @@ def map_subject_to_tree_root(entity_type: str, entity_id: str) -> tuple[str, str
     """
 
     if entity_type == "Agent":
-        character_id = entity_id[6:] if entity_id.startswith("agent:") else entity_id
+        character_id = entity_id.removeprefix("agent:")
         char_node_id = f"char:{character_id}"
         return char_node_id, "Character", {
             "character_id": character_id,
@@ -516,7 +516,7 @@ def main() -> int:
     ts = now_utc_ts()
     report = dict(result.stats)
     report["command"] = args.command
-    report["generated_at"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    report["generated_at"] = datetime.now(datetime.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     report["entities_path"] = str(Path(args.entities))
     report["claims_path"] = str(Path(args.claims))
     report["out_dir"] = str(out_dir)

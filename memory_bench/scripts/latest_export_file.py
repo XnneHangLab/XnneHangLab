@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from memory_bench.scripts.latest_file import (  # noqa: F401
+from memory_bench.scripts.latest_file import (
     DEFAULT_EXPORT_DIR,
     DEFAULT_GLOB,
     build_parser,
