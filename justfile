@@ -205,3 +205,8 @@ reply-memory-and-export:
 
 neo4j-apply-cypher:
   uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 memory_bench/logs/replay_mem0/graphify/neo4j graph
+
+calim-all:
+  latest_export=$(uv run python -m memory_bench.scripts.latest_export_file --export-dir memory_bench/logs/replay_mem0) && \
+  uv run ./memory_bench/scripts/claimify_all.py --input "$latest_export" --workers 2 --force
+  uv run ./memory_bench/scripts/compiled_claims.py --force
