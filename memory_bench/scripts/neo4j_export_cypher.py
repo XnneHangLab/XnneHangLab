@@ -77,6 +77,19 @@ def _escape_cypher_key(value: str) -> str:
     return value.replace("`", "``")
 
 
+def _escape_cypher_rel_type(value: str) -> str:
+    """转义关系类型标识符中的反引号。
+
+    Args:
+        value: 原始关系类型文本。
+
+    Returns:
+        str: 将反引号翻倍后的可安全嵌入值。
+    """
+
+    return value.replace("`", "``")
+
+
 def _is_neo4j_prop_value(value: Any) -> bool:
     """判断值是否可作为 Neo4j 属性写入。
 
@@ -206,7 +219,7 @@ def _build_constraints_cypher() -> str:
         [
             "// Auto-generated constraints for graphify_export(V0)",
             "CREATE CONSTRAINT node_id_unique IF NOT EXISTS FOR (n:Node) REQUIRE n.id IS UNIQUE;",
-            "CREATE CONSTRAINT rel_id_unique IF NOT EXISTS FOR ()-[r:REL]-() REQUIRE r.id IS UNIQUE;",
+            "CREATE CONSTRAINT rel_id_unique IF NOT EXISTS FOR ()-[r]-() REQUIRE r.id IS UNIQUE;",
             "",
         ]
     )
@@ -256,11 +269,12 @@ def _build_edge_merge(edge: dict[str, Any]) -> str | None:
     props_raw = edge.get("props") if isinstance(edge.get("props"), dict) else {}
     props_filtered = _filter_neo4j_props(props_raw)
     props_json = json.dumps(props_raw, ensure_ascii=False)
+    edge_type_escaped = _escape_cypher_rel_type(str(edge_type))
     return "\n".join(
         [
             f"MATCH (s:Node {{id: {_to_cypher_literal(str(src))}}})",
             f"MATCH (t:Node {{id: {_to_cypher_literal(str(dst))}}})",
-            f"MERGE (s)-[r:REL {{id: {_to_cypher_literal(str(edge_id))}}}]->(t)",
+            f"MERGE (s)-[r:`{edge_type_escaped}` {{id: {_to_cypher_literal(str(edge_id))}}}]->(t)",
             (
                 f"SET r.type = {_to_cypher_literal(str(edge_type))}, "
                 f"r.src = {_to_cypher_literal(str(src))}, "
