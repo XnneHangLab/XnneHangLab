@@ -6,7 +6,6 @@ from typing import Any
 
 from memory_bench.scripts.claims_graphify_export import build_graph
 
-
 CLAIM_ID = "claim:SELF_TRAIT|writing|agent:congyin|tag:不够诚实"
 
 

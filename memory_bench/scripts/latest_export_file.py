@@ -14,3 +14,13 @@ from memory_bench.scripts.latest_file import (
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+__all__ = [
+    "DEFAULT_EXPORT_DIR",
+    "DEFAULT_GLOB",
+    "build_parser",
+    "find_latest_export",
+    "find_latest_file",
+    "main",
+]

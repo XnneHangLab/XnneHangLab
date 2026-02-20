@@ -14,7 +14,7 @@ from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 DEFAULT_ENTITIES = Path("memory_bench/data/claims/compiled/entities.jsonl")
 DEFAULT_CLAIMS = Path("memory_bench/data/claims/compiled/claims.jsonl")
@@ -66,7 +66,7 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
                 continue
             obj = json.loads(stripped)
             if isinstance(obj, dict):
-                rows.append(obj)
+                rows.append(cast("dict[str, Any]", obj))
     return rows
 
 
@@ -117,7 +117,7 @@ def normalize_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
     out: list[str] = []
-    for item in value:
+    for item in cast("list[Any]", value):
         if isinstance(item, str):
             out.append(item)
     return out
@@ -267,7 +267,7 @@ def build_graph(
     def upsert_node(node_id: str, labels: list[str], props_patch: dict[str, Any]) -> None:
         existing = nodes_by_id.get(node_id)
         if existing is None:
-            clean_labels = [label for label in labels if isinstance(label, str) and label]
+            clean_labels = [label for label in labels if label]
             nodes_by_id[node_id] = {"id": node_id, "labels": clean_labels, "props": dict(props_patch)}
             for label in clean_labels:
                 nodes_by_label[label] += 1
@@ -275,7 +275,7 @@ def build_graph(
 
         existing_labels: list[str] = existing.get("labels", [])
         for label in labels:
-            if isinstance(label, str) and label and label not in existing_labels:
+            if label and label not in existing_labels:
                 existing_labels.append(label)
                 nodes_by_label[label] += 1
 
@@ -338,8 +338,10 @@ def build_graph(
         }
         upsert_node(claim_id, ["Claim"], claim_props)
 
-        subject = claim.get("subject") if isinstance(claim.get("subject"), dict) else {}
-        object_ = claim.get("object") if isinstance(claim.get("object"), dict) else {}
+        subject_raw = claim.get("subject")
+        object_raw = claim.get("object")
+        subject: dict[str, Any] = cast("dict[str, Any]", subject_raw) if isinstance(subject_raw, dict) else {}
+        object_: dict[str, Any] = cast("dict[str, Any]", object_raw) if isinstance(object_raw, dict) else {}
 
         subject_type = str(subject.get("entity_type") or "Entity")
         object_type = str(object_.get("entity_type") or "Entity")
@@ -412,10 +414,12 @@ def build_graph(
                 edge_trace_props,
             )
 
-        evidence_list = claim.get("evidence") if isinstance(claim.get("evidence"), list) else []
+        evidence_raw = claim.get("evidence")
+        evidence_list: list[Any] = cast("list[Any]", evidence_raw) if isinstance(evidence_raw, list) else []
         for idx, evidence in enumerate(evidence_list):
             if not isinstance(evidence, dict):
                 continue
+            evidence = cast("dict[str, Any]", evidence)
 
             evidences_total += 1
             memory_item_id = str(evidence.get("memory_item_id") or "")
@@ -528,7 +532,7 @@ def main() -> int:
     ts = now_utc_ts()
     report = dict(result.stats)
     report["command"] = args.command
-    report["generated_at"] = datetime.now(datetime.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    report["generated_at"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")  # noqa: UP017
     report["entities_path"] = str(Path(args.entities))
     report["claims_path"] = str(Path(args.claims))
     report["out_dir"] = str(out_dir)
