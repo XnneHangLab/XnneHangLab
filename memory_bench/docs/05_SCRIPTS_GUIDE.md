@@ -25,6 +25,7 @@
 - 图谱导出（Graphify V0 + Neo4j）
   - `memory_bench/scripts/graphify_export.py`
   - `memory_bench/scripts/neo4j_export_cypher.py`
+  - `memory_bench/scripts/latest_export_file.py`
   - `memory_bench/scripts/graphify_pipeline.py`
   - `memory_bench/scripts/neo4j_apply_cypher.py`
 
@@ -51,7 +52,8 @@
 
 ### C) export → graphify（元数据归属图）→ Neo4j
 
-9) `graphify_pipeline.py run`（推荐）一键：
+9) `latest_export_file.py` + `graphify_pipeline.py run`（推荐）在 justfile 中动态拼接：
+   - latest_export_file：获取最新 export_*.jsonl
    - graphify_export(add)：生成 nodes/edges + state.sqlite 增量
    - neo4j_export_cypher：生成约束与导入脚本
 
@@ -486,9 +488,39 @@ uv run python -m memory_bench.scripts.graphify_pipeline reset \
 
 ---
 
-## 13. `neo4j_apply_cypher.py`
+## 13. `latest_export_file.py`（仅获取最新 export）
 
 ### 13.1 作用
+
+- 自动扫描 `memory_bench/logs/replay_mem0/` 下的 `export_*.jsonl`
+- 仅输出时间线上最新文件路径（stdout）
+- 若目录下没有任何 export 文件，直接报错退出
+
+### 13.2 调用方式（模块运行）
+
+```bash
+uv run python -m memory_bench.scripts.latest_export_file -h
+```
+
+常用：
+
+```bash
+uv run python -m memory_bench.scripts.latest_export_file \
+  --export-dir memory_bench/logs/replay_mem0
+```
+
+在 justfile 里组合示例：
+
+```bash
+latest_export=$(uv run python -m memory_bench.scripts.latest_export_file --export-dir memory_bench/logs/replay_mem0)
+uv run python -m memory_bench.scripts.graphify_pipeline run --input "$latest_export"
+```
+
+---
+
+## 14. `neo4j_apply_cypher.py`
+
+### 14.1 作用
 
 将 `neo4j_export_cypher.py` 生成的 cypher 文件，一键导入指定 Neo4j docker 容器。
 
@@ -498,7 +530,7 @@ uv run python -m memory_bench.scripts.graphify_pipeline reset \
 - `zep`
 - `cognee`
 
-### 13.2 调用方式（模块运行）
+### 14.2 调用方式（模块运行）
 
 ```bash
 uv run python -m memory_bench.scripts.neo4j_apply_cypher --dry-run mem0 graph
@@ -513,7 +545,7 @@ uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 \
 
 ---
 
-## 14. 工具模块说明
+## 15. 工具模块说明
 
 - `bench_logger.py`：统一彩色日志（被多数脚本复用），非 CLI
 - `tag_registry.py`：tag 归一化与候选选择工具（由 claimify 使用），非 CLI 主入口
@@ -521,7 +553,7 @@ uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 \
 
 ---
 
-## 15. 一套可复制的完整流程（从原文到 Claim + Graphify）
+## 16. 一套可复制的完整流程（从原文到 Claim + Graphify）
 
 ```bash
 # 1) index
@@ -543,9 +575,10 @@ uv run python memory_bench/scripts/claimify_all.py \
   --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl
 uv run python -m memory_bench.scripts.compiled_claims --force
 
-# 6) graphify + neo4j cypher
+# 6) graphify + neo4j cypher（先取最新 export，再拼接执行）
+latest_export=$(uv run python -m memory_bench.scripts.latest_export_file --export-dir memory_bench/logs/replay_mem0)
 uv run python -m memory_bench.scripts.graphify_pipeline run \
-  --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl \
+  --input "$latest_export" \
   --out-dir memory_bench/logs/replay_mem0/graphify \
   --state-db memory_bench/state/graphify/state.sqlite
 ```
