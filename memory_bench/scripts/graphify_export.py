@@ -468,6 +468,7 @@ def build_graph_from_record(
         "MemoryItem": memory_id,
     }
 
+    mem_display = build_memory_display()
     nodes.append(
         {
             "id": memory_id,
@@ -480,7 +481,8 @@ def build_graph_from_record(
                 "collection": record.collection,
                 "isolation": record.isolation,
                 "exported_at": record.exported_at,
-                "display": build_memory_display(),
+                "display": mem_display,
+                "name": mem_display,
             },
         }
     )
@@ -504,7 +506,7 @@ def build_graph_from_record(
             {
                 "id": node_id,
                 "labels": [label],
-                "props": {payload_key: entity_value, "display": entity_value},
+                "props": {payload_key: entity_value, "display": entity_value, "name": entity_value},
             }
         )
 
