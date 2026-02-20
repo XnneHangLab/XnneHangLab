@@ -17,7 +17,6 @@ DEFAULT_CLAIMS = Path("memory_bench/data/claims/compiled/claims.jsonl")
 DEFAULT_OUT_DIR = Path("memory_bench/logs/claims/graphify")
 DEFAULT_PREFIX = "claims"
 DEFAULT_USER_ID = "xnnehang"
-EVIDENCE_PREVIEW_LEN = 80
 
 
 @dataclass(slots=True)
@@ -77,6 +76,24 @@ def rewrite_user_ref(entity_type: str, entity_id: str, benchmark_user_id: str, e
     return entity_id
 
 
+def map_subject_to_tree_root(entity_type: str, entity_id: str) -> tuple[str, str, dict[str, Any]]:
+    """将 claims 主体映射到树根节点：Agent -> Character，其它保持原类型。"""
+
+    if entity_type == "Agent":
+        character_id = entity_id[6:] if entity_id.startswith("agent:") else entity_id
+        char_node_id = f"char:{character_id}"
+        return char_node_id, "Character", {
+            "character_id": character_id,
+            "display": character_id,
+            "name": character_id,
+        }
+    return entity_id, entity_type, {
+        "entity_type": entity_type,
+        "display": entity_id,
+        "name": entity_id,
+    }
+
+
 def build_graph(
     entities_rows: list[dict[str, Any]],
     claims_rows: list[dict[str, Any]],
@@ -98,8 +115,7 @@ def build_graph(
         existing = nodes_by_id.get(node_id)
         if existing is None:
             clean_labels = [label for label in labels if isinstance(label, str) and label]
-            node = {"id": node_id, "labels": clean_labels, "props": dict(props_patch)}
-            nodes_by_id[node_id] = node
+            nodes_by_id[node_id] = {"id": node_id, "labels": clean_labels, "props": dict(props_patch)}
             for label in clean_labels:
                 nodes_by_label[label] += 1
             return
@@ -109,6 +125,7 @@ def build_graph(
             if isinstance(label, str) and label and label not in existing_labels:
                 existing_labels.append(label)
                 nodes_by_label[label] += 1
+
         props = existing.setdefault("props", {})
         for key, value in props_patch.items():
             if key not in props:
@@ -117,13 +134,7 @@ def build_graph(
     def add_edge(edge_id: str, edge_type: str, src: str, dst: str, props: dict[str, Any]) -> None:
         if edge_id in edges_by_id:
             return
-        edges_by_id[edge_id] = {
-            "id": edge_id,
-            "type": edge_type,
-            "src": src,
-            "dst": dst,
-            "props": props,
-        }
+        edges_by_id[edge_id] = {"id": edge_id, "type": edge_type, "src": src, "dst": dst, "props": props}
         edges_by_type[edge_type] += 1
 
     for entity in entities_rows:
@@ -159,6 +170,9 @@ def build_graph(
         if not claim_id:
             continue
 
+        predicate = str(claim.get("predicate") or "")
+        domain = str(claim.get("domain") or "")
+        claim_display = f"{predicate} ({domain})" if predicate and domain else (predicate or claim_id)
         claim_props = {
             "predicate": claim.get("predicate"),
             "domain": claim.get("domain"),
@@ -166,8 +180,8 @@ def build_graph(
             "status": claim.get("status"),
             "rank": claim.get("rank"),
             "updated_at": claim.get("updated_at"),
-            "display": claim_id,
-            "name": claim_id,
+            "display": claim_display,
+            "name": claim_display,
         }
         upsert_node(claim_id, ["Claim"], claim_props)
 
@@ -182,69 +196,57 @@ def build_graph(
         if not raw_subject_id or not raw_object_id:
             continue
 
-        subject_id = rewrite_user_ref(subject_type, raw_subject_id, benchmark_user_id, rewrite_user_id)
+        subject_id_rewritten = rewrite_user_ref(subject_type, raw_subject_id, benchmark_user_id, rewrite_user_id)
         object_id = rewrite_user_ref(object_type, raw_object_id, benchmark_user_id, rewrite_user_id)
-        if rewrite_user_id and subject_type == "User" and subject_id != raw_subject_id:
+
+        if rewrite_user_id and subject_type == "User" and subject_id_rewritten != raw_subject_id:
             rewritten_user_claim_refs += 1
         if rewrite_user_id and object_type == "User" and object_id != raw_object_id:
             rewritten_user_claim_refs += 1
 
-        upsert_node(
-            subject_id,
-            [subject_type],
-            {
-                "entity_type": subject_type,
-                "display": benchmark_user_id if subject_type == "User" and rewrite_user_id else subject_id,
-                "name": benchmark_user_id if subject_type == "User" and rewrite_user_id else subject_id,
-            },
-        )
+        tree_subject_id, tree_subject_label, tree_subject_props = map_subject_to_tree_root(subject_type, subject_id_rewritten)
+        upsert_node(tree_subject_id, [tree_subject_label], tree_subject_props)
+
+        object_display = benchmark_user_id if object_type == "User" and rewrite_user_id else object_id
         upsert_node(
             object_id,
             [object_type],
-            {
-                "entity_type": object_type,
-                "display": benchmark_user_id if object_type == "User" and rewrite_user_id else object_id,
-                "name": benchmark_user_id if object_type == "User" and rewrite_user_id else object_id,
-            },
+            {"entity_type": object_type, "display": object_display, "name": object_display},
         )
 
-        edge_props = {
+        edge_trace_props = {
             "claim_id": claim_id,
             "predicate": claim.get("predicate"),
             "domain": claim.get("domain"),
             "confidence": claim.get("confidence"),
             "updated_at": claim.get("updated_at"),
         }
-        add_edge(f"asserts:{claim_id}:{subject_id}", "ASSERTS", subject_id, claim_id, edge_props)
-        add_edge(f"about:{claim_id}:{object_id}", "ABOUT", claim_id, object_id, edge_props)
+        add_edge(f"has_claim:{tree_subject_id}:{claim_id}", "HAS_CLAIM", tree_subject_id, claim_id, edge_trace_props)
+        add_edge(f"about:{claim_id}:{object_id}", "ABOUT", claim_id, object_id, edge_trace_props)
+
+        if predicate:
+            add_edge(
+                f"pred:{predicate}:{tree_subject_id}:{object_id}:{claim_id}",
+                predicate,
+                tree_subject_id,
+                object_id,
+                edge_trace_props,
+            )
 
         evidence_list = claim.get("evidence") if isinstance(claim.get("evidence"), list) else []
-        for evidence in evidence_list:
+        for idx, evidence in enumerate(evidence_list):
             if not isinstance(evidence, dict):
                 continue
+
             evidences_total += 1
             memory_item_id = str(evidence.get("memory_item_id") or "")
             point_id = str(evidence.get("point_id") or "")
-            evidence_id = f"evi:{claim_id}|{memory_item_id}|{point_id}"
+            point_or_index = point_id or str(idx)
 
-            text = str(evidence.get("text") or "")
-            preview = text[:EVIDENCE_PREVIEW_LEN] if text else evidence_id
-            evidence_props = {
-                "memory_item_id": memory_item_id,
-                "point_id": point_id,
-                "conv_id": evidence.get("conv_id"),
-                "scene_id": evidence.get("scene_id"),
-                "created_at": evidence.get("created_at"),
-                "text": evidence.get("text"),
-                "display": preview,
-                "name": preview,
-            }
-            upsert_node(evidence_id, ["Evidence"], evidence_props)
-            add_edge(f"has_evidence:{claim_id}:{evidence_id}", "HAS_EVIDENCE", claim_id, evidence_id, {"claim_id": claim_id})
             add_edge(
-                f"evidenced_by:{evidence_id}:{memory_item_id}",
+                f"evidenced_by:{claim_id}:{memory_item_id}:{point_or_index}",
                 "EVIDENCED_BY",
-                evidence_id,
+                claim_id,
                 memory_item_id,
                 {
                     "claim_id": claim_id,
@@ -253,9 +255,14 @@ def build_graph(
                     "confidence": claim.get("confidence"),
                     "updated_at": claim.get("updated_at"),
                     "memory_item_id": memory_item_id,
-                    "point_id": point_id,
+                    "point_id": evidence.get("point_id"),
+                    "conv_id": evidence.get("conv_id"),
+                    "scene_id": evidence.get("scene_id"),
+                    "created_at": evidence.get("created_at"),
+                    "text": evidence.get("text"),
                 },
             )
+
             if memory_item_id and not memory_item_id.startswith("mem:"):
                 warnings.append(
                     f"evidence memory_item_id does not start with 'mem:': claim_id={claim_id}, memory_item_id={memory_item_id}"
