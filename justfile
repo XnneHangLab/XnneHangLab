@@ -193,5 +193,11 @@ graphify-pipeline:
     --state-db memory_bench/state/graphify/state.sqlite \
     --prefix graph
 
+
+memory-item-to-cypher:
+  just clean-and-restart-neo4j
+  just reset-graphify-pipeline
+  just graphify-pipeline
+
 neo4j-apply-cypher:
   uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 memory_bench/logs/replay_mem0/graphify/neo4j graph
