@@ -212,8 +212,10 @@ calim-all:
   uv run ./memory_bench/scripts/compiled_claims.py --force
 
 claim-nodes-edges-to-cypher:
+  claim_nodes=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/claims/graphify --glob "claims_nodes_*.jsonl") && \
+  claim_edges=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/claims/graphify --glob "claims_edges_*.jsonl") && \
   uv run python memory_bench/scripts/neo4j_export_cypher.py \
-    --nodes memory_bench/logs/claims/graphify/claims_nodes_20260220_131651.jsonl \
-    --edges memory_bench/logs/claims/graphify/claims_edges_20260220_131651.jsonl \
+    --nodes "$claim_nodes" \
+    --edges "$claim_edges" \
     --out-dir memory_bench/logs/claims/graphify/neo4j \
     --prefix claims
