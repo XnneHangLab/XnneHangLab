@@ -125,6 +125,12 @@ uv run python memory_bench/scripts/replay_mem0.py ingest
 
 # 5) 导出 Mem0 当前快照（供 claimify/graphify 使用）
 uv run python memory_bench/scripts/replay_mem0.py export
+
+# 可选：基于事件文本推断 owner（默认开启）
+uv run python memory_bench/scripts/replay_mem0.py export \
+  --events memory_bench/data/events/compiled/all.jsonl \
+  --infer-owner \
+  --owner-fallback Agent
 ```
 
 产物重点看：
@@ -166,6 +172,12 @@ uv run python -m memory_bench.scripts.compiled_claims --force
 
 > Graphify V0 只做“归属/元数据”节点与关系：MemoryItem/User/Agent/Conversation/Scene/Character。
 > 语义 Claim/Entity 图谱（reading/writing/daily）走 `claimify_all.py` + `compiled_claims.py`。
+
+当前关系约束（收敛后）：
+
+- `OWNS_MEMORY`：由 `Character -> MemoryItem` 表达唯一 owner；
+- `ACTOR`：`Agent -> Character`（Agent 身份映射，仅此一条身份线）；
+- 不再生成 `MemoryItem -> Agent` 的 `TARGETS_AGENT`。
 
 ```bash
 # 8) Graphify pipeline：增量 graphify_export(add) + neo4j_export_cypher
