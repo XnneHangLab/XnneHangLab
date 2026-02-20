@@ -64,7 +64,7 @@ ALLOWED_EDGE_TYPES = {
     "CONV_IN_SCENE",
     "CONV_HAS_CHARACTER",
     "USER_IN_SCENE",
-    "AGENT_IS_CHARACTER",
+    "ACTOR",
 }
 MEMORY_DISPLAY_PREVIEW_LEN = 40
 
@@ -535,39 +535,36 @@ def build_graph_from_record(
             }
         )
 
-    owner_type = str(payload.get("owner_type") or "").strip()
-    owner_id = str(payload.get("owner_id") or "").strip()
-    if owner_type not in {"User", "Agent"} or not owner_id:
-        fallback_user_id = str(payload.get("user_id") or "").strip()
-        if fallback_user_id:
-            owner_type = "User"
-            owner_id = fallback_user_id
-            stats["owner_fallback_user_id"] += 1
+    owner_character_id = str(payload.get("character_id") or "").strip()
+    if not owner_character_id:
+        owner_type = str(payload.get("owner_type") or "").strip()
+        owner_id = str(payload.get("owner_id") or "").strip()
+        if owner_type == "Agent" and owner_id:
+            owner_character_id = owner_id
+            stats["owner_fallback_character_from_owner_agent"] += 1
         else:
-            owner_type = "Agent"
-            owner_id = str(payload.get("agent_id") or "").strip() or f"unknown:{record.source_point_id}"
-            stats["owner_fallback_agent_id"] += 1
+            owner_character_id = f"unknown:{record.source_point_id}"
+            stats["owner_fallback_character_unknown"] += 1
 
-    owner_node_id = make_node_id(owner_type, owner_id)
-    node_refs[owner_type] = owner_node_id
-    owner_payload_key = "user_id" if owner_type == "User" else "agent_id"
+    owner_node_id = make_node_id("Character", owner_character_id)
+    node_refs["Character"] = owner_node_id
     nodes.append(
         {
             "id": owner_node_id,
-            "labels": [owner_type],
-            "props": {owner_payload_key: owner_id, "display": owner_id, "name": owner_id},
+            "labels": ["Character"],
+            "props": {"character_id": owner_character_id, "display": owner_character_id, "name": owner_character_id},
         }
     )
 
     # 3.3 固定关系集合与方向（必须严格一致）
-    add_edge("OWNS_MEMORY", owner_type, "MemoryItem")
+    add_edge("OWNS_MEMORY", "Character", "MemoryItem")
     add_edge("FROM_CONV", "MemoryItem", "Conversation")
     add_edge("IN_SCENE", "MemoryItem", "Scene")
     add_edge("HAS_CHARACTER", "MemoryItem", "Character")
     add_edge("CONV_IN_SCENE", "Conversation", "Scene")
     add_edge("CONV_HAS_CHARACTER", "Conversation", "Character")
     add_edge("USER_IN_SCENE", "User", "Scene")
-    add_edge("AGENT_IS_CHARACTER", "Agent", "Character")
+    add_edge("ACTOR", "Agent", "Character")
 
     return nodes, edges
 
