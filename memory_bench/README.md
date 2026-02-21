@@ -238,6 +238,18 @@ uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 \
 
 ---
 
+## `dashboard.json`（Neo4j Browser 仪表盘配置）
+
+仓库提供了现成的 Neo4j Browser 仪表盘配置文件：
+
+- `memory_bench/dashboard.json`
+
+该文件用于快速加载一个「full-graph」页面，内置 `MATCH p=()--() RETURN p;` 图查询，并为 `Node`、`MemoryItem`、`Claim`、`Agent`、`Domain`、`Tag` 等标签预设展示字段与 schema 元数据，便于对 mem0 + claims 全图进行可视化巡检。
+
+可作为团队共享的基线看板：当你导入最新 graph 数据后，直接加载该 JSON 即可复用统一视图配置，减少每次手工调图与字段映射的成本。
+
+---
+
 ## 依赖安装（memory_bench 组）
 
 如需安装 bench 相关依赖（含 mem0ai 等）：
