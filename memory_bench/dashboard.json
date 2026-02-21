@@ -1,0 +1,207 @@
+{
+  "title": "mem0",
+  "version": "2.4",
+  "settings": {
+    "pagenumber": 0,
+    "editable": true,
+    "fullscreenEnabled": false,
+    "parameters": {},
+    "theme": "light"
+  },
+  "pages": [
+    {
+      "title": "full-graph",
+      "reports": [
+        {
+          "id": "f08c56f6-7629-4135-b1a9-f605ac561d7d",
+          "title": "full graph",
+          "query": "MATCH p=()--()\nRETURN p;\n",
+          "width": 24,
+          "height": 6,
+          "x": 0,
+          "y": 0,
+          "type": "graph",
+          "selection": {
+            "Node": "name",
+            "Character": "name",
+            "MemoryItem": "name",
+            "Conversation": "name",
+            "Scene": "name",
+            "User": "name",
+            "Agent": "name",
+            "Domain": "name",
+            "Predicate": "name",
+            "Claim": "name",
+            "Topic": "name",
+            "Work": "name",
+            "Author": "name",
+            "Tag": "name"
+          },
+          "settings": {
+            "fullscreenEnabled": true,
+            "description": "mem0 + claims 的全圖。",
+            "defaultNodeSize": 3
+          },
+          "schema": [
+            [
+              "Node",
+              "display",
+              "name",
+              "id",
+              "character_id",
+              "point_id",
+              "data",
+              "created_at",
+              "isolation",
+              "payload_hash",
+              "collection",
+              "exported_at",
+              "conv_id",
+              "scene_id",
+              "user_id",
+              "aliases",
+              "entity_type",
+              "agent_id",
+              "confidence",
+              "tags",
+              "domain",
+              "predicate",
+              "updated_at",
+              "status",
+              "rank",
+              "title"
+            ],
+            [
+              "Character",
+              "display",
+              "name",
+              "id",
+              "character_id"
+            ],
+            [
+              "MemoryItem",
+              "point_id",
+              "data",
+              "display",
+              "name",
+              "created_at",
+              "isolation",
+              "payload_hash",
+              "collection",
+              "id",
+              "exported_at"
+            ],
+            [
+              "Conversation",
+              "display",
+              "name",
+              "id",
+              "conv_id"
+            ],
+            [
+              "Scene",
+              "display",
+              "scene_id",
+              "name",
+              "id"
+            ],
+            [
+              "User",
+              "user_id",
+              "display",
+              "name",
+              "id"
+            ],
+            [
+              "Agent",
+              "aliases",
+              "entity_type",
+              "agent_id",
+              "confidence",
+              "display",
+              "name",
+              "id",
+              "tags"
+            ],
+            [
+              "Domain",
+              "display",
+              "domain",
+              "name",
+              "character_id",
+              "id"
+            ],
+            [
+              "Predicate",
+              "predicate",
+              "domain",
+              "display",
+              "name",
+              "character_id",
+              "id"
+            ],
+            [
+              "Claim",
+              "predicate",
+              "updated_at",
+              "domain",
+              "confidence",
+              "display",
+              "name",
+              "id",
+              "status",
+              "rank"
+            ],
+            [
+              "Topic",
+              "entity_type",
+              "aliases",
+              "confidence",
+              "display",
+              "name",
+              "id",
+              "tags"
+            ],
+            [
+              "Work",
+              "entity_type",
+              "aliases",
+              "confidence",
+              "display",
+              "name",
+              "id",
+              "title",
+              "tags"
+            ],
+            [
+              "Author",
+              "entity_type",
+              "aliases",
+              "confidence",
+              "display",
+              "name",
+              "id",
+              "tags"
+            ],
+            [
+              "Tag",
+              "entity_type",
+              "aliases",
+              "confidence",
+              "display",
+              "name",
+              "id",
+              "tags"
+            ]
+          ]
+        }
+      ]
+    }
+  ],
+  "parameters": {},
+  "extensions": {
+    "active": true,
+    "activeReducers": []
+  },
+  "uuid": "29d58c33-8af0-485d-af74-2dc77b0530db"
+}
