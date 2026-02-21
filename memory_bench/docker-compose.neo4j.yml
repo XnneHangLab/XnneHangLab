@@ -42,3 +42,15 @@ services:
     volumes:
       - ./neo4j-data/cognee/data:/data
       - ./neo4j-data/cognee/logs:/logs
+
+  # NeoDash (Editor mode): 打开后手动配置连接 + Import dashboard JSON + 允许编辑
+  neodash:
+    image: neo4jlabs/neodash:latest
+    container_name: membench-neodash
+    restart: unless-stopped
+    ports:
+      - "5005:5005"
+    depends_on:
+      - neo4j_mem0
+      - neo4j_zep
+      - neo4j_cognee
