@@ -172,8 +172,9 @@ ci-lint:
 # memory bench
 
 neo4j-reset:
-  rm -rf memory_bench/neo4j-data/
   docker compose -f memory_bench/docker-compose.neo4j.yml down --remove-orphans
+  sleep 3 # 等待容器完全停止，确保文件锁释放
+  rm -rf memory_bench/neo4j-data/
   rm -rf memory_bench/neo4j-data/mem0/data
   rm -rf memory_bench/neo4j-data/zep/data
   rm -rf memory_bench/neo4j-data/cognee/data
