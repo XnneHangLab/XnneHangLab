@@ -112,8 +112,8 @@
             ],
             [
               "Domain",
-              "domain",
               "display",
+              "domain",
               "name",
               "character_id",
               "id"
@@ -219,11 +219,11 @@
             [
               "Predicate",
               "predicate",
-              "domain",
               "display",
+              "domain",
               "name",
-              "character_id",
-              "id"
+              "id",
+              "character_id"
             ]
           ]
         },
@@ -255,7 +255,8 @@
               "predicate",
               "updated_at",
               "confidence",
-              "status"
+              "status",
+              "rank"
             ],
             [
               "Character",
@@ -290,14 +291,15 @@
               "display",
               "name",
               "id",
-              "status"
+              "status",
+              "rank"
             ]
           ]
         },
         {
           "id": "ab22ed72-4d6f-40c6-afa7-b2fb4742f127",
           "title": "",
-          "query": "WITH 30 AS claimLimit, 3 AS memLimit\n\n// 1) 选一个“证据最丰富”的分支 (Character, Domain, Predicate)\nMATCH (c:Character)-[r1:HAS_DOMAIN]->(d:Domain)-[r2:HAS_PREDICATE]->(p:Predicate)\nWITH c,d,p,r1,r2, claimLimit, memLimit,\n     COUNT { (p)-[:HAS_CLAIM]->(:Claim) } AS claim_cnt,\n     COUNT { (p)-[:HAS_CLAIM]->(:Claim)-[:EVIDENCED_BY]->(:MemoryItem) } AS ev_cnt\nWHERE claim_cnt > 0\nORDER BY ev_cnt DESC, claim_cnt DESC\nLIMIT 1\n\n// 2) 取该 Predicate 下前 claimLimit 条 Claim\nCALL {\n  WITH p, claimLimit\n  MATCH (p)-[r3:HAS_CLAIM]->(cl:Claim)\n  RETURN cl, r3\n  ORDER BY cl.rank ASC, cl.updated_at DESC\n  LIMIT 30\n}\n\n// 3) 每条 Claim 最多取 memLimit 条 MemoryItem\nOPTIONAL MATCH (cl)-[re:EVIDENCED_BY]->(m:MemoryItem)\nWITH c,d,p,cl,r1,r2,r3, memLimit,\n     collect({re:re, m:m})[0..memLimit] AS evs\n\nUNWIND (CASE WHEN evs = [] THEN [null] ELSE evs END) AS ev\nRETURN\n  c, d, p, cl,\n  r1, r2, r3,\n  (CASE WHEN ev IS NULL THEN null ELSE ev.re END) AS re,\n  (CASE WHEN ev IS NULL THEN null ELSE ev.m  END) AS m;",
+          "query": "// 1) 自动选择“证据最丰富”的分支：Character -> Domain -> Predicate（只取 1 条分支）\nCALL {\n  MATCH (c:Character)-[r1:HAS_DOMAIN]->(d:Domain)-[r2:HAS_PREDICATE]->(p:Predicate)\n  WITH c, d, p, r1, r2,\n       COUNT { (p)-[:HAS_CLAIM]->(:Claim) } AS claim_cnt,\n       COUNT { (p)-[:HAS_CLAIM]->(:Claim)-[:EVIDENCED_BY]->(:MemoryItem) } AS ev_cnt\n  WHERE claim_cnt > 0\n  ORDER BY ev_cnt DESC, claim_cnt DESC\n  LIMIT 1\n  RETURN c, d, p, r1, r2, claim_cnt, ev_cnt\n}\n\n// 2) 该 Predicate 下取全部 Claim\nMATCH (p)-[r3:HAS_CLAIM]->(cl:Claim)\n\n// 3) 每条 Claim 取全部 evidence MemoryItem（可为空，所以 OPTIONAL）\nOPTIONAL MATCH (cl)-[re:EVIDENCED_BY]->(m:MemoryItem)\n\n// 4) 返回完整链路（Character->Domain->Predicate->Claim->MemoryItem）\nRETURN\n  c, d, p, cl, m,\n  r1, r2, r3, re,\n  claim_cnt, ev_cnt\nORDER BY\n  ev_cnt DESC,\n  cl.rank ASC,\n  cl.updated_at DESC,\n  m.created_at DESC;",
           "width": 12,
           "height": 8,
           "x": 12,
@@ -312,8 +314,8 @@
             "HAS_DOMAIN": "id",
             "HAS_PREDICATE": "id",
             "HAS_CLAIM": "id",
-            "EVIDENCED_BY": "id",
-            "MemoryItem": "name"
+            "MemoryItem": "name",
+            "EVIDENCED_BY": "id"
           },
           "settings": {},
           "schema": [
@@ -327,6 +329,7 @@
               "predicate",
               "updated_at",
               "confidence",
+              "rank",
               "status",
               "point_id",
               "data",
@@ -364,10 +367,11 @@
               "Claim",
               "predicate",
               "updated_at",
+              "display",
               "domain",
               "confidence",
-              "display",
               "name",
+              "rank",
               "id",
               "status"
             ],
@@ -405,6 +409,19 @@
               "type"
             ],
             [
+              "MemoryItem",
+              "point_id",
+              "data",
+              "display",
+              "name",
+              "created_at",
+              "isolation",
+              "payload_hash",
+              "collection",
+              "id",
+              "exported_at"
+            ],
+            [
               "EVIDENCED_BY",
               "point_id",
               "dst",
@@ -422,19 +439,6 @@
               "text",
               "id",
               "conv_id"
-            ],
-            [
-              "MemoryItem",
-              "point_id",
-              "data",
-              "display",
-              "name",
-              "created_at",
-              "isolation",
-              "payload_hash",
-              "collection",
-              "id",
-              "exported_at"
             ]
           ]
         }
@@ -463,10 +467,10 @@
             "Domain": "name",
             "Predicate": "name",
             "Claim": "name",
+            "Tag": "name",
             "Topic": "name",
             "Work": "name",
-            "Author": "name",
-            "Tag": "name"
+            "Author": "name"
           },
           "settings": {
             "fullscreenEnabled": true,
@@ -541,7 +545,11 @@
               "user_id",
               "display",
               "name",
-              "id"
+              "id",
+              "aliases",
+              "entity_type",
+              "confidence",
+              "tags"
             ],
             [
               "Agent",
@@ -584,9 +592,19 @@
               "rank"
             ],
             [
-              "Topic",
-              "entity_type",
+              "Tag",
               "aliases",
+              "entity_type",
+              "confidence",
+              "display",
+              "name",
+              "id",
+              "tags"
+            ],
+            [
+              "Topic",
+              "aliases",
+              "entity_type",
               "confidence",
               "display",
               "name",
@@ -606,16 +624,6 @@
             ],
             [
               "Author",
-              "entity_type",
-              "aliases",
-              "confidence",
-              "display",
-              "name",
-              "id",
-              "tags"
-            ],
-            [
-              "Tag",
               "entity_type",
               "aliases",
               "confidence",
