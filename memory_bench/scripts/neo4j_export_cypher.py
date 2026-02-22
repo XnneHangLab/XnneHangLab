@@ -14,6 +14,7 @@ import json
 import re
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -298,6 +299,16 @@ def _build_edge_merge(edge: dict[str, Any]) -> str | None:
     )
 
 
+def _utc_timestamp() -> str:
+    """生成 UTC 时间戳（YYYYMMDD_HHMMSS）。
+
+    Returns:
+        str: UTC 时间戳字符串。
+    """
+
+    return datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+
+
 def run_export(nodes_path: Path, edges_path: Path, out_dir: Path, prefix: str, dry_run: bool) -> ExportArtifacts:
     """执行转换并写出产物。
 
@@ -355,9 +366,10 @@ def run_export(nodes_path: Path, edges_path: Path, out_dir: Path, prefix: str, d
     edge_types = sorted(edge_type for edge_type in edges_by_type.keys() if edge_type.strip())
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    report_path = out_dir / f"{prefix}_report.json"
-    constraints_path = out_dir / f"{prefix}_constraints.cypher"
-    import_path = out_dir / f"{prefix}_import.cypher"
+    timestamp = _utc_timestamp()
+    report_path = out_dir / f"{prefix}_report_{timestamp}.json"
+    constraints_path = out_dir / f"{prefix}_constraints_{timestamp}.cypher"
+    import_path = out_dir / f"{prefix}_import_{timestamp}.cypher"
 
     if not dry_run:
         constraints_path.write_text(_build_constraints_cypher(edge_types), encoding="utf-8")
@@ -377,6 +389,7 @@ def run_export(nodes_path: Path, edges_path: Path, out_dir: Path, prefix: str, d
 
     report = {
         **stats,
+        "timestamp": timestamp,
         "nodes_input": str(nodes_path),
         "edges_input": str(edges_path),
         "dry_run": dry_run,

@@ -226,8 +226,8 @@ claim-items-to-cypher:
     --prefix claims
 
 neo4j-apply-cypher:
-  uv run memory_bench/scripts/neo4j_apply_cypher.py mem0 memory_bench/logs/replay_mem0/graphify/neo4j graph
-  uv run memory_bench/scripts/neo4j_apply_cypher.py mem0 memory_bench/logs/claims/graphify/neo4j claims
+  @echo "blocked: neo4j_apply_cypher.py currently expects fixed filenames, but neo4j_export_cypher.py now emits timestamped outputs. Re-enable in next PR."
+  @exit 1
 
 mem0-rerun:
   just build-index
