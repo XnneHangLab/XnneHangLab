@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from memory_bench.scripts.neo4j_cypher_export import (  # noqa: F401
+from memory_bench.scripts.neo4j_cypher_export import (
     ExportArtifacts,
     main,
     run_export,

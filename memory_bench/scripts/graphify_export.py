@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from memory_bench.scripts.graph_ir_export_meta import (  # noqa: F401
+from memory_bench.scripts.graph_ir_export_meta import (
     GraphArtifacts,
     ParsedRecord,
     main,

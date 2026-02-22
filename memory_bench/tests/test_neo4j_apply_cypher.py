@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from memory_bench.scripts.neo4j_apply_cypher import resolve_cypher_files
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_resolve_prefers_fixed_names(tmp_path: Path) -> None:
