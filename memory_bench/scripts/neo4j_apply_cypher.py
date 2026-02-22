@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -50,7 +51,9 @@ Examples:
 
 Arguments:
   target      Neo4j target instance: mem0 | zep | cognee
-  cypher_dir  Directory containing <prefix>_constraints.cypher and <prefix>_import.cypher
+  cypher_dir  Directory containing cypher files. Supports fixed names
+              (<prefix>_constraints.cypher / <prefix>_import.cypher) and timestamp names
+              (<prefix>_constraints_YYYYMMDD_HHMMSS.cypher / <prefix>_import_YYYYMMDD_HHMMSS.cypher)
               (optional, default: <GRAPHIFY_OUT_DIR>/neo4j)
   prefix      Cypher file prefix
 
@@ -108,6 +111,45 @@ def parse_args(argv: list[str]) -> tuple[bool, str, Path, str] | None:
         prefix = positional[2]
 
     return dry_run, target, cypher_dir, prefix
+
+
+def resolve_cypher_files(cypher_dir: Path, prefix: str) -> tuple[Path, Path]:
+    """解析待导入的 constraints/import 文件。
+
+    优先固定文件名；若不存在则按 timestamp 后缀配对并选择最新。
+    """
+
+    fixed_constraints = cypher_dir / f"{prefix}_constraints.cypher"
+    fixed_import = cypher_dir / f"{prefix}_import.cypher"
+    if fixed_constraints.is_file() and fixed_import.is_file():
+        return fixed_constraints, fixed_import
+
+    ts_pattern = re.compile(r"^(?P<prefix>.+)_(?P<kind>constraints|import)_(?P<ts>\d{8}_\d{6})\.cypher$")
+    constraints_ts: set[str] = set()
+    import_ts: set[str] = set()
+
+    for path in cypher_dir.glob(f"{prefix}_constraints_*.cypher"):
+        match = ts_pattern.match(path.name)
+        if match and match.group("prefix") == prefix:
+            constraints_ts.add(match.group("ts"))
+
+    for path in cypher_dir.glob(f"{prefix}_import_*.cypher"):
+        match = ts_pattern.match(path.name)
+        if match and match.group("prefix") == prefix:
+            import_ts.add(match.group("ts"))
+
+    common_ts = sorted(constraints_ts & import_ts)
+    if not common_ts:
+        raise FileNotFoundError(
+            "No matched cypher pair found. Expected fixed names "
+            f"or timestamped pair under: {cypher_dir} (prefix={prefix})"
+        )
+
+    selected_ts = common_ts[-1]
+    return (
+        cypher_dir / f"{prefix}_constraints_{selected_ts}.cypher",
+        cypher_dir / f"{prefix}_import_{selected_ts}.cypher",
+    )
 
 
 def check_container_running(container_name: str) -> tuple[bool, str]:
@@ -198,8 +240,11 @@ def main(argv: list[str]) -> int:
     dry_run, target, cypher_dir, prefix = parsed
     config = TARGETS[target]
 
-    constraints_path = cypher_dir / f"{prefix}_constraints.cypher"
-    import_path = cypher_dir / f"{prefix}_import.cypher"
+    try:
+        constraints_path, import_path = resolve_cypher_files(cypher_dir=cypher_dir, prefix=prefix)
+    except FileNotFoundError as exc:
+        log.error(str(exc))
+        return 3
 
     log.info(
         "Apply config: target=%s container=%s cypher_dir=%s prefix=%s dry_run=%s",
@@ -209,18 +254,8 @@ def main(argv: list[str]) -> int:
         prefix,
         dry_run,
     )
-
-    if shutil.which("docker") is None:
-        log.error("docker command not found. Please install Docker first.")
-        return 127
-
-    if not constraints_path.is_file():
-        log.error("Constraints file not found: %s", constraints_path)
-        return 3
-
-    if not import_path.is_file():
-        log.error("Import file not found: %s", import_path)
-        return 3
+    log.info("Selected constraints file: %s", constraints_path)
+    log.info("Selected import file: %s", import_path)
 
     if dry_run:
         rc = run_cypher_file(constraints_path, config, "constraints", dry_run)
@@ -231,6 +266,10 @@ def main(argv: list[str]) -> int:
             return rc
         log.info("All done. Open Neo4j Browser: %s", config.browser_url)
         return 0
+
+    if shutil.which("docker") is None:
+        log.error("docker command not found. Please install Docker first.")
+        return 127
 
     is_running, docker_ps_error = check_container_running(config.container)
     if not is_running:

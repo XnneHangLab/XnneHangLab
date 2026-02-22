@@ -38,11 +38,13 @@ memory_bench/
 │  ├─ compiled_claims.py
 │  ├─ replay_mem0.py
 │  ├─ tag_registry.py
-│  ├─ graphify_export.py
+│  ├─ graph_ir_export_meta.py
+│  ├─ graphify_export.py  (兼容别名入口)
 │  ├─ graphify_pipeline.py
 │  ├─ latest_file.py
 │  ├─ latest_export_file.py  (兼容别名入口)
-│  ├─ neo4j_export_cypher.py
+│  ├─ neo4j_cypher_export.py
+│  ├─ neo4j_export_cypher.py  (兼容别名入口)
 │  └─ neo4j_apply_cypher.py
 ├─ resources/
 │  └─ tag_registry.json
@@ -182,13 +184,12 @@ uv run python -m memory_bench.scripts.compiled_claims --force
 - 不再生成 `MemoryItem -> Agent` 的 `TARGETS_AGENT`。
 
 ```bash
-# 8) Graphify pipeline：增量 graphify_export(add) + neo4j_export_cypher
+# 8) Graphify(meta)：增量 graph_ir_export_meta(add) + neo4j_cypher_export（timestamp 文件）
 latest_export=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/replay_mem0 --glob "export_*.jsonl")
-uv run python -m memory_bench.scripts.graphify_pipeline run \
-  --input "$latest_export" \
-  --out-dir memory_bench/logs/replay_mem0/graphify \
-  --state-db memory_bench/state/graphify/state.sqlite \
-  --cypher-out-dir memory_bench/logs/replay_mem0/graphify/neo4j
+uv run python -m memory_bench.scripts.graph_ir_export_meta add   --input "$latest_export"   --out-dir memory_bench/logs/graphify/meta   --state-db memory_bench/state/graphify/meta.sqlite   --prefix meta
+meta_nodes=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/graphify/meta --glob "meta_nodes_*.jsonl")
+meta_edges=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/graphify/meta --glob "meta_edges_*.jsonl")
+uv run python -m memory_bench.scripts.neo4j_cypher_export   --nodes "$meta_nodes"   --edges "$meta_edges"   --out-dir memory_bench/logs/graphify/meta/neo4j   --prefix meta
 ```
 
 然后导入 Neo4j（目标实例由 docker compose 管理）：
@@ -196,7 +197,7 @@ uv run python -m memory_bench.scripts.graphify_pipeline run \
 ```bash
 # 9) 将 cypher 导入指定目标 Neo4j（mem0 / zep / cognee）
 uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 \
-  memory_bench/logs/replay_mem0/graphify/neo4j graph
+  memory_bench/logs/graphify/meta/neo4j meta
 ```
 
 ---
@@ -210,12 +211,14 @@ uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 \
 - `claimify_all.py`：mem0 export → claim/entity JSONL（by_conv + chunk 日志）+ tag registry 复用
   - registry：`memory_bench/resources/tag_registry.json`
 - `compiled_claims.py`：by_conv 汇总去重 → compiled entities/claims
-- `graphify_export.py`：mem0 export → V0 graph nodes/edges（增量/幂等）
-- `neo4j_export_cypher.py`：nodes/edges JSONL → Neo4j cypher 脚本
+- `graph_ir_export_meta.py`：memory snapshot JSONL → V0 meta graph nodes/edges（增量/幂等）
+- `graphify_export.py`：兼容旧命令入口，内部转发到 `graph_ir_export_meta.py`
+- `neo4j_cypher_export.py`：nodes/edges JSONL → Neo4j cypher 脚本（timestamp 文件名，不覆盖旧产物）
+- `neo4j_export_cypher.py`：兼容旧命令入口，内部转发到 `neo4j_cypher_export.py`
 - `latest_file.py`：获取目录下按 glob 匹配的最新文件路径（默认 `export_*.jsonl`，也可用于 `claims_nodes_*.jsonl` / `claims_edges_*.jsonl`）
 - `latest_export_file.py`：兼容旧命令入口，内部转发到 `latest_file.py`
-- `graphify_pipeline.py`：graphify_export + neo4j_export_cypher 一体化入口（由 justfile 组合 `--input`）
-- `neo4j_apply_cypher.py`：将 cypher 导入指定 Neo4j docker 容器
+- `graphify_pipeline.py`：历史一体化入口（当前推荐由 justfile 编排）
+- `neo4j_apply_cypher.py`：将 cypher 导入指定 Neo4j docker 容器（可自动选择最新 timestamp 配对文件）
 - `bench_logger.py` / `tag_registry.py`：内部复用工具模块（非主 CLI）
 
 ---
@@ -277,7 +280,7 @@ uv sync --group memory_bench
 ```bash
 claim_nodes=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/claims/graphify --glob "claims_nodes_*.jsonl")
 claim_edges=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/claims/graphify --glob "claims_edges_*.jsonl")
-uv run python memory_bench/scripts/neo4j_export_cypher.py \
+uv run python memory_bench/scripts/neo4j_cypher_export.py \
   --nodes "$claim_nodes" \
   --edges "$claim_edges" \
   --out-dir memory_bench/logs/claims/graphify/neo4j \

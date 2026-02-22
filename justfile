@@ -171,22 +171,7 @@ ci-lint:
 
 # memory bench
 
-reset-graphify-pipeline:
-  uv run python -m memory_bench.scripts.graphify_pipeline reset \
-    --state-db memory_bench/state/graphify/state.sqlite \
-    --out-dir memory_bench/logs/replay_mem0/graphify \
-    --reset-output
-
-graphify-pipeline:
-  latest_export=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/replay_mem0) && \
-  uv run python -m memory_bench.scripts.graphify_pipeline run \
-    --input "$latest_export" \
-    --out-dir memory_bench/logs/replay_mem0/graphify \
-    --state-db memory_bench/state/graphify/state.sqlite \
-    --prefix graph
-
-clean-and-restart-neo4j:
-  # 如果端口占用可以尝试调用
+"neo4j:reset":
   rm -rf memory_bench/neo4j-data/
   docker compose -f memory_bench/docker-compose.neo4j.yml down --remove-orphans
   rm -rf memory_bench/neo4j-data/mem0/data
@@ -194,30 +179,49 @@ clean-and-restart-neo4j:
   rm -rf memory_bench/neo4j-data/cognee/data
   docker compose -f memory_bench/docker-compose.neo4j.yml up -d
 
-reply-memory-and-export:
-  uv run memory_bench/scripts/replay_mem0.py ingest --force
-  uv run memory_bench/scripts/replay_mem0.py export
+"mem0:ingest":
+  uv run python -m memory_bench.scripts.replay_mem0 ingest --force
 
-calim-all:
-  latest_export=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/replay_mem0) && \
-  uv run ./memory_bench/scripts/claimify_all.py --input "$latest_export" --workers 2 --force
-  uv run ./memory_bench/scripts/compiled_claims.py --force
+"mem0:export":
+  uv run python -m memory_bench.scripts.replay_mem0 export
 
-memory-item-to-cypher:
-  just clean-and-restart-neo4j
-  just reset-graphify-pipeline
-  just graphify-pipeline
+"mem0:ingest+export":
+  just "mem0:ingest"
+  just "mem0:export"
 
-claim-items-to-cypher:
-  uv run python memory_bench/scripts/claims_graphify_export.py add
-  claim_nodes=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/claims/graphify --glob "claims_nodes_*.jsonl") && \
-  claim_edges=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/claims/graphify --glob "claims_edges_*.jsonl") && \
-  uv run python memory_bench/scripts/neo4j_export_cypher.py \
-    --nodes "$claim_nodes" \
-    --edges "$claim_edges" \
-    --out-dir memory_bench/logs/claims/graphify/neo4j \
-    --prefix claims
+"claims:extract":
+  latest_export=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/replay_mem0 --glob "export_*.jsonl") &&   uv run python -m memory_bench.scripts.claimify_all --input "$latest_export" --workers 2 --force
 
-neo4j-apply-cypher:
-  uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 memory_bench/logs/replay_mem0/graphify/neo4j graph
+"claims:compile":
+  uv run python -m memory_bench.scripts.compiled_claims --force
+
+"claims:all":
+  just "claims:extract"
+  just "claims:compile"
+
+"graph:meta:reset":
+  uv run python -m memory_bench.scripts.graph_ir_export_meta reset     --state-db memory_bench/state/graphify/meta.sqlite     --out-dir memory_bench/logs/graphify/meta     --reset-output
+
+"graph:meta:export":
+  latest_export=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/replay_mem0 --glob "export_*.jsonl") &&   uv run python -m memory_bench.scripts.graph_ir_export_meta add     --input "$latest_export"     --out-dir memory_bench/logs/graphify/meta     --state-db memory_bench/state/graphify/meta.sqlite     --prefix meta
+
+"graph:meta:cypher":
+  meta_nodes=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/graphify/meta --glob "meta_nodes_*.jsonl") &&   meta_edges=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/graphify/meta --glob "meta_edges_*.jsonl") &&   uv run python -m memory_bench.scripts.neo4j_cypher_export     --nodes "$meta_nodes"     --edges "$meta_edges"     --out-dir memory_bench/logs/graphify/meta/neo4j     --prefix meta
+
+"graph:meta:all":
+  just "graph:meta:export"
+  just "graph:meta:cypher"
+
+"graph:claims:export":
+  uv run python -m memory_bench.scripts.claims_graphify_export add
+
+"graph:claims:cypher":
+  claim_nodes=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/claims/graphify --glob "claims_nodes_*.jsonl") &&   claim_edges=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/claims/graphify --glob "claims_edges_*.jsonl") &&   uv run python -m memory_bench.scripts.neo4j_cypher_export     --nodes "$claim_nodes"     --edges "$claim_edges"     --out-dir memory_bench/logs/claims/graphify/neo4j     --prefix claims
+
+"graph:claims:all":
+  just "graph:claims:export"
+  just "graph:claims:cypher"
+
+"neo4j:apply:mem0":
+  uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 memory_bench/logs/graphify/meta/neo4j meta
   uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 memory_bench/logs/claims/graphify/neo4j claims

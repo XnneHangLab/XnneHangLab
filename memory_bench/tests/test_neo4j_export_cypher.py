@@ -5,11 +5,12 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+import time
 import uuid
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCRIPT_PATH = REPO_ROOT / "memory_bench/scripts/neo4j_export_cypher.py"
+SCRIPT_PATH = REPO_ROOT / "memory_bench/scripts/neo4j_cypher_export.py"
 
 
 def load_module():
@@ -188,3 +189,28 @@ def test_run_export_keeps_nested_props_only_in_props_json(tmp_path: Path) -> Non
     assert "`nested`" not in import_text
     assert "`processed_key`" in import_text
     assert "'h1'" in import_text
+
+
+def test_run_export_uses_timestamped_filenames_without_overwrite(tmp_path: Path) -> None:
+    """multiple exports should create new timestamped files instead of overwriting."""
+
+    module = load_module()
+    nodes_path = tmp_path / "nodes.jsonl"
+    edges_path = tmp_path / "edges.jsonl"
+    out_dir = tmp_path / "out_ts"
+
+    write_fixture_jsonl(nodes_path, [json.dumps({"id": "n1", "labels": ["MemoryItem"], "props": {}})])
+    write_fixture_jsonl(
+        edges_path,
+        [json.dumps({"id": "e1", "type": "OWNS_MEMORY", "src": "n1", "dst": "n1", "props": {}})],
+    )
+
+    first = module.run_export(nodes_path, edges_path, out_dir, prefix="meta", dry_run=False)
+    time.sleep(1)
+    second = module.run_export(nodes_path, edges_path, out_dir, prefix="meta", dry_run=False)
+
+    assert first.constraints_path != second.constraints_path
+    assert first.import_path != second.import_path
+    assert len(list(out_dir.glob("meta_constraints_*.cypher"))) == 2
+    assert len(list(out_dir.glob("meta_import_*.cypher"))) == 2
+    assert len(list(out_dir.glob("meta_report_*.json"))) == 2

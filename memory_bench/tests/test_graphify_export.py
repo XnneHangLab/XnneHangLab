@@ -10,7 +10,7 @@ import uuid
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCRIPT_PATH = REPO_ROOT / "memory_bench/scripts/graphify_export.py"
+SCRIPT_PATH = REPO_ROOT / "memory_bench/scripts/graph_ir_export_meta.py"
 FIXTURE_PATH = REPO_ROOT / "memory_bench/tests/fixtures/export_sample.jsonl"
 
 

@@ -372,7 +372,9 @@ uv run python -m memory_bench.scripts.compiled_claims --force
 
 ---
 
-## 10. `graphify_export.py`（V0 元数据归属图）
+## 10. `graph_ir_export_meta.py`（V0 元数据归属图）
+
+> 兼容入口：`graphify_export.py` 会转发到本脚本。
 
 ### 10.1 作用
 
@@ -399,23 +401,23 @@ uv run python -m memory_bench.scripts.compiled_claims --force
 ### 10.2 CLI 帮助与示例
 
 ```bash
-uv run python memory_bench/scripts/graphify_export.py -h
+uv run python memory_bench/scripts/graph_ir_export_meta.py -h
 ```
 
 dry-run：
 
 ```bash
-uv run python memory_bench/scripts/graphify_export.py dry-run \
+uv run python memory_bench/scripts/graph_ir_export_meta.py dry-run \
   --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl
 ```
 
 add：
 
 ```bash
-uv run python memory_bench/scripts/graphify_export.py add \
+uv run python memory_bench/scripts/graph_ir_export_meta.py add \
   --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl \
-  --out-dir memory_bench/logs/replay_mem0/graphify \
-  --state-db memory_bench/state/graphify/state.sqlite
+  --out-dir memory_bench/logs/graphify/meta \
+  --state-db memory_bench/state/graphify/meta.sqlite
 ```
 
 ### 10.3 返回码
@@ -425,20 +427,24 @@ uv run python memory_bench/scripts/graphify_export.py add \
 
 ---
 
-## 11. `neo4j_export_cypher.py`
+## 11. `neo4j_cypher_export.py`
+
+> 兼容入口：`neo4j_export_cypher.py` 会转发到本脚本。
 
 ### 11.1 作用
 
 将 graphify 输出的 nodes/edges JSONL 转为 Neo4j 可导入的 cypher：
 
-- `<prefix>_constraints.cypher`
-- `<prefix>_import.cypher`
-- `<prefix>_report.json`
+- `<prefix>_constraints_YYYYMMDD_HHMMSS.cypher`
+- `<prefix>_import_YYYYMMDD_HHMMSS.cypher`
+- `<prefix>_report_YYYYMMDD_HHMMSS.json`
+
+重复执行不会覆盖旧文件。
 
 ### 11.2 CLI 示例
 
 ```bash
-uv run python memory_bench/scripts/neo4j_export_cypher.py \
+uv run python memory_bench/scripts/neo4j_cypher_export.py \
   --nodes memory_bench/logs/replay_mem0/graphify/graph_nodes_*.jsonl \
   --edges memory_bench/logs/replay_mem0/graphify/graph_edges_*.jsonl \
   --out-dir memory_bench/logs/replay_mem0/graphify/neo4j \
@@ -447,45 +453,28 @@ uv run python memory_bench/scripts/neo4j_export_cypher.py \
 
 ---
 
-## 12. `graphify_pipeline.py`（推荐入口）
+## 12. `just` 编排（推荐入口）
 
 ### 12.1 作用
 
-一体化串联：
+统一由 just recipes 编排（不再依赖 `graphify_pipeline.py`）：
 
-- `graphify_export(add|dry-run)`
-- `neo4j_export_cypher`（仅 run 时默认启用，dry-run 固定跳过）
+- `graph:meta:*` / `graph:claims:*`
+- `neo4j:apply:mem0`
+- 所有最新输入通过 `latest_file.py` 解析。
 
-### 12.2 调用方式（模块运行）
-
-```bash
-uv run python -m memory_bench.scripts.graphify_pipeline -h
-```
-
-run：
+### 12.2 调用方式（just recipes）
 
 ```bash
-uv run python -m memory_bench.scripts.graphify_pipeline run \
-  --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl \
-  --out-dir memory_bench/logs/replay_mem0/graphify \
-  --state-db memory_bench/state/graphify/state.sqlite
+just "graph:meta:reset"
+just "graph:meta:all"
+just "graph:claims:all"
+just "neo4j:apply:mem0"
 ```
 
-dry-run：
-
-```bash
-uv run python -m memory_bench.scripts.graphify_pipeline dry-run \
-  --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl
-```
-
-reset：
-
-```bash
-uv run python -m memory_bench.scripts.graphify_pipeline reset \
-  --state-db memory_bench/state/graphify/state.sqlite \
-  --out-dir memory_bench/logs/replay_mem0/graphify \
-  --reset-output
-```
+说明：
+- `graph:meta:cypher` 和 `graph:claims:cypher` 都通过 `latest_file.py` 获取最新 nodes/edges 文件；
+- `neo4j:apply:mem0` 只传目录 + prefix，由 `neo4j_apply_cypher.py` 自动选择最新 timestamp 配对文件。
 
 ---
 
@@ -516,7 +505,7 @@ uv run python -m memory_bench.scripts.latest_file \
 
 ```bash
 latest_export=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/replay_mem0 --glob "export_*.jsonl")
-uv run python -m memory_bench.scripts.graphify_pipeline run --input "$latest_export"
+just "graph:meta:all"
 ```
 
 
@@ -533,7 +522,11 @@ latest_claim_edges=$(uv run python -m memory_bench.scripts.latest_file --export-
 
 ### 14.1 作用
 
-将 `neo4j_export_cypher.py` 生成的 cypher 文件，一键导入指定 Neo4j docker 容器。
+将 cypher 文件一键导入指定 Neo4j docker 容器。
+
+支持两种文件名：
+- 固定名：`<prefix>_constraints.cypher` + `<prefix>_import.cypher`（优先）
+- 时间戳名：`<prefix>_constraints_YYYYMMDD_HHMMSS.cypher` + `<prefix>_import_YYYYMMDD_HHMMSS.cypher`（自动选择最新配对）
 
 目标实例枚举：
 
@@ -544,14 +537,14 @@ latest_claim_edges=$(uv run python -m memory_bench.scripts.latest_file --export-
 ### 14.2 调用方式（模块运行）
 
 ```bash
-uv run python -m memory_bench.scripts.neo4j_apply_cypher --dry-run mem0 graph
+uv run python -m memory_bench.scripts.neo4j_apply_cypher --dry-run mem0 memory_bench/logs/graphify/meta/neo4j meta
 ```
 
 实际执行（示例）：
 
 ```bash
 uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 \
-  memory_bench/logs/replay_mem0/graphify/neo4j graph
+  memory_bench/logs/graphify/meta/neo4j meta
 ```
 
 ---
@@ -590,8 +583,8 @@ uv run python -m memory_bench.scripts.compiled_claims --force
 latest_export=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/replay_mem0 --glob "export_*.jsonl")
 uv run python -m memory_bench.scripts.graphify_pipeline run \
   --input "$latest_export" \
-  --out-dir memory_bench/logs/replay_mem0/graphify \
-  --state-db memory_bench/state/graphify/state.sqlite
+  --out-dir memory_bench/logs/graphify/meta \
+  --state-db memory_bench/state/graphify/meta.sqlite
 ```
 
 ```
