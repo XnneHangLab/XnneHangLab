@@ -86,7 +86,7 @@ uv run python memory_bench/scripts/<script>.py -h
 有些脚本以模块方式运行（例如 `compiled_claims.py`、`graphify_pipeline.py`、`neo4j_apply_cypher.py`），可用：
 
 ```bash
-uv run python -m memory_bench.scripts.<module> -h
+uv run memory_bench/scripts/<script_name>.py -h
 ```
 
 ---
@@ -160,7 +160,7 @@ uv run python memory_bench/scripts/claimify_all.py \
 - 初始可为空；首次运行后会自动写入/更新。
 
 # 7) 汇总 by_conv 到全局 compiled（Neo4j 友好）
-uv run python -m memory_bench.scripts.compiled_claims --force
+uv run memory_bench/scripts/compiled_claims.py --force
 ```
 
 产物重点看：
@@ -185,18 +185,18 @@ uv run python -m memory_bench.scripts.compiled_claims --force
 
 ```bash
 # 8) Graphify(meta)：增量 graph_ir_export_meta(add) + neo4j_cypher_export（timestamp 文件）
-latest_export=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/replay_mem0 --glob "export_*.jsonl")
-uv run python -m memory_bench.scripts.graph_ir_export_meta add   --input "$latest_export"   --out-dir memory_bench/logs/graphify/meta   --state-db memory_bench/state/graphify/meta.sqlite   --prefix meta
-meta_nodes=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/graphify/meta --glob "meta_nodes_*.jsonl")
-meta_edges=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/graphify/meta --glob "meta_edges_*.jsonl")
-uv run python -m memory_bench.scripts.neo4j_cypher_export   --nodes "$meta_nodes"   --edges "$meta_edges"   --out-dir memory_bench/logs/graphify/meta/neo4j   --prefix meta
+latest_export=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/replay_mem0 --glob "export_*.jsonl")
+uv run memory_bench/scripts/graph_ir_export_meta.py add   --input "$latest_export"   --out-dir memory_bench/logs/graphify/meta   --state-db memory_bench/state/graphify/meta.sqlite   --prefix meta
+meta_nodes=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/graphify/meta --glob "meta_nodes_*.jsonl")
+meta_edges=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/graphify/meta --glob "meta_edges_*.jsonl")
+uv run memory_bench/scripts/neo4j_cypher_export.py   --nodes "$meta_nodes"   --edges "$meta_edges"   --out-dir memory_bench/logs/graphify/meta/neo4j   --prefix meta
 ```
 
 然后导入 Neo4j（目标实例由 docker compose 管理）：
 
 ```bash
 # 9) 将 cypher 导入指定目标 Neo4j（mem0 / zep / cognee）
-uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 \
+uv run memory_bench/scripts/neo4j_apply_cypher.py mem0 \
   memory_bench/logs/graphify/meta/neo4j meta
 ```
 
@@ -278,8 +278,8 @@ uv sync --group memory_bench
 ### Claims 图谱 nodes/edges 转 Cypher（示例）
 
 ```bash
-claim_nodes=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/claims/graphify --glob "claims_nodes_*.jsonl")
-claim_edges=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/claims/graphify --glob "claims_edges_*.jsonl")
+claim_nodes=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/claims/graphify --glob "claims_nodes_*.jsonl")
+claim_edges=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/claims/graphify --glob "claims_edges_*.jsonl")
 uv run python memory_bench/scripts/neo4j_cypher_export.py \
   --nodes "$claim_nodes" \
   --edges "$claim_edges" \

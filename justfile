@@ -246,3 +246,12 @@ graph-claims-all:
 neo4j-apply-mem0:
   uv run python memory_bench/scripts/neo4j_apply_cypher.py mem0 memory_bench/logs/graphify/meta/neo4j meta
   uv run python memory_bench/scripts/neo4j_apply_cypher.py mem0 memory_bench/logs/claims/graphify/neo4j claims
+
+
+neo4j-mem0-rerun:
+  just neo4j-reset
+  just mem0-ingest-export
+  just graph-meta-all
+  just graph-claims-all
+  sleep 30 # 等待 neo4j 启动完成
+  just neo4j-apply-mem0

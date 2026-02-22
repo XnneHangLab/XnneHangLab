@@ -30,8 +30,8 @@
    说明：add 默认会为重复 key 记录 warning，但受 --max-warnings 限制。
 
 输出文件位于 `--out-dir` 下：
-- graph_nodes_YYYYMMDD_HHMMSS.jsonl（及可选 CSV）
-- graph_edges_YYYYMMDD_HHMMSS.jsonl（及可选 CSV）
+- meta_nodes_YYYYMMDD_HHMMSS.jsonl（及可选 CSV）
+- meta_edges_YYYYMMDD_HHMMSS.jsonl（及可选 CSV）
 - graphify_report_YYYYMMDD_HHMMSS.json
 """
 
@@ -57,7 +57,6 @@ PROVENANCE_KEYS = ["processed_key", "source_point_id", "exported_at", "created_a
 ALLOWED_NODE_LABELS = {"MemoryItem", "User", "Agent", "Conversation", "Scene", "Character"}
 ALLOWED_EDGE_TYPES = {
     "OWNS_MEMORY",
-    "TARGETS_AGENT",
     "FROM_CONV",
     "IN_SCENE",
     "HAS_CHARACTER",

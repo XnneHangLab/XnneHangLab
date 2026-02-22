@@ -73,7 +73,7 @@ uv run python memory_bench/scripts/<script_name>.py -h
 对以模块形式提供 CLI 的脚本：
 
 ```bash
-uv run python -m memory_bench.scripts.<module_name> -h
+uv run memory_bench/scripts/<script_name>.py -h
 ```
 
 ---
@@ -356,13 +356,13 @@ uv run python memory_bench/scripts/claimify_all.py \
 ### 9.2 调用方式（模块运行）
 
 ```bash
-uv run python -m memory_bench.scripts.compiled_claims -h
+uv run memory_bench/scripts/compiled_claims.py -h
 ```
 
 常用：
 
 ```bash
-uv run python -m memory_bench.scripts.compiled_claims --force
+uv run memory_bench/scripts/compiled_claims.py --force
 ```
 
 ### 9.3 返回码
@@ -490,13 +490,13 @@ just "neo4j:apply:mem0"
 ### 13.2 调用方式（模块运行）
 
 ```bash
-uv run python -m memory_bench.scripts.latest_file -h
+uv run memory_bench/scripts/latest_file.py -h
 ```
 
 常用：
 
 ```bash
-uv run python -m memory_bench.scripts.latest_file \
+uv run memory_bench/scripts/latest_file.py \
   --export-dir memory_bench/logs/replay_mem0 \
   --glob "export_*.jsonl"
 ```
@@ -504,7 +504,7 @@ uv run python -m memory_bench.scripts.latest_file \
 在 justfile 里组合示例：
 
 ```bash
-latest_export=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/replay_mem0 --glob "export_*.jsonl")
+latest_export=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/replay_mem0 --glob "export_*.jsonl")
 just "graph:meta:all"
 ```
 
@@ -513,8 +513,8 @@ just "graph:meta:all"
 claims nodes/edges 最新文件：
 
 ```bash
-latest_claim_nodes=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/claims/graphify --glob "claims_nodes_*.jsonl")
-latest_claim_edges=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/claims/graphify --glob "claims_edges_*.jsonl")
+latest_claim_nodes=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/claims/graphify --glob "claims_nodes_*.jsonl")
+latest_claim_edges=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/claims/graphify --glob "claims_edges_*.jsonl")
 ```
 ---
 
@@ -537,13 +537,13 @@ latest_claim_edges=$(uv run python -m memory_bench.scripts.latest_file --export-
 ### 14.2 调用方式（模块运行）
 
 ```bash
-uv run python -m memory_bench.scripts.neo4j_apply_cypher --dry-run mem0 memory_bench/logs/graphify/meta/neo4j meta
+uv run memory_bench/scripts/neo4j_apply_cypher.py --dry-run mem0 memory_bench/logs/graphify/meta/neo4j meta
 ```
 
 实际执行（示例）：
 
 ```bash
-uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 \
+uv run memory_bench/scripts/neo4j_apply_cypher.py mem0 \
   memory_bench/logs/graphify/meta/neo4j meta
 ```
 
@@ -577,7 +577,7 @@ uv run python memory_bench/scripts/replay_mem0.py export
 # 5) claimify + compile claims
 uv run python memory_bench/scripts/claimify_all.py \
   --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl
-uv run python -m memory_bench.scripts.compiled_claims --force
+uv run memory_bench/scripts/compiled_claims.py --force
 
 # 6) graphify(meta) + neo4j cypher（推荐 just 编排）
 just "graph:meta:all"
