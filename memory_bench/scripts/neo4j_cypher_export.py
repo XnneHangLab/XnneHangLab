@@ -12,10 +12,9 @@ from __future__ import annotations
 import argparse
 import json
 import re
-
-from datetime import datetime, timezone
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -33,8 +32,6 @@ class ExportArtifacts:
     constraints_path: Path | None
     import_path: Path | None
     report_path: Path
-
-
 
 
 def now_utc_ts() -> str:

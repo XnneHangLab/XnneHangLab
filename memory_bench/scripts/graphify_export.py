@@ -4,6 +4,8 @@
 保留旧的 import 路径与符号，避免 graphify_pipeline / 旧代码报错。
 """
 
+from __future__ import annotations
+
 from memory_bench.scripts.graph_ir_export_meta import (  # noqa: F401
     GraphArtifacts,
     ParsedRecord,
