@@ -178,7 +178,7 @@ compile-events:
   uv run memory_bench/scripts/compile_events.py
 
 reset-graphify-pipeline:
-  uv run memory_bench/scripts/graphify_pipeline reset \
+  uv run memory_bench/scripts/graphify_pipeline.py reset \
     --state-db memory_bench/state/graphify/state.sqlite \
     --out-dir memory_bench/logs/replay_mem0/graphify \
     --reset-output
@@ -226,8 +226,8 @@ claim-items-to-cypher:
     --prefix claims
 
 neo4j-apply-cypher:
-  uv run memory_bench/scripts/neo4j_apply_cypher mem0 memory_bench/logs/replay_mem0/graphify/neo4j graph
-  uv run memory_bench/scripts/neo4j_apply_cypher mem0 memory_bench/logs/claims/graphify/neo4j claims
+  uv run memory_bench/scripts/neo4j_apply_cypher.py mem0 memory_bench/logs/replay_mem0/graphify/neo4j graph
+  uv run memory_bench/scripts/neo4j_apply_cypher.py mem0 memory_bench/logs/claims/graphify/neo4j claims
 
 mem0-rerun:
   just build-index
