@@ -255,7 +255,8 @@
               "predicate",
               "updated_at",
               "confidence",
-              "status"
+              "status",
+              "rank"
             ],
             [
               "Character",

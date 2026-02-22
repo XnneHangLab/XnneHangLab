@@ -188,6 +188,7 @@ graphify-pipeline:
 clean-and-restart-neo4j:
   # 如果端口占用可以尝试调用
   rm -rf memory_bench/neo4j-data/
+  sleep 3
   docker compose -f memory_bench/docker-compose.neo4j.yml down --remove-orphans
   rm -rf memory_bench/neo4j-data/mem0/data
   rm -rf memory_bench/neo4j-data/zep/data
@@ -221,3 +222,12 @@ claim-items-to-cypher:
 neo4j-apply-cypher:
   uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 memory_bench/logs/replay_mem0/graphify/neo4j graph
   uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 memory_bench/logs/claims/graphify/neo4j claims
+
+mem0-rerun:
+  just clean-and-restart-neo4j
+  just reply-memory-and-export
+  just calim-all
+  just memory-item-to-cypher
+  just claim-items-to-cypher
+  sleep 30
+  just neo4j-apply-cypher
