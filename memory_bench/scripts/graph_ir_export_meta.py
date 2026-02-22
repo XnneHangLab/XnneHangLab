@@ -4,10 +4,10 @@
 最小自测命令（基于 `memory_bench/tests/fixtures/export_sample.jsonl`）：
 
 1) dry-run（仅校验与统计，不写 nodes/edges/state）：
-   uv run python memory_bench/scripts/graphify_export.py dry-run \
+   uv run python memory_bench/scripts/graph_ir_export_meta.py dry-run \
      --input memory_bench/tests/fixtures/export_sample.jsonl \
-     --out-dir memory_bench/logs/replay_mem0/graphify \
-     --state-db memory_bench/state/graphify/state.sqlite \
+     --out-dir memory_bench/logs/graphify/meta \
+     --state-db memory_bench/state/graphify/meta.sqlite \
      --format jsonl
 
    说明：若 `--state-db` 不存在，dry-run 会将其视为“无已处理记录”，
@@ -15,16 +15,16 @@
    且默认不会为重复 key 写 warning（仅统计 skipped_already_processed）；可用 --warn-duplicate-keys 显式开启。
 
 2) reset（重建 state，可选清理输出目录）：
-   uv run python memory_bench/scripts/graphify_export.py reset \
-     --state-db memory_bench/state/graphify/state.sqlite \
+   uv run python memory_bench/scripts/graph_ir_export_meta.py reset \
+     --state-db memory_bench/state/graphify/meta.sqlite \
      --reset-output \
-     --out-dir memory_bench/logs/replay_mem0/graphify
+     --out-dir memory_bench/logs/graphify/meta
 
 3) add（增量写出 nodes/edges 并写入 state）：
-   uv run python memory_bench/scripts/graphify_export.py add \
+   uv run python memory_bench/scripts/graph_ir_export_meta.py add \
      --input memory_bench/tests/fixtures/export_sample.jsonl \
-     --out-dir memory_bench/logs/replay_mem0/graphify \
-     --state-db memory_bench/state/graphify/state.sqlite \
+     --out-dir memory_bench/logs/graphify/meta \
+     --state-db memory_bench/state/graphify/meta.sqlite \
      --format jsonl
 
    说明：add 默认会为重复 key 记录 warning，但受 --max-warnings 限制。

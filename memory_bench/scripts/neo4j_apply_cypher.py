@@ -14,7 +14,7 @@ from pathlib import Path
 from memory_bench.scripts.bench_logger import logger
 
 GROUP = "neo4j_import"
-DEFAULT_GRAPHIFY_OUT_DIR = Path("memory_bench/logs/replay_mem0/graphify")
+DEFAULT_GRAPHIFY_OUT_DIR = Path("memory_bench/logs/graphify/meta")
 log = logger.bind(group=GROUP)
 
 
@@ -61,8 +61,8 @@ Options:
   --dry-run   Validate inputs and print planned commands without executing docker exec
 
 Environment:
-  GRAPHIFY_OUT_DIR  Base out dir used by graphify_pipeline
-                    (default: memory_bench/logs/replay_mem0/graphify)
+  GRAPHIFY_OUT_DIR  Base out dir used by graph meta export
+                    (default: memory_bench/logs/graphify/meta)
 """
 
 
