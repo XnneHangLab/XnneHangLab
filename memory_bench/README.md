@@ -271,7 +271,7 @@ uv sync --group memory_bench
 - `replay_mem0.py export` 后：`logs/replay_mem0/export_*.jsonl` 有内容
 - `claimify_all.py` 后：`data/claims/by_conv/chXX.jsonl` 存在
 - `compiled_claims.py` 后：`data/claims/compiled/*.jsonl` + `compiled_meta.json` 存在
-- `graphify_pipeline run` 后：`logs/replay_mem0/graphify/*nodes*.jsonl`、`*edges*.jsonl`、`neo4j/*.cypher` 存在
+- `graph:meta:all` 或手动 export+cypher 后：`logs/graphify/meta/meta_nodes_*.jsonl`、`meta_edges_*.jsonl`、`neo4j/meta_*.cypher` 存在
 ```
 
 

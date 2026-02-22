@@ -53,10 +53,10 @@
 
 ### C) export → graphify（元数据归属图）→ Neo4j
 
-9) `latest_file.py` + `graphify_pipeline.py run`（推荐）在 justfile 中动态拼接：
+9) `latest_file.py` + `graph_ir_export_meta.py` + `neo4j_cypher_export.py` 由 justfile 编排（推荐）：
    - latest_file：按 glob 获取最新文件（默认 export_*.jsonl）
-   - graphify_export(add)：生成 nodes/edges + state.sqlite 增量
-   - neo4j_export_cypher：生成约束与导入脚本
+   - graph_ir_export_meta(add)：生成 nodes/edges + state.sqlite 增量
+   - neo4j_cypher_export：生成 timestamp 约束与导入脚本
 
 10) `neo4j_apply_cypher.py` 将 cypher 导入指定 Neo4j docker 容器实例
 
@@ -579,12 +579,23 @@ uv run python memory_bench/scripts/claimify_all.py \
   --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl
 uv run python -m memory_bench.scripts.compiled_claims --force
 
-# 6) graphify + neo4j cypher（先取最新 export，再拼接执行）
-latest_export=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/replay_mem0 --glob "export_*.jsonl")
-uv run python -m memory_bench.scripts.graphify_pipeline run \
+# 6) graphify(meta) + neo4j cypher（推荐 just 编排）
+just "graph:meta:all"
+
+# 或手动两步（先取最新 export，再执行 export+cypher）
+latest_export=$(uv run python memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/replay_mem0 --glob "export_*.jsonl")
+uv run python memory_bench/scripts/graph_ir_export_meta.py add \
   --input "$latest_export" \
   --out-dir memory_bench/logs/graphify/meta \
-  --state-db memory_bench/state/graphify/meta.sqlite
+  --state-db memory_bench/state/graphify/meta.sqlite \
+  --prefix meta
+meta_nodes=$(uv run python memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/graphify/meta --glob "meta_nodes_*.jsonl")
+meta_edges=$(uv run python memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/graphify/meta --glob "meta_edges_*.jsonl")
+uv run python memory_bench/scripts/neo4j_cypher_export.py \
+  --nodes "$meta_nodes" \
+  --edges "$meta_edges" \
+  --out-dir memory_bench/logs/graphify/meta/neo4j \
+  --prefix meta
 ```
 
 ```
