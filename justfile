@@ -228,11 +228,10 @@ claim-items-to-cypher:
 neo4j-apply-cypher:
   #!/usr/bin/env bash
   set -euo pipefail
-  read -r constraints_file import_file < <(
-    uv run memory_bench/scripts/latest_file.py --pair-kind cypher \
-      | tr '\n' ' '
-  )
-  uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 \
+  pair_output=$(uv run memory_bench/scripts/latest_file.py --pair-kind cypher) && \
+  constraints_file=$(echo "$pair_output" | sed -n '1p') && \
+  import_file=$(echo "$pair_output" | sed -n '2p') && \
+  uv run memory_bench/scripts/neo4j_apply_cypher.py mem0 \
     --constraints "$constraints_file" \
     --import-file "$import_file"
 
