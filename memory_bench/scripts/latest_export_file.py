@@ -6,9 +6,12 @@ from __future__ import annotations
 from memory_bench.scripts.latest_file import (
     DEFAULT_EXPORT_DIR,
     DEFAULT_GLOB,
+    PAIR_KINDS,
+    PairKindSpec,
     build_parser,
     find_latest_export,
     find_latest_file,
+    find_latest_pair,
     main,
 )
 
@@ -19,8 +22,11 @@ if __name__ == "__main__":
 __all__ = [
     "DEFAULT_EXPORT_DIR",
     "DEFAULT_GLOB",
+    "PAIR_KINDS",
+    "PairKindSpec",
     "build_parser",
     "find_latest_export",
     "find_latest_file",
+    "find_latest_pair",
     "main",
 ]

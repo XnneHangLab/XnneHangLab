@@ -152,3 +152,82 @@ def test_main_prints_latest_path_with_custom_glob(tmp_path: Path, capsys: pytest
 
     out = capsys.readouterr().out.strip()
     assert out == str(newer)
+
+
+def test_find_latest_pair_cypher(tmp_path: Path) -> None:
+    """验证 --pair-kind cypher 能找到最新的 constraints+import 配对。"""
+
+    old_c = tmp_path / "graph_constraints_20260220_120000.cypher"
+    old_i = tmp_path / "graph_import_20260220_120000.cypher"
+    new_c = tmp_path / "graph_constraints_20260220_130000.cypher"
+    new_i = tmp_path / "graph_import_20260220_130000.cypher"
+    for file_path in [old_c, old_i, new_c, new_i]:
+        file_path.write_text("// test", encoding="utf-8")
+    os.utime(old_c, (1000, 1000))
+    os.utime(old_i, (1000, 1000))
+    os.utime(new_c, (2000, 2000))
+    os.utime(new_i, (2000, 2000))
+
+    module = load_module()
+    anchor, pair = module.find_latest_pair(tmp_path, "cypher")
+    assert anchor == new_c
+    assert pair == new_i
+
+
+def test_find_latest_pair_skips_orphan(tmp_path: Path) -> None:
+    """验证最新 anchor 没有对应 pair 时会回退到次新配对。"""
+
+    old_c = tmp_path / "graph_constraints_20260220_120000.cypher"
+    old_i = tmp_path / "graph_import_20260220_120000.cypher"
+    new_c = tmp_path / "graph_constraints_20260220_130000.cypher"
+    for file_path in [old_c, old_i, new_c]:
+        file_path.write_text("// test", encoding="utf-8")
+    os.utime(old_c, (1000, 1000))
+    os.utime(old_i, (1000, 1000))
+    os.utime(new_c, (2000, 2000))
+
+    module = load_module()
+    anchor, pair = module.find_latest_pair(tmp_path, "cypher")
+    assert anchor == old_c
+    assert pair == old_i
+
+
+def test_find_latest_pair_raises_no_pair(tmp_path: Path) -> None:
+    """验证完全没有配对时抛出 FileNotFoundError。"""
+
+    orphan = tmp_path / "graph_constraints_20260220_120000.cypher"
+    orphan.write_text("// test", encoding="utf-8")
+
+    module = load_module()
+    with pytest.raises(FileNotFoundError):
+        module.find_latest_pair(tmp_path, "cypher")
+
+
+def test_find_latest_pair_invalid_kind(tmp_path: Path) -> None:
+    """验证无效 kind 抛出 ValueError。"""
+
+    module = load_module()
+    with pytest.raises((ValueError, KeyError)):
+        module.find_latest_pair(tmp_path, "nonexistent")
+
+
+def test_main_pair_kind_prints_two_lines(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """验证 --pair-kind cypher 输出两行路径。"""
+
+    constraints_path = tmp_path / "graph_constraints_20260220_120000.cypher"
+    import_path = tmp_path / "graph_import_20260220_120000.cypher"
+    constraints_path.write_text("// test", encoding="utf-8")
+    import_path.write_text("// test", encoding="utf-8")
+
+    module = load_module()
+    argv_backup = sys.argv
+    try:
+        sys.argv = ["latest_export_file.py", "--export-dir", str(tmp_path), "--pair-kind", "cypher"]
+        assert module.main() == 0
+    finally:
+        sys.argv = argv_backup
+
+    lines = capsys.readouterr().out.strip().split("\n")
+    assert len(lines) == 2
+    assert "constraints" in lines[0]
+    assert "import" in lines[1]
