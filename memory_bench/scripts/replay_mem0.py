@@ -463,18 +463,28 @@ def add_memory_batch(
         store_raw: 是否优先使用 `infer=False` 原文写入。
 
     """
+    from memory_bench.scripts.rate_limiter import llm_rate_limit
 
     result: Any
-    if store_raw:
-        try:
-            result = memory.add(
-                messages=messages,
-                user_id=user_id,
-                agent_id=agent_id,
-                metadata=metadata,
-                infer=False,
-            )
-        except TypeError:
+    with llm_rate_limit():
+        if store_raw:
+            try:
+                result = memory.add(
+                    messages=messages,
+                    user_id=user_id,
+                    agent_id=agent_id,
+                    metadata=metadata,
+                    infer=False,
+                )
+            except TypeError:
+                result = _add_memory_batch_fallback(
+                    memory=memory,
+                    user_id=user_id,
+                    agent_id=agent_id,
+                    messages=messages,
+                    metadata=metadata,
+                )
+        else:
             result = _add_memory_batch_fallback(
                 memory=memory,
                 user_id=user_id,
@@ -482,14 +492,6 @@ def add_memory_batch(
                 messages=messages,
                 metadata=metadata,
             )
-    else:
-        result = _add_memory_batch_fallback(
-            memory=memory,
-            user_id=user_id,
-            agent_id=agent_id,
-            messages=messages,
-            metadata=metadata,
-        )
 
     if isinstance(result, dict):
         results = result.get("results", [])
@@ -631,19 +633,21 @@ def add_memory_entry(
         store_raw: 是否优先使用 `infer=False` 原文写入。
 
     """
+    from memory_bench.scripts.rate_limiter import llm_rate_limit
 
     result: Any
-    if store_raw:
-        try:
-            result = memory.add(messages=[message], user_id=user_id, agent_id=agent_id, metadata=metadata, infer=False)
-        except TypeError:
+    with llm_rate_limit():
+        if store_raw:
+            try:
+                result = memory.add(messages=[message], user_id=user_id, agent_id=agent_id, metadata=metadata, infer=False)
+            except TypeError:
+                result = _add_memory_entry_fallback(
+                    memory=memory, user_id=user_id, agent_id=agent_id, message=message, metadata=metadata
+                )
+        else:
             result = _add_memory_entry_fallback(
                 memory=memory, user_id=user_id, agent_id=agent_id, message=message, metadata=metadata
             )
-    else:
-        result = _add_memory_entry_fallback(
-            memory=memory, user_id=user_id, agent_id=agent_id, message=message, metadata=metadata
-        )
 
     if isinstance(result, dict):
         results = result.get("results", [])

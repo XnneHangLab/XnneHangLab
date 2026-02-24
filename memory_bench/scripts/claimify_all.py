@@ -296,12 +296,15 @@ def call_llm(prompt: str, model: str) -> str:
     if project:
         client_kwargs["project"] = project
 
+    from memory_bench.scripts.rate_limiter import llm_rate_limit
+
     client = OpenAI(**client_kwargs)
-    response = client.chat.completions.create(
-        model=model,
-        temperature=0,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    with llm_rate_limit():
+        response = client.chat.completions.create(
+            model=model,
+            temperature=0,
+            messages=[{"role": "user", "content": prompt}],
+        )
     choices = getattr(response, "choices", None)
     if not choices:
         raise ClaimifyError("LLM 返回为空，无法继续")
