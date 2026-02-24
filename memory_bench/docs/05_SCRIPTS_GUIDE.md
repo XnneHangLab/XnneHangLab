@@ -149,9 +149,9 @@ uv run python memory_bench/scripts/annotate_all.py --only ch05,ch06
 
 ### 5.4 环境变量（`memory_bench/.env.benchmark`）
 
-- `BENCHMARK_OPENAI_API_KEY`（必须）
-- `BENCHMARK_OPENAI_MODEL`（可选）
-- `BENCHMARK_OPENAI_BASE_URL`（可选，默认走 SDK 默认）
+- `BENCHMARK_LLM_API_KEY`（必须）
+- `BENCHMARK_LLM_MODEL`（可选）
+- `BENCHMARK_LLM_BASE_URL`（可选，默认走 SDK 默认）
 - `BENCHMARK_WORKERS` / `BENCHMARK_SOURCE` / `BENCHMARK_SCENE_ID` / `BENCHMARK_CHARACTER_ID`（可选）
 
 优先级：CLI > `BENCHMARK_` 环境变量 > 脚本默认值。
@@ -240,10 +240,17 @@ uv run python memory_bench/scripts/replay_mem0.py -h
 
 脚本会读取 `memory_bench/.env.benchmark`（override=True），并强制要求：
 
-- `BENCHMARK_OPENAI_API_KEY`
-- `BENCHMARK_OPENAI_BASE_URL`
-- `BENCHMARK_OPENAI_MODEL`
-- `BENCHMARK_OPENAI_EMBEDDING_MODEL`
+**Chat / LLM：**
+
+- `BENCHMARK_LLM_API_KEY`
+- `BENCHMARK_LLM_BASE_URL`
+- `BENCHMARK_LLM_MODEL`
+
+**Embedding：**
+
+- `BENCHMARK_EMBEDDING_API_KEY`
+- `BENCHMARK_EMBEDDING_BASE_URL`
+- `BENCHMARK_EMBEDDING_MODEL`
 
 ### 7.4 常用示例
 

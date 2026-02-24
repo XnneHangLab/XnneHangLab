@@ -154,33 +154,43 @@ def get_env_float(name: str, default: float) -> float:
         return default
 
 
-def prepare_mem0_env() -> tuple[str, str, str, str, float, int]:
+def prepare_mem0_env() -> tuple[str, str, str, str, str, str, float, int]:
     """从 BENCHMARK_* 环境变量构建 Mem0 初始化所需配置并做必填校验。
+
+    LLM 和 Embedding 的 API Key / Base URL 独立配置，
+    允许使用不同的服务提供商或代理。
 
     Args:
         无。
 
     Returns:
-        tuple[str, str, str, str, float, int]：`(api_key, base_url, llm_model, embedding_model, llm_temperature, llm_max_tokens)`。
+        tuple[str, str, str, str, str, str, float, int]：
+            `(llm_api_key, llm_base_url, llm_model, embedding_api_key, embedding_base_url, embedding_model, llm_temperature, llm_max_tokens)`。
 
     Raises:
         ReplayMem0Error: 当必需的 BENCHMARK_* 环境变量缺失时抛出。
     """
 
-    api_key = get_env("BENCHMARK_OPENAI_API_KEY")
-    base_url = get_env("BENCHMARK_OPENAI_BASE_URL")
-    model_name = get_env("BENCHMARK_OPENAI_MODEL")
-    embedding_model = get_env("BENCHMARK_OPENAI_EMBEDDING_MODEL")
+    llm_api_key = get_env("BENCHMARK_LLM_API_KEY")
+    llm_base_url = get_env("BENCHMARK_LLM_BASE_URL")
+    llm_model = get_env("BENCHMARK_LLM_MODEL")
+    embedding_api_key = get_env("BENCHMARK_EMBEDDING_API_KEY")
+    embedding_base_url = get_env("BENCHMARK_EMBEDDING_BASE_URL")
+    embedding_model = get_env("BENCHMARK_EMBEDDING_MODEL")
 
     missing: list[str] = []
-    if not api_key:
-        missing.append("BENCHMARK_OPENAI_API_KEY")
-    if not base_url:
-        missing.append("BENCHMARK_OPENAI_BASE_URL")
-    if not model_name:
-        missing.append("BENCHMARK_OPENAI_MODEL")
+    if not llm_api_key:
+        missing.append("BENCHMARK_LLM_API_KEY")
+    if not llm_base_url:
+        missing.append("BENCHMARK_LLM_BASE_URL")
+    if not llm_model:
+        missing.append("BENCHMARK_LLM_MODEL")
+    if not embedding_api_key:
+        missing.append("BENCHMARK_EMBEDDING_API_KEY")
+    if not embedding_base_url:
+        missing.append("BENCHMARK_EMBEDDING_BASE_URL")
     if not embedding_model:
-        missing.append("BENCHMARK_OPENAI_EMBEDDING_MODEL")
+        missing.append("BENCHMARK_EMBEDDING_MODEL")
 
     if missing:
         required = ", ".join(missing)
@@ -190,10 +200,10 @@ def prepare_mem0_env() -> tuple[str, str, str, str, float, int]:
 
     # 显式通过返回值将配置传给 Mem0，避免依赖或修改全局环境变量。
 
-    llm_temperature = get_env_float("BENCHMARK_OPENAI_TEMPERATURE", 0.0)
-    llm_max_tokens = get_env_int("BENCHMARK_OPENAI_MAX_TOKENS", 2000)
+    llm_temperature = get_env_float("BENCHMARK_LLM_TEMPERATURE", 0.0)
+    llm_max_tokens = get_env_int("BENCHMARK_LLM_MAX_TOKENS", 2000)
 
-    return api_key, base_url, model_name, embedding_model, llm_temperature, llm_max_tokens
+    return llm_api_key, llm_base_url, llm_model, embedding_api_key, embedding_base_url, embedding_model, llm_temperature, llm_max_tokens
 
 
 def redact_base_url(base_url: str | None) -> str:
@@ -1146,22 +1156,29 @@ def save_checkpoint(path: Path, payload: dict[str, Any]) -> None:
 def build_mem0_config(
     state_dir: Path,
     isolation: str,
-    api_key: str,
+    llm_api_key: str,
     llm_model: str,
+    llm_base_url: str,
+    embedding_api_key: str,
     embedding_model: str,
-    base_url: str,
+    embedding_base_url: str,
     llm_temperature: float,
     llm_max_tokens: int,
 ) -> dict[str, Any]:
     """构建 Mem0 from_config 所需配置（llm/embedder/vector_store）。
 
+    LLM 和 Embedding 使用独立的 API Key 与 Base URL，
+    允许分别指向不同的服务提供商或代理。
+
     Args:
         state_dir: 状态目录路径。
         isolation: 隔离模式（global/per_chapter）。
-        api_key: OpenAI API Key。
+        llm_api_key: LLM 服务的 API Key。
         llm_model: LLM 模型名。
+        llm_base_url: LLM 服务的 Base URL。
+        embedding_api_key: Embedding 服务的 API Key。
         embedding_model: Embedding 模型名。
-        base_url: OpenAI 兼容接口 Base URL。
+        embedding_base_url: Embedding 服务的 Base URL。
         llm_temperature: LLM 温度参数。
         llm_max_tokens: LLM 最大输出 token 数。
 
@@ -1172,13 +1189,12 @@ def build_mem0_config(
     qdrant_path = state_dir / "qdrant_storage"
     qdrant_path.mkdir(parents=True, exist_ok=True)
 
-    openai_common: dict[str, Any] = {"api_key": api_key, "openai_base_url": base_url}
-
     return {
         "llm": {
             "provider": "openai",
             "config": {
-                **openai_common,
+                "api_key": llm_api_key,
+                "openai_base_url": llm_base_url,
                 "model": llm_model,
                 "temperature": llm_temperature,
                 "max_tokens": llm_max_tokens,
@@ -1187,7 +1203,8 @@ def build_mem0_config(
         "embedder": {
             "provider": "openai",
             "config": {
-                **openai_common,
+                "api_key": embedding_api_key,
+                "openai_base_url": embedding_base_url,
                 "model": embedding_model,
             },
         },
@@ -1210,10 +1227,12 @@ def build_mem0_config(
 def init_memory(
     state_dir: Path,
     isolation: str,
-    api_key: str,
+    llm_api_key: str,
     llm_model: str,
+    llm_base_url: str,
+    embedding_api_key: str,
     embedding_model: str,
-    base_url: str,
+    embedding_base_url: str,
     llm_temperature: float,
     llm_max_tokens: int,
 ) -> Any:
@@ -1222,10 +1241,12 @@ def init_memory(
     Args:
         state_dir: 状态目录路径。
         isolation: 隔离模式（global/per_chapter）。
-        api_key: OpenAI API Key。
+        llm_api_key: LLM 服务的 API Key。
         llm_model: LLM 模型名。
+        llm_base_url: LLM 服务的 Base URL。
+        embedding_api_key: Embedding 服务的 API Key。
         embedding_model: Embedding 模型名。
-        base_url: OpenAI 兼容接口 Base URL。
+        embedding_base_url: Embedding 服务的 Base URL。
         llm_temperature: LLM 温度参数。
         llm_max_tokens: LLM 最大输出 token 数。
 
@@ -1246,10 +1267,12 @@ def init_memory(
     config = build_mem0_config(
         state_dir=state_dir,
         isolation=isolation,
-        api_key=api_key,
+        llm_api_key=llm_api_key,
         llm_model=llm_model,
+        llm_base_url=llm_base_url,
+        embedding_api_key=embedding_api_key,
         embedding_model=embedding_model,
-        base_url=base_url,
+        embedding_base_url=embedding_base_url,
         llm_temperature=llm_temperature,
         llm_max_tokens=llm_max_tokens,
     )
@@ -1759,7 +1782,7 @@ def main() -> int:
     args = parse_args()
     repo_root = Path(__file__).resolve().parents[2]
     load_benchmark_dotenv(repo_root)
-    api_key, base_url, llm_model, embed_model, llm_temperature, llm_max_tokens = prepare_mem0_env()
+    llm_api_key, llm_base_url, llm_model, embed_api_key, embed_base_url, embed_model, llm_temperature, llm_max_tokens = prepare_mem0_env()
 
     input_path: Path | None = None
     if args.command in {"ingest", "probe"}:
@@ -1769,9 +1792,9 @@ def main() -> int:
 
     state_dir = Path(args.state_dir)
     logger.bind(group="memory").info(
-        f"Mem0/OpenAI env: llm_model={llm_model}, embedding_model={embed_model}, "
-        f"temperature={llm_temperature}, max_tokens={llm_max_tokens}, "
-        f"base_url={redact_base_url(base_url)}, state_dir={state_dir}"
+        f"Mem0 env: llm_model={llm_model}, llm_base_url={redact_base_url(llm_base_url)}, "
+        f"embedding_model={embed_model}, embedding_base_url={redact_base_url(embed_base_url)}, "
+        f"temperature={llm_temperature}, max_tokens={llm_max_tokens}, state_dir={state_dir}"
     )
 
     if args.command == "ingest" and args.force:
@@ -1783,10 +1806,12 @@ def main() -> int:
     memory = init_memory(
         state_dir=state_dir,
         isolation=args.isolation,
-        api_key=api_key,
+        llm_api_key=llm_api_key,
         llm_model=llm_model,
+        llm_base_url=llm_base_url,
+        embedding_api_key=embed_api_key,
         embedding_model=embed_model,
-        base_url=base_url,
+        embedding_base_url=embed_base_url,
         llm_temperature=llm_temperature,
         llm_max_tokens=llm_max_tokens,
     )

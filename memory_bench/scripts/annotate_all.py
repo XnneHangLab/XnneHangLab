@@ -266,9 +266,9 @@ def call_llm(prompt: str, model: str) -> str:
         AnnotationError: 当缺少 API Key、SDK 未安装或返回为空时抛出。
     """
 
-    api_key = get_env("BENCHMARK_OPENAI_API_KEY")
+    api_key = get_env("BENCHMARK_LLM_API_KEY")
     if not api_key:
-        raise AnnotationError("缺少 BENCHMARK_OPENAI_API_KEY。请设置环境变量，或写入 memory_bench/.env.benchmark。")
+        raise AnnotationError("缺少 BENCHMARK_LLM_API_KEY。请设置环境变量，或写入 memory_bench/.env.benchmark。")
 
     try:
         from openai import OpenAI
@@ -278,9 +278,9 @@ def call_llm(prompt: str, model: str) -> str:
         ) from exc
 
     client_kwargs: dict[str, Any] = {"api_key": api_key}
-    base_url = get_env("BENCHMARK_OPENAI_BASE_URL")
-    org = get_env("BENCHMARK_OPENAI_ORG")
-    project = get_env("BENCHMARK_OPENAI_PROJECT")
+    base_url = get_env("BENCHMARK_LLM_BASE_URL")
+    org = get_env("BENCHMARK_LLM_ORG")
+    project = get_env("BENCHMARK_LLM_PROJECT")
     if base_url:
         client_kwargs["base_url"] = base_url
     if org:
@@ -596,7 +596,7 @@ def main() -> int:
     scene_id = args.scene_id or get_env("BENCHMARK_SCENE_ID", "chill_ai_chat") or "chill_ai_chat"
     character_id = args.character_id or get_env("BENCHMARK_CHARACTER_ID", "congyin") or "congyin"
     source_mode = args.source or get_env("BENCHMARK_SOURCE", "auto") or "auto"
-    model = args.model or get_env("BENCHMARK_OPENAI_MODEL", "gpt-4o-mini") or "gpt-4o-mini"
+    model = args.model or get_env("BENCHMARK_LLM_MODEL", "gpt-4o-mini") or "gpt-4o-mini"
 
     if source_mode not in {"auto", "raw", "norm"}:
         raise AnnotationError(f"--source 非法: {source_mode}")
