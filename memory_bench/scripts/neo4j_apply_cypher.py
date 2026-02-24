@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-import os
+import argparse
 import shutil
 import subprocess
 import sys
@@ -13,7 +13,6 @@ from pathlib import Path
 from memory_bench.scripts.bench_logger import logger
 
 GROUP = "neo4j_import"
-DEFAULT_GRAPHIFY_OUT_DIR = Path("memory_bench/logs/replay_mem0/graphify")
 log = logger.bind(group=GROUP)
 
 
@@ -36,78 +35,50 @@ TARGETS: dict[str, TargetConfig] = {
     "cognee": TargetConfig("membench-neo4j-cognee", "http://localhost:7476"),
 }
 
-USAGE = """Usage:
-  uv run python -m memory_bench.scripts.neo4j_apply_cypher <target> <cypher_dir> <prefix>
-  uv run python -m memory_bench.scripts.neo4j_apply_cypher <target> <prefix>
-  uv run python -m memory_bench.scripts.neo4j_apply_cypher [--dry-run] <target> <cypher_dir> <prefix>
-  uv run python -m memory_bench.scripts.neo4j_apply_cypher [--dry-run] <target> <prefix>
 
+def build_parser() -> argparse.ArgumentParser:
+    """构建命令行参数解析器。"""
+
+    parser = argparse.ArgumentParser(
+        description="Apply Cypher files to a Neo4j container via cypher-shell.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
 Examples:
-  uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 memory_bench/logs/replay_mem0/graphify/neo4j graph
-  uv run python -m memory_bench.scripts.neo4j_apply_cypher zep  memory_bench/logs/replay_zep/graphify/neo4j graph
-  uv run python -m memory_bench.scripts.neo4j_apply_cypher cognee memory_bench/logs/replay_cognee/graphify/neo4j graph
-  uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 graph
+  # Explicit file paths (recommended with latest_file.py --pair-kind cypher):
+  uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 \\
+    --constraints graph_constraints_20260224_120000.cypher \\
+    --import-file graph_import_20260224_120000.cypher
 
-Arguments:
-  target      Neo4j target instance: mem0 | zep | cognee
-  cypher_dir  Directory containing <prefix>_constraints.cypher and <prefix>_import.cypher
-              (optional, default: <GRAPHIFY_OUT_DIR>/neo4j)
-  prefix      Cypher file prefix
-
-Options:
-  --dry-run   Validate inputs and print planned commands without executing docker exec
-
-Environment:
-  GRAPHIFY_OUT_DIR  Base out dir used by graphify_pipeline
-                    (default: memory_bench/logs/replay_mem0/graphify)
-"""
-
-
-def print_usage() -> None:
-    """打印命令行使用说明。"""
-
-    print(USAGE.strip())
-
-
-def parse_args(argv: list[str]) -> tuple[bool, str, Path, str] | None:
-    """解析并校验命令行参数。
-
-    Args:
-        argv: 命令行参数列表（不含程序名）。
-
-    Returns:
-        tuple[bool, str, Path, str] | None:
-            解析成功时返回 `(dry_run, target, cypher_dir, prefix)`；
-            参数不合法时返回 None。
-    """
-
-    dry_run = False
-    positional = list(argv)
-
-    if positional and positional[0] == "--dry-run":
-        dry_run = True
-        positional = positional[1:]
-
-    if len(positional) not in (2, 3):
-        log.error("Invalid argument count.")
-        print_usage()
-        return None
-
-    target = positional[0]
-    if target not in TARGETS:
-        log.error("Invalid target '%s'. Expected one of: mem0, zep, cognee.", target)
-        print_usage()
-        return None
-
-    if len(positional) == 2:
-        base_out_dir = Path(os.environ.get("GRAPHIFY_OUT_DIR", str(DEFAULT_GRAPHIFY_OUT_DIR)))
-        cypher_dir = base_out_dir / "neo4j"
-        prefix = positional[1]
-    else:
-        cypher_dir = Path(positional[1])
-        prefix = positional[2]
-
-    return dry_run, target, cypher_dir, prefix
+  # Dry-run:
+  uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 --dry-run \\
+    --constraints path/to/constraints.cypher \\
+    --import-file path/to/import.cypher
+""",
+    )
+    parser.add_argument(
+        "target",
+        choices=list(TARGETS.keys()),
+        help="Neo4j target instance: mem0 | zep | cognee",
+    )
+    parser.add_argument(
+        "--constraints",
+        type=str,
+        required=True,
+        help="Path to the constraints .cypher file",
+    )
+    parser.add_argument(
+        "--import-file",
+        type=str,
+        required=True,
+        help="Path to the import .cypher file",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="Validate inputs and print planned commands without executing docker exec",
+    )
+    return parser
 
 
 def check_container_running(container_name: str) -> tuple[bool, str]:
@@ -119,7 +90,7 @@ def check_container_running(container_name: str) -> tuple[bool, str]:
     Returns:
         tuple[bool, str]:
             第一个值表示容器是否在运行；
-            第二个值在 `docker ps` 失败时返回错误消息，否则为空字符串。
+            第二个值在 ``docker ps`` 失败时返回错误消息，否则为空字符串。
     """
 
     cmd = ["docker", "ps", "--format", "{{.Names}}"]
@@ -138,7 +109,7 @@ def run_cypher_file(file_path: Path, config: TargetConfig, phase: str, dry_run: 
     Args:
         file_path: 待执行的 Cypher 文件路径。
         config: 目标容器配置。
-        phase: 当前阶段名称（`constraints` 或 `import`）。
+        phase: 当前阶段名称（``constraints`` 或 ``import``）。
         dry_run: 是否仅打印计划命令而不实际执行。
 
     Returns:
@@ -191,22 +162,21 @@ def main(argv: list[str]) -> int:
         int: 进程退出码。
     """
 
-    parsed = parse_args(argv)
-    if parsed is None:
-        return 2
+    parser = build_parser()
+    args = parser.parse_args(argv)
 
-    dry_run, target, cypher_dir, prefix = parsed
+    target: str = args.target
+    dry_run: bool = args.dry_run
+    constraints_path = Path(args.constraints)
+    import_path = Path(args.import_file)
     config = TARGETS[target]
 
-    constraints_path = cypher_dir / f"{prefix}_constraints.cypher"
-    import_path = cypher_dir / f"{prefix}_import.cypher"
-
     log.info(
-        "Apply config: target=%s container=%s cypher_dir=%s prefix=%s dry_run=%s",
+        "Apply config: target=%s container=%s constraints=%s import=%s dry_run=%s",
         target,
         config.container,
-        cypher_dir,
-        prefix,
+        constraints_path,
+        import_path,
         dry_run,
     )
 
