@@ -226,8 +226,15 @@ claim-items-to-cypher:
     --prefix claims
 
 neo4j-apply-cypher:
-  @echo "blocked: neo4j_apply_cypher.py currently expects fixed filenames, but neo4j_export_cypher.py now emits timestamped outputs. Re-enable in next PR."
-  @exit 1
+  #!/usr/bin/env bash
+  set -euo pipefail
+  read -r constraints_file import_file < <(
+    uv run memory_bench/scripts/latest_file.py --pair-kind cypher \
+      | tr '\n' ' '
+  )
+  uv run python -m memory_bench.scripts.neo4j_apply_cypher mem0 \
+    --constraints "$constraints_file" \
+    --import-file "$import_file"
 
 mem0-rerun:
   just build-index
