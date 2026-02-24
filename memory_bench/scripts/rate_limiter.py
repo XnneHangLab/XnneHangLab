@@ -20,9 +20,12 @@ import os
 import threading
 import time
 from contextlib import contextmanager
-from typing import Generator
+from typing import TYPE_CHECKING
 
 from memory_bench.scripts.bench_logger import logger
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 class LLMRateLimiter:

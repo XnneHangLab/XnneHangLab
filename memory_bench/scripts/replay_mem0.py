@@ -203,7 +203,16 @@ def prepare_mem0_env() -> tuple[str, str, str, str, str, str, float, int]:
     llm_temperature = get_env_float("BENCHMARK_LLM_TEMPERATURE", 0.0)
     llm_max_tokens = get_env_int("BENCHMARK_LLM_MAX_TOKENS", 2000)
 
-    return llm_api_key, llm_base_url, llm_model, embedding_api_key, embedding_base_url, embedding_model, llm_temperature, llm_max_tokens
+    return (
+        llm_api_key,
+        llm_base_url,
+        llm_model,
+        embedding_api_key,
+        embedding_base_url,
+        embedding_model,
+        llm_temperature,
+        llm_max_tokens,
+    )
 
 
 def redact_base_url(base_url: str | None) -> str:
@@ -639,7 +648,9 @@ def add_memory_entry(
     with llm_rate_limit():
         if store_raw:
             try:
-                result = memory.add(messages=[message], user_id=user_id, agent_id=agent_id, metadata=metadata, infer=False)
+                result = memory.add(
+                    messages=[message], user_id=user_id, agent_id=agent_id, metadata=metadata, infer=False
+                )
             except TypeError:
                 result = _add_memory_entry_fallback(
                     memory=memory, user_id=user_id, agent_id=agent_id, message=message, metadata=metadata
@@ -1786,7 +1797,16 @@ def main() -> int:
     args = parse_args()
     repo_root = Path(__file__).resolve().parents[2]
     load_benchmark_dotenv(repo_root)
-    llm_api_key, llm_base_url, llm_model, embed_api_key, embed_base_url, embed_model, llm_temperature, llm_max_tokens = prepare_mem0_env()
+    (
+        llm_api_key,
+        llm_base_url,
+        llm_model,
+        embed_api_key,
+        embed_base_url,
+        embed_model,
+        llm_temperature,
+        llm_max_tokens,
+    ) = prepare_mem0_env()
 
     input_path: Path | None = None
     if args.command in {"ingest", "probe"}:
