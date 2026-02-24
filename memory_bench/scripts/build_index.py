@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import re
 from pathlib import Path
@@ -111,24 +112,47 @@ def build_index(repo_root: Path) -> tuple[list[IndexEntry], list[str]]:
     return index, warnings
 
 
-def main() -> None:
-    """生成并写入 memory_bench 的 `index.json`。
-
-    Args:
-        None。
+def parse_args() -> argparse.Namespace:
+    """解析命令行参数。
 
     Returns:
-        None。
+        argparse.Namespace: 解析后的参数对象，包含 ``force`` 与 ``limit``。
     """
+
+    parser = argparse.ArgumentParser(description="Build index.json for memory_bench chapter files.")
+    parser.add_argument("--force", action="store_true", help="Force rebuild even if index exists")
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Only index the first N chapters (sorted by chapter number). "
+        "Useful for quick testing without processing all data.",
+    )
+    return parser.parse_args()
+
+
+def main() -> None:
+    """生成并写入 memory_bench 的 ``index.json``。
+
+    当指定 ``--limit N`` 时，仅保留按章节号排序后的前 N 条索引记录，
+    从而让下游 ``compile_events`` 只处理有限的章节数据。
+    """
+
+    args = parse_args()
     repo_root = Path(__file__).resolve().parents[2]
     output_path = repo_root / "memory_bench" / "data" / "source" / "index.json"
 
     index_data, warnings = build_index(repo_root)
+
+    if args.limit is not None and args.limit > 0:
+        index_data = index_data[: args.limit]
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(index_data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     log = logger.bind(group="memory")
-    log.info(f"Generated index with {len(index_data)} chapters -> {output_path}")
+    limit_msg = f" (limited to first {args.limit})" if args.limit is not None else ""
+    log.info(f"Generated index with {len(index_data)} chapters{limit_msg} -> {output_path}")
     for line in warnings:
         log.warning(line)
 

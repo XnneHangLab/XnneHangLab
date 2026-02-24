@@ -171,8 +171,8 @@ ci-lint:
 
 # memory bench
 
-build-index:
-  uv run memory_bench/scripts/build_index.py --force
+build-index limit='':
+  uv run memory_bench/scripts/build_index.py --force {{ if limit != '' { '--limit ' + limit } else { '' } }}
 
 compile-events:
   uv run memory_bench/scripts/compile_events.py
@@ -238,6 +238,17 @@ neo4j-apply-cypher:
 
 mem0-rerun:
   just build-index
+  just compile-events
+  just clean-and-restart-neo4j
+  just reply-memory-and-export
+  just calim-all
+  just memory-item-to-cypher
+  just claim-items-to-cypher
+  sleep 30 # 等待 Neo4j 处理完数据
+  just neo4j-apply-cypher
+
+mem0-rerun-top2:
+  just build-index 2
   just compile-events
   just clean-and-restart-neo4j
   just reply-memory-and-export
