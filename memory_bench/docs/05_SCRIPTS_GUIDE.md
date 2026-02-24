@@ -26,7 +26,6 @@
   - `memory_bench/scripts/graphify_export.py`
   - `memory_bench/scripts/neo4j_export_cypher.py`
   - `memory_bench/scripts/latest_file.py`
-  - `memory_bench/scripts/latest_export_file.py`（兼容别名入口）
   - `memory_bench/scripts/graphify_pipeline.py`
   - `memory_bench/scripts/neo4j_apply_cypher.py`
 
@@ -498,16 +497,16 @@ uv run python -m memory_bench.scripts.graphify_pipeline reset \
 - 仅输出时间线上最新文件路径（stdout）
 - 若目录下没有任何匹配文件，直接报错退出
 
-### 13.2 调用方式（模块运行）
+### 13.2 调用方式
 
 ```bash
-uv run python -m memory_bench.scripts.latest_file -h
+uv run memory_bench/scripts/latest_file.py -h
 ```
 
 常用：
 
 ```bash
-uv run python -m memory_bench.scripts.latest_file \
+uv run memory_bench/scripts/latest_file.py \
   --export-dir memory_bench/logs/replay_mem0 \
   --glob "export_*.jsonl"
 ```
@@ -515,8 +514,8 @@ uv run python -m memory_bench.scripts.latest_file \
 在 justfile 里组合示例：
 
 ```bash
-latest_export=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/replay_mem0 --glob "export_*.jsonl")
-uv run python -m memory_bench.scripts.graphify_pipeline run --input "$latest_export"
+latest_export=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/replay_mem0 --glob "export_*.jsonl")
+uv run memory_bench/scripts/graphify_pipeline.py run --input "$latest_export"
 ```
 
 
@@ -524,8 +523,8 @@ uv run python -m memory_bench.scripts.graphify_pipeline run --input "$latest_exp
 claims nodes/edges 最新文件：
 
 ```bash
-latest_claim_nodes=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/claims/graphify --glob "claims_nodes_*.jsonl")
-latest_claim_edges=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/claims/graphify --glob "claims_edges_*.jsonl")
+latest_claim_nodes=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/claims/graphify --glob "claims_nodes_*.jsonl")
+latest_claim_edges=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/claims/graphify --glob "claims_edges_*.jsonl")
 ```
 ---
 
@@ -587,8 +586,8 @@ uv run python memory_bench/scripts/claimify_all.py \
 uv run python -m memory_bench.scripts.compiled_claims --force
 
 # 6) graphify + neo4j cypher（先取最新 export，再拼接执行）
-latest_export=$(uv run python -m memory_bench.scripts.latest_file --export-dir memory_bench/logs/replay_mem0 --glob "export_*.jsonl")
-uv run python -m memory_bench.scripts.graphify_pipeline run \
+latest_export=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/replay_mem0 --glob "export_*.jsonl")
+uv run memory_bench/scripts/graphify_pipeline.py run \
   --input "$latest_export" \
   --out-dir memory_bench/logs/replay_mem0/graphify \
   --state-db memory_bench/state/graphify/state.sqlite
