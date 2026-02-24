@@ -96,13 +96,22 @@ uv run python -m memory_bench.scripts.<module> -h
 
 ### 必要变量（标注/抽取/回放会用到）
 
-- `BENCHMARK_OPENAI_API_KEY`
-- `BENCHMARK_OPENAI_BASE_URL`（OpenAI 兼容接口）
-- `BENCHMARK_OPENAI_MODEL`（LLM）
-- `BENCHMARK_OPENAI_EMBEDDING_MODEL`（仅 `replay_mem0.py` 必需）
+LLM 和 Embedding 的 API Key / Base URL 独立配置，允许使用不同的服务提供商或代理。
 
-> `annotate_all.py` / `claimify_all.py` 只强制需要 API KEY；
-> `replay_mem0.py` 会强制检查四项都存在（LLM+Embedder 都要）。
+**Chat / LLM：**
+
+- `BENCHMARK_LLM_API_KEY`
+- `BENCHMARK_LLM_BASE_URL`（OpenAI 兼容接口）
+- `BENCHMARK_LLM_MODEL`
+
+**Embedding（仅 `replay_mem0.py` 必需）：**
+
+- `BENCHMARK_EMBEDDING_API_KEY`
+- `BENCHMARK_EMBEDDING_BASE_URL`（OpenAI 兼容接口）
+- `BENCHMARK_EMBEDDING_MODEL`
+
+> `annotate_all.py` / `claimify_all.py` 只需要 `BENCHMARK_LLM_*` 三项；
+> `replay_mem0.py` 会强制检查六项都存在（LLM + Embedding 都要）。
 
 ---
 

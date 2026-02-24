@@ -276,9 +276,9 @@ def build_prompt(
 
 
 def call_llm(prompt: str, model: str) -> str:
-    api_key = get_env("BENCHMARK_OPENAI_API_KEY")
+    api_key = get_env("BENCHMARK_LLM_API_KEY")
     if not api_key:
-        raise ClaimifyError("缺少 BENCHMARK_OPENAI_API_KEY。请设置环境变量，或写入 memory_bench/.env.benchmark。")
+        raise ClaimifyError("缺少 BENCHMARK_LLM_API_KEY。请设置环境变量，或写入 memory_bench/.env.benchmark。")
 
     try:
         from openai import OpenAI
@@ -286,9 +286,9 @@ def call_llm(prompt: str, model: str) -> str:
         raise ClaimifyError("未安装 openai SDK。请先安装 `openai`（如 `pip install openai`）。") from exc
 
     client_kwargs: dict[str, Any] = {"api_key": api_key}
-    base_url = get_env("BENCHMARK_OPENAI_BASE_URL")
-    org = get_env("BENCHMARK_OPENAI_ORG")
-    project = get_env("BENCHMARK_OPENAI_PROJECT")
+    base_url = get_env("BENCHMARK_LLM_BASE_URL")
+    org = get_env("BENCHMARK_LLM_ORG")
+    project = get_env("BENCHMARK_LLM_PROJECT")
     if base_url:
         client_kwargs["base_url"] = base_url
     if org:
@@ -815,7 +815,7 @@ def main() -> int:
     args = parse_args()
 
     workers = args.workers or int(get_env("BENCHMARK_WORKERS", "4") or "4")
-    model = args.model or get_env("BENCHMARK_OPENAI_MODEL", "gpt-4o-mini") or "gpt-4o-mini"
+    model = args.model or get_env("BENCHMARK_LLM_MODEL", "gpt-4o-mini") or "gpt-4o-mini"
     input_path = Path(args.input)
     out_root = Path(args.out_dir) if args.out_dir else repo_root / "memory_bench" / "data" / "claims"
 
