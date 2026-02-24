@@ -152,6 +152,7 @@ uv run python memory_bench/scripts/annotate_all.py --only ch05,ch06
 - `BENCHMARK_LLM_API_KEY`（必须）
 - `BENCHMARK_LLM_MODEL`（可选）
 - `BENCHMARK_LLM_BASE_URL`（可选，默认走 SDK 默认）
+- `BENCHMARK_LLM_RATE_LIMIT`（可选，每分钟最大 LLM 调用次数，0 = 不限制）
 - `BENCHMARK_WORKERS` / `BENCHMARK_SOURCE` / `BENCHMARK_SCENE_ID` / `BENCHMARK_CHARACTER_ID`（可选）
 
 优先级：CLI > `BENCHMARK_` 环境变量 > 脚本默认值。

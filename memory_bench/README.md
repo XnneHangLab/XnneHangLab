@@ -110,6 +110,10 @@ LLM 和 Embedding 的 API Key / Base URL 独立配置，允许使用不同的服
 - `BENCHMARK_EMBEDDING_BASE_URL`（OpenAI 兼容接口）
 - `BENCHMARK_EMBEDDING_MODEL`
 
+**可选：**
+
+- `BENCHMARK_LLM_RATE_LIMIT`（每分钟最大 LLM 调用次数，0 = 不限制）
+
 > `annotate_all.py` / `claimify_all.py` 只需要 `BENCHMARK_LLM_*` 三项；
 > `replay_mem0.py` 会强制检查六项都存在（LLM + Embedding 都要）。
 

@@ -18,6 +18,7 @@ GROUP_COLOR = {
     "config": "\x1b[90m",
     "util": "\x1b[37m",
     "chore": "\x1b[2m",
+    "rate_limit": "\x1b[33m",  # yellow
 }
 
 LEVEL_COLOR = {
@@ -42,6 +43,9 @@ class _BoundLogger:
 
     def info(self, message: str, *args: object) -> None:
         self._emit(logging.INFO, "INFO", message, *args)
+
+    def debug(self, message: str, *args: object) -> None:
+        self._emit(logging.DEBUG, "DEBUG", message, *args)
 
     def error(self, message: str, *args: object) -> None:
         self._emit(logging.ERROR, "ERROR", message, *args)
