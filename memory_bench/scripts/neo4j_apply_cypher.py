@@ -37,7 +37,18 @@ TARGETS: dict[str, TargetConfig] = {
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """构建命令行参数解析器。"""
+    """构建命令行参数解析器。
+
+    创建并返回一个 ``argparse.ArgumentParser``，包含以下参数：
+
+    - ``target``: Neo4j 目标实例名（mem0 / zep / cognee）。
+    - ``--constraints``: 约束 Cypher 文件路径。
+    - ``--import-file``: 导入 Cypher 文件路径。
+    - ``--dry-run``: 仅验证输入并打印计划命令，不实际执行。
+
+    Returns:
+        argparse.ArgumentParser: 配置好的参数解析器实例。
+    """
 
     parser = argparse.ArgumentParser(
         description="Apply Cypher files to a Neo4j container via cypher-shell.",
