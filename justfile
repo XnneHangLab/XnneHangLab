@@ -226,11 +226,8 @@ claim-items-to-cypher:
     --prefix claims
 
 neo4j-apply-cypher:
-  #!/usr/bin/env bash
-  set -euo pipefail
-  pair_output=$(uv run memory_bench/scripts/latest_file.py --pair-kind cypher) && \
-  constraints_file=$(echo "$pair_output" | sed -n '1p') && \
-  import_file=$(echo "$pair_output" | sed -n '2p') && \
+  constraints_file=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/replay_mem0/graphify/neo4j --glob "graph_constraints_*.cypher") && \
+  import_file=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/replay_mem0/graphify/neo4j --glob "graph_import_*.cypher") && \
   uv run memory_bench/scripts/neo4j_apply_cypher.py mem0 \
     --constraints "$constraints_file" \
     --import-file "$import_file"
