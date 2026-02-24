@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import deepcopy
@@ -113,6 +114,26 @@ def _line_preview(line: str, max_len: int = 120) -> str:
     if len(preview) <= max_len:
         return preview
     return preview[: max_len - 3] + "..."
+
+
+def strip_codefence(text: str) -> str:
+    """移除 LLM 输出中常见的 markdown 代码块包装。
+
+    处理形如 ````` ```json\n...\n``` ````` 或 ````` ```\n...\n``` ````` 的包装，
+    提取其中的实际内容。支持多个代码块拼接的情况。
+
+    Args:
+        text: 可能包含代码块包装的原始文本。
+
+    Returns:
+        去除代码块包装后的文本。若无代码块则原样返回。
+    """
+    # 匹配 ```lang\n...\n``` 模式，提取内部内容
+    pattern = re.compile(r"```(?:\w*)?\n(.*?)```", re.DOTALL)
+    matches = pattern.findall(text)
+    if matches:
+        return "\n".join(matches).strip()
+    return text
 
 
 def _require_non_empty_str(value: Any, field: str, conv_id: str, file_line: int) -> str:
@@ -614,7 +635,8 @@ def validate_jsonl_output(
     if not raw_output.strip():
         raise ClaimifyError(f"[{conv_id}] file_line=0: model output is empty")
     if "```" in raw_output:
-        raise ClaimifyError(f"[{conv_id}] file_line=0: markdown/codefence is not allowed")
+        raw_output = strip_codefence(raw_output)
+        logger.bind(group="memory").warning("%s: stripped markdown codefence wrapper from model output", conv_id)
 
     input_point_ids = {str(item.obj["id"]) for item in input_items}
     input_hashes = {str(item.obj["payload"]["hash"]) for item in input_items}
