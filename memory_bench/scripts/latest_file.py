@@ -37,6 +37,7 @@ def find_latest_file(export_dir: Path, pattern: str = DEFAULT_GLOB) -> Path:
 
     candidates = [path for path in export_dir.glob(pattern) if path.is_file()]
     if not candidates:
+        logger.error("目录 %s 下未找到匹配 '%s' 的文件", export_dir, pattern)
         raise FileNotFoundError(f"no {pattern} found in {export_dir}")
     return max(candidates, key=lambda path: (path.stat().st_mtime, path.name))
 
@@ -77,6 +78,15 @@ def find_latest_pair(export_dir: Path, kind: str) -> tuple[Path, Path]:
         if pair_path.is_file():
             return anchor_path, pair_path
 
+    logger.error(
+        "目录 %s 下未找到 kind='%s' 的有效配对文件（anchor glob: '%s'）。"
+        "请确认目录中存在形如 %s 的文件，且对应的 %s 也存在。",
+        export_dir,
+        kind,
+        spec.anchor_glob,
+        spec.anchor_glob,
+        spec.pair_template.format(ts="YYYYMMDD_HHMMSS"),
+    )
     raise FileNotFoundError(f"no valid pair found in {export_dir} for kind={kind}")
 
 
