@@ -1,4 +1,4 @@
-"""latest_export_file 脚本测试。"""
+"""latest_file 脚本测试。"""
 
 from __future__ import annotations
 
@@ -12,18 +12,18 @@ from typing import Any
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCRIPT_PATH = REPO_ROOT / "memory_bench/scripts/latest_export_file.py"
+SCRIPT_PATH = REPO_ROOT / "memory_bench/scripts/latest_file.py"
 SCRIPTS_DIR = REPO_ROOT / "memory_bench/scripts"
 
 
 def load_module() -> Any:
-    """动态加载 latest_export_file 脚本模块。
+    """动态加载 latest_file 脚本模块。
 
     Returns:
         Any: 已加载的脚本模块对象。
     """
 
-    unique_name = f"latest_export_file_{uuid.uuid4().hex}"
+    unique_name = f"latest_file_{uuid.uuid4().hex}"
     spec = importlib.util.spec_from_file_location(unique_name, SCRIPT_PATH)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"failed to load script module: {SCRIPT_PATH}")
@@ -91,7 +91,7 @@ def test_main_prints_latest_export_path(tmp_path: Path, capsys: pytest.CaptureFi
     argv_backup = sys.argv
     try:
         sys.argv = [
-            "latest_export_file.py",
+            "latest_file.py",
             "--export-dir",
             str(tmp_path),
         ]
@@ -140,7 +140,7 @@ def test_main_prints_latest_path_with_custom_glob(tmp_path: Path, capsys: pytest
     argv_backup = sys.argv
     try:
         sys.argv = [
-            "latest_export_file.py",
+            "latest_file.py",
             "--export-dir",
             str(tmp_path),
             "--glob",
@@ -222,7 +222,7 @@ def test_main_pair_kind_prints_two_lines(tmp_path: Path, capsys: pytest.CaptureF
     module = load_module()
     argv_backup = sys.argv
     try:
-        sys.argv = ["latest_export_file.py", "--export-dir", str(tmp_path), "--pair-kind", "cypher"]
+        sys.argv = ["latest_file.py", "--export-dir", str(tmp_path), "--pair-kind", "cypher"]
         assert module.main() == 0
     finally:
         sys.argv = argv_backup
