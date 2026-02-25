@@ -112,6 +112,40 @@ def build_index(repo_root: Path) -> tuple[list[IndexEntry], list[str]]:
     return index, warnings
 
 
+def slice_index(
+    index: list[IndexEntry],
+    *,
+    limit: int | None = None,
+    tail: int | None = None,
+    offset: int | None = None,
+) -> list[IndexEntry]:
+    """对已排序的索引列表进行切片。
+
+    切片顺序：先 offset → 再 tail / limit。
+    ``--tail`` 与 ``--limit`` 互斥时 ``--tail`` 优先。
+
+    Args:
+        index: 按章节号排序的索引列表。
+        limit: 保留前 N 条。
+        tail: 保留最后 N 条（优先于 limit）。
+        offset: 先跳过前 N 条。
+
+    Returns:
+        切片后的索引列表（不修改原列表）。
+    """
+    result = list(index)
+
+    if offset is not None and offset > 0:
+        result = result[offset:]
+
+    if tail is not None and tail > 0:
+        result = result[-tail:]
+    elif limit is not None and limit > 0:
+        result = result[:limit]
+
+    return result
+
+
 def parse_args() -> argparse.Namespace:
     """解析命令行参数。
 
@@ -168,15 +202,7 @@ def main() -> None:
         log = logger.bind(group="memory")
         log.warning("--limit and --tail are mutually exclusive; --tail takes precedence")
 
-    # Apply --offset first (skip the first N chapters)
-    if args.offset is not None and args.offset > 0:
-        index_data = index_data[args.offset :]
-
-    # Apply --tail or --limit
-    if args.tail is not None and args.tail > 0:
-        index_data = index_data[-args.tail :]
-    elif args.limit is not None and args.limit > 0:
-        index_data = index_data[: args.limit]
+    index_data = slice_index(index_data, limit=args.limit, tail=args.tail, offset=args.offset)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(index_data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
