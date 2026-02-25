@@ -531,6 +531,7 @@ uv run memory_bench/server/chat_server.py \
 | `MEM0_LLM_BASE_URL` | Mem0 提取用 LLM 的 base URL | `CHAT_BASE_URL` |
 | `MEM0_LLM_MODEL` | Mem0 提取用模型名 | `CHAT_MODEL` |
 | `BENCHMARK_EMBEDDING_*` | Embedding 配置（共用） | — |
+| `CHAT_SERVER_API_KEY` | Server 鉴权密钥（Bearer token） | 不设则不鉴权 |
 | `CHAT_USER_ID` | mem0 用户 ID | 默认 `xnne` |
 | `CHAT_AGENT_ID` | mem0 Agent ID | 默认 `congyin` |
 

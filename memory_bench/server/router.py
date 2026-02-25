@@ -20,7 +20,7 @@ import time
 import uuid
 from typing import TYPE_CHECKING, Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -100,9 +100,30 @@ class ServerState:
     user_id: str = _DEFAULT_USER_ID
     agent_id: str = _DEFAULT_AGENT_ID
     search_limit: int = _DEFAULT_SEARCH_LIMIT
+    api_key: str | None = None  # If set, require Bearer token auth
 
 
 state = ServerState()
+
+
+# ---------------------------------------------------------------------------
+# Auth dependency
+# ---------------------------------------------------------------------------
+
+
+async def _verify_api_key(request: Request) -> None:
+    """Validate Bearer token against ``state.api_key``.
+
+    Skipped when ``state.api_key`` is *None* (no auth configured).
+    """
+    if state.api_key is None:
+        return
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+    token = auth_header.removeprefix("Bearer ").strip()
+    if token != state.api_key:
+        raise HTTPException(status_code=401, detail="Invalid API key")
 
 
 # ---------------------------------------------------------------------------
@@ -191,7 +212,7 @@ async def _add_memory_background(user_msg: str, assistant_msg: str) -> None:
 router = APIRouter()
 
 
-@router.post("/v1/chat/completions")
+@router.post("/v1/chat/completions", dependencies=[Depends(_verify_api_key)])
 async def chat_completions(request: ChatCompletionRequest) -> JSONResponse:
     """OpenAI-compatible chat completions with memory augmentation."""
     if state.openai_client is None:

@@ -211,6 +211,7 @@ def _resolve_config(args: argparse.Namespace) -> dict[str, Any]:
         "user_id": args.user_id or _get_env("CHAT_USER_ID", _DEFAULT_USER_ID),
         "agent_id": args.agent_id or _get_env("CHAT_AGENT_ID", _DEFAULT_AGENT_ID),
         "search_limit": args.search_limit,
+        "server_api_key": args.server_api_key or _get_env("CHAT_SERVER_API_KEY") or None,
         "port": args.port,
         "host": args.host,
     }
@@ -247,8 +248,13 @@ async def lifespan(app: FastAPI):
     router_state.user_id = cfg["user_id"]
     router_state.agent_id = cfg["agent_id"]
     router_state.search_limit = cfg["search_limit"]
+    router_state.api_key = cfg["server_api_key"]
 
     print(f"\u2705 LLM proxy: {cfg['chat_base_url']} / {cfg['chat_model']}")
+    if cfg["server_api_key"]:
+        print("\u2705 API key auth enabled")
+    else:
+        print("\u26a0\ufe0f No CHAT_SERVER_API_KEY set — server is open (no auth)")
     print(f"\u2705 Listening on {cfg['host']}:{cfg['port']}")
 
     yield
@@ -285,6 +291,9 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--user-id", default=None, help=f"User ID for mem0 (default: {_DEFAULT_USER_ID})")
     p.add_argument("--agent-id", default=None, help=f"Agent ID for mem0 (default: {_DEFAULT_AGENT_ID})")
 
+    p.add_argument(
+        "--server-api-key", default=None, help="API key for server auth (env: CHAT_SERVER_API_KEY). If unset, no auth."
+    )
     p.add_argument("--port", type=int, default=8080, help="Server port (default: 8080)")
     p.add_argument("--host", default="0.0.0.0", help="Server host (default: 0.0.0.0)")
     p.add_argument("--search-limit", type=int, default=_DEFAULT_SEARCH_LIMIT, help="Max memories per request")
