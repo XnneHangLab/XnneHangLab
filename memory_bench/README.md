@@ -1,6 +1,6 @@
 # memory_bench
 
-`memory_bench` 是仓库内的独立模块，用于承载“记忆基准（Memory Bench）”相关的：
+`memory_bench` 是仓库内的独立模块，用于承载"记忆基准（Memory Bench）"相关的：
 
 - 原始章节语料（`memory_bench/data/source/raw/`）
 - 规范化章节语料（`memory_bench/data/source/norm/`，可选）
@@ -9,7 +9,7 @@
 - 工作流脚本（`memory_bench/scripts/`）
 - 标注产物、回放状态与调试日志（运行后生成在 `memory_bench/data/*`、`memory_bench/logs/*`、`memory_bench/state/*`）
 
-本模块目标是：让从“章节原文”到“可重放事件流”、再到“Mem0 检索日志/记忆快照”、再到“Claim/Entity 图谱旁路产物”，整个链路 **可复现、可审查、可对照**。
+本模块目标是：让从"章节原文"到"可重放事件流"、再到"Mem0 检索日志/记忆快照"、再到"Claim/Entity 图谱旁路产物"，整个链路 **可复现、可审查、可对照**。
 
 ---
 
@@ -21,28 +21,26 @@ memory_bench/
 ├─ docs/
 │  ├─ 00_DOC_MAP.md
 │  ├─ 05_SCRIPTS_GUIDE.md
-│  ├─ 10_SYSTEM_PROMPTS.md
 │  ├─ 20_ANNOTATOR_PROMPT.md
 │  ├─ 21_SCENE_CANON.md
 │  ├─ 22_PERSONA_CANON.md
 │  ├─ 23_CLAIM_EXTRACTOR_PROMPT.md
-│  ├─ 30_GENERATOR_PROMPT.md
-│  ├─ 40_ANCHORS_AND_TEMPLATES.md
-│  └─ graphify_spec.md
+│  └─ 40_ANCHORS_AND_TEMPLATES.md
 ├─ scripts/
-│  ├─ annotate_all.py
-│  ├─ bench_logger.py
 │  ├─ build_index.py
-│  ├─ claimify_all.py
+│  ├─ annotate_all.py
 │  ├─ compile_events.py
-│  ├─ compiled_claims.py
 │  ├─ replay_mem0.py
-│  ├─ tag_registry.py
-│  ├─ graphify_export.py
-│  ├─ graphify_pipeline.py
+│  ├─ claimify_all.py
+│  ├─ compiled_claims.py
+│  ├─ mem0_to_graph.py
+│  ├─ claims_to_graph.py
+│  ├─ graph_to_cypher.py
+│  ├─ neo4j_apply_cypher.py
 │  ├─ latest_file.py
-│  ├─ neo4j_export_cypher.py
-│  └─ neo4j_apply_cypher.py
+│  ├─ bench_logger.py      (工具模块)
+│  ├─ tag_registry.py      (工具模块)
+│  └─ rate_limiter.py      (工具模块)
 ├─ resources/
 │  └─ tag_registry.json
 ├─ data/
@@ -66,8 +64,7 @@ memory_bench/
 │  └─ claimify_meta/     (per conv)
 └─ state/
    ├─ mem0_*.checkpoint.json
-   ├─ qdrant_storage/...
-   └─ graphify/ state.sqlite
+   └─ qdrant_storage/...
 ```
 
 ---
@@ -77,14 +74,10 @@ memory_bench/
 在仓库根目录执行：
 
 ```bash
-uv run python memory_bench/scripts/<script>.py -h
+uv run memory_bench/scripts/<script>.py -h
 ```
 
-有些脚本以模块方式运行（例如 `compiled_claims.py`、`graphify_pipeline.py`、`neo4j_apply_cypher.py`），可用：
-
-```bash
-uv run python -m memory_bench.scripts.<module> -h
-```
+> **注意：** 统一使用 `uv run memory_bench/scripts/xxx.py` 的方式调用，不推荐 `uv run python -m` 方式。
 
 ---
 
@@ -125,23 +118,23 @@ LLM 和 Embedding 的 API Key / Base URL 独立配置，允许使用不同的服
 
 ```bash
 # 1) 构建章节索引
-uv run python memory_bench/scripts/build_index.py
+uv run memory_bench/scripts/build_index.py
 
 # 2) 批量标注为 events（建议先小范围试跑）
-uv run python memory_bench/scripts/annotate_all.py --only ch01 --workers 1
-uv run python memory_bench/scripts/annotate_all.py --workers 6
+uv run memory_bench/scripts/annotate_all.py --only ch01 --workers 1
+uv run memory_bench/scripts/annotate_all.py --workers 6
 
 # 3) 按 index 顺序拼接成单一 all.jsonl
-uv run python memory_bench/scripts/compile_events.py
+uv run memory_bench/scripts/compile_events.py
 
 # 4) 回放写入 Mem0（默认跳过 filler，且不会把 probe 写入记忆）
-uv run python memory_bench/scripts/replay_mem0.py ingest
+uv run memory_bench/scripts/replay_mem0.py ingest
 
-# 5) 导出 Mem0 当前快照（供 claimify/graphify 使用）
-uv run python memory_bench/scripts/replay_mem0.py export
+# 5) 导出 Mem0 当前快照（供 claimify / graph 使用）
+uv run memory_bench/scripts/replay_mem0.py export
 
 # 可选：基于事件文本推断 owner（默认开启）
-uv run python memory_bench/scripts/replay_mem0.py export \
+uv run memory_bench/scripts/replay_mem0.py export \
   --events memory_bench/data/events/compiled/all.jsonl \
   --infer-owner \
   --owner-fallback Agent
@@ -160,8 +153,9 @@ uv run python memory_bench/scripts/replay_mem0.py export \
 
 ```bash
 # 6) 从 export 快照抽取 claim/entity（按 conv_id 分组；内部会按 chunk 调 LLM）
-uv run python memory_bench/scripts/claimify_all.py \
+uv run memory_bench/scripts/claimify_all.py \
   --input memory_bench/logs/replay_mem0/export_YYYYMMDD_HHMMSS.jsonl
+```
 
 说明：
 - `claimify_all.py` 会维护一个 Tag 归一化/复用用的注册表：
@@ -169,8 +163,9 @@ uv run python memory_bench/scripts/claimify_all.py \
 - 该文件用于向 LLM 提供 TopK 候选 canonical tags，减少近义重复 Tag。
 - 初始可为空；首次运行后会自动写入/更新。
 
+```bash
 # 7) 汇总 by_conv 到全局 compiled（Neo4j 友好）
-uv run python -m memory_bench.scripts.compiled_claims --force
+uv run memory_bench/scripts/compiled_claims.py --force
 ```
 
 产物重点看：
@@ -182,52 +177,63 @@ uv run python -m memory_bench.scripts.compiled_claims --force
 
 ---
 
-### C. Graphify（V0 元数据归属图）→ Neo4j Cypher → 一键导入 Neo4j
+### C. Graph IR → Neo4j Cypher → 导入 Neo4j
 
-> Graphify V0 只做“归属/元数据”节点与关系：MemoryItem/User/Agent/Conversation/Scene/Character。
-> 语义 Claim/Entity 图谱（reading/writing/daily）走 `claimify_all.py` + `compiled_claims.py`。
+图谱导出分两条线：
+- **Mem0 归属图**（MemoryItem / Character / Agent 等元数据关系）→ `mem0_to_graph.py`
+- **Claims 语义图**（Claim / Entity / Tag 等语义关系）→ `claims_to_graph.py`
 
-当前关系约束（收敛后）：
-
-- `OWNS_MEMORY`：由 `Character -> MemoryItem` 表达唯一 owner；
-- `ACTOR`：`Agent -> Character`（Agent 身份映射，仅此一条身份线）；
-- 不再生成 `MemoryItem -> Agent` 的 `TARGETS_AGENT`。
+两者产出统一的 Graph IR（nodes/edges JSONL），下游共用 `graph_to_cypher.py` 生成 Cypher。
 
 ```bash
-# 8) Graphify pipeline：增量 graphify_export(add) + neo4j_export_cypher
-latest_export=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/replay_mem0 --glob "export_*.jsonl")
-uv run memory_bench/scripts/graphify_pipeline.py run \
+# 8a) Mem0 归属图
+latest_export=$(uv run memory_bench/scripts/latest_file.py \
+  --export-dir memory_bench/logs/replay_mem0 --glob "export_*.jsonl")
+uv run memory_bench/scripts/mem0_to_graph.py add \
   --input "$latest_export" \
-  --out-dir memory_bench/logs/replay_mem0/graphify \
-  --state-db memory_bench/state/graphify/state.sqlite \
-  --cypher-out-dir memory_bench/logs/replay_mem0/graphify/neo4j
-```
+  --out-dir memory_bench/logs/replay_mem0/graphify
 
-然后导入 Neo4j（目标实例由 docker compose 管理）：
+# 8b) Claims 语义图
+uv run memory_bench/scripts/claims_to_graph.py \
+  --nodes-dir memory_bench/data/claims/compiled \
+  --out-dir memory_bench/logs/claims/graphify
 
-```bash
-# 9) 将 cypher 导入指定目标 Neo4j（mem0 / zep / cognee）
+# 9) Graph IR → Cypher
+mem0_nodes=$(uv run memory_bench/scripts/latest_file.py \
+  --export-dir memory_bench/logs/replay_mem0/graphify --glob "*nodes*.jsonl")
+mem0_edges=$(uv run memory_bench/scripts/latest_file.py \
+  --export-dir memory_bench/logs/replay_mem0/graphify --glob "*edges*.jsonl")
+uv run memory_bench/scripts/graph_to_cypher.py \
+  --nodes "$mem0_nodes" --edges "$mem0_edges" \
+  --out-dir memory_bench/logs/replay_mem0/graphify/neo4j
+
+# 10) 导入 Neo4j
 uv run memory_bench/scripts/neo4j_apply_cypher.py mem0 \
   memory_bench/logs/replay_mem0/graphify/neo4j graph
 ```
+
+> 也可以通过 justfile recipes 一键执行，详见 `just --list` 中 `mem0-to-graph` / `mem0-graph-to-cypher` 等。
 
 ---
 
 ## 脚本简表
 
-- `build_index.py`：raw/norm 扫描 → `data/source/index.json`
-- `annotate_all.py`：章节文本 → 严格 JSONL events（by_chapter + 调试日志）
-- `compile_events.py`：按 index 顺序拼接 → `events/compiled/all.jsonl`
-- `replay_mem0.py`：ingest/probe/export（本地 qdrant 持久化 + checkpoint）
-- `claimify_all.py`：mem0 export → claim/entity JSONL（by_conv + chunk 日志）+ tag registry 复用
-  - registry：`memory_bench/resources/tag_registry.json`
-- `compiled_claims.py`：by_conv 汇总去重 → compiled entities/claims
-- `graphify_export.py`：mem0 export → V0 graph nodes/edges（增量/幂等）
-- `neo4j_export_cypher.py`：nodes/edges JSONL → Neo4j cypher 脚本
-- `latest_file.py`：获取目录下按 glob 匹配的最新文件路径（默认 `export_*.jsonl`，也可用于 `claims_nodes_*.jsonl` / `claims_edges_*.jsonl`）
-- `graphify_pipeline.py`：graphify_export + neo4j_export_cypher 一体化入口（由 justfile 组合 `--input`）
-- `neo4j_apply_cypher.py`：将 cypher 导入指定 Neo4j docker 容器
-- `bench_logger.py` / `tag_registry.py`：内部复用工具模块（非主 CLI）
+| 脚本 | 作用 |
+|------|------|
+| `build_index.py` | raw/norm 扫描 → `data/source/index.json` |
+| `annotate_all.py` | 章节文本 → 严格 JSONL events（by_chapter + 调试日志） |
+| `compile_events.py` | 按 index 顺序拼接 → `events/compiled/all.jsonl` |
+| `replay_mem0.py` | ingest/probe/export（本地 qdrant 持久化 + checkpoint） |
+| `claimify_all.py` | mem0 export → claim/entity JSONL（by_conv + chunk 日志）+ tag registry |
+| `compiled_claims.py` | by_conv 汇总去重 → compiled entities/claims |
+| `mem0_to_graph.py` | mem0 export → Graph IR nodes/edges（归属图） |
+| `claims_to_graph.py` | claims compiled → Graph IR nodes/edges（语义图） |
+| `graph_to_cypher.py` | Graph IR → Neo4j Cypher 脚本 |
+| `neo4j_apply_cypher.py` | 将 Cypher 导入指定 Neo4j docker 容器 |
+| `latest_file.py` | 获取目录下按 glob 匹配的最新文件路径 |
+| `bench_logger.py` | 统一日志工具模块 |
+| `tag_registry.py` | Tag 归一化注册表工具模块 |
+| `rate_limiter.py` | LLM API 令牌桶限速工具模块 |
 
 ---
 
@@ -257,8 +263,6 @@ uv run memory_bench/scripts/neo4j_apply_cypher.py mem0 \
 
 该文件用于快速加载一个「full-graph」页面，内置 `MATCH p=()--() RETURN p;` 图查询，并为 `Node`、`MemoryItem`、`Claim`、`Agent`、`Domain`、`Tag` 等标签预设展示字段与 schema 元数据，便于对 mem0 + claims 全图进行可视化巡检。
 
-可作为团队共享的基线看板：当你导入最新 graph 数据后，直接加载该 JSON 即可复用统一视图配置，减少每次手工调图与字段映射的成本。
-
 ---
 
 ## 依赖安装（memory_bench 组）
@@ -279,18 +283,4 @@ uv sync --group memory_bench
 - `replay_mem0.py export` 后：`logs/replay_mem0/export_*.jsonl` 有内容
 - `claimify_all.py` 后：`data/claims/by_conv/chXX.jsonl` 存在
 - `compiled_claims.py` 后：`data/claims/compiled/*.jsonl` + `compiled_meta.json` 存在
-- `graphify_pipeline run` 后：`logs/replay_mem0/graphify/*nodes*.jsonl`、`*edges*.jsonl`、`neo4j/*.cypher` 存在
-```
-
-
-### Claims 图谱 nodes/edges 转 Cypher（示例）
-
-```bash
-claim_nodes=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/claims/graphify --glob "claims_nodes_*.jsonl")
-claim_edges=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/claims/graphify --glob "claims_edges_*.jsonl")
-uv run python memory_bench/scripts/neo4j_export_cypher.py \
-  --nodes "$claim_nodes" \
-  --edges "$claim_edges" \
-  --out-dir memory_bench/logs/claims/graphify/neo4j \
-  --prefix claims
-```
+- `mem0_to_graph.py` + `graph_to_cypher.py` 后：`*nodes*.jsonl`、`*edges*.jsonl`、`neo4j/*.cypher` 存在
