@@ -112,6 +112,40 @@ def build_index(repo_root: Path) -> tuple[list[IndexEntry], list[str]]:
     return index, warnings
 
 
+def slice_index(
+    index: list[IndexEntry],
+    *,
+    limit: int | None = None,
+    tail: int | None = None,
+    offset: int | None = None,
+) -> list[IndexEntry]:
+    """对已排序的索引列表进行切片。
+
+    切片顺序：先 offset → 再 tail / limit。
+    ``--tail`` 与 ``--limit`` 互斥时 ``--tail`` 优先。
+
+    Args:
+        index: 按章节号排序的索引列表。
+        limit: 保留前 N 条。
+        tail: 保留最后 N 条（优先于 limit）。
+        offset: 先跳过前 N 条。
+
+    Returns:
+        切片后的索引列表（不修改原列表）。
+    """
+    result = list(index)
+
+    if offset is not None and offset > 0:
+        result = result[offset:]
+
+    if tail is not None and tail > 0:
+        result = result[-tail:]
+    elif limit is not None and limit > 0:
+        result = result[:limit]
+
+    return result
+
+
 def parse_args() -> argparse.Namespace:
     """解析命令行参数。
 
@@ -128,14 +162,32 @@ def parse_args() -> argparse.Namespace:
         help="Only index the first N chapters (sorted by chapter number). "
         "Useful for quick testing without processing all data.",
     )
+    parser.add_argument(
+        "--tail",
+        type=int,
+        default=None,
+        help="Only index the last N chapters (sorted by chapter number). Useful for debugging newer chapters.",
+    )
+    parser.add_argument(
+        "--offset",
+        type=int,
+        default=None,
+        help="Skip the first N chapters before applying --limit/--tail. Allows slicing from an arbitrary position.",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     """生成并写入 memory_bench 的 ``index.json``。
 
-    当指定 ``--limit N`` 时，仅保留按章节号排序后的前 N 条索引记录，
-    从而让下游 ``compile_events`` 只处理有限的章节数据。
+    支持三种切片方式（均在按章节号排序后生效）：
+
+    - ``--limit N``：保留前 N 条。
+    - ``--tail N``：保留最后 N 条（与 ``--limit`` 互斥，优先级更高）。
+    - ``--offset N``：先跳过前 N 条，再应用 ``--limit`` 或 ``--tail``。
+
+    切片后的索引写入 ``index.json``，下游脚本（annotate_all / compile_events）
+    只处理索引中列出的章节。
     """
 
     args = parse_args()
@@ -143,16 +195,28 @@ def main() -> None:
     output_path = repo_root / "memory_bench" / "data" / "source" / "index.json"
 
     index_data, warnings = build_index(repo_root)
+    total_chapters = len(index_data)
 
-    if args.limit is not None and args.limit > 0:
-        index_data = index_data[: args.limit]
+    # --limit and --tail are mutually exclusive
+    if args.limit is not None and args.tail is not None:
+        log = logger.bind(group="memory")
+        log.warning("--limit and --tail are mutually exclusive; --tail takes precedence")
+
+    index_data = slice_index(index_data, limit=args.limit, tail=args.tail, offset=args.offset)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(index_data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     log = logger.bind(group="memory")
-    limit_msg = f" (limited to first {args.limit})" if args.limit is not None else ""
-    log.info(f"Generated index with {len(index_data)} chapters{limit_msg} -> {output_path}")
+    slice_parts: list[str] = []
+    if args.offset is not None:
+        slice_parts.append(f"offset={args.offset}")
+    if args.tail is not None:
+        slice_parts.append(f"tail={args.tail}")
+    elif args.limit is not None:
+        slice_parts.append(f"limit={args.limit}")
+    slice_msg = f" ({', '.join(slice_parts)})" if slice_parts else ""
+    log.info(f"Generated index with {len(index_data)}/{total_chapters} chapters{slice_msg} -> {output_path}")
     for line in warnings:
         log.warning(line)
 
