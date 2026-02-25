@@ -128,14 +128,32 @@ def parse_args() -> argparse.Namespace:
         help="Only index the first N chapters (sorted by chapter number). "
         "Useful for quick testing without processing all data.",
     )
+    parser.add_argument(
+        "--tail",
+        type=int,
+        default=None,
+        help="Only index the last N chapters (sorted by chapter number). Useful for debugging newer chapters.",
+    )
+    parser.add_argument(
+        "--offset",
+        type=int,
+        default=None,
+        help="Skip the first N chapters before applying --limit/--tail. Allows slicing from an arbitrary position.",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     """生成并写入 memory_bench 的 ``index.json``。
 
-    当指定 ``--limit N`` 时，仅保留按章节号排序后的前 N 条索引记录，
-    从而让下游 ``compile_events`` 只处理有限的章节数据。
+    支持三种切片方式（均在按章节号排序后生效）：
+
+    - ``--limit N``：保留前 N 条。
+    - ``--tail N``：保留最后 N 条（与 ``--limit`` 互斥，优先级更高）。
+    - ``--offset N``：先跳过前 N 条，再应用 ``--limit`` 或 ``--tail``。
+
+    切片后的索引写入 ``index.json``，下游脚本（annotate_all / compile_events）
+    只处理索引中列出的章节。
     """
 
     args = parse_args()
@@ -143,16 +161,36 @@ def main() -> None:
     output_path = repo_root / "memory_bench" / "data" / "source" / "index.json"
 
     index_data, warnings = build_index(repo_root)
+    total_chapters = len(index_data)
 
-    if args.limit is not None and args.limit > 0:
+    # --limit and --tail are mutually exclusive
+    if args.limit is not None and args.tail is not None:
+        log = logger.bind(group="memory")
+        log.warning("--limit and --tail are mutually exclusive; --tail takes precedence")
+
+    # Apply --offset first (skip the first N chapters)
+    if args.offset is not None and args.offset > 0:
+        index_data = index_data[args.offset :]
+
+    # Apply --tail or --limit
+    if args.tail is not None and args.tail > 0:
+        index_data = index_data[-args.tail :]
+    elif args.limit is not None and args.limit > 0:
         index_data = index_data[: args.limit]
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(index_data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     log = logger.bind(group="memory")
-    limit_msg = f" (limited to first {args.limit})" if args.limit is not None else ""
-    log.info(f"Generated index with {len(index_data)} chapters{limit_msg} -> {output_path}")
+    slice_parts: list[str] = []
+    if args.offset is not None:
+        slice_parts.append(f"offset={args.offset}")
+    if args.tail is not None:
+        slice_parts.append(f"tail={args.tail}")
+    elif args.limit is not None:
+        slice_parts.append(f"limit={args.limit}")
+    slice_msg = f" ({', '.join(slice_parts)})" if slice_parts else ""
+    log.info(f"Generated index with {len(index_data)}/{total_chapters} chapters{slice_msg} -> {output_path}")
     for line in warnings:
         log.warning(line)
 

@@ -171,8 +171,11 @@ ci-lint:
 
 # memory bench
 
-build-index limit='':
-  uv run memory_bench/scripts/build_index.py --force {{ if limit != '' { '--limit ' + limit } else { '' } }}
+build-index limit='' tail='' offset='':
+  uv run memory_bench/scripts/build_index.py --force {{ if limit != '' { '--limit ' + limit } else { '' } }} {{ if tail != '' { '--tail ' + tail } else { '' } }} {{ if offset != '' { '--offset ' + offset } else { '' } }}
+
+annotate-all:
+  uv run memory_bench/scripts/annotate_all.py
 
 compile-events:
   uv run memory_bench/scripts/compile_events.py
@@ -251,6 +254,7 @@ neo4j-apply-cypher:
 
 mem0-rerun:
   just build-index
+  just annotate-all
   just compile-events
   just clean-and-restart-neo4j
   just reply-memory-and-export
@@ -262,6 +266,7 @@ mem0-rerun:
 
 mem0-rerun-top2:
   just build-index 2
+  just annotate-all
   just compile-events
   just clean-and-restart-neo4j
   just reply-memory-and-export
