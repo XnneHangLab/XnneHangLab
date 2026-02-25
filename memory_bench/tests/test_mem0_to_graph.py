@@ -1,4 +1,4 @@
-"""graphify_export V0 核心行为测试。"""
+"""mem0_to_graph V0 核心行为测试。"""
 
 from __future__ import annotations
 
@@ -10,14 +10,14 @@ import uuid
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCRIPT_PATH = REPO_ROOT / "memory_bench/scripts/graphify_export.py"
+SCRIPT_PATH = REPO_ROOT / "memory_bench/scripts/mem0_to_graph.py"
 FIXTURE_PATH = REPO_ROOT / "memory_bench/tests/fixtures/export_sample.jsonl"
 
 
-def load_graphify_module():
-    """动态加载 graphify_export.py 脚本模块。"""
+def load_mem0_to_graph_module():
+    """动态加载 mem0_to_graph.py 脚本模块。"""
 
-    unique_name = f"graphify_export_{uuid.uuid4().hex}"
+    unique_name = f"mem0_to_graph_{uuid.uuid4().hex}"
     spec = importlib.util.spec_from_file_location(unique_name, SCRIPT_PATH)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"failed to load script module: {SCRIPT_PATH}")
@@ -65,7 +65,7 @@ def read_report(path: Path) -> dict[str, object]:
 def test_compute_processed_key_prefers_hash() -> None:
     """A. payload.hash 优先于顶层 id。"""
 
-    module = load_graphify_module()
+    module = load_mem0_to_graph_module()
 
     assert module.compute_processed_key("abc", {"hash": "h1"}) == "h1"
     assert module.compute_processed_key(123, {"data": "x"}) == "123"
@@ -74,7 +74,7 @@ def test_compute_processed_key_prefers_hash() -> None:
 def test_make_node_id_invalid_label_raises() -> None:
     """B. 未知 label 应抛 ValueError。"""
 
-    module = load_graphify_module()
+    module = load_mem0_to_graph_module()
 
     try:
         module.make_node_id("Bogus", "x")
@@ -87,7 +87,7 @@ def test_make_node_id_invalid_label_raises() -> None:
 def test_run_graphify_dry_run_does_not_create_state_db_when_missing(tmp_path: Path) -> None:
     """C. dry-run 在 state 缺失时不创建 sqlite 文件。"""
 
-    module = load_graphify_module()
+    module = load_mem0_to_graph_module()
     fixture = ensure_fixture_path(tmp_path)
     out_dir = tmp_path / "out"
     state_db = tmp_path / "state.sqlite"
@@ -121,7 +121,7 @@ def test_run_graphify_dry_run_does_not_create_state_db_when_missing(tmp_path: Pa
 def test_run_graphify_add_creates_state_and_outputs(tmp_path: Path) -> None:
     """D. add 会写出产物并写入 state。"""
 
-    module = load_graphify_module()
+    module = load_mem0_to_graph_module()
     fixture = ensure_fixture_path(tmp_path)
     out_dir = tmp_path / "out"
     state_db = tmp_path / "state.sqlite"
@@ -161,7 +161,7 @@ def test_run_graphify_add_creates_state_and_outputs(tmp_path: Path) -> None:
 def test_run_graphify_add_second_run_skips_duplicates(tmp_path: Path) -> None:
     """E. 第二次 add 同输入应被 state 去重跳过。"""
 
-    module = load_graphify_module()
+    module = load_mem0_to_graph_module()
     fixture = ensure_fixture_path(tmp_path)
     out_dir = tmp_path / "out"
     state_db = tmp_path / "state.sqlite"
@@ -201,7 +201,7 @@ def test_run_graphify_add_second_run_skips_duplicates(tmp_path: Path) -> None:
 def test_warning_truncation_respects_max_warnings(tmp_path: Path) -> None:
     """F. warning 数量超过上限时会截断但统计仍累计。"""
 
-    module = load_graphify_module()
+    module = load_mem0_to_graph_module()
     out_dir = tmp_path / "out"
     state_db = tmp_path / "state.sqlite"
     input_path = tmp_path / "many_warnings.jsonl"

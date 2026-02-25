@@ -1,10 +1,10 @@
-"""claims_graphify_export 核心建图行为测试。"""
+"""claims_to_graph 核心建图行为测试。"""
 
 from __future__ import annotations
 
 from typing import Any
 
-from memory_bench.scripts.claims_graphify_export import build_graph
+from memory_bench.scripts.claims_to_graph import build_graph
 
 CLAIM_ID = "claim:SELF_TRAIT|writing|agent:congyin|tag:不够诚实"
 
