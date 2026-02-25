@@ -1,4 +1,4 @@
-"""Tests for neo4j_export_cypher script."""
+"""Tests for graph_to_cypher script."""
 
 from __future__ import annotations
 
@@ -9,13 +9,13 @@ import uuid
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCRIPT_PATH = REPO_ROOT / "memory_bench/scripts/neo4j_export_cypher.py"
+SCRIPT_PATH = REPO_ROOT / "memory_bench/scripts/graph_to_cypher.py"
 
 
 def load_module():
     """Dynamically load script module."""
 
-    unique_name = f"neo4j_export_cypher_{uuid.uuid4().hex}"
+    unique_name = f"graph_to_cypher_{uuid.uuid4().hex}"
     spec = importlib.util.spec_from_file_location(unique_name, SCRIPT_PATH)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"failed to load script module: {SCRIPT_PATH}")

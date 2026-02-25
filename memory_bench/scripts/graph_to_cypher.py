@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""将 graphify_export(V0) 的 nodes/edges JSONL 转为 Neo4j 可导入 Cypher 文件。
+"""将 mem0_to_graph(V0) 的 nodes/edges JSONL 转为 Neo4j 可导入 Cypher 文件。
 
 V0 约定说明：
 - 关系原始 `props` 会完整保存在 `r.props_json`，用于兜底与回溯。
@@ -42,7 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
     """
 
     parser = argparse.ArgumentParser(
-        description="Convert graphify_export(V0) nodes/edges JSONL into Neo4j import cypher files",
+        description="Convert mem0_to_graph(V0) nodes/edges JSONL into Neo4j import cypher files",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument("--nodes", required=True, type=str, help="Path to graph_nodes_*.jsonl")
@@ -221,7 +221,7 @@ def _build_constraints_cypher(edge_types: list[str]) -> str:
     """
 
     lines = [
-        "// Auto-generated constraints for graphify_export(V0)",
+        "// Auto-generated constraints for mem0_to_graph(V0)",
         "CREATE CONSTRAINT node_id_unique IF NOT EXISTS FOR (n:Node) REQUIRE n.id IS UNIQUE;",
     ]
     for edge_type in edge_types:
@@ -374,7 +374,7 @@ def run_export(nodes_path: Path, edges_path: Path, out_dir: Path, prefix: str, d
     if not dry_run:
         constraints_path.write_text(_build_constraints_cypher(edge_types), encoding="utf-8")
         import_body = [
-            "// Auto-generated import cypher for graphify_export(V0)",
+            "// Auto-generated import cypher for mem0_to_graph(V0)",
             "// Nodes",
             *node_merges,
             "",

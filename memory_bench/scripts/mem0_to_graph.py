@@ -4,7 +4,7 @@
 最小自测命令（基于 `memory_bench/tests/fixtures/export_sample.jsonl`）：
 
 1) dry-run（仅校验与统计，不写 nodes/edges/state）：
-   uv run python memory_bench/scripts/graphify_export.py dry-run \
+   uv run python memory_bench/scripts/mem0_to_graph.py dry-run \
      --input memory_bench/tests/fixtures/export_sample.jsonl \
      --out-dir memory_bench/logs/replay_mem0/graphify \
      --state-db memory_bench/state/graphify/state.sqlite \
@@ -15,13 +15,13 @@
    且默认不会为重复 key 写 warning（仅统计 skipped_already_processed）；可用 --warn-duplicate-keys 显式开启。
 
 2) reset（重建 state，可选清理输出目录）：
-   uv run python memory_bench/scripts/graphify_export.py reset \
+   uv run python memory_bench/scripts/mem0_to_graph.py reset \
      --state-db memory_bench/state/graphify/state.sqlite \
      --reset-output \
      --out-dir memory_bench/logs/replay_mem0/graphify
 
 3) add（增量写出 nodes/edges 并写入 state）：
-   uv run python memory_bench/scripts/graphify_export.py add \
+   uv run python memory_bench/scripts/mem0_to_graph.py add \
      --input memory_bench/tests/fixtures/export_sample.jsonl \
      --out-dir memory_bench/logs/replay_mem0/graphify \
      --state-db memory_bench/state/graphify/state.sqlite \
@@ -132,7 +132,7 @@ def now_iso() -> str:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """构建 graphify_export 的命令行参数解析器。
+    """构建 mem0_to_graph 的命令行参数解析器。
 
     Returns:
         argparse.ArgumentParser: 已配置 `reset`、`add`、`dry-run` 子命令与相关参数的解析器。

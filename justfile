@@ -177,18 +177,27 @@ build-index limit='':
 compile-events:
   uv run memory_bench/scripts/compile_events.py
 
-reset-graphify-pipeline:
-  uv run memory_bench/scripts/graphify_pipeline.py reset \
+reset-mem0-graph:
+  uv run memory_bench/scripts/mem0_to_graph.py reset \
     --state-db memory_bench/state/graphify/state.sqlite \
     --out-dir memory_bench/logs/replay_mem0/graphify \
     --reset-output
 
-graphify-pipeline:
+mem0-to-graph:
   latest_export=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/replay_mem0) && \
-  uv run memory_bench/scripts/graphify_pipeline.py run \
+  uv run memory_bench/scripts/mem0_to_graph.py add \
     --input "$latest_export" \
     --out-dir memory_bench/logs/replay_mem0/graphify \
     --state-db memory_bench/state/graphify/state.sqlite \
+    --prefix graph
+
+mem0-graph-to-cypher:
+  nodes=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/replay_mem0/graphify --glob "graph_nodes_*.jsonl") && \
+  edges=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/replay_mem0/graphify --glob "graph_edges_*.jsonl") && \
+  uv run memory_bench/scripts/graph_to_cypher.py \
+    --nodes "$nodes" \
+    --edges "$edges" \
+    --out-dir memory_bench/logs/replay_mem0/graphify/neo4j \
     --prefix graph
 
 clean-and-restart-neo4j:
@@ -212,14 +221,15 @@ calim-all:
   uv run ./memory_bench/scripts/compiled_claims.py --force
 
 memory-item-to-cypher:
-  just reset-graphify-pipeline
-  just graphify-pipeline
+  just reset-mem0-graph
+  just mem0-to-graph
+  just mem0-graph-to-cypher
 
 claim-items-to-cypher:
-  uv run memory_bench/scripts/claims_graphify_export.py add
+  uv run memory_bench/scripts/claims_to_graph.py add
   claim_nodes=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/claims/graphify --glob "claims_nodes_*.jsonl") && \
   claim_edges=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/claims/graphify --glob "claims_edges_*.jsonl") && \
-  uv run memory_bench/scripts/neo4j_export_cypher.py \
+  uv run memory_bench/scripts/graph_to_cypher.py \
     --nodes "$claim_nodes" \
     --edges "$claim_edges" \
     --out-dir memory_bench/logs/claims/graphify/neo4j \
