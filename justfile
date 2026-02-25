@@ -236,11 +236,18 @@ claim-items-to-cypher:
     --prefix claims
 
 neo4j-apply-cypher:
+  # mem0 graph → mem0 容器
   constraints_file=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/replay_mem0/graphify/neo4j --glob "graph_constraints_*.cypher") && \
   import_file=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/replay_mem0/graphify/neo4j --glob "graph_import_*.cypher") && \
   uv run memory_bench/scripts/neo4j_apply_cypher.py mem0 \
     --constraints "$constraints_file" \
     --import-file "$import_file"
+  # claims graph → mem0 容器
+  claims_constraints=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/claims/graphify/neo4j --glob "claims_constraints_*.cypher") && \
+  claims_import=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/claims/graphify/neo4j --glob "claims_import_*.cypher") && \
+  uv run memory_bench/scripts/neo4j_apply_cypher.py mem0 \
+    --constraints "$claims_constraints" \
+    --import-file "$claims_import"
 
 mem0-rerun:
   just build-index
