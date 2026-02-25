@@ -41,6 +41,10 @@ memory_bench/
 │  ├─ bench_logger.py      (工具模块)
 │  ├─ tag_registry.py      (工具模块)
 │  └─ rate_limiter.py      (工具模块)
+├─ server/
+│  ├─ __init__.py
+│  ├─ router.py          (FastAPI router — 可独立挂载)
+│  └─ chat_server.py     (独立启动器 + CLI)
 ├─ resources/
 │  └─ tag_registry.json
 ├─ data/

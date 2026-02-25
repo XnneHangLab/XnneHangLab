@@ -34,6 +34,10 @@
   - `rate_limiter.py`（LLM API 令牌桶 + 并发控制）
   - `tag_registry.py`（tag 归一化与候选选择）
 
+- **Memory Chat Server**（`memory_bench/server/`）
+  - `chat_server.py`（独立启动器 + CLI）
+  - `router.py`（FastAPI router，可独立挂载到其他 app）
+
 ---
 
 ## 2. 通用运行方式
@@ -457,4 +461,86 @@ just claim-items-to-cypher
 just neo4j-apply-cypher
 ```
 
-> 步骤 6-8 的编排由 justfile 管理，也可用 `just mem0-rerun` 一键跑完全流程。
+> 步骤 6-8 的编排由 justfile 管理，也可用 `just mem0-rerun-add` 一键跑增量流程，`just mem0-rerun-force` 跑完全重建。
+
+---
+
+## 17. Memory Chat Server（`memory_bench/server/`）
+
+### 作用
+
+OpenAI 兼容的 `/v1/chat/completions` 代理服务，在 LLM 调用前后插入 mem0 记忆检索与写入。
+
+架构：
+
+```
+AIChat Mod (C#)
+    ↓  POST /v1/chat/completions
+Memory Chat Server (FastAPI)
+    ├─ mem0.search() → 检索相关记忆
+    ├─ 注入 system prompt
+    ├─ 转发真正的 LLM provider
+    ├─ 异步 mem0.add() → 写入本轮对话
+    └─ 返回标准 ChatCompletion response
+```
+
+### 文件结构
+
+- `router.py` — FastAPI APIRouter，包含端点和记忆逻辑。可独立挂载到任意 FastAPI app。
+- `chat_server.py` — 独立启动器：CLI 参数解析、env 加载、mem0 初始化、uvicorn 启动。
+
+### 端点
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/v1/chat/completions` | POST | 记忆增强的 chat 接口（非 streaming） |
+| `/v1/models` | GET | 兼容性端点 |
+| `/health` | GET | 健康检查 |
+
+### 调用示例
+
+```bash
+# 通过 justfile
+just memory-chat-server          # 默认端口 8080
+just memory-chat-server 9090     # 自定义端口
+
+# 直接调用
+uv run memory_bench/server/chat_server.py --port 8080
+
+# 指定所有参数
+uv run memory_bench/server/chat_server.py \
+  --chat-api-key sk-xxx \
+  --chat-base-url https://openrouter.ai/api/v1 \
+  --chat-model google/gemini-2.0-flash \
+  --embedding-api-key sk-xxx \
+  --embedding-base-url https://api.openai.com/v1 \
+  --embedding-model text-embedding-3-small \
+  --port 8080
+```
+
+### 环境变量
+
+配置通过 `memory_bench/.env.benchmark` 加载，CLI 参数优先。
+
+| 环境变量 | 说明 | 回退 |
+|----------|------|------|
+| `CHAT_API_KEY` | Chat LLM 的 API key | `BENCHMARK_LLM_API_KEY` |
+| `CHAT_BASE_URL` | Chat LLM 的 base URL | `BENCHMARK_LLM_BASE_URL` |
+| `CHAT_MODEL` | Chat 模型名 | `BENCHMARK_LLM_MODEL` |
+| `MEM0_LLM_API_KEY` | Mem0 提取用 LLM 的 API key | `CHAT_API_KEY` |
+| `MEM0_LLM_BASE_URL` | Mem0 提取用 LLM 的 base URL | `CHAT_BASE_URL` |
+| `MEM0_LLM_MODEL` | Mem0 提取用模型名 | `CHAT_MODEL` |
+| `BENCHMARK_EMBEDDING_*` | Embedding 配置（共用） | — |
+| `CHAT_USER_ID` | mem0 用户 ID | 默认 `xnne` |
+| `CHAT_AGENT_ID` | mem0 Agent ID | 默认 `congyin` |
+
+### 在其他 FastAPI app 中挂载
+
+```python
+from fastapi import FastAPI
+from memory_bench.server.router import router, state
+
+app = FastAPI()
+# 初始化 state.mem0 / state.openai_client / state.chat_model ...
+app.include_router(router)
+```
