@@ -171,6 +171,9 @@ ci-lint:
 
 # memory bench
 
+memory-chat-server port='8080':
+  uv run memory_bench/server/chat_server.py --port {{ port }}
+
 build-index limit='' tail='' offset='':
   uv run memory_bench/scripts/build_index.py --force {{ if limit != '' { '--limit ' + limit } else { '' } }} {{ if tail != '' { '--tail ' + tail } else { '' } }} {{ if offset != '' { '--offset ' + offset } else { '' } }}
 
