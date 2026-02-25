@@ -223,7 +223,11 @@ calim-all:
   uv run ./memory_bench/scripts/claimify_all.py --input "$latest_export" --workers 2 --force
   uv run ./memory_bench/scripts/compiled_claims.py --force
 
-memory-item-to-cypher:
+memory-item-to-cypher-add:
+  just mem0-to-graph
+  just mem0-graph-to-cypher
+
+memory-item-to-cypher-force:
   just reset-mem0-graph
   just mem0-to-graph
   just mem0-graph-to-cypher
@@ -252,26 +256,48 @@ neo4j-apply-cypher:
     --constraints "$claims_constraints" \
     --import-file "$claims_import"
 
-mem0-rerun:
+mem0-rerun-add:
+  just build-index
+  just annotate-all
+  just compile-events
+  just reply-memory-and-export
+  just calim-all
+  just memory-item-to-cypher-add
+  just claim-items-to-cypher
+  sleep 30 # 等待 Neo4j 处理完数据
+  just neo4j-apply-cypher
+
+mem0-rerun-force:
   just build-index
   just annotate-all
   just compile-events
   just clean-and-restart-neo4j
   just reply-memory-and-export
   just calim-all
-  just memory-item-to-cypher
+  just memory-item-to-cypher-force
   just claim-items-to-cypher
   sleep 30 # 等待 Neo4j 处理完数据
   just neo4j-apply-cypher
 
-mem0-rerun-top2:
+mem0-rerun-top2-add:
+  just build-index 2
+  just annotate-all
+  just compile-events
+  just reply-memory-and-export
+  just calim-all
+  just memory-item-to-cypher-add
+  just claim-items-to-cypher
+  sleep 30 # 等待 Neo4j 处理完数据
+  just neo4j-apply-cypher
+
+mem0-rerun-top2-force:
   just build-index 2
   just annotate-all
   just compile-events
   just clean-and-restart-neo4j
   just reply-memory-and-export
   just calim-all
-  just memory-item-to-cypher
+  just memory-item-to-cypher-force
   just claim-items-to-cypher
   sleep 30 # 等待 Neo4j 处理完数据
   just neo4j-apply-cypher
