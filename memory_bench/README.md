@@ -43,9 +43,10 @@ memory_bench/
 │  └─ rate_limiter.py      (工具模块)
 ├─ server/
 │  ├─ __init__.py
-│  ├─ router.py          (FastAPI router — 可独立挂载)
-│  ├─ chat_server.py     (独立启动器 + CLI)
-│  └─ chat_cli.py        (终端对话调试客户端)
+│  ├─ router.py              (FastAPI router — 可独立挂载)
+│  ├─ chat_server.py         (独立启动器 + CLI)
+│  ├─ chat_cli.py            (终端对话调试客户端)
+│  └─ claim_extractor.py     (实时 claim/entity 提取)
 ├─ resources/
 │  └─ tag_registry.json
 ├─ data/
@@ -240,6 +241,7 @@ uv run memory_bench/scripts/neo4j_apply_cypher.py mem0 \
 | `tag_registry.py` | Tag 归一化注册表工具模块 |
 | `rate_limiter.py` | LLM API 令牌桶限速工具模块 |
 | `chat_cli.py` | 终端对话调试客户端（HTTP REPL，自动加载 persona） |
+| `claim_extractor.py` | 实时 claim/entity 提取（`claimify_all.py` 的实时对应物，被 router.py 调用） |
 
 ---
 
