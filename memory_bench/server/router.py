@@ -24,6 +24,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from memory_bench.scripts.bench_logger import logger
+
 if TYPE_CHECKING:
     from openai import OpenAI
 
@@ -227,12 +229,15 @@ async def chat_completions(request: ChatCompletionRequest) -> JSONResponse:
     # 2. Memory search
     memories = _search_memories(latest_user_msg) if latest_user_msg else []
     memories_text = _format_memories(memories)
+    if memories:
+        logger.info("🔍 Found %d memories for user query", len(memories), group="server")
 
     # 3. Inject
     augmented = _inject_memories(request.messages, memories_text)
 
     # 4. Forward to LLM
     model = request.model or state.chat_model
+    logger.info("📤 Forwarding to LLM: %s (tokens: max=%d)", model, request.max_tokens or 2000, group="server")
     try:
         completion = state.openai_client.chat.completions.create(
             model=model,
@@ -252,6 +257,7 @@ async def chat_completions(request: ChatCompletionRequest) -> JSONResponse:
 
     # 5. Async write-back
     if latest_user_msg and assistant_content:
+        logger.info("💾 Queued memory write-back (async)", group="server")
         asyncio.create_task(_add_memory_background(latest_user_msg, assistant_content))
 
     # 6. Response

@@ -35,6 +35,7 @@ import uvicorn
 from fastapi import FastAPI
 from openai import OpenAI
 
+from memory_bench.scripts.bench_logger import logger
 from memory_bench.server.router import router, state as router_state
 
 # ---------------------------------------------------------------------------
