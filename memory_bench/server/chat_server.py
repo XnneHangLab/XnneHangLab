@@ -239,9 +239,9 @@ async def lifespan(app: FastAPI):
             embedding_base_url=cfg["embedding_base_url"],
             embedding_model=cfg["embedding_model"],
         )
-        print(f"\u2705 mem0 initialized (qdrant: {_STATE_DIR / 'qdrant_storage'})")
+        logger.info("✅ mem0 initialized (qdrant: %s)", _STATE_DIR / "qdrant_storage", group="server")
     except Exception as exc:
-        print(f"\u26a0\ufe0f mem0 init failed: {exc} — server will run without memory")
+        logger.warning("⚠️ mem0 init failed: %s — server will run without memory", exc, group="server")
 
     # OpenAI forwarding client
     router_state.openai_client = OpenAI(api_key=cfg["chat_api_key"], base_url=cfg["chat_base_url"])
@@ -251,12 +251,12 @@ async def lifespan(app: FastAPI):
     router_state.search_limit = cfg["search_limit"]
     router_state.api_key = cfg["server_api_key"]
 
-    print(f"\u2705 LLM proxy: {cfg['chat_base_url']} / {cfg['chat_model']}")
+    logger.info("✅ LLM proxy: %s / %s", cfg["chat_base_url"], cfg["chat_model"], group="server")
     if cfg["server_api_key"]:
-        print("\u2705 API key auth enabled")
+        logger.info("✅ API key auth enabled", group="server")
     else:
-        print("\u26a0\ufe0f No CHAT_SERVER_API_KEY set — server is open (no auth)")
-    print(f"\u2705 Listening on {cfg['host']}:{cfg['port']}")
+        logger.warning("⚠️ No CHAT_SERVER_API_KEY set — server is open (no auth)", group="server")
+    logger.info("✅ Listening on %s:%s", cfg["host"], cfg["port"], group="server")
 
     yield
 

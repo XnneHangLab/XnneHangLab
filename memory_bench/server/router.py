@@ -249,8 +249,8 @@ async def chat_completions(request: ChatCompletionRequest) -> JSONResponse:
         # Log full exception for debugging
         import traceback
 
-        print(f"\u274c LLM provider error: {exc}")
-        print(traceback.format_exc())
+        logger.error("❌ LLM provider error: %s", exc, group="server")
+        logger.error("%s", traceback.format_exc(), group="server")
         raise HTTPException(status_code=502, detail=f"LLM provider error: {type(exc).__name__}: {exc}") from exc
 
     assistant_content = completion.choices[0].message.content or ""
