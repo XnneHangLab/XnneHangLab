@@ -545,3 +545,57 @@ app = FastAPI()
 # 初始化 state.mem0 / state.openai_client / state.chat_model ...
 app.include_router(router)
 ```
+
+---
+
+## 18. Chat CLI（`memory_bench/server/chat_cli.py`）
+
+### 作用
+
+终端交互式对话调试客户端，通过 HTTP 调用 Memory Chat Server，方便快速测试记忆增强功能，无需 curl 或等待前端接入。
+
+### 特性
+
+- 自动加载 `22_PERSONA_CANON.md` 作为 system prompt（聪音人设）
+- `xnne>` / `congyin>` 提示符
+- 上下文 in-memory，不持久化（一次对话完即消失）
+- 支持 `--base-url` / `--system` / `--no-persona` / `--api-key`
+
+### 调用示例
+
+```bash
+# 前提：先启动 server
+just memory-chat-server
+
+# 另一终端启动 CLI
+just memory-chat-cli
+just memory-chat-cli base_url=http://localhost:9090  # 自定义 server 地址
+
+# 或直接调用
+uv run memory_bench/server/chat_cli.py
+
+# 跳过 persona 加载
+uv run memory_bench/server/chat_cli.py --no-persona
+
+# 追加额外 system prompt
+uv run memory_bench/server/chat_cli.py --system "你是一个温柔的助手"
+```
+
+### 环境变量
+
+| 环境变量 | 说明 | 回退 |
+|----------|------|------|
+| `CHAT_CLI_BASE_URL` | Server base URL | `http://localhost:8080` |
+| `CHAT_SERVER_API_KEY` | Server 鉴权密钥 | 不设则不鉴权 |
+
+### 退出方式
+
+- 输入 `quit` 或 `exit`
+- Ctrl+C / Ctrl+D
+
+### 使用场景
+
+- 快速测试记忆检索与写入
+- 调试 persona 效果
+- 验证 system prompt 调整
+- 代替 curl 进行交互式调试
