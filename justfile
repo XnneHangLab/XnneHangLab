@@ -174,6 +174,9 @@ ci-lint:
 memory-chat-server port='8080':
   uv run memory_bench/server/chat_server.py --port {{ port }}
 
+memory-chat-cli base_url='http://localhost:8080':
+  uv run memory_bench/server/chat_cli.py --base-url {{ base_url }}
+
 build-index limit='' tail='' offset='':
   uv run memory_bench/scripts/build_index.py --force {{ if limit != '' { '--limit ' + limit } else { '' } }} {{ if tail != '' { '--tail ' + tail } else { '' } }} {{ if offset != '' { '--offset ' + offset } else { '' } }}
 
