@@ -93,8 +93,10 @@ def _send_chat(
         "stream": False,
     }
 
-    # Create new client per request to avoid keep-alive issues
-    with httpx.Client(http2=False) as client:
+    # Create new client per request to avoid keep-alive issues.
+    # Explicitly disable proxy so localhost traffic isn't routed through
+    # system proxies (Clash / V2Ray / etc.) which would return 502.
+    with httpx.Client(http2=False, proxy=None) as client:
         try:
             resp = client.post(
                 f"{base_url.rstrip('/')}/v1/chat/completions",
