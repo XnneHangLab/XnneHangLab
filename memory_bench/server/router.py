@@ -230,14 +230,14 @@ async def chat_completions(request: ChatCompletionRequest) -> JSONResponse:
     memories = _search_memories(latest_user_msg) if latest_user_msg else []
     memories_text = _format_memories(memories)
     if memories:
-        logger.info("🔍 Found %d memories for user query", len(memories), group="server")
+        logger.bind(group="server").info("🔍 Found %d memories for user query", len(memories))
 
     # 3. Inject
     augmented = _inject_memories(request.messages, memories_text)
 
     # 4. Forward to LLM
     model = request.model or state.chat_model
-    logger.info("📤 Forwarding to LLM: %s (tokens: max=%d)", model, request.max_tokens or 2000, group="server")
+    logger.bind(group="server").info("📤 Forwarding to LLM: %s (tokens: max=%d)", model, request.max_tokens or 2000)
     try:
         completion = state.openai_client.chat.completions.create(
             model=model,
@@ -249,15 +249,15 @@ async def chat_completions(request: ChatCompletionRequest) -> JSONResponse:
         # Log full exception for debugging
         import traceback
 
-        logger.error("❌ LLM provider error: %s", exc, group="server")
-        logger.error("%s", traceback.format_exc(), group="server")
+        logger.bind(group="server").error("❌ LLM provider error: %s", exc)
+        logger.bind(group="server").error("%s", traceback.format_exc())
         raise HTTPException(status_code=502, detail=f"LLM provider error: {type(exc).__name__}: {exc}") from exc
 
     assistant_content = completion.choices[0].message.content or ""
 
     # 5. Async write-back
     if latest_user_msg and assistant_content:
-        logger.info("💾 Queued memory write-back (async)", group="server")
+        logger.bind(group="server").info("💾 Queued memory write-back (async)")
         asyncio.create_task(_add_memory_background(latest_user_msg, assistant_content))
 
     # 6. Response
