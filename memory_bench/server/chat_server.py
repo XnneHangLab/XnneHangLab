@@ -35,6 +35,7 @@ import uvicorn
 from fastapi import FastAPI
 from openai import OpenAI
 
+from memory_bench.scripts.bench_logger import logger
 from memory_bench.server.router import router, state as router_state
 
 # ---------------------------------------------------------------------------
@@ -48,6 +49,23 @@ _DOTENV_BENCHMARK_PATH = _REPO_ROOT / "memory_bench" / ".env.benchmark"
 _DEFAULT_SEARCH_LIMIT = 10
 _DEFAULT_USER_ID = "xnne"
 _DEFAULT_AGENT_ID = "congyin"
+
+# Custom fact extraction prompt — instruct mem0's LLM to ignore system/role
+# definitions and only extract user-relevant facts from the conversation.
+_FACT_EXTRACTION_PROMPT = """Deduce the facts, preferences, and memories from the provided text.
+Below is the conversation between a user and an AI assistant.
+
+IMPORTANT RULES:
+- ONLY extract facts about the USER: preferences, experiences, feelings, plans,
+  relationships, habits, knowledge, opinions.
+- IGNORE any system instructions, character role definitions, persona descriptions,
+  or assistant behavior guidelines.
+- If no user-relevant facts are found, return an empty list.
+
+Please return the response in the following JSON format:
+{{
+  "facts": ["fact 1", "fact 2", ...]
+}}"""
 
 
 # ---------------------------------------------------------------------------
@@ -116,6 +134,7 @@ def _build_mem0_config(
                 "on_disk": True,
             },
         },
+        "custom_fact_extraction_prompt": _FACT_EXTRACTION_PROMPT,
     }
 
 
@@ -238,9 +257,9 @@ async def lifespan(app: FastAPI):
             embedding_base_url=cfg["embedding_base_url"],
             embedding_model=cfg["embedding_model"],
         )
-        print(f"\u2705 mem0 initialized (qdrant: {_STATE_DIR / 'qdrant_storage'})")
+        logger.info("\u2705 mem0 initialized (qdrant: %s)", _STATE_DIR / "qdrant_storage")
     except Exception as exc:
-        print(f"\u26a0\ufe0f mem0 init failed: {exc} — server will run without memory")
+        logger.warning("\u26a0\ufe0f mem0 init failed: %s — server will run without memory", exc)
 
     # OpenAI forwarding client
     router_state.openai_client = OpenAI(api_key=cfg["chat_api_key"], base_url=cfg["chat_base_url"])
@@ -250,12 +269,12 @@ async def lifespan(app: FastAPI):
     router_state.search_limit = cfg["search_limit"]
     router_state.api_key = cfg["server_api_key"]
 
-    print(f"\u2705 LLM proxy: {cfg['chat_base_url']} / {cfg['chat_model']}")
+    logger.info("\u2705 LLM proxy: %s / %s", cfg["chat_base_url"], cfg["chat_model"])
     if cfg["server_api_key"]:
-        print("\u2705 API key auth enabled")
+        logger.info("\u2705 API key auth enabled")
     else:
-        print("\u26a0\ufe0f No CHAT_SERVER_API_KEY set — server is open (no auth)")
-    print(f"\u2705 Listening on {cfg['host']}:{cfg['port']}")
+        logger.warning("\u26a0\ufe0f No CHAT_SERVER_API_KEY set — server is open (no auth)")
+    logger.info("\u2705 Listening on %s:%s", cfg["host"], cfg["port"])
 
     yield
 

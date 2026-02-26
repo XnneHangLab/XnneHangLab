@@ -24,6 +24,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from memory_bench.scripts.bench_logger import logger
+
 if TYPE_CHECKING:
     from openai import OpenAI
 
@@ -184,10 +186,12 @@ def _inject_memories(
 
 
 def _add_memory_sync(user_msg: str, assistant_msg: str) -> None:
+    """Write user+assistant turn to mem0 (no system prompt)."""
     if state.mem0 is None:
         return
+    log = logger.bind(group="server")
     try:
-        state.mem0.add(
+        result = state.mem0.add(
             messages=[
                 {"role": "user", "content": user_msg},
                 {"role": "assistant", "content": assistant_msg},
@@ -196,8 +200,17 @@ def _add_memory_sync(user_msg: str, assistant_msg: str) -> None:
             agent_id=state.agent_id,
             metadata={"scene_id": "chill_ai_chat", "character_id": state.agent_id},
         )
-    except Exception:
-        pass
+        # Log what mem0 actually stored
+        results = result.get("results", []) if isinstance(result, dict) else []
+        if results:
+            for item in results:
+                event = item.get("event", "unknown")
+                memory_text = item.get("memory", "")
+                log.info("\U0001f4be mem0 %s: %s", event, memory_text[:150])
+        else:
+            log.info("\U0001f4be mem0 returned no new memory items")
+    except Exception as exc:
+        log.error("\u274c Failed to add memory: %s", exc)
 
 
 async def _add_memory_background(user_msg: str, assistant_msg: str) -> None:
@@ -220,6 +233,8 @@ async def chat_completions(request: ChatCompletionRequest) -> JSONResponse:
     if request.stream:
         raise HTTPException(status_code=400, detail="Streaming is not supported yet")
 
+    log = logger.bind(group="server")
+
     # 1. Latest user message
     user_messages = [m for m in request.messages if m.role == "user"]
     latest_user_msg = user_messages[-1].content if user_messages else ""
@@ -227,12 +242,20 @@ async def chat_completions(request: ChatCompletionRequest) -> JSONResponse:
     # 2. Memory search
     memories = _search_memories(latest_user_msg) if latest_user_msg else []
     memories_text = _format_memories(memories)
+    if memories:
+        log.info("\U0001f50d Found %d memories for user query", len(memories))
+        for rank, mem in enumerate(memories[:2], 1):
+            text = mem.get("memory", "") or mem.get("data", "") or str(mem)
+            score = mem.get("score", "")
+            score_str = f" (score: {score:.2f})" if isinstance(score, float) else ""
+            log.info("   top%d: %s%s", rank, text[:120], score_str)
 
     # 3. Inject
     augmented = _inject_memories(request.messages, memories_text)
 
     # 4. Forward to LLM
     model = request.model or state.chat_model
+    log.info("\U0001f4e4 Forwarding to LLM: %s (tokens: max=%d)", model, request.max_tokens or 2000)
     try:
         completion = state.openai_client.chat.completions.create(
             model=model,
@@ -244,14 +267,15 @@ async def chat_completions(request: ChatCompletionRequest) -> JSONResponse:
         # Log full exception for debugging
         import traceback
 
-        print(f"\u274c LLM provider error: {exc}")
-        print(traceback.format_exc())
+        log.error("\u274c LLM provider error: %s", exc)
+        log.error("%s", traceback.format_exc())
         raise HTTPException(status_code=502, detail=f"LLM provider error: {type(exc).__name__}: {exc}") from exc
 
     assistant_content = completion.choices[0].message.content or ""
 
-    # 5. Async write-back
+    # 5. Async write-back (user + assistant only, no system prompt)
     if latest_user_msg and assistant_content:
+        log.info("\U0001f4be Queued memory write-back (async)")
         asyncio.create_task(_add_memory_background(latest_user_msg, assistant_content))
 
     # 6. Response
