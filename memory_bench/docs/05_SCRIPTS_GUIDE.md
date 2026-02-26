@@ -38,6 +38,7 @@
   - `chat_server.py`（独立启动器 + CLI）
   - `router.py`（FastAPI router，可独立挂载到其他 app）
   - `claim_extractor.py`（实时 claim/entity 提取，`claimify_all.py` 的实时对应物）
+  - `graph_writer.py`（实时图谱写入 Neo4j，离线管线的实时对应物）
 
 ---
 
@@ -655,4 +656,59 @@ records = extract_claims(
     agent_id="congyin",
 )
 # records: list of validated claim/entity dicts
+```
+
+---
+
+## 20. Graph Writer（`memory_bench/server/graph_writer.py`）
+
+### 作用
+
+实时图谱写入模块，是离线管线 `claims_to_graph.py` → `graph_to_cypher.py` → `neo4j_apply_cypher.py` 的实时对应物。
+
+接收 `claim_extractor.extract_claims()` 返回的 claim/entity records，在内存中完成 Graph IR 构建 + Cypher 生成，直接通过 `docker exec cypher-shell` 写入 Neo4j，不产生中间文件。
+
+### 核心函数
+
+| 函数 | 说明 |
+|------|------|
+| `write_to_neo4j()` | 主入口：records → split → build_graph → Cypher → docker exec；返回 `WriteResult` |
+| `_run_cypher()` | 将 Cypher 文本管道到 `docker exec cypher-shell`，返回 `(ok, error)` |
+| `_ensure_constraints()` | 幂等创建 `Node.id` 唯一约束 |
+| `_docker_available()` | 检查 docker CLI 是否在 PATH 上 |
+
+### 设计决策
+
+- **复用离线模块**：`claims_to_graph.build_graph()` 构图 + `graph_to_cypher._build_node_merge()/_build_edge_merge()` 生成 Cypher，零重复逻辑
+- **同执行路径**：与 `neo4j_apply_cypher.py` 一样用 `docker exec cypher-shell`，不引入 `neo4j` Python driver 新依赖
+- **优雅降级**：Docker 不可用 / Neo4j 挂了 → 记日志 + 返回，不阻塞对话
+- **幂等约束**：首次写入前自动 `CREATE CONSTRAINT ... IF NOT EXISTS`
+
+### 返回值
+
+`WriteResult` dataclass：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `nodes_written` | int | 成功执行的 node MERGE 数 |
+| `edges_written` | int | 成功执行的 edge MERGE 数 |
+| `nodes_skipped` | int | Cypher 生成失败的节点数 |
+| `edges_skipped` | int | Cypher 生成失败的边数 |
+| `cypher_ok` | bool | docker exec 是否成功 |
+| `error` | str | 失败时的错误信息 |
+
+### 使用方式
+
+该模块不是独立 CLI，而是被 `router.py` 在 `_add_memory_sync()` 中调用（Sub-3 接入后）：
+
+```python
+from memory_bench.server.graph_writer import write_to_neo4j
+
+result = write_to_neo4j(
+    claim_records=records,
+    user_id="xnne",
+    container="membench-neo4j-mem0",
+)
+if not result.cypher_ok:
+    log.warning("Graph write failed: %s", result.error)
 ```
