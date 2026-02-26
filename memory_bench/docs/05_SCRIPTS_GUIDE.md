@@ -37,6 +37,7 @@
 - **Memory Chat Server**（`memory_bench/server/`）
   - `chat_server.py`（独立启动器 + CLI）
   - `router.py`（FastAPI router，可独立挂载到其他 app）
+  - `claim_extractor.py`（实时 claim/entity 提取，`claimify_all.py` 的实时对应物）
 
 ---
 
@@ -599,3 +600,59 @@ uv run memory_bench/server/chat_cli.py --system "你是一个温柔的助手"
 - 调试 persona 效果
 - 验证 system prompt 调整
 - 代替 curl 进行交互式调试
+
+---
+
+## 19. Claim Extractor（`memory_bench/server/claim_extractor.py`）
+
+### 作用
+
+实时 claim/entity 提取模块，是 `claimify_all.py` 的实时对应物。
+
+`claimify_all.py` 依赖 `replay_mem0 export` 的完整 JSONL 格式（`point_id` / `hash` / `conv_id` 等），无法直接用于 Chat Server 的实时场景。`claim_extractor.py` 接收 `mem0.add()` 返回的轻量 results，通过 LLM 提取 claim/entity 记录，供 `graph_writer.py`（后续 Sub-2）写入 Neo4j。
+
+### 核心函数
+
+| 函数 | 说明 |
+|------|------|
+| `prepare_memory_items()` | 过滤 mem0 results，只保留 ADD/UPDATE 事件的非空文本，生成 prompt-ready items |
+| `build_prompt()` | 构建简化版 claim extraction prompt（不需要 `point_id`/`hash`/`conv_id`） |
+| `parse_llm_output()` | 解析 LLM 返回的 JSONL，逐行校验 record_type / predicate / domain / entity_type / confidence |
+| `extract_claims()` | 主入口：prepare → prompt → LLM call → parse；任何失败返回 `[]`，永远不 raise |
+
+### 设计决策
+
+- **简化 prompt**：离线版需要完整 export payload，实时版只需 memory text + scene/character/user metadata
+- **优雅降级**：LLM 返回空/格式错误 → 记日志 + 返回 `[]`，不阻塞对话
+- **无 tag registry**：离线管线维护跨对话去重的 tag registry，实时模式跳过（轻微重复可接受，离线管线后续可 reconcile）
+- **严格验证**：无效行静默跳过，confidence < 0.6 的 claim 不输出
+
+### 与离线管线的关系
+
+```
+离线管线（batch）：
+  replay_mem0 export → claimify_all.py → compiled_claims.py → claims_to_graph.py → ...
+
+实时管线（realtime）：
+  mem0.add() results → claim_extractor.py → graph_writer.py → Neo4j MERGE
+```
+
+两条管线共享相同的 predicates / entity_types / domains 白名单和 `claim_id` 格式，产出的 claim/entity 结构兼容。
+
+### 使用方式
+
+该模块不是独立 CLI，而是被 `router.py` 在 `_add_memory_sync()` 中调用（Sub-3 接入后）：
+
+```python
+from memory_bench.server.claim_extractor import extract_claims
+
+records = extract_claims(
+    openai_client=client,
+    model="gpt-4o-mini",
+    mem0_results=mem0_response["results"],
+    scene_id="chill_ai_chat",
+    user_id="xnne",
+    agent_id="congyin",
+)
+# records: list of validated claim/entity dicts
+```
