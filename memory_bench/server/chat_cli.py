@@ -76,12 +76,14 @@ def _load_persona() -> str:
 
 
 def _send_chat(
-    client: httpx.Client,
     base_url: str,
     messages: list[dict[str, str]],
     api_key: str | None,
 ) -> str:
-    """POST to /v1/chat/completions and return assistant content."""
+    """POST to /v1/chat/completions and return assistant content.
+
+    Creates a new client for each request to avoid keep-alive issues on Windows.
+    """
     headers: dict[str, str] = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -91,19 +93,25 @@ def _send_chat(
         "stream": False,
     }
 
-    resp = client.post(
-        f"{base_url.rstrip('/')}/v1/chat/completions",
-        json=payload,
-        headers=headers,
-        timeout=120.0,
-    )
-    resp.raise_for_status()
-    data = resp.json()
+    # Create new client per request to avoid keep-alive issues
+    with httpx.Client(http2=False) as client:
+        try:
+            resp = client.post(
+                f"{base_url.rstrip('/')}/v1/chat/completions",
+                json=payload,
+                headers=headers,
+                timeout=120.0,
+            )
+        except httpx.ConnectError as exc:
+            raise httpx.ConnectError(f"Cannot connect to {base_url}: {exc}") from exc
 
-    choices = data.get("choices", [])
-    if not choices:
-        return "(empty response)"
-    return choices[0].get("message", {}).get("content", "(no content)")
+        resp.raise_for_status()
+        data = resp.json()
+
+        choices = data.get("choices", [])
+        if not choices:
+            return "(empty response)"
+        return choices[0].get("message", {}).get("content", "(no content)")
 
 
 # ---------------------------------------------------------------------------
@@ -124,45 +132,41 @@ def _run_repl(
     print(f"\n\u2728 Chat CLI — connected to {base_url}")
     print("   Type 'quit' or 'exit' to leave, Ctrl+C / Ctrl+D also works.\n")
 
-    client = httpx.Client()
-    try:
-        while True:
-            try:
-                user_input = input(f"{_USER_PROMPT}> ").strip()
-            except (EOFError, KeyboardInterrupt):
-                print("\n\U0001f44b Bye!")
-                break
+    while True:
+        try:
+            user_input = input(f"{_USER_PROMPT}> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\n\U0001f44b Bye!")
+            break
 
-            if not user_input:
-                continue
-            if user_input.lower() in ("quit", "exit"):
-                print("\U0001f44b Bye!")
-                break
+        if not user_input:
+            continue
+        if user_input.lower() in ("quit", "exit"):
+            print("\U0001f44b Bye!")
+            break
 
-            messages.append({"role": "user", "content": user_input})
+        messages.append({"role": "user", "content": user_input})
 
-            try:
-                reply = _send_chat(client, base_url, messages, api_key)
-            except httpx.HTTPStatusError as exc:
-                print(f"\u274c HTTP {exc.response.status_code}: {exc.response.text}")
-                messages.pop()  # remove failed user message
-                continue
-            except httpx.ConnectError:
-                print(
-                    f"\u274c Cannot connect to {base_url} — is the server running?"
-                    "\n   Start it with: just memory-chat-server"
-                )
-                messages.pop()
-                continue
-            except Exception as exc:
-                print(f"\u274c Error: {exc}")
-                messages.pop()
-                continue
+        try:
+            reply = _send_chat(base_url, messages, api_key)
+        except httpx.HTTPStatusError as exc:
+            print(f"\u274c HTTP {exc.response.status_code}: {exc.response.text}")
+            messages.pop()  # remove failed user message
+            continue
+        except httpx.ConnectError:
+            print(
+                f"\u274c Cannot connect to {base_url} — is the server running?"
+                "\n   Start it with: just memory-chat-server"
+            )
+            messages.pop()
+            continue
+        except Exception as exc:
+            print(f"\u274c Error: {exc}")
+            messages.pop()
+            continue
 
-            messages.append({"role": "assistant", "content": reply})
-            print(f"{_ASSISTANT_PROMPT}> {reply}\n")
-    finally:
-        client.close()
+        messages.append({"role": "assistant", "content": reply})
+        print(f"{_ASSISTANT_PROMPT}> {reply}\n")
 
 
 # ---------------------------------------------------------------------------
