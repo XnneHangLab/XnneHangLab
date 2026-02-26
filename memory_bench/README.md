@@ -44,7 +44,8 @@ memory_bench/
 ├─ server/
 │  ├─ __init__.py
 │  ├─ router.py          (FastAPI router — 可独立挂载)
-│  └─ chat_server.py     (独立启动器 + CLI)
+│  ├─ chat_server.py     (独立启动器 + CLI)
+│  └─ chat_cli.py        (终端对话调试客户端)
 ├─ resources/
 │  └─ tag_registry.json
 ├─ data/
@@ -238,6 +239,7 @@ uv run memory_bench/scripts/neo4j_apply_cypher.py mem0 \
 | `bench_logger.py` | 统一日志工具模块 |
 | `tag_registry.py` | Tag 归一化注册表工具模块 |
 | `rate_limiter.py` | LLM API 令牌桶限速工具模块 |
+| `chat_cli.py` | 终端对话调试客户端（HTTP REPL，自动加载 persona） |
 
 ---
 

@@ -238,10 +238,15 @@ async def chat_completions(request: ChatCompletionRequest) -> JSONResponse:
             model=model,
             messages=[{"role": m.role, "content": m.content} for m in augmented],
             temperature=request.temperature if request.temperature is not None else 0.7,
-            max_tokens=request.max_tokens or 2000,
+            max_completion_tokens=request.max_tokens or 2000,
         )
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"LLM provider error: {exc}") from exc
+        # Log full exception for debugging
+        import traceback
+
+        print(f"\u274c LLM provider error: {exc}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=502, detail=f"LLM provider error: {type(exc).__name__}: {exc}") from exc
 
     assistant_content = completion.choices[0].message.content or ""
 
