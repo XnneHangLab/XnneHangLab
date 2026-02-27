@@ -84,14 +84,28 @@ RETURN rel_type, from_label, to_label, count
 ORDER BY rel_type
 """
 
-QUERY_EXAMPLE_NODES = """
-// 每个标签查询一个示例节点
+QUERY_EXAMPLE_NODE_PER_LABEL = """
+// 每个标签查询一个完整示例节点（包含所有属性）
 MATCH (n)
 WITH labels(n)[0] AS label, n
 ORDER BY label
-WITH label, collect(DISTINCT {id: n.id, name: n.name, display: n.display, props: properties(n)})[0..3] AS examples
-RETURN label, examples
+WITH label, collect(n)[0] AS example
+RETURN label, properties(example) AS all_props
 ORDER BY label
+"""
+
+QUERY_EXAMPLE_EDGE_PER_TYPE = """
+// 每个关系类型查询一个完整示例
+MATCH (n)-[r]->(m)
+WITH type(r) AS rel_type, n, r, m
+ORDER BY rel_type
+WITH rel_type, collect({from: n, to: m})[0] AS example
+RETURN rel_type, 
+       labels(example.from)[0] AS from_label,
+       example.from.id AS from_id,
+       labels(example.to)[0] AS to_label,
+       example.to.id AS to_id
+ORDER BY rel_type
 """
 
 # 规范文档（静态部分）
@@ -259,13 +273,21 @@ def generate_schema_data(container: str) -> dict:
     else:
         log.error("关系结构查询失败：%s", output)
 
-    # 5. 示例节点
-    log.info("查询示例节点...")
-    ok, output = run_cypher(QUERY_EXAMPLE_NODES, container=container)
+    # 5. 每个标签的完整示例节点
+    log.info("查询每个标签的示例节点...")
+    ok, output = run_cypher(QUERY_EXAMPLE_NODE_PER_LABEL, container=container)
     if ok:
-        data["example_nodes"] = parse_cypher_output(output)
+        data["example_nodes_per_label"] = parse_cypher_output(output)
     else:
         log.error("示例节点查询失败：%s", output)
+
+    # 6. 每个关系类型的完整示例
+    log.info("查询每个关系类型的示例...")
+    ok, output = run_cypher(QUERY_EXAMPLE_EDGE_PER_TYPE, container=container)
+    if ok:
+        data["example_edges_per_type"] = parse_cypher_output(output)
+    else:
+        log.error("示例关系查询失败：%s", output)
 
     return data
 
@@ -327,18 +349,33 @@ def generate_markdown_report(data: dict) -> str:
     else:
         report.append("⚠️  无数据\n")
 
-    # 5. 示例节点
-    report.append("\n## 五、示例节点（Example Nodes）\n")
-    if data["example_nodes"]:
-        for row in data["example_nodes"]:
+    # 5. 每个标签的完整示例节点
+    report.append("\n## 五、示例节点（每个标签一个完整示例）\n")
+    if data.get("example_nodes_per_label"):
+        for row in data["example_nodes_per_label"]:
             label = row.get("label", "")
-            examples = row.get("examples", "")
+            all_props = row.get("all_props", "")
             report.append(f"\n### `{label}`\n")
-            report.append(f"```\n{examples}\n```\n")
+            report.append(f"```\n{all_props}\n```\n")
     else:
         report.append("⚠️  无数据\n")
 
-    # 6. 规范
+    # 6. 每个关系类型的完整示例
+    report.append("\n## 六、示例关系（每个类型一个完整示例）\n")
+    if data.get("example_edges_per_type"):
+        report.append("| 关系类型 | 源节点标签 | 源节点 ID | 目标节点标签 | 目标节点 ID |\n")
+        report.append("|----------|------------|-----------|--------------|-------------|\n")
+        for row in data["example_edges_per_type"]:
+            rel_type = row.get("rel_type", "")
+            from_label = row.get("from_label", "")
+            from_id = row.get("from_id", "")
+            to_label = row.get("to_label", "")
+            to_id = row.get("to_id", "")
+            report.append(f"| `{rel_type}` | `{from_label}` | `{from_id}` | `{to_label}` | `{to_id}` |\n")
+    else:
+        report.append("⚠️  无数据\n")
+
+    # 7. 规范
     report.append(SPECIFICATION)
 
     return "\n".join(report)
