@@ -233,7 +233,7 @@ def parse_cypher_output(output: str) -> list[dict[str, Any]]:
         if len(values) == len(headers):
             row_dict = {}
             for i, key in enumerate(headers):
-                value = values[i].strip()
+                value = values[i].strip().strip('"')  # Also strip quotes from values
                 # Try to parse JSON-like values
                 if value.startswith("{") and value.endswith("}"):
                     try:
@@ -254,34 +254,20 @@ def generate_schema_data(container: str) -> dict:
     data = {
         "generated_at": datetime.now(timezone.utc).astimezone().isoformat(),
         "neo4j_container": container,
-        "node_labels": [],
         "node_examples": [],
         "edge_examples": [],
     }
 
-    # 1. 节点标签和数量
-    log.info("查询节点标签...")
-    ok, output = run_cypher(QUERY_NODE_LABELS, container=container)
-    if ok:
-        data["node_labels"] = parse_cypher_output(output)
-        log.info("节点标签：%d 个", len(data["node_labels"]))
-    else:
-        log.error("节点标签查询失败：%s", output)
-
-    # 2. 所有节点按 ID 前缀分类示例
+    # 1. 所有节点按 ID 前缀分类示例
     log.info("查询节点示例（按 ID 前缀分类）...")
     ok, output = run_cypher(QUERY_ALL_NODES_BY_PREFIX, container=container)
     if ok:
-        log.info("节点示例原始输出:\n%s", output[:3000])
         data["node_examples"] = parse_cypher_output(output)
         log.info("节点示例：%d 个", len(data["node_examples"]))
-        if data["node_examples"]:
-            first_props = data["node_examples"][0].get("all_props", {})
-            log.info("第一条数据的 all_props: %s", json.dumps(first_props, ensure_ascii=False)[:500] if isinstance(first_props, dict) else str(first_props)[:500])
     else:
         log.error("节点示例查询失败：%s", output)
 
-    # 3. 所有关系类型的去重示例
+    # 2. 所有关系类型的去重示例
     log.info("查询关系示例...")
     ok, output = run_cypher(QUERY_ALL_EDGES_DEDUP, container=container)
     if ok:
@@ -300,20 +286,8 @@ def generate_markdown_report(data: dict) -> str:
     report.append(f"**生成时间**: {data['generated_at']}\n")
     report.append(f"**Neo4j 容器**: `{data['neo4j_container']}`\n")
 
-    # 1. 节点类型
-    report.append("\n## 一、节点类型（Node Labels）\n")
-    if data["node_labels"]:
-        report.append("| 节点类型 | 数量 |\n")
-        report.append("|----------|------|\n")
-        for row in data["node_labels"]:
-            label = row.get("label", "")
-            count = row.get("count", "")
-            report.append(f"| `{label}` | {count} |\n")
-    else:
-        report.append("⚠️  无数据\n")
-
-    # 2. 节点示例（按 ID 前缀分类）
-    report.append("\n## 二、节点示例（按 ID 前缀分类，每类一个完整示例）\n")
+    # 1. 节点示例（按 ID 前缀分类）
+    report.append("\n## 节点示例（按 ID 前缀分类，每类一个完整示例）\n")
     if data["node_examples"]:
         for row in data["node_examples"]:
             node_type = row.get("node_type", "")
@@ -321,7 +295,7 @@ def generate_markdown_report(data: dict) -> str:
             name = row.get("name", "")
             display = row.get("display", "")
             all_props = row.get("all_props", "")
-            report.append(f"\n### `{node_type}`\n")
+            report.append(f"\n### {node_type}\n")
             report.append(f"- **ID**: `{node_id}`\n")
             report.append(f"- **Name**: `{name}`\n")
             report.append(f"- **Display**: `{display}`\n")
@@ -329,8 +303,8 @@ def generate_markdown_report(data: dict) -> str:
     else:
         report.append("⚠️  无数据\n")
 
-    # 3. 关系示例（每个类型一个）
-    report.append("\n## 三、关系示例（每个类型一个完整示例）\n")
+    # 2. 关系示例（每个类型一个）
+    report.append("\n## 关系示例（每个类型一个完整示例）\n")
     if data["edge_examples"]:
         report.append("| 关系类型 | 源节点 | 源节点 ID | 目标节点 | 目标节点 ID |\n")
         report.append("|----------|--------|-----------|----------|-------------|\n")
@@ -400,8 +374,8 @@ def main() -> int:
         log.info("Markdown 已写入：%s", output_path)
 
     # 打印摘要
-    log.info("摘要：节点类型=%d, 节点示例=%d, 关系示例=%d",
-             len(data["node_labels"]), len(data["node_examples"]), len(data["edge_examples"]))
+    log.info("摘要：节点示例=%d, 关系示例=%d",
+             len(data["node_examples"]), len(data["edge_examples"]))
 
     return 0
 
