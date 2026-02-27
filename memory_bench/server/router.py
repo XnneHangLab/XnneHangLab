@@ -401,9 +401,8 @@ def create_memory_item_node_v2(mem0_item: dict[str, Any], memory_text: str) -> N
 
     cypher = f"""
 // Create MemoryItem node (properties aligned with offline pipeline)
-MERGE (mem:Node {{id: "{node_id}"}})
+MERGE (mem:Node:MemoryItem {{id: "{node_id}"}})
 ON CREATE SET
-  mem.labels = ["MemoryItem", "Node"],
   mem.data = "{_esc_data}",
   mem.payload_hash = "{payload_hash}",
   mem.display = "{_esc_display}",
@@ -414,7 +413,6 @@ ON CREATE SET
   mem.collection = "memory_bench_global",
   mem.exported_at = "{now_iso}"
 ON MATCH SET
-  mem.labels = ["MemoryItem", "Node"],
   mem.data = "{_esc_data}",
   mem.payload_hash = "{payload_hash}",
   mem.display = "{_esc_display}",
@@ -425,26 +423,24 @@ ON MATCH SET
   mem.exported_at = "{now_iso}"
 
 // Create Conversation node (by date)
-MERGE (conv:Node {{id: "{conv_node_id}"}})
+MERGE (conv:Node:Conversation {{id: "{conv_node_id}"}})
 ON CREATE SET
-  conv.labels = ["Conversation"],
   conv.conv_id = "{conv_id}",
   conv.display = "{conv_id}",
   conv.name = "{conv_id}"
 ON MATCH SET
-  conv.labels = ["Conversation"],
   conv.conv_id = "{conv_id}",
   conv.display = "{conv_id}",
   conv.name = "{conv_id}"
 
 // Link to owner Character (NOTE: char: prefix)
 WITH mem, conv
-MATCH (owner:Node {{id: "char:{owner_character_id}"}})
+MATCH (owner:Node:Character {{id: "char:{owner_character_id}"}})
 MERGE (owner)-[:OWNS_MEMORY]->(mem)
 
 // Link to Scene
 WITH mem, owner
-MATCH (scene:Node {{id: "scene:{state.metadata_scene_id}"}})
+MATCH (scene:Node:Scene {{id: "scene:{state.metadata_scene_id}"}})
 MERGE (mem)-[:IN_SCENE]->(scene)
 
 // Link to owner Character (HAS_CHARACTER)
