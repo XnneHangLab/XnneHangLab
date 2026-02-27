@@ -308,14 +308,15 @@ def create_memory_item_node(memory_id: str, memory_text: str) -> None:
 
     # Generate a unique ID for this memory item
     import hashlib
+
     memory_key = hashlib.sha256(memory_text.encode()).hexdigest()[:12]
     node_id = f"mem:{memory_key}"
 
     cypher = f"""
 // Create MemoryItem node
 MERGE (mem:Node {{id: "{node_id}"}})
-ON CREATE SET mem.labels = ["MemoryItem"], mem.text = "{memory_text[:200].replace(chr(34), chr(92)+chr(34))}"
-ON MATCH SET mem.text = "{memory_text[:200].replace(chr(34), chr(92)+chr(34))}"
+ON CREATE SET mem.labels = ["MemoryItem"], mem.text = "{memory_text[:200].replace(chr(34), chr(92) + chr(34))}"
+ON MATCH SET mem.text = "{memory_text[:200].replace(chr(34), chr(92) + chr(34))}"
 
 // Link to metadata nodes
 MATCH (user:Node {{id: "user:{state.metadata_user_id}"}})
@@ -363,8 +364,11 @@ def _determine_owner(mem0_item: dict[str, Any], memory_text: str) -> str:
 def create_memory_item_node_v2(mem0_item: dict[str, Any], memory_text: str) -> None:
     """Create MemoryItem node and link to Character (owner) + Scene + Conversation.
 
+    Node properties are aligned with the offline pipeline (mem0_to_graph.py)
+    so that online and offline MemoryItem nodes share the same schema.
+
     Args:
-        mem0_item: Full mem0 result item (for owner detection)
+        mem0_item: Full mem0 result item (for owner detection, includes ``id`` = point UUID)
         memory_text: The memory text content
     """
     if not state.graph_pipeline_enabled:
@@ -372,26 +376,52 @@ def create_memory_item_node_v2(mem0_item: dict[str, Any], memory_text: str) -> N
 
     log = logger.bind(group="metadata")
 
-    # Generate a unique ID for this memory item
-    memory_key = hashlib.sha256(memory_text.encode()).hexdigest()[:12]
-    node_id = f"mem:{memory_key}"
+    # --- MemoryItem properties (aligned with offline pipeline) ---
+    from datetime import datetime, timezone
+
+    payload_hash = hashlib.md5(memory_text.encode()).hexdigest()
+    node_id = f"mem:{payload_hash}"
+    display_name = f"{memory_text} #{payload_hash[:8]}"
+    now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")  # noqa: UP017
+    point_id = mem0_item.get("id", "")  # mem0 UUID
 
     # Determine owner character
     owner_character_id = _determine_owner(mem0_item, memory_text)
     log.info("🎯 Memory owner: %s (for: %s)", owner_character_id, memory_text[:50])
 
     # Generate conversation ID from current date (e.g., "2026-02-27")
-    from datetime import datetime, timezone
-    conv_id = datetime.now(UTC).strftime("%Y-%m-%d")
+    conv_id = datetime.now(timezone.utc).strftime("%Y-%m-%d")  # noqa: UP017
     conv_node_id = f"conv:{conv_id}"
 
     log.info("💬 Conversation: %s", conv_node_id)
 
+    # Escape double-quotes for Cypher string literals
+    _esc_data = memory_text.replace("\\", "\\\\").replace('"', '\\"')
+    _esc_display = display_name.replace("\\", "\\\\").replace('"', '\\"')
+
     cypher = f"""
-// Create MemoryItem node
+// Create MemoryItem node (properties aligned with offline pipeline)
 MERGE (mem:Node {{id: "{node_id}"}})
-ON CREATE SET mem.labels = ["MemoryItem"], mem.text = "{memory_text[:200].replace(chr(34), chr(92)+chr(34))}"
-ON MATCH SET mem.text = "{memory_text[:200].replace(chr(34), chr(92)+chr(34))}"
+ON CREATE SET
+  mem.labels = ["MemoryItem"],
+  mem.data = "{_esc_data}",
+  mem.payload_hash = "{payload_hash}",
+  mem.display = "{_esc_display}",
+  mem.name = "{_esc_display}",
+  mem.created_at = "{now_iso}",
+  mem.point_id = "{point_id}",
+  mem.isolation = "global",
+  mem.collection = "memory_bench_global",
+  mem.exported_at = "{now_iso}"
+ON MATCH SET
+  mem.data = "{_esc_data}",
+  mem.payload_hash = "{payload_hash}",
+  mem.display = "{_esc_display}",
+  mem.name = "{_esc_display}",
+  mem.point_id = "{point_id}",
+  mem.isolation = "global",
+  mem.collection = "memory_bench_global",
+  mem.exported_at = "{now_iso}"
 
 // Create Conversation node (by date)
 MERGE (conv:Node {{id: "{conv_node_id}"}})
