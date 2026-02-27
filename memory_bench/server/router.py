@@ -322,42 +322,17 @@ MERGE (mem)-[:FROM_CONV]->(agent)
 def _determine_owner(mem0_item: dict[str, Any], memory_text: str) -> str:
     """Determine which character owns this memory.
     
-    Strategy (in order):
-    1. Check mem0_item for owner info (owner_type, owner_id, character_id, etc.)
-    2. Check if memory text mentions user name → User's character
-    3. Fallback to Agent's character
+    Design decision: All memories are owned by the Agent's Character.
+    
+    Rationale:
+    1. This is the AI assistant's memory system — memories are "about the user"
+    2. Consistent with offline pipeline (char:congyin owns all mem:* nodes)
+    3. Simple and reliable — no need for complex heuristics
     
     Returns:
-        character_id: The character who owns this memory
+        character_id: The Agent's character ID
     """
-    # Strategy 1: Check mem0 metadata
-    owner_type = mem0_item.get("owner_type", "")
-    owner_id = mem0_item.get("owner_id", "")
-    character_id = mem0_item.get("character_id", "")
-    agent_id = mem0_item.get("agent_id", "")
-    user_id = mem0_item.get("user_id", "")
-    
-    log.info("🔍 Owner detection: owner_type=%s, owner_id=%s, character_id=%s, agent_id=%s, user_id=%s",
-             owner_type, owner_id, character_id, agent_id, user_id)
-    
-    # If we have explicit character_id, use it
-    if character_id:
-        return character_id
-    
-    # If we have owner info, try to map to character
-    if owner_type == "Agent" and owner_id:
-        return owner_id  # Agent's character ID
-    
-    if owner_type == "User" and owner_id:
-        # User's character ID (might be same as user_id or different)
-        # For now, assume user has a character with same ID
-        return owner_id
-    
-    # Strategy 2: Fallback to Agent's character
-    if agent_id:
-        return agent_id
-    
-    # Strategy 3: Ultimate fallback
+    # All memories owned by Agent's Character (consistent with offline pipeline)
     return state.metadata_character_id
 
 
@@ -377,8 +352,7 @@ def create_memory_item_node_v2(mem0_item: dict[str, Any], memory_text: str) -> N
     memory_key = hashlib.sha256(memory_text.encode()).hexdigest()[:12]
     node_id = f"mem:{memory_key}"
 
-    # Determine owner character
-    # Strategy: Check if mem0 item has owner info, fallback to agent's character
+    # Determine owner character (all memories owned by Agent's Character)
     owner_character_id = _determine_owner(mem0_item, memory_text)
     log.info("🎯 Memory owner: %s (for: %s)", owner_character_id, memory_text[:50])
 
