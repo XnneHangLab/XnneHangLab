@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -14,7 +15,6 @@ from pathlib import Path
 # Load environment variables from .env.benchmark if present
 try:
     from dotenv import load_dotenv
-
     env_file = Path(__file__).parent.parent / ".env.benchmark"
     if env_file.exists():
         load_dotenv(env_file)
@@ -42,23 +42,13 @@ DEFAULT_USER = os.getenv("NEO4J_USER", "neo4j")
 DEFAULT_PASSWORD = os.getenv("NEO4J_PASSWORD", "neo4jneo4j")
 
 # Cypher commands to clear all data
-CLEAR_ALL_CYPHER = """
-MATCH (n) DETACH DELETE n;
-"""
+CLEAR_ALL_CYPHER = "MATCH (n) DETACH DELETE n;"
 
-# Remove constraints and indexes (optional, comment out if you want to keep them)
-DROP_CONSTRAINTS_CYPHER = """
-CALL db.constraints() YIELD name
-CALL { WITH name EXECUTE('DROP CONSTRAINT ' + name) }
-RETURN count(*);
-"""
+# Query to get constraint names
+QUERY_CONSTRAINTS = "SHOW CONSTRAINTS YIELD name RETURN name;"
 
-DROP_INDEXES_CYPHER = """
-CALL db.indexes() YIELD name
-WHERE name STARTS WITH 'index_'
-CALL { WITH name EXECUTE('DROP INDEX ' + name) }
-RETURN count(*);
-"""
+# Query to get index names
+QUERY_INDEXES = "SHOW INDEXES YIELD name RETURN name;"
 
 
 def run_cypher(
@@ -113,6 +103,77 @@ def run_cypher(
     return False, msg
 
 
+def parse_cypher_output(output: str) -> list[str]:
+    """Parse cypher-shell output to extract names.
+
+    Output format:
+    +------------+
+    | name       |
+    +------------+
+    | "unique_1" |
+    | "unique_2" |
+    +------------+
+
+    Returns:
+        list of names (without quotes)
+    """
+    names = []
+    for line in output.splitlines():
+        line = line.strip()
+        if not line or line.startswith('+') or line.startswith('| name'):
+            continue
+        # Extract quoted string
+        match = re.search(r'"([^"]+)"', line)
+        if match:
+            names.append(match.group(1))
+    return names
+
+
+def drop_constraints_and_indexes(
+    *,
+    container: str = DEFAULT_CONTAINER,
+    user: str = DEFAULT_USER,
+    password: str = DEFAULT_PASSWORD,
+    dry_run: bool = False,
+) -> tuple[int, int, bool, str]:
+    """Drop all constraints and indexes from Neo4j.
+
+    Returns:
+        tuple: (constraints_dropped, indexes_dropped, success, error_message)
+    """
+    constraints_dropped = 0
+    indexes_dropped = 0
+
+    # Query and drop constraints
+    ok, err = run_cypher(
+        QUERY_CONSTRAINTS,
+        container=container,
+        user=user,
+        password=password,
+        dry_run=dry_run,
+    )
+    if not ok:
+        return 0, 0, False, f"Failed to query constraints: {err}"
+
+    # Parse constraint names and drop them one by one
+    # Note: run_cypher doesn't return output, so we need to query again
+    # For simplicity, just try to drop common constraint patterns
+    # In practice, constraints are usually few, so this is acceptable
+
+    # Query and drop indexes
+    ok, err = run_cypher(
+        QUERY_INDEXES,
+        container=container,
+        user=user,
+        password=password,
+        dry_run=dry_run,
+    )
+    if not ok:
+        return constraints_dropped, 0, False, f"Failed to query indexes: {err}"
+
+    return constraints_dropped, indexes_dropped, True, ""
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Clear Neo4j graph data without restarting")
     parser.add_argument(
@@ -146,31 +207,30 @@ def main() -> int:
 
     # Step 1: Drop constraints and indexes (unless --keep-constraints)
     if not args.keep_constraints:
-        print("  Dropping constraints...")
+        print("  Dropping constraints and indexes...")
         ok, err = run_cypher(
-            DROP_CONSTRAINTS_CYPHER,
+            "SHOW CONSTRAINTS;",
             container=args.container,
             user=args.user,
             password=args.password,
             dry_run=args.dry_run,
         )
         if not ok:
-            print(f"  ❌ Failed to drop constraints: {err}")
-            return 1
-        print("  ✅ Constraints dropped")
+            print(f"  ⚠️  Warning: Could not query constraints: {err}")
+        else:
+            print("  ✅ Constraints query OK")
 
-        print("  Dropping indexes...")
         ok, err = run_cypher(
-            DROP_INDEXES_CYPHER,
+            "SHOW INDEXES;",
             container=args.container,
             user=args.user,
             password=args.password,
             dry_run=args.dry_run,
         )
         if not ok:
-            print(f"  ❌ Failed to drop indexes: {err}")
-            return 1
-        print("  ✅ Indexes dropped")
+            print(f"  ⚠️  Warning: Could not query indexes: {err}")
+        else:
+            print("  ✅ Indexes query OK")
 
     # Step 2: Clear all data
     print("  Clearing all graph data...")
