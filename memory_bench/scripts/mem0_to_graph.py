@@ -430,20 +430,20 @@ def edge_id(edge_type: str, src: str, dst: str) -> str:
 
 def _determine_owner_from_memory_text(payload: dict[str, Any]) -> str:
     """根据 memory 文本的前缀判断记忆归属。
-    
+
     规则：
     - "[User] ..." → "xnne" (用户的 character)
     - "[Agent] ..." → "congyin" (agent 的 character)
     - 无前缀 → "congyin" (回退到 agent)
-    
+
     Args:
         payload: mem0 export 的 payload 数据
-        
+
     Returns:
         str: character_id (不带前缀，如 "xnne" 或 "congyin")
     """
     memory_text = str(payload.get("data") or payload.get("memory") or "").strip()
-    
+
     # 检查前缀
     if memory_text.startswith("[User]"):
         return "xnne"
@@ -566,7 +566,7 @@ def build_graph_from_record(
     # - "[Agent] ..." → char:congyin (agent 的 character)
     # - 无前缀 → 回退到 agent 的 character
     owner_character_id = _determine_owner_from_memory_text(payload)
-    
+
     owner_node_id = make_node_id("Character", owner_character_id)
     node_refs["Character"] = owner_node_id
     nodes.append(
@@ -584,7 +584,7 @@ def build_graph_from_record(
     add_edge("HAS_CHARACTER", "MemoryItem", "Character")
     add_edge("CONV_IN_SCENE", "Conversation", "Scene")
     add_edge("CONV_HAS_CHARACTER", "Conversation", "Character")
-    
+
     # ACTOR 关系：Agent → 自己的 Character（不是 owner character！）
     # 从 payload 中获取 agent_id，映射到对应的 character
     agent_id = str(payload.get("agent_id") or "").strip()
@@ -618,7 +618,7 @@ def build_graph_from_record(
                 "props": provenance_props,
             }
         )
-    
+
     # ACTOR 关系：User → 自己的 Character（固定为 char:xnne）
     user_id = str(payload.get("user_id") or "").strip()
     if user_id:
@@ -833,7 +833,7 @@ def run_graphify(
 
         nodes = list(nodes_map.values())
         edges = list(edges_map.values())
-        
+
         # 添加固定的 metadata 节点和关系（确保 Character 连接到 Scene）
         # 这些关系不依赖单条记录，全局只添加一次
         timestamp = now_iso()
@@ -843,7 +843,7 @@ def run_graphify(
             "exported_at": timestamp,
             "created_at": timestamp,
         }
-        
+
         # 添加固定的 Character -IN_SCENE→ Scene 关系
         # 确保即使没有 MemoryItem，Character 也不会游离
         scene_id = "scene:chill_ai_chat"
@@ -854,7 +854,7 @@ def run_graphify(
         }
         if scene_id not in nodes_map:
             nodes_map[scene_id] = scene_node
-        
+
         # agent:congyin -ACTOR→ char:congyin -IN_SCENE→ scene:chill_ai_chat
         agent_id = "agent:congyin"
         agent_char_id = "char:congyin"
@@ -884,7 +884,7 @@ def run_graphify(
             "dst": scene_id,
             "props": metadata_provenance,
         }
-        
+
         # user:xnne -ACTOR→ char:xnne -IN_SCENE→ scene:chill_ai_chat
         user_id = "user:xnne"
         user_char_id = "char:xnne"
@@ -914,7 +914,7 @@ def run_graphify(
             "dst": scene_id,
             "props": metadata_provenance,
         }
-        
+
         # 重新生成节点和边列表
         nodes = list(nodes_map.values())
         edges = list(edges_map.values())
