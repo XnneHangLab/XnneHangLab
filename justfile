@@ -236,19 +236,7 @@ compile-claims:
   # 汇总 claims（增量，除非 --force）
   uv run ./memory_bench/scripts/compiled_claims.py
 
-claimify-all-force:
-  # 强制重跑 claimify
-  rm -rf memory_bench/data/claims
-  latest_export=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/replay_mem0 --glob "export_*.jsonl") && \
-  uv run ./memory_bench/scripts/claimify_all.py --input "$latest_export" --workers 2 --force
-  uv run ./memory_bench/scripts/compiled_claims.py --force
-
-memory-item-to-cypher-add:
-  just mem0-to-graph
-  just mem0-graph-to-cypher
-
-memory-item-to-cypher-force:
-  just reset-mem0-graph
+memory-item-to-cypher:
   just mem0-to-graph
   just mem0-graph-to-cypher
 
@@ -284,7 +272,7 @@ mem0-rerun-add:
   just mem0-export
   just claimify-all
   just compile-claims
-  just memory-item-to-cypher-add
+  just memory-item-to-cypher
   just claim-items-to-cypher
   just neo4j-apply-cypher
 
@@ -359,15 +347,3 @@ mem0-run-real-time:
   just clean-bench-state
   just clean-neo4j
   just memory-chat-server
-
-mem0-rerun-top2-add:
-  just build-index 2
-  just annotate-all
-  just compile-events
-  just mem0-ingest
-  just mem0-export
-  just claimify-all
-  just compile-claims
-  just memory-item-to-cypher-add
-  just claim-items-to-cypher
-  just neo4j-apply-cypher
