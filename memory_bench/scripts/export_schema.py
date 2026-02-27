@@ -126,7 +126,7 @@ def run_cypher(
         "-p",
         password,
         "--format",
-        "plain",
+        "csv",  # Use CSV format for better parsing of complex values
     ]
 
     try:
