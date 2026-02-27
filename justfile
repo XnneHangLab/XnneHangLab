@@ -224,9 +224,9 @@ clean-and-restart-neo4j:
 # =============================================================================
 
 clean-neo4j:
-  # 清空 Neo4j 图数据（影响两条管线，共享同一个容器）
-  rm -rf memory_bench/neo4j-data/mem0/data
-  docker compose -f memory_bench/docker-compose.neo4j.yml restart mem0
+  # 清空 Neo4j 图数据（不重启容器，使用 Cypher DETACH DELETE）
+  # 影响两条管线，共享同一个容器
+  uv run memory_bench/scripts/neo4j_clear.py
 
 clean-bench-logs:
   # 清理 bench logs（只影响离线管线的中间产物）
