@@ -286,7 +286,6 @@ mem0-rerun-add:
   just compile-claims
   just memory-item-to-cypher-add
   just claim-items-to-cypher
-  sleep 30 # 等待 Neo4j 处理完数据
   just neo4j-apply-cypher
 
 # =============================================================================
@@ -371,5 +370,4 @@ mem0-rerun-top2-add:
   just compile-claims
   just memory-item-to-cypher-add
   just claim-items-to-cypher
-  sleep 30 # 等待 Neo4j 处理完数据
   just neo4j-apply-cypher
