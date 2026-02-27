@@ -126,7 +126,7 @@ def run_cypher(
         "-p",
         password,
         "--format",
-        "csv",  # Use CSV format for better parsing of complex values
+        "verbose",  # Use verbose format for better structured output
     ]
 
     try:
@@ -151,18 +151,56 @@ def run_cypher(
     return False, msg
 
 
-def parse_cypher_output(output: str) -> list[dict[str, str]]:
-    """Parse cypher-shell plain format output into list of dicts.
+def parse_cypher_output(output: str) -> list[dict[str, Any]]:
+    """Parse cypher-shell verbose format output into list of dicts.
     
-    Supports both CSV format (comma-separated) and table format (pipe-separated).
+    Verbose format example:
+    label: "MemoryItem"
+    id: "mem:xxx"
+    name: "[User] ..."
+    display: "[User] ..."
+    all_props: {name: "congyin", ...}
+    ---
     """
     lines = output.strip().split("\n")
     if len(lines) < 1:
         return []
 
-    # Detect format: CSV (comma-separated) or table (pipe-separated)
-    first_line = lines[0]
-    is_csv = "," in first_line and "|" not in first_line
+    # Check if this is verbose format (key: value pairs)
+    is_verbose = ":" in lines[0] and not lines[0].startswith("label,")
+    
+    if is_verbose:
+        # Verbose format: parse key: value pairs separated by ---
+        rows = []
+        current_row = {}
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            
+            if line == "---":
+                # End of record
+                if current_row:
+                    rows.append(current_row)
+                    current_row = {}
+                continue
+            
+            # Parse key: value
+            if ":" in line:
+                key, _, value = line.partition(":")
+                key = key.strip()
+                value = value.strip()
+                current_row[key] = value
+        
+        # Don't forget the last record
+        if current_row:
+            rows.append(current_row)
+        
+        return rows
+    
+    # CSV format (comma-separated)
+    is_csv = "," in lines[0] and "|" not in lines[0]
     
     if is_csv:
         # CSV format: parse as CSV
@@ -178,7 +216,7 @@ def parse_cypher_output(output: str) -> list[dict[str, str]]:
             rows.append(cleaned_row)
         return rows
     
-    # Table format (pipe-separated) - not used in this simplified version
+    # Table format (pipe-separated) - not used
     return []
 
 
