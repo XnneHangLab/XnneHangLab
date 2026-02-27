@@ -296,14 +296,14 @@ def generate_markdown_report(data: dict) -> str:
             display = row.get("display", "")
             all_props = row.get("all_props", "")
             report.append(f"\n### {node_type}\n")
-            report.append(f"- **ID**: `{node_id}`\n")
-            report.append(f"- **Name**: `{name}`\n")
-            report.append(f"- **Display**: `{display}`\n")
+            report.append(f"- **ID**: {node_id}\n")
+            report.append(f"- **Name**: {name}\n")
+            report.append(f"- **Display**: {display}\n")
             if isinstance(all_props, dict):
                 props_json = json.dumps(all_props, indent=2, ensure_ascii=False)
                 report.append(f"- **Properties**:\n```json\n{props_json}\n```\n")
             else:
-                report.append(f"- **Properties**: `{all_props}`\n")
+                report.append(f"- **Properties**: {all_props}\n")
     else:
         report.append("⚠️  无数据\n")
 
@@ -320,7 +320,7 @@ def generate_markdown_report(data: dict) -> str:
             from_id = row.get("from_id", "")
             to_node = row.get("to_node", "")
             to_id = row.get("to_id", "")
-            table_rows.append(f"| `{rel_type}` | `{from_node}` | `{from_id}` | `{to_node}` | `{to_id}` |")
+            table_rows.append(f"| {rel_type} | {from_node} | {from_id} | {to_node} | {to_id} |")
         report.append("\n".join(table_rows))
         report.append("\n")
     else:
