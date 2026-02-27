@@ -310,3 +310,41 @@ mem0-rerun-add:
   just memory-item-to-cypher
   just claim-items-to-cypher
   just neo4j-apply-cypher
+
+# =============================================================================
+# 快速测试入口 — 从不同 LLM 调用点切入
+# =============================================================================
+
+mem0-run-from-annotate:
+  # 从 annotate_all 开始（LLM #1：事件标注）
+  # 清空所有 → 所有步骤都强制重跑
+  just clean-neo4j
+  just clean-bench-state
+  just clean-bench-claims
+  just clean-bench-events
+  just clean-bench-logs
+  just mem0-rerun-add
+
+mem0-run-from-ingest:
+  # 从 replay_mem0 ingest 开始（跳过 LLM #1 标注）
+  # 保留 events → annotate-all 增量 skip
+  # 清 state/claims/logs → ingest/export/claimify 全部重跑
+  just clean-neo4j
+  just clean-bench-state
+  just clean-bench-claims
+  just clean-bench-logs
+  just mem0-rerun-add
+
+mem0-run-from-claim:
+  # 从 claimify_all 开始（LLM #3：claim 提取）
+  # 保留 events + export → annotate/ingest/export 都增量 skip
+  # 清 claims → claimify 及之后强制重跑
+  just clean-neo4j
+  just clean-bench-state
+  just clean-bench-claims
+  just mem0-rerun-add
+
+mem0-run-real-time:
+  # 实时管线：清理 + 启动 server
+  just clean-realtime
+  just memory-chat-server
