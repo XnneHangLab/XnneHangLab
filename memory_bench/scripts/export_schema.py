@@ -19,11 +19,13 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import os
 import subprocess
 import sys
 from datetime import datetime, timezone
+from io import StringIO
 from pathlib import Path
 
 from memory_bench.scripts.bench_logger import logger
@@ -51,7 +53,7 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "neo4jneo4j")
 
 log.info("Neo4j 配置：容器=%s, 用户=%s", NEO4J_CONTAINER, NEO4J_USER)
 
-# Cypher 查询
+# Cypher 查询 - 简化版本
 QUERY_NODE_LABELS = """
 // 查询所有节点标签和数量
 MATCH (n)
@@ -60,32 +62,8 @@ RETURN label, count(*) AS count
 ORDER BY count DESC
 """
 
-QUERY_NODE_PROPERTIES = """
-// 查询每个标签的所有属性
-MATCH (n)
-UNWIND labels(n) AS label
-WITH label, n
-RETURN label, keys(n) AS properties, count(*) AS count
-ORDER BY count DESC
-"""
-
-QUERY_RELATIONSHIPS = """
-// 查询所有关系类型和数量
-MATCH ()-[r]->()
-RETURN type(r) AS relationship_type, count(*) AS count
-ORDER BY count DESC
-"""
-
-QUERY_RELATIONSHIP_STRUCTURE = """
-// 查询关系的完整结构（源节点类型 → 目标节点类型）
-MATCH (n)-[r]->(m)
-WITH type(r) AS rel_type, labels(n)[0] AS from_label, labels(m)[0] AS to_label, count(*) AS count
-RETURN rel_type, from_label, to_label, count
-ORDER BY rel_type
-"""
-
-QUERY_EXAMPLE_NODE_PER_LABEL = """
-// 每个标签查询一个完整示例节点（包含所有属性）
+QUERY_ALL_NODE_EXAMPLES = """
+// 每个节点标签查询一个完整示例
 MATCH (n)
 WITH labels(n) AS node_labels, n
 WHERE size(node_labels) > 0
@@ -98,78 +76,20 @@ RETURN
   example.id AS id,
   example.name AS name,
   example.display AS display,
-  reduce(s = "", k IN keys(example) | s + k + ": " + toString(example[k]) + ", ") AS props
+  toString(properties(example)) AS all_props
 ORDER BY label
 """
 
-QUERY_EXAMPLE_EDGE_PER_TYPE = """
-// 每个关系类型查询一个完整示例
+QUERY_ALL_EDGES_DEDUP = """
+// 所有关系类型的去重示例（每个关系类型一个）
 MATCH (n)-[r]->(m)
-WITH type(r) AS rel_type, n, m
-ORDER BY rel_type
-WITH rel_type, collect({from: n, to: m})[0] AS example
 RETURN 
-  rel_type, 
-  labels(example.from)[0] AS from_label,
-  example.from.id AS from_id,
-  labels(example.to)[0] AS to_label,
-  example.to.id AS to_id
-ORDER BY rel_type
-"""
-
-# 规范文档（静态部分）
-SPECIFICATION = """
-## 六、规范（Specification）
-
-### 6.1 节点 ID 格式
-
-所有节点必须有 `id` 属性，格式为 `{type}:{value}`：
-
-| 节点类型 | ID 前缀 | 示例 |
-|----------|--------|------|
-| MemoryItem | `mem:` | `mem:078b383a19bf...` (SHA256 前 12 位) |
-| User | `user:` | `user:xnne` |
-| Agent | `agent:` | `agent:congyin` |
-| Scene | `scene:` | `scene:chill_ai_chat` |
-| Character | `char:` | `char:congyin`, `char:xnne` |
-| Conversation | `conv:` | `conv:ch01` (离线), `conv:2026-02-27` (实时) |
-
-### 6.2 必需属性
-
-所有节点必须有：
-- `id` (string) - 唯一标识符
-- `labels` (list) - 节点类型标签（单元素列表）
-
-推荐属性：
-- `name` (string) - 显示名称
-- `display` (string) - 简短显示文本
-
-### 6.3 关系方向
-
-所有关系都有固定方向：
-
-```
-Character -OWNS_MEMORY→ MemoryItem
-MemoryItem -FROM_CONV→ Conversation
-MemoryItem -IN_SCENE→ Scene
-MemoryItem -HAS_CHARACTER→ Character
-Conversation -CONV_IN_SCENE→ Scene
-Conversation -CONV_HAS_CHARACTER→ Character
-User -USER_IN_SCENE→ Scene
-Agent -ACTOR→ Character
-Character -IN_SCENE→ Scene
-```
-
-### 6.4 离线管线 vs 实时管线
-
-| 特性 | 离线管线 | 实时管线 |
-|------|----------|----------|
-| Conversation ID | `conv:ch01`, `conv:ch02` (按章节) | `conv:2026-02-27` (按日期) |
-| MemoryItem ID | `mem:<hash>` (来自 mem0 export) | `mem:<hash>` (SHA256 前 12 位) |
-| Character ID | `char:congyin`, `char:xnne` | `char:congyin`, `char:xnne` |
-| 触发方式 | 批量处理 (just mem0-run-*) | 实时对话 (memory-chat-server) |
-
-**重要**：两个管线的 Schema 必须完全一致，才能合并到同一个图谱中！
+  labels(n)[0] AS from_node, 
+  n.id AS from_id, 
+  type(r) AS relationship, 
+  labels(m)[0] AS to_node, 
+  m.id AS to_id
+ORDER BY type(r)
 """
 
 
@@ -217,7 +137,7 @@ def run_cypher(
     return False, msg
 
 
-def parse_cypher_output(output: str) -> list[dict[str, Any]]:
+def parse_cypher_output(output: str) -> list[dict[str, str]]:
     """Parse cypher-shell plain format output into list of dicts.
     
     Supports both CSV format (comma-separated) and table format (pipe-separated).
@@ -232,8 +152,6 @@ def parse_cypher_output(output: str) -> list[dict[str, Any]]:
     
     if is_csv:
         # CSV format: parse as CSV
-        import csv
-        from io import StringIO
         reader = csv.DictReader(StringIO(output))
         # Strip whitespace from keys and values
         rows = []
@@ -246,34 +164,8 @@ def parse_cypher_output(output: str) -> list[dict[str, Any]]:
             rows.append(cleaned_row)
         return rows
     
-    # Table format (pipe-separated)
-    headers = [h.strip() for h in first_line.split("|")]
-    rows = []
-
-    # Start from line 1 (skip header only, no separator line in Neo4j plain format)
-    start_line = 1
-    # Check if line 1 is a separator line (contains only --- and +)
-    if len(lines) > 1 and all(c in "-+|" for c in lines[1].replace(" ", "")):
-        start_line = 2
-
-    for line in lines[start_line:]:
-        if not line.strip():
-            continue
-        # Split by | and strip whitespace
-        values = [v.strip() for v in line.split("|")]
-        if len(values) == len(headers):
-            row_dict = dict(zip(headers, values))
-            # Try to parse JSON-like values (Maps from Neo4j)
-            for key, value in row_dict.items():
-                if value.startswith("{") and value.endswith("}"):
-                    try:
-                        # Simple JSON-like parsing for Neo4j Maps
-                        row_dict[key] = json.loads(value.replace("'", '"'))
-                    except (json.JSONDecodeError, AttributeError):
-                        pass  # Keep as string if parsing fails
-            rows.append(row_dict)
-
-    return rows
+    # Table format (pipe-separated) - not used in this simplified version
+    return []
 
 
 def generate_schema_data(container: str) -> dict:
@@ -282,67 +174,36 @@ def generate_schema_data(container: str) -> dict:
         "generated_at": datetime.now(timezone.utc).astimezone().isoformat(),
         "neo4j_container": container,
         "node_labels": [],
-        "node_properties": [],
-        "relationships": [],
-        "relationship_structure": [],
-        "example_nodes": [],
+        "node_examples": [],
+        "edge_examples": [],
     }
 
-    # 1. 节点标签
+    # 1. 节点标签和数量
     log.info("查询节点标签...")
     ok, output = run_cypher(QUERY_NODE_LABELS, container=container)
     if ok:
-        log.info("节点标签原始输出:\n%s", output[:1000])
         data["node_labels"] = parse_cypher_output(output)
-        log.info("解析后数据：%d 条", len(data["node_labels"]))
-        if data["node_labels"]:
-            log.info("第一条数据：%s", data["node_labels"][0])
+        log.info("节点标签：%d 个", len(data["node_labels"]))
     else:
         log.error("节点标签查询失败：%s", output)
 
-    # 2. 节点属性
-    log.info("查询节点属性...")
-    ok, output = run_cypher(QUERY_NODE_PROPERTIES, container=container)
+    # 2. 每个节点标签的完整示例
+    log.info("查询节点示例...")
+    ok, output = run_cypher(QUERY_ALL_NODE_EXAMPLES, container=container)
     if ok:
-        data["node_properties"] = parse_cypher_output(output)
+        data["node_examples"] = parse_cypher_output(output)
+        log.info("节点示例：%d 个", len(data["node_examples"]))
     else:
-        log.error("节点属性查询失败：%s", output)
+        log.error("节点示例查询失败：%s", output)
 
-    # 3. 关系类型
-    log.info("查询关系类型...")
-    ok, output = run_cypher(QUERY_RELATIONSHIPS, container=container)
+    # 3. 所有关系类型的去重示例
+    log.info("查询关系示例...")
+    ok, output = run_cypher(QUERY_ALL_EDGES_DEDUP, container=container)
     if ok:
-        data["relationships"] = parse_cypher_output(output)
+        data["edge_examples"] = parse_cypher_output(output)
+        log.info("关系示例：%d 个", len(data["edge_examples"]))
     else:
-        log.error("关系类型查询失败：%s", output)
-
-    # 4. 关系结构
-    log.info("查询关系结构...")
-    ok, output = run_cypher(QUERY_RELATIONSHIP_STRUCTURE, container=container)
-    if ok:
-        data["relationship_structure"] = parse_cypher_output(output)
-    else:
-        log.error("关系结构查询失败：%s", output)
-
-    # 5. 每个标签的完整示例节点
-    log.info("查询每个标签的示例节点...")
-    ok, output = run_cypher(QUERY_EXAMPLE_NODE_PER_LABEL, container=container)
-    if ok:
-        log.info("示例节点查询成功，原始输出:\n%s", output[:2000] if len(output) > 2000 else output)
-        data["example_nodes_per_label"] = parse_cypher_output(output)
-        log.info("解析后数据：%d 条", len(data["example_nodes_per_label"]))
-    else:
-        log.error("示例节点查询失败：%s", output)
-
-    # 6. 每个关系类型的完整示例
-    log.info("查询每个关系类型的示例...")
-    ok, output = run_cypher(QUERY_EXAMPLE_EDGE_PER_TYPE, container=container)
-    if ok:
-        log.info("示例关系查询成功，原始输出:\n%s", output[:2000] if len(output) > 2000 else output)
-        data["example_edges_per_type"] = parse_cypher_output(output)
-        log.info("解析后数据：%d 条", len(data["example_edges_per_type"]))
-    else:
-        log.error("示例关系查询失败：%s", output)
+        log.error("关系示例查询失败：%s", output)
 
     return data
 
@@ -354,7 +215,7 @@ def generate_markdown_report(data: dict) -> str:
     report.append(f"**生成时间**: {data['generated_at']}\n")
     report.append(f"**Neo4j 容器**: `{data['neo4j_container']}`\n")
 
-    # 1. 节点标签
+    # 1. 节点类型
     report.append("\n## 一、节点类型（Node Labels）\n")
     if data["node_labels"]:
         report.append("| 节点类型 | 数量 |\n")
@@ -366,72 +227,37 @@ def generate_markdown_report(data: dict) -> str:
     else:
         report.append("⚠️  无数据\n")
 
-    # 2. 节点属性
-    report.append("\n## 二、节点属性（Node Properties）\n")
-    if data["node_properties"]:
-        for row in data["node_properties"]:
+    # 2. 节点示例（每个标签一个）
+    report.append("\n## 二、节点示例（每个类型一个完整示例）\n")
+    if data["node_examples"]:
+        for row in data["node_examples"]:
             label = row.get("label", "")
-            props = row.get("properties", "")
-            count = row.get("count", "")
-            report.append(f"\n### `{label}` ({count} 个节点)\n")
-            report.append(f"**属性**: `{props}`\n")
-    else:
-        report.append("⚠️  无数据\n")
-
-    # 3. 关系类型
-    report.append("\n## 三、关系类型（Relationship Types）\n")
-    if data["relationships"]:
-        report.append("| 关系类型 | 数量 |\n")
-        report.append("|----------|------|\n")
-        for row in data["relationships"]:
-            rel_type = row.get("relationship_type", "")
-            count = row.get("count", "")
-            report.append(f"| `{rel_type}` | {count} |\n")
-    else:
-        report.append("⚠️  无数据\n")
-
-    # 4. 关系结构
-    report.append("\n## 四、关系结构（Relationship Structure）\n")
-    if data["relationship_structure"]:
-        report.append("| 关系类型 | 源节点类型 | 目标节点类型 | 数量 |\n")
-        report.append("|----------|------------|--------------|------|\n")
-        for row in data["relationship_structure"]:
-            rel_type = row.get("rel_type", "")
-            from_label = row.get("from_label", "")
-            to_label = row.get("to_label", "")
-            count = row.get("count", "")
-            report.append(f"| `{rel_type}` | `{from_label}` | `{to_label}` | {count} |\n")
-    else:
-        report.append("⚠️  无数据\n")
-
-    # 5. 每个标签的完整示例节点
-    report.append("\n## 五、示例节点（每个标签一个完整示例）\n")
-    if data.get("example_nodes_per_label"):
-        for row in data["example_nodes_per_label"]:
-            label = row.get("label", "")
+            node_id = row.get("id", "")
+            name = row.get("name", "")
+            display = row.get("display", "")
             all_props = row.get("all_props", "")
             report.append(f"\n### `{label}`\n")
-            report.append(f"```\n{all_props}\n```\n")
+            report.append(f"- **ID**: `{node_id}`\n")
+            report.append(f"- **Name**: `{name}`\n")
+            report.append(f"- **Display**: `{display}`\n")
+            report.append(f"- **Properties**: `{all_props}`\n")
     else:
         report.append("⚠️  无数据\n")
 
-    # 6. 每个关系类型的完整示例
-    report.append("\n## 六、示例关系（每个类型一个完整示例）\n")
-    if data.get("example_edges_per_type"):
-        report.append("| 关系类型 | 源节点标签 | 源节点 ID | 目标节点标签 | 目标节点 ID |\n")
-        report.append("|----------|------------|-----------|--------------|-------------|\n")
-        for row in data["example_edges_per_type"]:
-            rel_type = row.get("rel_type", "")
-            from_label = row.get("from_label", "")
+    # 3. 关系示例（每个类型一个）
+    report.append("\n## 三、关系示例（每个类型一个完整示例）\n")
+    if data["edge_examples"]:
+        report.append("| 关系类型 | 源节点 | 源节点 ID | 目标节点 | 目标节点 ID |\n")
+        report.append("|----------|--------|-----------|----------|-------------|\n")
+        for row in data["edge_examples"]:
+            rel_type = row.get("relationship", "")
+            from_node = row.get("from_node", "")
             from_id = row.get("from_id", "")
-            to_label = row.get("to_label", "")
+            to_node = row.get("to_node", "")
             to_id = row.get("to_id", "")
-            report.append(f"| `{rel_type}` | `{from_label}` | `{from_id}` | `{to_label}` | `{to_id}` |\n")
+            report.append(f"| `{rel_type}` | `{from_node}` | `{from_id}` | `{to_node}` | `{to_id}` |\n")
     else:
         report.append("⚠️  无数据\n")
-
-    # 7. 规范
-    report.append(SPECIFICATION)
 
     return "\n".join(report)
 
@@ -489,8 +315,8 @@ def main() -> int:
         log.info("Markdown 已写入：%s", output_path)
 
     # 打印摘要
-    log.info("摘要：节点类型=%d, 关系类型=%d, 关系结构=%d",
-             len(data['node_labels']), len(data['relationships']), len(data['relationship_structure']))
+    log.info("摘要：节点类型=%d, 节点示例=%d, 关系示例=%d",
+             len(data["node_labels"]), len(data["node_examples"]), len(data["edge_examples"]))
 
     return 0
 
