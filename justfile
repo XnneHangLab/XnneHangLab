@@ -219,6 +219,39 @@ clean-and-restart-neo4j:
   rm -rf memory_bench/neo4j-data/cognee/data
   docker compose -f memory_bench/docker-compose.neo4j.yml up -d
 
+# =============================================================================
+# Cleanup Recipes — 基础清理原语
+# =============================================================================
+
+clean-neo4j:
+  # 清空 Neo4j 图数据（影响两条管线，共享同一个容器）
+  rm -rf memory_bench/neo4j-data/mem0/data
+  docker compose -f memory_bench/docker-compose.neo4j.yml restart mem0
+
+clean-bench-logs:
+  # 清理 bench logs（只影响离线管线的中间产物）
+  rm -rf memory_bench/logs/
+
+clean-bench-state:
+  # 清理 bench state（checkpoint / state.sqlite，只影响离线管线）
+  rm -rf memory_bench/state/
+
+clean-bench-events:
+  # 清理 bench events（离线管线中间产物）
+  rm -rf memory_bench/data/events/
+
+clean-bench-claims:
+  # 清理 bench claims（离线管线中间产物）
+  rm -rf memory_bench/data/claims/
+
+# --- 实时管线清理 ---
+
+clean-realtime:
+  # 实时管线只依赖 Neo4j 和 mem0 的 qdrant storage
+  # 清理 qdrant storage（mem0 本地持久化）+ Neo4j
+  rm -rf memory_bench/state/qdrant_storage/
+  just clean-neo4j
+
 reply-memory-and-export:
   uv run memory_bench/scripts/replay_mem0.py ingest --force
   uv run memory_bench/scripts/replay_mem0.py export
