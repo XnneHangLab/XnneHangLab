@@ -41,6 +41,57 @@ if TYPE_CHECKING:
 
 from memory_bench.scripts.bench_logger import logger
 
+# Custom fact extraction prompt — extract facts about BOTH user and AI assistant.
+# Output in Chinese with clear prefixes to distinguish ownership.
+# Use concise, keyword-rich format for optimal search matching.
+# This MUST match the prompt used in chat_server.py for consistency.
+_CUSTOM_FACT_EXTRACTION_PROMPT = """你是一个事实提取器。你的任务是从对话中提取关于**用户**和**AI 助手**的事实。
+
+输入：一段用户与 AI 助手之间的对话。
+
+## 关键规则
+
+1. **提取用户的事实**（关于说话的人）：
+   - 偏好（喜欢/不喜欢什么）
+   - 经历（做过什么事、去过哪里）
+   - 习惯（日常行为）
+   - 关系（家人、朋友、同事）
+   - 知识/技能（会什么、懂什么）
+   - 观点/信念（怎么想、重视什么）
+   - 计划/目标（想做什么）
+
+2. **提取 AI 助手的事实**（关于 AI 自己的描述）：
+   - AI 的名字/身份
+   - AI 的性格特点
+   - AI 的能力/限制
+   - AI 的偏好（如果 AI 表达了）
+   - AI 的背景故事（如果有）
+
+3. **输出格式**：每条事实必须加前缀，用**简洁的关键词风格**（不要用"我"/"用户"/"AI"等冗余词）
+   - `[User] ...` = 关于用户的事实（直接陈述事实，不加主语）
+   - `[Agent] ...` = 关于 AI 助手的事实（直接陈述事实，不加主语）
+
+4. **语言**：所有事实必须用**中文**输出
+
+## 示例
+
+用户："我叫 xnne，喜欢打篮球。"
+→ 提取：["[User] 名字是 xnne。", "[User] 喜欢打篮球。"]
+
+AI："我是聪音，性格有点内向。"
+→ 提取：["[Agent] 名字是聪音。", "[Agent] 性格有点内向。"]
+
+用户："今天天气不错" / AI："是啊，适合出门"
+→ 提取：[]（没有持久性事实）
+
+## 输出格式（JSON）
+
+{
+  "facts": ["[User/Agent] ...", "[User/Agent] ...", ...]
+}
+
+如果没有发现任何事实，返回：{"facts": []}"""
+
 
 class ReplayMem0Error(RuntimeError):
     """表示 replay 过程中的输入或配置错误。"""
@@ -1236,6 +1287,7 @@ def build_mem0_config(
                 "on_disk": True,
             },
         },
+        "custom_fact_extraction_prompt": _CUSTOM_FACT_EXTRACTION_PROMPT,
     }
 
 
