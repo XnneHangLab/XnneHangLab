@@ -3,6 +3,8 @@
 # requires-python = ">=3.10"
 # dependencies = ["python-dotenv"]
 # ///
+from __future__ import annotations
+
 """Clear Neo4j graph data without restarting the container.
 
 This script uses docker exec to run Cypher commands directly inside
