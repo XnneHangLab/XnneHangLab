@@ -104,6 +104,14 @@ class ServerState:
     search_limit: int = _DEFAULT_SEARCH_LIMIT
     api_key: str | None = None  # If set, require Bearer token auth
 
+    # --- Graph pipeline (Sub-3) ---
+    claim_llm_client: OpenAI | None = None  # LLM for claim extraction (can differ from chat)
+    claim_llm_model: str = ""  # Model name for claim extraction
+    graph_pipeline_enabled: bool = False  # Set True when claim LLM is configured
+    neo4j_container: str = "membench-neo4j-mem0"
+    neo4j_user: str = "neo4j"
+    neo4j_password: str = "neo4jneo4j"
+
 
 state = ServerState()
 
@@ -185,10 +193,14 @@ def _inject_memories(
 # ---------------------------------------------------------------------------
 
 
-def _add_memory_sync(user_msg: str, assistant_msg: str) -> None:
-    """Write user+assistant turn to mem0 (no system prompt)."""
+def _add_memory_sync(user_msg: str, assistant_msg: str) -> list[dict[str, Any]]:
+    """Write user+assistant turn to mem0 (no system prompt).
+
+    Returns the ``results`` list from ``mem0.add()`` so the graph pipeline
+    can extract claims from the newly stored memories.
+    """
     if state.mem0 is None:
-        return
+        return []
     log = logger.bind(group="server")
     try:
         result = state.mem0.add(
@@ -209,13 +221,83 @@ def _add_memory_sync(user_msg: str, assistant_msg: str) -> None:
                 log.info("\U0001f4be mem0 %s: %s", event, memory_text[:150])
         else:
             log.info("\U0001f4be mem0 returned no new memory items")
+        return results
     except Exception as exc:
         log.error("\u274c Failed to add memory: %s", exc)
+        return []
 
 
-async def _add_memory_background(user_msg: str, assistant_msg: str) -> None:
+def _graph_pipeline_sync(mem0_results: list[dict[str, Any]]) -> None:
+    """Extract claims from mem0 results and write to Neo4j.
+
+    This runs the full graph pipeline:
+    1. ``claim_extractor.extract_claims()`` — LLM-based claim/entity extraction
+    2. ``graph_writer.write_to_neo4j()`` — Cypher MERGE into Neo4j
+
+    Graceful degradation: any failure is logged but never raised.
+    """
+    if not state.graph_pipeline_enabled:
+        return
+    if not mem0_results:
+        return
+
+    log = logger.bind(group="graph")
+
+    # Lazy imports to avoid circular deps and keep startup fast
+    from memory_bench.server.claim_extractor import extract_claims
+    from memory_bench.server.graph_writer import write_to_neo4j
+
+    try:
+        # Step 1: Extract claims
+        records = extract_claims(
+            openai_client=state.claim_llm_client,
+            model=state.claim_llm_model,
+            mem0_results=mem0_results,
+            scene_id="chill_ai_chat",
+            agent_id=state.agent_id,
+            user_id=state.user_id,
+        )
+        if not records:
+            log.info("\U0001f4ad No claims extracted from %d mem0 results", len(mem0_results))
+            return
+
+        log.info("\U0001f4a1 Extracted %d claim/entity records", len(records))
+
+        # Step 2: Write to Neo4j
+        result = write_to_neo4j(
+            claim_records=records,
+            user_id=state.user_id,
+            container=state.neo4j_container,
+            neo4j_user=state.neo4j_user,
+            neo4j_password=state.neo4j_password,
+        )
+        log.info(
+            "\U0001f4ca Graph write: %d nodes, %d edges (skipped: %d nodes, %d edges, ok=%s)",
+            result.nodes_written,
+            result.edges_written,
+            result.nodes_skipped,
+            result.edges_skipped,
+            result.cypher_ok,
+        )
+        if not result.cypher_ok:
+            log.warning("\u26a0\ufe0f Cypher execution error: %s", result.error)
+    except Exception as exc:
+        log.error("\u274c Graph pipeline failed: %s", exc)
+
+
+async def _memory_and_graph_background(user_msg: str, assistant_msg: str) -> None:
+    """Background task: mem0 write-back (sync) → graph pipeline (async).
+
+    mem0.add() is synchronous and must complete before graph pipeline starts
+    (it needs the results).  Both run in a thread executor to avoid blocking
+    the event loop.
+    """
     loop = asyncio.get_running_loop()
-    await loop.run_in_executor(None, _add_memory_sync, user_msg, assistant_msg)
+    # Step 1: mem0 write-back (synchronous, returns results)
+    mem0_results = await loop.run_in_executor(None, _add_memory_sync, user_msg, assistant_msg)
+    # Step 2: graph pipeline (synchronous, uses mem0 results)
+    if mem0_results and state.graph_pipeline_enabled:
+        await loop.run_in_executor(None, _graph_pipeline_sync, mem0_results)
 
 
 # ---------------------------------------------------------------------------
@@ -273,10 +355,10 @@ async def chat_completions(request: ChatCompletionRequest) -> JSONResponse:
 
     assistant_content = completion.choices[0].message.content or ""
 
-    # 5. Async write-back (user + assistant only, no system prompt)
+    # 5. Async write-back + graph pipeline (user + assistant only, no system prompt)
     if latest_user_msg and assistant_content:
-        log.info("\U0001f4be Queued memory write-back (async)")
-        asyncio.create_task(_add_memory_background(latest_user_msg, assistant_content))
+        log.info("\U0001f4be Queued memory write-back + graph pipeline (async)")
+        asyncio.create_task(_memory_and_graph_background(latest_user_msg, assistant_content))
 
     # 6. Response
     resp = ChatCompletionResponse(
@@ -311,5 +393,7 @@ async def health() -> JSONResponse:
             "mem0_ready": state.mem0 is not None,
             "llm_ready": state.openai_client is not None,
             "model": state.chat_model,
+            "graph_pipeline_enabled": state.graph_pipeline_enabled,
+            "claim_llm_model": state.claim_llm_model or None,
         }
     )

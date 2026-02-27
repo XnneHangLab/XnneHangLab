@@ -217,6 +217,16 @@ def _resolve_config(args: argparse.Namespace) -> dict[str, Any]:
     embedding_base_url = resolve(args.embedding_base_url, "BENCHMARK_EMBEDDING_BASE_URL")
     embedding_model = resolve(args.embedding_model, "BENCHMARK_EMBEDDING_MODEL")
 
+    # Claim LLM config (for graph pipeline) — falls back to mem0 LLM, then chat LLM
+    claim_api_key = args.claim_llm_api_key or _get_env("CLAIM_LLM_API_KEY") or llm_api_key
+    claim_base_url = args.claim_llm_base_url or _get_env("CLAIM_LLM_BASE_URL") or llm_base_url
+    claim_model = args.claim_llm_model or _get_env("CLAIM_LLM_MODEL") or llm_model
+
+    # Neo4j config
+    neo4j_container = args.neo4j_container or _get_env("NEO4J_CONTAINER", "membench-neo4j-mem0")
+    neo4j_user = args.neo4j_user or _get_env("NEO4J_USER", "neo4j")
+    neo4j_password = args.neo4j_password or _get_env("NEO4J_PASSWORD", "neo4jneo4j")
+
     return {
         "chat_api_key": chat_api_key,
         "chat_base_url": chat_base_url,
@@ -233,6 +243,14 @@ def _resolve_config(args: argparse.Namespace) -> dict[str, Any]:
         "server_api_key": args.server_api_key or _get_env("CHAT_SERVER_API_KEY") or None,
         "port": args.port,
         "host": args.host,
+        # Graph pipeline
+        "claim_api_key": claim_api_key,
+        "claim_base_url": claim_base_url,
+        "claim_model": claim_model,
+        "neo4j_container": neo4j_container,
+        "neo4j_user": neo4j_user,
+        "neo4j_password": neo4j_password,
+        "enable_graph": args.enable_graph,
     }
 
 
@@ -274,6 +292,27 @@ async def lifespan(app: FastAPI):
         logger.info("\u2705 API key auth enabled")
     else:
         logger.warning("\u26a0\ufe0f No CHAT_SERVER_API_KEY set — server is open (no auth)")
+
+    # Graph pipeline (claim extraction + Neo4j write)
+    if cfg["enable_graph"]:
+        router_state.claim_llm_client = OpenAI(
+            api_key=cfg["claim_api_key"],
+            base_url=cfg["claim_base_url"],
+        )
+        router_state.claim_llm_model = cfg["claim_model"]
+        router_state.neo4j_container = cfg["neo4j_container"]
+        router_state.neo4j_user = cfg["neo4j_user"]
+        router_state.neo4j_password = cfg["neo4j_password"]
+        router_state.graph_pipeline_enabled = True
+        logger.info(
+            "\u2705 Graph pipeline enabled: claim LLM=%s/%s, Neo4j=%s",
+            cfg["claim_base_url"],
+            cfg["claim_model"],
+            cfg["neo4j_container"],
+        )
+    else:
+        logger.info("\u2139\ufe0f Graph pipeline disabled (use --enable-graph to enable)")
+
     logger.info("\u2705 Listening on %s:%s", cfg["host"], cfg["port"])
 
     yield
@@ -316,6 +355,21 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--port", type=int, default=8080, help="Server port (default: 8080)")
     p.add_argument("--host", default="0.0.0.0", help="Server host (default: 0.0.0.0)")
     p.add_argument("--search-limit", type=int, default=_DEFAULT_SEARCH_LIMIT, help="Max memories per request")
+
+    # Graph pipeline (claim extraction + Neo4j)
+    p.add_argument(
+        "--enable-graph", action="store_true", help="Enable realtime graph pipeline (claim extraction + Neo4j write)"
+    )
+    p.add_argument(
+        "--claim-llm-api-key", default=None, help="API key for claim extraction LLM (default: same as mem0 LLM)"
+    )
+    p.add_argument(
+        "--claim-llm-base-url", default=None, help="Base URL for claim extraction LLM (default: same as mem0 LLM)"
+    )
+    p.add_argument("--claim-llm-model", default=None, help="Model for claim extraction LLM (default: same as mem0 LLM)")
+    p.add_argument("--neo4j-container", default=None, help="Neo4j Docker container name (default: membench-neo4j-mem0)")
+    p.add_argument("--neo4j-user", default=None, help="Neo4j username (default: neo4j)")
+    p.add_argument("--neo4j-password", default=None, help="Neo4j password (default: neo4jneo4j)")
     return p
 
 
