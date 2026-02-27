@@ -215,13 +215,27 @@ def run_cypher(
 
 
 def parse_cypher_output(output: str) -> list[dict[str, Any]]:
-    """Parse cypher-shell plain format output into list of dicts."""
+    """Parse cypher-shell plain format output into list of dicts.
+    
+    Supports both CSV format (comma-separated) and table format (pipe-separated).
+    """
     lines = output.strip().split("\n")
     if len(lines) < 1:
         return []
 
-    # First line is header
-    headers = [h.strip() for h in lines[0].split("|")]
+    # Detect format: CSV (comma-separated) or table (pipe-separated)
+    first_line = lines[0]
+    is_csv = "," in first_line and "|" not in first_line
+    
+    if is_csv:
+        # CSV format: parse as CSV
+        import csv
+        from io import StringIO
+        reader = csv.DictReader(StringIO(output))
+        return list(reader)
+    
+    # Table format (pipe-separated)
+    headers = [h.strip() for h in first_line.split("|")]
     rows = []
 
     # Start from line 1 (skip header only, no separator line in Neo4j plain format)
