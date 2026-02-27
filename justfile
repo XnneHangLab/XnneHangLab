@@ -219,13 +219,27 @@ clean-and-restart-neo4j:
   rm -rf memory_bench/neo4j-data/cognee/data
   docker compose -f memory_bench/docker-compose.neo4j.yml up -d
 
-reply-memory-and-export:
-  uv run memory_bench/scripts/replay_mem0.py ingest --force
+mem0-ingest:
+  # 增量 ingest（依赖 checkpoint，不清理）
+  uv run memory_bench/scripts/replay_mem0.py ingest
+
+mem0-export:
+  # 导出当前 mem0 快照
   uv run memory_bench/scripts/replay_mem0.py export
 
-calim-all:
+claimify-all:
+  # 增量 claimify（依赖 by_conv/*.jsonl 存在则 skip）
+  latest_export=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/replay_mem0 --glob "export_*.jsonl") && \
+  uv run ./memory_bench/scripts/claimify_all.py --input "$latest_export" --workers 2
+
+compile-claims:
+  # 汇总 claims（增量，除非 --force）
+  uv run ./memory_bench/scripts/compiled_claims.py
+
+claimify-all-force:
+  # 强制重跑 claimify
   rm -rf memory_bench/data/claims
-  latest_export=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/replay_mem0) && \
+  latest_export=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/replay_mem0 --glob "export_*.jsonl") && \
   uv run ./memory_bench/scripts/claimify_all.py --input "$latest_export" --workers 2 --force
   uv run ./memory_bench/scripts/compiled_claims.py --force
 
@@ -266,8 +280,10 @@ mem0-rerun-add:
   just build-index
   just annotate-all
   just compile-events
-  just reply-memory-and-export
-  just calim-all
+  just mem0-ingest
+  just mem0-export
+  just claimify-all
+  just compile-claims
   just memory-item-to-cypher-add
   just claim-items-to-cypher
   sleep 30 # 等待 Neo4j 处理完数据
