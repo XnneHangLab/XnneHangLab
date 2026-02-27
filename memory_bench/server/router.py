@@ -381,7 +381,9 @@ MERGE (owner)-[:OWNS_MEMORY]->(mem)
 // Link to Scene
 MATCH (scene:Node {{id: "scene:{state.metadata_scene_id}"}})
 MERGE (mem)-[:IN_SCENE]->(scene)
-MERGE (mem)-[:HAS_CHARACTER]->(scene)
+
+// Link to owner Character (HAS_CHARACTER)
+MERGE (mem)-[:HAS_CHARACTER]->(owner)
 """
 
     ok, err = _run_cypher(cypher)
