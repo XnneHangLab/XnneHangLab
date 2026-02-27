@@ -273,17 +273,77 @@ mem0-rerun-add:
   sleep 30 # 等待 Neo4j 处理完数据
   just neo4j-apply-cypher
 
-mem0-rerun-force:
-  just build-index
-  just annotate-all
-  just compile-events
-  just clean-and-restart-neo4j
-  just reply-memory-and-export
-  just calim-all
-  just memory-item-to-cypher-force
-  just claim-items-to-cypher
-  sleep 30 # 等待 Neo4j 处理完数据
-  just neo4j-apply-cypher
+# =============================================================================
+# Cleanup Recipes — 基础原语
+# =============================================================================
+
+clean-neo4j:
+  # 清空 Neo4j 图数据（影响两条管线，共享同一个容器）
+  rm -rf memory_bench/neo4j-data/mem0/data
+  docker compose -f memory_bench/docker-compose.neo4j.yml restart mem0
+
+clean-bench-logs:
+  # 清理 bench logs（只影响离线管线的中间产物）
+  rm -rf memory_bench/logs/
+
+clean-bench-state:
+  # 清理 bench state（checkpoint / state.sqlite / qdrant_storage）
+  rm -rf memory_bench/state/
+
+clean-bench-events:
+  rm -rf memory_bench/data/events/
+
+clean-bench-claims:
+  rm -rf memory_bench/data/claims/
+
+clean-bench-logs-replay:
+  # 只清理 logs/replay_mem0（export/probe 日志），保留 annotate 日志
+  rm -rf memory_bench/logs/replay_mem0/
+
+clean-bench-logs-claimify:
+  # 只清理 logs/claimify_*（claim 提取日志），保留其他
+  rm -rf memory_bench/logs/claimify_prompt/
+  rm -rf memory_bench/logs/claimify_raw/
+  rm -rf memory_bench/logs/claimify_meta/
+
+# =============================================================================
+# 快速测试入口 — 从不同 LLM 调用点切入
+# =============================================================================
+
+mem0-run-from-annotate:
+  # 从 annotate_all 开始（LLM #1：事件标注）
+  # 清空所有 → 所有步骤都强制重跑
+  just clean-neo4j
+  just clean-bench-state
+  just clean-bench-claims
+  just clean-bench-events
+  just clean-bench-logs
+  just mem0-rerun-add
+
+mem0-run-from-ingest:
+  # 从 replay_mem0 ingest 开始（跳过 LLM #1 标注）
+  # 保留 events → annotate-all 增量 skip
+  # 清 state/claims/logs/replay_mem0 → ingest/export/claimify 强制重跑
+  just clean-neo4j
+  just clean-bench-state
+  just clean-bench-claims
+  just clean-bench-logs-replay
+  just mem0-rerun-add
+
+mem0-run-from-claim:
+  # 从 claimify_all 开始（LLM #3：claim 提取）
+  # 保留 events + export → annotate/ingest/export 都增量 skip
+  # 清 claims → claimify 及之后强制重跑
+  just clean-neo4j
+  just clean-bench-state
+  just clean-bench-claims
+  just mem0-rerun-add
+
+mem0-run-real-time:
+  # 实时管线：清理 + 启动 server
+  just clean-bench-state
+  just clean-neo4j
+  just memory-chat-server
 
 mem0-rerun-top2-add:
   just build-index 2

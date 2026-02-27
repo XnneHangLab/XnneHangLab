@@ -723,3 +723,124 @@ result = write_to_neo4j(
 if not result.cypher_ok:
     log.warning("Graph write failed: %s", result.error)
 ```
+
+---
+
+## 21. 离线管线 vs 实时管线 — 差异与边界行为
+
+### 工作流对比
+
+```
+【离线管线】（用于 benchmark replay）
+┌─────────────────────────────────────────────────────────────────────────┐
+│  章节原文 → [annotate_all] → events/by_chapter → [compile_events]      │
+│              (LLM #1) ↑ 增量检查：by_chapter/*.jsonl 存在则 skip       │
+│                                    ↓                                    │
+│                          events/compiled/all.jsonl                      │
+│                                    ↓                                    │
+│  ← [replay_mem0 ingest] → state/checkpoint.json (增量：checkpoint)     │
+│              ↓                                                          │
+│  [replay_mem0 export] → logs/replay_mem0/export_*.jsonl                │
+│              ↓                                                          │
+│  [claimify_all] → claims/by_conv/*.jsonl (LLM #3)                       │
+│              ↑ 增量检查：by_conv/*.jsonl 存在则 skip                    │
+│              ↓                                                          │
+│  [compiled_claims.py] → claims/compiled/*.jsonl                         │
+│              ↓                                                          │
+│  [mem0_to_graph] → logs/replay_mem0/graphify/*.jsonl                    │
+│              ↑ 增量：state/graphify/state.sqlite                        │
+│              ↓                                                          │
+│  [graph_to_cypher] → logs/*/neo4j/*.cypher                              │
+│              ↓                                                          │
+│  [neo4j_apply_cypher] → Neo4j (MERGE 幂等)                              │
+└─────────────────────────────────────────────────────────────────────────┘
+
+【实时管线】（用于 Chat Server）
+┌─────────────────────────────────────────────────────────────────────────┐
+│  用户对话 → router.py → mem0.add() → mem0 results                       │
+│                                    ↓                                    │
+│  [claim_extractor] → claim records (内存，不持久化)                      │
+│              ↓                                                          │
+│  [graph_writer] → Cypher MERGE (内存生成，直接执行)                      │
+│              ↓                                                          │
+│  Neo4j (图数据持久化)                                                    │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### 关键差异
+
+| 维度 | 离线管线 | 实时管线 |
+|------|----------|----------|
+| **中间产物** | 全部持久化（JSONL + Cypher 文件） | 不持久化（内存中直接执行） |
+| **Claim 提取** | `claimify_all.py` → `data/claims/by_conv/*.jsonl` | `claim_extractor.py` → 内存 records |
+| **图谱构建** | `claims_to_graph.py` → `logs/claims/graphify/*.jsonl` | `graph_writer.py` → 内存 Graph IR |
+| **Cypher 生成** | `graph_to_cypher.py` → `logs/*/neo4j/*.cypher` | `graph_writer.py` → 内存 Cypher 字符串 |
+| **Neo4j 写入** | `neo4j_apply_cypher.py` 执行文件 | `graph_writer.py` 直接 `docker exec` |
+
+### 增量检查点总览
+
+| 步骤 | 脚本 | 增量依据 | 跳过条件 |
+|------|------|---------|---------|
+| 1 | `annotate_all.py` | `data/events/by_chapter/{conv_id}.jsonl` | 文件存在且非空 |
+| 2 | `replay_mem0.py ingest` | `state/mem0_*.checkpoint.json` | checkpoint 已记录该事件 |
+| 3 | `replay_mem0.py export` | 无 | 总是导出当前快照 |
+| 4 | `claimify_all.py` | `logs/replay_mem0/export_*.jsonl` + `data/claims/by_conv/{conv_id}.jsonl` | export 存在 + by_conv 存在 |
+| 5 | `compiled_claims.py` | `data/claims/compiled/*.jsonl` | 文件存在且 `--force` 未指定 |
+| 6 | `mem0_to_graph.py add` | `state/graphify/state.sqlite` | 已处理的 export 文件跳过 |
+| 7 | `graph_to_cypher.py` | 无 | 总是生成新 Cypher |
+| 8 | `neo4j_apply_cypher.py` | 无 | MERGE 幂等，重复执行安全 |
+
+### 快速测试入口（justfile）
+
+| 命令 | 清理范围 | 重跑范围 | 适用场景 |
+|------|---------|---------|---------|
+| `mem0-run-from-annotate` | 全部清空 | 全部重跑 | 第一次跑通全流程 |
+| `mem0-run-from-ingest` | 保留 events | ingest 及之后重跑 | 调试 ingest/export/claimify |
+| `mem0-run-from-claim` | 保留 events + export | claimify 及之后重跑 | 调试 claim 提取/图谱构建 |
+| `mem0-run-real-time` | qdrant + Neo4j | 实时管线 | 测试 Chat Server |
+
+### 清理边界
+
+**问：我胡乱清 logs 会不会导致下次再启动 server 时 graph 被清空？**
+
+**答：不会。** Neo4j 图数据存储在 Docker volume（`memory_bench/neo4j-data/mem0/data`），与 logs 目录完全独立。
+
+- 清理 `memory_bench/logs/` → 只删除离线管线的中间产物，**不影响 Neo4j**
+- 清理 `memory_bench/state/` → 只删除 checkpoint/state.sqlite/qdrant，**不影响 Neo4j**
+- 清理 `memory_bench/data/claims/` → 只删除离线管线的 claims 产物，**不影响 Neo4j**
+- 清理 `memory_bench/neo4j-data/` → **会清空 Neo4j**，需要重启容器
+
+**问：实时管线的中间产物在哪？清理会影响吗？**
+
+**答：实时管线没有中间产物。** `claim_extractor.py` 和 `graph_writer.py` 都在内存中完成工作，直接执行 Cypher MERGE 写入 Neo4j。清理任何文件都不会影响实时管线的历史写入。
+
+**问：清理 qdrant_storage 会不会影响已写入 Neo4j 的图？**
+
+**答：不会。** qdrant_storage 是 mem0 的向量检索存储（用于记忆检索），Neo4j 是图谱存储（用于语义关系）。清理 qdrant 只会让 mem0 "失忆"（检索不到历史记忆），但 Neo4j 中的图数据不受影响。
+
+### 增量 Apply 语义
+
+**问：如果旧文件被清空，只剩下新增文件去 apply，会不会导致图被覆盖？**
+
+**答：不会。** 两条管线都使用 Cypher `MERGE` 而非 `CREATE`：
+
+- `graph_to_cypher.py` 生成 `MERGE (n:Node {id: $id}) ON CREATE SET ...`
+- `neo4j_apply_cypher.py` 执行时，已存在的节点/边会被跳过（幂等）
+- `graph_writer.py` 同样使用 `MERGE`，实时写入也是幂等的
+
+**因此**：
+- 清空旧文件后只 apply 新文件 → **只会新增，不会覆盖/删除已有数据**
+- 重复 apply 同一份文件 → **幂等，不会重复创建**
+- 离线管线 + 实时管线混用 → **兼容，都写入同一张图**
+
+### 基础清理原语（justfile）
+
+| 命令 | 清理范围 |
+|------|---------|
+| `clean-neo4j` | Neo4j 图数据（Docker volume） |
+| `clean-bench-logs` | 整个 `logs/` 目录 |
+| `clean-bench-state` | 整个 `state/` 目录（含 checkpoint / state.sqlite / qdrant_storage） |
+| `clean-bench-events` | `data/events/` |
+| `clean-bench-claims` | `data/claims/` |
+| `clean-bench-logs-replay` | 只清 `logs/replay_mem0/` |
+| `clean-bench-logs-claimify` | 只清 `logs/claimify_*/` |
