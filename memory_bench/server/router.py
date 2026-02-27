@@ -194,6 +194,11 @@ def _create_metadata_nodes_cypher() -> str:
     Node ID format must match offline pipeline (mem0_to_graph.py):
     - user:xnne, agent:congyin, scene:chill_ai_chat
     - char:congyin (NOT character:congyin), char:xnne
+    
+    Relationships (matching offline pipeline):
+    - Agent -ACTOR→ Character
+    - User -USER_IN_SCENE→ Scene
+    - Character -IN_SCENE→ Scene (NOT Agent!)
     """
     return f"""
 // Create/update User node
@@ -227,8 +232,9 @@ MERGE (agent)-[:ACTOR]->(character)
 // Create User-Scene relationship
 MERGE (user)-[:USER_IN_SCENE]->(scene)
 
-// Create Agent-Scene relationship (for conversation context)
-MERGE (agent)-[:IN_SCENE]->(scene)
+// Create Character-Scene relationship (NOT Agent!)
+MERGE (character)-[:IN_SCENE]->(scene)
+MERGE (user_char)-[:IN_SCENE]->(scene)
 """
 
 
@@ -392,10 +398,12 @@ ON CREATE SET conv.labels = ["Conversation"], conv.conv_id = "{conv_id}", conv.d
 ON MATCH SET conv.labels = ["Conversation"]
 
 // Link to owner Character (NOTE: char: prefix)
+WITH mem, conv
 MATCH (owner:Node {{id: "char:{owner_character_id}"}})
 MERGE (owner)-[:OWNS_MEMORY]->(mem)
 
 // Link to Scene
+WITH mem, owner
 MATCH (scene:Node {{id: "scene:{state.metadata_scene_id}"}})
 MERGE (mem)-[:IN_SCENE]->(scene)
 
