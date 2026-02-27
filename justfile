@@ -145,7 +145,7 @@ fmt: # 似乎不会检查被 .gitignore 忽略的文件
 
 lint:
   uv run pyright src/lab tests
-  uv run ruff check . --exclude packages
+  uv run ruff check . --exclude packages --exclude .git
 
 fmt-docs:
   prettier --ignore-path .prettierignore --write '**/*.md'
@@ -172,7 +172,7 @@ ci-lint:
 # memory bench
 
 memory-chat-server port='8080':
-  uv run memory_bench/server/chat_server.py --port {{ port }}
+  uv run memory_bench/server/chat_server.py --port {{ port }} --enable-graph
 
 memory-chat-cli base_url='http://localhost:8080':
   uv run memory_bench/server/chat_cli.py --base-url {{ base_url }}

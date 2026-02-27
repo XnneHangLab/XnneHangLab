@@ -38,6 +38,7 @@ memory_bench/
 │  ├─ graph_to_cypher.py
 │  ├─ neo4j_apply_cypher.py
 │  ├─ neo4j_clear.py       (清空 Neo4j，不重启容器)
+│  ├─ export_schema.py     (导出 Neo4j Schema 参考文档)
 │  ├─ latest_file.py
 │  ├─ bench_logger.py      (工具模块)
 │  ├─ tag_registry.py      (工具模块)

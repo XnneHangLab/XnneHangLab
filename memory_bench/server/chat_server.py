@@ -50,22 +50,55 @@ _DEFAULT_SEARCH_LIMIT = 10
 _DEFAULT_USER_ID = "xnne"
 _DEFAULT_AGENT_ID = "congyin"
 
-# Custom fact extraction prompt — instruct mem0's LLM to ignore system/role
-# definitions and only extract user-relevant facts from the conversation.
-_FACT_EXTRACTION_PROMPT = """Deduce the facts, preferences, and memories from the provided text.
-Below is the conversation between a user and an AI assistant.
+# Custom fact extraction prompt — extract facts about BOTH user and AI assistant.
+# Output in Chinese with clear prefixes to distinguish ownership.
+# Use concise, keyword-rich format for optimal search matching.
+_FACT_EXTRACTION_PROMPT = """你是一个事实提取器。你的任务是从对话中提取关于**用户**和**AI 助手**的事实。
 
-IMPORTANT RULES:
-- ONLY extract facts about the USER: preferences, experiences, feelings, plans,
-  relationships, habits, knowledge, opinions.
-- IGNORE any system instructions, character role definitions, persona descriptions,
-  or assistant behavior guidelines.
-- If no user-relevant facts are found, return an empty list.
+输入：一段用户与 AI 助手之间的对话。
 
-Please return the response in the following JSON format:
-{{
-  "facts": ["fact 1", "fact 2", ...]
-}}"""
+## 关键规则
+
+1. **提取用户的事实**（关于说话的人）：
+   - 偏好（喜欢/不喜欢什么）
+   - 经历（做过什么事、去过哪里）
+   - 习惯（日常行为）
+   - 关系（家人、朋友、同事）
+   - 知识/技能（会什么、懂什么）
+   - 观点/信念（怎么想、重视什么）
+   - 计划/目标（想做什么）
+
+2. **提取 AI 助手的事实**（关于 AI 自己的描述）：
+   - AI 的名字/身份
+   - AI 的性格特点
+   - AI 的能力/限制
+   - AI 的偏好（如果 AI 表达了）
+   - AI 的背景故事（如果有）
+
+3. **输出格式**：每条事实必须加前缀，用**简洁的关键词风格**（不要用"我"/"用户"/"AI"等冗余词）
+   - `[User] ...` = 关于用户的事实（直接陈述事实，不加主语）
+   - `[Agent] ...` = 关于 AI 助手的事实（直接陈述事实，不加主语）
+
+4. **语言**：所有事实必须用**中文**输出
+
+## 示例
+
+用户："我叫 xnne，喜欢打篮球。"
+→ 提取：["[User] 名字是 xnne。", "[User] 喜欢打篮球。"]
+
+AI："我是聪音，性格有点内向。"
+→ 提取：["[Agent] 名字是聪音。", "[Agent] 性格有点内向。"]
+
+用户："今天天气不错" / AI："是啊，适合出门"
+→ 提取：[]（没有持久性事实）
+
+## 输出格式（JSON）
+
+{
+  "facts": ["[User/Agent] ...", "[User/Agent] ...", ...]
+}
+
+如果没有发现任何事实，返回：{"facts": []}"""
 
 
 # ---------------------------------------------------------------------------
@@ -251,6 +284,15 @@ def _resolve_config(args: argparse.Namespace) -> dict[str, Any]:
         "neo4j_user": neo4j_user,
         "neo4j_password": neo4j_password,
         "enable_graph": args.enable_graph,
+        # Metadata nodes
+        "metadata_user_id": args.metadata_user_id or _get_env("METADATA_USER_ID", "xnne"),
+        "metadata_user_name": args.metadata_user_name or _get_env("METADATA_USER_NAME", "xnne"),
+        "metadata_agent_id": args.metadata_agent_id or _get_env("METADATA_AGENT_ID", "congyin"),
+        "metadata_agent_name": args.metadata_agent_name or _get_env("METADATA_AGENT_NAME", "congyin"),
+        "metadata_scene_id": args.metadata_scene_id or _get_env("METADATA_SCENE_ID", "chill_ai_chat"),
+        "metadata_scene_name": args.metadata_scene_name or _get_env("METADATA_SCENE_NAME", "Chill AI Chat"),
+        "metadata_character_id": args.metadata_character_id or _get_env("METADATA_CHARACTER_ID", "congyin"),
+        "metadata_character_name": args.metadata_character_name or _get_env("METADATA_CHARACTER_NAME", "聪音 (Congyin)"),
     }
 
 
@@ -304,12 +346,24 @@ async def lifespan(app: FastAPI):
         router_state.neo4j_user = cfg["neo4j_user"]
         router_state.neo4j_password = cfg["neo4j_password"]
         router_state.graph_pipeline_enabled = True
+        # Metadata nodes
+        router_state.metadata_user_id = cfg["metadata_user_id"]
+        router_state.metadata_user_name = cfg["metadata_user_name"]
+        router_state.metadata_agent_id = cfg["metadata_agent_id"]
+        router_state.metadata_agent_name = cfg["metadata_agent_name"]
+        router_state.metadata_scene_id = cfg["metadata_scene_id"]
+        router_state.metadata_scene_name = cfg["metadata_scene_name"]
+        router_state.metadata_character_id = cfg["metadata_character_id"]
+        router_state.metadata_character_name = cfg["metadata_character_name"]
         logger.info(
             "\u2705 Graph pipeline enabled: claim LLM=%s/%s, Neo4j=%s",
             cfg["claim_base_url"],
             cfg["claim_model"],
             cfg["neo4j_container"],
         )
+        # Initialize metadata nodes
+        from memory_bench.server.router import init_metadata_nodes
+        init_metadata_nodes()
     else:
         logger.info("\u2139\ufe0f Graph pipeline disabled (use --enable-graph to enable)")
 
@@ -370,6 +424,15 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--neo4j-container", default=None, help="Neo4j Docker container name (default: membench-neo4j-mem0)")
     p.add_argument("--neo4j-user", default=None, help="Neo4j username (default: neo4j)")
     p.add_argument("--neo4j-password", default=None, help="Neo4j password (default: neo4jneo4j)")
+    # Metadata nodes
+    p.add_argument("--metadata-user-id", default=None, help="User ID for metadata nodes (default: xnne)")
+    p.add_argument("--metadata-user-name", default=None, help="User name for metadata nodes (default: xnne)")
+    p.add_argument("--metadata-agent-id", default=None, help="Agent ID for metadata nodes (default: congyin)")
+    p.add_argument("--metadata-agent-name", default=None, help="Agent name for metadata nodes (default: congyin)")
+    p.add_argument("--metadata-scene-id", default=None, help="Scene ID for metadata nodes (default: chill_ai_chat)")
+    p.add_argument("--metadata-scene-name", default=None, help="Scene name for metadata nodes (default: Chill AI Chat)")
+    p.add_argument("--metadata-character-id", default=None, help="Character ID for metadata nodes (default: congyin)")
+    p.add_argument("--metadata-character-name", default=None, help="Character name for metadata nodes (default: 聪音 (Congyin))")
     return p
 
 

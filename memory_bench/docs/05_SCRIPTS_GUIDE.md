@@ -28,6 +28,7 @@
   - `graph_to_cypher.py`（原 neo4j_export_cypher.py）
   - `neo4j_apply_cypher.py`
   - `neo4j_clear.py`（清空 Neo4j 图数据，不重启容器）
+  - `export_schema.py`（导出 Neo4j 图谱 Schema 参考文档）
   - `latest_file.py`
 
 - **工具模块**（非 CLI 主入口）
@@ -909,3 +910,131 @@ if not result.cypher_ok:
 | `clean-bench-events` | `data/events/` |
 | `clean-bench-claims` | `data/claims/` |
 | `clean-realtime` | qdrant_storage + Neo4j（实时管线专用） |
+
+---
+
+## 21. Neo4j Schema 导出（export_schema.py）
+
+> **用途**：导出 Neo4j 图谱的完整 Schema 参考文档，包括节点示例和关系示例。
+> **输出**：`memory_bench/docs/06_SCHEMA_REFERENCE.md`
+
+### 调用示例
+
+```bash
+# 导出 Markdown 格式（默认）
+uv run memory_bench/scripts/export_schema.py
+
+# 导出 JSON 格式
+uv run memory_bench/scripts/export_schema.py --format json
+
+# 自定义输出路径
+uv run memory_bench/scripts/export_schema.py --output /tmp/schema.md
+
+# 指定 Neo4j 容器
+uv run memory_bench/scripts/export_schema.py --container my-neo4j-container
+```
+
+### 输入
+
+- **Neo4j 容器**：从 `.env.benchmark` 读取 `NEO4J_CONTAINER`（默认：`membench-neo4j-mem0`）
+- **认证信息**：从 `.env.benchmark` 读取 `NEO4J_USER` 和 `NEO4J_PASSWORD`
+
+### 输出
+
+**Markdown 格式**（`06_SCHEMA_REFERENCE.md`）：
+
+```markdown
+# Neo4j 图谱 Schema 参考
+
+## 节点示例（按 ID 前缀分类，每类一个完整示例）
+
+### MemoryItem
+- **ID**: mem:59484ed1e8b9edf03c71c86146e8fc88
+- **Name**: [User] 会使用一个小杯子来给茶散热。 #59484ed1
+- **Display**: [User] 会使用一个小杯子来给茶散热。 #59484ed1
+- **Properties**:
+```json
+{
+  "point_id": "74bcb98f-4b74-4f0a-988b-0d6618061c14",
+  "data": "[User] 会使用一个小杯子来给茶散热。",
+  "created_at": "2026-02-27T04:08:26.369766-08:00",
+  ...
+}
+```
+
+## 关系示例（每个类型一个完整示例）
+
+| 关系类型 | 源节点 | 源节点 ID | 目标节点 | 目标节点 ID |
+|----------|--------|-----------|----------|-------------|
+| ABOUT | Node | claim:... | Node | topic:... |
+| ACTOR | Node | agent:congyin | Node | char:congyin |
+| OWNS_MEMORY | Character | char:xnne | MemoryItem | mem:... |
+...
+```
+
+**JSON 格式**：
+
+```json
+{
+  "generated_at": "2026-02-27T21:44:11.900543+08:00",
+  "neo4j_container": "membench-neo4j-mem0",
+  "node_examples": [
+    {
+      "node_type": "MemoryItem",
+      "id": "mem:xxx",
+      "name": "...",
+      "display": "...",
+      "all_props": {...}
+    }
+  ],
+  "edge_examples": [...]
+}
+```
+
+### 节点分类规则
+
+脚本根据节点 ID 的前缀自动分类：
+
+| ID 前缀 | 节点类型 |
+|---------|---------|
+| `mem:` | MemoryItem |
+| `claim:` | Claim |
+| `topic:` | Topic |
+| `char:` | Character |
+| `user:` | User |
+| `agent:` | Agent |
+| `scene:` | Scene |
+| `conv:` | Conversation |
+| `dom:` | Domain |
+| `pred:` | Predicate |
+| 其他 | Other |
+
+### 使用场景
+
+1. **验证图谱结构**：检查节点和关系是否符合预期
+2. **调试数据问题**：查看具体节点的完整属性
+3. **文档生成**：自动生成最新的 Schema 参考文档
+4. **离线/实时管线对比**：分别导出两个管线的 Schema，确保一致
+
+### 常见问题
+
+**问：为什么有些节点的 Properties 是空字典？**
+
+**答**：可能该节点只有 `id`、`name`、`display` 等基础属性，没有其他自定义属性。
+
+**问：导出的关系示例里为什么只有 12 个？**
+
+**答**：`export_schema.py` 对每个关系类型只保留一个示例（去重），避免文档过长。完整的关系数据可以通过 Neo4j Browser 直接查询。
+
+**问：JSON 解析失败怎么办？**
+
+**答**：脚本内置了智能 CSV 解析器，处理 Neo4j 输出的嵌套 JSON。如果仍有问题，检查 Neo4j 版本是否兼容，或手动运行查询验证：
+
+```cypher
+MATCH (n)
+WHERE n.id IS NOT NULL
+WITH labels(n)[0] AS label, n
+WITH label, collect(n)[0] AS example
+RETURN label, properties(example) AS all_props
+LIMIT 1;
+```
