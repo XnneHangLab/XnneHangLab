@@ -144,7 +144,10 @@ def rewrite_user_ref(entity_type: str, entity_id: str, benchmark_user_id: str, e
 def map_subject_to_tree_root(entity_type: str, entity_id: str) -> tuple[str, str, dict[str, Any]]:
     """将 claim 主体映射到树状根节点。
 
-    规则：当主体为 Agent 时映射到 Character；其它类型保持原样。
+    规则：
+    - Agent → Character（agent:congyin → char:congyin）
+    - User → Character（user:xnne → char:xnne）
+    - 其它类型保持原样
 
     Args:
         entity_type: 主体实体类型。
@@ -156,6 +159,18 @@ def map_subject_to_tree_root(entity_type: str, entity_id: str) -> tuple[str, str
 
     if entity_type == "Agent":
         character_id = entity_id.removeprefix("agent:")
+        char_node_id = f"char:{character_id}"
+        return (
+            char_node_id,
+            "Character",
+            {
+                "character_id": character_id,
+                "display": character_id,
+                "name": character_id,
+            },
+        )
+    elif entity_type == "User":
+        character_id = entity_id.removeprefix("user:")
         char_node_id = f"char:{character_id}"
         return (
             char_node_id,

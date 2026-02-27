@@ -586,7 +586,73 @@ def build_graph_from_record(
     add_edge("CONV_IN_SCENE", "Conversation", "Scene")
     add_edge("CONV_HAS_CHARACTER", "Conversation", "Character")
     add_edge("USER_IN_SCENE", "User", "Scene")
-    add_edge("ACTOR", "Agent", "Character")
+    
+    # ACTOR 关系：Agent → 自己的 Character（不是 owner character！）
+    # 从 payload 中获取 agent_id，映射到对应的 character
+    agent_id = str(payload.get("agent_id") or "").strip()
+    if agent_id:
+        agent_char_id = agent_id  # agent:congyin → char:congyin
+        agent_char_node_id = make_node_id("Character", agent_char_id)
+        if agent_char_node_id not in node_refs.values():
+            nodes.append(
+                {
+                    "id": agent_char_node_id,
+                    "labels": ["Character"],
+                    "props": {"character_id": agent_char_id, "display": agent_char_id, "name": agent_char_id},
+                }
+            )
+        # 确保 Agent 节点存在
+        agent_node_id = make_node_id("Agent", agent_id)
+        if agent_node_id not in node_refs.get("Agent", ""):
+            nodes.append(
+                {
+                    "id": agent_node_id,
+                    "labels": ["Agent"],
+                    "props": {"agent_id": agent_id, "display": agent_id, "name": agent_id},
+                }
+            )
+        edges.append(
+            {
+                "id": edge_id("ACTOR", agent_node_id, agent_char_node_id),
+                "type": "ACTOR",
+                "src": agent_node_id,
+                "dst": agent_char_node_id,
+                "props": provenance_props,
+            }
+        )
+    
+    # ACTOR 关系：User → 自己的 Character（固定为 char:xnne）
+    user_id = str(payload.get("user_id") or "").strip()
+    if user_id:
+        user_char_id = user_id  # user:xnne → char:xnne
+        user_char_node_id = make_node_id("Character", user_char_id)
+        if user_char_node_id not in node_refs.values():
+            nodes.append(
+                {
+                    "id": user_char_node_id,
+                    "labels": ["Character"],
+                    "props": {"character_id": user_char_id, "display": user_char_id, "name": user_char_id},
+                }
+            )
+        # 确保 User 节点存在
+        user_node_id = make_node_id("User", user_id)
+        if user_node_id not in node_refs.get("User", ""):
+            nodes.append(
+                {
+                    "id": user_node_id,
+                    "labels": ["User"],
+                    "props": {"user_id": user_id, "display": user_id, "name": user_id},
+                }
+            )
+        edges.append(
+            {
+                "id": edge_id("ACTOR", user_node_id, user_char_node_id),
+                "type": "ACTOR",
+                "src": user_node_id,
+                "dst": user_char_node_id,
+                "props": provenance_props,
+            }
+        )
 
     return nodes, edges
 
