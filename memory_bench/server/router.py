@@ -188,7 +188,12 @@ def _format_memories(memories: list[dict[str, Any]]) -> str:
 
 
 def _create_metadata_nodes_cypher() -> str:
-    """Generate Cypher to create/update metadata nodes (User, Agent, Scene, Character)."""
+    """Generate Cypher to create/update metadata nodes (User, Agent, Scene, Character).
+    
+    Node ID format must match offline pipeline (mem0_to_graph.py):
+    - user:xnne, agent:congyin, scene:chill_ai_chat
+    - char:congyin (NOT character:congyin), char:xnne
+    """
     return f"""
 // Create/update User node
 MERGE (user:Node {{id: "user:{state.metadata_user_id}"}})
@@ -205,13 +210,13 @@ MERGE (scene:Node {{id: "scene:{state.metadata_scene_id}"}})
 ON CREATE SET scene.name = "{state.metadata_scene_name}", scene.labels = ["Scene"]
 ON MATCH SET scene.name = "{state.metadata_scene_name}", scene.labels = ["Scene"]
 
-// Create/update Character node (Agent's character)
-MERGE (character:Node {{id: "character:{state.metadata_character_id}"}})
+// Create/update Character node (Agent's character) - NOTE: char: prefix (NOT character:)
+MERGE (character:Node {{id: "char:{state.metadata_character_id}"}})
 ON CREATE SET character.name = "{state.metadata_character_name}", character.labels = ["Character"]
 ON MATCH SET character.name = "{state.metadata_character_name}", character.labels = ["Character"]
 
-// Create User's Character node (for user-owned memories)
-MERGE (user_char:Node {{id: "character:{state.metadata_user_id}"}})
+// Create User's Character node (for user-owned memories) - NOTE: char: prefix
+MERGE (user_char:Node {{id: "char:{state.metadata_user_id}"}})
 ON CREATE SET user_char.name = "{state.metadata_user_name}", user_char.labels = ["Character"]
 ON MATCH SET user_char.name = "{state.metadata_user_name}", user_char.labels = ["Character"]
 
@@ -328,28 +333,27 @@ def _determine_owner(mem0_item: dict[str, Any], memory_text: str) -> str:
     """Determine which character owns this memory.
     
     Strategy: Check memory text prefix to determine owner.
-    - "[User] ..." → User's character (user:xnne)
-    - "[Agent] ..." → Agent's character (character:congyin)
+    - "[User] ..." → User's character (char:xnne)
+    - "[Agent] ..." → Agent's character (char:congyin)
     - No prefix → Fallback to Agent's character
     
     Returns:
-        character_id: The character who owns this memory
+        character_id: The character ID (without prefix, e.g., "xnne" or "congyin")
     """
     # Check if memory has [User] or [Agent] prefix
     if memory_text.startswith("[User]"):
         # User's memory → return user's character ID
-        # For now, assume user's character ID is same as user_id
-        return state.user_id  # "xnne"
+        return state.user_id  # "xnne" → char:xnne
     elif memory_text.startswith("[Agent]"):
         # Agent's memory → return agent's character ID
-        return state.metadata_character_id  # "congyin"
+        return state.metadata_character_id  # "congyin" → char:congyin
     else:
         # No prefix → fallback to Agent's character (consistent with offline pipeline)
         return state.metadata_character_id
 
 
 def create_memory_item_node_v2(mem0_item: dict[str, Any], memory_text: str) -> None:
-    """Create MemoryItem node and link to Character (owner) + Scene.
+    """Create MemoryItem node and link to Character (owner) + Scene + Conversation.
     
     Args:
         mem0_item: Full mem0 result item (for owner detection)
@@ -364,9 +368,16 @@ def create_memory_item_node_v2(mem0_item: dict[str, Any], memory_text: str) -> N
     memory_key = hashlib.sha256(memory_text.encode()).hexdigest()[:12]
     node_id = f"mem:{memory_key}"
 
-    # Determine owner character (all memories owned by Agent's Character)
+    # Determine owner character
     owner_character_id = _determine_owner(mem0_item, memory_text)
     log.info("🎯 Memory owner: %s (for: %s)", owner_character_id, memory_text[:50])
+
+    # Generate conversation ID from current date (e.g., "2026-02-27")
+    from datetime import datetime, timezone
+    conv_id = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    conv_node_id = f"conv:{conv_id}"
+    
+    log.info("💬 Conversation: %s", conv_node_id)
 
     cypher = f"""
 // Create MemoryItem node
@@ -374,8 +385,13 @@ MERGE (mem:Node {{id: "{node_id}"}})
 ON CREATE SET mem.labels = ["MemoryItem"], mem.text = "{memory_text[:200].replace(chr(34), chr(92)+chr(34))}"
 ON MATCH SET mem.text = "{memory_text[:200].replace(chr(34), chr(92)+chr(34))}"
 
-// Link to owner Character
-MATCH (owner:Node {{id: "character:{owner_character_id}"}})
+// Create Conversation node (by date)
+MERGE (conv:Node {{id: "{conv_node_id}"}})
+ON CREATE SET conv.labels = ["Conversation"], conv.conv_id = "{conv_id}", conv.display = "{conv_id}", conv.name = "{conv_id}"
+ON MATCH SET conv.labels = ["Conversation"]
+
+// Link to owner Character (NOTE: char: prefix)
+MATCH (owner:Node {{id: "char:{owner_character_id}"}})
 MERGE (owner)-[:OWNS_MEMORY]->(mem)
 
 // Link to Scene
@@ -384,11 +400,18 @@ MERGE (mem)-[:IN_SCENE]->(scene)
 
 // Link to owner Character (HAS_CHARACTER)
 MERGE (mem)-[:HAS_CHARACTER]->(owner)
+
+// Link to Conversation (FROM_CONV)
+MERGE (mem)-[:FROM_CONV]->(conv)
+
+// Link Conversation to Scene and Character
+MERGE (conv)-[:CONV_IN_SCENE]->(scene)
+MERGE (conv)-[:CONV_HAS_CHARACTER]->(owner)
 """
 
     ok, err = _run_cypher(cypher)
     if ok:
-        log.info("✅ MemoryItem created: %s (owner: %s)", node_id, owner_character_id)
+        log.info("✅ MemoryItem created: %s (owner: %s, conv: %s)", node_id, owner_character_id, conv_id)
     else:
         log.warning("⚠️  Failed to create MemoryItem: %s", err)
 
