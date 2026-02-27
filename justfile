@@ -172,7 +172,7 @@ ci-lint:
 # memory bench
 
 memory-chat-server port='8080':
-  uv run memory_bench/server/chat_server.py --port {{ port }}
+  uv run memory_bench/server/chat_server.py --port {{ port }} --enable-graph
 
 memory-chat-cli base_url='http://localhost:8080':
   uv run memory_bench/server/chat_cli.py --base-url {{ base_url }}
