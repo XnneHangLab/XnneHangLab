@@ -126,7 +126,7 @@ def run_cypher(
         "-p",
         password,
         "--format",
-        "verbose",  # Use verbose format for better structured output
+        "plain",
     ]
 
     try:
@@ -151,56 +151,18 @@ def run_cypher(
     return False, msg
 
 
-def parse_cypher_output(output: str) -> list[dict[str, Any]]:
-    """Parse cypher-shell verbose format output into list of dicts.
+def parse_cypher_output(output: str) -> list[dict[str, str]]:
+    """Parse cypher-shell plain format output into list of dicts.
     
-    Verbose format example:
-    label: "MemoryItem"
-    id: "mem:xxx"
-    name: "[User] ..."
-    display: "[User] ..."
-    all_props: {name: "congyin", ...}
-    ---
+    Supports both CSV format (comma-separated) and table format (pipe-separated).
     """
     lines = output.strip().split("\n")
     if len(lines) < 1:
         return []
 
-    # Check if this is verbose format (key: value pairs)
-    is_verbose = ":" in lines[0] and not lines[0].startswith("label,")
-    
-    if is_verbose:
-        # Verbose format: parse key: value pairs separated by ---
-        rows = []
-        current_row = {}
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            
-            if line == "---":
-                # End of record
-                if current_row:
-                    rows.append(current_row)
-                    current_row = {}
-                continue
-            
-            # Parse key: value
-            if ":" in line:
-                key, _, value = line.partition(":")
-                key = key.strip()
-                value = value.strip()
-                current_row[key] = value
-        
-        # Don't forget the last record
-        if current_row:
-            rows.append(current_row)
-        
-        return rows
-    
-    # CSV format (comma-separated)
-    is_csv = "," in lines[0] and "|" not in lines[0]
+    # Detect format: CSV (comma-separated) or table (pipe-separated)
+    first_line = lines[0]
+    is_csv = "," in first_line and "|" not in first_line
     
     if is_csv:
         # CSV format: parse as CSV
@@ -216,7 +178,7 @@ def parse_cypher_output(output: str) -> list[dict[str, Any]]:
             rows.append(cleaned_row)
         return rows
     
-    # Table format (pipe-separated) - not used
+    # Table format (pipe-separated) - not used in this simplified version
     return []
 
 
@@ -243,8 +205,11 @@ def generate_schema_data(container: str) -> dict:
     log.info("查询节点示例（按 ID 前缀分类）...")
     ok, output = run_cypher(QUERY_ALL_NODES_BY_PREFIX, container=container)
     if ok:
+        log.info("节点示例原始输出:\n%s", output[:3000])
         data["node_examples"] = parse_cypher_output(output)
         log.info("节点示例：%d 个", len(data["node_examples"]))
+        if data["node_examples"]:
+            log.info("第一条数据的 all_props: %s", data["node_examples"][0].get("all_props", "")[:500])
     else:
         log.error("节点示例查询失败：%s", output)
 
