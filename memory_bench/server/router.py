@@ -403,7 +403,7 @@ def create_memory_item_node_v2(mem0_item: dict[str, Any], memory_text: str) -> N
 // Create MemoryItem node (properties aligned with offline pipeline)
 MERGE (mem:Node {{id: "{node_id}"}})
 ON CREATE SET
-  mem.labels = ["MemoryItem"],
+  mem.labels = ["MemoryItem", "Node"],
   mem.data = "{_esc_data}",
   mem.payload_hash = "{payload_hash}",
   mem.display = "{_esc_display}",
@@ -414,6 +414,7 @@ ON CREATE SET
   mem.collection = "memory_bench_global",
   mem.exported_at = "{now_iso}"
 ON MATCH SET
+  mem.labels = ["MemoryItem", "Node"],
   mem.data = "{_esc_data}",
   mem.payload_hash = "{payload_hash}",
   mem.display = "{_esc_display}",
