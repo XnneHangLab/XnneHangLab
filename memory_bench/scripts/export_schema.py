@@ -87,9 +87,12 @@ ORDER BY rel_type
 QUERY_EXAMPLE_NODE_PER_LABEL = """
 // 每个标签查询一个完整示例节点（包含所有属性）
 MATCH (n)
-WITH labels(n)[0] AS label, n
+WITH labels(n) AS node_labels, n
+WHERE size(node_labels) > 0
+WITH node_labels[0] AS label, n
 ORDER BY label
-WITH label, collect(n)[0] AS example
+WITH label, collect(n) AS nodes
+WITH label, nodes[0] AS example
 RETURN 
   label,
   example.id AS id,
@@ -232,7 +235,12 @@ def parse_cypher_output(output: str) -> list[dict[str, Any]]:
         import csv
         from io import StringIO
         reader = csv.DictReader(StringIO(output))
-        return list(reader)
+        # Strip whitespace from keys and values
+        rows = []
+        for row in reader:
+            cleaned_row = {k.strip(): v.strip() if isinstance(v, str) else v for k, v in row.items()}
+            rows.append(cleaned_row)
+        return rows
     
     # Table format (pipe-separated)
     headers = [h.strip() for h in first_line.split("|")]
