@@ -210,13 +210,14 @@ MERGE (character:Node {{id: "character:{state.metadata_character_id}"}})
 ON CREATE SET character.name = "{state.metadata_character_name}", character.labels = ["Character"]
 ON MATCH SET character.name = "{state.metadata_character_name}", character.labels = ["Character"]
 
-// Create relationships
-MERGE (user)-[:OWNS_MEMORY]->(agent)
-MERGE (agent)-[:TARGETS_AGENT]->(user)
+// Create Agent-Character relationship
+MERGE (agent)-[:ACTOR]->(character)
+
+// Create User-Scene relationship
+MERGE (user)-[:USER_IN_SCENE]->(scene)
+
+// Create Agent-Scene relationship (for conversation context)
 MERGE (agent)-[:IN_SCENE]->(scene)
-MERGE (agent)-[:HAS_CHARACTER]->(character)
-MERGE (user)-[:IN_SCENE]->(scene)
-MERGE (user)-[:ACTOR]->(character)
 """
 
 
@@ -318,6 +319,92 @@ MERGE (mem)-[:FROM_CONV]->(agent)
         log.warning("⚠️  Failed to create MemoryItem: %s", err)
 
 
+def _determine_owner(mem0_item: dict[str, Any], memory_text: str) -> str:
+    """Determine which character owns this memory.
+    
+    Strategy (in order):
+    1. Check mem0_item for owner info (owner_type, owner_id, character_id, etc.)
+    2. Check if memory text mentions user name → User's character
+    3. Fallback to Agent's character
+    
+    Returns:
+        character_id: The character who owns this memory
+    """
+    # Strategy 1: Check mem0 metadata
+    owner_type = mem0_item.get("owner_type", "")
+    owner_id = mem0_item.get("owner_id", "")
+    character_id = mem0_item.get("character_id", "")
+    agent_id = mem0_item.get("agent_id", "")
+    user_id = mem0_item.get("user_id", "")
+    
+    log.info("🔍 Owner detection: owner_type=%s, owner_id=%s, character_id=%s, agent_id=%s, user_id=%s",
+             owner_type, owner_id, character_id, agent_id, user_id)
+    
+    # If we have explicit character_id, use it
+    if character_id:
+        return character_id
+    
+    # If we have owner info, try to map to character
+    if owner_type == "Agent" and owner_id:
+        return owner_id  # Agent's character ID
+    
+    if owner_type == "User" and owner_id:
+        # User's character ID (might be same as user_id or different)
+        # For now, assume user has a character with same ID
+        return owner_id
+    
+    # Strategy 2: Fallback to Agent's character
+    if agent_id:
+        return agent_id
+    
+    # Strategy 3: Ultimate fallback
+    return state.metadata_character_id
+
+
+def create_memory_item_node_v2(mem0_item: dict[str, Any], memory_text: str) -> None:
+    """Create MemoryItem node and link to Character (owner) + Scene.
+    
+    Args:
+        mem0_item: Full mem0 result item (for owner detection)
+        memory_text: The memory text content
+    """
+    if not state.graph_pipeline_enabled:
+        return
+
+    log = logger.bind(group="metadata")
+
+    # Generate a unique ID for this memory item
+    memory_key = hashlib.sha256(memory_text.encode()).hexdigest()[:12]
+    node_id = f"mem:{memory_key}"
+
+    # Determine owner character
+    # Strategy: Check if mem0 item has owner info, fallback to agent's character
+    owner_character_id = _determine_owner(mem0_item, memory_text)
+    log.info("🎯 Memory owner: %s (for: %s)", owner_character_id, memory_text[:50])
+
+    cypher = f"""
+// Create MemoryItem node
+MERGE (mem:Node {{id: "{node_id}"}})
+ON CREATE SET mem.labels = ["MemoryItem"], mem.text = "{memory_text[:200].replace(chr(34), chr(92)+chr(34))}"
+ON MATCH SET mem.text = "{memory_text[:200].replace(chr(34), chr(92)+chr(34))}"
+
+// Link to owner Character
+MATCH (owner:Node {{id: "character:{owner_character_id}"}})
+MERGE (owner)-[:OWNS_MEMORY]->(mem)
+
+// Link to Scene
+MATCH (scene:Node {{id: "scene:{state.metadata_scene_id}"}})
+MERGE (mem)-[:IN_SCENE]->(scene)
+MERGE (mem)-[:HAS_CHARACTER]->(scene)
+"""
+
+    ok, err = _run_cypher(cypher)
+    if ok:
+        log.info("✅ MemoryItem created: %s (owner: %s)", node_id, owner_character_id)
+    else:
+        log.warning("⚠️  Failed to create MemoryItem: %s", err)
+
+
 def _inject_memories(
     messages: list[ChatMessage],
     memories_text: str,
@@ -364,10 +451,13 @@ def _add_memory_sync(user_msg: str, assistant_msg: str) -> list[dict[str, Any]]:
             for item in results:
                 event = item.get("event", "unknown")
                 memory_text = item.get("memory", "")
+                # DEBUG: 打印完整结构，帮助判断 owner
                 log.info("\U0001f4be mem0 %s: %s", event, memory_text[:150])
+                log.info("\U0001f50d DEBUG mem0 item keys: %s", list(item.keys()))
+                log.info("\U0001f50d DEBUG mem0 item full: %s", json.dumps(item, indent=2)[:500])
                 # Create MemoryItem node for each new memory
                 if event == "ADD" and memory_text:
-                    create_memory_item_node(memory_text[:200], memory_text)
+                    create_memory_item_node_v2(item, memory_text)
         else:
             log.info("\U0001f4be mem0 returned no new memory items")
         return results
