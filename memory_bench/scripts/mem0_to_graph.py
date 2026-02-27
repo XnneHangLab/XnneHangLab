@@ -833,6 +833,91 @@ def run_graphify(
 
         nodes = list(nodes_map.values())
         edges = list(edges_map.values())
+        
+        # 添加固定的 metadata 节点和关系（确保 Character 连接到 Scene）
+        # 这些关系不依赖单条记录，全局只添加一次
+        timestamp = now_iso()
+        metadata_provenance = {
+            "processed_key": f"metadata_{timestamp}",
+            "source_point_id": "metadata",
+            "exported_at": timestamp,
+            "created_at": timestamp,
+        }
+        
+        # 添加固定的 Character -IN_SCENE→ Scene 关系
+        # 确保即使没有 MemoryItem，Character 也不会游离
+        scene_id = "scene:chill_ai_chat"
+        scene_node = {
+            "id": scene_id,
+            "labels": ["Scene"],
+            "props": {"scene_id": "chill_ai_chat", "display": "chill_ai_chat", "name": "chill_ai_chat"},
+        }
+        if scene_id not in nodes_map:
+            nodes_map[scene_id] = scene_node
+        
+        # agent:congyin -ACTOR→ char:congyin -IN_SCENE→ scene:chill_ai_chat
+        agent_id = "agent:congyin"
+        agent_char_id = "char:congyin"
+        if agent_id not in nodes_map:
+            nodes_map[agent_id] = {
+                "id": agent_id,
+                "labels": ["Agent"],
+                "props": {"agent_id": "congyin", "display": "congyin", "name": "congyin"},
+            }
+        if agent_char_id not in nodes_map:
+            nodes_map[agent_char_id] = {
+                "id": agent_char_id,
+                "labels": ["Character"],
+                "props": {"character_id": "congyin", "display": "congyin", "name": "congyin"},
+            }
+        edges_map[f"edge:ACTOR:{agent_id}:{agent_char_id}"] = {
+            "id": f"edge:ACTOR:{agent_id}:{agent_char_id}",
+            "type": "ACTOR",
+            "src": agent_id,
+            "dst": agent_char_id,
+            "props": metadata_provenance,
+        }
+        edges_map[f"edge:IN_SCENE:{agent_char_id}:{scene_id}"] = {
+            "id": f"edge:IN_SCENE:{agent_char_id}:{scene_id}",
+            "type": "IN_SCENE",
+            "src": agent_char_id,
+            "dst": scene_id,
+            "props": metadata_provenance,
+        }
+        
+        # user:xnne -ACTOR→ char:xnne -IN_SCENE→ scene:chill_ai_chat
+        user_id = "user:xnne"
+        user_char_id = "char:xnne"
+        if user_id not in nodes_map:
+            nodes_map[user_id] = {
+                "id": user_id,
+                "labels": ["User"],
+                "props": {"user_id": "xnne", "display": "xnne", "name": "xnne"},
+            }
+        if user_char_id not in nodes_map:
+            nodes_map[user_char_id] = {
+                "id": user_char_id,
+                "labels": ["Character"],
+                "props": {"character_id": "xnne", "display": "xnne", "name": "xnne"},
+            }
+        edges_map[f"edge:ACTOR:{user_id}:{user_char_id}"] = {
+            "id": f"edge:ACTOR:{user_id}:{user_char_id}",
+            "type": "ACTOR",
+            "src": user_id,
+            "dst": user_char_id,
+            "props": metadata_provenance,
+        }
+        edges_map[f"edge:IN_SCENE:{user_char_id}:{scene_id}"] = {
+            "id": f"edge:IN_SCENE:{user_char_id}:{scene_id}",
+            "type": "IN_SCENE",
+            "src": user_char_id,
+            "dst": scene_id,
+            "props": metadata_provenance,
+        }
+        
+        # 重新生成节点和边列表
+        nodes = list(nodes_map.values())
+        edges = list(edges_map.values())
         stats["nodes_total"] = len(nodes)
         stats["edges_total"] = len(edges)
 
