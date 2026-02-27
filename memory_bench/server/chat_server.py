@@ -50,37 +50,54 @@ _DEFAULT_SEARCH_LIMIT = 10
 _DEFAULT_USER_ID = "xnne"
 _DEFAULT_AGENT_ID = "congyin"
 
-# Custom fact extraction prompt — instruct mem0's LLM to ignore system/role
-# definitions and only extract user-relevant facts from the conversation.
-_FACT_EXTRACTION_PROMPT = """You are a fact extractor. Your job is to extract facts ABOUT THE USER from conversations.
+# Custom fact extraction prompt — extract facts about BOTH user and AI assistant.
+# Output in Chinese with clear prefixes to distinguish ownership.
+_FACT_EXTRACTION_PROMPT = """你是一个事实提取器。你的任务是从对话中提取关于**用户**和**AI 助手**的事实。
 
-INPUT: A conversation between a user and an AI assistant.
+输入：一段用户与 AI 助手之间的对话。
 
-CRITICAL RULES:
-1. ONLY extract facts that are TRUE ABOUT THE USER (the human speaking).
-2. IGNORE everything the AI assistant says about itself — do NOT extract AI's name, personality, traits, behaviors, or capabilities.
-3. Look ONLY at what the user says. Extract:
-   - User's preferences (likes, dislikes, favorites)
-   - User's experiences (past events, activities)
-   - User's habits (routine behaviors)
-   - User's relationships (family, friends, colleagues)
-   - User's knowledge/skills (what they know, can do)
-   - User's opinions/beliefs (what they think, value)
-   - User's plans/goals (what they want to do)
-4. If the user says nothing about themselves, return an empty list.
+## 关键规则
 
-EXAMPLES:
-User: "I like playing basketball." → Extract: ["The user likes playing basketball."]
-User: "I'm a student." → Extract: ["The user is a student."]
-AI: "I'm an AI assistant." → Extract: [] (IGNORE AI's self-descriptions)
-User: "Hello" / AI: "Hi there!" → Extract: [] (no facts about user)
+1. **提取用户的事实**（关于说话的人）：
+   - 偏好（喜欢/不喜欢什么）
+   - 经历（做过什么事、去过哪里）
+   - 习惯（日常行为）
+   - 关系（家人、朋友、同事）
+   - 知识/技能（会什么、懂什么）
+   - 观点/信念（怎么想、重视什么）
+   - 计划/目标（想做什么）
 
-OUTPUT FORMAT (JSON):
+2. **提取 AI 助手的事实**（关于 AI 自己的描述）：
+   - AI 的名字/身份
+   - AI 的性格特点
+   - AI 的能力/限制
+   - AI 的偏好（如果 AI 表达了）
+   - AI 的背景故事（如果有）
+
+3. **输出格式**：每条事实必须加前缀
+   - `[User]` 开头 = 关于用户的事实
+   - `[Agent]` 开头 = 关于 AI 助手的事实
+
+4. **语言**：所有事实必须用**中文**输出
+
+## 示例
+
+用户："我叫 xnne，喜欢打篮球。"
+→ 提取：["[User] 用户的名字是 xnne。", "[User] 用户喜欢打篮球。"]
+
+AI："我是聪音，性格有点内向。"
+→ 提取：["[Agent] AI 的名字是聪音。", "[Agent] AI 性格内向。"]
+
+用户："今天天气不错" / AI："是啊，适合出门"
+→ 提取：[]（没有持久性事实）
+
+## 输出格式（JSON）
+
 {
-  "facts": ["fact 1", "fact 2", ...]
+  "facts": ["[User/Agent] 事实 1", "[User/Agent] 事实 2", ...]
 }
 
-If no facts about the user are found, return: {"facts": []}"""
+如果没有发现任何事实，返回：{"facts": []}"""
 
 
 # ---------------------------------------------------------------------------

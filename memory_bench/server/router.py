@@ -205,10 +205,15 @@ MERGE (scene:Node {{id: "scene:{state.metadata_scene_id}"}})
 ON CREATE SET scene.name = "{state.metadata_scene_name}", scene.labels = ["Scene"]
 ON MATCH SET scene.name = "{state.metadata_scene_name}", scene.labels = ["Scene"]
 
-// Create/update Character node
+// Create/update Character node (Agent's character)
 MERGE (character:Node {{id: "character:{state.metadata_character_id}"}})
 ON CREATE SET character.name = "{state.metadata_character_name}", character.labels = ["Character"]
 ON MATCH SET character.name = "{state.metadata_character_name}", character.labels = ["Character"]
+
+// Create User's Character node (for user-owned memories)
+MERGE (user_char:Node {{id: "character:{state.metadata_user_id}"}})
+ON CREATE SET user_char.name = "{state.metadata_user_name}", user_char.labels = ["Character"]
+ON MATCH SET user_char.name = "{state.metadata_user_name}", user_char.labels = ["Character"]
 
 // Create Agent-Character relationship
 MERGE (agent)-[:ACTOR]->(character)
@@ -322,18 +327,25 @@ MERGE (mem)-[:FROM_CONV]->(agent)
 def _determine_owner(mem0_item: dict[str, Any], memory_text: str) -> str:
     """Determine which character owns this memory.
     
-    Design decision: All memories are owned by the Agent's Character.
-    
-    Rationale:
-    1. This is the AI assistant's memory system — memories are "about the user"
-    2. Consistent with offline pipeline (char:congyin owns all mem:* nodes)
-    3. Simple and reliable — no need for complex heuristics
+    Strategy: Check memory text prefix to determine owner.
+    - "[User] ..." → User's character (user:xnne)
+    - "[Agent] ..." → Agent's character (character:congyin)
+    - No prefix → Fallback to Agent's character
     
     Returns:
-        character_id: The Agent's character ID
+        character_id: The character who owns this memory
     """
-    # All memories owned by Agent's Character (consistent with offline pipeline)
-    return state.metadata_character_id
+    # Check if memory has [User] or [Agent] prefix
+    if memory_text.startswith("[User]"):
+        # User's memory → return user's character ID
+        # For now, assume user's character ID is same as user_id
+        return state.user_id  # "xnne"
+    elif memory_text.startswith("[Agent]"):
+        # Agent's memory → return agent's character ID
+        return state.metadata_character_id  # "congyin"
+    else:
+        # No prefix → fallback to Agent's character (consistent with offline pipeline)
+        return state.metadata_character_id
 
 
 def create_memory_item_node_v2(mem0_item: dict[str, Any], memory_text: str) -> None:
