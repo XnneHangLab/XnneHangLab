@@ -483,13 +483,18 @@ Memory Chat Server (FastAPI)
     ├─ 注入 system prompt
     ├─ 转发真正的 LLM provider
     ├─ 异步 mem0.add() → 写入本轮对话
+    │   └─ [--enable-graph] Graph Pipeline (后台)
+    │       ├─ claim_extractor → LLM 提取 claim/entity
+    │       └─ graph_writer → Cypher MERGE 写入 Neo4j
     └─ 返回标准 ChatCompletion response
 ```
 
 ### 文件结构
 
-- `router.py` — FastAPI APIRouter，包含端点和记忆逻辑。可独立挂载到任意 FastAPI app。
-- `chat_server.py` — 独立启动器：CLI 参数解析、env 加载、mem0 初始化、uvicorn 启动。
+- `router.py` — FastAPI APIRouter，包含端点、记忆逻辑和 graph pipeline 后台任务。可独立挂载到任意 FastAPI app。
+- `chat_server.py` — 独立启动器：CLI 参数解析、env 加载、mem0 初始化、graph pipeline 配置、uvicorn 启动。
+- `claim_extractor.py` — 从 mem0.add() 结果中提取 claim/entity 记录（LLM-based）。
+- `graph_writer.py` — 将 claim 记录通过 Cypher MERGE 写入 Neo4j。
 
 ### 端点
 
@@ -536,6 +541,12 @@ uv run memory_bench/server/chat_server.py \
 | `CHAT_SERVER_API_KEY` | Server 鉴权密钥（Bearer token） | 不设则不鉴权 |
 | `CHAT_USER_ID` | mem0 用户 ID | 默认 `xnne` |
 | `CHAT_AGENT_ID` | mem0 Agent ID | 默认 `congyin` |
+| `CLAIM_LLM_API_KEY` | Claim 提取 LLM 的 API key | `MEM0_LLM_API_KEY` |
+| `CLAIM_LLM_BASE_URL` | Claim 提取 LLM 的 base URL | `MEM0_LLM_BASE_URL` |
+| `CLAIM_LLM_MODEL` | Claim 提取模型名 | `MEM0_LLM_MODEL` |
+| `NEO4J_CONTAINER` | Neo4j Docker 容器名 | `membench-neo4j-mem0` |
+| `NEO4J_USER` | Neo4j 用户名 | `neo4j` |
+| `NEO4J_PASSWORD` | Neo4j 密码 | `neo4jneo4j` |
 
 ### 在其他 FastAPI app 中挂载
 
