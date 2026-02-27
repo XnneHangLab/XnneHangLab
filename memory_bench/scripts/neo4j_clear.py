@@ -1,7 +1,7 @@
 #!/usr/bin/env uv run
 # /// script
 # requires-python = ">=3.10"
-# dependencies = []
+# dependencies = ["python-dotenv"]
 # ///
 """Clear Neo4j graph data without restarting the container.
 
@@ -11,17 +11,32 @@ the Neo4j container, avoiding the need to restart.
 Usage:
     uv run memory_bench/scripts/neo4j_clear.py
     uv run memory_bench/scripts/neo4j_clear.py --container membench-neo4j-zep
+
+Environment variables (from .env.benchmark):
+    NEO4J_CONTAINER — Neo4j Docker container name (default: membench-neo4j-mem0)
+    NEO4J_USER — Neo4j username (default: neo4j)
+    NEO4J_PASSWORD — Neo4j password (default: neo4jneo4j)
 """
 
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
 
-# Neo4j default auth
-DEFAULT_USER = "neo4j"
-DEFAULT_PASSWORD = "neo4jneo4j"
-DEFAULT_CONTAINER = "membench-neo4j-mem0"
+# Load environment variables from .env.benchmark if present
+try:
+    from dotenv import load_dotenv
+    env_file = Path(__file__).parent.parent / ".env.benchmark"
+    if env_file.exists():
+        load_dotenv(env_file)
+except ImportError:
+    pass  # python-dotenv not required, fall back to env vars
+
+# Neo4j configuration (from env vars or defaults)
+DEFAULT_CONTAINER = os.getenv("NEO4J_CONTAINER", "membench-neo4j-mem0")
+DEFAULT_USER = os.getenv("NEO4J_USER", "neo4j")
+DEFAULT_PASSWORD = os.getenv("NEO4J_PASSWORD", "neo4jneo4j")
 
 # Cypher commands to clear all data
 CLEAR_ALL_CYPHER = """

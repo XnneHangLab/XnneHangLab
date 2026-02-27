@@ -37,6 +37,7 @@ memory_bench/
 │  ├─ claims_to_graph.py
 │  ├─ graph_to_cypher.py
 │  ├─ neo4j_apply_cypher.py
+│  ├─ neo4j_clear.py       (清空 Neo4j，不重启容器)
 │  ├─ latest_file.py
 │  ├─ bench_logger.py      (工具模块)
 │  ├─ tag_registry.py      (工具模块)
@@ -237,6 +238,7 @@ uv run memory_bench/scripts/neo4j_apply_cypher.py mem0 \
 | `claims_to_graph.py` | claims compiled → Graph IR nodes/edges（语义图） |
 | `graph_to_cypher.py` | Graph IR → Neo4j Cypher 脚本 |
 | `neo4j_apply_cypher.py` | 将 Cypher 导入指定 Neo4j docker 容器 |
+| `neo4j_clear.py` | 清空 Neo4j 图数据（不重启容器） |
 | `latest_file.py` | 获取目录下按 glob 匹配的最新文件路径 |
 | `bench_logger.py` | 统一日志工具模块 |
 | `tag_registry.py` | Tag 归一化注册表工具模块 |
