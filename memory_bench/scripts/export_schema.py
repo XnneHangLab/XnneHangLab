@@ -62,22 +62,33 @@ RETURN label, count(*) AS count
 ORDER BY count DESC
 """
 
-QUERY_ALL_NODE_EXAMPLES = """
-// 每个节点标签查询一个完整示例
+QUERY_ALL_NODES_BY_PREFIX = """
+// 查询所有节点，按 ID 前缀分类（每个前缀一个示例）
 MATCH (n)
-WITH labels(n) AS node_labels, n
-WHERE size(node_labels) > 0
-WITH node_labels[0] AS label, n
-ORDER BY label
-WITH label, collect(n) AS nodes
-WITH label, nodes[0] AS example
+WHERE n.id IS NOT NULL
+WITH 
+  CASE 
+    WHEN n.id STARTS WITH "mem:" THEN "MemoryItem"
+    WHEN n.id STARTS WITH "claim:" THEN "Claim"
+    WHEN n.id STARTS WITH "topic:" THEN "Topic"
+    WHEN n.id STARTS WITH "char:" THEN "Character"
+    WHEN n.id STARTS WITH "user:" THEN "User"
+    WHEN n.id STARTS WITH "agent:" THEN "Agent"
+    WHEN n.id STARTS WITH "scene:" THEN "Scene"
+    WHEN n.id STARTS WITH "conv:" THEN "Conversation"
+    WHEN n.id STARTS WITH "dom:" THEN "Domain"
+    WHEN n.id STARTS WITH "pred:" THEN "Predicate"
+    ELSE "Other"
+  END AS node_type,
+  n
+WITH node_type, collect(n)[0] AS example
 RETURN 
-  label,
+  node_type,
   example.id AS id,
   example.name AS name,
   example.display AS display,
-  toString(properties(example)) AS all_props
-ORDER BY label
+  properties(example) AS all_props
+ORDER BY node_type
 """
 
 QUERY_ALL_EDGES_DEDUP = """
@@ -190,9 +201,9 @@ def generate_schema_data(container: str) -> dict:
     else:
         log.error("节点标签查询失败：%s", output)
 
-    # 2. 每个节点标签的完整示例
-    log.info("查询节点示例...")
-    ok, output = run_cypher(QUERY_ALL_NODE_EXAMPLES, container=container)
+    # 2. 所有节点按 ID 前缀分类示例
+    log.info("查询节点示例（按 ID 前缀分类）...")
+    ok, output = run_cypher(QUERY_ALL_NODES_BY_PREFIX, container=container)
     if ok:
         data["node_examples"] = parse_cypher_output(output)
         log.info("节点示例：%d 个", len(data["node_examples"]))
@@ -230,20 +241,20 @@ def generate_markdown_report(data: dict) -> str:
     else:
         report.append("⚠️  无数据\n")
 
-    # 2. 节点示例（每个标签一个）
-    report.append("\n## 二、节点示例（每个类型一个完整示例）\n")
+    # 2. 节点示例（按 ID 前缀分类）
+    report.append("\n## 二、节点示例（按 ID 前缀分类，每类一个完整示例）\n")
     if data["node_examples"]:
         for row in data["node_examples"]:
-            label = row.get("label", "")
+            node_type = row.get("node_type", "")
             node_id = row.get("id", "")
             name = row.get("name", "")
             display = row.get("display", "")
             all_props = row.get("all_props", "")
-            report.append(f"\n### `{label}`\n")
+            report.append(f"\n### `{node_type}`\n")
             report.append(f"- **ID**: `{node_id}`\n")
             report.append(f"- **Name**: `{name}`\n")
             report.append(f"- **Display**: `{display}`\n")
-            report.append(f"- **Properties**: `{all_props}`\n")
+            report.append(f"- **Properties**:\n```json\n{json.dumps(all_props, indent=2, ensure_ascii=False) if isinstance(all_props, dict) else all_props}\n```\n")
     else:
         report.append("⚠️  无数据\n")
 
