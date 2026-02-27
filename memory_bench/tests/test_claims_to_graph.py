@@ -89,7 +89,7 @@ def test_build_graph_default_tree_structure_and_evidence() -> None:
         entities_rows=sample_entities_rows(),
         claims_rows=sample_claims_rows(),
         rewrite_user_id=True,
-        benchmark_user_id="xnnehang",
+        benchmark_user_id="xnne",
         emit_shortcut_predicate_edges=False,
     )
 
@@ -144,7 +144,7 @@ def test_build_graph_emits_shortcut_edge_when_enabled() -> None:
         entities_rows=sample_entities_rows(),
         claims_rows=sample_claims_rows(),
         rewrite_user_id=True,
-        benchmark_user_id="xnnehang",
+        benchmark_user_id="xnne",
         emit_shortcut_predicate_edges=True,
     )
 

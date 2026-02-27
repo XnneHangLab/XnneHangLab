@@ -20,7 +20,7 @@ DEFAULT_ENTITIES = Path("memory_bench/data/claims/compiled/entities.jsonl")
 DEFAULT_CLAIMS = Path("memory_bench/data/claims/compiled/claims.jsonl")
 DEFAULT_OUT_DIR = Path("memory_bench/logs/claims/graphify")
 DEFAULT_PREFIX = "claims"
-DEFAULT_USER_ID = "xnnehang"
+DEFAULT_USER_ID = "xnne"
 
 
 @dataclass(slots=True)
