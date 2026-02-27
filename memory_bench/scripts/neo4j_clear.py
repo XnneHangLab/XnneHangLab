@@ -1,8 +1,5 @@
-#!/usr/bin/env uv run
-# /// script
-# requires-python = ">=3.10"
-# dependencies = ["python-dotenv"]
-# ///
+#!/usr/bin/env python3
+"""Clear Neo4j graph data without restarting the container."""
 from __future__ import annotations
 
 import argparse
