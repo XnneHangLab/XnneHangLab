@@ -90,21 +90,27 @@ MATCH (n)
 WITH labels(n)[0] AS label, n
 ORDER BY label
 WITH label, collect(n)[0] AS example
-RETURN label, properties(example) AS all_props
+RETURN 
+  label,
+  example.id AS id,
+  example.name AS name,
+  example.display AS display,
+  toString(properties(example)) AS all_props
 ORDER BY label
 """
 
 QUERY_EXAMPLE_EDGE_PER_TYPE = """
 // 每个关系类型查询一个完整示例
 MATCH (n)-[r]->(m)
-WITH type(r) AS rel_type, n, r, m
+WITH type(r) AS rel_type, n, m
 ORDER BY rel_type
 WITH rel_type, collect({from: n, to: m})[0] AS example
-RETURN rel_type, 
-       labels(example.from)[0] AS from_label,
-       example.from.id AS from_id,
-       labels(example.to)[0] AS to_label,
-       example.to.id AS to_id
+RETURN 
+  rel_type, 
+  labels(example.from)[0] AS from_label,
+  example.from.id AS from_id,
+  labels(example.to)[0] AS to_label,
+  example.to.id AS to_id
 ORDER BY rel_type
 """
 
