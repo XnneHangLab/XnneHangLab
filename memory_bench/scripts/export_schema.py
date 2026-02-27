@@ -19,9 +19,9 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -151,35 +151,102 @@ def run_cypher(
     return False, msg
 
 
-def parse_cypher_output(output: str) -> list[dict[str, str]]:
+def split_csv_line(line: str) -> list[str]:
+    """Split CSV line, handling nested braces {} and brackets [].
+    
+    Example: "a, b, {x: 1, y: 2}" → ["a", " b", " {x: 1, y: 2}"]
+    """
+    result = []
+    current = []
+    brace_depth = 0
+    bracket_depth = 0
+    in_quotes = False
+    
+    for char in line:
+        if char == '"' and (not current or current[-1] != '\\'):
+            in_quotes = not in_quotes
+            current.append(char)
+        elif char == '{' and not in_quotes:
+            brace_depth += 1
+            current.append(char)
+        elif char == '}' and not in_quotes:
+            brace_depth -= 1
+            current.append(char)
+        elif char == '[' and not in_quotes:
+            bracket_depth += 1
+            current.append(char)
+        elif char == ']' and not in_quotes:
+            bracket_depth -= 1
+            current.append(char)
+        elif char == ',' and brace_depth == 0 and bracket_depth == 0 and not in_quotes:
+            # End of field
+            result.append(''.join(current))
+            current = []
+        else:
+            current.append(char)
+    
+    # Don't forget the last field
+    if current:
+        result.append(''.join(current))
+    
+    return result
+
+
+def convert_neo4j_map_to_json(neo4j_map: str) -> str:
+    """Convert Neo4j Map format to valid JSON.
+    
+    Neo4j format: {name: "congyin", aliases: []}
+    JSON format: {"name": "congyin", "aliases": []}
+    """
+    result = neo4j_map
+    
+    # Add quotes around unquoted keys
+    result = re.sub(r'([{,]\s*)(\w+)(\s*:)', r'\1"\2"\3', result)
+    
+    # Replace single quotes with double quotes (if any)
+    result = result.replace("'", '"')
+    
+    return result
+
+
+def parse_cypher_output(output: str) -> list[dict[str, Any]]:
     """Parse cypher-shell plain format output into list of dicts.
     
-    Supports both CSV format (comma-separated) and table format (pipe-separated).
+    Handles CSV-like format where JSON fields may contain commas.
+    Example:
+    node_type, id, all_props
+    "MemoryItem", "mem:xxx", {name: "test", data: "hello, world"}
     """
     lines = output.strip().split("\n")
-    if len(lines) < 1:
+    if len(lines) < 2:
         return []
 
-    # Detect format: CSV (comma-separated) or table (pipe-separated)
-    first_line = lines[0]
-    is_csv = "," in first_line and "|" not in first_line
-    
-    if is_csv:
-        # CSV format: parse as CSV
-        reader = csv.DictReader(StringIO(output))
-        # Strip whitespace from keys and values
-        rows = []
-        for row in reader:
-            cleaned_row = {}
-            for k, v in row.items():
-                key = k.strip() if k else ""
-                value = v.strip() if isinstance(v, str) and v else (v if v is not None else "")
-                cleaned_row[key] = value
-            rows.append(cleaned_row)
-        return rows
-    
-    # Table format (pipe-separated) - not used in this simplified version
-    return []
+    # First line is header
+    headers = [h.strip().strip('"') for h in split_csv_line(lines[0])]
+    rows = []
+
+    for line in lines[1:]:
+        if not line.strip():
+            continue
+        
+        values = split_csv_line(line)
+        if len(values) == len(headers):
+            row_dict = {}
+            for i, key in enumerate(headers):
+                value = values[i].strip()
+                # Try to parse JSON-like values
+                if value.startswith("{") and value.endswith("}"):
+                    try:
+                        # Convert Neo4j Map format to JSON
+                        json_str = convert_neo4j_map_to_json(value)
+                        row_dict[key] = json.loads(json_str)
+                    except (json.JSONDecodeError, ValueError):
+                        row_dict[key] = value  # Keep as string if parsing fails
+                else:
+                    row_dict[key] = value
+            rows.append(row_dict)
+
+    return rows
 
 
 def generate_schema_data(container: str) -> dict:
