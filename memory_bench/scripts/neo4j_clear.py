@@ -5,6 +5,22 @@
 # ///
 from __future__ import annotations
 
+import argparse
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+# Load environment variables from .env.benchmark if present
+try:
+    from dotenv import load_dotenv
+
+    env_file = Path(__file__).parent.parent / ".env.benchmark"
+    if env_file.exists():
+        load_dotenv(env_file)
+except ImportError:
+    pass  # python-dotenv not required, fall back to env vars
+
 """Clear Neo4j graph data without restarting the container.
 
 This script uses docker exec to run Cypher commands directly inside
@@ -19,21 +35,6 @@ Environment variables (from .env.benchmark):
     NEO4J_USER — Neo4j username (default: neo4j)
     NEO4J_PASSWORD — Neo4j password (default: neo4jneo4j)
 """
-
-import argparse
-import os
-import subprocess
-import sys
-from pathlib import Path
-
-# Load environment variables from .env.benchmark if present
-try:
-    from dotenv import load_dotenv
-    env_file = Path(__file__).parent.parent / ".env.benchmark"
-    if env_file.exists():
-        load_dotenv(env_file)
-except ImportError:
-    pass  # python-dotenv not required, fall back to env vars
 
 # Neo4j configuration (from env vars or defaults)
 DEFAULT_CONTAINER = os.getenv("NEO4J_CONTAINER", "membench-neo4j-mem0")
