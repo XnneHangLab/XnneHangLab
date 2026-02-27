@@ -95,7 +95,7 @@ RETURN
   example.id AS id,
   example.name AS name,
   example.display AS display,
-  toString(properties(example)) AS all_props
+  reduce(s = "", k IN keys(example) | s + k + ": " + toString(example[k]) + ", ") AS props
 ORDER BY label
 """
 
@@ -214,7 +214,7 @@ def run_cypher(
     return False, msg
 
 
-def parse_cypher_output(output: str) -> list[dict[str, str]]:
+def parse_cypher_output(output: str) -> list[dict[str, Any]]:
     """Parse cypher-shell plain format output into list of dicts."""
     lines = output.strip().split("\n")
     if len(lines) < 2:
@@ -230,7 +230,16 @@ def parse_cypher_output(output: str) -> list[dict[str, str]]:
         # Split by | and strip whitespace
         values = [v.strip() for v in line.split("|")]
         if len(values) == len(headers):
-            rows.append(dict(zip(headers, values)))
+            row_dict = dict(zip(headers, values))
+            # Try to parse JSON-like values (Maps from Neo4j)
+            for key, value in row_dict.items():
+                if value.startswith("{") and value.endswith("}"):
+                    try:
+                        # Simple JSON-like parsing for Neo4j Maps
+                        row_dict[key] = json.loads(value.replace("'", '"'))
+                    except (json.JSONDecodeError, AttributeError):
+                        pass  # Keep as string if parsing fails
+            rows.append(row_dict)
 
     return rows
 
