@@ -399,6 +399,26 @@ def create_memory_item_node_v2(mem0_item: dict[str, Any], memory_text: str) -> N
     _esc_data = memory_text.replace("\\", "\\\\").replace('"', '\\"')
     _esc_display = display_name.replace("\\", "\\\\").replace('"', '\\"')
 
+    # Step 1: Create Conversation node first (independent of other nodes)
+    conv_cypher = f"""
+// Create Conversation node (by date)
+MERGE (conv:Node {{id: "{conv_node_id}"}})
+ON CREATE SET
+  conv.labels = ["Conversation"],
+  conv.conv_id = "{conv_id}",
+  conv.display = "{conv_id}",
+  conv.name = "{conv_id}"
+ON MATCH SET
+  conv.labels = ["Conversation"],
+  conv.conv_id = "{conv_id}",
+  conv.display = "{conv_id}",
+  conv.name = "{conv_id}"
+"""
+    ok, err = _run_cypher(conv_cypher)
+    if not ok:
+        log.warning("⚠️  Failed to create Conversation: %s", err)
+
+    # Step 2: Create MemoryItem and link to Conversation + Character
     cypher = f"""
 // Create MemoryItem node (properties aligned with offline pipeline)
 MERGE (mem:Node {{id: "{node_id}"}})
@@ -423,38 +443,29 @@ ON MATCH SET
   mem.collection = "memory_bench_global",
   mem.exported_at = "{now_iso}"
 
-// Create Conversation node (by date)
-MERGE (conv:Node {{id: "{conv_node_id}"}})
+// Link to owner Character
+MERGE (owner:Node {{id: "char:{owner_character_id}"}})
 ON CREATE SET
-  conv.labels = ["Conversation"],
-  conv.conv_id = "{conv_id}",
-  conv.display = "{conv_id}",
-  conv.name = "{conv_id}"
-ON MATCH SET
-  conv.labels = ["Conversation"],
-  conv.conv_id = "{conv_id}",
-  conv.display = "{conv_id}",
-  conv.name = "{conv_id}"
-
-// Link to owner Character (NOTE: char: prefix)
-WITH mem, conv
-MATCH (owner:Node {{id: "char:{owner_character_id}"}})
+  owner.labels = ["Character"],
+  owner.character_id = "{owner_character_id}",
+  owner.display = "{owner_character_id}",
+  owner.name = "{owner_character_id}"
 MERGE (owner)-[:OWNS_MEMORY]->(mem)
 
 // Link to Scene
-WITH mem, owner
-MATCH (scene:Node {{id: "scene:{state.metadata_scene_id}"}})
+MERGE (scene:Node {{id: "scene:{state.metadata_scene_id}"}})
 MERGE (mem)-[:IN_SCENE]->(scene)
 
 // Link to owner Character (HAS_CHARACTER)
 MERGE (mem)-[:HAS_CHARACTER]->(owner)
 
 // Link to Conversation (FROM_CONV)
-MERGE (mem)-[:FROM_CONV]->(conv)
+MERGE (mem)-[:FROM_CONV]->(conv:Node {{id: "{conv_node_id}"}})
 
 // Link Conversation to Scene and Character
-MERGE (conv)-[:CONV_IN_SCENE]->(scene)
-MERGE (conv)-[:CONV_HAS_CHARACTER]->(owner)
+MERGE (scene:Node {{id: "scene:{state.metadata_scene_id}"}})
+MERGE (conv:Node {{id: "{conv_node_id}"}})-[:CONV_IN_SCENE]->(scene)
+MERGE (conv:Node {{id: "{conv_node_id}"}})-[:CONV_HAS_CHARACTER]->(owner)
 """
 
     ok, err = _run_cypher(cypher)
