@@ -276,7 +276,8 @@ def generate_schema_data(container: str) -> dict:
         data["node_examples"] = parse_cypher_output(output)
         log.info("节点示例：%d 个", len(data["node_examples"]))
         if data["node_examples"]:
-            log.info("第一条数据的 all_props: %s", data["node_examples"][0].get("all_props", "")[:500])
+            first_props = data["node_examples"][0].get("all_props", {})
+            log.info("第一条数据的 all_props: %s", json.dumps(first_props, ensure_ascii=False)[:500] if isinstance(first_props, dict) else str(first_props)[:500])
     else:
         log.error("节点示例查询失败：%s", output)
 
