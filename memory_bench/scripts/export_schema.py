@@ -299,22 +299,30 @@ def generate_markdown_report(data: dict) -> str:
             report.append(f"- **ID**: `{node_id}`\n")
             report.append(f"- **Name**: `{name}`\n")
             report.append(f"- **Display**: `{display}`\n")
-            report.append(f"- **Properties**:\n```json\n{json.dumps(all_props, indent=2, ensure_ascii=False) if isinstance(all_props, dict) else all_props}\n```\n")
+            if isinstance(all_props, dict):
+                props_json = json.dumps(all_props, indent=2, ensure_ascii=False)
+                report.append(f"- **Properties**:\n```json\n{props_json}\n```\n")
+            else:
+                report.append(f"- **Properties**: `{all_props}`\n")
     else:
         report.append("⚠️  无数据\n")
 
     # 2. 关系示例（每个类型一个）
     report.append("\n## 关系示例（每个类型一个完整示例）\n")
     if data["edge_examples"]:
-        report.append("| 关系类型 | 源节点 | 源节点 ID | 目标节点 | 目标节点 ID |\n")
-        report.append("|----------|--------|-----------|----------|-------------|\n")
+        # Build table rows without extra newlines
+        table_rows = []
+        table_rows.append("| 关系类型 | 源节点 | 源节点 ID | 目标节点 | 目标节点 ID |")
+        table_rows.append("|----------|--------|-----------|----------|-------------|")
         for row in data["edge_examples"]:
             rel_type = row.get("relationship", "")
             from_node = row.get("from_node", "")
             from_id = row.get("from_id", "")
             to_node = row.get("to_node", "")
             to_id = row.get("to_id", "")
-            report.append(f"| `{rel_type}` | `{from_node}` | `{from_id}` | `{to_node}` | `{to_id}` |\n")
+            table_rows.append(f"| `{rel_type}` | `{from_node}` | `{from_id}` | `{to_node}` | `{to_id}` |")
+        report.append("\n".join(table_rows))
+        report.append("\n")
     else:
         report.append("⚠️  无数据\n")
 
