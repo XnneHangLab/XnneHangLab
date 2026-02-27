@@ -292,7 +292,9 @@ def generate_schema_data(container: str) -> dict:
     log.info("查询每个标签的示例节点...")
     ok, output = run_cypher(QUERY_EXAMPLE_NODE_PER_LABEL, container=container)
     if ok:
+        log.info("示例节点查询成功，原始输出:\n%s", output[:2000] if len(output) > 2000 else output)
         data["example_nodes_per_label"] = parse_cypher_output(output)
+        log.info("解析后数据：%d 条", len(data["example_nodes_per_label"]))
     else:
         log.error("示例节点查询失败：%s", output)
 
@@ -300,7 +302,9 @@ def generate_schema_data(container: str) -> dict:
     log.info("查询每个关系类型的示例...")
     ok, output = run_cypher(QUERY_EXAMPLE_EDGE_PER_TYPE, container=container)
     if ok:
+        log.info("示例关系查询成功，原始输出:\n%s", output[:2000] if len(output) > 2000 else output)
         data["example_edges_per_type"] = parse_cypher_output(output)
+        log.info("解析后数据：%d 条", len(data["example_edges_per_type"]))
     else:
         log.error("示例关系查询失败：%s", output)
 
