@@ -63,7 +63,6 @@ ALLOWED_EDGE_TYPES = {
     "HAS_CHARACTER",
     "CONV_IN_SCENE",
     "CONV_HAS_CHARACTER",
-    "USER_IN_SCENE",
     "ACTOR",
 }
 MEMORY_DISPLAY_PREVIEW_LEN = 40
@@ -429,6 +428,32 @@ def edge_id(edge_type: str, src: str, dst: str) -> str:
     return f"edge:{edge_type}:{src}:{dst}"
 
 
+def _determine_owner_from_memory_text(payload: dict[str, Any]) -> str:
+    """根据 memory 文本的前缀判断记忆归属。
+
+    规则：
+    - "[User] ..." → "xnne" (用户的 character)
+    - "[Agent] ..." → "congyin" (agent 的 character)
+    - 无前缀 → "congyin" (回退到 agent)
+
+    Args:
+        payload: mem0 export 的 payload 数据
+
+    Returns:
+        str: character_id (不带前缀，如 "xnne" 或 "congyin")
+    """
+    memory_text = str(payload.get("data") or payload.get("memory") or "").strip()
+
+    # 检查前缀
+    if memory_text.startswith("[User]"):
+        return "xnne"
+    elif memory_text.startswith("[Agent]"):
+        return "congyin"
+    else:
+        # 无前缀 → 回退到 agent
+        return "congyin"
+
+
 def build_graph_from_record(
     record: ParsedRecord, stats: dict[str, int]
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -535,16 +560,12 @@ def build_graph_from_record(
             }
         )
 
-    owner_character_id = str(payload.get("character_id") or "").strip()
-    if not owner_character_id:
-        owner_type = str(payload.get("owner_type") or "").strip()
-        owner_id = str(payload.get("owner_id") or "").strip()
-        if owner_type == "Agent" and owner_id:
-            owner_character_id = owner_id
-            stats["owner_fallback_character_from_owner_agent"] += 1
-        else:
-            owner_character_id = f"unknown:{record.source_point_id}"
-            stats["owner_fallback_character_unknown"] += 1
+    # 3.2 确定记忆归属（Owner Character）
+    # 策略：通过 memory 文本的前缀判断归属
+    # - "[User] ..." → char:xnne (用户的 character)
+    # - "[Agent] ..." → char:congyin (agent 的 character)
+    # - 无前缀 → 回退到 agent 的 character
+    owner_character_id = _determine_owner_from_memory_text(payload)
 
     owner_node_id = make_node_id("Character", owner_character_id)
     node_refs["Character"] = owner_node_id
@@ -563,8 +584,73 @@ def build_graph_from_record(
     add_edge("HAS_CHARACTER", "MemoryItem", "Character")
     add_edge("CONV_IN_SCENE", "Conversation", "Scene")
     add_edge("CONV_HAS_CHARACTER", "Conversation", "Character")
-    add_edge("USER_IN_SCENE", "User", "Scene")
-    add_edge("ACTOR", "Agent", "Character")
+
+    # ACTOR 关系：Agent → 自己的 Character（不是 owner character！）
+    # 从 payload 中获取 agent_id，映射到对应的 character
+    agent_id = str(payload.get("agent_id") or "").strip()
+    if agent_id:
+        agent_char_id = agent_id  # agent:congyin → char:congyin
+        agent_char_node_id = make_node_id("Character", agent_char_id)
+        if agent_char_node_id not in node_refs.values():
+            nodes.append(
+                {
+                    "id": agent_char_node_id,
+                    "labels": ["Character"],
+                    "props": {"character_id": agent_char_id, "display": agent_char_id, "name": agent_char_id},
+                }
+            )
+        # 确保 Agent 节点存在
+        agent_node_id = make_node_id("Agent", agent_id)
+        if agent_node_id not in node_refs.get("Agent", ""):
+            nodes.append(
+                {
+                    "id": agent_node_id,
+                    "labels": ["Agent"],
+                    "props": {"agent_id": agent_id, "display": agent_id, "name": agent_id},
+                }
+            )
+        edges.append(
+            {
+                "id": edge_id("ACTOR", agent_node_id, agent_char_node_id),
+                "type": "ACTOR",
+                "src": agent_node_id,
+                "dst": agent_char_node_id,
+                "props": provenance_props,
+            }
+        )
+
+    # ACTOR 关系：User → 自己的 Character（固定为 char:xnne）
+    user_id = str(payload.get("user_id") or "").strip()
+    if user_id:
+        user_char_id = user_id  # user:xnne → char:xnne
+        user_char_node_id = make_node_id("Character", user_char_id)
+        if user_char_node_id not in node_refs.values():
+            nodes.append(
+                {
+                    "id": user_char_node_id,
+                    "labels": ["Character"],
+                    "props": {"character_id": user_char_id, "display": user_char_id, "name": user_char_id},
+                }
+            )
+        # 确保 User 节点存在
+        user_node_id = make_node_id("User", user_id)
+        if user_node_id not in node_refs.get("User", ""):
+            nodes.append(
+                {
+                    "id": user_node_id,
+                    "labels": ["User"],
+                    "props": {"user_id": user_id, "display": user_id, "name": user_id},
+                }
+            )
+        edges.append(
+            {
+                "id": edge_id("ACTOR", user_node_id, user_char_node_id),
+                "type": "ACTOR",
+                "src": user_node_id,
+                "dst": user_char_node_id,
+                "props": provenance_props,
+            }
+        )
 
     return nodes, edges
 
@@ -745,6 +831,91 @@ def run_graphify(
                     )
         should_commit_state = True
 
+        nodes = list(nodes_map.values())
+        edges = list(edges_map.values())
+
+        # 添加固定的 metadata 节点和关系（确保 Character 连接到 Scene）
+        # 这些关系不依赖单条记录，全局只添加一次
+        timestamp = now_iso()
+        metadata_provenance = {
+            "processed_key": f"metadata_{timestamp}",
+            "source_point_id": "metadata",
+            "exported_at": timestamp,
+            "created_at": timestamp,
+        }
+
+        # 添加固定的 Character -IN_SCENE→ Scene 关系
+        # 确保即使没有 MemoryItem，Character 也不会游离
+        scene_id = "scene:chill_ai_chat"
+        scene_node = {
+            "id": scene_id,
+            "labels": ["Scene"],
+            "props": {"scene_id": "chill_ai_chat", "display": "chill_ai_chat", "name": "chill_ai_chat"},
+        }
+        if scene_id not in nodes_map:
+            nodes_map[scene_id] = scene_node
+
+        # agent:congyin -ACTOR→ char:congyin -IN_SCENE→ scene:chill_ai_chat
+        agent_id = "agent:congyin"
+        agent_char_id = "char:congyin"
+        if agent_id not in nodes_map:
+            nodes_map[agent_id] = {
+                "id": agent_id,
+                "labels": ["Agent"],
+                "props": {"agent_id": "congyin", "display": "congyin", "name": "congyin"},
+            }
+        if agent_char_id not in nodes_map:
+            nodes_map[agent_char_id] = {
+                "id": agent_char_id,
+                "labels": ["Character"],
+                "props": {"character_id": "congyin", "display": "congyin", "name": "congyin"},
+            }
+        edges_map[f"edge:ACTOR:{agent_id}:{agent_char_id}"] = {
+            "id": f"edge:ACTOR:{agent_id}:{agent_char_id}",
+            "type": "ACTOR",
+            "src": agent_id,
+            "dst": agent_char_id,
+            "props": metadata_provenance,
+        }
+        edges_map[f"edge:IN_SCENE:{agent_char_id}:{scene_id}"] = {
+            "id": f"edge:IN_SCENE:{agent_char_id}:{scene_id}",
+            "type": "IN_SCENE",
+            "src": agent_char_id,
+            "dst": scene_id,
+            "props": metadata_provenance,
+        }
+
+        # user:xnne -ACTOR→ char:xnne -IN_SCENE→ scene:chill_ai_chat
+        user_id = "user:xnne"
+        user_char_id = "char:xnne"
+        if user_id not in nodes_map:
+            nodes_map[user_id] = {
+                "id": user_id,
+                "labels": ["User"],
+                "props": {"user_id": "xnne", "display": "xnne", "name": "xnne"},
+            }
+        if user_char_id not in nodes_map:
+            nodes_map[user_char_id] = {
+                "id": user_char_id,
+                "labels": ["Character"],
+                "props": {"character_id": "xnne", "display": "xnne", "name": "xnne"},
+            }
+        edges_map[f"edge:ACTOR:{user_id}:{user_char_id}"] = {
+            "id": f"edge:ACTOR:{user_id}:{user_char_id}",
+            "type": "ACTOR",
+            "src": user_id,
+            "dst": user_char_id,
+            "props": metadata_provenance,
+        }
+        edges_map[f"edge:IN_SCENE:{user_char_id}:{scene_id}"] = {
+            "id": f"edge:IN_SCENE:{user_char_id}:{scene_id}",
+            "type": "IN_SCENE",
+            "src": user_char_id,
+            "dst": scene_id,
+            "props": metadata_provenance,
+        }
+
+        # 重新生成节点和边列表
         nodes = list(nodes_map.values())
         edges = list(edges_map.values())
         stats["nodes_total"] = len(nodes)
