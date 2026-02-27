@@ -425,8 +425,16 @@ ON MATCH SET
 
 // Create Conversation node (by date)
 MERGE (conv:Node {{id: "{conv_node_id}"}})
-ON CREATE SET conv.labels = ["Conversation"], conv.conv_id = "{conv_id}", conv.display = "{conv_id}", conv.name = "{conv_id}"
-ON MATCH SET conv.labels = ["Conversation"]
+ON CREATE SET
+  conv.labels = ["Conversation"],
+  conv.conv_id = "{conv_id}",
+  conv.display = "{conv_id}",
+  conv.name = "{conv_id}"
+ON MATCH SET
+  conv.labels = ["Conversation"],
+  conv.conv_id = "{conv_id}",
+  conv.display = "{conv_id}",
+  conv.name = "{conv_id}"
 
 // Link to owner Character (NOTE: char: prefix)
 WITH mem, conv
