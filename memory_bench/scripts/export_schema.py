@@ -217,14 +217,20 @@ def run_cypher(
 def parse_cypher_output(output: str) -> list[dict[str, Any]]:
     """Parse cypher-shell plain format output into list of dicts."""
     lines = output.strip().split("\n")
-    if len(lines) < 2:
+    if len(lines) < 1:
         return []
 
     # First line is header
     headers = [h.strip() for h in lines[0].split("|")]
     rows = []
 
-    for line in lines[2:]:  # Skip header and separator line
+    # Start from line 1 (skip header only, no separator line in Neo4j plain format)
+    start_line = 1
+    # Check if line 1 is a separator line (contains only --- and +)
+    if len(lines) > 1 and all(c in "-+|" for c in lines[1].replace(" ", "")):
+        start_line = 2
+
+    for line in lines[start_line:]:
         if not line.strip():
             continue
         # Split by | and strip whitespace
