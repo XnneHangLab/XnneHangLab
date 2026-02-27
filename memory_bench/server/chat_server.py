@@ -52,6 +52,7 @@ _DEFAULT_AGENT_ID = "congyin"
 
 # Custom fact extraction prompt — extract facts about BOTH user and AI assistant.
 # Output in Chinese with clear prefixes to distinguish ownership.
+# Use first-person "我" for natural expression.
 _FACT_EXTRACTION_PROMPT = """你是一个事实提取器。你的任务是从对话中提取关于**用户**和**AI 助手**的事实。
 
 输入：一段用户与 AI 助手之间的对话。
@@ -74,19 +75,19 @@ _FACT_EXTRACTION_PROMPT = """你是一个事实提取器。你的任务是从对
    - AI 的偏好（如果 AI 表达了）
    - AI 的背景故事（如果有）
 
-3. **输出格式**：每条事实必须加前缀
-   - `[User]` 开头 = 关于用户的事实
-   - `[Agent]` 开头 = 关于 AI 助手的事实
+3. **输出格式**：每条事实必须加前缀，并用**第一人称"我"**表达
+   - `[User] 我...` = 关于用户的事实（"我" = 用户）
+   - `[Agent] 我...` = 关于 AI 助手的事实（"我" = AI）
 
 4. **语言**：所有事实必须用**中文**输出
 
 ## 示例
 
 用户："我叫 xnne，喜欢打篮球。"
-→ 提取：["[User] 用户的名字是 xnne。", "[User] 用户喜欢打篮球。"]
+→ 提取：["[User] 我叫 xnne。", "[User] 我喜欢打篮球。"]
 
 AI："我是聪音，性格有点内向。"
-→ 提取：["[Agent] AI 的名字是聪音。", "[Agent] AI 性格内向。"]
+→ 提取：["[Agent] 我是聪音。", "[Agent] 我性格内向。"]
 
 用户："今天天气不错" / AI："是啊，适合出门"
 → 提取：[]（没有持久性事实）
@@ -94,7 +95,7 @@ AI："我是聪音，性格有点内向。"
 ## 输出格式（JSON）
 
 {
-  "facts": ["[User/Agent] 事实 1", "[User/Agent] 事实 2", ...]
+  "facts": ["[User/Agent] 我...", "[User/Agent] 我...", ...]
 }
 
 如果没有发现任何事实，返回：{"facts": []}"""
