@@ -63,7 +63,6 @@ ALLOWED_EDGE_TYPES = {
     "HAS_CHARACTER",
     "CONV_IN_SCENE",
     "CONV_HAS_CHARACTER",
-    "USER_IN_SCENE",
     "ACTOR",
 }
 MEMORY_DISPLAY_PREVIEW_LEN = 40
@@ -585,7 +584,6 @@ def build_graph_from_record(
     add_edge("HAS_CHARACTER", "MemoryItem", "Character")
     add_edge("CONV_IN_SCENE", "Conversation", "Scene")
     add_edge("CONV_HAS_CHARACTER", "Conversation", "Character")
-    add_edge("USER_IN_SCENE", "User", "Scene")
     
     # ACTOR 关系：Agent → 自己的 Character（不是 owner character！）
     # 从 payload 中获取 agent_id，映射到对应的 character
