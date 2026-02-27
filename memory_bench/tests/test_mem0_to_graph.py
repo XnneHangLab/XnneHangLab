@@ -112,8 +112,10 @@ def test_run_graphify_dry_run_does_not_create_state_db_when_missing(tmp_path: Pa
     report = read_report(artifacts.report_path)
     assert report["records_total"] == 1
     assert report["records_valid"] == 1
-    assert report["nodes_total"] == 6
-    assert report["edges_total"] == 8
+    # 6 个记录节点 (MemoryItem/User/Agent/Conversation/Scene/Character) + 1 个固定 metadata 节点 (char:xnne)
+    assert report["nodes_total"] == 7
+    # 8 个记录边 + 2 个固定 metadata 边 (ACTOR + IN_SCENE for agent/user)
+    assert report["edges_total"] == 10
     assert report["nodes_path"] == ""
     assert report["edges_path"] == ""
 
@@ -150,8 +152,10 @@ def test_run_graphify_add_creates_state_and_outputs(tmp_path: Path) -> None:
 
     nodes_lines = artifacts.nodes_path.read_text(encoding="utf-8").splitlines()
     edges_lines = artifacts.edges_path.read_text(encoding="utf-8").splitlines()
-    assert len(nodes_lines) == 6
-    assert len(edges_lines) == 8
+    # 6 个记录节点 + 1 个固定 metadata 节点 (char:xnne)
+    assert len(nodes_lines) == 7
+    # 8 个记录边 + 2 个固定 metadata 边
+    assert len(edges_lines) == 10
 
     report = read_report(artifacts.report_path)
     assert report["records_valid"] == 1
@@ -194,8 +198,10 @@ def test_run_graphify_add_second_run_skips_duplicates(tmp_path: Path) -> None:
     assert report["records_total"] == 1
     assert report["skipped_already_processed"] == 1
     assert report["records_valid"] == 0
-    assert report["nodes_total"] == 0
-    assert report["edges_total"] == 0
+    # 即使没有有效记录，固定的 metadata 节点仍然存在 (5 个)
+    assert report["nodes_total"] == 5
+    # 固定的 metadata 边 (4 个)
+    assert report["edges_total"] == 4
 
 
 def test_warning_truncation_respects_max_warnings(tmp_path: Path) -> None:
