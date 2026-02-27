@@ -238,7 +238,11 @@ def parse_cypher_output(output: str) -> list[dict[str, Any]]:
         # Strip whitespace from keys and values
         rows = []
         for row in reader:
-            cleaned_row = {k.strip(): v.strip() if isinstance(v, str) else v for k, v in row.items()}
+            cleaned_row = {}
+            for k, v in row.items():
+                key = k.strip() if k else ""
+                value = v.strip() if isinstance(v, str) and v else (v if v is not None else "")
+                cleaned_row[key] = value
             rows.append(cleaned_row)
         return rows
     
