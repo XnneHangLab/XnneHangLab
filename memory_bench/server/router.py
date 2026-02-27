@@ -393,7 +393,7 @@ def create_memory_item_node_v2(mem0_item: dict[str, Any], memory_text: str) -> N
     conv_id = datetime.now(timezone.utc).strftime("%Y-%m-%d")  # noqa: UP017
     conv_node_id = f"conv:{conv_id}"
 
-    log.info("💬 Conversation: %s", conv_node_id)
+    log.info("💬 Conversation: %s, conv_id: %s", conv_node_id, conv_id)
 
     # Escape double-quotes for Cypher string literals
     _esc_data = memory_text.replace("\\", "\\\\").replace('"', '\\"')
