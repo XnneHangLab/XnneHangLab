@@ -1,6 +1,6 @@
 # Neo4j 图谱 Schema 参考
 
-**生成时间**: 2026-02-27T21:52:03.407155+08:00
+**生成时间**: 2026-02-27T21:55:57.269142+08:00
 
 **Neo4j 容器**: `membench-neo4j-mem0`
 
@@ -10,11 +10,11 @@
 
 ### Agent
 
-- **ID**: `agent:congyin`
+- **ID**: agent:congyin
 
-- **Name**: `congyin`
+- **Name**: congyin
 
-- **Display**: `congyin`
+- **Display**: congyin
 
 - **Properties**:
 ```json
@@ -33,11 +33,11 @@
 
 ### Character
 
-- **ID**: `char:congyin`
+- **ID**: char:congyin
 
-- **Name**: `congyin`
+- **Name**: congyin
 
-- **Display**: `congyin`
+- **Display**: congyin
 
 - **Properties**:
 ```json
@@ -52,11 +52,11 @@
 
 ### Claim
 
-- **ID**: `claim:PREFERS_TOPIC|daily|agent:congyin|topic:挑新鲜颜色的马克杯使用`
+- **ID**: claim:PREFERS_TOPIC|daily|agent:congyin|topic:挑新鲜颜色的马克杯使用
 
-- **Name**: `PREFERS_TOPIC (daily)`
+- **Name**: PREFERS_TOPIC (daily)
 
-- **Display**: `PREFERS_TOPIC (daily)`
+- **Display**: PREFERS_TOPIC (daily)
 
 - **Properties**:
 ```json
@@ -75,11 +75,11 @@
 
 ### Conversation
 
-- **ID**: `conv:ch00`
+- **ID**: conv:ch00
 
-- **Name**: `ch00`
+- **Name**: ch00
 
-- **Display**: `ch00`
+- **Display**: ch00
 
 - **Properties**:
 ```json
@@ -94,11 +94,11 @@
 
 ### Domain
 
-- **ID**: `dom:char:congyin:daily`
+- **ID**: dom:char:congyin:daily
 
-- **Name**: `daily`
+- **Name**: daily
 
-- **Display**: `daily`
+- **Display**: daily
 
 - **Properties**:
 ```json
@@ -114,11 +114,11 @@
 
 ### MemoryItem
 
-- **ID**: `mem:59484ed1e8b9edf03c71c86146e8fc88`
+- **ID**: mem:59484ed1e8b9edf03c71c86146e8fc88
 
-- **Name**: `[User] 会使用一个小杯子来给茶散热。 #59484ed1`
+- **Name**: [User] 会使用一个小杯子来给茶散热。 #59484ed1
 
-- **Display**: `[User] 会使用一个小杯子来给茶散热。 #59484ed1`
+- **Display**: [User] 会使用一个小杯子来给茶散热。 #59484ed1
 
 - **Properties**:
 ```json
@@ -139,11 +139,11 @@
 
 ### Predicate
 
-- **ID**: `pred:char:congyin:daily:PREFERS_TOPIC`
+- **ID**: pred:char:congyin:daily:PREFERS_TOPIC
 
-- **Name**: `PREFERS_TOPIC (daily)`
+- **Name**: PREFERS_TOPIC (daily)
 
-- **Display**: `PREFERS_TOPIC (daily)`
+- **Display**: PREFERS_TOPIC (daily)
 
 - **Properties**:
 ```json
@@ -160,11 +160,11 @@
 
 ### Scene
 
-- **ID**: `scene:chill_ai_chat`
+- **ID**: scene:chill_ai_chat
 
-- **Name**: `chill_ai_chat`
+- **Name**: chill_ai_chat
 
-- **Display**: `chill_ai_chat`
+- **Display**: chill_ai_chat
 
 - **Properties**:
 ```json
@@ -179,11 +179,11 @@
 
 ### Topic
 
-- **ID**: `topic:普洱茶`
+- **ID**: topic:普洱茶
 
-- **Name**: `普洱茶`
+- **Name**: 普洱茶
 
-- **Display**: `普洱茶`
+- **Display**: 普洱茶
 
 - **Properties**:
 ```json
@@ -201,11 +201,11 @@
 
 ### User
 
-- **ID**: `user:xnne`
+- **ID**: user:xnne
 
-- **Name**: `xnne`
+- **Name**: xnne
 
-- **Display**: `xnne`
+- **Display**: xnne
 
 - **Properties**:
 ```json
@@ -226,16 +226,16 @@
 
 | 关系类型 | 源节点 | 源节点 ID | 目标节点 | 目标节点 ID |
 |----------|--------|-----------|----------|-------------|
-| `ABOUT` | `Node` | `claim:PREFERS_TOPIC|daily|agent:congyin|topic:挑新鲜颜色的马克杯使用` | `Node` | `topic:挑新鲜颜色的马克杯使用` |
-| `ACTOR` | `Node` | `agent:congyin` | `Node` | `char:congyin` |
-| `CONV_HAS_CHARACTER` | `Node` | `conv:ch00` | `Node` | `char:xnne` |
-| `CONV_IN_SCENE` | `Node` | `conv:ch00` | `Node` | `scene:chill_ai_chat` |
-| `EVIDENCED_BY` | `Node` | `claim:PREFERS_TOPIC|daily|agent:congyin|topic:挑新鲜颜色的马克杯使用` | `Node` | `mem:9dda1903d3ee9dcd2b0549c6797cc2f9` |
-| `FROM_CONV` | `Node` | `mem:a54b1336663e48057427f1bbe0462b73` | `Node` | `conv:ch00` |
-| `HAS_CHARACTER` | `Node` | `mem:a54b1336663e48057427f1bbe0462b73` | `Node` | `char:xnne` |
-| `HAS_CLAIM` | `Node` | `pred:char:congyin:daily:PREFERS_TOPIC` | `Node` | `claim:PREFERS_TOPIC|daily|agent:congyin|topic:挑新鲜颜色的马克杯使用` |
-| `HAS_DOMAIN` | `Node` | `char:congyin` | `Node` | `dom:char:congyin:daily` |
-| `HAS_PREDICATE` | `Node` | `dom:char:congyin:daily` | `Node` | `pred:char:congyin:daily:PREFERS_TOPIC` |
-| `IN_SCENE` | `Node` | `mem:a54b1336663e48057427f1bbe0462b73` | `Node` | `scene:chill_ai_chat` |
-| `OWNS_MEMORY` | `Node` | `char:xnne` | `Node` | `mem:9679d7cb69ae5bd89981b5db30c43ddc` |
+| ABOUT | Node | claim:PREFERS_TOPIC|daily|agent:congyin|topic:挑新鲜颜色的马克杯使用 | Node | topic:挑新鲜颜色的马克杯使用 |
+| ACTOR | Node | agent:congyin | Node | char:congyin |
+| CONV_HAS_CHARACTER | Node | conv:ch00 | Node | char:xnne |
+| CONV_IN_SCENE | Node | conv:ch00 | Node | scene:chill_ai_chat |
+| EVIDENCED_BY | Node | claim:PREFERS_TOPIC|daily|agent:congyin|topic:挑新鲜颜色的马克杯使用 | Node | mem:9dda1903d3ee9dcd2b0549c6797cc2f9 |
+| FROM_CONV | Node | mem:a54b1336663e48057427f1bbe0462b73 | Node | conv:ch00 |
+| HAS_CHARACTER | Node | mem:a54b1336663e48057427f1bbe0462b73 | Node | char:xnne |
+| HAS_CLAIM | Node | pred:char:congyin:daily:PREFERS_TOPIC | Node | claim:PREFERS_TOPIC|daily|agent:congyin|topic:挑新鲜颜色的马克杯使用 |
+| HAS_DOMAIN | Node | char:congyin | Node | dom:char:congyin:daily |
+| HAS_PREDICATE | Node | dom:char:congyin:daily | Node | pred:char:congyin:daily:PREFERS_TOPIC |
+| IN_SCENE | Node | mem:a54b1336663e48057427f1bbe0462b73 | Node | scene:chill_ai_chat |
+| OWNS_MEMORY | Node | char:xnne | Node | mem:9679d7cb69ae5bd89981b5db30c43ddc |
 
