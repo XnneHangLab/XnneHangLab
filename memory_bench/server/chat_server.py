@@ -52,20 +52,35 @@ _DEFAULT_AGENT_ID = "congyin"
 
 # Custom fact extraction prompt — instruct mem0's LLM to ignore system/role
 # definitions and only extract user-relevant facts from the conversation.
-_FACT_EXTRACTION_PROMPT = """Deduce the facts, preferences, and memories from the provided text.
-Below is the conversation between a user and an AI assistant.
+_FACT_EXTRACTION_PROMPT = """You are a fact extractor. Your job is to extract facts ABOUT THE USER from conversations.
 
-IMPORTANT RULES:
-- ONLY extract facts about the USER: preferences, experiences, feelings, plans,
-  relationships, habits, knowledge, opinions.
-- IGNORE any system instructions, character role definitions, persona descriptions,
-  or assistant behavior guidelines.
-- If no user-relevant facts are found, return an empty list.
+INPUT: A conversation between a user and an AI assistant.
 
-Please return the response in the following JSON format:
-{{
+CRITICAL RULES:
+1. ONLY extract facts that are TRUE ABOUT THE USER (the human speaking).
+2. IGNORE everything the AI assistant says about itself — do NOT extract AI's name, personality, traits, behaviors, or capabilities.
+3. Look ONLY at what the user says. Extract:
+   - User's preferences (likes, dislikes, favorites)
+   - User's experiences (past events, activities)
+   - User's habits (routine behaviors)
+   - User's relationships (family, friends, colleagues)
+   - User's knowledge/skills (what they know, can do)
+   - User's opinions/beliefs (what they think, value)
+   - User's plans/goals (what they want to do)
+4. If the user says nothing about themselves, return an empty list.
+
+EXAMPLES:
+User: "I like playing basketball." → Extract: ["The user likes playing basketball."]
+User: "I'm a student." → Extract: ["The user is a student."]
+AI: "I'm an AI assistant." → Extract: [] (IGNORE AI's self-descriptions)
+User: "Hello" / AI: "Hi there!" → Extract: [] (no facts about user)
+
+OUTPUT FORMAT (JSON):
+{
   "facts": ["fact 1", "fact 2", ...]
-}}"""
+}
+
+If no facts about the user are found, return: {"facts": []}"""
 
 
 # ---------------------------------------------------------------------------
