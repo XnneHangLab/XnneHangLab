@@ -280,7 +280,11 @@ def generate_schema_data(container: str) -> dict:
     log.info("查询节点标签...")
     ok, output = run_cypher(QUERY_NODE_LABELS, container=container)
     if ok:
+        log.info("节点标签原始输出:\n%s", output[:1000])
         data["node_labels"] = parse_cypher_output(output)
+        log.info("解析后数据：%d 条", len(data["node_labels"]))
+        if data["node_labels"]:
+            log.info("第一条数据：%s", data["node_labels"][0])
     else:
         log.error("节点标签查询失败：%s", output)
 
