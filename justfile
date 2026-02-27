@@ -252,22 +252,26 @@ clean-realtime:
   rm -rf memory_bench/state/qdrant_storage/
   just clean-neo4j
 
-reply-memory-and-export:
-  uv run memory_bench/scripts/replay_mem0.py ingest --force
+# --- 增量命令（去掉 --force，依赖脚本自身的增量检查）---
+
+mem0-ingest:
+  # 增量 ingest（依赖 checkpoint，不清理）
+  uv run memory_bench/scripts/replay_mem0.py ingest
+
+mem0-export:
+  # 导出当前 mem0 快照
   uv run memory_bench/scripts/replay_mem0.py export
 
-calim-all:
-  rm -rf memory_bench/data/claims
-  latest_export=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/replay_mem0) && \
-  uv run ./memory_bench/scripts/claimify_all.py --input "$latest_export" --workers 2 --force
-  uv run ./memory_bench/scripts/compiled_claims.py --force
+claimify-all:
+  # 增量 claimify（依赖 by_conv/*.jsonl 存在则 skip）
+  latest_export=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/replay_mem0 --glob "export_*.jsonl") && \
+  uv run ./memory_bench/scripts/claimify_all.py --input "$latest_export" --workers 2
 
-memory-item-to-cypher-add:
-  just mem0-to-graph
-  just mem0-graph-to-cypher
+compile-claims:
+  # 汇总 claims（增量，除非 --force）
+  uv run ./memory_bench/scripts/compiled_claims.py
 
-memory-item-to-cypher-force:
-  just reset-mem0-graph
+memory-item-to-cypher:
   just mem0-to-graph
   just mem0-graph-to-cypher
 
@@ -299,44 +303,10 @@ mem0-rerun-add:
   just build-index
   just annotate-all
   just compile-events
-  just reply-memory-and-export
-  just calim-all
-  just memory-item-to-cypher-add
+  just mem0-ingest
+  just mem0-export
+  just claimify-all
+  just compile-claims
+  just memory-item-to-cypher
   just claim-items-to-cypher
-  sleep 30 # 等待 Neo4j 处理完数据
-  just neo4j-apply-cypher
-
-mem0-rerun-force:
-  just build-index
-  just annotate-all
-  just compile-events
-  just clean-and-restart-neo4j
-  just reply-memory-and-export
-  just calim-all
-  just memory-item-to-cypher-force
-  just claim-items-to-cypher
-  sleep 30 # 等待 Neo4j 处理完数据
-  just neo4j-apply-cypher
-
-mem0-rerun-top2-add:
-  just build-index 2
-  just annotate-all
-  just compile-events
-  just reply-memory-and-export
-  just calim-all
-  just memory-item-to-cypher-add
-  just claim-items-to-cypher
-  sleep 30 # 等待 Neo4j 处理完数据
-  just neo4j-apply-cypher
-
-mem0-rerun-top2-force:
-  just build-index 2
-  just annotate-all
-  just compile-events
-  just clean-and-restart-neo4j
-  just reply-memory-and-export
-  just calim-all
-  just memory-item-to-cypher-force
-  just claim-items-to-cypher
-  sleep 30 # 等待 Neo4j 处理完数据
   just neo4j-apply-cypher
