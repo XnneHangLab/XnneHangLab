@@ -1,8 +1,4 @@
-#!/usr/bin/env uv run
-# /// script
-# requires-python = ">=3.10"
-# dependencies = ["python-dotenv"]
-# ///
+#!/usr/bin/env python3
 """导出 Neo4j 图谱的完整 Schema（节点类型、属性、关系）。
 
 用法：
@@ -30,29 +26,30 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from memory_bench.scripts.bench_logger import logger
+
+log = logger.bind(group="export_schema")
+
 try:
     from dotenv import load_dotenv
 except ImportError:
-    print("❌ 需要安装 python-dotenv: pip install python-dotenv")
+    log.error("需要安装 python-dotenv")
     sys.exit(1)
 
 # 加载 .env.benchmark
 ENV_FILE = Path(__file__).parent.parent / ".env.benchmark"
 if ENV_FILE.exists():
     load_dotenv(ENV_FILE)
-    print(f"✅ 已加载配置文件：{ENV_FILE}")
+    log.info("已加载配置文件：{}", ENV_FILE)
 else:
-    print(f"⚠️  配置文件不存在：{ENV_FILE}，使用默认值")
+    log.warning("配置文件不存在：{}，使用默认值", ENV_FILE)
 
 # Neo4j 配置（从环境变量读取）
 NEO4J_CONTAINER = os.getenv("NEO4J_CONTAINER", "membench-neo4j-mem0")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "neo4jneo4j")
 
-print(f"🔧 Neo4j 配置:")
-print(f"   容器：{NEO4J_CONTAINER}")
-print(f"   用户：{NEO4J_USER}")
-print(f"   密码：{'*' * len(NEO4J_PASSWORD)}")
+log.info("Neo4j 配置：容器={}, 用户={}", NEO4J_CONTAINER, NEO4J_USER)
 
 # Cypher 查询
 QUERY_NODE_LABELS = """
@@ -231,44 +228,44 @@ def generate_schema_data(container: str) -> dict:
     }
 
     # 1. 节点标签
-    print("📊 查询节点标签...")
+    log.info("查询节点标签...")
     ok, output = run_cypher(QUERY_NODE_LABELS, container=container)
     if ok:
         data["node_labels"] = parse_cypher_output(output)
     else:
-        print(f"❌ 节点标签查询失败：{output}")
+        log.error("节点标签查询失败：{}", output)
 
     # 2. 节点属性
-    print("📊 查询节点属性...")
+    log.info("查询节点属性...")
     ok, output = run_cypher(QUERY_NODE_PROPERTIES, container=container)
     if ok:
         data["node_properties"] = parse_cypher_output(output)
     else:
-        print(f"❌ 节点属性查询失败：{output}")
+        log.error("节点属性查询失败：{}", output)
 
     # 3. 关系类型
-    print("📊 查询关系类型...")
+    log.info("查询关系类型...")
     ok, output = run_cypher(QUERY_RELATIONSHIPS, container=container)
     if ok:
         data["relationships"] = parse_cypher_output(output)
     else:
-        print(f"❌ 关系类型查询失败：{output}")
+        log.error("关系类型查询失败：{}", output)
 
     # 4. 关系结构
-    print("📊 查询关系结构...")
+    log.info("查询关系结构...")
     ok, output = run_cypher(QUERY_RELATIONSHIP_STRUCTURE, container=container)
     if ok:
         data["relationship_structure"] = parse_cypher_output(output)
     else:
-        print(f"❌ 关系结构查询失败：{output}")
+        log.error("关系结构查询失败：{}", output)
 
     # 5. 示例节点
-    print("📊 查询示例节点...")
+    log.info("查询示例节点...")
     ok, output = run_cypher(QUERY_EXAMPLE_NODES, container=container)
     if ok:
         data["example_nodes"] = parse_cypher_output(output)
     else:
-        print(f"❌ 示例节点查询失败：{output}")
+        log.error("示例节点查询失败：{}", output)
 
     return data
 
@@ -370,9 +367,7 @@ def main() -> int:
 
     container = args.container
 
-    print("=" * 60)
-    print("🔍 Neo4j 图谱 Schema 导出工具")
-    print("=" * 60)
+    log.info("Neo4j 图谱 Schema 导出工具")
 
     # 生成 schema 数据
     data = generate_schema_data(container=container)
@@ -393,19 +388,17 @@ def main() -> int:
         output_path = output_path.with_suffix(".json")
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
-        print(f"\n✅ JSON 已写入：{output_path}")
+        log.info("JSON 已写入：{}", output_path)
     else:
         output_path = output_path.with_suffix(".md")
         report = generate_markdown_report(data)
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(report)
-        print(f"\n✅ Markdown 已写入：{output_path}")
+        log.info("Markdown 已写入：{}", output_path)
 
     # 打印摘要
-    print("\n📊 摘要:")
-    print(f"   节点类型：{len(data['node_labels'])}")
-    print(f"   关系类型：{len(data['relationships'])}")
-    print(f"   关系结构：{len(data['relationship_structure'])}")
+    log.info("摘要：节点类型={}, 关系类型={}, 关系结构={}",
+             len(data['node_labels']), len(data['relationships']), len(data['relationship_structure']))
 
     return 0
 
