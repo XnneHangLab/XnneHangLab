@@ -365,21 +365,11 @@ mem0-rerun-top2-add:
   just build-index 2
   just annotate-all
   just compile-events
-  just reply-memory-and-export
-  just calim-all
+  just mem0-ingest
+  just mem0-export
+  just claimify-all
+  just compile-claims
   just memory-item-to-cypher-add
-  just claim-items-to-cypher
-  sleep 30 # 等待 Neo4j 处理完数据
-  just neo4j-apply-cypher
-
-mem0-rerun-top2-force:
-  just build-index 2
-  just annotate-all
-  just compile-events
-  just clean-and-restart-neo4j
-  just reply-memory-and-export
-  just calim-all
-  just memory-item-to-cypher-force
   just claim-items-to-cypher
   sleep 30 # 等待 Neo4j 处理完数据
   just neo4j-apply-cypher
