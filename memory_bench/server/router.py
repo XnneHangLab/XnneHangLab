@@ -455,15 +455,8 @@ MERGE (owner)-[:OWNS_MEMORY]->(mem)
 // Link to Scene
 MERGE (scene:Node {{id: "scene:{state.metadata_scene_id}"}})
 MERGE (mem)-[:IN_SCENE]->(scene)
-
-// Link to owner Character (HAS_CHARACTER)
 MERGE (mem)-[:HAS_CHARACTER]->(owner)
-
-// Link to Conversation (FROM_CONV)
 MERGE (mem)-[:FROM_CONV]->(conv:Node {{id: "{conv_node_id}"}})
-
-// Link Conversation to Scene and Character
-MERGE (scene:Node {{id: "scene:{state.metadata_scene_id}"}})
 MERGE (conv:Node {{id: "{conv_node_id}"}})-[:CONV_IN_SCENE]->(scene)
 MERGE (conv:Node {{id: "{conv_node_id}"}})-[:CONV_HAS_CHARACTER]->(owner)
 """
