@@ -83,13 +83,16 @@ ORDER BY label
 QUERY_ALL_EDGES_DEDUP = """
 // 所有关系类型的去重示例（每个关系类型一个）
 MATCH (n)-[r]->(m)
+WITH type(r) AS relationship, n, m
+ORDER BY relationship
+WITH relationship, collect({from: n, to: m})[0] AS example
 RETURN 
-  labels(n)[0] AS from_node, 
-  n.id AS from_id, 
-  type(r) AS relationship, 
-  labels(m)[0] AS to_node, 
-  m.id AS to_id
-ORDER BY type(r)
+  relationship,
+  labels(example.from)[0] AS from_node, 
+  example.from.id AS from_id, 
+  labels(example.to)[0] AS to_node, 
+  example.to.id AS to_id
+ORDER BY relationship
 """
 
 
