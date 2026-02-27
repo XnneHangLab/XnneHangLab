@@ -21,6 +21,8 @@ try:
 except ImportError:
     pass  # python-dotenv not required, fall back to env vars
 
+from memory_bench.scripts.bench_logger import logger
+
 """Clear Neo4j graph data without restarting the container.
 
 This script uses docker exec to run Cypher commands directly inside
@@ -42,23 +44,9 @@ DEFAULT_USER = os.getenv("NEO4J_USER", "neo4j")
 DEFAULT_PASSWORD = os.getenv("NEO4J_PASSWORD", "neo4jneo4j")
 
 # Cypher commands to clear all data
-CLEAR_ALL_CYPHER = """
-MATCH (n) DETACH DELETE n;
-"""
+CLEAR_ALL_CYPHER = "MATCH (n) DETACH DELETE n;"
 
-# Remove constraints and indexes (optional, comment out if you want to keep them)
-DROP_CONSTRAINTS_CYPHER = """
-CALL db.constraints() YIELD name
-CALL { WITH name EXECUTE('DROP CONSTRAINT ' + name) }
-RETURN count(*);
-"""
-
-DROP_INDEXES_CYPHER = """
-CALL db.indexes() YIELD name
-WHERE name STARTS WITH 'index_'
-CALL { WITH name EXECUTE('DROP INDEX ' + name) }
-RETURN count(*);
-"""
+log = logger.bind(group="neo4j_clear")
 
 
 def run_cypher(
@@ -75,8 +63,8 @@ def run_cypher(
         tuple[bool, str]: (success, error_message)
     """
     if dry_run:
-        print(f"[DRY RUN] Would execute on container '{container}':")
-        print(cypher_text)
+        log.info("[DRY RUN] Would execute on container '%s':", container)
+        log.info(cypher_text)
         return True, ""
 
     cmd = [
@@ -142,38 +130,10 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    print(f"Clearing Neo4j data in container '{args.container}'...")
+    log.info("Clearing Neo4j data in container '%s'...", args.container)
 
-    # Step 1: Drop constraints and indexes (unless --keep-constraints)
-    if not args.keep_constraints:
-        print("  Dropping constraints...")
-        ok, err = run_cypher(
-            DROP_CONSTRAINTS_CYPHER,
-            container=args.container,
-            user=args.user,
-            password=args.password,
-            dry_run=args.dry_run,
-        )
-        if not ok:
-            print(f"  ❌ Failed to drop constraints: {err}")
-            return 1
-        print("  ✅ Constraints dropped")
-
-        print("  Dropping indexes...")
-        ok, err = run_cypher(
-            DROP_INDEXES_CYPHER,
-            container=args.container,
-            user=args.user,
-            password=args.password,
-            dry_run=args.dry_run,
-        )
-        if not ok:
-            print(f"  ❌ Failed to drop indexes: {err}")
-            return 1
-        print("  ✅ Indexes dropped")
-
-    # Step 2: Clear all data
-    print("  Clearing all graph data...")
+    # Step 1: Clear all data
+    log.info("Clearing all graph data...")
     ok, err = run_cypher(
         CLEAR_ALL_CYPHER,
         container=args.container,
@@ -182,11 +142,11 @@ def main() -> int:
         dry_run=args.dry_run,
     )
     if not ok:
-        print(f"  ❌ Failed to clear data: {err}")
+        log.error("Failed to clear data: %s", err)
         return 1
-    print("  ✅ All data cleared")
+    log.info("All data cleared")
 
-    print("Done!")
+    log.info("Done!")
     return 0
 
 
