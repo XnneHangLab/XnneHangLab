@@ -429,6 +429,32 @@ def edge_id(edge_type: str, src: str, dst: str) -> str:
     return f"edge:{edge_type}:{src}:{dst}"
 
 
+def _determine_owner_from_memory_text(payload: dict[str, Any]) -> str:
+    """根据 memory 文本的前缀判断记忆归属。
+    
+    规则：
+    - "[User] ..." → "xnne" (用户的 character)
+    - "[Agent] ..." → "congyin" (agent 的 character)
+    - 无前缀 → "congyin" (回退到 agent)
+    
+    Args:
+        payload: mem0 export 的 payload 数据
+        
+    Returns:
+        str: character_id (不带前缀，如 "xnne" 或 "congyin")
+    """
+    memory_text = str(payload.get("data") or payload.get("memory") or "").strip()
+    
+    # 检查前缀
+    if memory_text.startswith("[User]"):
+        return "xnne"
+    elif memory_text.startswith("[Agent]"):
+        return "congyin"
+    else:
+        # 无前缀 → 回退到 agent
+        return "congyin"
+
+
 def build_graph_from_record(
     record: ParsedRecord, stats: dict[str, int]
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -535,17 +561,13 @@ def build_graph_from_record(
             }
         )
 
-    owner_character_id = str(payload.get("character_id") or "").strip()
-    if not owner_character_id:
-        owner_type = str(payload.get("owner_type") or "").strip()
-        owner_id = str(payload.get("owner_id") or "").strip()
-        if owner_type == "Agent" and owner_id:
-            owner_character_id = owner_id
-            stats["owner_fallback_character_from_owner_agent"] += 1
-        else:
-            owner_character_id = f"unknown:{record.source_point_id}"
-            stats["owner_fallback_character_unknown"] += 1
-
+    # 3.2 确定记忆归属（Owner Character）
+    # 策略：通过 memory 文本的前缀判断归属
+    # - "[User] ..." → char:xnne (用户的 character)
+    # - "[Agent] ..." → char:congyin (agent 的 character)
+    # - 无前缀 → 回退到 agent 的 character
+    owner_character_id = _determine_owner_from_memory_text(payload)
+    
     owner_node_id = make_node_id("Character", owner_character_id)
     node_refs["Character"] = owner_node_id
     nodes.append(
