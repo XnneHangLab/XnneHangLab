@@ -40,16 +40,16 @@ except ImportError:
 ENV_FILE = Path(__file__).parent.parent / ".env.benchmark"
 if ENV_FILE.exists():
     load_dotenv(ENV_FILE)
-    log.info("已加载配置文件：{}", ENV_FILE)
+    log.info("已加载配置文件：%s", ENV_FILE)
 else:
-    log.warning("配置文件不存在：{}，使用默认值", ENV_FILE)
+    log.warning("配置文件不存在：%s，使用默认值", ENV_FILE)
 
 # Neo4j 配置（从环境变量读取）
 NEO4J_CONTAINER = os.getenv("NEO4J_CONTAINER", "membench-neo4j-mem0")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "neo4jneo4j")
 
-log.info("Neo4j 配置：容器={}, 用户={}", NEO4J_CONTAINER, NEO4J_USER)
+log.info("Neo4j 配置：容器=%s, 用户=%s", NEO4J_CONTAINER, NEO4J_USER)
 
 # Cypher 查询
 QUERY_NODE_LABELS = """
@@ -233,7 +233,7 @@ def generate_schema_data(container: str) -> dict:
     if ok:
         data["node_labels"] = parse_cypher_output(output)
     else:
-        log.error("节点标签查询失败：{}", output)
+        log.error("节点标签查询失败：%s", output)
 
     # 2. 节点属性
     log.info("查询节点属性...")
@@ -241,7 +241,7 @@ def generate_schema_data(container: str) -> dict:
     if ok:
         data["node_properties"] = parse_cypher_output(output)
     else:
-        log.error("节点属性查询失败：{}", output)
+        log.error("节点属性查询失败：%s", output)
 
     # 3. 关系类型
     log.info("查询关系类型...")
@@ -249,7 +249,7 @@ def generate_schema_data(container: str) -> dict:
     if ok:
         data["relationships"] = parse_cypher_output(output)
     else:
-        log.error("关系类型查询失败：{}", output)
+        log.error("关系类型查询失败：%s", output)
 
     # 4. 关系结构
     log.info("查询关系结构...")
@@ -257,7 +257,7 @@ def generate_schema_data(container: str) -> dict:
     if ok:
         data["relationship_structure"] = parse_cypher_output(output)
     else:
-        log.error("关系结构查询失败：{}", output)
+        log.error("关系结构查询失败：%s", output)
 
     # 5. 示例节点
     log.info("查询示例节点...")
@@ -265,7 +265,7 @@ def generate_schema_data(container: str) -> dict:
     if ok:
         data["example_nodes"] = parse_cypher_output(output)
     else:
-        log.error("示例节点查询失败：{}", output)
+        log.error("示例节点查询失败：%s", output)
 
     return data
 
@@ -388,16 +388,16 @@ def main() -> int:
         output_path = output_path.with_suffix(".json")
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
-        log.info("JSON 已写入：{}", output_path)
+        log.info("JSON 已写入：%s", output_path)
     else:
         output_path = output_path.with_suffix(".md")
         report = generate_markdown_report(data)
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(report)
-        log.info("Markdown 已写入：{}", output_path)
+        log.info("Markdown 已写入：%s", output_path)
 
     # 打印摘要
-    log.info("摘要：节点类型={}, 关系类型={}, 关系结构={}",
+    log.info("摘要：节点类型=%d, 关系类型=%d, 关系结构=%d",
              len(data['node_labels']), len(data['relationships']), len(data['relationship_structure']))
 
     return 0
