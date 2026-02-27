@@ -251,6 +251,15 @@ def _resolve_config(args: argparse.Namespace) -> dict[str, Any]:
         "neo4j_user": neo4j_user,
         "neo4j_password": neo4j_password,
         "enable_graph": args.enable_graph,
+        # Metadata nodes
+        "metadata_user_id": args.metadata_user_id or _get_env("METADATA_USER_ID", "xnne"),
+        "metadata_user_name": args.metadata_user_name or _get_env("METADATA_USER_NAME", "xnne"),
+        "metadata_agent_id": args.metadata_agent_id or _get_env("METADATA_AGENT_ID", "congyin"),
+        "metadata_agent_name": args.metadata_agent_name or _get_env("METADATA_AGENT_NAME", "congyin"),
+        "metadata_scene_id": args.metadata_scene_id or _get_env("METADATA_SCENE_ID", "chill_ai_chat"),
+        "metadata_scene_name": args.metadata_scene_name or _get_env("METADATA_SCENE_NAME", "Chill AI Chat"),
+        "metadata_character_id": args.metadata_character_id or _get_env("METADATA_CHARACTER_ID", "congyin"),
+        "metadata_character_name": args.metadata_character_name or _get_env("METADATA_CHARACTER_NAME", "聪音 (Congyin)"),
     }
 
 
@@ -304,12 +313,24 @@ async def lifespan(app: FastAPI):
         router_state.neo4j_user = cfg["neo4j_user"]
         router_state.neo4j_password = cfg["neo4j_password"]
         router_state.graph_pipeline_enabled = True
+        # Metadata nodes
+        router_state.metadata_user_id = cfg["metadata_user_id"]
+        router_state.metadata_user_name = cfg["metadata_user_name"]
+        router_state.metadata_agent_id = cfg["metadata_agent_id"]
+        router_state.metadata_agent_name = cfg["metadata_agent_name"]
+        router_state.metadata_scene_id = cfg["metadata_scene_id"]
+        router_state.metadata_scene_name = cfg["metadata_scene_name"]
+        router_state.metadata_character_id = cfg["metadata_character_id"]
+        router_state.metadata_character_name = cfg["metadata_character_name"]
         logger.info(
             "\u2705 Graph pipeline enabled: claim LLM=%s/%s, Neo4j=%s",
             cfg["claim_base_url"],
             cfg["claim_model"],
             cfg["neo4j_container"],
         )
+        # Initialize metadata nodes
+        from memory_bench.server.router import init_metadata_nodes
+        init_metadata_nodes()
     else:
         logger.info("\u2139\ufe0f Graph pipeline disabled (use --enable-graph to enable)")
 
@@ -370,6 +391,15 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--neo4j-container", default=None, help="Neo4j Docker container name (default: membench-neo4j-mem0)")
     p.add_argument("--neo4j-user", default=None, help="Neo4j username (default: neo4j)")
     p.add_argument("--neo4j-password", default=None, help="Neo4j password (default: neo4jneo4j)")
+    # Metadata nodes
+    p.add_argument("--metadata-user-id", default=None, help="User ID for metadata nodes (default: xnne)")
+    p.add_argument("--metadata-user-name", default=None, help="User name for metadata nodes (default: xnne)")
+    p.add_argument("--metadata-agent-id", default=None, help="Agent ID for metadata nodes (default: congyin)")
+    p.add_argument("--metadata-agent-name", default=None, help="Agent name for metadata nodes (default: congyin)")
+    p.add_argument("--metadata-scene-id", default=None, help="Scene ID for metadata nodes (default: chill_ai_chat)")
+    p.add_argument("--metadata-scene-name", default=None, help="Scene name for metadata nodes (default: Chill AI Chat)")
+    p.add_argument("--metadata-character-id", default=None, help="Character ID for metadata nodes (default: congyin)")
+    p.add_argument("--metadata-character-name", default=None, help="Character name for metadata nodes (default: 聪音 (Congyin))")
     return p
 
 

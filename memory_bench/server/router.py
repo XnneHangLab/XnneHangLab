@@ -112,6 +112,16 @@ class ServerState:
     neo4j_user: str = "neo4j"
     neo4j_password: str = "neo4jneo4j"
 
+    # --- Metadata nodes ---
+    metadata_user_id: str = "xnne"
+    metadata_user_name: str = "xnne"
+    metadata_agent_id: str = "congyin"
+    metadata_agent_name: str = "congyin"
+    metadata_scene_id: str = "chill_ai_chat"
+    metadata_scene_name: str = "Chill AI Chat"
+    metadata_character_id: str = "congyin"
+    metadata_character_name: str = "聪音 (Congyin)"
+
 
 state = ServerState()
 
@@ -172,6 +182,142 @@ def _format_memories(memories: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Metadata nodes (Neo4j)
+# ---------------------------------------------------------------------------
+
+
+def _create_metadata_nodes_cypher() -> str:
+    """Generate Cypher to create/update metadata nodes (User, Agent, Scene, Character)."""
+    return f"""
+// Create/update User node
+MERGE (user:Node {{id: "user:{state.metadata_user_id}"}})
+ON CREATE SET user.name = "{state.metadata_user_name}", user.labels = ["User"]
+ON MATCH SET user.name = "{state.metadata_user_name}", user.labels = ["User"]
+
+// Create/update Agent node
+MERGE (agent:Node {{id: "agent:{state.metadata_agent_id}"}})
+ON CREATE SET agent.name = "{state.metadata_agent_name}", agent.labels = ["Agent"]
+ON MATCH SET agent.name = "{state.metadata_agent_name}", agent.labels = ["Agent"]
+
+// Create/update Scene node
+MERGE (scene:Node {{id: "scene:{state.metadata_scene_id}"}})
+ON CREATE SET scene.name = "{state.metadata_scene_name}", scene.labels = ["Scene"]
+ON MATCH SET scene.name = "{state.metadata_scene_name}", scene.labels = ["Scene"]
+
+// Create/update Character node
+MERGE (character:Node {{id: "character:{state.metadata_character_id}"}})
+ON CREATE SET character.name = "{state.metadata_character_name}", character.labels = ["Character"]
+ON MATCH SET character.name = "{state.metadata_character_name}", character.labels = ["Character"]
+
+// Create relationships
+MERGE (user)-[:OWNS_MEMORY]->(agent)
+MERGE (agent)-[:TARGETS_AGENT]->(user)
+MERGE (agent)-[:IN_SCENE]->(scene)
+MERGE (agent)-[:HAS_CHARACTER]->(character)
+MERGE (user)-[:IN_SCENE]->(scene)
+MERGE (user)-[:ACTOR]->(character)
+"""
+
+
+def _run_cypher(
+    cypher_text: str,
+    *,
+    container: str = state.neo4j_container,
+    user: str = state.neo4j_user,
+    password: str = state.neo4j_password,
+) -> tuple[bool, str]:
+    """Pipe cypher_text into cypher-shell inside the Neo4j container."""
+    import shutil
+    import subprocess
+
+    if shutil.which("docker") is None:
+        return False, "docker command not found"
+
+    cmd = [
+        "docker",
+        "exec",
+        "-i",
+        container,
+        "cypher-shell",
+        "-u",
+        user,
+        "-p",
+        password,
+    ]
+
+    result = subprocess.run(
+        cmd,
+        input=cypher_text.encode("utf-8"),
+        capture_output=True,
+        check=False,
+        timeout=30,
+    )
+
+    if result.returncode == 0:
+        return True, ""
+
+    stderr = (result.stderr or b"").decode("utf-8", errors="replace").strip()
+    stdout = (result.stdout or b"").decode("utf-8", errors="replace").strip()
+    msg = stderr or stdout or f"exit code {result.returncode}"
+    return False, msg
+
+
+def init_metadata_nodes() -> None:
+    """Create/update metadata nodes in Neo4j at server startup."""
+    if not state.graph_pipeline_enabled:
+        return
+
+    log = logger.bind(group="metadata")
+    log.info("Initializing metadata nodes...")
+
+    cypher = _create_metadata_nodes_cypher()
+    ok, err = _run_cypher(cypher)
+
+    if ok:
+        log.info("✅ Metadata nodes initialized")
+    else:
+        log.warning("⚠️  Failed to initialize metadata nodes: %s", err)
+
+
+def create_memory_item_node(memory_id: str, memory_text: str) -> None:
+    """Create MemoryItem node and link to User/Agent/Scene/Character."""
+    if not state.graph_pipeline_enabled:
+        return
+
+    log = logger.bind(group="metadata")
+
+    # Generate a unique ID for this memory item
+    import hashlib
+    memory_key = hashlib.sha256(memory_text.encode()).hexdigest()[:12]
+    node_id = f"mem:{memory_key}"
+
+    cypher = f"""
+// Create MemoryItem node
+MERGE (mem:Node {{id: "{node_id}"}})
+ON CREATE SET mem.labels = ["MemoryItem"], mem.text = "{memory_text[:200].replace(chr(34), chr(92)+chr(34))}"
+ON MATCH SET mem.text = "{memory_text[:200].replace(chr(34), chr(92)+chr(34))}"
+
+// Link to metadata nodes
+MATCH (user:Node {{id: "user:{state.metadata_user_id}"}})
+MATCH (agent:Node {{id: "agent:{state.metadata_agent_id}"}})
+MATCH (scene:Node {{id: "scene:{state.metadata_scene_id}"}})
+MATCH (character:Node {{id: "character:{state.metadata_character_id}"}})
+
+MERGE (user)-[:OWNS_MEMORY]->(mem)
+MERGE (agent)-[:TARGETS_AGENT]->(mem)
+MERGE (mem)-[:IN_SCENE]->(scene)
+MERGE (mem)-[:HAS_CHARACTER]->(character)
+MERGE (mem)-[:FROM_CONV]->(agent)
+"""
+
+    ok, err = _run_cypher(cypher)
+    if ok:
+        log.info("✅ MemoryItem created: %s", node_id)
+    else:
+        log.warning("⚠️  Failed to create MemoryItem: %s", err)
+
+
 def _inject_memories(
     messages: list[ChatMessage],
     memories_text: str,
@@ -219,6 +365,9 @@ def _add_memory_sync(user_msg: str, assistant_msg: str) -> list[dict[str, Any]]:
                 event = item.get("event", "unknown")
                 memory_text = item.get("memory", "")
                 log.info("\U0001f4be mem0 %s: %s", event, memory_text[:150])
+                # Create MemoryItem node for each new memory
+                if event == "ADD" and memory_text:
+                    create_memory_item_node(memory_text[:200], memory_text)
         else:
             log.info("\U0001f4be mem0 returned no new memory items")
         return results
