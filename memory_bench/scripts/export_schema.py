@@ -24,9 +24,10 @@ import os
 import re
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from io import StringIO
 from pathlib import Path
+from typing import Any
 
 from memory_bench.scripts.bench_logger import logger
 
@@ -66,8 +67,8 @@ QUERY_ALL_NODES_BY_PREFIX = """
 // 查询所有节点，按 ID 前缀分类（每个前缀一个示例）
 MATCH (n)
 WHERE n.id IS NOT NULL
-WITH 
-  CASE 
+WITH
+  CASE
     WHEN n.id STARTS WITH "mem:" THEN "MemoryItem"
     WHEN n.id STARTS WITH "claim:" THEN "Claim"
     WHEN n.id STARTS WITH "topic:" THEN "Topic"
@@ -82,7 +83,7 @@ WITH
   END AS node_type,
   n
 WITH node_type, collect(n)[0] AS example
-RETURN 
+RETURN
   node_type,
   example.id AS id,
   example.name AS name,
@@ -97,11 +98,11 @@ MATCH (n)-[r]->(m)
 WITH type(r) AS relationship, n, m
 ORDER BY relationship
 WITH relationship, collect({from: n, to: m})[0] AS example
-RETURN 
+RETURN
   relationship,
-  labels(example.from)[0] AS from_node, 
-  example.from.id AS from_id, 
-  labels(example.to)[0] AS to_node, 
+  labels(example.from)[0] AS from_node,
+  example.from.id AS from_id,
+  labels(example.to)[0] AS to_node,
   example.to.id AS to_id
 ORDER BY relationship
 """
@@ -153,7 +154,7 @@ def run_cypher(
 
 def split_csv_line(line: str) -> list[str]:
     """Split CSV line, handling nested braces {} and brackets [].
-    
+
     Example: "a, b, {x: 1, y: 2}" → ["a", " b", " {x: 1, y: 2}"]
     """
     result = []
@@ -161,7 +162,7 @@ def split_csv_line(line: str) -> list[str]:
     brace_depth = 0
     bracket_depth = 0
     in_quotes = False
-    
+
     for char in line:
         if char == '"' and (not current or current[-1] != '\\'):
             in_quotes = not in_quotes
@@ -184,34 +185,34 @@ def split_csv_line(line: str) -> list[str]:
             current = []
         else:
             current.append(char)
-    
+
     # Don't forget the last field
     if current:
         result.append(''.join(current))
-    
+
     return result
 
 
 def convert_neo4j_map_to_json(neo4j_map: str) -> str:
     """Convert Neo4j Map format to valid JSON.
-    
+
     Neo4j format: {name: "congyin", aliases: []}
     JSON format: {"name": "congyin", "aliases": []}
     """
     result = neo4j_map
-    
+
     # Add quotes around unquoted keys
     result = re.sub(r'([{,]\s*)(\w+)(\s*:)', r'\1"\2"\3', result)
-    
+
     # Replace single quotes with double quotes (if any)
     result = result.replace("'", '"')
-    
+
     return result
 
 
 def parse_cypher_output(output: str) -> list[dict[str, Any]]:
     """Parse cypher-shell plain format output into list of dicts.
-    
+
     Handles CSV-like format where JSON fields may contain commas.
     Example:
     node_type, id, all_props
@@ -228,7 +229,7 @@ def parse_cypher_output(output: str) -> list[dict[str, Any]]:
     for line in lines[1:]:
         if not line.strip():
             continue
-        
+
         values = split_csv_line(line)
         if len(values) == len(headers):
             row_dict = {}
@@ -252,7 +253,7 @@ def parse_cypher_output(output: str) -> list[dict[str, Any]]:
 def generate_schema_data(container: str) -> dict:
     """Generate schema data structure."""
     data = {
-        "generated_at": datetime.now(timezone.utc).astimezone().isoformat(),
+        "generated_at": datetime.now(UTC).astimezone().isoformat(),
         "neo4j_container": container,
         "node_examples": [],
         "edge_examples": [],
@@ -371,13 +372,13 @@ def main() -> int:
     # 写入文件
     if args.format == "json":
         output_path = output_path.with_suffix(".json")
-        with open(output_path, "w", encoding="utf-8") as f:
+        with output_path.open("w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
         log.info("JSON 已写入：%s", output_path)
     else:
         output_path = output_path.with_suffix(".md")
         report = generate_markdown_report(data)
-        with open(output_path, "w", encoding="utf-8") as f:
+        with output_path.open("w", encoding="utf-8") as f:
             f.write(report)
         log.info("Markdown 已写入：%s", output_path)
 

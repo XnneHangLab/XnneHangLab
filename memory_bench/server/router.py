@@ -19,6 +19,7 @@ import hashlib
 import json
 import time
 import uuid
+from datetime import UTC
 from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -190,11 +191,11 @@ def _format_memories(memories: list[dict[str, Any]]) -> str:
 
 def _create_metadata_nodes_cypher() -> str:
     """Generate Cypher to create/update metadata nodes (User, Agent, Scene, Character).
-    
+
     Node ID format must match offline pipeline (mem0_to_graph.py):
     - user:xnne, agent:congyin, scene:chill_ai_chat
     - char:congyin (NOT character:congyin), char:xnne
-    
+
     Relationships (matching offline pipeline):
     - Agent -ACTOR→ Character
     - User -USER_IN_SCENE→ Scene
@@ -338,12 +339,12 @@ MERGE (mem)-[:FROM_CONV]->(agent)
 
 def _determine_owner(mem0_item: dict[str, Any], memory_text: str) -> str:
     """Determine which character owns this memory.
-    
+
     Strategy: Check memory text prefix to determine owner.
     - "[User] ..." → User's character (char:xnne)
     - "[Agent] ..." → Agent's character (char:congyin)
     - No prefix → Fallback to Agent's character
-    
+
     Returns:
         character_id: The character ID (without prefix, e.g., "xnne" or "congyin")
     """
@@ -361,7 +362,7 @@ def _determine_owner(mem0_item: dict[str, Any], memory_text: str) -> str:
 
 def create_memory_item_node_v2(mem0_item: dict[str, Any], memory_text: str) -> None:
     """Create MemoryItem node and link to Character (owner) + Scene + Conversation.
-    
+
     Args:
         mem0_item: Full mem0 result item (for owner detection)
         memory_text: The memory text content
@@ -381,9 +382,9 @@ def create_memory_item_node_v2(mem0_item: dict[str, Any], memory_text: str) -> N
 
     # Generate conversation ID from current date (e.g., "2026-02-27")
     from datetime import datetime, timezone
-    conv_id = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    conv_id = datetime.now(UTC).strftime("%Y-%m-%d")
     conv_node_id = f"conv:{conv_id}"
-    
+
     log.info("💬 Conversation: %s", conv_node_id)
 
     cypher = f"""

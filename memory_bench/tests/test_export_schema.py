@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
 
@@ -10,7 +11,6 @@ import pytest
 
 # Import the module under test
 SCRIPT_PATH = Path(__file__).parent.parent / "scripts" / "export_schema.py"
-import importlib.util
 
 spec = importlib.util.spec_from_file_location("export_schema", SCRIPT_PATH)
 export_schema = importlib.util.module_from_spec(spec)
@@ -132,7 +132,7 @@ class TestParseCypherOutput:
 "Character", "char:congyin", "congyin", "congyin", {name: "congyin", character_id: "congyin"}'''
         result = parse_cypher_output(output)
         assert len(result) == 2
-        
+
         # Check first row
         assert result[0]["node_type"] == "Agent"
         assert result[0]["id"] == "agent:congyin"
@@ -140,7 +140,7 @@ class TestParseCypherOutput:
         assert result[0]["all_props"]["entity_type"] == "Agent"
         assert result[0]["all_props"]["agent_id"] == "congyin"
         assert result[0]["all_props"]["aliases"] == []
-        
+
         # Check second row
         assert result[1]["node_type"] == "Character"
         assert result[1]["id"] == "char:congyin"

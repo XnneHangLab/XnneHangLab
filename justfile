@@ -145,7 +145,7 @@ fmt: # 似乎不会检查被 .gitignore 忽略的文件
 
 lint:
   uv run pyright src/lab tests
-  uv run ruff check . --exclude packages
+  uv run ruff check . --exclude packages --exclude .git
 
 fmt-docs:
   prettier --ignore-path .prettierignore --write '**/*.md'
