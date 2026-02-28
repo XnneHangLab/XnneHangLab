@@ -2,9 +2,9 @@
 """导出 Neo4j 图谱的完整 Schema（节点类型、属性、关系）。
 
 用法：
-    uv run memory_bench/scripts/export_schema_node.py
-    uv run memory_bench/scripts/export_schema_node.py --format json
-    uv run memory_bench/scripts/export_schema_node.py --output custom_path.md
+    uv run memory_bench/scripts/export_node_schema.py
+    uv run memory_bench/scripts/export_node_schema.py --format json
+    uv run memory_bench/scripts/export_node_schema.py --output custom_path.md
 
 自动读取 memory_bench/.env.benchmark 中的 Neo4j 配置：
 - NEO4J_CONTAINER
@@ -31,7 +31,7 @@ from typing import Any
 
 from memory_bench.scripts.bench_logger import logger
 
-log = logger.bind(group="export_schema_node")
+log = logger.bind(group="export_node_schema")
 
 try:
     from dotenv import load_dotenv

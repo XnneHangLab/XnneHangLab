@@ -266,13 +266,13 @@ elif memory_text.startswith("[Agent]"):
 ### 1. 导出离线管线 Schema
 
 ```bash
-uv run memory_bench/scripts/export_schema_node.py --output /tmp/offline_schema.md
+uv run memory_bench/scripts/export_node_schema.py --output /tmp/offline_schema.md
 ```
 
 ### 2. 导出实时管线 Schema
 
 ```bash
-uv run memory_bench/scripts/export_schema_node.py --output /tmp/realtime_schema.md
+uv run memory_bench/scripts/export_node_schema.py --output /tmp/realtime_schema.md
 ```
 
 ### 3. 对比两者
