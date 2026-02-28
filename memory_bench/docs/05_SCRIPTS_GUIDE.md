@@ -1096,3 +1096,67 @@ Markdown 文档包含两个章节：
 1. **排查边字段一致性**：快速检查某类边的属性是否完整（如 `src/dst/predicate/domain`）
 2. **校验命名规范**：检查 `r.id` 的前缀分布是否符合预期
 3. **联调实时/离线写图**：确认不同写入链路产出的边结构一致
+
+---
+
+## 23. 实时管线边 Schema 参考（09_REALTIME_EDGE_SCHEMA_REFERENCE.md）
+
+> **用途**：记录实时管线（memory-chat-server）的 Neo4j 图谱边 Schema，确保与离线管线完全兼容。
+
+### 文档位置
+
+`memory_bench/docs/09_REALTIME_EDGE_SCHEMA_REFERENCE.md`
+
+### 文档结构
+
+Markdown 文档包含以下章节：
+
+1. `## 边类型（Edge Types）` — 实时管线支持的边类型列表（按创建方式分类）
+2. `## 边属性（Edge Properties）` — 每种边类型的完整属性示例
+3. `## 与离线管线的兼容性` — 兼容性对比、差异说明
+4. `## 验证方法` — 导出、查询、对比方法
+5. `## 使用场景` — 文档使用说明
+6. `## 实时管线边统计` — 边类型统计表
+
+### 实时管线支持的边类型
+
+| 边类型 | 源节点类型 | 目标节点类型 | 创建方式 |
+|---------|-----------|-------------|----------|
+| `ACTOR` | Agent | Character | `neo4j_queries.create_metadata_nodes_cypher()` |
+| `ACTOR` | User | Character | `neo4j_queries.create_metadata_nodes_cypher()` |
+| `IN_SCENE` | Character | Scene | `neo4j_queries.create_metadata_nodes_cypher()` |
+| `OWNS_MEMORY` | Character | MemoryItem | `neo4j_queries.create_memory_item_cypher()` |
+| `IN_SCENE` | MemoryItem | Scene | `neo4j_queries.create_memory_item_cypher()` |
+| `HAS_CHARACTER` | MemoryItem | Character | `neo4j_queries.create_memory_item_cypher()` |
+| `FROM_CONV` | MemoryItem | Conversation | `neo4j_queries.create_memory_item_cypher()` |
+| `CONV_IN_SCENE` | Conversation | Scene | `neo4j_queries.create_memory_item_cypher()` |
+| `CONV_HAS_CHARACTER` | Conversation | Character | `neo4j_queries.create_memory_item_cypher()` |
+
+**总计**：7 种边类型（9 条边，因为 ACTOR 和 IN_SCENE 各有 2 条）
+
+### 与离线管线的差异
+
+**离线管线有但实时管线没有的边**：
+- `HAS_DOMAIN` — Character → Domain
+- `HAS_PREDICATE` — Domain → Predicate
+- `HAS_CLAIM` — Predicate → Claim
+- `ABOUT` — Claim → Topic/Entity
+- `EVIDENCED_BY` — Claim → MemoryItem
+
+**原因**：这些边来自 `graph_writer`，需要 `claim_extractor` 输出 claim/entity。实时管线的 `claim_extractor` 目前只提取 claim，不生成完整的 claim/entity 图结构。
+
+### 验证方法
+
+```bash
+# 检查 Neo4j 中的边
+MATCH ()-[r]->()
+RETURN type(r) AS edge_type, count(*) AS count
+ORDER BY edge_type;
+```
+
+### 使用场景
+
+1. **验证兼容性**：确保离线/实时管线可以写入同一张图
+2. **调试数据问题**：检查实时管线的边是否符合预期
+3. **文档参考**：为开发者提供实时管线的完整边 Schema 说明
+4. **迁移验证**：从离线管线切换到实时管线时，确保数据一致性
