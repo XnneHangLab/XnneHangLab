@@ -263,7 +263,7 @@ def generate_edge_schema_data(container: str) -> dict[str, Any]:
         按边 ID 前缀示例与按关系类型示例的数据字典。
     """
     data: dict[str, Any] = {
-        "generated_at": datetime.now(timezone.utc).astimezone().isoformat(),
+        "generated_at": datetime.now(timezone.utc).astimezone().isoformat(),  # noqa: UP017
         "neo4j_container": container,
         "edge_examples_by_id_prefix": [],
         "edge_examples_by_type": [],
