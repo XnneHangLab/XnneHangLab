@@ -292,7 +292,8 @@ def _resolve_config(args: argparse.Namespace) -> dict[str, Any]:
         "metadata_scene_id": args.metadata_scene_id or _get_env("METADATA_SCENE_ID", "chill_ai_chat"),
         "metadata_scene_name": args.metadata_scene_name or _get_env("METADATA_SCENE_NAME", "Chill AI Chat"),
         "metadata_character_id": args.metadata_character_id or _get_env("METADATA_CHARACTER_ID", "congyin"),
-        "metadata_character_name": args.metadata_character_name or _get_env("METADATA_CHARACTER_NAME", "聪音 (Congyin)"),
+        "metadata_character_name": args.metadata_character_name
+        or _get_env("METADATA_CHARACTER_NAME", "聪音 (Congyin)"),
     }
 
 
@@ -363,6 +364,7 @@ async def lifespan(app: FastAPI):
         )
         # Initialize metadata nodes
         from memory_bench.server.router import init_metadata_nodes
+
         init_metadata_nodes()
     else:
         logger.info("\u2139\ufe0f Graph pipeline disabled (use --enable-graph to enable)")
@@ -432,7 +434,9 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--metadata-scene-id", default=None, help="Scene ID for metadata nodes (default: chill_ai_chat)")
     p.add_argument("--metadata-scene-name", default=None, help="Scene name for metadata nodes (default: Chill AI Chat)")
     p.add_argument("--metadata-character-id", default=None, help="Character ID for metadata nodes (default: congyin)")
-    p.add_argument("--metadata-character-name", default=None, help="Character name for metadata nodes (default: 聪音 (Congyin))")
+    p.add_argument(
+        "--metadata-character-name", default=None, help="Character name for metadata nodes (default: 聪音 (Congyin))"
+    )
     return p
 
 

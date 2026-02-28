@@ -26,9 +26,9 @@ class TestSplitCsvLine:
 
     def test_simple_csv(self):
         """Test simple CSV without nested structures."""
-        line = 'a, b, c'
+        line = "a, b, c"
         result = split_csv_line(line)
-        assert result == ['a', ' b', ' c']
+        assert result == ["a", " b", " c"]
 
     def test_csv_with_quotes(self):
         """Test CSV with quoted values."""
@@ -38,21 +38,21 @@ class TestSplitCsvLine:
 
     def test_csv_with_nested_braces(self):
         """Test CSV with nested {} structures."""
-        line = 'a, b, {x: 1, y: 2}'
+        line = "a, b, {x: 1, y: 2}"
         result = split_csv_line(line)
-        assert result == ['a', ' b', ' {x: 1, y: 2}']
+        assert result == ["a", " b", " {x: 1, y: 2}"]
 
     def test_csv_with_nested_brackets(self):
         """Test CSV with nested [] structures."""
-        line = 'a, b, [1, 2, 3]'
+        line = "a, b, [1, 2, 3]"
         result = split_csv_line(line)
-        assert result == ['a', ' b', ' [1, 2, 3]']
+        assert result == ["a", " b", " [1, 2, 3]"]
 
     def test_csv_with_deep_nesting(self):
         """Test CSV with deeply nested structures."""
-        line = 'a, {x: [1, 2], y: {z: 3}}, b'
+        line = "a, {x: [1, 2], y: {z: 3}}, b"
         result = split_csv_line(line)
-        assert result == ['a', ' {x: [1, 2], y: {z: 3}}', ' b']
+        assert result == ["a", " {x: [1, 2], y: {z: 3}}", " b"]
 
     def test_neo4j_output_format(self):
         """Test actual Neo4j output format."""
@@ -61,7 +61,7 @@ class TestSplitCsvLine:
         assert len(result) == 3
         assert result[0] == '"MemoryItem"'
         assert result[1] == ' "mem:xxx"'
-        assert '{' in result[2] and '}' in result[2]
+        assert "{" in result[2] and "}" in result[2]
 
 
 class TestConvertNeo4jMapToJson:
@@ -105,9 +105,9 @@ class TestParseCypherOutput:
 
     def test_simple_csv_output(self):
         """Test parsing simple CSV output."""
-        output = '''label, count
+        output = """label, count
 "Node", 41
-"MemoryItem", 11'''
+"MemoryItem", 11"""
         result = parse_cypher_output(output)
         assert len(result) == 2
         assert result[0] == {"label": "Node", "count": "41"}
@@ -115,8 +115,8 @@ class TestParseCypherOutput:
 
     def test_csv_with_json_field(self):
         """Test parsing CSV with JSON field."""
-        output = '''node_type, id, all_props
-"MemoryItem", "mem:xxx", {name: "test", data: "hello"}'''
+        output = """node_type, id, all_props
+"MemoryItem", "mem:xxx", {name: "test", data: "hello"}"""
         result = parse_cypher_output(output)
         assert len(result) == 1
         assert result[0]["node_type"] == "MemoryItem"
@@ -127,9 +127,9 @@ class TestParseCypherOutput:
 
     def test_neo4j_export_format(self):
         """Test parsing actual Neo4j export format."""
-        output = '''node_type, id, name, display, all_props
+        output = """node_type, id, name, display, all_props
 "Agent", "agent:congyin", "congyin", "congyin", {aliases: [], entity_type: "Agent", agent_id: "congyin"}
-"Character", "char:congyin", "congyin", "congyin", {name: "congyin", character_id: "congyin"}'''
+"Character", "char:congyin", "congyin", "congyin", {name: "congyin", character_id: "congyin"}"""
         result = parse_cypher_output(output)
         assert len(result) == 2
 
