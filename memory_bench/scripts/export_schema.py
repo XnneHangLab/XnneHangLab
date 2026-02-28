@@ -107,6 +107,21 @@ RETURN
 ORDER BY relationship
 """
 
+QUERY_EDGE_WITH_PROPERTIES = """
+// 查询边的完整信息（源节点、目标节点、属性）
+MATCH (src)-[r]->(dst)
+WITH type(r) AS edge_type, collect({rel: r, src: src, dst: dst})[0] AS example
+RETURN
+  edge_type,
+  example.rel AS relationship,
+  labels(example.src)[0] AS src_label,
+  example.src.id AS src_id,
+  labels(example.dst)[0] AS dst_label,
+  example.dst.id AS dst_id,
+  properties(example.rel) AS edge_properties
+ORDER BY edge_type
+"""
+
 
 def run_cypher(
     cypher_text: str,
@@ -277,6 +292,15 @@ def generate_schema_data(container: str) -> dict:
     else:
         log.error("关系示例查询失败：%s", output)
 
+    # 3. 查询边的完整信息（带属性）
+    log.info("查询边属性...")
+    ok, output = run_cypher(QUERY_EDGE_WITH_PROPERTIES, container=container)
+    if ok:
+        data["edge_properties"] = parse_cypher_output(output)
+        log.info("边属性：%d 个", len(data["edge_properties"]))
+    else:
+        log.error("边属性查询失败：%s", output)
+
     return data
 
 
@@ -316,14 +340,43 @@ def generate_markdown_report(data: dict) -> str:
         table_rows.append("| 关系类型 | 源节点 | 源节点 ID | 目标节点 | 目标节点 ID |")
         table_rows.append("|----------|--------|-----------|----------|-------------|")
         for row in data["edge_examples"]:
-            rel_type = row.get("relationship", "")
-            from_node = row.get("from_node", "")
-            from_id = row.get("from_id", "")
-            to_node = row.get("to_node", "")
-            to_id = row.get("to_id", "")
+            rel_type = row.get("edge_type", "") or row.get("relationship", "")
+            from_node = row.get("src_label", "") or row.get("from_node", "")
+            from_id = row.get("src_id", "") or row.get("from_id", "")
+            to_node = row.get("dst_label", "") or row.get("to_node", "")
+            to_id = row.get("dst_id", "") or row.get("to_id", "")
             table_rows.append(f"| {rel_type} | {from_node} | {from_id} | {to_node} | {to_id} |")
         report.append("\n".join(table_rows))
         report.append("\n")
+    else:
+        report.append("⚠️  无数据\n")
+
+    # 3. 边属性详情（每个类型一个完整示例）
+    report.append("\n## 边属性详情（每个类型一个完整示例）\n")
+    if data.get("edge_properties"):
+        for row in data["edge_properties"]:
+            edge_type = row.get("edge_type", "")
+            src_label = row.get("src_label", "")
+            src_id = row.get("src_id", "")
+            dst_label = row.get("dst_label", "")
+            dst_id = row.get("dst_id", "")
+            edge_props = row.get("edge_properties", {})
+
+            # 标题：EDGE_TYPE (src_id --> dst_id)
+            report.append(f"\n### {edge_type} ({src_id} → {dst_id})\n")
+
+            # 属性表格
+            if isinstance(edge_props, dict):
+                report.append("| Property | Value |\n")
+                report.append("|----------|-------|\n")
+                for key, value in sorted(edge_props.items()):
+                    # 格式化 value，避免过长
+                    if isinstance(value, str) and len(value) > 100:
+                        value = value[:100] + "..."
+                    report.append(f"| `{key}` | {value} |\n")
+                report.append("\n")
+            else:
+                report.append(f"**Properties**: {edge_props}\n\n")
     else:
         report.append("⚠️  无数据\n")
 
