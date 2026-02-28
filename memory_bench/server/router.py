@@ -411,9 +411,12 @@ MERGE (owner)-[:OWNS_MEMORY]->(mem)
 MERGE (scene:Node:Scene {{id: "scene:{state.metadata_scene_id}"}})
 MERGE (mem)-[:IN_SCENE]->(scene)
 MERGE (mem)-[:HAS_CHARACTER]->(owner)
-MERGE (mem)-[:FROM_CONV]->(conv:Node:Conversation {{id: "{conv_node_id}"}})
-MERGE (conv:Node:Conversation {{id: "{conv_node_id}"}})-[:CONV_IN_SCENE]->(scene)
-MERGE (conv:Node:Conversation {{id: "{conv_node_id}"}})-[:CONV_HAS_CHARACTER]->(owner)
+
+// Link to Conversation (FROM_CONV) - re-declare conv since it's a separate Cypher execution
+MERGE (conv:Node:Conversation {{id: "{conv_node_id}"}})
+MERGE (mem)-[:FROM_CONV]->(conv)
+MERGE (conv)-[:CONV_IN_SCENE]->(scene)
+MERGE (conv)-[:CONV_HAS_CHARACTER]->(owner)
 """
 
     ok, err = _run_cypher(cypher)
