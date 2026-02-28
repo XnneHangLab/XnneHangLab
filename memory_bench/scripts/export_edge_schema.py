@@ -297,6 +297,24 @@ def generate_markdown_report(data: dict[str, Any]) -> str:
     else:
         report.append("⚠️  无数据\n")
 
+    report.append("\n## 关系示例（每个类型一个完整示例）\n")
+    if data["edge_examples_by_type"]:
+        table_rows = [
+            "| 关系类型 | 源节点 | 源节点 ID | 目标节点 | 目标节点 ID |",
+            "|----------|--------|-----------|----------|-------------|",
+        ]
+        for row in data["edge_examples_by_type"]:
+            rel_type = row.get("edge_type", "")
+            src_label = row.get("src_label", "")
+            src_id = row.get("src_id", "")
+            dst_label = row.get("dst_label", "")
+            dst_id = row.get("dst_id", "")
+            table_rows.append(f"| {rel_type} | {src_label} | {src_id} | {dst_label} | {dst_id} |")
+        report.append("\n".join(table_rows))
+        report.append("\n")
+    else:
+        report.append("⚠️  无数据\n")
+
     return "\n".join(report)
 
 

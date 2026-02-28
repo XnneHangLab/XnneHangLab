@@ -13,6 +13,7 @@ export_edge_schema = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(export_edge_schema)
 
 parse_cypher_output = export_edge_schema.parse_cypher_output
+generate_markdown_report = export_edge_schema.generate_markdown_report
 
 
 def test_parse_edge_row_with_map_fields():
@@ -29,3 +30,27 @@ def test_parse_edge_row_with_map_fields():
     assert row["relationship"]["type"] == "ABOUT"
     assert isinstance(row["edge_properties"], dict)
     assert row["edge_properties"]["predicate"] == "PREFERS_TOPIC"
+
+
+def test_markdown_contains_relationship_summary_table_at_bottom():
+    data = {
+        "generated_at": "2026-03-01T00:00:00+08:00",
+        "neo4j_container": "membench-neo4j-mem0",
+        "edge_examples_by_id_prefix": [],
+        "edge_examples_by_type": [
+            {
+                "edge_type": "ABOUT",
+                "src_label": "Node",
+                "src_id": "claim:aaa",
+                "dst_label": "Node",
+                "dst_id": "topic:bbb",
+                "relationship": {"type": "ABOUT"},
+                "edge_properties": {"type": "ABOUT"},
+            }
+        ],
+    }
+
+    md = generate_markdown_report(data)
+    assert "## 关系示例（每个类型一个完整示例）" in md
+    assert "| 关系类型 | 源节点 | 源节点 ID | 目标节点 | 目标节点 ID |" in md
+    assert "| ABOUT | Node | claim:aaa | Node | topic:bbb |" in md
