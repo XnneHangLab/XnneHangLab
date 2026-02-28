@@ -92,36 +92,6 @@ RETURN
 ORDER BY node_type
 """
 
-QUERY_ALL_EDGES_DEDUP = """
-// 所有关系类型的去重示例（每个关系类型一个）
-MATCH (n)-[r]->(m)
-WITH type(r) AS relationship, n, m
-ORDER BY relationship
-WITH relationship, collect({from: n, to: m})[0] AS example
-RETURN
-  relationship,
-  labels(example.from)[0] AS from_node,
-  example.from.id AS from_id,
-  labels(example.to)[0] AS to_node,
-  example.to.id AS to_id
-ORDER BY relationship
-"""
-
-QUERY_EDGE_WITH_PROPERTIES = """
-// 查询边的完整信息（源节点、目标节点、属性）
-MATCH (src)-[r]->(dst)
-WITH type(r) AS edge_type, collect({rel: r, src: src, dst: dst})[0] AS example
-RETURN
-  edge_type,
-  example.rel AS relationship,
-  labels(example.src)[0] AS src_label,
-  example.src.id AS src_id,
-  labels(example.dst)[0] AS dst_label,
-  example.dst.id AS dst_id,
-  properties(example.rel) AS edge_properties
-ORDER BY edge_type
-"""
-
 
 def run_cypher(
     cypher_text: str,
@@ -271,7 +241,6 @@ def generate_schema_data(container: str) -> dict:
         "generated_at": datetime.now(UTC).astimezone().isoformat(),
         "neo4j_container": container,
         "node_examples": [],
-        "edge_examples": [],
     }
 
     # 1. 所有节点按 ID 前缀分类示例
@@ -282,24 +251,6 @@ def generate_schema_data(container: str) -> dict:
         log.info("节点示例：%d 个", len(data["node_examples"]))
     else:
         log.error("节点示例查询失败：%s", output)
-
-    # 2. 所有关系类型的去重示例
-    log.info("查询关系示例...")
-    ok, output = run_cypher(QUERY_ALL_EDGES_DEDUP, container=container)
-    if ok:
-        data["edge_examples"] = parse_cypher_output(output)
-        log.info("关系示例：%d 个", len(data["edge_examples"]))
-    else:
-        log.error("关系示例查询失败：%s", output)
-
-    # 3. 查询边的完整信息（带属性）
-    log.info("查询边属性...")
-    ok, output = run_cypher(QUERY_EDGE_WITH_PROPERTIES, container=container)
-    if ok:
-        data["edge_properties"] = parse_cypher_output(output)
-        log.info("边属性：%d 个", len(data["edge_properties"]))
-    else:
-        log.error("边属性查询失败：%s", output)
 
     return data
 
@@ -329,54 +280,6 @@ def generate_markdown_report(data: dict) -> str:
                 report.append(f"- **Properties**:\n```json\n{props_json}\n```\n")
             else:
                 report.append(f"- **Properties**: {all_props}\n")
-    else:
-        report.append("⚠️  无数据\n")
-
-    # 2. 关系示例（每个类型一个）
-    report.append("\n## 关系示例（每个类型一个完整示例）\n")
-    if data["edge_examples"]:
-        # Build table rows without extra newlines
-        table_rows = []
-        table_rows.append("| 关系类型 | 源节点 | 源节点 ID | 目标节点 | 目标节点 ID |")
-        table_rows.append("|----------|--------|-----------|----------|-------------|")
-        for row in data["edge_examples"]:
-            rel_type = row.get("edge_type", "") or row.get("relationship", "")
-            from_node = row.get("src_label", "") or row.get("from_node", "")
-            from_id = row.get("src_id", "") or row.get("from_id", "")
-            to_node = row.get("dst_label", "") or row.get("to_node", "")
-            to_id = row.get("dst_id", "") or row.get("to_id", "")
-            table_rows.append(f"| {rel_type} | {from_node} | {from_id} | {to_node} | {to_id} |")
-        report.append("\n".join(table_rows))
-        report.append("\n")
-    else:
-        report.append("⚠️  无数据\n")
-
-    # 3. 边属性详情（每个类型一个完整示例）
-    report.append("\n## 边属性详情（每个类型一个完整示例）\n")
-    if data.get("edge_properties"):
-        for row in data["edge_properties"]:
-            edge_type = row.get("edge_type", "")
-            src_label = row.get("src_label", "")
-            src_id = row.get("src_id", "")
-            dst_label = row.get("dst_label", "")
-            dst_id = row.get("dst_id", "")
-            edge_props = row.get("edge_properties", {})
-
-            # 标题：EDGE_TYPE (src_id --> dst_id)
-            report.append(f"\n### {edge_type} ({src_id} → {dst_id})\n")
-
-            # 属性表格
-            if isinstance(edge_props, dict):
-                report.append("| Property | Value |\n")
-                report.append("|----------|-------|\n")
-                for key, value in sorted(edge_props.items()):
-                    # 格式化 value，避免过长
-                    if isinstance(value, str) and len(value) > 100:
-                        value = value[:100] + "..."
-                    report.append(f"| `{key}` | {value} |\n")
-                report.append("\n")
-            else:
-                report.append(f"**Properties**: {edge_props}\n\n")
     else:
         report.append("⚠️  无数据\n")
 
