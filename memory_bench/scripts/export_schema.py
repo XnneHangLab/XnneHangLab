@@ -164,31 +164,31 @@ def split_csv_line(line: str) -> list[str]:
     in_quotes = False
 
     for char in line:
-        if char == '"' and (not current or current[-1] != '\\'):
+        if char == '"' and (not current or current[-1] != "\\"):
             in_quotes = not in_quotes
             current.append(char)
-        elif char == '{' and not in_quotes:
+        elif char == "{" and not in_quotes:
             brace_depth += 1
             current.append(char)
-        elif char == '}' and not in_quotes:
+        elif char == "}" and not in_quotes:
             brace_depth -= 1
             current.append(char)
-        elif char == '[' and not in_quotes:
+        elif char == "[" and not in_quotes:
             bracket_depth += 1
             current.append(char)
-        elif char == ']' and not in_quotes:
+        elif char == "]" and not in_quotes:
             bracket_depth -= 1
             current.append(char)
-        elif char == ',' and brace_depth == 0 and bracket_depth == 0 and not in_quotes:
+        elif char == "," and brace_depth == 0 and bracket_depth == 0 and not in_quotes:
             # End of field
-            result.append(''.join(current))
+            result.append("".join(current))
             current = []
         else:
             current.append(char)
 
     # Don't forget the last field
     if current:
-        result.append(''.join(current))
+        result.append("".join(current))
 
     return result
 
@@ -202,7 +202,7 @@ def convert_neo4j_map_to_json(neo4j_map: str) -> str:
     result = neo4j_map
 
     # Add quotes around unquoted keys
-    result = re.sub(r'([{,]\s*)(\w+)(\s*:)', r'\1"\2"\3', result)
+    result = re.sub(r"([{,]\s*)(\w+)(\s*:)", r'\1"\2"\3', result)
 
     # Replace single quotes with double quotes (if any)
     result = result.replace("'", '"')
@@ -383,8 +383,7 @@ def main() -> int:
         log.info("Markdown 已写入：%s", output_path)
 
     # 打印摘要
-    log.info("摘要：节点示例=%d, 关系示例=%d",
-             len(data["node_examples"]), len(data["edge_examples"]))
+    log.info("摘要：节点示例=%d, 关系示例=%d", len(data["node_examples"]), len(data["edge_examples"]))
 
     return 0
 
