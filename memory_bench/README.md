@@ -46,6 +46,7 @@ memory_bench/
 ├─ server/
 │  ├─ __init__.py
 │  ├─ router.py              (FastAPI router — 可独立挂载)
+│  ├─ neo4j_queries.py       (Neo4j Cypher 查询模板)
 │  ├─ chat_server.py         (独立启动器 + CLI)
 │  ├─ chat_cli.py            (终端对话调试客户端)
 │  ├─ claim_extractor.py     (实时 claim/entity 提取)

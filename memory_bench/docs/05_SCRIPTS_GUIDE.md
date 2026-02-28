@@ -38,6 +38,7 @@
 
 - **Memory Chat Server**（`memory_bench/server/`）
   - `chat_server.py`（独立启动器 + CLI）
+  - `neo4j_queries.py`（Neo4j Cypher 查询模板，与业务逻辑分离）
   - `router.py`（FastAPI router，可独立挂载到其他 app）
   - `claim_extractor.py`（实时 claim/entity 提取，`claimify_all.py` 的实时对应物）
   - `graph_writer.py`（实时图谱写入 Neo4j，离线管线的实时对应物）
