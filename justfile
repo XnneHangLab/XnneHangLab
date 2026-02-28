@@ -285,6 +285,12 @@ claim-items-to-cypher:
     --out-dir memory_bench/logs/claims/graphify/neo4j \
     --prefix claims
 
+
+export-neo4j-schema-docs:
+  # 一次生成节点/关系 schema + 边 schema 文档（默认参数）
+  uv run memory_bench/scripts/export_schema.py
+  uv run memory_bench/scripts/export_edge_schema.py
+
 neo4j-apply-cypher:
   # mem0 graph → mem0 容器
   constraints_file=$(uv run memory_bench/scripts/latest_file.py --export-dir memory_bench/logs/replay_mem0/graphify/neo4j --glob "graph_constraints_*.cypher") && \
