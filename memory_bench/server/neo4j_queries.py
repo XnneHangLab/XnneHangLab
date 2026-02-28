@@ -5,7 +5,17 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
+
+
+def _utc_timestamp() -> str:
+    """生成 UTC 时间戳（ISO 8601 格式）。
+
+    Returns:
+        UTC 时间戳字符串（如 "2026-02-28T07:05:18Z"）
+    """
+    return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
 
 
 def create_metadata_nodes_cypher(
@@ -37,7 +47,7 @@ def create_metadata_nodes_cypher(
     Returns:
         Cypher 查询语句
     """
-    return f"""
+    return """
 // Create/update User node (with proper Neo4j labels)
 MERGE (user:Node:User {{id: "user:{user_id}"}})
 ON CREATE SET
@@ -98,15 +108,76 @@ ON MATCH SET
   user_char.character_id = "{user_char_id}"
 
 // Create Agent-Character relationship (ACTOR)
-MERGE (agent)-[:ACTOR]->(character)
+MERGE (agent)-[r_actor:ACTOR]->(character)
+ON CREATE SET
+  r_actor.id = "edge:ACTOR:agent:{agent_id}:char:{character_id}",
+  r_actor.type = "ACTOR",
+  r_actor.src = "agent:{agent_id}",
+  r_actor.dst = "char:{character_id}",
+  r_actor.created_at = "{ts}",
+  r_actor.exported_at = "{ts}"
+ON MATCH SET
+  r_actor.type = "ACTOR",
+  r_actor.src = "agent:{agent_id}",
+  r_actor.dst = "char:{character_id}",
+  r_actor.exported_at = "{ts}"
 
 // Create User-Character relationship (ACTOR, like Agent)
-MERGE (user)-[:ACTOR]->(user_char)
+MERGE (user)-[r_user_actor:ACTOR]->(user_char)
+ON CREATE SET
+  r_user_actor.id = "edge:ACTOR:user:{user_id}:char:{user_char_id}",
+  r_user_actor.type = "ACTOR",
+  r_user_actor.src = "user:{user_id}",
+  r_user_actor.dst = "char:{user_char_id}",
+  r_user_actor.created_at = "{ts}",
+  r_user_actor.exported_at = "{ts}"
+ON MATCH SET
+  r_user_actor.type = "ACTOR",
+  r_user_actor.src = "user:{user_id}",
+  r_user_actor.dst = "char:{user_char_id}",
+  r_user_actor.exported_at = "{ts}"
 
 // Create Character-Scene relationship (NOT Agent/User!)
-MERGE (character)-[:IN_SCENE]->(scene)
-MERGE (user_char)-[:IN_SCENE]->(scene)
-"""
+MERGE (character)-[r_char_in_scene:IN_SCENE]->(scene)
+ON CREATE SET
+  r_char_in_scene.id = "edge:IN_SCENE:char:{character_id}:scene:{scene_id}",
+  r_char_in_scene.type = "IN_SCENE",
+  r_char_in_scene.src = "char:{character_id}",
+  r_char_in_scene.dst = "scene:{scene_id}",
+  r_char_in_scene.created_at = "{ts}",
+  r_char_in_scene.exported_at = "{ts}"
+ON MATCH SET
+  r_char_in_scene.type = "IN_SCENE",
+  r_char_in_scene.src = "char:{character_id}",
+  r_char_in_scene.dst = "scene:{scene_id}",
+  r_char_in_scene.exported_at = "{ts}"
+
+MERGE (user_char)-[r_user_char_in_scene:IN_SCENE]->(scene)
+ON CREATE SET
+  r_user_char_in_scene.id = "edge:IN_SCENE:char:{user_char_id}:scene:{scene_id}",
+  r_user_char_in_scene.type = "IN_SCENE",
+  r_user_char_in_scene.src = "char:{user_char_id}",
+  r_user_char_in_scene.dst = "scene:{scene_id}",
+  r_user_char_in_scene.created_at = "{ts}",
+  r_user_char_in_scene.exported_at = "{ts}"
+ON MATCH SET
+  r_user_char_in_scene.type = "IN_SCENE",
+  r_user_char_in_scene.src = "char:{user_char_id}",
+  r_user_char_in_scene.dst = "scene:{scene_id}",
+  r_user_char_in_scene.exported_at = "{ts}"
+""".format(
+        user_id=user_id,
+        user_name=user_name,
+        agent_id=agent_id,
+        agent_name=agent_name,
+        scene_id=scene_id,
+        scene_name=scene_name,
+        character_id=character_id,
+        character_name=character_name,
+        user_char_id=user_char_id,
+        user_char_name=user_char_name,
+        ts=_utc_timestamp(),
+    )
 
 
 def create_conversation_cypher(conv_node_id: str, conv_id: str) -> str:
@@ -164,7 +235,7 @@ def create_memory_item_cypher(
     esc_data = data.replace("\\", "\\\\").replace('"', '\\"')
     esc_display = display_name.replace("\\", "\\\\").replace('"', '\\"')
 
-    return f"""
+    return """
 // Create MemoryItem node (with proper Neo4j labels)
 MERGE (mem:Node:MemoryItem {{id: "{node_id}"}})
 ON CREATE SET
@@ -190,16 +261,99 @@ ON MATCH SET
 // Link to owner Character
 MERGE (owner:Node:Character {{id: "char:{owner_character_id}"}})
 ON CREATE SET owner.name = "{owner_character_id}"
-MERGE (owner)-[:OWNS_MEMORY]->(mem)
+MERGE (owner)-[r_owns:OWNS_MEMORY]->(mem)
+ON CREATE SET
+  r_owns.id = "edge:OWNS_MEMORY:char:{owner_character_id}:{node_id}",
+  r_owns.type = "OWNS_MEMORY",
+  r_owns.src = "char:{owner_character_id}",
+  r_owns.dst = "{node_id}",
+  r_owns.created_at = "{ts}",
+  r_owns.exported_at = "{ts}"
+ON MATCH SET
+  r_owns.type = "OWNS_MEMORY",
+  r_owns.src = "char:{owner_character_id}",
+  r_owns.dst = "{node_id}",
+  r_owns.exported_at = "{ts}"
 
 // Link to Scene
 MERGE (scene:Node:Scene {{id: "scene:{scene_id}"}})
-MERGE (mem)-[:IN_SCENE]->(scene)
-MERGE (mem)-[:HAS_CHARACTER]->(owner)
+MERGE (mem)-[r_in_scene:IN_SCENE]->(scene)
+ON CREATE SET
+  r_in_scene.id = "edge:IN_SCENE:{node_id}:scene:{scene_id}",
+  r_in_scene.type = "IN_SCENE",
+  r_in_scene.src = "{node_id}",
+  r_in_scene.dst = "scene:{scene_id}",
+  r_in_scene.created_at = "{ts}",
+  r_in_scene.exported_at = "{ts}"
+ON MATCH SET
+  r_in_scene.type = "IN_SCENE",
+  r_in_scene.src = "{node_id}",
+  r_in_scene.dst = "scene:{scene_id}",
+  r_in_scene.exported_at = "{ts}"
+MERGE (mem)-[r_has_character:HAS_CHARACTER]->(owner)
+ON CREATE SET
+  r_has_character.id = "edge:HAS_CHARACTER:{node_id}:char:{owner_character_id}",
+  r_has_character.type = "HAS_CHARACTER",
+  r_has_character.src = "{node_id}",
+  r_has_character.dst = "char:{owner_character_id}",
+  r_has_character.created_at = "{ts}",
+  r_has_character.exported_at = "{ts}"
+ON MATCH SET
+  r_has_character.type = "HAS_CHARACTER",
+  r_has_character.src = "{node_id}",
+  r_has_character.dst = "char:{owner_character_id}",
+  r_has_character.exported_at = "{ts}"
 
 // Link to Conversation - re-declare conv since it's a separate Cypher execution
 MERGE (conv:Node:Conversation {{id: "{conv_node_id}"}})
-MERGE (mem)-[:FROM_CONV]->(conv)
-MERGE (conv)-[:CONV_IN_SCENE]->(scene)
-MERGE (conv)-[:CONV_HAS_CHARACTER]->(owner)
-"""
+MERGE (mem)-[r_from_conv:FROM_CONV]->(conv)
+ON CREATE SET
+  r_from_conv.id = "edge:FROM_CONV:{node_id}:{conv_node_id}",
+  r_from_conv.type = "FROM_CONV",
+  r_from_conv.src = "{node_id}",
+  r_from_conv.dst = "{conv_node_id}",
+  r_from_conv.created_at = "{ts}",
+  r_from_conv.exported_at = "{ts}"
+ON MATCH SET
+  r_from_conv.type = "FROM_CONV",
+  r_from_conv.src = "{node_id}",
+  r_from_conv.dst = "{conv_node_id}",
+  r_from_conv.exported_at = "{ts}"
+MERGE (conv)-[r_conv_in_scene:CONV_IN_SCENE]->(scene)
+ON CREATE SET
+  r_conv_in_scene.id = "edge:CONV_IN_SCENE:{conv_node_id}:scene:{scene_id}",
+  r_conv_in_scene.type = "CONV_IN_SCENE",
+  r_conv_in_scene.src = "{conv_node_id}",
+  r_conv_in_scene.dst = "scene:{scene_id}",
+  r_conv_in_scene.created_at = "{ts}",
+  r_conv_in_scene.exported_at = "{ts}"
+ON MATCH SET
+  r_conv_in_scene.type = "CONV_IN_SCENE",
+  r_conv_in_scene.src = "{conv_node_id}",
+  r_conv_in_scene.dst = "scene:{scene_id}",
+  r_conv_in_scene.exported_at = "{ts}"
+MERGE (conv)-[r_conv_has_character:CONV_HAS_CHARACTER]->(owner)
+ON CREATE SET
+  r_conv_has_character.id = "edge:CONV_HAS_CHARACTER:{conv_node_id}:char:{owner_character_id}",
+  r_conv_has_character.type = "CONV_HAS_CHARACTER",
+  r_conv_has_character.src = "{conv_node_id}",
+  r_conv_has_character.dst = "char:{owner_character_id}",
+  r_conv_has_character.created_at = "{ts}",
+  r_conv_has_character.exported_at = "{ts}"
+ON MATCH SET
+  r_conv_has_character.type = "CONV_HAS_CHARACTER",
+  r_conv_has_character.src = "{conv_node_id}",
+  r_conv_has_character.dst = "char:{owner_character_id}",
+  r_conv_has_character.exported_at = "{ts}"
+""".format(
+        node_id=node_id,
+        esc_data=esc_data,
+        payload_hash=payload_hash,
+        esc_display=esc_display,
+        now_iso=now_iso,
+        point_id=point_id,
+        owner_character_id=owner_character_id,
+        scene_id=scene_id,
+        conv_node_id=conv_node_id,
+        ts=_utc_timestamp(),
+    )
