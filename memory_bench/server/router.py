@@ -202,30 +202,30 @@ def _create_metadata_nodes_cypher() -> str:
     - Character -IN_SCENE→ Scene (NOT Agent!)
     """
     return f"""
-// Create/update User node
-MERGE (user:Node {{id: "user:{state.metadata_user_id}"}})
-ON CREATE SET user.name = "{state.metadata_user_name}", user.labels = ["User"]
-ON MATCH SET user.name = "{state.metadata_user_name}", user.labels = ["User"]
+// Create/update User node (with proper Neo4j labels)
+MERGE (user:Node:User {{id: "user:{state.metadata_user_id}"}})
+ON CREATE SET user.name = "{state.metadata_user_name}"
+ON MATCH SET user.name = "{state.metadata_user_name}"
 
-// Create/update Agent node
-MERGE (agent:Node {{id: "agent:{state.metadata_agent_id}"}})
-ON CREATE SET agent.name = "{state.metadata_agent_name}", agent.labels = ["Agent"]
-ON MATCH SET agent.name = "{state.metadata_agent_name}", agent.labels = ["Agent"]
+// Create/update Agent node (with proper Neo4j labels)
+MERGE (agent:Node:Agent {{id: "agent:{state.metadata_agent_id}"}})
+ON CREATE SET agent.name = "{state.metadata_agent_name}"
+ON MATCH SET agent.name = "{state.metadata_agent_name}"
 
-// Create/update Scene node
-MERGE (scene:Node {{id: "scene:{state.metadata_scene_id}"}})
-ON CREATE SET scene.name = "{state.metadata_scene_name}", scene.labels = ["Scene"]
-ON MATCH SET scene.name = "{state.metadata_scene_name}", scene.labels = ["Scene"]
+// Create/update Scene node (with proper Neo4j labels)
+MERGE (scene:Node:Scene {{id: "scene:{state.metadata_scene_id}"}})
+ON CREATE SET scene.name = "{state.metadata_scene_name}"
+ON MATCH SET scene.name = "{state.metadata_scene_name}"
 
 // Create/update Character node (Agent's character) - NOTE: char: prefix (NOT character:)
-MERGE (character:Node {{id: "char:{state.metadata_character_id}"}})
-ON CREATE SET character.name = "{state.metadata_character_name}", character.labels = ["Character"]
-ON MATCH SET character.name = "{state.metadata_character_name}", character.labels = ["Character"]
+MERGE (character:Node:Character {{id: "char:{state.metadata_character_id}"}})
+ON CREATE SET character.name = "{state.metadata_character_name}"
+ON MATCH SET character.name = "{state.metadata_character_name}"
 
 // Create User's Character node (for user-owned memories) - NOTE: char: prefix
-MERGE (user_char:Node {{id: "char:{state.metadata_user_id}"}})
-ON CREATE SET user_char.name = "{state.metadata_user_name}", user_char.labels = ["Character"]
-ON MATCH SET user_char.name = "{state.metadata_user_name}", user_char.labels = ["Character"]
+MERGE (user_char:Node:Character {{id: "char:{state.metadata_user_id}"}})
+ON CREATE SET user_char.name = "{state.metadata_user_name}"
+ON MATCH SET user_char.name = "{state.metadata_user_name}"
 
 // Create Agent-Character relationship
 MERGE (agent)-[:ACTOR]->(character)
@@ -325,8 +325,11 @@ def _determine_owner(mem0_item: dict[str, Any], memory_text: str) -> str:
 def create_memory_item_node_v2(mem0_item: dict[str, Any], memory_text: str) -> None:
     """Create MemoryItem node and link to Character (owner) + Scene + Conversation.
 
+    Node properties and labels are aligned with the offline pipeline (mem0_to_graph.py).
+    Uses proper Neo4j label syntax: MERGE (n:Node:LabelName {id: ...})
+
     Args:
-        mem0_item: Full mem0 result item (for owner detection)
+        mem0_item: Full mem0 result item (for owner detection, includes ``id`` = point UUID)
         memory_text: The memory text content
     """
     if not state.graph_pipeline_enabled:
@@ -334,41 +337,71 @@ def create_memory_item_node_v2(mem0_item: dict[str, Any], memory_text: str) -> N
 
     log = logger.bind(group="metadata")
 
-    # Generate a unique ID for this memory item
-    memory_key = hashlib.sha256(memory_text.encode()).hexdigest()[:12]
-    node_id = f"mem:{memory_key}"
+    # --- MemoryItem properties (aligned with offline pipeline) ---
+    from datetime import datetime, timezone
+
+    payload_hash = hashlib.md5(memory_text.encode()).hexdigest()
+    node_id = f"mem:{payload_hash}"
+    display_name = f"{memory_text} #{payload_hash[:8]}"
+    now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")  # noqa: UP017
+    point_id = mem0_item.get("id", "")  # mem0 UUID
 
     # Determine owner character
     owner_character_id = _determine_owner(mem0_item, memory_text)
     log.info("🎯 Memory owner: %s (for: %s)", owner_character_id, memory_text[:50])
 
     # Generate conversation ID from current date (e.g., "2026-02-27")
-    from datetime import datetime, timezone
-
-    conv_id = datetime.now(UTC).strftime("%Y-%m-%d")
+    conv_id = datetime.now(timezone.utc).strftime("%Y-%m-%d")  # noqa: UP017
     conv_node_id = f"conv:{conv_id}"
 
     log.info("💬 Conversation: %s", conv_node_id)
 
-    cypher = f"""
-// Create MemoryItem node
-MERGE (mem:Node {{id: "{node_id}"}})
-ON CREATE SET mem.labels = ["MemoryItem"], mem.text = "{memory_text[:200].replace(chr(34), chr(92) + chr(34))}"
-ON MATCH SET mem.text = "{memory_text[:200].replace(chr(34), chr(92) + chr(34))}"
+    # Escape double-quotes for Cypher string literals
+    _esc_data = memory_text.replace("\\", "\\\\").replace('"', '\\"')
+    _esc_display = display_name.replace("\\", "\\\\").replace('"', '\\"')
 
-// Create Conversation node (by date)
-MERGE (conv:Node {{id: "{conv_node_id}"}})
-ON CREATE SET conv.labels = ["Conversation"], conv.conv_id = "{conv_id}", conv.display = "{conv_id}", conv.name = "{conv_id}"
-ON MATCH SET conv.labels = ["Conversation"]
+    cypher = f"""
+// Create MemoryItem node (with proper Neo4j labels)
+MERGE (mem:Node:MemoryItem {{id: "{node_id}"}})
+ON CREATE SET
+  mem.data = "{_esc_data}",
+  mem.payload_hash = "{payload_hash}",
+  mem.display = "{_esc_display}",
+  mem.name = "{_esc_display}",
+  mem.created_at = "{now_iso}",
+  mem.point_id = "{point_id}",
+  mem.isolation = "global",
+  mem.collection = "memory_bench_global",
+  mem.exported_at = "{now_iso}"
+ON MATCH SET
+  mem.data = "{_esc_data}",
+  mem.payload_hash = "{payload_hash}",
+  mem.display = "{_esc_display}",
+  mem.name = "{_esc_display}",
+  mem.point_id = "{point_id}",
+  mem.isolation = "global",
+  mem.collection = "memory_bench_global",
+  mem.exported_at = "{now_iso}"
+
+// Create Conversation node (with proper Neo4j labels)
+MERGE (conv:Node:Conversation {{id: "{conv_node_id}"}})
+ON CREATE SET
+  conv.conv_id = "{conv_id}",
+  conv.display = "{conv_id}",
+  conv.name = "{conv_id}"
+ON MATCH SET
+  conv.conv_id = "{conv_id}",
+  conv.display = "{conv_id}",
+  conv.name = "{conv_id}"
 
 // Link to owner Character (NOTE: char: prefix)
 WITH mem, conv
-MATCH (owner:Node {{id: "char:{owner_character_id}"}})
+MATCH (owner:Node:Character {{id: "char:{owner_character_id}"}})
 MERGE (owner)-[:OWNS_MEMORY]->(mem)
 
 // Link to Scene
 WITH mem, owner
-MATCH (scene:Node {{id: "scene:{state.metadata_scene_id}"}})
+MATCH (scene:Node:Scene {{id: "scene:{state.metadata_scene_id}"}})
 MERGE (mem)-[:IN_SCENE]->(scene)
 
 // Link to owner Character (HAS_CHARACTER)
