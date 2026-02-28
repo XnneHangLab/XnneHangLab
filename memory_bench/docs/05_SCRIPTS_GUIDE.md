@@ -28,7 +28,7 @@
   - `graph_to_cypher.py`（原 neo4j_export_cypher.py）
   - `neo4j_apply_cypher.py`
   - `neo4j_clear.py`（清空 Neo4j 图数据，不重启容器）
-  - `export_schema.py`（导出 Neo4j 图谱 Schema 参考文档）
+  - `export_schema_node.py`（导出 Neo4j 图谱 Schema 参考文档）
   - `export_edge_schema.py`（导出 Neo4j 边 Schema 示例文档）
   - `latest_file.py`
 
@@ -915,25 +915,25 @@ if not result.cypher_ok:
 
 ---
 
-## 21. Neo4j Schema 导出（export_schema.py）
+## 21. Neo4j Schema 导出（export_schema_node.py）
 
 > **用途**：导出 Neo4j 图谱的完整 Schema 参考文档，包括节点示例和关系示例。
-> **输出**：`memory_bench/docs/06_SCHEMA_REFERENCE.md`
+> **输出**：`memory_bench/docs/06_NODE_SCHEMA_REFERENCE.md`
 
 ### 调用示例
 
 ```bash
 # 导出 Markdown 格式（默认）
-uv run memory_bench/scripts/export_schema.py
+uv run memory_bench/scripts/export_schema_node.py
 
 # 导出 JSON 格式
-uv run memory_bench/scripts/export_schema.py --format json
+uv run memory_bench/scripts/export_schema_node.py --format json
 
 # 自定义输出路径
-uv run memory_bench/scripts/export_schema.py --output /tmp/schema.md
+uv run memory_bench/scripts/export_schema_node.py --output /tmp/schema.md
 
 # 指定 Neo4j 容器
-uv run memory_bench/scripts/export_schema.py --container my-neo4j-container
+uv run memory_bench/scripts/export_schema_node.py --container my-neo4j-container
 ```
 
 ### 输入
@@ -943,10 +943,10 @@ uv run memory_bench/scripts/export_schema.py --container my-neo4j-container
 
 ### 输出
 
-**Markdown 格式**（`06_SCHEMA_REFERENCE.md`）：
+**Markdown 格式**（`06_NODE_SCHEMA_REFERENCE.md`）：
 
 ```markdown
-# Neo4j 图谱 Schema 参考
+# Neo4j NODE 图谱 Schema 参考
 
 ## 节点示例（按 ID 前缀分类，每类一个完整示例）
 
@@ -1026,7 +1026,7 @@ uv run memory_bench/scripts/export_schema.py --container my-neo4j-container
 
 **问：导出的关系示例里为什么只有 12 个？**
 
-**答**：`export_schema.py` 对每个关系类型只保留一个示例（去重），避免文档过长。完整的关系数据可以通过 Neo4j Browser 直接查询。
+**答**：`export_schema_node.py` 对每个关系类型只保留一个示例（去重），避免文档过长。完整的关系数据可以通过 Neo4j Browser 直接查询。
 
 **问：JSON 解析失败怎么办？**
 

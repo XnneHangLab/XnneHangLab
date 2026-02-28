@@ -288,7 +288,7 @@ claim-items-to-cypher:
 
 export-neo4j-schema-docs:
   # 一次生成节点/关系 schema + 边 schema 文档（默认参数）
-  uv run memory_bench/scripts/export_schema.py
+  uv run memory_bench/scripts/export_schema_node.py
   uv run memory_bench/scripts/export_edge_schema.py
 
 neo4j-apply-cypher:

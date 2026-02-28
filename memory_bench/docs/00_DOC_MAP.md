@@ -30,8 +30,8 @@
 8. `40_ANCHORS_AND_TEMPLATES.md`
    - 全链路数据 schema 与真实样例（Event / Mem0 Export / Claim / Entity / Graph IR），带版本号。
 
-9. `06_SCHEMA_REFERENCE.md`
-   - Neo4j 图谱 Schema 参考：节点类型、关系类型、完整示例（由 `export_schema.py` 自动生成，离线管线）。
+9. `06_NODE_SCHEMA_REFERENCE.md`
+   - Neo4j 图谱 Schema 参考：节点类型、关系类型、完整示例（由 `export_schema_node.py` 自动生成，离线管线）。
 
 10. `07_REALTIME_SCHEMA_REFERENCE.md`
    - 实时管线 Neo4j 图谱 Schema 参考：与离线管线的兼容性对比、差异说明、验证方法。
