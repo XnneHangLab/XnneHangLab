@@ -5,7 +5,17 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
+
+
+def _utc_timestamp() -> str:
+    """生成 UTC 时间戳（ISO 8601 格式）。
+
+    Returns:
+        str: UTC 时间戳字符串（如 "2026-02-28T07:05:18Z"）
+    """
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def create_metadata_nodes_cypher(
@@ -37,7 +47,7 @@ def create_metadata_nodes_cypher(
     Returns:
         Cypher 查询语句
     """
-    return f"""
+    return """
 // Create/update User node (with proper Neo4j labels)
 MERGE (user:Node:User {{id: "user:{user_id}"}})
 ON CREATE SET
@@ -98,15 +108,76 @@ ON MATCH SET
   user_char.character_id = "{user_char_id}"
 
 // Create Agent-Character relationship (ACTOR)
-MERGE (agent)-[:ACTOR]->(character)
+MERGE (agent)-[r:ACTOR]->(character)
+ON CREATE SET
+  r.id = "edge:ACTOR:{agent_id}:{character_id}",
+  r.type = "ACTOR",
+  r.src = "agent:{agent_id}",
+  r.dst = "char:{character_id}",
+  r.created_at = "{ts}",
+  r.exported_at = "{ts}"
+ON MATCH SET
+  r.type = "ACTOR",
+  r.src = "agent:{agent_id}",
+  r.dst = "char:{character_id}",
+  r.exported_at = "{ts}"
 
 // Create User-Character relationship (ACTOR, like Agent)
-MERGE (user)-[:ACTOR]->(user_char)
+MERGE (user)-[r:ACTOR]->(user_char)
+ON CREATE SET
+  r.id = "edge:ACTOR:{user_id}:{user_char_id}",
+  r.type = "ACTOR",
+  r.src = "user:{user_id}",
+  r.dst = "char:{user_char_id}",
+  r.created_at = "{ts}",
+  r.exported_at = "{ts}"
+ON MATCH SET
+  r.type = "ACTOR",
+  r.src = "user:{user_id}",
+  r.dst = "char:{user_char_id}",
+  r.exported_at = "{ts}"
 
 // Create Character-Scene relationship (NOT Agent/User!)
-MERGE (character)-[:IN_SCENE]->(scene)
-MERGE (user_char)-[:IN_SCENE]->(scene)
-"""
+MERGE (character)-[r:IN_SCENE]->(scene)
+ON CREATE SET
+  r.id = "edge:IN_SCENE:{character_id}:{scene_id}",
+  r.type = "IN_SCENE",
+  r.src = "char:{character_id}",
+  r.dst = "scene:{scene_id}",
+  r.created_at = "{ts}",
+  r.exported_at = "{ts}"
+ON MATCH SET
+  r.type = "IN_SCENE",
+  r.src = "char:{character_id}",
+  r.dst = "scene:{scene_id}",
+  r.exported_at = "{ts}"
+
+MERGE (user_char)-[r:IN_SCENE]->(scene)
+ON CREATE SET
+  r.id = "edge:IN_SCENE:{user_char_id}:{scene_id}",
+  r.type = "IN_SCENE",
+  r.src = "char:{user_char_id}",
+  r.dst = "scene:{scene_id}",
+  r.created_at = "{ts}",
+  r.exported_at = "{ts}"
+ON MATCH SET
+  r.type = "IN_SCENE",
+  r.src = "char:{user_char_id}",
+  r.dst = "scene:{scene_id}",
+  r.exported_at = "{ts}"
+""".format(
+        user_id=user_id,
+        user_name=user_name,
+        agent_id=agent_id,
+        agent_name=agent_name,
+        scene_id=scene_id,
+        scene_name=scene_name,
+        character_id=character_id,
+        character_name=character_name,
+        user_char_id=user_char_id,
+        user_char_name=user_char_name,
+        ts=_utc_timestamp(),
+    )
 
 
 def create_conversation_cypher(conv_node_id: str, conv_id: str) -> str:
