@@ -71,7 +71,7 @@
         {
           "id": "b1969c83-b5ae-4574-9a80-189d1704d3b8",
           "title": "character in scene",
-          "query": "MATCH (s:Scene)\nOPTIONAL MATCH (u:User)-[r1:USER_IN_SCENE]->(s)\nOPTIONAL MATCH (c:Character)-[r2:IN_SCENE_DERIVED]->(s)\nRETURN s, u, r1, c, r2\nLIMIT 200;",
+          "query": "MATCH (c:Character)\nMATCH (s:Scene {id: \"scene:chill_ai_chat\"})\nMERGE (c)-[r:IN_SCENE]->(s)\nWITH s, collect(c) AS characters, collect(r) AS relationships\nORDER BY size(characters) DESC\nLIMIT 1\nUNWIND characters AS c\nUNWIND relationships AS r\nRETURN s, c, r, type(r) AS relationship_type\n",
           "width": 6,
           "height": 4,
           "x": 0,
@@ -80,10 +80,8 @@
           "selection": {
             "Node": "name",
             "Scene": "name",
-            "User": "name",
-            "USER_IN_SCENE": "id",
             "Character": "name",
-            "IN_SCENE_DERIVED": "(label)"
+            "IN_SCENE": "id"
           },
           "settings": {},
           "schema": [
@@ -93,7 +91,6 @@
               "scene_id",
               "name",
               "id",
-              "user_id",
               "character_id"
             ],
             [
@@ -104,14 +101,14 @@
               "id"
             ],
             [
-              "User",
-              "user_id",
+              "Character",
               "display",
               "name",
+              "character_id",
               "id"
             ],
             [
-              "USER_IN_SCENE",
+              "IN_SCENE",
               "dst",
               "src",
               "props_json",
@@ -121,16 +118,6 @@
               "type",
               "exported_at",
               "source_point_id"
-            ],
-            [
-              "Character",
-              "display",
-              "name",
-              "id",
-              "character_id"
-            ],
-            [
-              "IN_SCENE_DERIVED"
             ]
           ]
         },
@@ -155,16 +142,16 @@
               "Node",
               "display",
               "name",
-              "id",
               "character_id",
+              "id",
               "domain"
             ],
             [
               "Character",
               "display",
               "name",
-              "id",
-              "character_id"
+              "character_id",
+              "id"
             ],
             [
               "HAS_DOMAIN",
@@ -172,17 +159,17 @@
               "src",
               "props_json",
               "domain",
-              "character_id",
               "id",
+              "character_id",
               "type"
             ],
             [
               "Domain",
-              "display",
               "domain",
+              "display",
               "name",
-              "character_id",
-              "id"
+              "id",
+              "character_id"
             ]
           ]
         },
@@ -207,8 +194,8 @@
               "Node",
               "display",
               "name",
-              "id",
               "character_id",
+              "id",
               "domain",
               "predicate"
             ],
@@ -216,22 +203,22 @@
               "Character",
               "display",
               "name",
-              "id",
-              "character_id"
+              "character_id",
+              "id"
             ],
             [
               "Domain",
               "domain",
               "display",
               "name",
-              "character_id",
-              "id"
+              "id",
+              "character_id"
             ],
             [
               "Predicate",
               "predicate",
-              "domain",
               "display",
+              "domain",
               "name",
               "character_id",
               "id"
@@ -278,28 +265,28 @@
             ],
             [
               "Domain",
-              "display",
               "domain",
+              "display",
               "name",
-              "character_id",
-              "id"
+              "id",
+              "character_id"
             ],
             [
               "Predicate",
               "predicate",
-              "domain",
               "display",
+              "domain",
               "name",
-              "character_id",
-              "id"
+              "id",
+              "character_id"
             ],
             [
               "Claim",
               "predicate",
               "updated_at",
+              "display",
               "domain",
               "confidence",
-              "display",
               "name",
               "id",
               "status",
@@ -359,28 +346,28 @@
             ],
             [
               "Domain",
-              "display",
               "domain",
+              "display",
               "name",
-              "character_id",
-              "id"
+              "id",
+              "character_id"
             ],
             [
               "Predicate",
               "predicate",
-              "domain",
               "display",
+              "domain",
               "name",
-              "character_id",
-              "id"
+              "id",
+              "character_id"
             ],
             [
               "Claim",
               "predicate",
               "updated_at",
               "display",
-              "domain",
               "confidence",
+              "domain",
               "name",
               "rank",
               "id",
@@ -394,9 +381,9 @@
               "name",
               "created_at",
               "isolation",
+              "id",
               "payload_hash",
               "collection",
-              "id",
               "exported_at"
             ],
             [
@@ -405,8 +392,8 @@
               "src",
               "props_json",
               "domain",
-              "character_id",
               "id",
+              "character_id",
               "type"
             ],
             [
@@ -439,8 +426,8 @@
               "src",
               "memory_item_id",
               "confidence",
-              "scene_id",
               "claim_id",
+              "scene_id",
               "created_at",
               "type",
               "predicate",
@@ -473,15 +460,12 @@
             "MemoryItem": "name",
             "Conversation": "name",
             "Scene": "name",
-            "User": "name",
             "Agent": "name",
+            "User": "name",
             "Domain": "name",
             "Predicate": "name",
             "Claim": "name",
-            "Tag": "name",
-            "Topic": "name",
-            "Work": "name",
-            "Author": "name"
+            "Topic": "name"
           },
           "settings": {
             "fullscreenEnabled": true,
@@ -504,18 +488,17 @@
               "exported_at",
               "conv_id",
               "scene_id",
-              "user_id",
               "aliases",
               "entity_type",
               "agent_id",
               "confidence",
               "tags",
+              "user_id",
               "domain",
               "predicate",
               "updated_at",
               "status",
-              "rank",
-              "title"
+              "rank"
             ],
             [
               "Character",
@@ -532,9 +515,9 @@
               "name",
               "created_at",
               "isolation",
+              "id",
               "payload_hash",
               "collection",
-              "id",
               "exported_at"
             ],
             [
@@ -552,13 +535,6 @@
               "id"
             ],
             [
-              "User",
-              "user_id",
-              "display",
-              "name",
-              "id"
-            ],
-            [
               "Agent",
               "aliases",
               "entity_type",
@@ -570,18 +546,29 @@
               "tags"
             ],
             [
-              "Domain",
+              "User",
+              "aliases",
+              "entity_type",
+              "user_id",
+              "confidence",
               "display",
-              "domain",
               "name",
-              "character_id",
-              "id"
+              "id",
+              "tags"
+            ],
+            [
+              "Domain",
+              "domain",
+              "display",
+              "name",
+              "id",
+              "character_id"
             ],
             [
               "Predicate",
               "predicate",
-              "domain",
               "display",
+              "domain",
               "name",
               "character_id",
               "id"
@@ -590,51 +577,20 @@
               "Claim",
               "predicate",
               "updated_at",
+              "display",
               "domain",
               "confidence",
-              "display",
               "name",
               "id",
               "status",
               "rank"
             ],
             [
-              "Tag",
-              "entity_type",
-              "aliases",
-              "confidence",
-              "display",
-              "name",
-              "id",
-              "tags"
-            ],
-            [
               "Topic",
-              "entity_type",
               "aliases",
-              "confidence",
-              "display",
-              "name",
-              "id",
-              "tags"
-            ],
-            [
-              "Work",
               "entity_type",
-              "aliases",
-              "confidence",
               "display",
-              "name",
-              "id",
-              "title",
-              "tags"
-            ],
-            [
-              "Author",
-              "entity_type",
-              "aliases",
               "confidence",
-              "display",
               "name",
               "id",
               "tags"
