@@ -204,28 +204,62 @@ def _create_metadata_nodes_cypher() -> str:
     return f"""
 // Create/update User node (with proper Neo4j labels)
 MERGE (user:Node:User {{id: "user:{state.metadata_user_id}"}})
-ON CREATE SET user.name = "{state.metadata_user_name}"
-ON MATCH SET user.name = "{state.metadata_user_name}"
+ON CREATE SET
+  user.name = "{state.metadata_user_name}",
+  user.display = "{state.metadata_user_name}",
+  user.user_id = "{state.metadata_user_id}",
+  user.entity_type = "User"
+ON MATCH SET
+  user.name = "{state.metadata_user_name}",
+  user.display = "{state.metadata_user_name}",
+  user.user_id = "{state.metadata_user_id}",
+  user.entity_type = "User"
 
 // Create/update Agent node (with proper Neo4j labels)
 MERGE (agent:Node:Agent {{id: "agent:{state.metadata_agent_id}"}})
-ON CREATE SET agent.name = "{state.metadata_agent_name}"
-ON MATCH SET agent.name = "{state.metadata_agent_name}"
+ON CREATE SET
+  agent.name = "{state.metadata_agent_name}",
+  agent.display = "{state.metadata_agent_name}",
+  agent.agent_id = "{state.metadata_agent_id}",
+  agent.entity_type = "Agent"
+ON MATCH SET
+  agent.name = "{state.metadata_agent_name}",
+  agent.display = "{state.metadata_agent_name}",
+  agent.agent_id = "{state.metadata_agent_id}",
+  agent.entity_type = "Agent"
 
 // Create/update Scene node (with proper Neo4j labels)
 MERGE (scene:Node:Scene {{id: "scene:{state.metadata_scene_id}"}})
-ON CREATE SET scene.name = "{state.metadata_scene_name}"
-ON MATCH SET scene.name = "{state.metadata_scene_name}"
+ON CREATE SET
+  scene.name = "{state.metadata_scene_name}",
+  scene.display = "{state.metadata_scene_name}",
+  scene.scene_id = "{state.metadata_scene_id}"
+ON MATCH SET
+  scene.name = "{state.metadata_scene_name}",
+  scene.display = "{state.metadata_scene_name}",
+  scene.scene_id = "{state.metadata_scene_id}"
 
 // Create/update Character node (Agent's character) - NOTE: char: prefix (NOT character:)
 MERGE (character:Node:Character {{id: "char:{state.metadata_character_id}"}})
-ON CREATE SET character.name = "{state.metadata_character_name}"
-ON MATCH SET character.name = "{state.metadata_character_name}"
+ON CREATE SET
+  character.name = "{state.metadata_character_name}",
+  character.display = "{state.metadata_character_name}",
+  character.character_id = "{state.metadata_character_id}"
+ON MATCH SET
+  character.name = "{state.metadata_character_name}",
+  character.display = "{state.metadata_character_name}",
+  character.character_id = "{state.metadata_character_id}"
 
 // Create User's Character node (for user-owned memories) - NOTE: char: prefix
 MERGE (user_char:Node:Character {{id: "char:{state.metadata_user_id}"}})
-ON CREATE SET user_char.name = "{state.metadata_user_name}"
-ON MATCH SET user_char.name = "{state.metadata_user_name}"
+ON CREATE SET
+  user_char.name = "{state.metadata_user_name}",
+  user_char.display = "{state.metadata_user_name}",
+  user_char.character_id = "{state.metadata_user_id}"
+ON MATCH SET
+  user_char.name = "{state.metadata_user_name}",
+  user_char.display = "{state.metadata_user_name}",
+  user_char.character_id = "{state.metadata_user_id}"
 
 // Create Agent-Character relationship (ACTOR)
 MERGE (agent)-[:ACTOR]->(character)

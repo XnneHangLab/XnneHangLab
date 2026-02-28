@@ -32,16 +32,30 @@
 ```json
 {
   "id": "mem:59484ed1e8b9edf03c71c86146e8fc88",
-  "labels": ["MemoryItem"],
-  "text": "[User] 会使用一个小杯子来给茶散热。",
-  "name": "[User] 会使用一个小杯子来给茶散热。",
-  "display": "[User] 会使用一个小杯子来给茶散热。"
+  "labels": ["Node", "MemoryItem"],
+  "data": "[User] 会使用一个小杯子来给茶散热。",
+  "payload_hash": "59484ed1e8b9edf03c71c86146e8fc88",
+  "display": "[User] 会使用一个小杯子来给茶散热。 #59484ed1",
+  "name": "[User] 会使用一个小杯子来给茶散热。 #59484ed1",
+  "created_at": "2026-02-27T12:08:26Z",
+  "point_id": "74bcb98f-4b74-4f0a-988b-0d6618061c14",
+  "isolation": "global",
+  "collection": "memory_bench_global",
+  "exported_at": "2026-02-27T12:08:26Z"
 }
 ```
 
 **说明**：
-- `text`: 记忆原文（带 `[User]` / `[Agent]` 前缀）
-- `id`: SHA256(memory_text)[:12]
+- `data`: 记忆原文（带 `[User]` / `[Agent]` 前缀）
+- `payload_hash`: MD5 hash（用于生成 ID）
+- `display`: `{data} #{payload_hash[:8]}`
+- `name`: 同 display
+- `created_at`: ISO 8601 时间戳（UTC）
+- `point_id`: mem0 返回的 UUID
+- `isolation`: "global"
+- `collection`: "memory_bench_global"
+- `exported_at`: ISO 8601 时间戳（UTC）
+- **已修复**: PR #181 补全所有属性，PR #185 修复 Conversation 重复创建问题
 
 ### Character
 
