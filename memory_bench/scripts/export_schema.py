@@ -339,7 +339,7 @@ def main() -> int:
         log.info("Markdown 已写入：%s", output_path)
 
     # 打印摘要
-    log.info("摘要：节点示例=%d, 关系示例=%d", len(data["node_examples"]), len(data["edge_examples"]))
+    log.info("摘要：节点示例=%d", len(data["node_examples"]))
 
     return 0
 
