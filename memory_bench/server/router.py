@@ -28,6 +28,13 @@ from pydantic import BaseModel, Field
 
 from memory_bench.scripts.bench_logger import logger
 
+# Import Neo4j query templates from dedicated module
+from memory_bench.server.neo4j_queries import (
+    create_conversation_cypher,
+    create_memory_item_cypher,
+    create_metadata_nodes_cypher,
+)
+
 if TYPE_CHECKING:
     from openai import OpenAI
 
@@ -189,90 +196,6 @@ def _format_memories(memories: list[dict[str, Any]]) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _create_metadata_nodes_cypher() -> str:
-    """Generate Cypher to create/update metadata nodes (User, Agent, Scene, Character).
-
-    Node ID format must match offline pipeline (mem0_to_graph.py):
-    - user:xnne, agent:congyin, scene:chill_ai_chat
-    - char:congyin (NOT character:congyin), char:xnne
-
-    Relationships (matching offline pipeline):
-    - Agent -ACTOR→ Character
-    - User -ACTOR→ Character (like Agent, not directly to Scene)
-    - Character -IN_SCENE→ Scene (NOT Agent/User!)
-    """
-    return f"""
-// Create/update User node (with proper Neo4j labels)
-MERGE (user:Node:User {{id: "user:{state.metadata_user_id}"}})
-ON CREATE SET
-  user.name = "{state.metadata_user_name}",
-  user.display = "{state.metadata_user_name}",
-  user.user_id = "{state.metadata_user_id}",
-  user.entity_type = "User"
-ON MATCH SET
-  user.name = "{state.metadata_user_name}",
-  user.display = "{state.metadata_user_name}",
-  user.user_id = "{state.metadata_user_id}",
-  user.entity_type = "User"
-
-// Create/update Agent node (with proper Neo4j labels)
-MERGE (agent:Node:Agent {{id: "agent:{state.metadata_agent_id}"}})
-ON CREATE SET
-  agent.name = "{state.metadata_agent_name}",
-  agent.display = "{state.metadata_agent_name}",
-  agent.agent_id = "{state.metadata_agent_id}",
-  agent.entity_type = "Agent"
-ON MATCH SET
-  agent.name = "{state.metadata_agent_name}",
-  agent.display = "{state.metadata_agent_name}",
-  agent.agent_id = "{state.metadata_agent_id}",
-  agent.entity_type = "Agent"
-
-// Create/update Scene node (with proper Neo4j labels)
-MERGE (scene:Node:Scene {{id: "scene:{state.metadata_scene_id}"}})
-ON CREATE SET
-  scene.name = "{state.metadata_scene_name}",
-  scene.display = "{state.metadata_scene_name}",
-  scene.scene_id = "{state.metadata_scene_id}"
-ON MATCH SET
-  scene.name = "{state.metadata_scene_name}",
-  scene.display = "{state.metadata_scene_name}",
-  scene.scene_id = "{state.metadata_scene_id}"
-
-// Create/update Character node (Agent's character) - NOTE: char: prefix (NOT character:)
-MERGE (character:Node:Character {{id: "char:{state.metadata_character_id}"}})
-ON CREATE SET
-  character.name = "{state.metadata_character_name}",
-  character.display = "{state.metadata_character_name}",
-  character.character_id = "{state.metadata_character_id}"
-ON MATCH SET
-  character.name = "{state.metadata_character_name}",
-  character.display = "{state.metadata_character_name}",
-  character.character_id = "{state.metadata_character_id}"
-
-// Create User's Character node (for user-owned memories) - NOTE: char: prefix
-MERGE (user_char:Node:Character {{id: "char:{state.metadata_user_id}"}})
-ON CREATE SET
-  user_char.name = "{state.metadata_user_name}",
-  user_char.display = "{state.metadata_user_name}",
-  user_char.character_id = "{state.metadata_user_id}"
-ON MATCH SET
-  user_char.name = "{state.metadata_user_name}",
-  user_char.display = "{state.metadata_user_name}",
-  user_char.character_id = "{state.metadata_user_id}"
-
-// Create Agent-Character relationship (ACTOR)
-MERGE (agent)-[:ACTOR]->(character)
-
-// Create User-Character relationship (ACTOR, like Agent)
-MERGE (user)-[:ACTOR]->(user_char)
-
-// Create Character-Scene relationship (NOT Agent/User!)
-MERGE (character)-[:IN_SCENE]->(scene)
-MERGE (user_char)-[:IN_SCENE]->(scene)
-"""
-
-
 def _run_cypher(
     cypher_text: str,
     *,
@@ -324,7 +247,18 @@ def init_metadata_nodes() -> None:
     log = logger.bind(group="metadata")
     log.info("Initializing metadata nodes...")
 
-    cypher = _create_metadata_nodes_cypher()
+    cypher = create_metadata_nodes_cypher(
+        user_id=state.metadata_user_id,
+        user_name=state.metadata_user_name,
+        agent_id=state.metadata_agent_id,
+        agent_name=state.metadata_agent_name,
+        scene_id=state.metadata_scene_id,
+        scene_name=state.metadata_scene_name,
+        character_id=state.metadata_character_id,
+        character_name=state.metadata_character_name,
+        user_char_id=state.metadata_user_id,
+        user_char_name=state.metadata_user_name,
+    )
     ok, err = _run_cypher(cypher)
 
     if ok:

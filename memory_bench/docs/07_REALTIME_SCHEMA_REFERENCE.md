@@ -12,12 +12,12 @@
 
 | ID 前缀 | 节点类型 | 示例 ID | 创建方式 |
 |---------|---------|---------|----------|
-| `mem:` | MemoryItem | `mem:59484ed1e8b9edf03c71c86146e8fc88` | `router.create_memory_item_node()` |
-| `char:` | Character | `char:congyin`, `char:xnne` | `router.init_metadata_nodes()` |
-| `conv:` | Conversation | `conv:2026-02-27` | `router.create_memory_item_node()`（按日期） |
-| `scene:` | Scene | `scene:chill_ai_chat` | `router.init_metadata_nodes()` |
-| `user:` | User | `user:xnne` | `router.init_metadata_nodes()` |
-| `agent:` | Agent | `agent:congyin` | `router.init_metadata_nodes()` |
+| `mem:` | MemoryItem | `mem:59484ed1e8b9edf03c71c86146e8fc88` | `neo4j_queries.create_memory_item_cypher()` |
+| `char:` | Character | `char:congyin`, `char:xnne` | `neo4j_queries.create_metadata_nodes_cypher()` |
+| `conv:` | Conversation | `conv:2026-02-27` | `neo4j_queries.create_conversation_cypher()`（按日期） |
+| `scene:` | Scene | `scene:chill_ai_chat` | `neo4j_queries.create_metadata_nodes_cypher()` |
+| `user:` | User | `user:xnne` | `neo4j_queries.create_metadata_nodes_cypher()` |
+| `agent:` | Agent | `agent:congyin` | `neo4j_queries.create_metadata_nodes_cypher()` |
 | `claim:` | Claim | `claim:SELF_TRAIT|writing|...` | `graph_writer.write_to_neo4j()` |
 | `dom:` | Domain | `dom:char:congyin:writing` | `graph_writer.write_to_neo4j()` |
 | `pred:` | Predicate | `pred:char:congyin:writing:SELF_TRAIT` | `graph_writer.write_to_neo4j()` |
@@ -173,13 +173,13 @@
 
 | 关系类型 | 源节点类型 | 目标节点类型 | 创建方式 |
 |----------|-----------|-------------|----------|
-| `OWNS_MEMORY` | Character | MemoryItem | `router.create_memory_item_node()` |
-| `IN_SCENE` | MemoryItem | Scene | `router.create_memory_item_node()` |
-| `HAS_CHARACTER` | MemoryItem | Character | `router.create_memory_item_node()` |
-| `FROM_CONV` | MemoryItem | Conversation | `router.create_memory_item_node()` |
-| `CONV_IN_SCENE` | Conversation | Scene | `router.create_memory_item_node()` |
-| `CONV_HAS_CHARACTER` | Conversation | Character | `router.create_memory_item_node()` |
-| `ACTOR` | Agent | Character | `router.init_metadata_nodes()` |
+| `OWNS_MEMORY` | Character | MemoryItem | `neo4j_queries.create_memory_item_cypher()` |
+| `IN_SCENE` | MemoryItem | Scene | `neo4j_queries.create_memory_item_cypher()` |
+| `HAS_CHARACTER` | MemoryItem | Character | `neo4j_queries.create_memory_item_cypher()` |
+| `FROM_CONV` | MemoryItem | Conversation | `neo4j_queries.create_memory_item_cypher()` |
+| `CONV_IN_SCENE` | Conversation | Scene | `neo4j_queries.create_memory_item_cypher()` |
+| `CONV_HAS_CHARACTER` | Conversation | Character | `neo4j_queries.create_memory_item_cypher()` |
+| `ACTOR` | Agent | Character | `neo4j_queries.create_metadata_nodes_cypher()` |
 | `HAS_DOMAIN` | Character | Domain | `graph_writer.write_to_neo4j()` |
 | `HAS_PREDICATE` | Domain | Predicate | `graph_writer.write_to_neo4j()` |
 | `HAS_CLAIM` | Predicate | Claim | `graph_writer.write_to_neo4j()` |
@@ -235,10 +235,10 @@
 
 ### 🔧 确保兼容性的关键代码
 
-**实时管线**（`router.py`）：
+**实时管线**（`neo4j_queries.py`）：
 ```python
 # Character 节点 ID 格式：char:congyin（不是 character:congyin）
-MERGE (character:Node {id: "char:{state.metadata_character_id}"})
+create_metadata_nodes_cypher(...)
 
 # MemoryItem 归属：根据 [User]/[Agent] 前缀判断
 if memory_text.startswith("[User]"):
