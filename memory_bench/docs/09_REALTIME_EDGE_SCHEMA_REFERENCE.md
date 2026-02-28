@@ -6,6 +6,10 @@
 
 ---
 
+> **实现入口说明（2026-02 更新）**：实时写入入口在 `router.create_memory_item_node_v2()`，由它调用
+> `neo4j_queries.create_conversation_cypher()` 与 `neo4j_queries.create_memory_item_cypher()` 生成 Cypher。
+> 为避免 schema 漂移，不应在 router 中维护独立的内联关系创建语句。
+
 ## 边类型（Edge Types）
 
 实时管线支持以下边类型（按创建方式分类）：

@@ -324,68 +324,25 @@ def create_memory_item_node_v2(mem0_item: dict[str, Any], memory_text: str) -> N
 
     log.info("💬 Conversation: %s", conv_node_id)
 
-    # Escape double-quotes for Cypher string literals
-    _esc_data = memory_text.replace("\\", "\\\\").replace('"', '\\"')
-    _esc_display = display_name.replace("\\", "\\\\").replace('"', '\\"')
-
     # Step 1: Create/ensure Conversation node first (independent, ensures only one per day)
-    conv_cypher = f"""
-// Create Conversation node (with proper Neo4j labels)
-MERGE (conv:Node:Conversation {{id: "{conv_node_id}"}})
-ON CREATE SET
-  conv.conv_id = "{conv_id}",
-  conv.display = "{conv_id}",
-  conv.name = "{conv_id}"
-ON MATCH SET
-  conv.conv_id = "{conv_id}",
-  conv.display = "{conv_id}",
-  conv.name = "{conv_id}"
-"""
+    conv_cypher = create_conversation_cypher(conv_node_id=conv_node_id, conv_id=conv_id)
     ok, err = _run_cypher(conv_cypher)
     if not ok:
         log.warning("⚠️  Failed to create Conversation: %s", err)
         return  # Don't proceed if Conversation creation failed
 
     # Step 2: Create MemoryItem and link to Conversation + Character
-    cypher = f"""
-// Create MemoryItem node (with proper Neo4j labels)
-MERGE (mem:Node:MemoryItem {{id: "{node_id}"}})
-ON CREATE SET
-  mem.data = "{_esc_data}",
-  mem.payload_hash = "{payload_hash}",
-  mem.display = "{_esc_display}",
-  mem.name = "{_esc_display}",
-  mem.created_at = "{now_iso}",
-  mem.point_id = "{point_id}",
-  mem.isolation = "global",
-  mem.collection = "memory_bench_global",
-  mem.exported_at = "{now_iso}"
-ON MATCH SET
-  mem.data = "{_esc_data}",
-  mem.payload_hash = "{payload_hash}",
-  mem.display = "{_esc_display}",
-  mem.name = "{_esc_display}",
-  mem.point_id = "{point_id}",
-  mem.isolation = "global",
-  mem.collection = "memory_bench_global",
-  mem.exported_at = "{now_iso}"
-
-// Link to owner Character
-MERGE (owner:Node:Character {{id: "char:{owner_character_id}"}})
-ON CREATE SET owner.name = "{owner_character_id}"
-MERGE (owner)-[:OWNS_MEMORY]->(mem)
-
-// Link to Scene
-MERGE (scene:Node:Scene {{id: "scene:{state.metadata_scene_id}"}})
-MERGE (mem)-[:IN_SCENE]->(scene)
-MERGE (mem)-[:HAS_CHARACTER]->(owner)
-
-// Link to Conversation (FROM_CONV) - re-declare conv since it's a separate Cypher execution
-MERGE (conv:Node:Conversation {{id: "{conv_node_id}"}})
-MERGE (mem)-[:FROM_CONV]->(conv)
-MERGE (conv)-[:CONV_IN_SCENE]->(scene)
-MERGE (conv)-[:CONV_HAS_CHARACTER]->(owner)
-"""
+    cypher = create_memory_item_cypher(
+        node_id=node_id,
+        data=memory_text,
+        payload_hash=payload_hash,
+        display_name=display_name,
+        now_iso=now_iso,
+        point_id=point_id,
+        owner_character_id=owner_character_id,
+        scene_id=state.metadata_scene_id,
+        conv_node_id=conv_node_id,
+    )
 
     ok, err = _run_cypher(cypher)
     if ok:
