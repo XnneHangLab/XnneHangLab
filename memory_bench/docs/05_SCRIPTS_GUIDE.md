@@ -29,6 +29,7 @@
   - `neo4j_apply_cypher.py`
   - `neo4j_clear.py`（清空 Neo4j 图数据，不重启容器）
   - `export_schema.py`（导出 Neo4j 图谱 Schema 参考文档）
+  - `export_edge_schema.py`（导出 Neo4j 边 Schema 参考文档）
   - `latest_file.py`
 
 - **工具模块**（非 CLI 主入口）
@@ -1039,3 +1040,87 @@ WITH label, collect(n)[0] AS example
 RETURN label, properties(example) AS all_props
 LIMIT 1;
 ```
+
+## 22. Neo4j 边 Schema 导出（export_edge_schema.py）
+
+> **用途**：导出 Neo4j 图谱的边（Edge）Schema 参考文档，包含边的完整属性。
+
+### 调用示例
+
+```bash
+# 导出 Markdown 格式（默认）
+uv run memory_bench/scripts/export_edge_schema.py
+
+# 自定义输出路径
+uv run memory_bench/scripts/export_edge_schema.py --output /tmp/edge_schema.md
+
+# 指定 Neo4j 容器
+uv run memory_bench/scripts/export_edge_schema.py --container my-neo4j-container
+```
+
+### 输入
+
+- **Neo4j 容器**：从 `.env.benchmark` 读取 `NEO4J_CONTAINER`（默认：`membench-neo4j-mem0`）
+- **认证信息**：从 `.env.benchmark` 读取 `NEO4J_USER` 和 `NEO4J_PASSWORD`
+
+### 输出
+
+**Markdown 格式**（`08_EDGE_SCHEMA_REFERENCE.md`）：
+
+```markdown
+# Neo4j 图谱边 Schema 参考
+
+## 边属性详情（每个类型一个完整示例）
+
+### IN_SCENE (char:xnne → scene:chill_ai_chat)
+
+| Property | Value |
+|----------|-------|
+| `created_at` | 2026-02-28T07:05:18Z |
+| `dst` | scene:chill_ai_chat |
+| `id` | edge:IN_SCENE:char:xnne:scene:chill_ai_chat |
+| `src` | char:xnne |
+| `type` | IN_SCENE |
+```
+
+### 使用场景
+
+1. **验证边的属性**：检查边的属性是否符合预期
+2. **调试数据问题**：查看边的详细属性
+3. **文档参考**：为开发者提供边的完整 Schema 说明
+
+### 常见问题
+
+**问：为什么边的属性里有 `props_json` 字段？**
+
+**答**：`props_json` 是原始属性的 JSON 字符串备份，方便调试。主要属性都有独立的字段。
+
+---
+
+## 23. 统一导出 Schema（just export-schema）
+
+> **用途**：一次性导出节点和边的完整 Schema。
+
+### 调用示例
+
+```bash
+# 导出节点 + 边 Schema
+just export-schema
+
+# 导出到自定义路径
+just export-schema output=/tmp/schema
+# 输出：
+# - /tmp/schema_nodes.md
+# - /tmp/schema_edges.md
+```
+
+### 说明
+
+`just export-schema` 会依次执行：
+1. `export_schema.py` — 导出节点 Schema（`06_SCHEMA_REFERENCE.md`）
+2. `export_edge_schema.py` — 导出边 Schema（`08_EDGE_SCHEMA_REFERENCE.md`）
+
+### 相关文件
+
+- `06_SCHEMA_REFERENCE.md` — 节点 Schema 参考
+- `08_EDGE_SCHEMA_REFERENCE.md` — 边 Schema 参考

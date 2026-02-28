@@ -348,3 +348,15 @@ mem0-run-real-time:
   # 实时管线：清理 + 启动 server
   just clean-realtime
   just memory-chat-server
+
+# =============================================================================
+# Schema 导出
+# =============================================================================
+
+export-schema output='':
+  # 导出 Neo4j Schema（节点 + 边）
+  # 输出：
+  # - memory_bench/docs/06_SCHEMA_REFERENCE.md（节点）
+  # - memory_bench/docs/08_EDGE_SCHEMA_REFERENCE.md（边）
+  uv run memory_bench/scripts/export_schema.py {{ if output != '' { '--output ' + output + '_nodes.md' } else { '' } }}
+  uv run memory_bench/scripts/export_edge_schema.py {{ if output != '' { '--output ' + output + '_edges.md' } else { '' } }}
