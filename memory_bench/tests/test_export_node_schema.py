@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for export_schema.py CSV/JSON parsing logic."""
+"""Tests for export_node_schema.py CSV/JSON parsing logic."""
 
 from __future__ import annotations
 
@@ -10,9 +10,9 @@ from pathlib import Path
 import pytest
 
 # Import the module under test
-SCRIPT_PATH = Path(__file__).parent.parent / "scripts" / "export_schema.py"
+SCRIPT_PATH = Path(__file__).parent.parent / "scripts" / "export_node_schema.py"
 
-spec = importlib.util.spec_from_file_location("export_schema", SCRIPT_PATH)
+spec = importlib.util.spec_from_file_location("export_node_schema", SCRIPT_PATH)
 export_schema = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(export_schema)
 

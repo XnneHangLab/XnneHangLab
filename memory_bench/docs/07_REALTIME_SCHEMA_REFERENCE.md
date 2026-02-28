@@ -2,7 +2,7 @@
 
 > **用途**：记录实时管线（memory-chat-server）的 Neo4j 图谱 Schema，确保与离线管线完全兼容。
 > 
-> **生成方式**：本文档基于实时管线的代码逻辑生成，可与离线管线的 `06_SCHEMA_REFERENCE.md` 对比验证。
+> **生成方式**：本文档基于实时管线的代码逻辑生成，可与离线管线的 `06_NODE_SCHEMA_REFERENCE.md` 对比验证。
 
 ---
 
@@ -266,13 +266,13 @@ elif memory_text.startswith("[Agent]"):
 ### 1. 导出离线管线 Schema
 
 ```bash
-uv run memory_bench/scripts/export_schema.py --output /tmp/offline_schema.md
+uv run memory_bench/scripts/export_node_schema.py --output /tmp/offline_schema.md
 ```
 
 ### 2. 导出实时管线 Schema
 
 ```bash
-uv run memory_bench/scripts/export_schema.py --output /tmp/realtime_schema.md
+uv run memory_bench/scripts/export_node_schema.py --output /tmp/realtime_schema.md
 ```
 
 ### 3. 对比两者

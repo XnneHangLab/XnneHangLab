@@ -1,6 +1,6 @@
-# Neo4j 图谱 Schema 参考
+# Neo4j NODE 图谱 Schema 参考
 
-**生成时间**: 2026-02-27T21:55:57.269142+08:00
+**生成时间**: 2026-02-28T21:59:33.548107+08:00
 
 **Neo4j 容器**: `membench-neo4j-mem0`
 
@@ -52,7 +52,7 @@
 
 ### Claim
 
-- **ID**: claim:PREFERS_TOPIC|daily|agent:congyin|topic:挑新鲜颜色的马克杯使用
+- **ID**: claim:PREFERS_TOPIC|daily|user:xnne|topic:普洱茶有助专注
 
 - **Name**: PREFERS_TOPIC (daily)
 
@@ -62,12 +62,12 @@
 ```json
 {
   "predicate": "PREFERS_TOPIC",
-  "updated_at": "2026-02-27T04:08:26.436893-08:00",
+  "updated_at": "2026-02-27T23:04:58.662893-08:00",
   "display": "PREFERS_TOPIC (daily)",
   "domain": "daily",
-  "confidence": 0.86,
+  "confidence": 0.88,
   "name": "PREFERS_TOPIC (daily)",
-  "id": "claim:PREFERS_TOPIC|daily|agent:congyin|topic:挑新鲜颜色的马克杯使用",
+  "id": "claim:PREFERS_TOPIC|daily|user:xnne|topic:普洱茶有助专注",
   "status": "active"
 }
 ```
@@ -94,7 +94,7 @@
 
 ### Domain
 
-- **ID**: dom:char:congyin:daily
+- **ID**: dom:char:xnne:daily
 
 - **Name**: daily
 
@@ -104,8 +104,8 @@
 ```json
 {
   "name": "daily",
-  "id": "dom:char:congyin:daily",
-  "character_id": "congyin",
+  "id": "dom:char:xnne:daily",
+  "character_id": "xnne",
   "display": "daily",
   "domain": "daily"
 }
@@ -114,25 +114,25 @@
 
 ### MemoryItem
 
-- **ID**: mem:59484ed1e8b9edf03c71c86146e8fc88
+- **ID**: mem:8eeee526ba66c7c0259fe721a756e709
 
-- **Name**: [User] 会使用一个小杯子来给茶散热。 #59484ed1
+- **Name**: [User] 觉得普洱茶能让自己更清醒。 #8eeee526
 
-- **Display**: [User] 会使用一个小杯子来给茶散热。 #59484ed1
+- **Display**: [User] 觉得普洱茶能让自己更清醒。 #8eeee526
 
 - **Properties**:
 ```json
 {
-  "point_id": "74bcb98f-4b74-4f0a-988b-0d6618061c14",
-  "data": "[User] 会使用一个小杯子来给茶散热。",
-  "display": "[User] 会使用一个小杯子来给茶散热。 #59484ed1",
-  "name": "[User] 会使用一个小杯子来给茶散热。 #59484ed1",
-  "created_at": "2026-02-27T04:08:26.369766-08:00",
+  "point_id": "2993cc12-65e5-4beb-826e-e8398c87741f",
+  "data": "[User] 觉得普洱茶能让自己更清醒。",
+  "display": "[User] 觉得普洱茶能让自己更清醒。 #8eeee526",
+  "name": "[User] 觉得普洱茶能让自己更清醒。 #8eeee526",
+  "created_at": "2026-02-27T23:04:58.662893-08:00",
   "isolation": "global",
-  "id": "mem:59484ed1e8b9edf03c71c86146e8fc88",
-  "payload_hash": "59484ed1e8b9edf03c71c86146e8fc88",
+  "id": "mem:8eeee526ba66c7c0259fe721a756e709",
+  "payload_hash": "8eeee526ba66c7c0259fe721a756e709",
   "collection": "memory_bench_global",
-  "exported_at": "2026-02-27T12:08:30Z"
+  "exported_at": "2026-02-28T07:05:02Z"
 }
 ```
 
@@ -179,21 +179,23 @@
 
 ### Topic
 
-- **ID**: topic:普洱茶
+- **ID**: topic:专注时忽略口渴
 
-- **Name**: 普洱茶
+- **Name**: 专注时忽略口渴
 
-- **Display**: 普洱茶
+- **Display**: 专注时忽略口渴
 
 - **Properties**:
 ```json
 {
-  "aliases": [],
+  "aliases": [
+    "专注时忽略口干舌燥"
+  ],
   "entity_type": "Topic",
-  "display": "普洱茶",
-  "confidence": 0.95,
-  "name": "普洱茶",
-  "id": "topic:普洱茶",
+  "display": "专注时忽略口渴",
+  "confidence": 0.8,
+  "name": "专注时忽略口渴",
+  "id": "topic:专注时忽略口渴",
   "tags": []
 }
 ```
@@ -226,16 +228,16 @@
 
 | 关系类型 | 源节点 | 源节点 ID | 目标节点 | 目标节点 ID |
 |----------|--------|-----------|----------|-------------|
-| ABOUT | Node | claim:PREFERS_TOPIC|daily|agent:congyin|topic:挑新鲜颜色的马克杯使用 | Node | topic:挑新鲜颜色的马克杯使用 |
+| ABOUT | Node | claim:PREFERS_TOPIC|daily|agent:congyin|topic:专注时忽略口渴 | Node | topic:专注时忽略口渴 |
 | ACTOR | Node | agent:congyin | Node | char:congyin |
 | CONV_HAS_CHARACTER | Node | conv:ch00 | Node | char:xnne |
 | CONV_IN_SCENE | Node | conv:ch00 | Node | scene:chill_ai_chat |
-| EVIDENCED_BY | Node | claim:PREFERS_TOPIC|daily|agent:congyin|topic:挑新鲜颜色的马克杯使用 | Node | mem:9dda1903d3ee9dcd2b0549c6797cc2f9 |
-| FROM_CONV | Node | mem:a54b1336663e48057427f1bbe0462b73 | Node | conv:ch00 |
-| HAS_CHARACTER | Node | mem:a54b1336663e48057427f1bbe0462b73 | Node | char:xnne |
-| HAS_CLAIM | Node | pred:char:congyin:daily:PREFERS_TOPIC | Node | claim:PREFERS_TOPIC|daily|agent:congyin|topic:挑新鲜颜色的马克杯使用 |
+| EVIDENCED_BY | Node | claim:PREFERS_TOPIC|daily|agent:congyin|topic:专注时忽略口渴 | Node | mem:5f26fa02b77c0497d4d32dedaae49716 |
+| FROM_CONV | Node | mem:8eeee526ba66c7c0259fe721a756e709 | Node | conv:ch00 |
+| HAS_CHARACTER | Node | mem:8eeee526ba66c7c0259fe721a756e709 | Node | char:xnne |
+| HAS_CLAIM | Node | pred:char:congyin:daily:PREFERS_TOPIC | Node | claim:PREFERS_TOPIC|daily|agent:congyin|topic:专注时忽略口渴 |
 | HAS_DOMAIN | Node | char:congyin | Node | dom:char:congyin:daily |
 | HAS_PREDICATE | Node | dom:char:congyin:daily | Node | pred:char:congyin:daily:PREFERS_TOPIC |
-| IN_SCENE | Node | mem:a54b1336663e48057427f1bbe0462b73 | Node | scene:chill_ai_chat |
-| OWNS_MEMORY | Node | char:xnne | Node | mem:9679d7cb69ae5bd89981b5db30c43ddc |
+| IN_SCENE | Node | mem:8eeee526ba66c7c0259fe721a756e709 | Node | scene:chill_ai_chat |
+| OWNS_MEMORY | Node | char:xnne | Node | mem:8eeee526ba66c7c0259fe721a756e709 |
 

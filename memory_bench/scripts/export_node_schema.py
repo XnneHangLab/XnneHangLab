@@ -2,9 +2,9 @@
 """导出 Neo4j 图谱的完整 Schema（节点类型、属性、关系）。
 
 用法：
-    uv run memory_bench/scripts/export_schema.py
-    uv run memory_bench/scripts/export_schema.py --format json
-    uv run memory_bench/scripts/export_schema.py --output custom_path.md
+    uv run memory_bench/scripts/export_node_schema.py
+    uv run memory_bench/scripts/export_node_schema.py --format json
+    uv run memory_bench/scripts/export_node_schema.py --output custom_path.md
 
 自动读取 memory_bench/.env.benchmark 中的 Neo4j 配置：
 - NEO4J_CONTAINER
@@ -12,8 +12,8 @@
 - NEO4J_PASSWORD
 
 输出：
-- 默认：memory_bench/docs/06_SCHEMA_REFERENCE.md
-- JSON 格式：memory_bench/docs/06_SCHEMA_REFERENCE.json
+- 默认：memory_bench/docs/06_NODE_SCHEMA_REFERENCE.md
+- JSON 格式：memory_bench/docs/06_NODE_SCHEMA_REFERENCE.json
 """
 
 from __future__ import annotations
@@ -24,26 +24,29 @@ import os
 import re
 import subprocess
 import sys
-from datetime import UTC, datetime, timezone
+from datetime import datetime, timezone
 from io import StringIO
 from pathlib import Path
 from typing import Any
 
 from memory_bench.scripts.bench_logger import logger
 
-log = logger.bind(group="export_schema")
+log = logger.bind(group="export_node_schema")
 
 try:
     from dotenv import load_dotenv
 except ImportError:
-    log.error("需要安装 python-dotenv")
-    sys.exit(1)
+    load_dotenv = None
+    log.warning("未安装 python-dotenv，跳过 .env.benchmark 自动加载")
 
 # 加载 .env.benchmark
 ENV_FILE = Path(__file__).parent.parent / ".env.benchmark"
 if ENV_FILE.exists():
-    load_dotenv(ENV_FILE)
-    log.info("已加载配置文件：%s", ENV_FILE)
+    if load_dotenv is not None:
+        load_dotenv(ENV_FILE)
+        log.info("已加载配置文件：%s", ENV_FILE)
+    else:
+        log.warning("检测到 %s 但未安装 python-dotenv，改用当前环境变量", ENV_FILE)
 else:
     log.warning("配置文件不存在：%s，使用默认值", ENV_FILE)
 
@@ -253,7 +256,7 @@ def parse_cypher_output(output: str) -> list[dict[str, Any]]:
 def generate_schema_data(container: str) -> dict:
     """Generate schema data structure."""
     data = {
-        "generated_at": datetime.now(UTC).astimezone().isoformat(),
+        "generated_at": datetime.now(timezone.utc).astimezone().isoformat(),  # noqa: UP017
         "neo4j_container": container,
         "node_examples": [],
         "edge_examples": [],
@@ -283,7 +286,7 @@ def generate_schema_data(container: str) -> dict:
 def generate_markdown_report(data: dict) -> str:
     """Generate Markdown report from schema data."""
     report = []
-    report.append("# Neo4j 图谱 Schema 参考\n")
+    report.append("# Neo4j NODE 图谱 Schema 参考\n")
     report.append(f"**生成时间**: {data['generated_at']}\n")
     report.append(f"**Neo4j 容器**: `{data['neo4j_container']}`\n")
 
@@ -331,7 +334,7 @@ def generate_markdown_report(data: dict) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Export Neo4j schema reference")
+    parser = argparse.ArgumentParser(description="Export Neo4j node schema reference")
     parser.add_argument(
         "--format",
         choices=["md", "json"],
@@ -342,7 +345,7 @@ def main() -> int:
         "--output",
         type=Path,
         default=None,
-        help="输出文件路径 (default: memory_bench/docs/06_SCHEMA_REFERENCE.*)",
+        help="输出文件路径 (default: memory_bench/docs/06_NODE_SCHEMA_REFERENCE.*)",
     )
     parser.add_argument(
         "--container",
@@ -353,7 +356,7 @@ def main() -> int:
 
     container = args.container
 
-    log.info("Neo4j 图谱 Schema 导出工具")
+    log.info("Neo4j NODE 图谱 Schema 导出工具")
 
     # 生成 schema 数据
     data = generate_schema_data(container=container)
@@ -365,9 +368,9 @@ def main() -> int:
         docs_dir = Path(__file__).parent.parent / "docs"
         docs_dir.mkdir(parents=True, exist_ok=True)
         if args.format == "json":
-            output_path = docs_dir / "06_SCHEMA_REFERENCE.json"
+            output_path = docs_dir / "06_NODE_SCHEMA_REFERENCE.json"
         else:
-            output_path = docs_dir / "06_SCHEMA_REFERENCE.md"
+            output_path = docs_dir / "06_NODE_SCHEMA_REFERENCE.md"
 
     # 写入文件
     if args.format == "json":
