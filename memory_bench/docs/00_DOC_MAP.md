@@ -36,6 +36,12 @@
 10. `07_REALTIME_SCHEMA_REFERENCE.md`
    - 实时管线 Neo4j 图谱 Schema 参考：与离线管线的兼容性对比、差异说明、验证方法。
 
+11. `08_EDGE_SCHEMA_REFERENCE.md`
+   - Neo4j 图谱边 Schema 参考：边类型、边属性、完整示例（由 `export_edge_schema.py` 自动生成，离线管线）。
+
+12. `09_REALTIME_EDGE_SCHEMA_REFERENCE.md`
+   - 实时管线 Neo4j 图谱边 Schema 参考：与离线管线的兼容性对比、差异说明、验证方法。
+
 ---
 
 ## 推荐阅读顺序
