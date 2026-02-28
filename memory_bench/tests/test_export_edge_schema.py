@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Tests for export_edge_schema.py CSV/JSON parsing logic."""
+"""`export_edge_schema.py` 的解析与文档渲染测试。
+
+说明：
+    该测试文件聚焦于非公开测试入口的行为校验，
+    主要验证 CSV/Map 解析与 Markdown 关键片段输出。
+"""
 
 from __future__ import annotations
 
@@ -17,6 +22,7 @@ generate_markdown_report = export_edge_schema.generate_markdown_report
 
 
 def test_parse_edge_row_with_map_fields():
+    """验证边行中嵌套 Map 字段可以被正确解析为字典。"""
     output = """edge_type, relationship, src_label, src_id, dst_label, dst_id, edge_properties
 "ABOUT", {identity: 138, type: "ABOUT", properties: {predicate: "PREFERS_TOPIC"}}, "Node", "claim:aaa", "Node", "topic:bbb", {predicate: "PREFERS_TOPIC", type: "ABOUT"}"""
 
@@ -33,6 +39,7 @@ def test_parse_edge_row_with_map_fields():
 
 
 def test_markdown_contains_relationship_summary_table_at_bottom():
+    """验证 Markdown 在底部追加关系汇总表格。"""
     data = {
         "generated_at": "2026-03-01T00:00:00+08:00",
         "neo4j_container": "membench-neo4j-mem0",

@@ -99,7 +99,19 @@ def run_cypher(
     user: str = NEO4J_USER,
     password: str = NEO4J_PASSWORD,
 ) -> tuple[bool, str]:
-    """Pipe cypher_text into cypher-shell inside the Neo4j container."""
+    """在 Neo4j 容器内执行 Cypher 查询。
+
+    Args:
+        cypher_text: 要执行的 Cypher 文本。
+        container: Neo4j Docker 容器名。
+        user: Neo4j 用户名。
+        password: Neo4j 密码。
+
+    Returns:
+        tuple[bool, str]: 二元组 `(ok, output)`。
+        - `ok=True` 表示执行成功，`output` 为标准输出文本。
+        - `ok=False` 表示执行失败，`output` 为错误信息。
+    """
     cmd = [
         "docker",
         "exec",
@@ -137,7 +149,17 @@ def run_cypher(
 
 
 def split_csv_line(line: str) -> list[str]:
-    """Split CSV line, handling nested braces {} and brackets []."""
+    """按 CSV 规则拆分一行文本，支持嵌套对象与数组。
+
+    该函数用于解析 `cypher-shell --format plain` 输出，避免在
+    Neo4j Map（`{}`）或数组（`[]`）内部错误分割逗号。
+
+    Args:
+        line: 一行待拆分的文本。
+
+    Returns:
+        list[str]: 拆分后的字段列表（保留原始空格与引号形态）。
+    """
     result = []
     current = []
     brace_depth = 0
@@ -173,7 +195,16 @@ def split_csv_line(line: str) -> list[str]:
 
 
 def convert_neo4j_map_to_json(neo4j_map: str) -> str:
-    """Convert Neo4j Map format to valid JSON."""
+    """将 Neo4j Map 风格字符串转换为标准 JSON 字符串。
+
+    示例：`{name: "a", tags: []}` -> `{"name": "a", "tags": []}`。
+
+    Args:
+        neo4j_map: Neo4j Map 格式字符串。
+
+    Returns:
+        str: 尽可能可被 `json.loads` 解析的 JSON 字符串。
+    """
     result = neo4j_map
     result = re.sub(r"([{,]\s*)(\w+)(\s*:)", r'\1"\2"\3', result)
     result = result.replace("'", '"')
@@ -181,7 +212,15 @@ def convert_neo4j_map_to_json(neo4j_map: str) -> str:
 
 
 def parse_cypher_output(output: str) -> list[dict[str, Any]]:
-    """Parse cypher-shell plain format output into list of dicts."""
+    """解析 cypher-shell plain 输出为结构化字典列表。
+
+    Args:
+        output: `cypher-shell --format plain` 的原始输出文本。
+
+    Returns:
+        list[dict[str, Any]]: 逐行解析后的结果。
+        当字段值是 Neo4j Map 且可转换时，会转为 Python `dict`。
+    """
     lines = output.strip().split("\n")
     if len(lines) < 2:
         return []
@@ -214,7 +253,15 @@ def parse_cypher_output(output: str) -> list[dict[str, Any]]:
 
 
 def generate_edge_schema_data(container: str) -> dict[str, Any]:
-    """Generate edge schema data structure."""
+    """查询并构建边 Schema 的统一数据结构。
+
+    Args:
+        container: Neo4j Docker 容器名。
+
+    Returns:
+        dict[str, Any]: 包含生成时间、容器名、
+        按边 ID 前缀示例与按关系类型示例的数据字典。
+    """
     data: dict[str, Any] = {
         "generated_at": datetime.now(timezone.utc).astimezone().isoformat(),
         "neo4j_container": container,
@@ -242,7 +289,15 @@ def generate_edge_schema_data(container: str) -> dict[str, Any]:
 
 
 def render_edge_example_block(row: dict[str, Any], title: str) -> list[str]:
-    """Render a single edge example as markdown block."""
+    """将单条边示例渲染为 Markdown 片段。
+
+    Args:
+        row: 单条边示例数据。
+        title: 当前小节标题（例如边前缀或关系类型）。
+
+    Returns:
+        list[str]: Markdown 片段行列表。
+    """
     edge_type = row.get("edge_type", "")
     relationship = row.get("relationship", "")
     src_label = row.get("src_label", "")
@@ -275,7 +330,14 @@ def render_edge_example_block(row: dict[str, Any], title: str) -> list[str]:
 
 
 def generate_markdown_report(data: dict[str, Any]) -> str:
-    """Generate Markdown report from edge schema data."""
+    """根据边 Schema 数据生成 Markdown 报告。
+
+    Args:
+        data: 由 `generate_edge_schema_data` 生成的数据字典。
+
+    Returns:
+        str: 完整 Markdown 文本。
+    """
     report: list[str] = []
     report.append("# Neo4j 边 Schema 参考\n")
     report.append(f"**生成时间**: {data['generated_at']}\n")
@@ -319,6 +381,11 @@ def generate_markdown_report(data: dict[str, Any]) -> str:
 
 
 def main() -> int:
+    """脚本主入口，解析参数并输出边 Schema 文档。
+
+    Returns:
+        int: 进程退出码。0 表示成功。
+    """
     parser = argparse.ArgumentParser(description="Export Neo4j edge schema reference")
     parser.add_argument(
         "--format",
