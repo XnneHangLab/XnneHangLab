@@ -1,0 +1,205 @@
+"""Neo4j Cypher 查询模板
+
+本模块集中管理所有 Neo4j Cypher 查询语句，与业务逻辑分离。
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+
+def create_metadata_nodes_cypher(
+    user_id: str,
+    user_name: str,
+    agent_id: str,
+    agent_name: str,
+    scene_id: str,
+    scene_name: str,
+    character_id: str,
+    character_name: str,
+    user_char_id: str,
+    user_char_name: str,
+) -> str:
+    """生成创建 metadata 节点的 Cypher 语句。
+
+    Args:
+        user_id: User 节点 ID（如 "xnne"）
+        user_name: User 节点名称
+        agent_id: Agent 节点 ID（如 "congyin"）
+        agent_name: Agent 节点名称
+        scene_id: Scene 节点 ID（如 "chill_ai_chat"）
+        scene_name: Scene 节点名称
+        character_id: Character 节点 ID（如 "congyin"）
+        character_name: Character 节点名称
+        user_char_id: User 的 Character 节点 ID
+        user_char_name: User 的 Character 节点名称
+
+    Returns:
+        Cypher 查询语句
+    """
+    return f"""
+// Create/update User node (with proper Neo4j labels)
+MERGE (user:Node:User {{id: "user:{user_id}"}})
+ON CREATE SET
+  user.name = "{user_name}",
+  user.display = "{user_name}",
+  user.user_id = "{user_id}",
+  user.entity_type = "User"
+ON MATCH SET
+  user.name = "{user_name}",
+  user.display = "{user_name}",
+  user.user_id = "{user_id}",
+  user.entity_type = "User"
+
+// Create/update Agent node (with proper Neo4j labels)
+MERGE (agent:Node:Agent {{id: "agent:{agent_id}"}})
+ON CREATE SET
+  agent.name = "{agent_name}",
+  agent.display = "{agent_name}",
+  agent.agent_id = "{agent_id}",
+  agent.entity_type = "Agent"
+ON MATCH SET
+  agent.name = "{agent_name}",
+  agent.display = "{agent_name}",
+  agent.agent_id = "{agent_id}",
+  agent.entity_type = "Agent"
+
+// Create/update Scene node (with proper Neo4j labels)
+MERGE (scene:Node:Scene {{id: "scene:{scene_id}"}})
+ON CREATE SET
+  scene.name = "{scene_name}",
+  scene.display = "{scene_name}",
+  scene.scene_id = "{scene_id}"
+ON MATCH SET
+  scene.name = "{scene_name}",
+  scene.display = "{scene_name}",
+  scene.scene_id = "{scene_id}"
+
+// Create/update Character node (Agent's character) - NOTE: char: prefix (NOT character:)
+MERGE (character:Node:Character {{id: "char:{character_id}"}})
+ON CREATE SET
+  character.name = "{character_name}",
+  character.display = "{character_name}",
+  character.character_id = "{character_id}"
+ON MATCH SET
+  character.name = "{character_name}",
+  character.display = "{character_name}",
+  character.character_id = "{character_id}"
+
+// Create User's Character node (for user-owned memories) - NOTE: char: prefix
+MERGE (user_char:Node:Character {{id: "char:{user_char_id}"}})
+ON CREATE SET
+  user_char.name = "{user_char_name}",
+  user_char.display = "{user_char_name}",
+  user_char.character_id = "{user_char_id}"
+ON MATCH SET
+  user_char.name = "{user_char_name}",
+  user_char.display = "{user_char_name}",
+  user_char.character_id = "{user_char_id}"
+
+// Create Agent-Character relationship (ACTOR)
+MERGE (agent)-[:ACTOR]->(character)
+
+// Create User-Character relationship (ACTOR, like Agent)
+MERGE (user)-[:ACTOR]->(user_char)
+
+// Create Character-Scene relationship (NOT Agent/User!)
+MERGE (character)-[:IN_SCENE]->(scene)
+MERGE (user_char)-[:IN_SCENE]->(scene)
+"""
+
+
+def create_conversation_cypher(conv_node_id: str, conv_id: str) -> str:
+    """生成创建 Conversation 节点的 Cypher 语句。
+
+    Args:
+        conv_node_id: Conversation 节点完整 ID（如 "conv:2026-02-27"）
+        conv_id: Conversation ID（如 "2026-02-27"）
+
+    Returns:
+        Cypher 查询语句
+    """
+    return f"""
+// Create Conversation node (with proper Neo4j labels)
+MERGE (conv:Node:Conversation {{id: "{conv_node_id}"}})
+ON CREATE SET
+  conv.conv_id = "{conv_id}",
+  conv.display = "{conv_id}",
+  conv.name = "{conv_id}"
+ON MATCH SET
+  conv.conv_id = "{conv_id}",
+  conv.display = "{conv_id}",
+  conv.name = "{conv_id}"
+"""
+
+
+def create_memory_item_cypher(
+    node_id: str,
+    data: str,
+    payload_hash: str,
+    display_name: str,
+    now_iso: str,
+    point_id: str,
+    owner_character_id: str,
+    scene_id: str,
+    conv_node_id: str,
+) -> str:
+    """生成创建 MemoryItem 节点并链接关系的 Cypher 语句。
+
+    Args:
+        node_id: MemoryItem 节点 ID（如 "mem:xxx"）
+        data: 记忆原文
+        payload_hash: MD5 hash
+        display_name: 显示名称
+        now_iso: ISO 8601 时间戳
+        point_id: mem0 UUID
+        owner_character_id: Owner Character ID（如 "congyin" 或 "xnne"）
+        scene_id: Scene 节点 ID（如 "chill_ai_chat"）
+        conv_node_id: Conversation 节点 ID（如 "conv:2026-02-27"）
+
+    Returns:
+        Cypher 查询语句
+    """
+    # Escape double-quotes for Cypher string literals
+    esc_data = data.replace("\\", "\\\\").replace('"', '\\"')
+    esc_display = display_name.replace("\\", "\\\\").replace('"', '\\"')
+
+    return f"""
+// Create MemoryItem node (with proper Neo4j labels)
+MERGE (mem:Node:MemoryItem {{id: "{node_id}"}})
+ON CREATE SET
+  mem.data = "{esc_data}",
+  mem.payload_hash = "{payload_hash}",
+  mem.display = "{esc_display}",
+  mem.name = "{esc_display}",
+  mem.created_at = "{now_iso}",
+  mem.point_id = "{point_id}",
+  mem.isolation = "global",
+  mem.collection = "memory_bench_global",
+  mem.exported_at = "{now_iso}"
+ON MATCH SET
+  mem.data = "{esc_data}",
+  mem.payload_hash = "{payload_hash}",
+  mem.display = "{esc_display}",
+  mem.name = "{esc_display}",
+  mem.point_id = "{point_id}",
+  mem.isolation = "global",
+  mem.collection = "memory_bench_global",
+  mem.exported_at = "{now_iso}"
+
+// Link to owner Character
+MERGE (owner:Node:Character {{id: "char:{owner_character_id}"}})
+ON CREATE SET owner.name = "{owner_character_id}"
+MERGE (owner)-[:OWNS_MEMORY]->(mem)
+
+// Link to Scene
+MERGE (scene:Node:Scene {{id: "scene:{scene_id}"}})
+MERGE (mem)-[:IN_SCENE]->(scene)
+MERGE (mem)-[:HAS_CHARACTER]->(owner)
+
+// Link to Conversation - re-declare conv since it's a separate Cypher execution
+MERGE (conv:Node:Conversation {{id: "{conv_node_id}"}})
+MERGE (mem)-[:FROM_CONV]->(conv)
+MERGE (conv)-[:CONV_IN_SCENE]->(scene)
+MERGE (conv)-[:CONV_HAS_CHARACTER]->(owner)
+"""
