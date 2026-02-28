@@ -198,8 +198,8 @@ def _create_metadata_nodes_cypher() -> str:
 
     Relationships (matching offline pipeline):
     - Agent -ACTOR→ Character
-    - User -USER_IN_SCENE→ Scene
-    - Character -IN_SCENE→ Scene (NOT Agent!)
+    - User -ACTOR→ Character (like Agent, not directly to Scene)
+    - Character -IN_SCENE→ Scene (NOT Agent/User!)
     """
     return f"""
 // Create/update User node (with proper Neo4j labels)
@@ -227,13 +227,13 @@ MERGE (user_char:Node:Character {{id: "char:{state.metadata_user_id}"}})
 ON CREATE SET user_char.name = "{state.metadata_user_name}"
 ON MATCH SET user_char.name = "{state.metadata_user_name}"
 
-// Create Agent-Character relationship
+// Create Agent-Character relationship (ACTOR)
 MERGE (agent)-[:ACTOR]->(character)
 
-// Create User-Scene relationship
-MERGE (user)-[:USER_IN_SCENE]->(scene)
+// Create User-Character relationship (ACTOR, like Agent)
+MERGE (user)-[:ACTOR]->(user_char)
 
-// Create Character-Scene relationship (NOT Agent!)
+// Create Character-Scene relationship (NOT Agent/User!)
 MERGE (character)-[:IN_SCENE]->(scene)
 MERGE (user_char)-[:IN_SCENE]->(scene)
 """
