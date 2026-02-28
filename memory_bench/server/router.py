@@ -299,44 +299,6 @@ def init_metadata_nodes() -> None:
         log.warning("⚠️  Failed to initialize metadata nodes: %s", err)
 
 
-def create_memory_item_node(memory_id: str, memory_text: str) -> None:
-    """Create MemoryItem node and link to User/Agent/Scene/Character."""
-    if not state.graph_pipeline_enabled:
-        return
-
-    log = logger.bind(group="metadata")
-
-    # Generate a unique ID for this memory item
-    import hashlib
-    memory_key = hashlib.sha256(memory_text.encode()).hexdigest()[:12]
-    node_id = f"mem:{memory_key}"
-
-    cypher = f"""
-// Create MemoryItem node
-MERGE (mem:Node {{id: "{node_id}"}})
-ON CREATE SET mem.labels = ["MemoryItem"], mem.text = "{memory_text[:200].replace(chr(34), chr(92)+chr(34))}"
-ON MATCH SET mem.text = "{memory_text[:200].replace(chr(34), chr(92)+chr(34))}"
-
-// Link to metadata nodes
-MATCH (user:Node {{id: "user:{state.metadata_user_id}"}})
-MATCH (agent:Node {{id: "agent:{state.metadata_agent_id}"}})
-MATCH (scene:Node {{id: "scene:{state.metadata_scene_id}"}})
-MATCH (character:Node {{id: "character:{state.metadata_character_id}"}})
-
-MERGE (user)-[:OWNS_MEMORY]->(mem)
-MERGE (agent)-[:TARGETS_AGENT]->(mem)
-MERGE (mem)-[:IN_SCENE]->(scene)
-MERGE (mem)-[:HAS_CHARACTER]->(character)
-MERGE (mem)-[:FROM_CONV]->(agent)
-"""
-
-    ok, err = _run_cypher(cypher)
-    if ok:
-        log.info("✅ MemoryItem created: %s", node_id)
-    else:
-        log.warning("⚠️  Failed to create MemoryItem: %s", err)
-
-
 def _determine_owner(mem0_item: dict[str, Any], memory_text: str) -> str:
     """Determine which character owns this memory.
 
@@ -382,6 +344,7 @@ def create_memory_item_node_v2(mem0_item: dict[str, Any], memory_text: str) -> N
 
     # Generate conversation ID from current date (e.g., "2026-02-27")
     from datetime import datetime, timezone
+
     conv_id = datetime.now(UTC).strftime("%Y-%m-%d")
     conv_node_id = f"conv:{conv_id}"
 
@@ -390,8 +353,8 @@ def create_memory_item_node_v2(mem0_item: dict[str, Any], memory_text: str) -> N
     cypher = f"""
 // Create MemoryItem node
 MERGE (mem:Node {{id: "{node_id}"}})
-ON CREATE SET mem.labels = ["MemoryItem"], mem.text = "{memory_text[:200].replace(chr(34), chr(92)+chr(34))}"
-ON MATCH SET mem.text = "{memory_text[:200].replace(chr(34), chr(92)+chr(34))}"
+ON CREATE SET mem.labels = ["MemoryItem"], mem.text = "{memory_text[:200].replace(chr(34), chr(92) + chr(34))}"
+ON MATCH SET mem.text = "{memory_text[:200].replace(chr(34), chr(92) + chr(34))}"
 
 // Create Conversation node (by date)
 MERGE (conv:Node {{id: "{conv_node_id}"}})
