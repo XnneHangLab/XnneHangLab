@@ -29,6 +29,7 @@
   - `neo4j_apply_cypher.py`
   - `neo4j_clear.py`（清空 Neo4j 图数据，不重启容器）
   - `export_schema.py`（导出 Neo4j 图谱 Schema 参考文档）
+  - `export_edge_schema.py`（导出 Neo4j 边 Schema 示例文档）
   - `latest_file.py`
 
 - **工具模块**（非 CLI 主入口）
@@ -1039,3 +1040,58 @@ WITH label, collect(n)[0] AS example
 RETURN label, properties(example) AS all_props
 LIMIT 1;
 ```
+
+
+---
+
+## 22. Neo4j 边 Schema 导出（export_edge_schema.py）
+
+> **用途**：导出 Neo4j 图谱中"边"的完整示例文档，分别按 **边 ID 前缀** 和 **关系类型** 去重保留每类一个示例。
+> **输出**：`memory_bench/docs/08_EDGE_SCHEMA_REFERENCE.md`
+
+### 调用示例
+
+```bash
+# 导出 Markdown 格式（默认）
+uv run memory_bench/scripts/export_edge_schema.py
+
+# 导出 JSON 格式
+uv run memory_bench/scripts/export_edge_schema.py --format json
+
+# 自定义输出路径
+uv run memory_bench/scripts/export_edge_schema.py --output /tmp/edge-schema.md
+
+# 指定 Neo4j 容器
+uv run memory_bench/scripts/export_edge_schema.py --container my-neo4j-container
+```
+
+### 输入
+
+- **Neo4j 容器**：从 `.env.benchmark` 读取 `NEO4J_CONTAINER`（默认：`membench-neo4j-mem0`）
+- **认证信息**：从 `.env.benchmark` 读取 `NEO4J_USER` 和 `NEO4J_PASSWORD`
+
+### 输出结构
+
+Markdown 文档包含两个章节：
+
+1. `## 边示例（按 ID 前缀分类，每类一个完整示例）`
+2. `## 关系示例（每个类型一个完整示例）`
+
+其中每条示例都包含：
+
+- `Edge Type`
+- `Source`（src label + src id）
+- `Target`（dst label + dst id）
+- `Relationship (raw)`（Neo4j relationship 完整对象）
+- `Edge Properties`（`properties(r)` 结果）
+
+### 去重规则
+
+- **按边 ID 前缀**：基于 `r.id` 的 `:` 前缀分组，每组仅保留一个完整样例
+- **按关系类型**：基于 `type(r)` 分组，每种关系仅保留一个完整样例
+
+### 使用场景
+
+1. **排查边字段一致性**：快速检查某类边的属性是否完整（如 `src/dst/predicate/domain`）
+2. **校验命名规范**：检查 `r.id` 的前缀分布是否符合预期
+3. **联调实时/离线写图**：确认不同写入链路产出的边结构一致
