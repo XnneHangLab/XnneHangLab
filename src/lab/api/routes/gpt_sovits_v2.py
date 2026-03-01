@@ -113,8 +113,15 @@ async def tts_webapi_v2_compat(request: Request, background_tasks: BackgroundTas
     raw = await _read_request_data(request)
     logger.debug(f"[GSV v2] 解析请求数据：{raw}")
     
-    data = _normalize_webapi_v2_params(raw)
-    logger.debug(f"[GSV v2] 标准化参数：text={data.get('text', '')[:50]}..., text_lang={data.get('text_lang')}, ref_audio_path={data.get('ref_audio_path')}")
+    try:
+        data = _normalize_webapi_v2_params(raw)
+        logger.debug(f"[GSV v2] 标准化参数：text={data.get('text', '')[:50]}..., text_lang={data.get('text_lang')}, ref_audio_path={data.get('ref_audio_path')}")
+    except HTTPException as e:
+        logger.error(f"[GSV v2] 参数标准化失败：status={e.status_code}, detail={e.detail}")
+        raise
+    except Exception as e:
+        logger.error(f"[GSV v2] 参数标准化异常：{type(e).__name__}: {e}")
+        raise
 
     # 必要参数（按 AIChat README 的测试链接）:contentReference[oaicite:3]{index=3}
     text = (data.get("text") or "").strip()
