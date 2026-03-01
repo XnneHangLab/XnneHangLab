@@ -94,9 +94,9 @@ def _send_chat(
     }
 
     # Create new client per request to avoid keep-alive issues.
-    # Explicitly disable proxy so localhost traffic isn't routed through
-    # system proxies (Clash / V2Ray / etc.) which would return 502.
-    with httpx.Client(http2=False, proxy=None) as client:
+    # Use trust_env=False to completely ignore HTTP_PROXY/HTTPS_PROXY
+    # environment variables, ensuring localhost traffic bypasses tun/Clash.
+    with httpx.Client(http2=False, trust_env=False) as client:
         try:
             resp = client.post(
                 f"{base_url.rstrip('/')}/v1/chat/completions",
