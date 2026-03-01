@@ -19,6 +19,8 @@ PREFIX_TO_GROUP = {
     "lab.agent": "agent",
     "lab.mcp": "mcp",
     "lab.api": "fastapi",
+    "lab.api.routes": "tts",
+    "lab.api.clients": "tts",
     "lab.asr": "asr",
     "lab.config_manager": "config",
     "lab.conversations": "dialog",
@@ -49,7 +51,8 @@ GROUP_LEVEL = {
     "config": "INFO",
     "server": "DEBUG",
     "dialog": "INFO",
-    "fastapi": "INFO",
+    "fastapi": "DEBUG",
+    "tts": "DEBUG",
     "chore": "WARNING",
     "util": "INFO",
 }
@@ -61,6 +64,7 @@ GROUP_COLOR = {
     "mcp": "magenta",
     "fastapi": "blue",
     "asr": "light-cyan",
+    "tts": "light-green",
     "config": "light-black",
     "util": "white",
 }
