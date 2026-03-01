@@ -321,10 +321,15 @@ mem0-rerun-graph-store:
   just build-index
   just annotate-all
   just compile-events
+  just mem0-ingest
   uv run memory_bench/scripts/replay_mem0.py ingest --graph-store neo4j
+  just mem0-export
 
 mem0-run-from-graph-store:
-  just clean-realtime
+  just clean-neo4j
+  just clean-bench-state
+  just clean-bench-claims
+  just clean-bench-logs
   just mem0-rerun-graph-store
 
 # =============================================================================
