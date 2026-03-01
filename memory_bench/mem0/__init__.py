@@ -1,46 +1,44 @@
-"""memory_bench.mem0 — Patched mem0 Memory factory.
+"""memory_bench.mem0 — 帶有 Patch 的 mem0 Memory 工廠模塊。
 
-This module wraps ``mem0.Memory`` with monkey-patches to fix two known bugs
-when running mem0 against non-OpenAI compatible backends (e.g. NewAPI):
+本模塊對 ``mem0.Memory`` 進行 monkey-patch，修復在非 OpenAI 后端
+（如 NewAPI、vLLM 等 OpenAI-compatible 服務）下的兩個已知 Bug：
 
-Patch 1 — ``body.store`` unsupported (wrong_api_format)
---------------------------------------------------------
-mem0's OpenAI LLM backend unconditionally injects ``store=True`` into every
-chat-completion request.  This is an OpenAI-specific stored-completions
-feature; third-party OpenAI-compatible APIs (NewAPI, vLLM, etc.) reject it
-with HTTP 422::
+Patch 1 — ``body.store`` 不支持（wrong_api_format）
+-----------------------------------------------------
+mem0 的 OpenAI LLM 后端會無條件向每個 chat completion 請求注入
+``store=True`` 參數。這是 OpenAI 專屬的 stored-completions 功能，
+第三方 OpenAI-compatible API 不支持該字段，會返回 HTTP 422::
 
     body.store: property 'body.store' is unsupported
     code: wrong_api_format
 
-Fix: monkey-patch ``OpenAILLM.generate_response`` to skip the ``store``
-injection block entirely.
+修復方案：monkey-patch ``OpenAILLM.generate_response``，跳過 ``store``
+注入邏輯。此 patch 在 import 時自動生效（class-level，影響所有實例）。
 
 Patch 2 — ``vector_store.update(vector=None, ...)`` ValidationError
 --------------------------------------------------------------------
-When mem0 processes a NONE-event (no new memory to add), it still calls
-``vector_store.update(vector_id=…, vector=None, payload=…)`` to refresh
-session metadata.  Qdrant's ``PointStruct`` does not accept ``vector=None``,
-raising a ``ValidationError``.
+mem0 在處理 NONE 事件（無新記憶需要添加）時，仍會調用
+``vector_store.update(vector_id=…, vector=None, payload=…)`` 以刷新
+session metadata。Qdrant 的 ``PointStruct`` 不接受 ``vector=None``，
+會拋出 ``ValidationError``。
 
-Fix: monkey-patch ``vector_store.update`` per-instance to use
-``set_payload`` (or a read-modify-write) when ``vector`` is ``None``.
+修復方案：per-instance monkey-patch ``vector_store.update``，
+當 ``vector`` 為 ``None`` 時改用 ``set_payload``（或 read-modify-write fallback）。
 
-Usage
------
-Replace::
+用法
+----
+替換原有寫法::
 
     from mem0 import Memory
     memory = Memory.from_config(config)
-    # ... manual vector_store patch ...
+    # ... 手動 patch vector_store.update ...
 
-With::
+改用::
 
     from memory_bench.mem0 import make_memory
     memory = make_memory(config)
 
-The returned object is a standard ``mem0.Memory`` instance — both patches are
-transparent to callers.
+返回的對象是標準 ``mem0.Memory`` 實例，兩個 patch 對調用方完全透明。
 """
 
 from __future__ import annotations
@@ -52,22 +50,22 @@ from typing import Any
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Patch 1: strip `store` param for non-OpenAI backends
-# Applied eagerly at import time (class-level, affects all instances).
+# Patch 1: 移除 `store` 參數，兼容非 OpenAI 后端
+# 在 import 時立即生效（class-level，影響所有實例）。
 # ---------------------------------------------------------------------------
 
 
 def _patch_openai_llm_store() -> None:
-    """Remove ``store`` injection from ``mem0.llms.openai.OpenAILLM``.
+    """移除 ``mem0.llms.openai.OpenAILLM`` 中的 ``store`` 注入。
 
-    mem0 hardcodes ``openai_specific_generation_params = ["store"]`` and
-    passes it to every completion request.  Third-party OpenAI-compatible
-    backends (NewAPI, vLLM, …) reject it with HTTP 422 wrong_api_format.
+    mem0 硬編碼了 ``openai_specific_generation_params = ["store"]``，
+    並將其注入到每個 completion 請求中。第三方 OpenAI-compatible 后端
+    （NewAPI、vLLM 等）不支持此字段，返回 HTTP 422 wrong_api_format。
     """
     try:
         from mem0.llms.openai import OpenAILLM  # type: ignore[import-untyped]
     except ImportError:
-        log.debug("mem0.llms.openai not available; skipping store patch")
+        log.debug("mem0.llms.openai 不可用，跳過 store patch")
         return
 
     def _new_generate_response(
@@ -78,7 +76,6 @@ def _patch_openai_llm_store() -> None:
         tool_choice: str = "auto",
         **kwargs: Any,
     ) -> Any:
-        import json as _json
         import logging as _logging
 
         params = self._get_supported_params(messages=messages, **kwargs)
@@ -99,9 +96,9 @@ def _patch_openai_llm_store() -> None:
                     "X-Title": self.config.app_name,
                 }
             params.update(**openrouter_params)
-        # NOTE: Intentionally skip the `store` injection block present in
-        # upstream mem0.  `store` is an OpenAI-only stored-completions feature;
-        # third-party backends return HTTP 422 wrong_api_format when it is sent.
+        # 注意：故意跳過上游 mem0 中的 `store` 注入邏輯。
+        # `store` 是 OpenAI 專屬的 stored-completions 功能，
+        # 第三方后端收到此字段會返回 HTTP 422 wrong_api_format。
 
         if response_format:
             params["response_format"] = response_format
@@ -115,24 +112,24 @@ def _patch_openai_llm_store() -> None:
             try:
                 self.config.response_callback(self, response, params)
             except Exception as e:
-                _logging.error("Error due to callback: %s", e)
+                _logging.error("callback 執行出錯：%s", e)
         return parsed_response
 
     OpenAILLM.generate_response = _new_generate_response  # type: ignore[method-assign]
-    log.debug("mem0 OpenAILLM.generate_response patched: `store` param removed")
+    log.debug("已 patch mem0 OpenAILLM.generate_response：移除 `store` 參數")
 
 
 # ---------------------------------------------------------------------------
-# Patch 2: vector_store.update(vector=None) fix
-# Applied per-instance after Memory.from_config().
+# Patch 2: 修復 vector_store.update(vector=None) 問題
+# per-instance 應用，在 Memory.from_config() 之後執行。
 # ---------------------------------------------------------------------------
 
 
 def _patch_vector_store_update(memory: Any) -> None:
-    """Patch ``memory.vector_store.update`` to handle ``vector=None``.
+    """Patch ``memory.vector_store.update``，處理 ``vector=None`` 的情況。
 
-    When mem0 processes a NONE event it calls update with ``vector=None``,
-    which Qdrant rejects.  We redirect to ``set_payload`` instead.
+    mem0 在處理 NONE 事件時會傳入 ``vector=None``，Qdrant 不接受此值。
+    改用 ``set_payload`` 僅更新 payload，或通過 read-modify-write 回退。
     """
     vector_store = getattr(memory, "vector_store", None)
     original_update = getattr(vector_store, "update", None)
@@ -158,7 +155,7 @@ def _patch_vector_store_update(memory: Any) -> None:
                     )
                     return
 
-            # Fallback: read existing vector, then rewrite
+            # 回退方案：讀取現有 vector 後重新寫入
             existing = None
             get_func = getattr(vector_store, "get", None)
             if callable(get_func):
@@ -173,7 +170,7 @@ def _patch_vector_store_update(memory: Any) -> None:
                 return
 
             log.warning(
-                "skip vector_store.update for %s: vector=None and no fallback available",
+                "跳過 vector_store.update（%s）：vector=None 且無可用回退方案",
                 vector_id,
             )
             return
@@ -181,54 +178,53 @@ def _patch_vector_store_update(memory: Any) -> None:
         original_update(vector_id=vector_id, vector=vector, payload=payload)
 
     vector_store.update = _patched_update
-    log.debug("mem0 vector_store.update patched: vector=None handled")
+    log.debug("已 patch mem0 vector_store.update：處理 vector=None 情況")
 
 
-# Apply Patch 1 eagerly at import time so all subsequently created instances
-# share the fixed behaviour automatically.
+# import 時立即應用 Patch 1，后續創建的所有實例自動繼承修復。
 _patch_openai_llm_store()
 
 
 # ---------------------------------------------------------------------------
-# Public API
+# 公開 API
 # ---------------------------------------------------------------------------
 
 
 def make_memory(config: dict[str, Any]) -> Any:
-    """Create a fully-patched ``mem0.Memory`` instance from *config*.
+    """根據 *config* 創建帶有完整 patch 的 ``mem0.Memory`` 實例。
 
-    Both patches are applied automatically:
+    兩個 patch 均自動應用：
 
-    * Patch 1 (``store`` param) is already in effect at import time.
-    * Patch 2 (``vector=None``) is applied per-instance here.
+    * Patch 1（``store`` 參數）：import 時已生效。
+    * Patch 2（``vector=None``）：此函數內 per-instance 應用。
 
-    Replace::
+    替換原有寫法::
 
         from mem0 import Memory
         memory = Memory.from_config(config)
-        # ... manual vector_store patch boilerplate ...
+        # ... 手動 patch 樣板代碼 ...
 
-    With::
+    改用::
 
         from memory_bench.mem0 import make_memory
         memory = make_memory(config)
 
-    Args:
-        config: mem0 configuration dict, same as ``Memory.from_config(config)``.
+    參數：
+        config: mem0 配置字典，與 ``Memory.from_config(config)`` 格式相同。
 
-    Returns:
-        A patched ``mem0.Memory`` instance.
+    返回：
+        帶有 patch 的 ``mem0.Memory`` 實例。
 
-    Raises:
-        ImportError: if ``mem0`` is not installed.
-        Exception: propagates any error from ``Memory.from_config``.
+    拋出：
+        ImportError: mem0 未安裝時。
+        Exception: ``Memory.from_config`` 拋出的任何異常。
     """
     try:
         from mem0 import Memory as _Memory  # type: ignore[import-untyped]
     except ImportError as exc:
         raise ImportError(
-            "mem0 is not installed. Install the memory_bench dependency group first, "
-            "e.g. `uv sync --group memory_bench`."
+            "mem0 未安裝。請先安裝 memory_bench 依賴組，"
+            "例如：`uv sync --group memory_bench`。"
         ) from exc
 
     memory = _Memory.from_config(config)
