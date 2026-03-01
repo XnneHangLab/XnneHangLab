@@ -317,6 +317,16 @@ mem0-rerun-add:
   just claim-items-to-cypher
   just neo4j-apply-cypher
 
+mem0-rerun-graph-store:
+  just build-index
+  just annotate-all
+  just compile-events
+  uv run memory_bench/scripts/replay_mem0.py ingest --graph-store neo4j
+
+mem0-run-from-graph-store:
+  just clean-realtime
+  just mem0-rerun-graph-store
+
 # =============================================================================
 # 快速测试入口 — 从不同 LLM 调用点切入
 # =============================================================================
