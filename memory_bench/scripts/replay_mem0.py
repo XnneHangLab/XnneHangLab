@@ -1172,20 +1172,25 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")  # noqa: UP017
 
 
-def build_checkpoint_path(input_path: Path, isolation: str, state_dir: Path) -> Path:
-    """根据输入文件和隔离模式生成 checkpoint 文件路径。
+def build_checkpoint_path(input_path: Path, isolation: str, state_dir: Path, graph_store: str = "none") -> Path:
+    """根据输入文件、隔离模式和图存储后端生成 checkpoint 文件路径。
+
+    不同的 graph_store 配置会使用不同的 checkpoint 文件，避免
+    ``ingest``（无图存储）和 ``ingest --graph-store neo4j`` 共享
+    同一个 checkpoint 导致第二次调用跳过所有事件（ingested=0）。
 
     Args:
         input_path: 输入 JSONL 路径。
         isolation: 隔离模式（global/per_chapter）。
         state_dir: 状态目录路径。
+        graph_store: 图存储后端（none/neo4j），默认 "none"。
 
     Returns:
         Path：checkpoint 文件路径。
     """
 
     stem = input_path.stem.replace(".", "_")
-    name = f"mem0_{isolation}_{stem}.checkpoint.json"
+    name = f"mem0_{isolation}_{graph_store}_{stem}.checkpoint.json"
     return state_dir / name
 
 
@@ -1470,7 +1475,7 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
     only_tags = parse_csv_arg(args.only_tags)
 
     state_dir = Path(args.state_dir)
-    checkpoint_path = build_checkpoint_path(input_path=input_path, isolation=args.isolation, state_dir=state_dir)
+    checkpoint_path = build_checkpoint_path(input_path=input_path, isolation=args.isolation, state_dir=state_dir, graph_store=args.graph_store)
     file_hash = sha256_file(input_path)
     checkpoint = load_checkpoint(checkpoint_path)
     resume_line = 1
@@ -1881,7 +1886,7 @@ def main() -> int:
 
     if args.command == "ingest" and args.force:
         assert input_path is not None
-        checkpoint_path = build_checkpoint_path(input_path=input_path, isolation=args.isolation, state_dir=state_dir)
+        checkpoint_path = build_checkpoint_path(input_path=input_path, isolation=args.isolation, state_dir=state_dir, graph_store=args.graph_store)
         purge_local_qdrant_storage(state_dir=state_dir, isolation=args.isolation)
         purge_checkpoint_file(checkpoint_path)
 
