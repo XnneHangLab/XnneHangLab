@@ -137,6 +137,9 @@ memory_bench = [
   "openai>=1.93.0",
   "python-dotenv>=1.1.1",
   "pydantic>=2.10.6",
+  # for original neo4j graph
+  "langchain-neo4j>=0.3.0",
+  "rank-bm25>=0.2.2",
 ]
 
 [tool.uv]
