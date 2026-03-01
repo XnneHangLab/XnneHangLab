@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from gsv.gsv_state_manager import gsv_tts_state_manager
+from loguru import logger
 
 from lab.utils.FFmpegHelper import file_to_mp3
 
@@ -107,12 +108,25 @@ def _iter_file(path: Path, chunk_size: int = 1024 * 256) -> Generator[bytes, Non
 @router.get("/tts/gptsovitsv2/tts")
 @router.post("/tts/gptsovitsv2/tts")
 async def tts_webapi_v2_compat(request: Request, background_tasks: BackgroundTasks):
+    logger.debug(f"[GSV v2] 收到请求：method={request.method}, path={request.url.path}")
+
     raw = await _read_request_data(request)
-    data = _normalize_webapi_v2_params(raw)
+    logger.debug(f"[GSV v2] 解析请求数据：{raw}")
+
+    try:
+        data = _normalize_webapi_v2_params(raw)
+        logger.debug(f"[GSV v2] 标准化参数：text={data.get('text', '')[:50]}..., text_lang={data.get('text_lang')}, ref_audio_path={data.get('ref_audio_path')}")
+    except HTTPException as e:
+        logger.error(f"[GSV v2] 参数标准化失败：status={e.status_code}, detail={e.detail}")
+        raise
+    except Exception as e:
+        logger.error(f"[GSV v2] 参数标准化异常：{type(e).__name__}: {e}")
+        raise
 
     # 必要参数（按 AIChat README 的测试链接）:contentReference[oaicite:3]{index=3}
     text = (data.get("text") or "").strip()
     if not text:
+        logger.warning("[GSV v2] text 为空")
         raise HTTPException(status_code=400, detail="text cannot be empty")
 
     # 你的内部实现如果必须要 sample_rate 等，params_parser 里一般会补齐；
@@ -120,12 +134,20 @@ async def tts_webapi_v2_compat(request: Request, background_tasks: BackgroundTas
 
     tts_synthesizer = gsv_tts_state_manager.get_tts_synthesizer()
     if tts_synthesizer is None:
+        logger.error("[GSV v2] TTS synthesizer 未初始化")
         raise HTTPException(status_code=500, detail="TTS synthesizer not initialized")
 
+    logger.info(f"[GSV v2] 开始生成语音：text={text[:50]}...")
+
     task = tts_synthesizer.params_parser(data)  # type: ignore
+    logger.debug(f"[GSV v2] params_parser 完成：task={task}")
+
     save_path = tts_synthesizer.generate(task, return_type="filepath")  # type: ignore
     if not isinstance(save_path, str):
+        logger.error(f"[GSV v2] 生成失败：save_path={save_path}")
         raise HTTPException(status_code=500, detail="Failed to generate audio file")
+
+    logger.info(f"[GSV v2] 生成成功：save_path={save_path}")
 
     out_path = Path(save_path)
 
