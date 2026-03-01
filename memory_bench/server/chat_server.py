@@ -296,7 +296,14 @@ async def lifespan(app: FastAPI):
         logger.warning("\u26a0\ufe0f mem0 init failed: %s — server will run without memory", exc)
 
     # OpenAI forwarding client
-    router_state.openai_client = OpenAI(api_key=cfg["chat_api_key"], base_url=cfg["chat_base_url"])
+    # Explicitly disable proxy to avoid tun/Clash intercepting localhost traffic.
+    import httpx
+    http_client = httpx.Client(proxy=None)
+    router_state.openai_client = OpenAI(
+        api_key=cfg["chat_api_key"],
+        base_url=cfg["chat_base_url"],
+        http_client=http_client,
+    )
     router_state.chat_model = cfg["chat_model"]
     router_state.user_id = cfg["user_id"]
     router_state.agent_id = cfg["agent_id"]
@@ -311,9 +318,12 @@ async def lifespan(app: FastAPI):
 
     # Graph pipeline (claim extraction + Neo4j write)
     if cfg["enable_graph"]:
+        # Explicitly disable proxy to avoid tun/Clash intercepting localhost traffic.
+        claim_http_client = httpx.Client(proxy=None)
         router_state.claim_llm_client = OpenAI(
             api_key=cfg["claim_api_key"],
             base_url=cfg["claim_base_url"],
+            http_client=claim_http_client,
         )
         router_state.claim_llm_model = cfg["claim_model"]
         router_state.neo4j_container = cfg["neo4j_container"]
