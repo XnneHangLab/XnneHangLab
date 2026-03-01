@@ -314,6 +314,12 @@ def add_common_state_args(parser: argparse.ArgumentParser) -> None:
         default=str(DEFAULT_STATE_DIR),
         help="State root directory for checkpoint files and qdrant local storage",
     )
+    parser.add_argument(
+        "--graph-store",
+        choices=["none", "neo4j"],
+        default="none",
+        help="Enable Mem0 native graph store backend",
+    )
 
 
 def add_common_input_args(parser: argparse.ArgumentParser) -> None:
@@ -1219,6 +1225,32 @@ def save_checkpoint(path: Path, payload: dict[str, Any]) -> None:
     tmp_path.replace(path)
 
 
+def resolve_neo4j_url_for_graph_store() -> str:
+    """解析 Mem0 graph_store 的 Neo4j Bolt URL。
+
+    优先级：
+    1) NEO4J_URL（显式指定）
+    2) NEO4J_CONTAINER（按本仓库 docker-compose 约定推导 localhost 端口）
+    3) 默认 bolt://localhost:7687
+
+    Returns:
+        str：可用于 Mem0 graph_store 的 Neo4j URL。
+    """
+
+    explicit_url = get_env("NEO4J_URL")
+    if explicit_url:
+        return explicit_url
+
+    container = str(get_env("NEO4J_CONTAINER", "membench-neo4j-mem0") or "").strip()
+    container_port_map = {
+        "membench-neo4j-mem0": 7687,
+        "membench-neo4j-zep": 7688,
+        "membench-neo4j-cognee": 7689,
+    }
+    port = container_port_map.get(container, 7687)
+    return f"bolt://localhost:{port}"
+
+
 def build_mem0_config(
     state_dir: Path,
     isolation: str,
@@ -1230,6 +1262,7 @@ def build_mem0_config(
     embedding_base_url: str,
     llm_temperature: float,
     llm_max_tokens: int,
+    graph_store: str,
 ) -> dict[str, Any]:
     """构建 Mem0 from_config 所需配置（llm/embedder/vector_store）。
 
@@ -1247,6 +1280,7 @@ def build_mem0_config(
         embedding_base_url: Embedding 服务的 Base URL。
         llm_temperature: LLM 温度参数。
         llm_max_tokens: LLM 最大输出 token 数。
+        graph_store: 图存储后端（none/neo4j）。
 
     Returns:
         dict[str, Any]：可直接传给 `Memory.from_config` 的配置。
@@ -1255,7 +1289,7 @@ def build_mem0_config(
     qdrant_path = state_dir / "qdrant_storage"
     qdrant_path.mkdir(parents=True, exist_ok=True)
 
-    return {
+    config: dict[str, Any] = {
         "llm": {
             "provider": "openai",
             "config": {
@@ -1290,6 +1324,18 @@ def build_mem0_config(
         "custom_fact_extraction_prompt": _CUSTOM_FACT_EXTRACTION_PROMPT,
     }
 
+    if graph_store == "neo4j":
+        config["graph_store"] = {
+            "provider": "neo4j",
+            "config": {
+                "url": resolve_neo4j_url_for_graph_store(),
+                "username": get_env("NEO4J_USER", "neo4j"),
+                "password": get_env("NEO4J_PASSWORD", "neo4jneo4j"),
+            },
+        }
+
+    return config
+
 
 def init_memory(
     state_dir: Path,
@@ -1302,6 +1348,7 @@ def init_memory(
     embedding_base_url: str,
     llm_temperature: float,
     llm_max_tokens: int,
+    graph_store: str,
 ) -> Any:
     """初始化 Mem0 客户端并应用 vector_store.update 的兼容补丁。
 
@@ -1316,6 +1363,7 @@ def init_memory(
         embedding_base_url: Embedding 服务的 Base URL。
         llm_temperature: LLM 温度参数。
         llm_max_tokens: LLM 最大输出 token 数。
+        graph_store: 图存储后端（none/neo4j）。
 
     Returns:
         Any：初始化后的 Mem0 Memory 实例。
@@ -1342,6 +1390,7 @@ def init_memory(
         embedding_base_url=embedding_base_url,
         llm_temperature=llm_temperature,
         llm_max_tokens=llm_max_tokens,
+        graph_store=graph_store,
     )
     try:
         memory = Memory.from_config(config)
@@ -1870,7 +1919,8 @@ def main() -> int:
     logger.bind(group="memory").info(
         f"Mem0 env: llm_model={llm_model}, llm_base_url={redact_base_url(llm_base_url)}, "
         f"embedding_model={embed_model}, embedding_base_url={redact_base_url(embed_base_url)}, "
-        f"temperature={llm_temperature}, max_tokens={llm_max_tokens}, state_dir={state_dir}"
+        f"temperature={llm_temperature}, max_tokens={llm_max_tokens}, state_dir={state_dir}, "
+        f"graph_store={args.graph_store}"
     )
 
     if args.command == "ingest" and args.force:
@@ -1890,6 +1940,7 @@ def main() -> int:
         embedding_base_url=embed_base_url,
         llm_temperature=llm_temperature,
         llm_max_tokens=llm_max_tokens,
+        graph_store=args.graph_store,
     )
     if args.command == "ingest":
         assert input_path is not None
