@@ -140,12 +140,12 @@ install-gsv-model:
 # Code Quality Check
 
 fmt: # 似乎不会检查被 .gitignore 忽略的文件
-  uv run ruff check --fix --select I . --exclude packages --exclude .git
-  uv run ruff format . --exclude packages --exclude .git
+  uv run ruff check --fix --select I . --exclude packages --exclude .git --exclude justfile
+  uv run ruff format . --exclude packages --exclude .git --exclude justfile
 
 lint:
   uv run pyright src/lab tests
-  uv run ruff check . --exclude packages --exclude .git
+  uv run ruff check . --exclude packages --exclude .git --exclude justfile
 
 fmt-docs:
   prettier --ignore-path .prettierignore --write '**/*.md'

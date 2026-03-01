@@ -109,10 +109,10 @@ def _iter_file(path: Path, chunk_size: int = 1024 * 256) -> Generator[bytes, Non
 @router.post("/tts/gptsovitsv2/tts")
 async def tts_webapi_v2_compat(request: Request, background_tasks: BackgroundTasks):
     logger.debug(f"[GSV v2] 收到请求：method={request.method}, path={request.url.path}")
-    
+
     raw = await _read_request_data(request)
     logger.debug(f"[GSV v2] 解析请求数据：{raw}")
-    
+
     try:
         data = _normalize_webapi_v2_params(raw)
         logger.debug(f"[GSV v2] 标准化参数：text={data.get('text', '')[:50]}..., text_lang={data.get('text_lang')}, ref_audio_path={data.get('ref_audio_path')}")
@@ -136,17 +136,17 @@ async def tts_webapi_v2_compat(request: Request, background_tasks: BackgroundTas
     if tts_synthesizer is None:
         logger.error("[GSV v2] TTS synthesizer 未初始化")
         raise HTTPException(status_code=500, detail="TTS synthesizer not initialized")
-    
+
     logger.info(f"[GSV v2] 开始生成语音：text={text[:50]}...")
 
     task = tts_synthesizer.params_parser(data)  # type: ignore
     logger.debug(f"[GSV v2] params_parser 完成：task={task}")
-    
+
     save_path = tts_synthesizer.generate(task, return_type="filepath")  # type: ignore
     if not isinstance(save_path, str):
         logger.error(f"[GSV v2] 生成失败：save_path={save_path}")
         raise HTTPException(status_code=500, detail="Failed to generate audio file")
-    
+
     logger.info(f"[GSV v2] 生成成功：save_path={save_path}")
 
     out_path = Path(save_path)
