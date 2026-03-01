@@ -179,7 +179,11 @@ def _init_mem0(
     embedding_base_url: str,
     embedding_model: str,
 ) -> Any:
-    from mem0 import Memory
+    # Use make_memory instead of mem0.Memory.from_config directly.
+    # make_memory applies two monkey-patches transparently:
+    #   Patch 1: strips `store` param rejected by non-OpenAI backends (NewAPI etc.)
+    #   Patch 2: fixes vector_store.update(vector=None) ValidationError on NONE events
+    from memory_bench.mem0 import make_memory
 
     config = _build_mem0_config(
         llm_api_key=llm_api_key,
@@ -189,38 +193,7 @@ def _init_mem0(
         embedding_base_url=embedding_base_url,
         embedding_model=embedding_model,
     )
-    memory = Memory.from_config(config)
-
-    # WORKAROUND: mem0 vector=None bug → use set_payload instead of update.
-    vector_store = getattr(memory, "vector_store", None)
-    original_update = getattr(vector_store, "update", None)
-    if callable(original_update):
-
-        def _patched_update(
-            vector_id: str,
-            vector: Any = None,
-            payload: dict[str, Any] | None = None,
-        ) -> None:
-            if vector is None:
-                client = getattr(vector_store, "client", None)
-                if client is not None and hasattr(client, "set_payload"):
-                    collection_name = getattr(memory, "collection_name", None) or getattr(
-                        vector_store, "collection_name", None
-                    )
-                    if collection_name and payload:
-                        from qdrant_client.models import PointIdsList
-
-                        client.set_payload(
-                            collection_name=collection_name,
-                            payload=payload,
-                            points=PointIdsList(points=[vector_id]),
-                        )
-                        return
-            original_update(vector_id, vector=vector, payload=payload)
-
-        vector_store.update = _patched_update
-
-    return memory
+    return make_memory(config)
 
 
 # ---------------------------------------------------------------------------

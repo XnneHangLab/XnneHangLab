@@ -1372,13 +1372,6 @@ def init_memory(
         ReplayMem0Error: mem0 未安装或初始化失败时抛出。
     """
 
-    try:
-        from mem0 import Memory
-    except ImportError as exc:
-        raise ReplayMem0Error(
-            "mem0 is not installed. Install dependency group `memory_bench` first, e.g. `uv sync --group memory_bench`."
-        ) from exc
-
     config = build_mem0_config(
         state_dir=state_dir,
         isolation=isolation,
@@ -1393,56 +1386,19 @@ def init_memory(
         graph_store=graph_store,
     )
     try:
-        memory = Memory.from_config(config)
+        # Use make_memory instead of mem0.Memory.from_config directly.
+        # make_memory applies two monkey-patches transparently:
+        #   Patch 1: strips `store` param rejected by non-OpenAI backends (NewAPI etc.)
+        #   Patch 2: fixes vector_store.update(vector=None) ValidationError on NONE events
+        from memory_bench.mem0 import make_memory
+
+        memory = make_memory(config)
+    except ImportError as exc:
+        raise ReplayMem0Error(
+            "mem0 is not installed. Install dependency group `memory_bench` first, e.g. `uv sync --group memory_bench`."
+        ) from exc
     except Exception as exc:
         raise ReplayMem0Error(f"failed to initialize Mem0: {exc}") from exc
-
-    # WORKAROUND: mem0 bug - _add_to_vector_store 处理 NONE 事件时
-    # 调用 vector_store.update(vector=None, ...) 更新 session ID，
-    # 但 qdrant PointStruct 不接受 vector=None。
-    # 当 vector=None 时，使用 qdrant set_payload API 只更新 payload，
-    # 或读取现有 vector 后重新写入。
-    # 参见: mem0/memory/main.py _add_to_vector_store 中 event_type == "NONE" 分支
-    vector_store = getattr(memory, "vector_store", None)
-    original_update = getattr(vector_store, "update", None)
-    if callable(original_update):
-
-        def _patched_update(vector_id: str, vector: Any = None, payload: dict[str, Any] | None = None) -> None:
-            if vector is None:
-                client = getattr(vector_store, "client", None)
-                if client is not None and hasattr(client, "set_payload"):
-                    collection_name = getattr(memory, "collection_name", None) or getattr(
-                        vector_store, "collection_name", None
-                    )
-                    if collection_name:
-                        client.set_payload(
-                            collection_name=collection_name,
-                            payload=payload or {},
-                            points=[vector_id],
-                        )
-                        return
-
-                existing = None
-                get_func = getattr(vector_store, "get", None)
-                if callable(get_func):
-                    try:
-                        existing = get_func(vector_id=vector_id)
-                    except TypeError:
-                        existing = get_func(vector_id)
-
-                existing_vector = getattr(existing, "vector", None)
-                if existing_vector is not None:
-                    original_update(vector_id=vector_id, vector=existing_vector, payload=payload)
-                    return
-
-                logger.bind(group="memory").warning(
-                    f"skip vector_store.update for {vector_id}: vector=None and no fallback available"
-                )
-                return
-
-            original_update(vector_id=vector_id, vector=vector, payload=payload)
-
-        vector_store.update = _patched_update
 
     return memory
 
