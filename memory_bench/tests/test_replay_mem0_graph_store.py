@@ -41,6 +41,7 @@ def test_build_mem0_config_includes_graph_store_when_enabled(monkeypatch, tmp_pa
         embedding_base_url="https://embed.example/v1",
         llm_temperature=0.0,
         llm_max_tokens=100,
+        llm_api_format="chat_completion",
         graph_store="neo4j",
     )
 
@@ -48,6 +49,7 @@ def test_build_mem0_config_includes_graph_store_when_enabled(monkeypatch, tmp_pa
     assert config["graph_store"]["config"]["url"] == "bolt://localhost:7687"
     assert config["graph_store"]["config"]["username"] == "neo4j"
     assert config["graph_store"]["config"]["password"] == "neo4jneo4j"
+    assert config["llm"]["config"]["api_format"] == "chat_completion"
 
 
 def test_build_mem0_config_omits_graph_store_when_disabled(tmp_path: Path) -> None:
@@ -62,7 +64,9 @@ def test_build_mem0_config_omits_graph_store_when_disabled(tmp_path: Path) -> No
         embedding_base_url="https://embed.example/v1",
         llm_temperature=0.0,
         llm_max_tokens=100,
+        llm_api_format="chat_completion",
         graph_store="none",
     )
 
     assert "graph_store" not in config
+    assert config["llm"]["config"]["api_format"] == "chat_completion"

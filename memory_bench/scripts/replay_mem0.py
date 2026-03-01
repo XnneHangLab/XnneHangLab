@@ -205,7 +205,23 @@ def get_env_float(name: str, default: float) -> float:
         return default
 
 
-def prepare_mem0_env() -> tuple[str, str, str, str, str, str, float, int]:
+def get_llm_api_format() -> str:
+    """读取 Mem0 LLM API 格式配置。
+
+    Returns:
+        str：`chat_completion` 或 `responses`，非法值回退为 `chat_completion`。
+    """
+
+    raw = str(get_env("BENCHMARK_LLM_API_FORMAT", "chat_completion") or "").strip().lower()
+    if raw in {"chat_completion", "responses"}:
+        return raw
+    logger.bind(group="memory").warning(
+        "invalid BENCHMARK_LLM_API_FORMAT=%r; fallback to chat_completion", raw
+    )
+    return "chat_completion"
+
+
+def prepare_mem0_env() -> tuple[str, str, str, str, str, str, float, int, str]:
     """从 BENCHMARK_* 环境变量构建 Mem0 初始化所需配置并做必填校验。
 
     LLM 和 Embedding 的 API Key / Base URL 独立配置，
@@ -215,8 +231,8 @@ def prepare_mem0_env() -> tuple[str, str, str, str, str, str, float, int]:
         无。
 
     Returns:
-        tuple[str, str, str, str, str, str, float, int]：
-            `(llm_api_key, llm_base_url, llm_model, embedding_api_key, embedding_base_url, embedding_model, llm_temperature, llm_max_tokens)`。
+        tuple[str, str, str, str, str, str, float, int, str]：
+            `(llm_api_key, llm_base_url, llm_model, embedding_api_key, embedding_base_url, embedding_model, llm_temperature, llm_max_tokens, llm_api_format)`。
 
     Raises:
         ReplayMem0Error: 当必需的 BENCHMARK_* 环境变量缺失时抛出。
@@ -254,6 +270,8 @@ def prepare_mem0_env() -> tuple[str, str, str, str, str, str, float, int]:
     llm_temperature = get_env_float("BENCHMARK_LLM_TEMPERATURE", 0.0)
     llm_max_tokens = get_env_int("BENCHMARK_LLM_MAX_TOKENS", 2000)
 
+    llm_api_format = get_llm_api_format()
+
     return (
         llm_api_key,
         llm_base_url,
@@ -263,6 +281,7 @@ def prepare_mem0_env() -> tuple[str, str, str, str, str, str, float, int]:
         embedding_model,
         llm_temperature,
         llm_max_tokens,
+        llm_api_format,
     )
 
 
@@ -1262,6 +1281,7 @@ def build_mem0_config(
     embedding_base_url: str,
     llm_temperature: float,
     llm_max_tokens: int,
+    llm_api_format: str,
     graph_store: str,
 ) -> dict[str, Any]:
     """构建 Mem0 from_config 所需配置（llm/embedder/vector_store）。
@@ -1280,6 +1300,7 @@ def build_mem0_config(
         embedding_base_url: Embedding 服务的 Base URL。
         llm_temperature: LLM 温度参数。
         llm_max_tokens: LLM 最大输出 token 数。
+        llm_api_format: LLM API 格式（chat_completion/responses）。
         graph_store: 图存储后端（none/neo4j）。
 
     Returns:
@@ -1298,6 +1319,7 @@ def build_mem0_config(
                 "model": llm_model,
                 "temperature": llm_temperature,
                 "max_tokens": llm_max_tokens,
+                "api_format": llm_api_format,
             },
         },
         "embedder": {
@@ -1348,6 +1370,7 @@ def init_memory(
     embedding_base_url: str,
     llm_temperature: float,
     llm_max_tokens: int,
+    llm_api_format: str,
     graph_store: str,
 ) -> Any:
     """初始化 Mem0 客户端并应用 vector_store.update 的兼容补丁。
@@ -1363,6 +1386,7 @@ def init_memory(
         embedding_base_url: Embedding 服务的 Base URL。
         llm_temperature: LLM 温度参数。
         llm_max_tokens: LLM 最大输出 token 数。
+        llm_api_format: LLM API 格式（chat_completion/responses）。
         graph_store: 图存储后端（none/neo4j）。
 
     Returns:
@@ -1390,6 +1414,7 @@ def init_memory(
         embedding_base_url=embedding_base_url,
         llm_temperature=llm_temperature,
         llm_max_tokens=llm_max_tokens,
+        llm_api_format=llm_api_format,
         graph_store=graph_store,
     )
     try:
@@ -1907,6 +1932,7 @@ def main() -> int:
         embed_model,
         llm_temperature,
         llm_max_tokens,
+        llm_api_format,
     ) = prepare_mem0_env()
 
     input_path: Path | None = None
@@ -1919,7 +1945,7 @@ def main() -> int:
     logger.bind(group="memory").info(
         f"Mem0 env: llm_model={llm_model}, llm_base_url={redact_base_url(llm_base_url)}, "
         f"embedding_model={embed_model}, embedding_base_url={redact_base_url(embed_base_url)}, "
-        f"temperature={llm_temperature}, max_tokens={llm_max_tokens}, state_dir={state_dir}, "
+        f"temperature={llm_temperature}, max_tokens={llm_max_tokens}, api_format={llm_api_format}, state_dir={state_dir}, "
         f"graph_store={args.graph_store}"
     )
 
@@ -1940,6 +1966,7 @@ def main() -> int:
         embedding_base_url=embed_base_url,
         llm_temperature=llm_temperature,
         llm_max_tokens=llm_max_tokens,
+        llm_api_format=llm_api_format,
         graph_store=args.graph_store,
     )
     if args.command == "ingest":
