@@ -258,6 +258,10 @@ mem0-ingest:
   # 增量 ingest（依赖 checkpoint，不清理）
   uv run memory_bench/scripts/replay_mem0.py ingest
 
+mem0-ingest-graph-store:
+  # 增量 ingest，启用 mem0 原生 graph store（Neo4j）
+  uv run memory_bench/scripts/replay_mem0.py ingest --graph-store neo4j
+
 mem0-export:
   # 导出当前 mem0 快照
   uv run memory_bench/scripts/replay_mem0.py export
@@ -321,8 +325,7 @@ mem0-rerun-graph-store:
   just build-index
   just annotate-all
   just compile-events
-  just mem0-ingest
-  uv run memory_bench/scripts/replay_mem0.py ingest --graph-store neo4j
+  just mem0-ingest-graph-store
   just mem0-export
 
 mem0-run-from-graph-store:
