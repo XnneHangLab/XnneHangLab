@@ -1225,6 +1225,32 @@ def save_checkpoint(path: Path, payload: dict[str, Any]) -> None:
     tmp_path.replace(path)
 
 
+def resolve_neo4j_url_for_graph_store() -> str:
+    """解析 Mem0 graph_store 的 Neo4j Bolt URL。
+
+    优先级：
+    1) NEO4J_URL（显式指定）
+    2) NEO4J_CONTAINER（按本仓库 docker-compose 约定推导 localhost 端口）
+    3) 默认 bolt://localhost:7687
+
+    Returns:
+        str：可用于 Mem0 graph_store 的 Neo4j URL。
+    """
+
+    explicit_url = get_env("NEO4J_URL")
+    if explicit_url:
+        return explicit_url
+
+    container = str(get_env("NEO4J_CONTAINER", "membench-neo4j-mem0") or "").strip()
+    container_port_map = {
+        "membench-neo4j-mem0": 7687,
+        "membench-neo4j-zep": 7688,
+        "membench-neo4j-cognee": 7689,
+    }
+    port = container_port_map.get(container, 7687)
+    return f"bolt://localhost:{port}"
+
+
 def build_mem0_config(
     state_dir: Path,
     isolation: str,
@@ -1302,7 +1328,7 @@ def build_mem0_config(
         config["graph_store"] = {
             "provider": "neo4j",
             "config": {
-                "url": get_env("NEO4J_URL", "bolt://localhost:7687"),
+                "url": resolve_neo4j_url_for_graph_store(),
                 "username": get_env("NEO4J_USER", "neo4j"),
                 "password": get_env("NEO4J_PASSWORD", "neo4jneo4j"),
             },
