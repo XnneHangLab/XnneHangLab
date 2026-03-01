@@ -51,8 +51,8 @@ GROUP_LEVEL = {
     "config": "INFO",
     "server": "DEBUG",
     "dialog": "INFO",
-    "fastapi": "DEBUG",
-    "tts": "DEBUG",
+    "fastapi": "INFO",
+    "tts": "INFO",
     "chore": "WARNING",
     "util": "INFO",
 }
