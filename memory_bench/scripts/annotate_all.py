@@ -8,57 +8,26 @@ import json
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from memory_bench.scripts.bench_logger import logger
+from memory_bench.typing.events import (
+    ALLOWED_ROLE_TYPES,
+    ALLOWED_TAGS,
+    ChapterJob,
+    Event,
+    JobResult,
+    REQUIRED_EVENT_KEYS,
+    validate_event_tags,
+)
 
-ALLOWED_ROLE_TYPES = {"human", "assistant", "ui", "tool"}
-ALLOWED_TAGS = {"canon_only", "episodic", "filler", "inject", "probe"}
-REQUIRED_KEYS = [
-    "scene_id",
-    "character_id",
-    "conv_id",
-    "turn_id",
-    "role_type",
-    "role_name",
-    "content",
-    "tags",
-    "meta",
-]
+# 向后兼容别名
+REQUIRED_KEYS = REQUIRED_EVENT_KEYS
 
 
 class AnnotationError(RuntimeError):
     """章节标注失败异常。"""
-
-
-@dataclass
-class ChapterJob:
-    """单章处理任务。
-
-    Attributes:
-        conv_id: 章节对应的会话 ID。
-        source_path: 实际用于标注的章节文件绝对路径。
-    """
-
-    conv_id: str
-    source_path: Path
-
-
-@dataclass
-class JobResult:
-    """单章处理结果。
-
-    Attributes:
-        conv_id: 章节对应的会话 ID。
-        status: 执行状态，取值为 ok/failed/skipped。
-        error_message: 失败时的错误信息；成功或跳过时为 None。
-    """
-
-    conv_id: str
-    status: str
-    error_message: str | None = None
 
 
 def load_benchmark_dotenv(repo_root: Path) -> None:
