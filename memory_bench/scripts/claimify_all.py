@@ -165,7 +165,7 @@ def load_input_jsonl(
                 ) from exc
             if not isinstance(obj, dict):
                 raise ClaimifyError(f"file_line={file_line}: each line must be JSON object")
-            obj = cast(dict[str, Any], obj)
+            obj = cast("dict[str, Any]", obj)
             payload = obj.get("payload")
             if not isinstance(payload, dict):
                 raise ClaimifyError(f"file_line={file_line}: payload must be object")
@@ -329,8 +329,7 @@ def call_llm(prompt: str, model: str) -> str:
             temperature=0,
             messages=[{"role": "user", "content": prompt}],
         )
-    response_any = cast(Any, response)
-    choices = cast(list[Any] | None, getattr(response_any, "choices", None))
+    choices = cast("list[Any] | None", getattr(response, "choices", None))
     if not choices:
         raise ClaimifyError("LLM 返回为空，无法继续")
     text = getattr(choices[0].message, "content", "")
@@ -347,7 +346,7 @@ def _validate_entity(obj: dict[str, Any], conv_id: str, file_line: int) -> None:
         raise ClaimifyError(f"[{conv_id}] file_line={file_line}: props must be object")
     for field in ("aliases", "tags"):
         value = obj.get(field)
-        if not isinstance(value, list) or any(not isinstance(x, str) for x in cast(list[Any], value)):
+        if not isinstance(value, list) or any(not isinstance(x, str) for x in cast("list[Any]", value)):
             raise ClaimifyError(f"[{conv_id}] file_line={file_line}: {field} must be list[str]")
     confidence = obj.get("confidence")
     if not isinstance(confidence, (int, float)) or not (0 <= float(confidence) <= 1):
@@ -372,7 +371,7 @@ def _validate_claim(
         node = obj.get(side)
         if not isinstance(node, dict):
             raise ClaimifyError(f"[{conv_id}] file_line={file_line}: {side} must be object")
-        node = cast(dict[str, Any], node)
+        node = cast("dict[str, Any]", node)
         if node.get("entity_type") not in ALLOWED_ENTITY_TYPES:
             raise ClaimifyError(f"[{conv_id}] file_line={file_line}: {side}.entity_type invalid")
         _require_non_empty_str(node.get("entity_id"), f"{side}.entity_id", conv_id, file_line)
@@ -394,10 +393,10 @@ def _validate_claim(
     if not isinstance(evidence, list) or not evidence:
         raise ClaimifyError(f"[{conv_id}] file_line={file_line}: evidence must be non-empty list")
 
-    for idx, ev in enumerate(cast(list[Any], evidence), start=1):
+    for idx, ev in enumerate(cast("list[Any]", evidence), start=1):
         if not isinstance(ev, dict):
             raise ClaimifyError(f"[{conv_id}] file_line={file_line}: evidence[{idx}] must be object")
-        ev = cast(dict[str, Any], ev)
+        ev = cast("dict[str, Any]", ev)
         memory_item_id = _require_non_empty_str(
             ev.get("memory_item_id"), f"evidence[{idx}].memory_item_id", conv_id, file_line
         )
@@ -433,8 +432,8 @@ def compute_canonical_claim_id(obj: dict[str, Any]) -> str:
 
     predicate = obj.get("predicate")
     domain = obj.get("domain")
-    subject = cast(dict[str, Any] | None, obj.get("subject"))
-    object_ = cast(dict[str, Any] | None, obj.get("object"))
+    subject = cast("dict[str, Any] | None", obj.get("subject"))
+    object_ = cast("dict[str, Any] | None", obj.get("object"))
 
     if not isinstance(predicate, str) or not predicate.strip():
         raise ClaimifyError("canonical claim_id requires non-empty predicate")
@@ -480,7 +479,7 @@ def _canonicalize_tag_records(objs: list[dict[str, Any]]) -> list[dict[str, Any]
         item = deepcopy(obj)
         if item.get("record_type") == "entity" and item.get("entity_type") == "Tag":
             item_props = item.get("props")
-            props: dict[str, Any] = cast(dict[str, Any], item_props) if isinstance(item_props, dict) else {}
+            props: dict[str, Any] = cast("dict[str, Any]", item_props) if isinstance(item_props, dict) else {}
             raw_name: Any = props.get("name") or props.get("display") or item.get("entity_id", "")
             if isinstance(raw_name, str) and raw_name.startswith("tag:"):
                 raw_name = raw_name[4:]
@@ -493,8 +492,8 @@ def _canonicalize_tag_records(objs: list[dict[str, Any]]) -> list[dict[str, Any]
                 tag_id_map[old_id] = canonical_id
             item["entity_id"] = canonical_id
             if isinstance(item_props, dict):
-                cast(dict[str, Any], item["props"])["name"] = normalized
-                cast(dict[str, Any], item["props"])["display"] = normalized
+                cast("dict[str, Any]", item["props"])["name"] = normalized
+                cast("dict[str, Any]", item["props"])["display"] = normalized
             rewritten.append(item)
             continue
 
@@ -503,7 +502,7 @@ def _canonicalize_tag_records(objs: list[dict[str, Any]]) -> list[dict[str, Any]
     for item in rewritten:
         if item.get("record_type") != "claim":
             continue
-        obj = cast(dict[str, Any] | None, item.get("object"))
+        obj = cast("dict[str, Any] | None", item.get("object"))
         if not isinstance(obj, dict):
             continue
         if obj.get("entity_type") != "Tag":
@@ -612,8 +611,8 @@ def normalize_records(objs: list[dict[str, Any]], conv_id: str) -> list[dict[str
         if str(obj["updated_at"]) > str(current["updated_at"]):
             current["updated_at"] = obj["updated_at"]
 
-        seen_ev_keys = cast(set[str], current["_evidence_keys"])
-        current_evidence = cast(list[dict[str, Any]], current["evidence"])
+        seen_ev_keys = cast("set[str]", current["_evidence_keys"])
+        current_evidence = cast("list[dict[str, Any]]", current["evidence"])
         for ev in obj["evidence"]:
             key = f"p:{ev.get('point_id')}" if ev.get("point_id") else f"m:{ev.get('memory_item_id')}"
             if key in seen_ev_keys:
@@ -664,7 +663,7 @@ def validate_jsonl_output(
             ) from exc
         if not isinstance(obj, dict):
             raise ClaimifyError(f"[{conv_id}] file_line={file_line}: each line must be JSON object")
-        obj = cast(dict[str, Any], obj)
+        obj = cast("dict[str, Any]", obj)
 
         rt = obj.get("record_type")
         if rt not in ALLOWED_RECORD_TYPES:
