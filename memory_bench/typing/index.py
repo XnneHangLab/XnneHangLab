@@ -8,9 +8,12 @@
 from __future__ import annotations
 
 import re
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, field_validator
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # 编译正则表达式（与 build_index.py 保持一致）
 RAW_PATTERN = re.compile(r"^(ch\d{2,})_.*\.md$")
@@ -110,7 +113,7 @@ class IndexSliceParams(BaseModel):
 
     @field_validator("tail")
     @classmethod
-    def validate_mutually_exclusive(cls, v: int | None, info) -> int | None:
+    def validate_mutually_exclusive(cls, v: int | None) -> int | None:
         """验证 tail 和 limit 不同时设置。
 
         Args:
