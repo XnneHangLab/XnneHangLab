@@ -17,6 +17,10 @@ class PackagesSettings(BaseModel):
         Field(True, title="是否包含 yutto-uiya"),
     ]
     gpt_sovits: Annotated[bool, Field(True, title="是否包含 gpt-sovits")]
+    memory_bench: Annotated[
+        bool,
+        Field(False, title="是否挂载 memory_bench 记忆服务 (路由前缀: /memory)"),
+    ]
 
     def to_dict(self) -> Packages:
         """转换为 Packages 类型的字典"""
@@ -25,6 +29,7 @@ class PackagesSettings(BaseModel):
             "yutto_uiya": self.yutto_uiya,
             "gpt_sovits": self.gpt_sovits,
             "funasr": self.funasr,
+            "memory_bench": self.memory_bench,
         }
 
 

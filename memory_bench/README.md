@@ -48,6 +48,7 @@ memory_bench/
 │  ├─ __init__.py
 │  ├─ router.py              (FastAPI router — 可独立挂载)
 │  ├─ neo4j_queries.py       (Neo4j Cypher 查询模板)
+│  ├─ startup.py             (初始化帮助函数 — 供外部 host app 调用)
 │  ├─ chat_server.py         (独立启动器 + CLI)
 │  ├─ chat_cli.py            (终端对话调试客户端)
 │  ├─ claim_extractor.py     (实时 claim/entity 提取)
@@ -249,6 +250,7 @@ uv run memory_bench/scripts/neo4j_apply_cypher.py mem0 \
 | `chat_cli.py` | 终端对话调试客户端（HTTP REPL，自动加载 persona） |
 | `claim_extractor.py` | 实时 claim/entity 提取（`claimify_all.py` 的实时对应物，被 router.py 调用） |
 | `graph_writer.py` | 实时图谱写入（claim records → Graph IR → Cypher → Neo4j MERGE） |
+| `startup.py` | 初始化帮助函数（`load_memory_bench_env` / `resolve_memory_bench_config` / `init_router_state`），供外部 FastAPI host app 挂载 router 时调用 |
 
 ---
 
