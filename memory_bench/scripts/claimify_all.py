@@ -26,21 +26,12 @@ from memory_bench.scripts.tag_registry import (
 from memory_bench.typing.claims import (
     ALLOWED_DOMAINS,
     ALLOWED_ENTITY_TYPES,
+    ALLOWED_PREDICATES as TY_ALLOWED_PREDICATES,
 )
 
 ALLOWED_RECORD_TYPES = {"entity", "claim"}
 ALLOWED_STATUS = {"active", "candidate"}
-ALLOWED_PREDICATES = {
-    "PREFERS_AUTHOR",
-    "FAVORITE_WORK",
-    "DISCUSSED_WORK",
-    "DISCUSSED_CHAPTER",
-    "PREFERS_NARRATIVE_STYLE",
-    "SELF_TRAIT",
-    "TRIED_STYLE",
-    "SELF_CRITIQUE",
-    "PREFERS_TOPIC",
-}
+ALLOWED_PREDICATES = TY_ALLOWED_PREDICATES
 REQUIRED_PAYLOAD_KEYS = ["conv_id", "hash", "data", "created_at", "scene_id", "character_id"]
 DROPPED_PREDICATE = "AUTHOR_WROTE_WORK"
 
@@ -80,10 +71,10 @@ def load_benchmark_dotenv(repo_root: Path) -> None:
     if not dotenv_path.exists():
         return
     try:
-        from dotenv import load_dotenv
+        from dotenv import load_dotenv  # type: ignore[reportMissingImports,reportUnknownVariableType]
     except ImportError:
         return
-    load_dotenv(dotenv_path=dotenv_path, override=False)
+    load_dotenv(dotenv_path=dotenv_path, override=False)  # type: ignore[reportUnknownArgumentType]
 
 
 def get_env(name: str, default: str | None = None) -> str | None:
@@ -165,15 +156,19 @@ def load_input_jsonl(
                 ) from exc
             if not isinstance(obj, dict):
                 raise ClaimifyError(f"file_line={file_line}: each line must be JSON object")
-            payload: Any = obj.get("payload")  # type: ignore[unknown]
-            if not isinstance(payload, dict):
+            payload_raw: Any = obj.get("payload")  # type: ignore[reportUnknownMemberType]
+            if not isinstance(payload_raw, dict):
                 raise ClaimifyError(f"file_line={file_line}: payload must be object")
-            if not isinstance(obj.get("id"), str) or not obj["id"].strip():  # type: ignore[unknown]
+            payload: dict[str, Any] = payload_raw  # type: ignore[reportUnknownVariableType]
+            obj_id_raw: Any = obj.get("id", "")  # type: ignore[reportUnknownMemberType]
+            obj_id: str = obj_id_raw if isinstance(obj_id_raw, str) else ""
+            if not obj_id.strip():
                 raise ClaimifyError(f"file_line={file_line}: id must be non-empty string")
             for key in REQUIRED_PAYLOAD_KEYS:
                 if key not in payload:
                     raise ClaimifyError(f"file_line={file_line}: missing payload.{key}")
-                if not isinstance(payload[key], str) or not payload[key].strip():  # type: ignore[unknown]
+                payload_value = payload[key]
+                if not isinstance(payload_value, str) or not payload_value.strip():
                     raise ClaimifyError(f"file_line={file_line}: payload.{key} must be non-empty string")
 
             if expected_scene_id and payload["scene_id"] != expected_scene_id:
@@ -186,7 +181,7 @@ def load_input_jsonl(
                     f"(expected={expected_character_id!r}, got={payload['character_id']!r})"
                 )
 
-            parsed.append(ParsedMemoryLine(raw_line=line, obj=obj))
+            parsed.append(ParsedMemoryLine(raw_line=line, obj=obj))  # type: ignore[reportUnknownArgumentType]
 
     if not parsed:
         raise ClaimifyError("input file is empty")
@@ -196,14 +191,18 @@ def load_input_jsonl(
 def build_jobs(parsed_lines: list[ParsedMemoryLine], only_set: set[str] | None) -> list[ConvJob]:
     grouped: dict[str, list[ParsedMemoryLine]] = {}
     for item in parsed_lines:
-        conv_id = str(item.obj["payload"]["conv_id"])
+        payload_raw: Any = item.obj.get("payload")  # type: ignore[reportUnknownMemberType]
+        if not isinstance(payload_raw, dict):
+            continue
+        payload: dict[str, Any] = payload_raw  # type: ignore[reportUnknownVariableType]
+        conv_id = str(payload.get("conv_id", ""))
         if only_set is not None and conv_id not in only_set:
             continue
         grouped.setdefault(conv_id, []).append(item)
 
     jobs: list[ConvJob] = []
     for conv_id in sorted(grouped):
-        items = sorted(grouped[conv_id], key=lambda it: str(it.obj["payload"]["created_at"]))
+        items = sorted(grouped[conv_id], key=lambda it: str(it.obj.get("payload", {}).get("created_at", "")))  # type: ignore[reportUnknownMemberType]
         jobs.append(ConvJob(conv_id=conv_id, items=items))
     return jobs
 
@@ -272,7 +271,8 @@ def chunk_items(items: list[ParsedMemoryLine], max_items: int, max_chars: int) -
     if current:
         chunks.append(current)
 
-    return [chunk for chunk in chunks if chunk]
+    result: list[list[ParsedMemoryLine]] = [chunk for chunk in chunks if chunk]  # type: ignore[reportUnknownVariableType]
+    return result
 
 
 def build_prompt(
@@ -304,7 +304,7 @@ def call_llm(prompt: str, model: str) -> str:
         raise ClaimifyError("缺少 BENCHMARK_LLM_API_KEY。请设置环境变量，或写入 memory_bench/.env.benchmark。")
 
     try:
-        from openai import OpenAI
+        from openai import OpenAI  # type: ignore[reportMissingImports,reportUnknownVariableType]
     except ImportError as exc:
         raise ClaimifyError("未安装 openai SDK。请先安装 `openai`（如 `pip install openai`）。") from exc
 
@@ -321,31 +321,33 @@ def call_llm(prompt: str, model: str) -> str:
 
     from memory_bench.scripts.rate_limiter import llm_rate_limit
 
-    client = OpenAI(**client_kwargs)
+    client = OpenAI(**client_kwargs)  # type: ignore[reportUnknownArgumentType]
     with llm_rate_limit():
-        response = client.chat.completions.create(
+        response = client.chat.completions.create(  # type: ignore[reportUnknownMemberType,reportUnknownVariableType]
             model=model,
             temperature=0,
             messages=[{"role": "user", "content": prompt}],
         )
-    choices = getattr(response, "choices", None)
+    choices = getattr(response, "choices", None)  # type: ignore[reportUnknownArgumentType]
     if not choices:
         raise ClaimifyError("LLM 返回为空，无法继续")
-    text = getattr(choices[0].message, "content", "")
+    text = getattr(choices[0].message, "content", "")  # type: ignore[reportUnknownArgumentType,reportUnknownMemberType]
     if not isinstance(text, str) or not text.strip():
         raise ClaimifyError("LLM 返回为空，无法继续")
     return text
 
 
 def _validate_entity(obj: dict[str, Any], conv_id: str, file_line: int) -> None:
-    if obj.get("entity_type") not in ALLOWED_ENTITY_TYPES:
+    entity_type = obj.get("entity_type")
+    if entity_type not in ALLOWED_ENTITY_TYPES:
         raise ClaimifyError(f"[{conv_id}] file_line={file_line}: invalid entity_type")
-    _require_non_empty_str(obj.get("entity_id"), "entity_id", conv_id, file_line)
-    if not isinstance(obj.get("props"), dict):
+    _require_non_empty_str(obj.get("entity_id", ""), "entity_id", conv_id, file_line)
+    props = obj.get("props")
+    if not isinstance(props, dict):
         raise ClaimifyError(f"[{conv_id}] file_line={file_line}: props must be object")
     for field in ("aliases", "tags"):
         value = obj.get(field)
-        if not isinstance(value, list) or any(not isinstance(x, str) for x in value):
+        if not isinstance(value, list) or any(not isinstance(x, str) for x in value):  # type: ignore[reportUnknownVariableType]
             raise ClaimifyError(f"[{conv_id}] file_line={file_line}: {field} must be list[str]")
     confidence = obj.get("confidence")
     if not isinstance(confidence, (int, float)) or not (0 <= float(confidence) <= 1):
@@ -361,8 +363,8 @@ def _validate_claim(
     file_line: int,
     allow_dropped_predicate: bool = False,
 ) -> None:
-    _require_non_empty_str(obj.get("claim_id"), "claim_id", conv_id, file_line)
-    predicate = obj.get("predicate")
+    _require_non_empty_str(obj.get("claim_id", ""), "claim_id", conv_id, file_line)
+    predicate = obj.get("predicate", "")
     if predicate not in ALLOWED_PREDICATES and not (allow_dropped_predicate and predicate == DROPPED_PREDICATE):
         raise ClaimifyError(f"[{conv_id}] file_line={file_line}: invalid predicate")
 
@@ -370,38 +372,42 @@ def _validate_claim(
         node = obj.get(side)
         if not isinstance(node, dict):
             raise ClaimifyError(f"[{conv_id}] file_line={file_line}: {side} must be object")
-        if node.get("entity_type") not in ALLOWED_ENTITY_TYPES:
+        node_entity_type: str = node.get("entity_type", "")  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
+        if node_entity_type not in ALLOWED_ENTITY_TYPES:
             raise ClaimifyError(f"[{conv_id}] file_line={file_line}: {side}.entity_type invalid")
-        _require_non_empty_str(node.get("entity_id"), f"{side}.entity_id", conv_id, file_line)
+        _require_non_empty_str(node.get("entity_id", ""), f"{side}.entity_id", conv_id, file_line)  # type: ignore[reportUnknownMemberType]
 
-    if obj.get("domain") not in ALLOWED_DOMAINS:
+    domain = obj.get("domain", "")
+    if domain not in ALLOWED_DOMAINS:
         raise ClaimifyError(f"[{conv_id}] file_line={file_line}: invalid domain")
     confidence = obj.get("confidence")
     if not isinstance(confidence, (int, float)) or not (0 <= float(confidence) <= 1):
         raise ClaimifyError(f"[{conv_id}] file_line={file_line}: confidence must be number in [0,1]")
-    if obj.get("status") not in ALLOWED_STATUS:
+    status = obj.get("status", "")
+    if status not in ALLOWED_STATUS:
         raise ClaimifyError(f"[{conv_id}] file_line={file_line}: invalid status")
 
     rank = obj.get("rank")
     if rank is not None and not isinstance(rank, int):
         raise ClaimifyError(f"[{conv_id}] file_line={file_line}: rank must be int or null")
-    _require_non_empty_str(obj.get("updated_at"), "updated_at", conv_id, file_line)
+    _require_non_empty_str(obj.get("updated_at", ""), "updated_at", conv_id, file_line)
 
-    evidence = obj.get("evidence")
+    evidence: list[Any] = obj.get("evidence")  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
     if not isinstance(evidence, list) or not evidence:
         raise ClaimifyError(f"[{conv_id}] file_line={file_line}: evidence must be non-empty list")
 
     for idx, ev in enumerate(evidence, start=1):
         if not isinstance(ev, dict):
             raise ClaimifyError(f"[{conv_id}] file_line={file_line}: evidence[{idx}] must be object")
+        ev_dict: dict[str, Any] = ev  # type: ignore[reportUnknownVariableType]
         memory_item_id = _require_non_empty_str(
-            ev.get("memory_item_id"), f"evidence[{idx}].memory_item_id", conv_id, file_line
+            ev_dict.get("memory_item_id", ""), f"evidence[{idx}].memory_item_id", conv_id, file_line
         )
-        point_id = _require_non_empty_str(ev.get("point_id"), f"evidence[{idx}].point_id", conv_id, file_line)
-        ev_conv_id = _require_non_empty_str(ev.get("conv_id"), f"evidence[{idx}].conv_id", conv_id, file_line)
-        ev_scene_id = _require_non_empty_str(ev.get("scene_id"), f"evidence[{idx}].scene_id", conv_id, file_line)
-        _require_non_empty_str(ev.get("created_at"), f"evidence[{idx}].created_at", conv_id, file_line)
-        _require_non_empty_str(ev.get("text"), f"evidence[{idx}].text", conv_id, file_line)
+        point_id = _require_non_empty_str(ev_dict.get("point_id", ""), f"evidence[{idx}].point_id", conv_id, file_line)
+        ev_conv_id = _require_non_empty_str(ev_dict.get("conv_id", ""), f"evidence[{idx}].conv_id", conv_id, file_line)
+        ev_scene_id = _require_non_empty_str(ev_dict.get("scene_id", ""), f"evidence[{idx}].scene_id", conv_id, file_line)
+        _require_non_empty_str(ev_dict.get("created_at", ""), f"evidence[{idx}].created_at", conv_id, file_line)
+        _require_non_empty_str(ev_dict.get("text", ""), f"evidence[{idx}].text", conv_id, file_line)
 
         if ev_conv_id != conv_id:
             raise ClaimifyError(f"[{conv_id}] file_line={file_line}: evidence[{idx}].conv_id mismatch")
@@ -427,10 +433,10 @@ def compute_canonical_claim_id(obj: dict[str, Any]) -> str:
         str: 格式为 `claim:{predicate}|{domain}|{subject.entity_id}|{object.entity_id}` 的 ID。
     """
 
-    predicate = obj.get("predicate")
-    domain = obj.get("domain")
-    subject = obj.get("subject")  # type: ignore[unknown]
-    object_ = obj.get("object")  # type: ignore[unknown]
+    predicate = obj.get("predicate", "")
+    domain = obj.get("domain", "")
+    subject = obj.get("subject")
+    object_ = obj.get("object")
 
     if not isinstance(predicate, str) or not predicate.strip():
         raise ClaimifyError("canonical claim_id requires non-empty predicate")
@@ -439,8 +445,8 @@ def compute_canonical_claim_id(obj: dict[str, Any]) -> str:
     if not isinstance(subject, dict) or not isinstance(object_, dict):
         raise ClaimifyError("canonical claim_id requires subject/object")
 
-    subject_id = subject.get("entity_id")
-    object_id = object_.get("entity_id")
+    subject_id: str = subject.get("entity_id", "")  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
+    object_id: str = object_.get("entity_id", "")  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
     if not isinstance(subject_id, str) or not subject_id.strip():
         raise ClaimifyError("canonical claim_id requires non-empty subject.entity_id")
     if not isinstance(object_id, str) or not object_id.strip():
@@ -474,34 +480,40 @@ def _canonicalize_tag_records(objs: list[dict[str, Any]]) -> list[dict[str, Any]
 
     for obj in objs:
         item = deepcopy(obj)
-        if item.get("record_type") == "entity" and item.get("entity_type") == "Tag":
-            props = item.get("props") if isinstance(item.get("props"), dict) else {}
-            raw_name = props.get("name") or props.get("display") or item.get("entity_id", "")
-            if isinstance(raw_name, str) and raw_name.startswith("tag:"):
+        record_type = item.get("record_type", "")
+        entity_type = item.get("entity_type", "")
+        if record_type == "entity" and entity_type == "Tag":
+            props_raw: Any = item.get("props")  # type: ignore[reportUnknownMemberType]
+            props: dict[str, Any] = props_raw if isinstance(props_raw, dict) else {}  # type: ignore[reportUnknownVariableType]
+            raw_name_raw = props.get("name") or props.get("display") or item.get("entity_id", "")  # type: ignore[reportUnknownMemberType]
+            raw_name: str = raw_name_raw if isinstance(raw_name_raw, str) else str(raw_name_raw)  # type: ignore[reportArgumentType]
+            if raw_name.startswith("tag:"):
                 raw_name = raw_name[4:]
-            normalized = normalize_tag_name(str(raw_name))
+            normalized = normalize_tag_name(raw_name)
             if not normalized:
-                normalized = str(raw_name).strip()
+                normalized = raw_name.strip()
             canonical_id = canonical_tag_id(normalized)
             old_id = str(item.get("entity_id", ""))
             if old_id:
                 tag_id_map[old_id] = canonical_id
             item["entity_id"] = canonical_id
-            if isinstance(item.get("props"), dict):
-                item["props"]["name"] = normalized
-                item["props"]["display"] = normalized
+            props_dict = item.get("props")
+            if isinstance(props_dict, dict):
+                props_dict["name"] = normalized
+                props_dict["display"] = normalized
             rewritten.append(item)
             continue
 
         rewritten.append(item)
 
     for item in rewritten:
-        if item.get("record_type") != "claim":
+        if item.get("record_type", "") != "claim":
             continue
-        obj = item.get("object")  # type: ignore[unknown]
-        if not isinstance(obj, dict):
+        obj_raw: Any = item.get("object")  # type: ignore[reportUnknownMemberType]
+        if not isinstance(obj_raw, dict):
             continue
-        if obj.get("entity_type") != "Tag":
+        obj: dict[str, Any] = obj_raw  # type: ignore[reportUnknownVariableType]
+        if obj.get("entity_type", "") != "Tag":
             continue
         obj_id = str(obj.get("entity_id", ""))
         if obj_id in tag_id_map:
@@ -558,7 +570,7 @@ def normalize_records(objs: list[dict[str, Any]], conv_id: str) -> list[dict[str
         claim_id = compute_canonical_claim_id(obj)
         obj["claim_id"] = claim_id
         if claim_id not in claims:
-            claim = {
+            claim: dict[str, Any] = {
                 "record_type": "claim",
                 "claim_id": claim_id,
                 "predicate": obj["predicate"],
@@ -573,10 +585,13 @@ def normalize_records(objs: list[dict[str, Any]], conv_id: str) -> list[dict[str
             }
             seen_ev_keys: set[str] = set()
             for ev in obj["evidence"]:
-                key = f"p:{ev.get('point_id')}" if ev.get("point_id") else f"m:{ev.get('memory_item_id')}"
+                ev_dict: dict[str, Any] = dict(ev)  # type: ignore[reportUnknownVariableType]
+                point_id = ev_dict.get("point_id", "")
+                memory_item_id = ev_dict.get("memory_item_id", "")
+                key = f"p:{point_id}" if point_id else f"m:{memory_item_id}"
                 if key in seen_ev_keys:
                     continue
-                claim["evidence"].append(dict(ev))
+                claim["evidence"].append(ev_dict)
                 seen_ev_keys.add(key)
             claim["_evidence_keys"] = seen_ev_keys
             claims[claim_id] = claim
@@ -587,14 +602,20 @@ def normalize_records(objs: list[dict[str, Any]], conv_id: str) -> list[dict[str
             if current[field] != obj[field]:
                 raise ClaimifyError(f"[{conv_id}] claim merge conflict: {field} mismatch for claim_id={claim_id!r}")
 
-        if current["subject"].get("entity_id") != obj["subject"].get("entity_id"):
-            raise ClaimifyError(
-                f"[{conv_id}] claim merge conflict: subject.entity_id mismatch for claim_id={claim_id!r}"
-            )
-        if current["object"].get("entity_id") != obj["object"].get("entity_id"):
-            raise ClaimifyError(
-                f"[{conv_id}] claim merge conflict: object.entity_id mismatch for claim_id={claim_id!r}"
-            )
+        current_subject = current["subject"]
+        current_object = current["object"]
+        obj_subject = obj["subject"]
+        obj_object = obj["object"]
+        if isinstance(current_subject, dict) and isinstance(obj_subject, dict):
+            if current_subject.get("entity_id", "") != obj_subject.get("entity_id", ""):  # type: ignore[reportUnknownMemberType]
+                raise ClaimifyError(
+                    f"[{conv_id}] claim merge conflict: subject.entity_id mismatch for claim_id={claim_id!r}"
+                )
+        if isinstance(current_object, dict) and isinstance(obj_object, dict):
+            if current_object.get("entity_id", "") != obj_object.get("entity_id", ""):  # type: ignore[reportUnknownMemberType]
+                raise ClaimifyError(
+                    f"[{conv_id}] claim merge conflict: object.entity_id mismatch for claim_id={claim_id!r}"
+                )
         current_rank = current["rank"]
         incoming_rank = obj["rank"]
         if current_rank is not None and incoming_rank is not None and current_rank != incoming_rank:
@@ -609,10 +630,13 @@ def normalize_records(objs: list[dict[str, Any]], conv_id: str) -> list[dict[str
 
         seen_ev_keys = current["_evidence_keys"]
         for ev in obj["evidence"]:
-            key = f"p:{ev.get('point_id')}" if ev.get("point_id") else f"m:{ev.get('memory_item_id')}"
+            ev_dict: dict[str, Any] = dict(ev)  # type: ignore[reportUnknownVariableType]
+            point_id = ev_dict.get("point_id", "")
+            memory_item_id = ev_dict.get("memory_item_id", "")
+            key = f"p:{point_id}" if point_id else f"m:{memory_item_id}"
             if key in seen_ev_keys:
                 continue
-            current["evidence"].append(dict(ev))
+            current["evidence"].append(ev_dict)
             seen_ev_keys.add(key)
 
     entity_records = sorted(entities.values(), key=lambda x: (str(x["entity_type"]), str(x["entity_id"])))
@@ -659,17 +683,17 @@ def validate_jsonl_output(
         if not isinstance(obj, dict):
             raise ClaimifyError(f"[{conv_id}] file_line={file_line}: each line must be JSON object")
 
-        rt = obj.get("record_type")
+        rt: str = obj.get("record_type", "")  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
         if rt not in ALLOWED_RECORD_TYPES:
             raise ClaimifyError(f"[{conv_id}] file_line={file_line}: invalid record_type")
         if rt == "entity":
-            _validate_entity(obj, conv_id, file_line)
-            records.append(obj)
+            _validate_entity(obj, conv_id, file_line)  # type: ignore[reportUnknownArgumentType]
+            records.append(obj)  # type: ignore[reportUnknownArgumentType]
             continue
 
-        predicate = obj.get("predicate")
+        predicate: str = obj.get("predicate", "")  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
         _validate_claim(
-            obj,
+            obj,  # type: ignore[reportUnknownArgumentType]
             conv_id,
             scene_id,
             input_point_ids,
@@ -681,7 +705,7 @@ def validate_jsonl_output(
             dropped_claims[DROPPED_PREDICATE] = dropped_claims.get(DROPPED_PREDICATE, 0) + 1
             continue
 
-        records.append(obj)
+        records.append(obj)  # type: ignore[reportUnknownArgumentType]
 
     normalized_records = normalize_records(records, conv_id)
     validated_lines = [json.dumps(record, ensure_ascii=False, separators=(",", ":")) for record in normalized_records]
@@ -690,7 +714,7 @@ def validate_jsonl_output(
         raise ClaimifyError(f"[{conv_id}] file_line=0: model output is empty")
 
     for item in input_items:
-        payload = item.obj["payload"]
+        payload: dict[str, Any] = item.obj["payload"]
         if payload["scene_id"] != scene_id:
             raise ClaimifyError(f"[{conv_id}] input payload.scene_id inconsistent within conv")
         if payload["character_id"] != character_id:
