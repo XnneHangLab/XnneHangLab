@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, Field
 
@@ -266,10 +266,10 @@ def build_event_metadata(event: dict[str, Any]) -> dict[str, Any]:
     Returns:
         dict[str, Any]: 用于写入与溯源的 metadata。
     """
-    meta_raw = event.get("meta", {})
-    meta = meta_raw if isinstance(meta_raw, dict) else {}
-    tags_raw = event.get("tags", [])
-    tags = [str(tag) for tag in tags_raw] if isinstance(tags_raw, list) else []
+    meta_raw = event.get("meta")
+    meta: dict[str, Any] = cast("dict[str, Any]", meta_raw) if isinstance(meta_raw, dict) else {}
+    tags_raw = event.get("tags")
+    tags = [str(tag) for tag in cast("list[Any]", tags_raw)] if isinstance(tags_raw, list) else []
 
     return {
         "scene_id": event.get("scene_id"),
