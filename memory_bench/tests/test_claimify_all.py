@@ -126,7 +126,7 @@ def test_tag_canonicalize_entity_and_claim_object_rewrite() -> None:
         },
     ]
 
-    out = _canonicalize_tag_records  # type: ignore[reportPrivateUsage](objs)
+    out = _canonicalize_tag_records(objs) # type: ignore[reportPrivateUsage]
     tag_entity = next(obj for obj in out if obj["record_type"] == "entity")
     claim = next(obj for obj in out if obj["record_type"] == "claim")
 
