@@ -291,7 +291,7 @@ touch memory_bench/typing/common.py
 | 1 | `typing/index.py` | `build_index.py` | ✅ 完成 | ~0 (已用 TypedDict) |
 | 2 | `typing/events.py` | `annotate_all.py` | ✅ 完成 | ~11 |
 | 3 | `typing/claims.py` | `compiled_claims.py`, `claimify_all.py` | ⏳ 待开始 | ~56 |
-| 4 | `typing/memory.py` | `mem0_to_graph.py`, `replay_mem0.py` | ⏳ 待开始 | ~51 |
+| 4 | `typing/memory.py` | `mem0_to_graph.py`, `replay_mem0.py` | 🟡 进行中 | ~51 |
 | 5 | `typing/neo4j.py` | `graph_to_cypher.py`, `graph_writer.py` | ⏳ 待开始 | ~18 |
 | 6 | `typing/common.py` | `tag_registry.py`, `export_*.py` | ⏳ 待开始 | ~78 |
 
