@@ -12,24 +12,13 @@ import json
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Sequence, cast
 
 from memory_bench.scripts.bench_logger import logger
+from memory_bench.typing.claims import Claim, Entity, EvidenceItem
 
 ALLOWED_RECORD_TYPES = {"entity", "claim"}
-REQUIRED_ENTITY_FIELDS = {"entity_id", "entity_type", "props", "aliases", "tags", "confidence"}
-REQUIRED_CLAIM_FIELDS = {
-    "claim_id",
-    "predicate",
-    "subject",
-    "object",
-    "domain",
-    "confidence",
-    "status",
-    "rank",
-    "updated_at",
-    "evidence",
-}
+# REQUIRED_ENTITY_FIELDS 和 REQUIRED_CLAIM_FIELDS 已由 pydantic 模型替代
 
 log = logger.bind(group="memory")
 
@@ -103,122 +92,70 @@ def _stable_union(base: list[Any], incoming: list[Any]) -> list[Any]:
     return out
 
 
-def _validate_entity(entity_obj: dict[str, Any]) -> None:
-    """校验单条 entity 记录字段与类型是否合法。
+def _validate_entity(entity_obj: dict[str, Any]) -> Entity:
+    """校验单条 entity 记录并返回 Entity 实例。
 
     Args:
         entity_obj: 待校验的 entity 记录。
+
+    Returns:
+        Entity: 验证通过的实体对象
+
+    Raises:
+        ValueError: 当字段缺失、类型错误或业务规则不满足时抛出。
     """
-
-    missing = REQUIRED_ENTITY_FIELDS - entity_obj.keys()
-    if missing:
-        raise ValueError(f"entity missing required fields: {sorted(missing)}")
-    if not isinstance(entity_obj["entity_id"], str) or not entity_obj["entity_id"]:
-        raise ValueError("entity_id must be a non-empty string")
-    if not isinstance(entity_obj["entity_type"], str) or not entity_obj["entity_type"]:
-        raise ValueError("entity_type must be a non-empty string")
-    if not isinstance(entity_obj["props"], dict):
-        raise ValueError("entity props must be a dict")
-    confidence = entity_obj["confidence"]
-    if not isinstance(confidence, (int, float)):
-        raise ValueError("entity confidence must be a number")
-    if not 0 <= float(confidence) <= 1:
-        raise ValueError("entity confidence must be in range [0, 1]")
-    if not isinstance(entity_obj["aliases"], list):
-        raise ValueError("entity aliases must be a list")
-    aliases = cast("list[Any]", entity_obj["aliases"])
-    if any(not isinstance(item, str) for item in aliases):
-        raise ValueError("entity aliases must be list[str]")
-    if not isinstance(entity_obj["tags"], list):
-        raise ValueError("entity tags must be a list")
-    tags = cast("list[Any]", entity_obj["tags"])
-    if any(not isinstance(item, str) for item in tags):
-        raise ValueError("entity tags must be list[str]")
+    try:
+        return Entity.model_validate(entity_obj)  # type: ignore[arg-type]
+    except Exception as exc:
+        raise ValueError(f"entity validation failed: {exc}") from exc
 
 
-def _validate_claim(claim_obj: dict[str, Any]) -> None:
-    """校验单条 claim 记录字段与类型是否合法。
+def _validate_claim(claim_obj: dict[str, Any]) -> Claim:
+    """校验单条 claim 记录并返回 Claim 实例。
 
     Args:
         claim_obj: 待校验的 claim 记录。
+
+    Returns:
+        Claim: 验证通过的 claim 对象
+
+    Raises:
+        ValueError: 当字段缺失、类型错误或业务规则不满足时抛出。
     """
-
-    missing = REQUIRED_CLAIM_FIELDS - claim_obj.keys()
-    if missing:
-        raise ValueError(f"claim missing required fields: {sorted(missing)}")
-    if not isinstance(claim_obj["claim_id"], str) or not claim_obj["claim_id"]:
-        raise ValueError("claim_id must be a non-empty string")
-    for key in ("predicate", "domain", "updated_at"):
-        if not isinstance(claim_obj[key], str) or not claim_obj[key]:
-            raise ValueError(f"claim {key} must be a non-empty string")
-    for key in ("subject", "object"):
-        value_raw = claim_obj[key]
-        if not isinstance(value_raw, dict):
-            raise ValueError(f"claim {key} must be an object")
-        value = cast("dict[str, Any]", value_raw)
-        if not isinstance(value.get("entity_type"), str) or not value.get("entity_type"):
-            raise ValueError(f"claim {key}.entity_type must be non-empty string")
-        if not isinstance(value.get("entity_id"), str) or not value.get("entity_id"):
-            raise ValueError(f"claim {key}.entity_id must be non-empty string")
-    confidence = claim_obj["confidence"]
-    if not isinstance(confidence, (int, float)):
-        raise ValueError("claim confidence must be a number")
-    if not 0 <= float(confidence) <= 1:
-        raise ValueError("claim confidence must be in range [0, 1]")
-    if claim_obj["status"] not in {"active", "candidate"}:
-        raise ValueError(f"invalid claim status: {claim_obj['status']}")
-    rank = claim_obj["rank"]
-    if rank is not None and not isinstance(rank, int):
-        raise ValueError("claim rank must be int or null")
-    if not isinstance(claim_obj["evidence"], list):
-        raise ValueError("claim evidence must be a list")
-    if not claim_obj["evidence"]:
-        raise ValueError("claim evidence must be a non-empty list")
-    for evidence_raw in cast("list[Any]", claim_obj["evidence"]):
-        if not isinstance(evidence_raw, dict):
-            raise ValueError("claim evidence item must be object")
-        evidence = cast("dict[str, Any]", evidence_raw)
-        point_id = evidence.get("point_id")
-        memory_item_id = evidence.get("memory_item_id")
-        if point_id is not None and (not isinstance(point_id, str) or not point_id.strip()):
-            raise ValueError("claim evidence point_id must be a non-empty string when provided")
-        if memory_item_id is not None and (not isinstance(memory_item_id, str) or not memory_item_id.strip()):
-            raise ValueError("claim evidence memory_item_id must be a non-empty string when provided")
-        if not point_id and not memory_item_id:
-            raise ValueError("claim evidence item must include point_id or memory_item_id")
+    try:
+        return Claim.model_validate(claim_obj)  # type: ignore[arg-type]
+    except Exception as exc:
+        raise ValueError(f"claim validation failed: {exc}") from exc
 
 
-def merge_entities(global_entities: dict[str, dict[str, Any]], entity_obj: dict[str, Any]) -> None:
+def merge_entities(global_entities: dict[str, Entity], entity_obj: dict[str, Any]) -> None:
     """将单条 entity 合并进全局实体表。
 
     Args:
-        global_entities: 全局实体字典，key 为 `entity_id`。
-        entity_obj: 当前待合并的 entity 记录。
+        global_entities: 全局 Entity 字典，key 为 `entity_id`。
+        entity_obj: 当前待合并的 entity 记录（dict 格式）。
     """
 
-    _validate_entity(entity_obj)
-    key = entity_obj["entity_id"]
+    entity = _validate_entity(entity_obj)
+    key = entity.entity_id
     current = global_entities.get(key)
     if current is None:
-        global_entities[key] = dict(entity_obj)
-        global_entities[key]["props"] = dict(entity_obj["props"])
-        global_entities[key]["aliases"] = list(entity_obj["aliases"])
-        global_entities[key]["tags"] = list(entity_obj["tags"])
+        global_entities[key] = entity
         return
 
-    if current["entity_type"] != entity_obj["entity_type"]:
-        raise ValueError(f"entity_type mismatch for {key}: {current['entity_type']} != {entity_obj['entity_type']}")
+    if current.entity_type != entity.entity_type:
+        raise ValueError(f"entity_type mismatch for {key}: {current.entity_type} != {entity.entity_type}")
 
-    for prop_key, prop_value in entity_obj["props"].items():
-        if prop_key not in current["props"]:
-            current["props"][prop_key] = prop_value
+    for prop_key, prop_value in entity.props.items():
+        if prop_key not in current.props:
+            current.props[prop_key] = prop_value
 
-    current["aliases"] = _stable_union(current["aliases"], entity_obj["aliases"])
-    current["tags"] = _stable_union(current["tags"], entity_obj["tags"])
-    current["confidence"] = max(float(current["confidence"]), float(entity_obj["confidence"]))
+    current.aliases = _stable_union(current.aliases, entity.aliases)
+    current.tags = _stable_union(current.tags, entity.tags)
+    current.confidence = max(float(current.confidence), float(entity.confidence))
 
 
-def dedupe_and_sort_evidence(evidence_list: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def dedupe_and_sort_evidence(evidence_list: list[EvidenceItem]) -> list[EvidenceItem]:
     """按规则对 evidence 去重并按创建时间排序。
 
     去重 key 优先使用 `point_id`，其次使用 `memory_item_id`。
@@ -227,80 +164,77 @@ def dedupe_and_sort_evidence(evidence_list: list[dict[str, Any]]) -> list[dict[s
         evidence_list: 待处理的 evidence 列表。
 
     Returns:
-        list[dict[str, Any]]: 去重并按 `created_at` 排序后的 evidence 列表。
+        list[EvidenceItem]: 去重并按 `created_at` 排序后的 evidence 列表。
     """
 
-    keyed: dict[str, dict[str, Any]] = {}
+    keyed: dict[str, EvidenceItem] = {}
     for evidence in evidence_list:
-        point_id = evidence.get("point_id")
-        memory_item_id = evidence.get("memory_item_id")
-        if point_id:
-            dedupe_key = f"p:{point_id}"
-        elif memory_item_id:
-            dedupe_key = f"m:{memory_item_id}"
+        if evidence.point_id:
+            dedupe_key = f"p:{evidence.point_id}"
+        elif evidence.memory_item_id:
+            dedupe_key = f"m:{evidence.memory_item_id}"
         else:
             raise ValueError("claim evidence item must include point_id or memory_item_id")
         keyed.setdefault(dedupe_key, evidence)
-    return sorted(keyed.values(), key=lambda item: item.get("created_at", ""))
+    return sorted(keyed.values(), key=lambda item: item.created_at or "")
 
 
-def merge_claims(global_claims: dict[str, dict[str, Any]], claim_obj: dict[str, Any]) -> None:
+def merge_claims(global_claims: dict[str, Claim], claim_obj: dict[str, Any]) -> None:
     """将单条 claim 合并进全局 claim 表。
 
     Args:
-        global_claims: 全局 claim 字典，key 为 `claim_id`。
-        claim_obj: 当前待合并的 claim 记录。
+        global_claims: 全局 Claim 字典，key 为 `claim_id`。
+        claim_obj: 当前待合并的 claim 记录（dict 格式）。
     """
 
-    _validate_claim(claim_obj)
-    key = claim_obj["claim_id"]
+    claim = _validate_claim(claim_obj)
+    key = claim.claim_id
     current = global_claims.get(key)
     if current is None:
-        global_claims[key] = dict(claim_obj)
-        global_claims[key]["subject"] = dict(claim_obj["subject"])
-        global_claims[key]["object"] = dict(claim_obj["object"])
-        global_claims[key]["evidence"] = dedupe_and_sort_evidence(list(claim_obj["evidence"]))
+        global_claims[key] = claim
         return
 
+    # 检查关键字段是否匹配
     checks: list[tuple[str, Any, Any]] = [
-        ("predicate", current["predicate"], claim_obj["predicate"]),
-        ("domain", current["domain"], claim_obj["domain"]),
-        ("subject.entity_type", current["subject"].get("entity_type"), claim_obj["subject"].get("entity_type")),
-        ("subject.entity_id", current["subject"].get("entity_id"), claim_obj["subject"].get("entity_id")),
-        ("object.entity_type", current["object"].get("entity_type"), claim_obj["object"].get("entity_type")),
-        ("object.entity_id", current["object"].get("entity_id"), claim_obj["object"].get("entity_id")),
+        ("predicate", current.predicate, claim.predicate),
+        ("domain", current.domain, claim.domain),
+        ("subject.entity_type", current.subject.entity_type, claim.subject.entity_type),
+        ("subject.entity_id", current.subject.entity_id, claim.subject.entity_id),
+        ("object.entity_type", current.object.entity_type, claim.object.entity_type),
+        ("object.entity_id", current.object.entity_id, claim.object.entity_id),
     ]
     for field, left, right in checks:
         if left != right:
             raise ValueError(f"claim_id={key} mismatch on {field}: {left!r} != {right!r}")
 
-    current["confidence"] = max(float(current["confidence"]), float(claim_obj["confidence"]))
-    current["status"] = "active" if (current["status"] == "active" or claim_obj["status"] == "active") else "candidate"
-    current["updated_at"] = max(str(current["updated_at"]), str(claim_obj["updated_at"]))
+    current.confidence = max(float(current.confidence), float(claim.confidence))
+    current.status = "active" if (current.status == "active" or claim.status == "active") else "candidate"
+    current.updated_at = max(str(current.updated_at), str(claim.updated_at))
 
-    current_rank = current["rank"]
-    incoming_rank = claim_obj["rank"]
+    current_rank = current.rank
+    incoming_rank = claim.rank
     if current_rank is not None and incoming_rank is not None and current_rank != incoming_rank:
         raise ValueError(f"claim {key} rank mismatch: {current_rank} != {incoming_rank}")
     if current_rank is None and incoming_rank is not None:
-        current["rank"] = incoming_rank
+        current.rank = incoming_rank
 
-    current["evidence"] = dedupe_and_sort_evidence(current["evidence"] + list(claim_obj["evidence"]))
+    # 合并 evidence
+    current.evidence = dedupe_and_sort_evidence(list(current.evidence) + list(claim.evidence))
 
 
-def write_jsonl_atomic(path: Path, records: list[dict[str, Any]]) -> None:
+def write_jsonl_atomic(path: Path, records: Sequence[Entity | Claim]) -> None:
     """以原子方式写出 JSONL 文件。
 
     Args:
         path: 输出 JSONL 文件路径。
-        records: 待写出的记录列表。
+        records: 待写出的记录列表（Entity 或 Claim 对象）。
     """
 
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     with tmp_path.open("w", encoding="utf-8") as fh:
         for record in records:
-            fh.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")
+            fh.write(json.dumps(record.model_dump(), ensure_ascii=False, separators=(",", ":")) + "\n")
     tmp_path.replace(path)
     log.info("wrote %s records -> %s", len(records), path)
 
@@ -334,8 +268,8 @@ def main() -> int:
 
     file_paths = sorted(path for path in in_dir.glob("*.jsonl") if path.is_file())
     log.info("discovered %s by-conv files", len(file_paths))
-    global_entities: dict[str, dict[str, Any]] = {}
-    global_claims: dict[str, dict[str, Any]] = {}
+    global_entities: dict[str, Entity] = {}
+    global_claims: dict[str, Claim] = {}
 
     records_read = 0
     for path in file_paths:
@@ -350,10 +284,10 @@ def main() -> int:
             else:
                 merge_claims(global_claims, record)
 
-    entities_out = sorted(global_entities.values(), key=lambda item: (str(item["entity_type"]), str(item["entity_id"])))
+    entities_out = sorted(global_entities.values(), key=lambda item: (str(item.entity_type), str(item.entity_id)))
     claims_out = sorted(
         global_claims.values(),
-        key=lambda item: (str(item["domain"]), str(item["predicate"]), str(item["claim_id"])),
+        key=lambda item: (str(item.domain), str(item.predicate), str(item.claim_id)),
     )
 
     write_jsonl_atomic(out_entities, entities_out)
