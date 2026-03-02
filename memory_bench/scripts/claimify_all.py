@@ -23,10 +23,12 @@ from memory_bench.scripts.tag_registry import (
     select_topk_tags_for_chunk,
     update_registry_from_records,
 )
+from memory_bench.typing.claims import (
+    ALLOWED_DOMAINS,
+    ALLOWED_ENTITY_TYPES,
+)
 
 ALLOWED_RECORD_TYPES = {"entity", "claim"}
-ALLOWED_ENTITY_TYPES = {"Agent", "User", "Author", "Work", "Chapter", "Topic", "Tag"}
-ALLOWED_DOMAINS = {"reading", "writing", "daily"}
 ALLOWED_STATUS = {"active", "candidate"}
 ALLOWED_PREDICATES = {
     "PREFERS_AUTHOR",
@@ -163,15 +165,15 @@ def load_input_jsonl(
                 ) from exc
             if not isinstance(obj, dict):
                 raise ClaimifyError(f"file_line={file_line}: each line must be JSON object")
-            payload = obj.get("payload")
+            payload: Any = obj.get("payload")  # type: ignore[unknown]
             if not isinstance(payload, dict):
                 raise ClaimifyError(f"file_line={file_line}: payload must be object")
-            if not isinstance(obj.get("id"), str) or not obj["id"].strip():
+            if not isinstance(obj.get("id"), str) or not obj["id"].strip():  # type: ignore[unknown]
                 raise ClaimifyError(f"file_line={file_line}: id must be non-empty string")
             for key in REQUIRED_PAYLOAD_KEYS:
                 if key not in payload:
                     raise ClaimifyError(f"file_line={file_line}: missing payload.{key}")
-                if not isinstance(payload[key], str) or not payload[key].strip():
+                if not isinstance(payload[key], str) or not payload[key].strip():  # type: ignore[unknown]
                     raise ClaimifyError(f"file_line={file_line}: payload.{key} must be non-empty string")
 
             if expected_scene_id and payload["scene_id"] != expected_scene_id:
@@ -427,8 +429,8 @@ def compute_canonical_claim_id(obj: dict[str, Any]) -> str:
 
     predicate = obj.get("predicate")
     domain = obj.get("domain")
-    subject = obj.get("subject")
-    object_ = obj.get("object")
+    subject = obj.get("subject")  # type: ignore[unknown]
+    object_ = obj.get("object")  # type: ignore[unknown]
 
     if not isinstance(predicate, str) or not predicate.strip():
         raise ClaimifyError("canonical claim_id requires non-empty predicate")
@@ -496,7 +498,7 @@ def _canonicalize_tag_records(objs: list[dict[str, Any]]) -> list[dict[str, Any]
     for item in rewritten:
         if item.get("record_type") != "claim":
             continue
-        obj = item.get("object")
+        obj = item.get("object")  # type: ignore[unknown]
         if not isinstance(obj, dict):
             continue
         if obj.get("entity_type") != "Tag":

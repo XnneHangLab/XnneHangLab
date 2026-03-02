@@ -16,6 +16,20 @@ Modules:
 
 from __future__ import annotations
 
+from .claims import (
+    ALLOWED_DOMAINS,
+    ALLOWED_ENTITY_TYPES,
+    ALLOWED_PREDICATES,
+    ALLOWED_STATUSES,
+    Claim,
+    ClaimStatus,
+    DomainType,
+    Entity,
+    EntityReference,
+    EntityType,
+    EvidenceItem,
+)
+
 # 按依赖顺序导入，避免循环引用
 from .common import (
     is_list_of_str,
@@ -45,8 +59,7 @@ from .memory import (
 )
 
 # 后续模块将在对应 Phase 中添加
-# from memory_bench.typing.claims import Claim, Entity, EntityReference, EvidenceItem
-# from memory_bench.typing.neo4j import Node, Relationship
+# from .neo4j import Node, Relationship
 
 __all__ = [
     # common
@@ -74,6 +87,17 @@ __all__ = [
     "ReplayStats",
     "CheckpointData",
     "build_event_metadata",
-    # claims (TODO)
+    # claims
+    "ALLOWED_ENTITY_TYPES",
+    "ALLOWED_DOMAINS",
+    "ALLOWED_STATUSES",
+    "ALLOWED_PREDICATES",
+    "EntityType",
+    "DomainType",
+    "ClaimStatus",
+    "Entity",
+    "Claim",
+    "EntityReference",
+    "EvidenceItem",
     # neo4j (TODO)
 ]
