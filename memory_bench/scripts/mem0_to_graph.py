@@ -373,7 +373,7 @@ def parse_record(
             )
         return None
 
-    payload = row.get("payload")
+    payload: Any = row.get("payload")  # type: ignore[unknown]
     if payload is None:
         stats["skipped_null_payload"] += 1
         if strict:
@@ -390,8 +390,8 @@ def parse_record(
             append_warning(warnings, f"line {line_no}: payload must be object or null", max_warnings, warning_meta)
         return None
 
-    source_point_id = str(row["id"])
-    processed_key = compute_processed_key(row.get("id"), payload)
+    source_point_id = str(row["id"])  # type: ignore[unknown]
+    processed_key = compute_processed_key(row.get("id"), payload)  # type: ignore[arg-type,unknown]
     if not processed_key:
         stats["skipped_missing_processed_key"] += 1
         if strict:
@@ -405,10 +405,10 @@ def parse_record(
     return ParsedRecord(
         source_line=line_no,
         source_point_id=source_point_id,
-        payload=payload,
-        collection=str(row["collection"]),
-        isolation=str(row["isolation"]),
-        exported_at=str(row["exported_at"]),
+        payload=payload,  # type: ignore[arg-type,unknown]
+        collection=str(row["collection"]),  # type: ignore[unknown]
+        isolation=str(row["isolation"]),  # type: ignore[unknown]
+        exported_at=str(row["exported_at"]),  # type: ignore[unknown]
         processed_key=processed_key,
     )
 
