@@ -1820,16 +1820,15 @@ def main() -> int:
     args = parse_args()
     repo_root = Path(__file__).resolve().parents[2]
     load_benchmark_dotenv(repo_root)
-    (
-        llm_api_key,
-        llm_base_url,
-        llm_model,
-        embed_api_key,
-        embed_base_url,
-        embed_model,
-        llm_temperature,
-        llm_max_tokens,
-    ) = prepare_mem0_env()
+    config:ReplayConfig = prepare_mem0_env()
+    llm_api_key = config.llm_api_key
+    llm_base_url = config.llm_base_url
+    llm_model = config.llm_model
+    embed_api_key = config.embedding_api_key
+    embed_base_url = config.embedding_base_url
+    embed_model = config.embedding_model
+    llm_temperature = config.llm_temperature
+    llm_max_tokens = config.llm_max_tokens
 
     input_path: Path | None = None
     if args.command in {"ingest", "probe"}:
