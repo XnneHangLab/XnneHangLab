@@ -215,14 +215,14 @@ class CheckpointData:
         input_mtime: 输入文件修改时间
         ingested_count: 已 ingest 数量
         last_conv_id: 最后一个处理的 conv_id
-        stats: 统计信息
+        stats: 统计信息字典
     """
 
     input_sha256: str
     input_mtime: float
     ingested_count: int = 0
     last_conv_id: str | None = None
-    stats: ReplayStats = field(default_factory=ReplayStats)
+    stats: dict[str, int] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """转换为字典。
