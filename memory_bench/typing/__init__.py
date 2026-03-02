@@ -34,10 +34,18 @@ from memory_bench.typing.events import (
     validate_event_tags,
 )
 from memory_bench.typing.index import IndexEntry, IndexSliceParams
+from memory_bench.typing.memory import (
+    CheckpointData,
+    ExportRecord,
+    MemoryItem,
+    OwnerType,
+    ReplayConfig,
+    ReplayStats,
+    build_event_metadata,
+)
 
 # 后续模块将在对应 Phase 中添加
 # from memory_bench.typing.claims import Claim, Entity, EntityReference, EvidenceItem
-# from memory_bench.typing.memory import MemoryItem, ExportRecord
 # from memory_bench.typing.neo4j import Node, Relationship
 
 __all__ = [
@@ -58,7 +66,14 @@ __all__ = [
     "ChapterJob",
     "JobResult",
     "validate_event_tags",
+    # memory
+    "OwnerType",
+    "MemoryItem",
+    "ExportRecord",
+    "ReplayConfig",
+    "ReplayStats",
+    "CheckpointData",
+    "build_event_metadata",
     # claims (TODO)
-    # memory (TODO)
     # neo4j (TODO)
 ]
