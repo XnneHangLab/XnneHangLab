@@ -33,7 +33,7 @@ from memory_bench.scripts.bench_logger import logger
 log = logger.bind(group="export_edge_schema")
 
 try:
-    from dotenv import load_dotenv
+    from dotenv import load_dotenv  # type: ignore[reportMissingImports,reportUnknownVariableType]
 except ImportError:
     load_dotenv = None
     log.warning("未安装 python-dotenv，跳过 .env.benchmark 自动加载")
@@ -160,8 +160,8 @@ def split_csv_line(line: str) -> list[str]:
     Returns:
         list[str]: 拆分后的字段列表（保留原始空格与引号形态）。
     """
-    result = []
-    current = []
+    result: list[str] = []
+    current: list[str] = []
     brace_depth = 0
     bracket_depth = 0
     in_quotes = False
@@ -226,7 +226,7 @@ def parse_cypher_output(output: str) -> list[dict[str, Any]]:
         return []
 
     headers = [h.strip().strip('"') for h in split_csv_line(lines[0])]
-    rows = []
+    rows: list[dict[str, Any]] = []
 
     for line in lines[1:]:
         if not line.strip():

@@ -26,14 +26,14 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from memory_bench.scripts.bench_logger import logger
 
 log = logger.bind(group="export_node_schema")
 
 try:
-    from dotenv import load_dotenv
+    from dotenv import load_dotenv  # type: ignore[reportMissingImports,reportUnknownVariableType]
 except ImportError:
     load_dotenv = None
     log.warning("未安装 python-dotenv，跳过 .env.benchmark 自动加载")
@@ -159,8 +159,8 @@ def split_csv_line(line: str) -> list[str]:
 
     Example: "a, b, {x: 1, y: 2}" → ["a", " b", " {x: 1, y: 2}"]
     """
-    result = []
-    current = []
+    result: list[str] = []
+    current: list[str] = []
     brace_depth = 0
     bracket_depth = 0
     in_quotes = False
@@ -226,7 +226,7 @@ def parse_cypher_output(output: str) -> list[dict[str, Any]]:
 
     # First line is header
     headers = [h.strip().strip('"') for h in split_csv_line(lines[0])]
-    rows = []
+    rows: list[dict[str, Any]] = []
 
     for line in lines[1:]:
         if not line.strip():
@@ -234,7 +234,7 @@ def parse_cypher_output(output: str) -> list[dict[str, Any]]:
 
         values = split_csv_line(line)
         if len(values) == len(headers):
-            row_dict = {}
+            row_dict: dict[str, Any] = {}
             for i, key in enumerate(headers):
                 value = values[i].strip().strip('"')  # Also strip quotes from values
                 # Try to parse JSON-like values
@@ -252,9 +252,9 @@ def parse_cypher_output(output: str) -> list[dict[str, Any]]:
     return rows
 
 
-def generate_schema_data(container: str) -> dict:
+def generate_schema_data(container: str) -> dict[str, Any]:
     """Generate schema data structure."""
-    data = {
+    data: dict[str, Any] = {
         "generated_at": datetime.now(timezone.utc).astimezone().isoformat(),  # noqa: UP017
         "neo4j_container": container,
         "node_examples": [],
@@ -282,22 +282,23 @@ def generate_schema_data(container: str) -> dict:
     return data
 
 
-def generate_markdown_report(data: dict) -> str:
+def generate_markdown_report(data: dict[str, Any]) -> str:
     """Generate Markdown report from schema data."""
-    report = []
+    report: list[str] = []
     report.append("# Neo4j NODE 图谱 Schema 参考\n")
     report.append(f"**生成时间**: {data['generated_at']}\n")
     report.append(f"**Neo4j 容器**: `{data['neo4j_container']}`\n")
 
     # 1. 节点示例（按 ID 前缀分类）
     report.append("\n## 节点示例（按 ID 前缀分类，每类一个完整示例）\n")
-    if data["node_examples"]:
-        for row in data["node_examples"]:
-            node_type = row.get("node_type", "")
-            node_id = row.get("id", "")
-            name = row.get("name", "")
-            display = row.get("display", "")
-            all_props = row.get("all_props", "")
+    node_examples: list[dict[str, Any]] = cast("list[dict[str, Any]]", data["node_examples"])
+    if node_examples:
+        for row in node_examples:
+            node_type = cast("str", row.get("node_type", ""))
+            node_id = cast("str", row.get("id", ""))
+            name = cast("str", row.get("name", ""))
+            display = cast("str", row.get("display", ""))
+            all_props = row.get("all_props")
             report.append(f"\n### {node_type}\n")
             report.append(f"- **ID**: {node_id}\n")
             report.append(f"- **Name**: {name}\n")
@@ -312,17 +313,18 @@ def generate_markdown_report(data: dict) -> str:
 
     # 2. 关系示例（每个类型一个）
     report.append("\n## 关系示例（每个类型一个完整示例）\n")
-    if data["edge_examples"]:
+    edge_examples: list[dict[str, Any]] = cast("list[dict[str, Any]]", data["edge_examples"])
+    if edge_examples:
         # Build table rows without extra newlines
-        table_rows = []
+        table_rows: list[str] = []
         table_rows.append("| 关系类型 | 源节点 | 源节点 ID | 目标节点 | 目标节点 ID |")
         table_rows.append("|----------|--------|-----------|----------|-------------|")
-        for row in data["edge_examples"]:
-            rel_type = row.get("relationship", "")
-            from_node = row.get("from_node", "")
-            from_id = row.get("from_id", "")
-            to_node = row.get("to_node", "")
-            to_id = row.get("to_id", "")
+        for row in edge_examples:
+            rel_type = cast("str", row.get("relationship", ""))
+            from_node = cast("str", row.get("from_node", ""))
+            from_id = cast("str", row.get("from_id", ""))
+            to_node = cast("str", row.get("to_node", ""))
+            to_id = cast("str", row.get("to_id", ""))
             table_rows.append(f"| {rel_type} | {from_node} | {from_id} | {to_node} | {to_id} |")
         report.append("\n".join(table_rows))
         report.append("\n")
