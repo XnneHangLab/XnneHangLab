@@ -9,7 +9,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from memory_bench.scripts.replay_mem0 import ReplayMem0Error, _split_messages_into_chunks
+from memory_bench.scripts.replay_mem0 import ReplayMem0Error, _split_messages_into_chunks  # type: ignore[reportPrivateUsage]
 
 
 def _build_messages(n: int) -> list[dict[str, str]]:
@@ -19,7 +19,7 @@ def _build_messages(n: int) -> list[dict[str, str]]:
 def test_split_messages_no_chunk_when_len_lte_max_size() -> None:
     messages = _build_messages(10)
 
-    chunks = _split_messages_into_chunks(messages, max_size=10, overlap=2)
+    chunks = _split_messages_into_chunks  # type: ignore[reportPrivateUsage](messages, max_size=10, overlap=2)
 
     assert len(chunks) == 1
     assert chunks[0] == messages
@@ -28,7 +28,7 @@ def test_split_messages_no_chunk_when_len_lte_max_size() -> None:
 def test_split_messages_sliding_window_for_20_messages() -> None:
     messages = _build_messages(20)
 
-    chunks = _split_messages_into_chunks(messages, max_size=10, overlap=2)
+    chunks = _split_messages_into_chunks  # type: ignore[reportPrivateUsage](messages, max_size=10, overlap=2)
 
     assert len(chunks) == 3
 
@@ -48,7 +48,7 @@ def test_split_messages_sliding_window_for_20_messages() -> None:
 def test_split_messages_does_not_drop_tail_for_25_messages() -> None:
     messages = _build_messages(25)
 
-    chunks = _split_messages_into_chunks(messages, max_size=10, overlap=2)
+    chunks = _split_messages_into_chunks  # type: ignore[reportPrivateUsage](messages, max_size=10, overlap=2)
 
     assert chunks[-1][-1]["content"] == "m-24"
     flattened = [m["content"] for chunk in chunks for m in chunk]
@@ -68,4 +68,4 @@ def test_split_messages_invalid_params_raise(max_size: int, overlap: int) -> Non
     messages = _build_messages(5)
 
     with pytest.raises(ReplayMem0Error):
-        _split_messages_into_chunks(messages, max_size=max_size, overlap=overlap)
+        _split_messages_into_chunks  # type: ignore[reportPrivateUsage](messages, max_size=max_size, overlap=overlap)
