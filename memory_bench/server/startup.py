@@ -159,7 +159,8 @@ def resolve_memory_bench_config(overrides: dict[str, Any] | None = None) -> dict
         "neo4j_container": neo4j_container,
         "neo4j_user": neo4j_user,
         "neo4j_password": neo4j_password,
-        "enable_graph": overrides.get("enable_graph", False),
+        # overrides (CLI --enable-graph) > ENABLE_GRAPH env var > False
+        "enable_graph": overrides.get("enable_graph") or _get_env("ENABLE_GRAPH", "").lower() in ("1", "true", "yes"),
         # Metadata nodes
         "metadata_user_id": overrides.get("metadata_user_id") or _get_env("METADATA_USER_ID", "xnne"),
         "metadata_user_name": overrides.get("metadata_user_name") or _get_env("METADATA_USER_NAME", "xnne"),

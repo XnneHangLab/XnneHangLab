@@ -38,6 +38,7 @@
   - `tag_registry.py`（tag 归一化与候选选择）
 
 - **Memory Chat Server**（`memory_bench/server/`）
+  - `startup.py`（初始化帮助函数 — 供外部 host app 调用）
   - `chat_server.py`（独立启动器 + CLI）
   - `neo4j_queries.py`（Neo4j Cypher 查询模板，与业务逻辑分离）
   - `router.py`（FastAPI router，可独立挂载到其他 app）
@@ -496,8 +497,9 @@ Memory Chat Server (FastAPI)
 
 ### 文件结构
 
+- `startup.py` — 初始化帮助函数：`load_memory_bench_env()` / `resolve_memory_bench_config()` / `init_router_state()`。供 `chat_server.py` 和外部 host app 共用，避免重复代码。
 - `router.py` — FastAPI APIRouter，包含端点、记忆逻辑和 graph pipeline 后台任务。可独立挂载到任意 FastAPI app。
-- `chat_server.py` — 独立启动器：CLI 参数解析、env 加载、mem0 初始化、graph pipeline 配置、uvicorn 启动。
+- `chat_server.py` — 独立启动器：CLI 参数解析、env 加载（委托给 startup.py）、uvicorn 启动。
 - `claim_extractor.py` — 从 mem0.add() 结果中提取 claim/entity 记录（LLM-based）。
 - `graph_writer.py` — 将 claim 记录通过 Cypher MERGE 写入 Neo4j。
 
@@ -508,6 +510,9 @@ Memory Chat Server (FastAPI)
 | `/v1/chat/completions` | POST | 记忆增强的 chat 接口（非 streaming） |
 | `/v1/models` | GET | 兼容性端点 |
 | `/health` | GET | 健康检查 |
+
+> 当 router 挂载到 lab server（`package.memory_bench = true`）时，所有端点会加 `/memory` 前缀，例如：
+> `12393/memory/v1/chat/completions`、`12393/memory/health`
 
 ### 调用示例
 
@@ -552,17 +557,48 @@ uv run memory_bench/server/chat_server.py \
 | `NEO4J_CONTAINER` | Neo4j Docker 容器名 | `membench-neo4j-mem0` |
 | `NEO4J_USER` | Neo4j 用户名 | `neo4j` |
 | `NEO4J_PASSWORD` | Neo4j 密码 | `neo4jneo4j` |
+| `ENABLE_GRAPH` | 启用实时 graph pipeline（`true`/`1`/`yes`） | `false`（默认不启用） |
 
 ### 在其他 FastAPI app 中挂载
 
+`startup.py` 封装了初始化逻辑，外部 host app 直接调用即可，无需关心 mem0 / OpenAI client 的构建细节：
+
 ```python
 from fastapi import FastAPI
-from memory_bench.server.router import router, state
+from memory_bench.server.router import router as memory_router, state as memory_state
+from memory_bench.server.startup import (
+    load_memory_bench_env,
+    resolve_memory_bench_config,
+    init_router_state,
+)
+
+# 在 lifespan 里初始化（配置从 memory_bench/.env.benchmark 加载，与 host app 配置完全隔离）
+load_memory_bench_env()
+cfg = resolve_memory_bench_config()   # 可传 overrides={"enable_graph": True} 覆盖 env
+init_router_state(memory_state, cfg)
 
 app = FastAPI()
-# 初始化 state.mem0 / state.openai_client / state.chat_model ...
-app.include_router(router)
+app.include_router(memory_router, prefix="/memory")
+# → /memory/v1/chat/completions, /memory/health, ...
 ```
+
+**lab server 集成方式（`src/lab/server.py`）：**
+
+在 `config/lab.toml` 中开启：
+
+```toml
+[package]
+memory_bench = true
+```
+
+Graph pipeline 通过 `memory_bench/.env.benchmark` 控制（不在 lab.toml 里配）：
+
+```bash
+# memory_bench/.env.benchmark
+ENABLE_GRAPH=true
+```
+
+配置隔离保证：lab.toml 只决定是否 enable，不注入任何 memory_bench 配置值。
 
 ---
 
