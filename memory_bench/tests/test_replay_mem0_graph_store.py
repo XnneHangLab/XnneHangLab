@@ -3,6 +3,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest  # noqa: TC002
+
 # 让 replay_mem0.py 中的导入路径可被解析。
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
@@ -10,21 +12,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from memory_bench.scripts.replay_mem0 import build_mem0_config, resolve_neo4j_url_for_graph_store
 
 
-def test_resolve_neo4j_url_prefers_explicit_url(monkeypatch) -> None:
+def test_resolve_neo4j_url_prefers_explicit_url(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NEO4J_URL", "bolt://example.org:9000")
     monkeypatch.setenv("NEO4J_CONTAINER", "membench-neo4j-zep")
 
     assert resolve_neo4j_url_for_graph_store() == "bolt://example.org:9000"
 
 
-def test_resolve_neo4j_url_from_container_mapping(monkeypatch) -> None:
+def test_resolve_neo4j_url_from_container_mapping(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("NEO4J_URL", raising=False)
     monkeypatch.setenv("NEO4J_CONTAINER", "membench-neo4j-zep")
 
     assert resolve_neo4j_url_for_graph_store() == "bolt://localhost:7688"
 
 
-def test_build_mem0_config_includes_graph_store_when_enabled(monkeypatch, tmp_path: Path) -> None:
+def test_build_mem0_config_includes_graph_store_when_enabled(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.delenv("NEO4J_URL", raising=False)
     monkeypatch.setenv("NEO4J_CONTAINER", "membench-neo4j-mem0")
     monkeypatch.setenv("NEO4J_USER", "neo4j")

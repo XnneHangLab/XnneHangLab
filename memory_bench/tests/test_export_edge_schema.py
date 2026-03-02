@@ -14,6 +14,7 @@ from pathlib import Path
 SCRIPT_PATH = Path(__file__).parent.parent / "scripts" / "export_edge_schema.py"
 
 spec = importlib.util.spec_from_file_location("export_edge_schema", SCRIPT_PATH)
+assert spec is not None and spec.loader is not None, f"Cannot load spec from {SCRIPT_PATH}"
 export_edge_schema = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(export_edge_schema)
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -49,7 +50,7 @@ def make_parsed_line(
     return ParsedMemoryLine(raw_line=json.dumps(obj, ensure_ascii=False), obj=obj)
 
 
-def make_claim(*, rank: int | None, point_id: str, memory_hash: str) -> dict:
+def make_claim(*, rank: int | None, point_id: str, memory_hash: str) -> dict[str, Any]:
     return {
         "record_type": "claim",
         "claim_id": f"claim:dummy:{point_id}",
@@ -92,7 +93,7 @@ def test_chunk_items_split_by_max_chars() -> None:
 
 
 def test_tag_canonicalize_entity_and_claim_object_rewrite() -> None:
-    objs = [
+    objs: list[dict[str, Any]] = [
         {
             "record_type": "entity",
             "entity_type": "Tag",
@@ -138,8 +139,8 @@ def test_tag_canonicalize_entity_and_claim_object_rewrite() -> None:
 
 def test_normalize_records_rank_fill_in_and_conflict() -> None:
     # None -> int fill-in
-    claim_a = make_claim(rank=None, point_id="p1", memory_hash="h1")
-    claim_b = make_claim(rank=1, point_id="p2", memory_hash="h2")
+    claim_a: dict[str, Any] = make_claim(rank=None, point_id="p1", memory_hash="h1")
+    claim_b: dict[str, Any] = make_claim(rank=1, point_id="p2", memory_hash="h2")
 
     out = normalize_records([claim_a, claim_b], conv_id="c1")
     claims = [obj for obj in out if obj["record_type"] == "claim"]
@@ -149,7 +150,7 @@ def test_normalize_records_rank_fill_in_and_conflict() -> None:
     assert point_ids == {"p1", "p2"}
 
     # conflict: int vs different int
-    claim_c = make_claim(rank=2, point_id="p3", memory_hash="h3")
+    claim_c: dict[str, Any] = make_claim(rank=2, point_id="p3", memory_hash="h3")
     with pytest.raises(ClaimifyError):
         normalize_records([claim_b, claim_c], conv_id="c1")
 

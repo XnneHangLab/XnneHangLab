@@ -8,6 +8,7 @@ import sqlite3
 import sys
 import uuid
 from pathlib import Path
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = REPO_ROOT / "memory_bench/scripts/mem0_to_graph.py"
@@ -56,7 +57,7 @@ def ensure_fixture_path(tmp_path: Path) -> Path:
     return fallback
 
 
-def read_report(path: Path) -> dict[str, object]:
+def read_report(path: Path) -> dict[str, Any]:
     """读取 report JSON。"""
 
     return json.loads(path.read_text(encoding="utf-8"))

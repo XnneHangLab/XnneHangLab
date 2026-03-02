@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import pytest  # noqa: TC002
+
 # 让 replay_mem0.py 中的导入路径可被解析。
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
@@ -39,15 +41,18 @@ def _write_jsonl(path: Path, events: list[dict[str, Any]]) -> None:
             f.write(json.dumps(event, ensure_ascii=False) + "\n")
 
 
-def test_run_ingest_flushes_per_conv_id(monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(replay_mem0, "create_replay_progress", lambda *_args, **_kwargs: DummyProgress())
+def test_run_ingest_flushes_per_conv_id(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def _dummy_progress(*_args: Any, **_kwargs: Any) -> DummyProgress:
+        return DummyProgress()
+
+    monkeypatch.setattr(replay_mem0, "create_replay_progress", _dummy_progress)
     monkeypatch.setenv("BENCHMARK_USER_ID", "xnne")
 
     scene_id = "sceneA"
     character_id = "charA"
 
     input_path = tmp_path / "events.jsonl"
-    events = [
+    events: list[dict[str, Any]] = [
         {
             "scene_id": scene_id,
             "character_id": character_id,

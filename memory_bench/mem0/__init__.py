@@ -179,7 +179,9 @@ def _patch_vector_store_update(memory: Any) -> None:
 
         original_update(vector_id=vector_id, vector=vector, payload=payload)
 
-    vector_store.update = _patched_update
+    if vector_store is None:
+        return
+    vector_store.update = _patched_update  # type: ignore[reportAttributeAccessIssue]
     log.debug("已 patch mem0 vector_store.update：處理 vector=None 情況")
 
 
