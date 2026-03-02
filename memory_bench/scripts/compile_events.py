@@ -15,7 +15,7 @@ import difflib
 import json
 import sys
 from pathlib import Path
-from typing import Any, TextIO
+from typing import Any, TextIO, cast
 
 from memory_bench.scripts.bench_logger import logger
 
@@ -95,11 +95,13 @@ def load_index_order(index_path: Path) -> list[str]:
     if not isinstance(data, list):
         raise CompileEventsError("index.json must be an array")
 
+    data_list = cast("list[Any]", data)
     conv_ids: list[str] = []
-    for i, item in enumerate(data, start=1):
+    for i, item in enumerate(data_list, start=1):
         if not isinstance(item, dict):
             raise CompileEventsError(f"index[{i}] is not an object")
-        conv_id = str(item.get("id", "")).strip()
+        item_dict = cast("dict[str, Any]", item)
+        conv_id = str(item_dict.get("id", "")).strip()
         if not conv_id:
             raise CompileEventsError(f"index[{i}] missing id")
         conv_ids.append(conv_id)
