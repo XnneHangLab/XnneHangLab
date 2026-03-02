@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from memory_bench.scripts.replay_mem0 import (  # type: ignore[reportPrivateUsage]
     ReplayMem0Error,
-    _split_messages_into_chunks,
+    _split_messages_into_chunks,  # type: ignore[reportPrivateUsage]
 )
 
 

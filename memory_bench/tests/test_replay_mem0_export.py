@@ -56,7 +56,14 @@ class DummyClientPaging:
 
         self.calls: list[dict[str, Any]] = []
 
-    def scroll(self, collection_name, limit, with_payload, with_vectors, offset):
+    def scroll(
+        self,
+        collection_name: str,
+        limit: int,
+        with_payload: bool,
+        with_vectors: bool,
+        offset: str | None,
+    ) -> tuple[list[dict[str, Any]], str | None]:
         """按 offset 返回固定的两页测试数据。
 
         Args:
@@ -104,7 +111,7 @@ class DummyClientNotFound:
 
         self.message = message
 
-    def scroll(self, *args, **kwargs):
+    def scroll(self, *args: Any, **kwargs: Any) -> tuple[list[Any], None]:
         """抛出 collection 不存在异常。
 
         Args:
@@ -121,7 +128,7 @@ class DummyClientNotFound:
 class DummyVectorStore:
     """最小化的 vector_store 桩对象。"""
 
-    def __init__(self, client, collection_name: str = "memory_bench_global") -> None:
+    def __init__(self, client: Any, collection_name: str = "memory_bench_global") -> None:
         """保存客户端与集合名。
 
         Args:
@@ -136,7 +143,7 @@ class DummyVectorStore:
 class DummyMemory:
     """最小化的 Memory 桩对象。"""
 
-    def __init__(self, vector_store, collection_name: str | None = None) -> None:
+    def __init__(self, vector_store: Any, collection_name: str | None = None) -> None:
         """保存 vector_store 与可选 collection_name。
 
         Args:
