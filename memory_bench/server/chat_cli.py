@@ -22,7 +22,7 @@ import argparse
 import os
 from pathlib import Path
 
-import httpx
+import httpx  # type: ignore[reportUnknownVariableType]
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -45,11 +45,11 @@ _ASSISTANT_PROMPT = "congyin"
 def _load_dotenv() -> None:
     """Load memory_bench/.env.benchmark if present."""
     try:
-        from dotenv import load_dotenv
+        from dotenv import load_dotenv  # type: ignore[reportMissingImports,reportUnknownVariableType]
     except ImportError:
         return
     if _DOTENV_BENCHMARK_PATH.exists():
-        load_dotenv(dotenv_path=_DOTENV_BENCHMARK_PATH, override=True)
+        load_dotenv(dotenv_path=_DOTENV_BENCHMARK_PATH, override=True)  # type: ignore[reportUnknownArgumentType]
 
 
 def _get_env(name: str, default: str | None = None) -> str | None:
@@ -96,19 +96,19 @@ def _send_chat(
     # Create new client per request to avoid keep-alive issues.
     # Use trust_env=False to completely ignore HTTP_PROXY/HTTPS_PROXY
     # environment variables, ensuring localhost traffic bypasses tun/Clash.
-    with httpx.Client(http2=False, trust_env=False) as client:
+    with httpx.Client(http2=False, trust_env=False) as client:  # type: ignore[reportUnknownMemberType,reportUnknownVariableType]
         try:
-            resp = client.post(
+            resp = client.post(  # type: ignore[reportUnknownMemberType]
                 f"{base_url.rstrip('/')}/v1/chat/completions",
                 json=payload,
                 headers=headers,
                 timeout=120.0,
             )
-        except httpx.ConnectError as exc:
-            raise httpx.ConnectError(f"Cannot connect to {base_url}: {exc}") from exc
+        except httpx.ConnectError as exc:  # type: ignore[reportUnknownMemberType,reportUnknownVariableType]
+            raise httpx.ConnectError(f"Cannot connect to {base_url}: {exc}") from exc  # type: ignore[reportUnknownMemberType]
 
-        resp.raise_for_status()
-        data = resp.json()
+        resp.raise_for_status()  # type: ignore[reportUnknownMemberType]
+        data = resp.json()  # type: ignore[reportUnknownMemberType]
 
         choices = data.get("choices", [])
         if not choices:
@@ -151,11 +151,11 @@ def _run_repl(
 
         try:
             reply = _send_chat(base_url, messages, api_key)
-        except httpx.HTTPStatusError as exc:
-            print(f"\u274c HTTP {exc.response.status_code}: {exc.response.text}")
+        except httpx.HTTPStatusError as exc:  # type: ignore[reportUnknownMemberType,reportUnknownVariableType]
+            print(f"\u274c HTTP {exc.response.status_code}: {exc.response.text}")  # type: ignore[reportUnknownMemberType]
             messages.pop()  # remove failed user message
             continue
-        except httpx.ConnectError:
+        except httpx.ConnectError:  # type: ignore[reportUnknownMemberType]
             print(
                 f"\u274c Cannot connect to {base_url} — is the server running?"
                 "\n   Start it with: just memory-chat-server"
@@ -207,7 +207,7 @@ def main() -> None:
     _load_dotenv()
     args = _build_parser().parse_args()
 
-    base_url = args.base_url or _get_env("CHAT_CLI_BASE_URL", _DEFAULT_BASE_URL)
+    base_url = args.base_url or _get_env("CHAT_CLI_BASE_URL", _DEFAULT_BASE_URL) or _DEFAULT_BASE_URL
     api_key = args.api_key or _get_env("CHAT_SERVER_API_KEY")
 
     # Build system prompt

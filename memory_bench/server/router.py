@@ -19,11 +19,16 @@ import hashlib
 import json
 import time
 import uuid
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from fastapi import (  # type: ignore[reportMissingImports,reportUnknownVariableType]
+    APIRouter,
+    Depends,
+    HTTPException,
+    Request,
+)
+from fastapi.responses import JSONResponse  # type: ignore[reportMissingImports,reportUnknownVariableType]
+from pydantic import BaseModel, Field  # type: ignore[reportMissingImports,reportUnknownVariableType]
 
 from memory_bench.scripts.bench_logger import logger
 
@@ -35,7 +40,7 @@ from memory_bench.server.neo4j_queries import (
 )
 
 if TYPE_CHECKING:
-    from openai import OpenAI
+    from openai import OpenAI  # type: ignore[reportMissingImports]
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -105,7 +110,7 @@ class ServerState:
     """Mutable singleton holding initialised clients and config."""
 
     mem0: Any = None
-    openai_client: OpenAI | None = None
+    openai_client: OpenAI | None = None  # type: ignore[reportUnknownVariableType]
     chat_model: str = ""
     user_id: str = _DEFAULT_USER_ID
     agent_id: str = _DEFAULT_AGENT_ID
@@ -113,7 +118,7 @@ class ServerState:
     api_key: str | None = None  # If set, require Bearer token auth
 
     # --- Graph pipeline (Sub-3) ---
-    claim_llm_client: OpenAI | None = None  # LLM for claim extraction (can differ from chat)
+    claim_llm_client: OpenAI | None = None  # type: ignore[reportUnknownVariableType]
     claim_llm_model: str = ""  # Model name for claim extraction
     graph_pipeline_enabled: bool = False  # Set True when claim LLM is configured
     neo4j_container: str = "membench-neo4j-mem0"
@@ -170,9 +175,10 @@ def _search_memories(query: str) -> list[dict[str, Any]]:
             limit=state.search_limit,
         )
         if isinstance(results, dict):
-            return results.get("results", [])
+            results_dict = cast("dict[str, Any]", results)
+            return cast("list[Any]", results_dict.get("results", []))
         if isinstance(results, list):
-            return results
+            return cast("list[Any]", results)
     except Exception:
         pass
     return []
@@ -391,7 +397,7 @@ def _add_memory_sync(user_msg: str, assistant_msg: str) -> list[dict[str, Any]]:
             metadata={"scene_id": "chill_ai_chat", "character_id": state.agent_id},
         )
         # Log what mem0 actually stored
-        results = result.get("results", []) if isinstance(result, dict) else []
+        results = cast("list[Any]", result.get("results", [])) if isinstance(result, dict) else []  # type: ignore[reportUnknownMemberType]
         if results:
             for item in results:
                 event = item.get("event", "unknown")
@@ -434,9 +440,9 @@ def _graph_pipeline_sync(mem0_results: list[dict[str, Any]]) -> None:
     try:
         # Step 1: Extract claims
         records = extract_claims(
-            openai_client=state.claim_llm_client,
+            openai_client=state.claim_llm_client,  # type: ignore[reportUnknownMemberType]
             model=state.claim_llm_model,
-            mem0_results=mem0_results,
+            mem0_results=mem0_results,  # type: ignore[reportArgumentType]
             scene_id="chill_ai_chat",
             agent_id=state.agent_id,
             user_id=state.user_id,
@@ -488,13 +494,13 @@ async def _memory_and_graph_background(user_msg: str, assistant_msg: str) -> Non
 # Router
 # ---------------------------------------------------------------------------
 
-router = APIRouter()
+router = APIRouter()  # type: ignore[reportUnknownVariableType]
 
 
-@router.post("/v1/chat/completions", dependencies=[Depends(_verify_api_key)])
-async def chat_completions(request: ChatCompletionRequest) -> JSONResponse:
+@router.post("/v1/chat/completions", dependencies=[Depends(_verify_api_key)])  # type: ignore[reportUnknownMemberType,reportUntypedFunctionDecorator]
+async def chat_completions(request: ChatCompletionRequest) -> JSONResponse:  # type: ignore[reportUnknownParameterType]
     """OpenAI-compatible chat completions with memory augmentation."""
-    if state.openai_client is None:
+    if state.openai_client is None:  # type: ignore[reportUnknownMemberType]
         raise HTTPException(status_code=503, detail="Server not initialized")
     if request.stream:
         raise HTTPException(status_code=400, detail="Streaming is not supported yet")
@@ -523,9 +529,9 @@ async def chat_completions(request: ChatCompletionRequest) -> JSONResponse:
     model = request.model or state.chat_model
     log.info("\U0001f4e4 Forwarding to LLM: %s (tokens: max=%d)", model, request.max_tokens or 2000)
     try:
-        completion = state.openai_client.chat.completions.create(
+        completion = state.openai_client.chat.completions.create(  # type: ignore[reportUnknownMemberType]
             model=model,
-            messages=[{"role": m.role, "content": m.content} for m in augmented],
+            messages=[{"role": m.role, "content": m.content} for m in augmented],  # type: ignore[reportArgumentType]
             temperature=request.temperature if request.temperature is not None else 0.7,
             max_completion_tokens=request.max_tokens or 2000,
         )
@@ -537,30 +543,30 @@ async def chat_completions(request: ChatCompletionRequest) -> JSONResponse:
         log.error("%s", traceback.format_exc())
         raise HTTPException(status_code=502, detail=f"LLM provider error: {type(exc).__name__}: {exc}") from exc
 
-    assistant_content = completion.choices[0].message.content or ""
+    assistant_content = completion.choices[0].message.content or ""  # type: ignore[reportUnknownMemberType,reportUnknownVariableType]
 
     # 5. Async write-back + graph pipeline (user + assistant only, no system prompt)
     if latest_user_msg and assistant_content:
         log.info("\U0001f4be Queued memory write-back + graph pipeline (async)")
-        asyncio.create_task(_memory_and_graph_background(latest_user_msg, assistant_content))
+        asyncio.create_task(_memory_and_graph_background(latest_user_msg, assistant_content))  # type: ignore[reportUnknownArgumentType]
 
     # 6. Response
     resp = ChatCompletionResponse(
         model=model,
         choices=[ChatCompletionChoice(message=ChatMessage(role="assistant", content=assistant_content))],
         usage=UsageInfo(
-            prompt_tokens=getattr(completion.usage, "prompt_tokens", 0) or 0,
-            completion_tokens=getattr(completion.usage, "completion_tokens", 0) or 0,
-            total_tokens=getattr(completion.usage, "total_tokens", 0) or 0,
+            prompt_tokens=getattr(completion.usage, "prompt_tokens", 0) or 0,  # type: ignore[reportUnknownMemberType,reportUnknownArgumentType]
+            completion_tokens=getattr(completion.usage, "completion_tokens", 0) or 0,  # type: ignore[reportUnknownMemberType,reportUnknownArgumentType]
+            total_tokens=getattr(completion.usage, "total_tokens", 0) or 0,  # type: ignore[reportUnknownMemberType,reportUnknownArgumentType]
         ),
     )
-    return JSONResponse(content=json.loads(resp.model_dump_json()))
+    return JSONResponse(content=json.loads(resp.model_dump_json()))  # type: ignore[reportUnknownMemberType,reportUnknownArgumentType]
 
 
-@router.get("/v1/models")
-async def list_models() -> JSONResponse:
+@router.get("/v1/models")  # type: ignore[reportUnknownMemberType,reportUntypedFunctionDecorator]
+async def list_models() -> JSONResponse:  # type: ignore[reportUnknownParameterType,reportUnknownVariableType]
     """Minimal /v1/models endpoint for compatibility."""
-    return JSONResponse(
+    return JSONResponse(  # type: ignore[reportUnknownArgumentType]
         content={
             "object": "list",
             "data": [{"id": state.chat_model, "object": "model", "owned_by": "memory-chat-server"}],
@@ -568,14 +574,14 @@ async def list_models() -> JSONResponse:
     )
 
 
-@router.get("/health")
-async def health() -> JSONResponse:
+@router.get("/health")  # type: ignore[reportUnknownMemberType,reportUntypedFunctionDecorator]
+async def health() -> JSONResponse:  # type: ignore[reportUnknownParameterType,reportUnknownVariableType]
     """Health check."""
-    return JSONResponse(
+    return JSONResponse(  # type: ignore[reportUnknownArgumentType]
         content={
             "status": "ok",
             "mem0_ready": state.mem0 is not None,
-            "llm_ready": state.openai_client is not None,
+            "llm_ready": state.openai_client is not None,  # type: ignore[reportUnknownMemberType]
             "model": state.chat_model,
             "graph_pipeline_enabled": state.graph_pipeline_enabled,
             "claim_llm_model": state.claim_llm_model or None,

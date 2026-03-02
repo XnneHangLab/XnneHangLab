@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 
 def _utc_timestamp() -> str:
@@ -14,7 +14,7 @@ def _utc_timestamp() -> str:
     Returns:
         UTC 时间戳字符串（如 "2026-02-28T07:05:18Z"）
     """
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def create_metadata_nodes_cypher(

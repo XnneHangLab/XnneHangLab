@@ -222,7 +222,7 @@ class CheckpointData:
     input_mtime: float
     ingested_count: int = 0
     last_conv_id: str | None = None
-    stats: dict[str, int] = field(default_factory=dict)
+    stats: ReplayStats = field(default_factory=ReplayStats)  # type: ignore[reportUnknownVariableType]
 
     def to_dict(self) -> dict[str, Any]:
         """转换为字典。
