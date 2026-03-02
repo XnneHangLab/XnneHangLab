@@ -13,10 +13,10 @@ from typing import Any
 
 from memory_bench.scripts.bench_logger import logger
 from memory_bench.typing.events import (
+    REQUIRED_EVENT_KEYS,
     ChapterJob,
     Event,
     JobResult,
-    REQUIRED_EVENT_KEYS,
 )
 
 # 向后兼容别名
@@ -104,19 +104,19 @@ def load_index(repo_root: Path) -> list[dict[str, Any]]:
     """
 
     from pydantic import TypeAdapter
-    
+
     from memory_bench.typing.index import IndexEntry
-    
+
     index_path = repo_root / "memory_bench" / "data" / "source" / "index.json"
     raw_text = index_path.read_text(encoding="utf-8")
-    
+
     # 使用 TypeAdapter 解析 list[IndexEntry]
     adapter = TypeAdapter(list[IndexEntry])
     try:
         entries = adapter.validate_json(raw_text)
     except Exception as exc:
         raise AnnotationError(f"index.json 解析失败：{exc}") from exc
-    
+
     # 转换为 dict 列表（向后兼容）
     return [entry.model_dump() for entry in entries]
 
@@ -346,15 +346,13 @@ def validate_event_line(
     Raises:
         AnnotationError: 当字段缺失、类型错误或业务规则不满足时抛出。
     """
-    
+
     # Step 1: 使用 pydantic 进行 schema 验证
     try:
         event = Event.model_validate(obj)
     except Exception as exc:
-        raise AnnotationError(
-            f"{_error_prefix(conv_id, file_line)} schema validation failed: {exc}"
-        ) from exc
-    
+        raise AnnotationError(f"{_error_prefix(conv_id, file_line)} schema validation failed: {exc}") from exc
+
     # Step 2: 检查 ID 一致性
     for field, expected in (
         ("conv_id", conv_id),
@@ -366,14 +364,14 @@ def validate_event_line(
             raise AnnotationError(
                 f"{_error_prefix(conv_id, file_line)} id mismatch (field={field!r}, expected={expected!r}, got={got!r})"
             )
-    
+
     # Step 3: 检查 turn_id 连续性
     if event.turn_id != expected_turn:
         raise AnnotationError(
             f"{_error_prefix(conv_id, file_line)} turn_id mismatch "
             f"(expected_turn_id={expected_turn}, got_turn_id={event.turn_id})"
         )
-    
+
     return event
 
 
@@ -413,7 +411,7 @@ def validate_jsonl_output(raw_output: str, conv_id: str, scene_id: str, characte
                 f"[{conv_id}] file_line={file_line}: invalid JSON "
                 f"(json_error={exc.msg!r}, col={exc.colno}, line_preview={_line_preview(line)!r})"
             ) from exc
-        
+
         # 使用 Event.model_validate() 进行验证
         validate_event_line(
             obj,
@@ -423,7 +421,7 @@ def validate_jsonl_output(raw_output: str, conv_id: str, scene_id: str, characte
             expected_turn=expected_turn,
             file_line=file_line,
         )
-        
+
         validated_lines.append(line)
         expected_turn += 1
 

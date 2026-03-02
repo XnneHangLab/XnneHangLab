@@ -15,7 +15,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-
 # 所有者类型
 OwnerType = Literal["Agent", "User"]
 """所有者类型：Agent 或 User。"""
@@ -23,9 +22,9 @@ OwnerType = Literal["Agent", "User"]
 
 class MemoryItem(BaseModel):
     """mem0 记忆项。
-    
+
     对应 mem0 返回的记忆结构，用于 ingest/probe/export 阶段。
-    
+
     Attributes:
         id: 记忆 ID（UUID 或 hash）
         memory: 记忆文本内容
@@ -36,7 +35,7 @@ class MemoryItem(BaseModel):
         created_at: 创建时间
         updated_at: 更新时间
         score: 检索分数（仅 probe 阶段）
-    
+
     Example:
         >>> item = MemoryItem(
         ...     id="mem:xxx",
@@ -45,7 +44,7 @@ class MemoryItem(BaseModel):
         ...     metadata={"conv_id": "ch00", "turn_id": 1}
         ... )
     """
-    
+
     id: str = Field(..., description="记忆 ID")
     memory: str = Field(..., description="记忆文本内容")
     user_id: str | None = Field(default=None, description="用户 ID")
@@ -55,37 +54,37 @@ class MemoryItem(BaseModel):
     created_at: datetime | None = Field(default=None, description="创建时间")
     updated_at: datetime | None = Field(default=None, description="更新时间")
     score: float | None = Field(default=None, description="检索分数（probe 阶段）")
-    
+
     @property
     def conv_id(self) -> str | None:
         """从 metadata 获取 conv_id。
-        
+
         Returns:
             str | None: conv_id 或 None
         """
         return self.metadata.get("conv_id")
-    
+
     @property
     def turn_id(self) -> int | None:
         """从 metadata 获取 turn_id。
-        
+
         Returns:
             int | None: turn_id 或 None
         """
         return self.metadata.get("turn_id")
-    
+
     @property
     def role_type(self) -> str | None:
         """从 metadata 获取 role_type。
-        
+
         Returns:
             str | None: role_type 或 None
         """
         return self.metadata.get("role_type")
-    
+
     def to_export_dict(self) -> dict[str, Any]:
         """转换为导出字典格式。
-        
+
         Returns:
             dict[str, Any]: 导出字典
         """
@@ -104,7 +103,7 @@ class MemoryItem(BaseModel):
 
 class ExportRecord(BaseModel):
     """导出记录（用于 export 子命令）。
-    
+
     Attributes:
         id: 记忆 ID
         payload: 完整 payload（含 memory, metadata 等）
@@ -114,7 +113,7 @@ class ExportRecord(BaseModel):
         owner_type: 所有者类型（Agent/User）
         owner_id: 所有者 ID
     """
-    
+
     id: str = Field(..., description="记忆 ID")
     payload: dict[str, Any] = Field(default_factory=dict, description="完整 payload")
     point_id: str = Field(..., description="Qdrant point ID")
@@ -122,10 +121,10 @@ class ExportRecord(BaseModel):
     created_at: datetime = Field(..., description="创建时间")
     owner_type: OwnerType = Field(..., description="所有者类型")
     owner_id: str = Field(..., description="所有者 ID")
-    
+
     def to_dict(self) -> dict[str, Any]:
         """转换为字典格式。
-        
+
         Returns:
             dict[str, Any]: 字典表示
         """
@@ -143,7 +142,7 @@ class ExportRecord(BaseModel):
 @dataclass
 class ReplayConfig:
     """replay_mem0 配置。
-    
+
     Attributes:
         llm_api_key: LLM API Key
         llm_base_url: LLM Base URL
@@ -157,7 +156,7 @@ class ReplayConfig:
         state_dir: 状态目录
         graph_store: 图谱存储后端（none/neo4j）
     """
-    
+
     llm_api_key: str
     llm_base_url: str
     llm_model: str
@@ -174,7 +173,7 @@ class ReplayConfig:
 @dataclass
 class ReplayStats:
     """记录 ingest/probe 执行统计信息。
-    
+
     Attributes:
         total_events: 总事件数
         ingested_events: 已 ingest 事件数
@@ -183,17 +182,17 @@ class ReplayStats:
         probe_hits: probe 命中数
         export_records: export 记录数
     """
-    
+
     total_events: int = 0
     ingested_events: int = 0
     skipped_events: int = 0
     probe_events: int = 0
     probe_hits: int = 0
     export_records: int = 0
-    
+
     def to_dict(self) -> dict[str, int]:
         """转换为字典。
-        
+
         Returns:
             dict[str, int]: 统计数字典
         """
@@ -210,7 +209,7 @@ class ReplayStats:
 @dataclass
 class CheckpointData:
     """checkpoint 数据结构。
-    
+
     Attributes:
         input_sha256: 输入文件 SHA256
         input_mtime: 输入文件修改时间
@@ -218,16 +217,16 @@ class CheckpointData:
         last_conv_id: 最后一个处理的 conv_id
         stats: 统计信息
     """
-    
+
     input_sha256: str
     input_mtime: float
     ingested_count: int = 0
     last_conv_id: str | None = None
     stats: dict[str, int] = field(default_factory=dict)
-    
+
     def to_dict(self) -> dict[str, Any]:
         """转换为字典。
-        
+
         Returns:
             dict[str, Any]: 字典表示
         """
@@ -238,14 +237,14 @@ class CheckpointData:
             "last_conv_id": self.last_conv_id,
             "stats": self.stats,
         }
-    
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> CheckpointData:
         """从字典创建。
-        
+
         Args:
             data: 字典数据
-            
+
         Returns:
             CheckpointData: checkpoint 对象
         """
@@ -260,10 +259,10 @@ class CheckpointData:
 
 def build_event_metadata(event: dict[str, Any]) -> dict[str, Any]:
     """从事件对象提取写入 Mem0 所需的元数据字段。
-    
+
     Args:
         event: 单条事件对象。
-        
+
     Returns:
         dict[str, Any]: 用于写入与溯源的 metadata。
     """
@@ -271,7 +270,7 @@ def build_event_metadata(event: dict[str, Any]) -> dict[str, Any]:
     meta = meta_raw if isinstance(meta_raw, dict) else {}
     tags_raw = event.get("tags", [])
     tags = [str(tag) for tag in tags_raw] if isinstance(tags_raw, list) else []
-    
+
     return {
         "scene_id": event.get("scene_id"),
         "character_id": event.get("character_id"),
