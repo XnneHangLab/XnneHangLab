@@ -289,7 +289,7 @@ touch memory_bench/typing/common.py
 | Phase | 模块 | 覆盖文件 | 状态 | 预计错误减少 |
 |-------|------|----------|------|-------------|
 | 1 | `typing/index.py` | `build_index.py` | ✅ 完成 | ~0 (已用 TypedDict) |
-| 2 | `typing/events.py` | `annotate_all.py` | ⏳ 进行中 | ~11 |
+| 2 | `typing/events.py` | `annotate_all.py` | ✅ 完成 | ~11 |
 | 3 | `typing/claims.py` | `compiled_claims.py`, `claimify_all.py` | ⏳ 待开始 | ~56 |
 | 4 | `typing/memory.py` | `mem0_to_graph.py`, `replay_mem0.py` | ⏳ 待开始 | ~51 |
 | 5 | `typing/neo4j.py` | `graph_to_cypher.py`, `graph_writer.py` | ⏳ 待开始 | ~18 |
@@ -323,6 +323,42 @@ uv run memory_bench/scripts/build_index.py --limit 2
 ```
 
 **pyright 状态**: 由于 pydantic 插件未配置，部分 pydantic 方法报告 unknown，但运行时正常。后续可通过配置 pydantic pyright 插件改善。
+
+---
+
+## ✅ Phase 2 完成总结
+
+**完成时间**: 2026-03-02
+
+**修改内容**:
+1. 实现 `typing/events.py`:
+   - `Event` BaseModel（带字段验证）
+   - `EventMeta` BaseModel（灵活 dict 包装）
+   - `RoleType`, `EventTag` Literal 类型
+   - `ChapterJob`, `JobResult` dataclass
+   - `validate_event_tags()` 工具函数
+2. 更新 `annotate_all.py`:
+   - 移除重复的 `ChapterJob`/`JobResult` 定义，使用 typing 模块
+   - 重写 `validate_event_line()`: 使用 `Event.model_validate()` 替代手动校验
+   - 更新 `load_index()`: 使用 `TypeAdapter(list[IndexEntry])` 解析
+   - 移除未使用的 import（`ALLOWED_ROLE_TYPES`, `ALLOWED_TAGS`, `validate_event_tags`）
+
+**pyright 验证**:
+```bash
+uv run pyright memory_bench/scripts/annotate_all.py
+# 0 errors, 0 warnings, 0 informations ✅
+```
+
+**运行验证**:
+```bash
+uv run memory_bench/scripts/annotate_all.py --help
+# ✅ 帮助信息正常
+```
+
+**关键改进**:
+- 手动校验逻辑（~80 行）→ pydantic 自动验证（~10 行）
+- `dict[str, Any]` → `Event` 强类型
+- 运行时错误提前到 schema 验证阶段捕获
 
 ---
 
