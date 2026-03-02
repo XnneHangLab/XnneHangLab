@@ -42,8 +42,8 @@ jobs:
           just ci-install
 
       - name: lint
-       run: |
-         just ci-lint
+        run: |
+          just ci-lint
 
       - name: format check
         run: |
