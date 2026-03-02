@@ -1820,7 +1820,7 @@ def main() -> int:
     args = parse_args()
     repo_root = Path(__file__).resolve().parents[2]
     load_benchmark_dotenv(repo_root)
-    config:ReplayConfig = prepare_mem0_env()
+    config: ReplayConfig = prepare_mem0_env()
     llm_api_key = config.llm_api_key
     llm_base_url = config.llm_base_url
     llm_model = config.llm_model

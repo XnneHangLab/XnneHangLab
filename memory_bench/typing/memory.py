@@ -222,7 +222,7 @@ class CheckpointData:
     input_mtime: float
     ingested_count: int = 0
     last_conv_id: str | None = None
-    stats: dict[str, int] = field(default_factory=dict)
+    stats: ReplayStats = field(default_factory=ReplayStats)
 
     def to_dict(self) -> dict[str, Any]:
         """转换为字典。
@@ -253,7 +253,7 @@ class CheckpointData:
             input_mtime=data.get("input_mtime", 0.0),
             ingested_count=data.get("ingested_count", 0),
             last_conv_id=data.get("last_conv_id"),
-            stats=data.get("stats", {}),
+            stats=ReplayStats(**data.get("stats", {})) if isinstance(data.get("stats", {}), dict) else ReplayStats(),
         )
 
 
