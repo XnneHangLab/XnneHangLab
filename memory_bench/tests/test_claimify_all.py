@@ -13,7 +13,7 @@ if str(ROOT) not in sys.path:
 from memory_bench.scripts.claimify_all import (  # noqa: E402
     ClaimifyError,
     ParsedMemoryLine,
-    _canonicalize_tag_records,
+    _canonicalize_tag_records,  # type: ignore[reportPrivateUsage]
     chunk_items,
     normalize_records,
     validate_jsonl_output,
@@ -126,7 +126,7 @@ def test_tag_canonicalize_entity_and_claim_object_rewrite() -> None:
         },
     ]
 
-    out = _canonicalize_tag_records(objs)
+    out = _canonicalize_tag_records(objs) # type: ignore[reportPrivateUsage]
     tag_entity = next(obj for obj in out if obj["record_type"] == "entity")
     claim = next(obj for obj in out if obj["record_type"] == "claim")
 

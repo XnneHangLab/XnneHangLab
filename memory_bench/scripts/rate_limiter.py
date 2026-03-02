@@ -117,7 +117,7 @@ def get_llm_limiter() -> LLMRateLimiter:
                 if _global_limiter.enabled:
                     logger.bind(group="rate_limit").info(
                         f"LLM rate limiter initialized: {rpm} requests/min "
-                        f"(min interval: {_global_limiter._min_interval:.2f}s)"
+                        f"(min interval: {_global_limiter._min_interval:.2f}s)"  # type: ignore[reportPrivateUsage]
                     )
                 else:
                     logger.bind(group="rate_limit").debug(

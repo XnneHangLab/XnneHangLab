@@ -759,7 +759,7 @@ uv run memory_bench/scripts/neo4j_clear.py --dry-run
 
 ### 设计决策
 
-- **复用离线模块**：`claims_to_graph.build_graph()` 构图 + `graph_to_cypher._build_node_merge()/_build_edge_merge()` 生成 Cypher，零重复逻辑
+- **复用离线模块**：`claims_to_graph.build_graph()` 构图 + `graph_to_cypher.build_node_merge()/build_edge_merge()` 生成 Cypher，零重复逻辑
 - **同执行路径**：与 `neo4j_apply_cypher.py` 一样用 `docker exec cypher-shell`，不引入 `neo4j` Python driver 新依赖
 - **优雅降级**：Docker 不可用 / Neo4j 挂了 → 记日志 + 返回，不阻塞对话
 - **幂等约束**：首次写入前自动 `CREATE CONSTRAINT ... IF NOT EXISTS`

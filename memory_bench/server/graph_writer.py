@@ -11,7 +11,7 @@ Cypher statements directly against a Neo4j container via
 Design decisions
 ----------------
 - **Reuse offline modules**: ``claims_to_graph.build_graph()`` for Graph IR
-  construction and ``graph_to_cypher._build_node_merge()/_build_edge_merge()``
+  construction and ``graph_to_cypher.build_node_merge()/build_edge_merge()``
   for Cypher generation — no duplicated logic.
 - **Same execution path**: Uses ``docker exec cypher-shell`` just like
   ``neo4j_apply_cypher.py``, avoiding a new ``neo4j`` Python driver dependency.
@@ -32,8 +32,8 @@ from typing import Any
 from memory_bench.scripts.bench_logger import logger
 from memory_bench.scripts.claims_to_graph import build_graph
 from memory_bench.scripts.graph_to_cypher import (
-    _build_edge_merge,
-    _build_node_merge,
+    build_edge_merge,
+    build_node_merge,
 )
 
 GROUP = "graph_writer"
@@ -234,7 +234,7 @@ def write_to_neo4j(
     node_stmts: list[str] = []
     nodes_skipped = 0
     for node in graph_result.nodes:
-        stmt = _build_node_merge(node)
+        stmt = build_node_merge(node)
         if stmt is None:
             nodes_skipped += 1
             continue
@@ -243,7 +243,7 @@ def write_to_neo4j(
     edge_stmts: list[str] = []
     edges_skipped = 0
     for edge in graph_result.edges:
-        stmt = _build_edge_merge(edge)
+        stmt = build_edge_merge(edge)
         if stmt is None:
             edges_skipped += 1
             continue

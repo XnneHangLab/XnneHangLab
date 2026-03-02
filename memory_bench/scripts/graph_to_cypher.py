@@ -238,7 +238,7 @@ def _build_constraints_cypher(edge_types: list[str]) -> str:
     return "\n".join(lines)
 
 
-def _build_node_merge(node: dict[str, Any]) -> str | None:
+def build_node_merge(node: dict[str, Any]) -> str | None:
     """构建单条节点导入语句。
 
     Args:
@@ -262,7 +262,7 @@ def _build_node_merge(node: dict[str, Any]) -> str | None:
     )
 
 
-def _build_edge_merge(edge: dict[str, Any]) -> str | None:
+def build_edge_merge(edge: dict[str, Any]) -> str | None:
     """构建单条关系导入语句。
 
     Args:
@@ -343,7 +343,7 @@ def run_export(nodes_path: Path, edges_path: Path, out_dir: Path, prefix: str, d
     edge_merges: list[str] = []
 
     for node in node_rows:
-        merge_stmt = _build_node_merge(node)
+        merge_stmt = build_node_merge(node)
         if merge_stmt is None:
             stats["skipped_invalid_node"] += 1
             continue
@@ -353,7 +353,7 @@ def run_export(nodes_path: Path, edges_path: Path, out_dir: Path, prefix: str, d
             nodes_by_label[label] += 1
 
     for edge in edge_rows:
-        merge_stmt = _build_edge_merge(edge)
+        merge_stmt = build_edge_merge(edge)
         if merge_stmt is None:
             stats["skipped_invalid_edge"] += 1
             continue
