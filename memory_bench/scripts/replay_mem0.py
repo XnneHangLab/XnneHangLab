@@ -1535,17 +1535,14 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
             stats.skipped_events += 1
 
         if since_last_checkpoint >= args.checkpoint_interval and last_ingested_event is not None:
-            save_checkpoint(
-                checkpoint_path,
-                {
-                    "backend": "mem0",
-                    "input_file": str(input_path),
-                    "input_file_hash": file_hash,
-                    "last_ingested_line": last_ingested_line,
-                    "last_ingested_event": last_ingested_event,
-                    "updated_at": now_iso(),
-                },
+            checkpoint_data = CheckpointData(
+                input_sha256=file_hash,
+                input_mtime=input_path.stat().st_mtime,
+                ingested_count=last_ingested_line or 0,
+                last_conv_id=last_ingested_event.get("conv_id") if last_ingested_event else None,
+                stats={"last_ingested_line": last_ingested_line or 0},
             )
+            save_checkpoint(checkpoint_path, checkpoint_data)
             since_last_checkpoint = 0
 
     # NOTE: 如果整个文件只有一个 conv_id，循环内不会触发 flush，
@@ -1567,17 +1564,14 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
     replay_progress.close()
 
     if stats.ingested_events > 0:
-        save_checkpoint(
-            checkpoint_path,
-            {
-                "backend": "mem0",
-                "input_file": str(input_path),
-                "input_file_hash": file_hash,
-                "last_ingested_line": last_ingested_line,
-                "last_ingested_event": last_ingested_event,
-                "updated_at": now_iso(),
-            },
+        checkpoint_data = CheckpointData(
+            input_sha256=file_hash,
+            input_mtime=input_path.stat().st_mtime,
+            ingested_count=last_ingested_line or 0,
+            last_conv_id=last_ingested_event.get("conv_id") if last_ingested_event else None,
+            stats={"last_ingested_line": last_ingested_line or 0, "ingested_events": stats.ingested_events},
         )
+        save_checkpoint(checkpoint_path, checkpoint_data)
 
     logger.bind(group="memory").info(
         "Ingest done: "
