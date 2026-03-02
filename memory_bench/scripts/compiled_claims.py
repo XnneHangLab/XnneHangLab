@@ -10,13 +10,15 @@ from __future__ import annotations
 import argparse
 import json
 import time
-from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from memory_bench.scripts.bench_logger import logger
 from memory_bench.typing.claims import Claim, Entity, EvidenceItem
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 ALLOWED_RECORD_TYPES = {"entity", "claim"}
 # REQUIRED_ENTITY_FIELDS 和 REQUIRED_CLAIM_FIELDS 已由 pydantic 模型替代
