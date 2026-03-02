@@ -32,7 +32,7 @@ def build_index(repo_root: Path) -> tuple[list[IndexEntry], list[str]]:
     raw_dir = repo_root / "memory_bench" / "data" / "source" / "raw"
     norm_dir = repo_root / "memory_bench" / "data" / "source" / "norm"
 
-    index, warnings = build_index_from_dir(raw_dir, norm_dir)
+    index, _ = build_index_from_dir(raw_dir, norm_dir)
 
     # 添加详细警告信息
     detailed_warnings: list[str] = []
