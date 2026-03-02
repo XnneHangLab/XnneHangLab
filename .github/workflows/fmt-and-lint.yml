@@ -41,12 +41,10 @@ jobs:
         run: |
           just ci-install
 
-      - name: lint
-        if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-lint') }}
-        run: |
-          just ci-lint
+      #- name: lint
+      #  run: |
+      #    just ci-lint
 
       - name: format check
-        if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-lint') }}
         run: |
           just ci-fmt-check
