@@ -535,7 +535,7 @@ def add_memory_batch(
         results: Any = result.get("results", [])  # type: ignore[unknown]
         added = len(results) if isinstance(results, list) else -1  # type: ignore[reportUnknownArgumentType]
     elif isinstance(result, list):
-        added = len(result)
+        added = len(result) # type: ignore[reportUnknownArgumentType]
     else:
         added = -1
 
@@ -693,7 +693,7 @@ def add_memory_entry(
         results: Any = result.get("results", [])  # type: ignore[unknown]
         added = len(results) if isinstance(results, list) else -1  # type: ignore[reportUnknownArgumentType]
     elif isinstance(result, list):
-        added = len(result)
+        added = len(result) # type: ignore[reportUnknownArgumentType]
     else:
         added = -1
 
@@ -1547,7 +1547,7 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
                 input_mtime=input_path.stat().st_mtime,
                 ingested_count=last_ingested_line or 0,
                 last_conv_id=last_ingested_event.get("conv_id") if last_ingested_event else None,
-                stats={"last_ingested_line": last_ingested_line or 0},
+                stats={"last_ingested_line": last_ingested_line or 0}, # type: ignore[dict-item]
             )
             save_checkpoint(checkpoint_path, checkpoint_data)
             since_last_checkpoint = 0
@@ -1576,7 +1576,7 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
             input_mtime=input_path.stat().st_mtime,
             ingested_count=last_ingested_line or 0,
             last_conv_id=last_ingested_event.get("conv_id") if last_ingested_event else None,
-            stats={"last_ingested_line": last_ingested_line or 0, "ingested_events": stats.ingested_events},
+            stats={"last_ingested_line": last_ingested_line or 0, "ingested_events": stats.ingested_events}, # type: ignore[dict-item]
         )
         save_checkpoint(checkpoint_path, checkpoint_data)
 
@@ -1742,10 +1742,10 @@ def export_collection_snapshot(
 
             for point in points:
                 point: Any = point  # type: ignore[unknown]
-                point_dict: dict[str, Any] = point if isinstance(point, dict) else {}
-                point_id = point_dict.get("id") if point_dict else getattr(point, "id", None)
-                payload = point_dict.get("payload") if point_dict else getattr(point, "payload", None)
-                payload_obj: dict[str, Any] = payload if isinstance(payload, dict) else {}
+                point_dict: dict[str, Any] = point if isinstance(point, dict) else {} # type: ignore[unknown]
+                point_id = point_dict.get("id") if point_dict else getattr(point, "id", None) # type: ignore[unknown]
+                payload = point_dict.get("payload") if point_dict else getattr(point, "payload", None) # type: ignore[unknown]
+                payload_obj: dict[str, Any] = payload if isinstance(payload, dict) else {} # type: ignore[unknown]
                 owner_type, owner_id, owner_infer, owner_turn_id, owner_bucket = infer_memory_owner(
                     payload_obj,
                     event_index=event_index,
