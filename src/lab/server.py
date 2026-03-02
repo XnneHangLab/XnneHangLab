@@ -82,6 +82,23 @@ async def lifespan(app: FastAPI):
             )
             logger.warning("继续启动应用，但本次运行工具调用功能将被禁用。")
 
+    # Memory bench router initialisation (配置完全隔离：从 memory_bench/.env.benchmark 加载)
+    if lab_settings.package.memory_bench:
+        try:
+            from memory_bench.server.router import state as memory_state  # type: ignore[reportMissingImports]
+            from memory_bench.server.startup import (
+                init_router_state,  # type: ignore[reportMissingImports]
+                load_memory_bench_env,  # type: ignore[reportMissingImports]
+                resolve_memory_bench_config,  # type: ignore[reportMissingImports]
+            )
+
+            load_memory_bench_env()
+            cfg = resolve_memory_bench_config()
+            init_router_state(memory_state, cfg)
+            logger.info("✅ memory_bench router initialized (mounted at /memory)")
+        except Exception as exc:
+            logger.warning("⚠️ memory_bench router init failed: %s — /memory endpoints will be unavailable", exc)
+
     yield
 
     logger.info("Application shutdown: lifespan cleanup completed.")
@@ -122,6 +139,10 @@ class WebSocketServer:
             from lab.api.routes.gpt_sovits_v2 import router as gsv_v2_router
 
             self.app.include_router(gsv_v2_router)
+        if lab_settings.package.memory_bench:
+            from memory_bench.server.router import router as memory_router  # type: ignore[reportMissingImports]
+
+            self.app.include_router(memory_router, prefix="/memory")
 
         # Mount static files
         logger.info(f"Mounting static files from {ROOT_DIR}")

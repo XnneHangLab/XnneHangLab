@@ -157,6 +157,7 @@ class Packages(TypedDict):
     to_do_list: bool
     yutto_uiya: bool
     gpt_sovits: bool
+    memory_bench: bool  # 是否挂载 memory_bench 记忆服务
 
 
 class AudioSessionStateKeys(TypedDict):
