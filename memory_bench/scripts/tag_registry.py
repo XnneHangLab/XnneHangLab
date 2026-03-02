@@ -7,7 +7,7 @@ import json
 import re
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -57,9 +57,10 @@ def load_tag_registry(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {"version": 1, "updated_at": _now_iso(), "tags": []}
 
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
+    data_raw = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data_raw, dict):
         return {"version": 1, "updated_at": _now_iso(), "tags": []}
+    data = cast("dict[str, Any]", data_raw)
     tags = data.get("tags")
     if not isinstance(tags, list):
         data["tags"] = []
@@ -134,15 +135,18 @@ def update_registry_from_records(registry: dict[str, Any], records: list[dict[st
     """
 
     tags = registry.setdefault("tags", [])
-    tag_by_id = {
-        str(item.get("tag_id")): item for item in tags if isinstance(item, dict) and isinstance(item.get("tag_id"), str)
+    tag_by_id: dict[str, dict[str, Any]] = {
+        str(cast("dict[str, Any]", item).get("tag_id")): cast("dict[str, Any]", item)
+        for item in tags
+        if isinstance(item, dict) and isinstance(cast("dict[str, Any]", item).get("tag_id"), str)
     }
     now = _now_iso()
 
     for obj in records:
         if obj.get("record_type") != "entity" or obj.get("entity_type") != "Tag":
             continue
-        props = obj.get("props") if isinstance(obj.get("props"), dict) else {}
+        props_raw = obj.get("props")
+        props = cast("dict[str, Any]", props_raw) if isinstance(props_raw, dict) else {}
         raw_name = props.get("name") or props.get("display") or obj.get("entity_id", "")
         if isinstance(raw_name, str) and raw_name.startswith("tag:"):
             raw_name = raw_name[4:]
@@ -168,7 +172,7 @@ def update_registry_from_records(registry: dict[str, Any], records: list[dict[st
         entry.setdefault("first_seen_at", now)
         entry["last_seen_at"] = now
 
-    tags.sort(key=lambda item: str(item.get("tag_id", "")))
+    tags.sort(key=lambda item: str(cast("dict[str, Any]", item).get("tag_id", "")))  # type: ignore[reportUnknownLambdaType]
     return registry
 
 
@@ -184,9 +188,10 @@ def select_topk_tags_for_chunk(registry: dict[str, Any], chunk_text: str, k: int
         list[dict[str, Any]]: 候选列表，元素至少包含 `tag_id` 与 `name`。
     """
 
-    tags = registry.get("tags") if isinstance(registry, dict) else []
-    if not isinstance(tags, list):
+    tags_raw = registry.get("tags")
+    if not isinstance(tags_raw, list):
         return []
+    tags = cast("list[Any]", tags_raw)
 
     text = chunk_text or ""
     text_l = text.lower()
@@ -196,8 +201,9 @@ def select_topk_tags_for_chunk(registry: dict[str, Any], chunk_text: str, k: int
     for item in tags:
         if not isinstance(item, dict):
             continue
-        name = str(item.get("name", "")).strip()
-        tag_id = str(item.get("tag_id", "")).strip()
+        item_dict = cast("dict[str, Any]", item)
+        name = str(item_dict.get("name", "")).strip()
+        tag_id = str(item_dict.get("tag_id", "")).strip()
         if not name or not tag_id:
             continue
 
@@ -207,7 +213,7 @@ def select_topk_tags_for_chunk(registry: dict[str, Any], chunk_text: str, k: int
         else:
             score = SequenceMatcher(None, name_l, text_window).ratio() * 10
 
-        count = int(item.get("count", 0))
+        count = int(item_dict.get("count", 0))
         scored.append((score, count, {"tag_id": tag_id, "name": name}))
 
     scored.sort(key=lambda row: (-row[0], -row[1], row[2]["tag_id"]))
