@@ -16,6 +16,20 @@ Modules:
 
 from __future__ import annotations
 
+from .claims import (
+    ALLOWED_DOMAINS,
+    ALLOWED_ENTITY_TYPES,
+    ALLOWED_PREDICATES,
+    ALLOWED_STATUSES,
+    Claim,
+    ClaimStatus,
+    DomainType,
+    Entity,
+    EntityReference,
+    EntityType,
+    EvidenceItem,
+)
+
 # 按依赖顺序导入，避免循环引用
 from .common import (
     is_list_of_str,
@@ -42,19 +56,6 @@ from .memory import (
     ReplayConfig,
     ReplayStats,
     build_event_metadata,
-)
-from .claims import (
-    ALLOWED_DOMAINS,
-    ALLOWED_ENTITY_TYPES,
-    ALLOWED_PREDICATES,
-    ALLOWED_STATUSES,
-    Claim,
-    ClaimStatus,
-    DomainType,
-    Entity,
-    EntityReference,
-    EntityType,
-    EvidenceItem,
 )
 
 # 后续模块将在对应 Phase 中添加

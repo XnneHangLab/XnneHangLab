@@ -10,9 +10,10 @@ from __future__ import annotations
 import argparse
 import json
 import time
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Sequence, cast
+from typing import Any, cast
 
 from memory_bench.scripts.bench_logger import logger
 from memory_bench.typing.claims import Claim, Entity, EvidenceItem
