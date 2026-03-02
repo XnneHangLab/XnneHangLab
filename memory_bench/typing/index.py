@@ -105,8 +105,8 @@ class IndexSliceParams(BaseModel):
         >>> params.apply(index)  # 应用到索引列表
     """
     
-    limit: int | None = Field(default=None, ge=1, description="保留前 N 条")
-    tail: int | None = Field(default=None, ge=1, description="保留最后 N 条（优先于 limit）")
+    limit: int | None = Field(default=None, ge=0, description="保留前 N 条（0 表示不限制）")
+    tail: int | None = Field(default=None, ge=0, description="保留最后 N 条（优先于 limit，0 表示不限制）")
     offset: int | None = Field(default=None, ge=0, description="先跳过前 N 条")
     
     @field_validator("tail")
@@ -140,6 +140,7 @@ class IndexSliceParams(BaseModel):
             result = result[self.offset:]
         
         # 再 tail / limit（tail 优先）
+        # 注意：0 表示不限制，只有 >0 才生效
         if self.tail is not None and self.tail > 0:
             result = result[-self.tail:]
         elif self.limit is not None and self.limit > 0:
