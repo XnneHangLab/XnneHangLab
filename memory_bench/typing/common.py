@@ -13,10 +13,10 @@ from typing import Any, TypeGuard
 
 def is_str_dict(value: Any) -> TypeGuard[dict[str, Any]]:
     """检查是否为 dict[str, Any] 类型。
-    
+
     Args:
         value: 待检查的值
-        
+
     Returns:
         TypeGuard[dict[str, Any]]: 如果是 dict 则返回 True
     """
@@ -25,10 +25,10 @@ def is_str_dict(value: Any) -> TypeGuard[dict[str, Any]]:
 
 def is_non_empty_str(value: Any) -> TypeGuard[str]:
     """检查是否为非空字符串。
-    
+
     Args:
         value: 待检查的值
-        
+
     Returns:
         TypeGuard[str]: 如果是非空字符串则返回 True
     """
@@ -37,10 +37,10 @@ def is_non_empty_str(value: Any) -> TypeGuard[str]:
 
 def is_list_of_str(value: Any) -> TypeGuard[list[str]]:
     """检查是否为字符串列表。
-    
+
     Args:
         value: 待检查的值
-        
+
     Returns:
         TypeGuard[list[str]]: 如果是字符串列表则返回 True
     """

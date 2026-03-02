@@ -31,7 +31,6 @@ import hashlib
 import json
 import os
 import time
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -40,6 +39,11 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 from memory_bench.scripts.bench_logger import logger
+from memory_bench.typing.memory import (
+    CheckpointData,
+    ReplayConfig,
+    ReplayStats,
+)
 
 # Custom fact extraction prompt — extract facts about BOTH user and AI assistant.
 # Output in Chinese with clear prefixes to distinguish ownership.
@@ -97,14 +101,7 @@ class ReplayMem0Error(RuntimeError):
     """表示 replay 过程中的输入或配置错误。"""
 
 
-@dataclass(slots=True)
-class ReplayStats:
-    """记录 ingest/probe 执行统计信息。"""
-
-    total_events: int = 0
-    ingested_events: int = 0
-    skipped_events: int = 0
-    probe_events: int = 0
+# ReplayStats 已从 memory_bench.typing.memory 导入
 
 
 DEFAULT_INPUT = "memory_bench/data/events/compiled/all.jsonl"
@@ -205,7 +202,7 @@ def get_env_float(name: str, default: float) -> float:
         return default
 
 
-def prepare_mem0_env() -> tuple[str, str, str, str, str, str, float, int]:
+def prepare_mem0_env() -> ReplayConfig:
     """从 BENCHMARK_* 环境变量构建 Mem0 初始化所需配置并做必填校验。
 
     LLM 和 Embedding 的 API Key / Base URL 独立配置，
@@ -215,8 +212,7 @@ def prepare_mem0_env() -> tuple[str, str, str, str, str, str, float, int]:
         无。
 
     Returns:
-        tuple[str, str, str, str, str, str, float, int]：
-            `(llm_api_key, llm_base_url, llm_model, embedding_api_key, embedding_base_url, embedding_model, llm_temperature, llm_max_tokens)`。
+        ReplayConfig：Mem0 配置对象。
 
     Raises:
         ReplayMem0Error: 当必需的 BENCHMARK_* 环境变量缺失时抛出。
@@ -249,20 +245,19 @@ def prepare_mem0_env() -> tuple[str, str, str, str, str, str, float, int]:
             f"missing required benchmark env vars: {required}. Please set them in memory_bench/.env.benchmark."
         )
 
-    # 显式通过返回值将配置传给 Mem0，避免依赖或修改全局环境变量。
-
     llm_temperature = get_env_float("BENCHMARK_LLM_TEMPERATURE", 0.0)
     llm_max_tokens = get_env_int("BENCHMARK_LLM_MAX_TOKENS", 2000)
 
-    return (
-        llm_api_key,
-        llm_base_url,
-        llm_model,
-        embedding_api_key,
-        embedding_base_url,
-        embedding_model,
-        llm_temperature,
-        llm_max_tokens,
+    # 此时所有必填字段都已通过 missing 检查，使用 type: ignore 或显式转换
+    return ReplayConfig(
+        llm_api_key=llm_api_key or "",  # 已通过检查，不可能为空
+        llm_base_url=llm_base_url or "",
+        llm_model=llm_model or "",
+        embedding_api_key=embedding_api_key or "",
+        embedding_base_url=embedding_base_url or "",
+        embedding_model=embedding_model or "",
+        llm_temperature=llm_temperature,
+        llm_max_tokens=llm_max_tokens,
     )
 
 
@@ -437,30 +432,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def build_event_metadata(event: dict[str, Any]) -> dict[str, Any]:
-    """从事件对象提取写入 Mem0 所需的元数据字段。
-
-    Args:
-        event: 单条事件对象。
-
-    Returns:
-        dict[str, Any]：用于写入与溯源的 metadata。
-    """
-
-    meta_raw = event.get("meta", {})
-    meta = meta_raw if isinstance(meta_raw, dict) else {}
-    tags_raw = event.get("tags", [])
-    tags = [str(tag) for tag in tags_raw] if isinstance(tags_raw, list) else []
-    return {
-        "scene_id": event.get("scene_id"),
-        "character_id": event.get("character_id"),
-        "conv_id": event.get("conv_id"),
-        "turn_id": event.get("turn_id"),
-        "role_type": event.get("role_type"),
-        "role_name": event.get("role_name"),
-        "tags": tags,
-        "source_type": meta.get("source_type"),
-    }
+# build_event_metadata 已从 memory_bench.typing.memory 导入
 
 
 def build_group_metadata(event: dict[str, Any]) -> dict[str, Any]:
@@ -495,7 +467,7 @@ def compact_metadata(metadata: Any) -> dict[str, Any] | None:
     if not isinstance(metadata, dict):
         return None
     keys = ["conv_id", "turn_id", "role_type", "role_name", "scene_id", "character_id", "tags", "source_type"]
-    compact = {key: metadata.get(key) for key in keys if key in metadata}
+    compact: dict[str, Any] = {key: metadata.get(key) for key in keys if key in metadata}
     return compact or None
 
 
@@ -967,7 +939,7 @@ def compact_hits_preview(hits: Any, k: int) -> list[dict[str, Any]]:
             continue
         content = str(hit.get("memory", "") or hit.get("content", ""))
         metadata = compact_metadata(hit.get("metadata"))
-        score = hit.get("score")
+        score: float | None = hit.get("score")
         preview.append({"content": content[:160], "score": score, "metadata": metadata})
     return preview
 
@@ -1189,14 +1161,14 @@ def build_checkpoint_path(input_path: Path, isolation: str, state_dir: Path) -> 
     return state_dir / name
 
 
-def load_checkpoint(path: Path) -> dict[str, Any] | None:
+def load_checkpoint(path: Path) -> CheckpointData | None:
     """读取并校验 checkpoint 文件内容。
 
     Args:
         path: 文件路径。
 
     Returns:
-        dict[str, Any] | None：checkpoint 内容；不存在时为 None。
+        CheckpointData | None：checkpoint 对象；不存在时为 None。
 
     Raises:
         ReplayMem0Error: checkpoint 结构非法时抛出。
@@ -1207,21 +1179,21 @@ def load_checkpoint(path: Path) -> dict[str, Any] | None:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ReplayMem0Error(f"invalid checkpoint format: {path}")
-    return payload
+    return CheckpointData.from_dict(payload)
 
 
-def save_checkpoint(path: Path, payload: dict[str, Any]) -> None:
+def save_checkpoint(path: Path, data: CheckpointData) -> None:
     """原子写入 checkpoint 文件。
 
     Args:
         path: 文件路径。
-        payload: 待写入 checkpoint 的内容。
+        data: 待写入的 checkpoint 对象。
 
     """
 
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(".tmp")
-    tmp_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    tmp_path.write_text(json.dumps(data.to_dict(), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     tmp_path.replace(path)
 
 
@@ -1563,17 +1535,14 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
             stats.skipped_events += 1
 
         if since_last_checkpoint >= args.checkpoint_interval and last_ingested_event is not None:
-            save_checkpoint(
-                checkpoint_path,
-                {
-                    "backend": "mem0",
-                    "input_file": str(input_path),
-                    "input_file_hash": file_hash,
-                    "last_ingested_line": last_ingested_line,
-                    "last_ingested_event": last_ingested_event,
-                    "updated_at": now_iso(),
-                },
+            checkpoint_data = CheckpointData(
+                input_sha256=file_hash,
+                input_mtime=input_path.stat().st_mtime,
+                ingested_count=last_ingested_line or 0,
+                last_conv_id=last_ingested_event.get("conv_id") if last_ingested_event else None,
+                stats={"last_ingested_line": last_ingested_line or 0},
             )
+            save_checkpoint(checkpoint_path, checkpoint_data)
             since_last_checkpoint = 0
 
     # NOTE: 如果整个文件只有一个 conv_id，循环内不会触发 flush，
@@ -1595,17 +1564,14 @@ def run_ingest(args: argparse.Namespace, memory: Any, input_path: Path) -> int:
     replay_progress.close()
 
     if stats.ingested_events > 0:
-        save_checkpoint(
-            checkpoint_path,
-            {
-                "backend": "mem0",
-                "input_file": str(input_path),
-                "input_file_hash": file_hash,
-                "last_ingested_line": last_ingested_line,
-                "last_ingested_event": last_ingested_event,
-                "updated_at": now_iso(),
-            },
+        checkpoint_data = CheckpointData(
+            input_sha256=file_hash,
+            input_mtime=input_path.stat().st_mtime,
+            ingested_count=last_ingested_line or 0,
+            last_conv_id=last_ingested_event.get("conv_id") if last_ingested_event else None,
+            stats={"last_ingested_line": last_ingested_line or 0, "ingested_events": stats.ingested_events},
         )
+        save_checkpoint(checkpoint_path, checkpoint_data)
 
     logger.bind(group="memory").info(
         "Ingest done: "
@@ -1854,16 +1820,15 @@ def main() -> int:
     args = parse_args()
     repo_root = Path(__file__).resolve().parents[2]
     load_benchmark_dotenv(repo_root)
-    (
-        llm_api_key,
-        llm_base_url,
-        llm_model,
-        embed_api_key,
-        embed_base_url,
-        embed_model,
-        llm_temperature,
-        llm_max_tokens,
-    ) = prepare_mem0_env()
+    config: ReplayConfig = prepare_mem0_env()
+    llm_api_key = config.llm_api_key
+    llm_base_url = config.llm_base_url
+    llm_model = config.llm_model
+    embed_api_key = config.embedding_api_key
+    embed_base_url = config.embedding_base_url
+    embed_model = config.embedding_model
+    llm_temperature = config.llm_temperature
+    llm_max_tokens = config.llm_max_tokens
 
     input_path: Path | None = None
     if args.command in {"ingest", "probe"}:

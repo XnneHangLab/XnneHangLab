@@ -7,7 +7,6 @@ import importlib.util
 import json
 from pathlib import Path
 
-
 # Import the module under test
 SCRIPT_PATH = Path(__file__).parent.parent / "scripts" / "export_node_schema.py"
 

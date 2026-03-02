@@ -79,10 +79,12 @@ def _patch_openai_llm_store() -> None:
         import logging as _logging
 
         params = self._get_supported_params(messages=messages, **kwargs)
-        params.update({
-            "model": self.config.model,
-            "messages": messages,
-        })
+        params.update(
+            {
+                "model": self.config.model,
+                "messages": messages,
+            }
+        )
 
         if os.getenv("OPENROUTER_API_KEY"):
             openrouter_params: dict[str, Any] = {}
@@ -222,10 +224,7 @@ def make_memory(config: dict[str, Any]) -> Any:
     try:
         from mem0 import Memory as _Memory  # type: ignore[import-untyped]
     except ImportError as exc:
-        raise ImportError(
-            "mem0 未安裝。請先安裝 memory_bench 依賴組，"
-            "例如：`uv sync --group memory_bench`。"
-        ) from exc
+        raise ImportError("mem0 未安裝。請先安裝 memory_bench 依賴組，例如：`uv sync --group memory_bench`。") from exc
 
     memory = _Memory.from_config(config)
     _patch_vector_store_update(memory)

@@ -90,3 +90,4 @@ model_list.json
 
 # memory bench local env
 memory_bench/.env.benchmark
+memory_bench/state/*

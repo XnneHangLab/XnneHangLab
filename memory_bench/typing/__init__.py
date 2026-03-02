@@ -17,12 +17,12 @@ Modules:
 from __future__ import annotations
 
 # 按依赖顺序导入，避免循环引用
-from memory_bench.typing.common import (
+from .common import (
     is_list_of_str,
     is_non_empty_str,
     is_str_dict,
 )
-from memory_bench.typing.events import (
+from .events import (
     ALLOWED_ROLE_TYPES,
     ALLOWED_TAGS,
     ChapterJob,
@@ -33,11 +33,19 @@ from memory_bench.typing.events import (
     RoleType,
     validate_event_tags,
 )
-from memory_bench.typing.index import IndexEntry, IndexSliceParams
+from .index import IndexEntry, IndexSliceParams
+from .memory import (
+    CheckpointData,
+    ExportRecord,
+    MemoryItem,
+    OwnerType,
+    ReplayConfig,
+    ReplayStats,
+    build_event_metadata,
+)
 
 # 后续模块将在对应 Phase 中添加
 # from memory_bench.typing.claims import Claim, Entity, EntityReference, EvidenceItem
-# from memory_bench.typing.memory import MemoryItem, ExportRecord
 # from memory_bench.typing.neo4j import Node, Relationship
 
 __all__ = [
@@ -58,7 +66,14 @@ __all__ = [
     "ChapterJob",
     "JobResult",
     "validate_event_tags",
+    # memory
+    "OwnerType",
+    "MemoryItem",
+    "ExportRecord",
+    "ReplayConfig",
+    "ReplayStats",
+    "CheckpointData",
+    "build_event_metadata",
     # claims (TODO)
-    # memory (TODO)
     # neo4j (TODO)
 ]

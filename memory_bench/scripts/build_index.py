@@ -31,15 +31,15 @@ def build_index(repo_root: Path) -> tuple[list[IndexEntry], list[str]]:
     """
     raw_dir = repo_root / "memory_bench" / "data" / "source" / "raw"
     norm_dir = repo_root / "memory_bench" / "data" / "source" / "norm"
-    
-    index, warnings = build_index_from_dir(raw_dir, norm_dir)
-    
+
+    index, _ = build_index_from_dir(raw_dir, norm_dir)
+
     # 添加详细警告信息
     detailed_warnings: list[str] = []
     for entry in index:
         if not entry.norm_path:
             detailed_warnings.append(f"missing norm file for {entry.id}: expected in memory_bench/data/source/norm/")
-    
+
     return index, detailed_warnings
 
 
@@ -65,7 +65,7 @@ def slice_index(
         切片后的索引列表（不修改原列表）。
     """
     from memory_bench.typing.index import IndexSliceParams
-    
+
     params = IndexSliceParams(limit=limit, tail=tail, offset=offset)
     return params.apply(index)
 
@@ -127,13 +127,15 @@ def main() -> None:
         log.warning("--limit and --tail are mutually exclusive; --tail takes precedence")
 
     from memory_bench.typing.index import IndexSliceParams
-    
+
     slice_params = IndexSliceParams(limit=args.limit, tail=args.tail, offset=args.offset)
     index_data = slice_params.apply(index_data)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     # pydantic v2: model_dump() 替代 dict()
-    output_path.write_text(json.dumps([entry.model_dump() for entry in index_data], ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    output_path.write_text(
+        json.dumps([entry.model_dump() for entry in index_data], ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
 
     log = logger.bind(group="memory")
     slice_msg = slice_params.to_log_message()
