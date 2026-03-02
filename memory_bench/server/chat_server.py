@@ -31,9 +31,9 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-import uvicorn
-from fastapi import FastAPI
-from openai import OpenAI
+import uvicorn  # type: ignore[reportMissingImports,reportUnknownVariableType]
+from fastapi import FastAPI  # type: ignore[reportMissingImports,reportUnknownVariableType]
+from openai import OpenAI  # type: ignore[reportMissingImports,reportUnknownVariableType]
 
 from memory_bench.scripts.bench_logger import logger
 from memory_bench.server.router import router, state as router_state
@@ -109,7 +109,7 @@ AI："我是聪音，性格有点内向。"
 def _load_dotenv() -> None:
     """Load memory_bench/.env.benchmark if present."""
     try:
-        from dotenv import load_dotenv
+        from dotenv import load_dotenv  # type: ignore[reportMissingImports,reportUnknownVariableType]
     except ImportError:
         return
 
@@ -117,7 +117,7 @@ def _load_dotenv() -> None:
         os.environ.pop(key, None)
 
     if _DOTENV_BENCHMARK_PATH.exists():
-        load_dotenv(dotenv_path=_DOTENV_BENCHMARK_PATH, override=True)
+        load_dotenv(dotenv_path=_DOTENV_BENCHMARK_PATH, override=True)  # type: ignore[reportUnknownArgumentType]
 
 
 def _get_env(name: str, default: str | None = None) -> str | None:
@@ -276,7 +276,7 @@ def _resolve_config(args: argparse.Namespace) -> dict[str, Any]:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI):  # type: ignore[reportUnknownParameterType]
     """Initialise mem0 + OpenAI client, populate router state."""
     _load_dotenv()
     cfg = _resolve_config(_parse_args())
@@ -351,8 +351,8 @@ async def lifespan(app: FastAPI):
 # App assembly
 # ---------------------------------------------------------------------------
 
-app = FastAPI(title="Memory Chat Server", lifespan=lifespan)
-app.include_router(router)
+app = FastAPI(title="Memory Chat Server", lifespan=lifespan)  # type: ignore[reportUnknownVariableType]
+app.include_router(router)  # type: ignore[reportUnknownMemberType]
 
 
 # ---------------------------------------------------------------------------
@@ -421,7 +421,7 @@ def main() -> None:
     """CLI entrypoint."""
     _load_dotenv()
     args = _parse_args()
-    uvicorn.run(app, host=args.host, port=args.port)
+    uvicorn.run(app, host=args.host, port=args.port)  # type: ignore[reportUnknownMemberType]
 
 
 if __name__ == "__main__":

@@ -25,9 +25,32 @@ import hashlib
 import json
 import re
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, TypedDict, cast
 
 from memory_bench.scripts.bench_logger import logger
+
+# ---------------------------------------------------------------------------
+# Type definitions for mem0 results
+# ---------------------------------------------------------------------------
+
+
+class Mem0Result(TypedDict, total=False):
+    """mem0.add() result item."""
+
+    event: str
+    memory: str
+    point_id: str
+    owner: str
+
+
+class MemoryItem(TypedDict):
+    """Prepared memory item for prompt."""
+
+    memory_item_id: str
+    text: str
+    scene_id: str
+    created_at: str
+
 
 # ---------------------------------------------------------------------------
 # Allowed values (subset of claimify_all.py constants)
@@ -118,7 +141,7 @@ def _strip_codefence(text: str) -> str:
 
 
 def build_prompt(
-    memory_items: list[dict[str, str]],
+    memory_items: list[MemoryItem],
     *,
     scene_id: str = "chill_ai_chat",
     character_id: str = "congyin",
@@ -156,7 +179,7 @@ def build_prompt(
 
 def _validate_entity(obj: dict[str, Any]) -> bool:
     """Return True if entity record has required fields and valid values."""
-    if obj.get("entity_type") not in ALLOWED_ENTITY_TYPES:
+    if obj.get("entity_type") not in ALLOWED_ENTITY_TYPES:  # type: ignore[reportUnknownMemberType]
         return False
     if not isinstance(obj.get("entity_id"), str) or not obj["entity_id"].strip():
         return False
@@ -175,14 +198,15 @@ def _validate_entity(obj: dict[str, Any]) -> bool:
 
 def _validate_claim(obj: dict[str, Any]) -> bool:
     """Return True if claim record has required fields and valid values."""
-    if obj.get("predicate") not in ALLOWED_PREDICATES:
+    if obj.get("predicate") not in ALLOWED_PREDICATES:  # type: ignore[reportUnknownMemberType]
         return False
-    if obj.get("domain") not in ALLOWED_DOMAINS:
+    if obj.get("domain") not in ALLOWED_DOMAINS:  # type: ignore[reportUnknownMemberType]
         return False
     for side in ("subject", "object"):
-        node = obj.get(side)
-        if not isinstance(node, dict):
+        raw_node = obj.get(side)
+        if not isinstance(raw_node, dict):
             return False
+        node = cast("dict[str, Any]", raw_node)
         if not isinstance(node.get("entity_id"), str) or not node["entity_id"].strip():
             return False
     conf = obj.get("confidence")
@@ -215,14 +239,15 @@ def parse_llm_output(raw: str) -> list[dict[str, Any]]:
         if not line:
             continue
         try:
-            obj = json.loads(line)
+            parsed = json.loads(line)
+            if not isinstance(parsed, dict):
+                continue
+            obj = cast("dict[str, Any]", parsed)
         except json.JSONDecodeError:
             log.warning("claim_extractor: skip invalid JSON on line %d", line_no)
             continue
-        if not isinstance(obj, dict):
-            continue
 
-        rt = obj.get("record_type")
+        rt: str = str(obj.get("record_type", ""))
         if rt == "entity":
             if _validate_entity(obj):
                 records.append(obj)
@@ -240,10 +265,10 @@ def parse_llm_output(raw: str) -> list[dict[str, Any]]:
 
 
 def prepare_memory_items(
-    mem0_results: list[dict[str, Any]],
+    mem0_results: list[Mem0Result],
     *,
     scene_id: str = "chill_ai_chat",
-) -> list[dict[str, str]]:
+) -> list[MemoryItem]:
     """Convert mem0.add() results into prompt-ready memory items.
 
     Parameters
@@ -254,11 +279,11 @@ def prepare_memory_items(
 
     Returns
     -------
-    list[dict[str, str]]
+    list[MemoryItem]
         Items with ``memory_item_id``, ``text``, ``scene_id``, ``created_at``.
         Only ADD/UPDATE events with non-empty text are included.
     """
-    items: list[dict[str, str]] = []
+    items: list[MemoryItem] = []
     now = _now_iso()
     for result in mem0_results:
         event = str(result.get("event", "")).upper()
@@ -279,9 +304,9 @@ def prepare_memory_items(
 
 
 def extract_claims(
-    openai_client: Any,
+    openai_client: Any,  # openai.OpenAI
     model: str,
-    mem0_results: list[dict[str, Any]],
+    mem0_results: list[Mem0Result],
     *,
     scene_id: str = "chill_ai_chat",
     character_id: str = "congyin",
