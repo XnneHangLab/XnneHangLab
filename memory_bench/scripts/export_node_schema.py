@@ -25,7 +25,6 @@ import re
 import subprocess
 import sys
 from datetime import datetime, timezone
-from io import StringIO
 from pathlib import Path
 from typing import Any
 
