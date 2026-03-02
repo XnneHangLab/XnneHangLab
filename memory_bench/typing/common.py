@@ -44,7 +44,7 @@ def is_list_of_str(value: Any) -> TypeGuard[list[str]]:
     Returns:
         TypeGuard[list[str]]: 如果是字符串列表则返回 True
     """
-    return isinstance(value, list) and all(isinstance(item, str) for item in value)
+    return isinstance(value, list) and all(isinstance(item, str) for item in value)  # type: ignore[reportUnknownVariableType]
 
 
 # 通用类型别名
