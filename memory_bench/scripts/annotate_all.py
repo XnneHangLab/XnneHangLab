@@ -8,57 +8,25 @@ import json
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from memory_bench.scripts.bench_logger import logger
+from memory_bench.typing.events import (
+    ChapterJob,
+    Event,
+    JobResult,
+    REQUIRED_EVENT_KEYS,
+)
 
-ALLOWED_ROLE_TYPES = {"human", "assistant", "ui", "tool"}
-ALLOWED_TAGS = {"canon_only", "episodic", "filler", "inject", "probe"}
-REQUIRED_KEYS = [
-    "scene_id",
-    "character_id",
-    "conv_id",
-    "turn_id",
-    "role_type",
-    "role_name",
-    "content",
-    "tags",
-    "meta",
-]
+# 向后兼容别名
+REQUIRED_KEYS = REQUIRED_EVENT_KEYS
+
+# ALLOWED_ROLE_TYPES 和 ALLOWED_TAGS 已内联到 Event 模型验证中，不再需要单独导入
 
 
 class AnnotationError(RuntimeError):
     """章节标注失败异常。"""
-
-
-@dataclass
-class ChapterJob:
-    """单章处理任务。
-
-    Attributes:
-        conv_id: 章节对应的会话 ID。
-        source_path: 实际用于标注的章节文件绝对路径。
-    """
-
-    conv_id: str
-    source_path: Path
-
-
-@dataclass
-class JobResult:
-    """单章处理结果。
-
-    Attributes:
-        conv_id: 章节对应的会话 ID。
-        status: 执行状态，取值为 ok/failed/skipped。
-        error_message: 失败时的错误信息；成功或跳过时为 None。
-    """
-
-    conv_id: str
-    status: str
-    error_message: str | None = None
 
 
 def load_benchmark_dotenv(repo_root: Path) -> None:
@@ -135,11 +103,22 @@ def load_index(repo_root: Path) -> list[dict[str, Any]]:
         AnnotationError: 当索引根节点不是数组时抛出。
     """
 
+    from pydantic import TypeAdapter
+    
+    from memory_bench.typing.index import IndexEntry
+    
     index_path = repo_root / "memory_bench" / "data" / "source" / "index.json"
-    data = json.loads(index_path.read_text(encoding="utf-8"))
-    if not isinstance(data, list):
-        raise AnnotationError("index.json 格式非法：根节点必须为数组")
-    return data
+    raw_text = index_path.read_text(encoding="utf-8")
+    
+    # 使用 TypeAdapter 解析 list[IndexEntry]
+    adapter = TypeAdapter(list[IndexEntry])
+    try:
+        entries = adapter.validate_json(raw_text)
+    except Exception as exc:
+        raise AnnotationError(f"index.json 解析失败：{exc}") from exc
+    
+    # 转换为 dict 列表（向后兼容）
+    return [entry.model_dump() for entry in entries]
 
 
 def get_env(name: str, default: str | None = None) -> str | None:
@@ -347,8 +326,11 @@ def _line_preview(line: str, max_len: int = 120) -> str:
 
 def validate_event_line(
     obj: Any, conv_id: str, scene_id: str, character_id: str, expected_turn: int, file_line: int
-) -> None:
-    """校验单行事件对象是否满足 schema 与一致性规则。
+) -> Event:
+    """校验单行事件对象并返回 Event 实例。
+
+    使用 pydantic Event.model_validate() 进行 schema 验证，
+    然后检查业务规则（ID 一致性、turn_id 连续性）。
 
     Args:
         obj: 单行 JSON 反序列化后的对象。
@@ -358,64 +340,41 @@ def validate_event_line(
         expected_turn: 该行期望的 turn_id。
         file_line: JSONL 的真实文件行号。
 
+    Returns:
+        Event: 验证通过的事件实例
+
     Raises:
         AnnotationError: 当字段缺失、类型错误或业务规则不满足时抛出。
     """
-
-    if not isinstance(obj, dict):
-        raise AnnotationError(f"{_error_prefix(conv_id, file_line)} not a JSON object")
-
-    present_keys = list(obj.keys())
-    for key in REQUIRED_KEYS:
-        if key not in obj:
-            raise AnnotationError(
-                f"{_error_prefix(conv_id, file_line)} missing required key "
-                f"(missing_key={key!r}, present_keys={present_keys[:30]})"
-            )
-
-    for field, expected, got in (
-        ("conv_id", conv_id, obj["conv_id"]),
-        ("scene_id", scene_id, obj["scene_id"]),
-        ("character_id", character_id, obj["character_id"]),
+    
+    # Step 1: 使用 pydantic 进行 schema 验证
+    try:
+        event = Event.model_validate(obj)
+    except Exception as exc:
+        raise AnnotationError(
+            f"{_error_prefix(conv_id, file_line)} schema validation failed: {exc}"
+        ) from exc
+    
+    # Step 2: 检查 ID 一致性
+    for field, expected in (
+        ("conv_id", conv_id),
+        ("scene_id", scene_id),
+        ("character_id", character_id),
     ):
+        got = getattr(event, field)
         if got != expected:
             raise AnnotationError(
                 f"{_error_prefix(conv_id, file_line)} id mismatch (field={field!r}, expected={expected!r}, got={got!r})"
             )
-
-    turn_id = obj["turn_id"]
-    if not isinstance(turn_id, int):
-        raise AnnotationError(
-            f"{_error_prefix(conv_id, file_line)} turn_id type mismatch "
-            f"(expected_turn_id={expected_turn}, got_turn_id={turn_id!r})"
-        )
-    if turn_id != expected_turn:
+    
+    # Step 3: 检查 turn_id 连续性
+    if event.turn_id != expected_turn:
         raise AnnotationError(
             f"{_error_prefix(conv_id, file_line)} turn_id mismatch "
-            f"(expected_turn_id={expected_turn}, got_turn_id={turn_id})"
+            f"(expected_turn_id={expected_turn}, got_turn_id={event.turn_id})"
         )
-
-    role_type = obj["role_type"]
-    if not isinstance(role_type, str) or role_type not in ALLOWED_ROLE_TYPES:
-        raise AnnotationError(f"{_error_prefix(conv_id, file_line)} invalid role_type (got={role_type!r})")
-
-    role_name = obj["role_name"]
-    if not isinstance(role_name, str):
-        raise AnnotationError(f"{_error_prefix(conv_id, file_line)} role_name must be str (got={role_name!r})")
-
-    content = obj["content"]
-    if not isinstance(content, str) or not content.strip():
-        raise AnnotationError(f"{_error_prefix(conv_id, file_line)} content must be non-empty string")
-
-    tags = obj["tags"]
-    if not isinstance(tags, list) or len(tags) < 1:
-        raise AnnotationError(f"{_error_prefix(conv_id, file_line)} tags must be non-empty list")
-    for tag in tags:
-        if not isinstance(tag, str) or tag not in ALLOWED_TAGS:
-            raise AnnotationError(f"{_error_prefix(conv_id, file_line)} invalid tag (got={tag!r})")
-
-    if not isinstance(obj["meta"], dict):
-        raise AnnotationError(f"{_error_prefix(conv_id, file_line)} meta must be object")
+    
+    return event
 
 
 def validate_jsonl_output(raw_output: str, conv_id: str, scene_id: str, character_id: str) -> list[str]:
@@ -454,6 +413,8 @@ def validate_jsonl_output(raw_output: str, conv_id: str, scene_id: str, characte
                 f"[{conv_id}] file_line={file_line}: invalid JSON "
                 f"(json_error={exc.msg!r}, col={exc.colno}, line_preview={_line_preview(line)!r})"
             ) from exc
+        
+        # 使用 Event.model_validate() 进行验证
         validate_event_line(
             obj,
             conv_id=conv_id,
@@ -462,6 +423,7 @@ def validate_jsonl_output(raw_output: str, conv_id: str, scene_id: str, characte
             expected_turn=expected_turn,
             file_line=file_line,
         )
+        
         validated_lines.append(line)
         expected_turn += 1
 

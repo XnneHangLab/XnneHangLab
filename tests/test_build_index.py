@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 def _make_entry(ch: int) -> IndexEntry:
     """快速构造一条 IndexEntry。"""
     cid = f"ch{ch:02d}"
-    return {"id": cid, "raw_path": f"memory_bench/data/source/raw/{cid}_test.md", "norm_path": ""}
+    return IndexEntry(id=cid, raw_path=f"memory_bench/data/source/raw/{cid}_test.md", norm_path="")
 
 
 SAMPLE_5: list[IndexEntry] = [_make_entry(i) for i in range(1, 6)]  # ch01..ch05
@@ -54,11 +54,11 @@ class TestBuildIndex:
     def test_discovers_all_raw(self, fake_repo: Path) -> None:
         index, _ = build_index(fake_repo)
         assert len(index) == 5
-        assert [e["id"] for e in index] == ["ch01", "ch02", "ch03", "ch04", "ch05"]
+        assert [e.id for e in index] == ["ch01", "ch02", "ch03", "ch04", "ch05"]
 
     def test_norm_mapping(self, fake_repo: Path) -> None:
         index, _ = build_index(fake_repo)
-        norm_ids = {e["id"] for e in index if e["norm_path"]}
+        norm_ids = {e.id for e in index if e.norm_path}
         assert norm_ids == {"ch01", "ch03"}
 
     def test_warnings_for_missing_norm(self, fake_repo: Path) -> None:
@@ -100,7 +100,7 @@ class TestSliceIndex:
 
     def test_limit(self) -> None:
         result = slice_index(SAMPLE_5, limit=3)
-        assert [e["id"] for e in result] == ["ch01", "ch02", "ch03"]
+        assert [e.id for e in result] == ["ch01", "ch02", "ch03"]
 
     def test_limit_exceeds_length(self) -> None:
         result = slice_index(SAMPLE_5, limit=100)
@@ -110,7 +110,7 @@ class TestSliceIndex:
 
     def test_tail(self) -> None:
         result = slice_index(SAMPLE_5, tail=2)
-        assert [e["id"] for e in result] == ["ch04", "ch05"]
+        assert [e.id for e in result] == ["ch04", "ch05"]
 
     def test_tail_exceeds_length(self) -> None:
         result = slice_index(SAMPLE_5, tail=100)
@@ -120,13 +120,13 @@ class TestSliceIndex:
 
     def test_tail_overrides_limit(self) -> None:
         result = slice_index(SAMPLE_5, limit=2, tail=1)
-        assert [e["id"] for e in result] == ["ch05"]
+        assert [e.id for e in result] == ["ch05"]
 
     # -- offset --
 
     def test_offset_only(self) -> None:
         result = slice_index(SAMPLE_5, offset=2)
-        assert [e["id"] for e in result] == ["ch03", "ch04", "ch05"]
+        assert [e.id for e in result] == ["ch03", "ch04", "ch05"]
 
     def test_offset_exceeds_length(self) -> None:
         result = slice_index(SAMPLE_5, offset=100)
@@ -136,13 +136,13 @@ class TestSliceIndex:
 
     def test_offset_and_limit(self) -> None:
         result = slice_index(SAMPLE_5, offset=1, limit=2)
-        assert [e["id"] for e in result] == ["ch02", "ch03"]
+        assert [e.id for e in result] == ["ch02", "ch03"]
 
     # -- offset + tail --
 
     def test_offset_and_tail(self) -> None:
         result = slice_index(SAMPLE_5, offset=1, tail=2)
-        assert [e["id"] for e in result] == ["ch04", "ch05"]
+        assert [e.id for e in result] == ["ch04", "ch05"]
 
     # -- 边界 --
 
