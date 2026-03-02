@@ -16,7 +16,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 @dataclass(slots=True)
@@ -107,7 +107,8 @@ def _is_neo4j_prop_value(value: Any) -> bool:
     if value is None or isinstance(value, (bool, int, float, str)):
         return True
     if isinstance(value, list):
-        return all(item is None or isinstance(item, (bool, int, float, str)) for item in value)
+        items = cast("list[Any]", value)
+        return all(item is None or isinstance(item, (bool, int, float, str)) for item in items)
     return False
 
 
@@ -143,10 +144,12 @@ def _to_cypher_literal(value: Any) -> str:
     if isinstance(value, str):
         return f"'{_escape_cypher_string(value)}'"
     if isinstance(value, list):
-        return "[" + ", ".join(_to_cypher_literal(item) for item in value) + "]"
+        items = cast("list[Any]", value)
+        return "[" + ", ".join(_to_cypher_literal(item) for item in items) + "]"
     if isinstance(value, dict):
+        entries = cast("dict[str, Any]", value)
         parts: list[str] = []
-        for key, item in value.items():
+        for key, item in entries.items():
             parts.append(f"`{_escape_cypher_key(str(key))}`: {_to_cypher_literal(item)}")
         return "{" + ", ".join(parts) + "}"
     return f"'{_escape_cypher_string(json.dumps(value, ensure_ascii=False))}'"
@@ -164,8 +167,9 @@ def _normalize_labels(raw: Any) -> list[str]:
 
     if not isinstance(raw, list):
         return []
+    raw_items = cast("list[Any]", raw)
     normalized: list[str] = []
-    for item in raw:
+    for item in raw_items:
         if not isinstance(item, str):
             continue
         label = item.strip()
@@ -206,7 +210,7 @@ def _read_jsonl(path: Path, stats: dict[str, Any], kind: str) -> list[dict[str, 
             if not isinstance(obj, dict):
                 stats[f"skipped_invalid_{kind}"] += 1
                 continue
-            rows.append(obj)
+            rows.append(cast("dict[str, Any]", obj))
     return rows
 
 
@@ -253,7 +257,8 @@ def build_node_merge(node: dict[str, Any]) -> str | None:
         return None
 
     labels = _normalize_labels(node.get("labels"))
-    props = node.get("props") if isinstance(node.get("props"), dict) else {}
+    raw_props = node.get("props")
+    props = cast("dict[str, Any]", raw_props) if isinstance(raw_props, dict) else {}
     labels_clause = "".join(f":`{label}`" for label in labels)
     return (
         f"MERGE (n:Node {{id: {_to_cypher_literal(str(node_id))}}}) "
@@ -279,7 +284,8 @@ def build_edge_merge(edge: dict[str, Any]) -> str | None:
     if any(v is None or str(v).strip() == "" for v in (edge_id, edge_type, src, dst)):
         return None
 
-    props_raw = edge.get("props") if isinstance(edge.get("props"), dict) else {}
+    raw_edge_props = edge.get("props")
+    props_raw = cast("dict[str, Any]", raw_edge_props) if isinstance(raw_edge_props, dict) else {}
     props_filtered = _filter_neo4j_props(props_raw)
     props_json = json.dumps(props_raw, ensure_ascii=False)
     edge_type_escaped = _escape_cypher_rel_type(str(edge_type))
