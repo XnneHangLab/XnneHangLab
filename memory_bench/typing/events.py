@@ -14,10 +14,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from pydantic import BaseModel, Field, field_validator
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # 允许的角色类型
 RoleType = Literal["human", "assistant", "ui", "tool"]
@@ -198,11 +200,13 @@ def validate_event_tags(tags: list[Any]) -> list[EventTag]:
     Raises:
         ValueError: 如果标签为空或包含非法标签
     """
-    if not isinstance(tags, list) or len(tags) < 1:
+    if len(tags) < 1:
         raise ValueError("tags must be non-empty list")
 
-    invalid_tags = [tag for tag in tags if tag not in ALLOWED_TAGS]
-    if invalid_tags:
-        raise ValueError(f"invalid tags: {invalid_tags}, must be subset of {ALLOWED_TAGS}")
+    validated_tags: list[EventTag] = []
+    for tag in tags:
+        if not isinstance(tag, str) or tag not in ALLOWED_TAGS:
+            raise ValueError(f"invalid tags: {tags}, must be subset of {ALLOWED_TAGS}")
+        validated_tags.append(cast("EventTag", tag))
 
-    return tags  # type: ignore[return-value]
+    return validated_tags
