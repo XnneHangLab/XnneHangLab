@@ -144,7 +144,7 @@ fmt: # 似乎不会检查被 .gitignore 忽略的文件
   uv run ruff format . --exclude packages --exclude .git --exclude justfile
 
 lint:
-  uv run pyright src/lab tests
+  uv run pyright src/lab tests memory_bench
   uv run ruff check . --exclude packages --exclude .git --exclude justfile
 
 fmt-docs:
