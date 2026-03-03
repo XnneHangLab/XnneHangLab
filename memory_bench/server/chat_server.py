@@ -34,8 +34,10 @@ from fastapi import FastAPI  # type: ignore[reportMissingImports,reportUnknownVa
 
 from memory_bench.scripts.bench_logger import logger
 from memory_bench.server.router import router, state as router_state
+from memory_bench.server.chat_router import router as chat_router, chat_state
 from memory_bench.server.startup import (
     init_router_state,
+    init_chat_router_state,
     load_memory_bench_env,
     resolve_memory_bench_config,
 )
@@ -91,6 +93,7 @@ async def lifespan(app: FastAPI):  # type: ignore[reportUnknownParameterType]
     )
 
     init_router_state(router_state, cfg)
+    init_chat_router_state(chat_state, cfg)
     logger.info("✅ Listening on %s:%s", cfg["host"], cfg["port"])
 
     yield
@@ -102,6 +105,7 @@ async def lifespan(app: FastAPI):  # type: ignore[reportUnknownParameterType]
 
 app = FastAPI(title="Memory Chat Server", lifespan=lifespan)  # type: ignore[reportUnknownVariableType]
 app.include_router(router)  # type: ignore[reportUnknownMemberType]
+app.include_router(chat_router)  # type: ignore[reportUnknownMemberType]
 
 
 # ---------------------------------------------------------------------------
