@@ -10,15 +10,16 @@ from loguru import logger
 from lab.api.clients import DeepLXRequest
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 
-router = APIRouter()
+router = APIRouter(prefix="/translate")
 
 
-@router.get("/health")
+@router.get("/deeplx/health")
 async def health() -> JSONResponse:
     """心跳检测端点，供客户端（如 AIChat Mod）探测服务是否就绪。
     仅检查 deeplx_api_key 是否已配置，不验证其有效性。
+    对外路径：GET /translate/deeplx/health
     """
-    logger.debug("[DeepLX] GET /health — 收到心跳探测")
+    logger.debug("[DeepLX] GET /translate/deeplx/health — 收到心跳探测")
     agent_settings = load_settings_file("lab.toml", XnneHangLabSettings)
     deeplx_api_key = agent_settings.agent.deeplx_api_key
     if not deeplx_api_key:
@@ -31,13 +32,12 @@ async def health() -> JSONResponse:
     return JSONResponse(status_code=200, content={"status": "ok"})
 
 
-# 将 deeplx_org 转发到 localhost
-@router.post("/translate/deeplx")
+@router.post("/deeplx")
 async def sentence_translate(request: Request) -> dict[str, object]:
     """
-    这个api-key在Linux.do的connect中可以查看，
-    创建./key.yml，写入:
-    deeplx:XXXXX
+    将翻译请求转发到 DeepLX API。
+    对外路径：POST /translate/deeplx
+    配置 deeplx_api_key：在 lab.toml 中写入 [agent] deeplx_api_key = "XXXXX"
     """
     agent_settings = load_settings_file("lab.toml", XnneHangLabSettings)
     deeplx_api_key = agent_settings.agent.deeplx_api_key
