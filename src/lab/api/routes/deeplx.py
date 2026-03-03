@@ -4,6 +4,7 @@ from json import JSONDecodeError
 
 import httpx
 from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 
 from lab.api.clients import DeepLXRequest
 
@@ -14,9 +15,18 @@ router = APIRouter()
 
 
 @router.get("/health")
-async def health() -> dict[str, str]:
-    """心跳检测端点，供客户端（如 AIChat Mod）探测服务是否就绪。"""
-    return {"status": "ok"}
+async def health() -> JSONResponse:
+    """心跳检测端点，供客户端（如 AIChat Mod）探测服务是否就绪。
+    仅检查 deeplx_api_key 是否已配置，不验证其有效性。
+    """
+    agent_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+    deeplx_api_key = agent_settings.agent.deeplx_api_key
+    if not deeplx_api_key:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "error", "message": "deeplx_api_key is not configured"},
+        )
+    return JSONResponse(status_code=200, content={"status": "ok"})
 
 
 # 将 deeplx_org 转发到 localhost
