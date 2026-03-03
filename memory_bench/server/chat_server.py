@@ -105,7 +105,7 @@ async def lifespan(app: FastAPI):  # type: ignore[reportUnknownParameterType]
 
 app = FastAPI(title="Memory Chat Server", lifespan=lifespan)  # type: ignore[reportUnknownVariableType]
 app.include_router(router)  # type: ignore[reportUnknownMemberType]
-app.include_router(chat_router)  # type: ignore[reportUnknownMemberType]
+app.include_router(chat_router, prefix="/memory")  # type: ignore[reportUnknownMemberType]
 
 
 # ---------------------------------------------------------------------------
