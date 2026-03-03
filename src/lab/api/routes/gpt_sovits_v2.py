@@ -139,7 +139,7 @@ async def tts_webapi_v2_compat(request: Request, background_tasks: BackgroundTas
         logger.error("[GSV v2] TTS synthesizer 未初始化")
         raise HTTPException(status_code=500, detail="TTS synthesizer not initialized")
 
-    logger.info(f"[GSV v2] 开始生成语音：text={text[:50]}...")
+    logger.debug(f"[GSV v2] 开始生成语音：text={text[:50]}...")
 
     task = tts_synthesizer.params_parser(data)  # type: ignore
     logger.debug(f"[GSV v2] params_parser 完成：task={task}")
@@ -149,7 +149,7 @@ async def tts_webapi_v2_compat(request: Request, background_tasks: BackgroundTas
         logger.error(f"[GSV v2] 生成失败：save_path={save_path}")
         raise HTTPException(status_code=500, detail="Failed to generate audio file")
 
-    logger.info(f"[GSV v2] 生成成功：save_path={save_path}")
+    logger.debug(f"[GSV v2] 生成成功：save_path={save_path}")
 
     out_path = Path(save_path)
 
