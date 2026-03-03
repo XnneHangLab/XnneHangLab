@@ -65,7 +65,7 @@ class ChatResponse(BaseModel):
     """Chat response model."""
 
     session_id: str
-    message: str
+    content: str  # Changed from 'message' to 'content' for AIChat client compatibility
     model: str
     created: int
 
@@ -278,7 +278,7 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> JSONResp
     created = int(time.time())
     response = ChatResponse(
         session_id=session_id,
-        message=assistant_content,
+        content=assistant_content,  # Changed from 'message' to 'content'
         model=model,
         created=created,
     )
