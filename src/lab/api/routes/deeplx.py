@@ -13,6 +13,12 @@ from lab.config_manager import XnneHangLabSettings, load_settings_file
 router = APIRouter()
 
 
+@router.get("/health")
+async def health() -> dict[str, str]:
+    """心跳检测端点，供客户端（如 AIChat Mod）探测服务是否就绪。"""
+    return {"status": "ok"}
+
+
 # 将 deeplx_org 转发到 localhost
 @router.post("/translate/deeplx")
 async def sentence_translate(request: Request):
