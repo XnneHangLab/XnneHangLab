@@ -46,13 +46,27 @@ memory_bench/
 │  └─ rate_limiter.py      (工具模块)
 ├─ server/
 │  ├─ __init__.py
-│  ├─ router.py              (FastAPI router — 可独立挂载)
+│  ├─ router.py              (FastAPI router — 可独立挂载，OpenAI 兼容 `/v1/chat/completions`)
+│  ├─ chat_router.py         (轻量级 router — `/memory/chat` 端点，兼容 AIChat 客户端)
+│  ├─ conversation_store.py  (日期为基础的对话 JSONL 持久化存储)
 │  ├─ neo4j_queries.py       (Neo4j Cypher 查询模板)
 │  ├─ startup.py             (初始化帮助函数 — 供外部 host app 调用)
 │  ├─ chat_server.py         (独立启动器 + CLI)
 │  ├─ chat_cli.py            (终端对话调试客户端)
 │  ├─ claim_extractor.py     (实时 claim/entity 提取)
 │  └─ graph_writer.py        (实时图谱写入 Neo4j)
+│  └─ prompts/               (系统 prompt 模板目录)
+│     ├─ emotion/
+│     │  ├─ base_persona.txt      (基础人设)
+│     │  └─ emotion_system.txt    (情绪系统)
+│     ├─ tools/
+│     │  └─ tool_definitions.txt  (工具定义，可选)
+│     └─ diary/
+│        └─ recent_summary.txt    (日记摘要，可选)
+│  └─ conversations/         (对话历史存储目录，运行后生成)
+│     ├─ 2026-03-03.json
+│     ├─ 2026-03-04.json
+│     └─ ...
 ├─ resources/
 │  └─ tag_registry.json
 ├─ data/
@@ -301,3 +315,128 @@ uv sync --group memory_bench
 - `claimify_all.py` 后：`data/claims/by_conv/chXX.jsonl` 存在
 - `compiled_claims.py` 后：`data/claims/compiled/*.jsonl` + `compiled_meta.json` 存在
 - `mem0_to_graph.py` + `graph_to_cypher.py` 后：`*nodes*.jsonl`、`*edges*.jsonl`、`neo4j/*.cypher` 存在
+
+---
+
+## Memory Chat Server（`memory_bench/server/`）
+
+### 概述
+
+`memory_bench/server/` 提供两个 FastAPI router，用于不同场景的对话服务：
+
+1. **`router.py`** — OpenAI 兼容的 `/v1/chat/completions` 代理，集成 mem0 记忆检索
+2. **`chat_router.py`** — 轻量级 `/memory/chat` 端点，兼容 AIChat 客户端，使用 `conversation_store.py` 存储对话历史
+
+### 文件说明
+
+| 文件 | 作用 |
+|------|------|
+| `startup.py` | 初始化帮助函数（`load_memory_bench_env` / `resolve_memory_bench_config` / `init_router_state`），供外部 host app 共用 |
+| `router.py` | OpenAI 兼容 router，端点：`/memory/v1/chat/completions`、`/memory/v1/models`、`/memory/health` |
+| `chat_router.py` | 轻量级 router，端点：`/memory/chat`、`/memory/sessions`、`/memory/health` |
+| `conversation_store.py` | 日期为基础的对话 JSONL 持久化（`conversations/YYYY-MM-DD.json`） |
+| `chat_server.py` | 独立启动器 + CLI，用于快速启动 `chat_router.py` |
+| `chat_cli.py` | 终端对话调试客户端，通过 HTTP 调用 server |
+| `claim_extractor.py` | 实时 claim/entity 提取（LLM-based） |
+| `graph_writer.py` | 实时图谱写入 Neo4j（Cypher MERGE） |
+| `neo4j_queries.py` | Neo4j Cypher 查询模板（与业务逻辑分离） |
+
+### prompts/ 目录结构
+
+系统 prompt 从 `prompts/` 目录动态拼接：
+
+```text
+prompts/
+├─ emotion/
+│  ├─ base_persona.txt      (基础人设，必有)
+│  └─ emotion_system.txt    (情绪系统，必有)
+├─ tools/
+│  └─ tool_definitions.txt  (工具定义，可选)
+└─ diary/
+   └─ recent_summary.txt    (日记摘要，可选)
+```
+
+拼接顺序：
+1. `base_persona.txt`
+2. `emotion_system.txt`
+3. `tool_definitions.txt`（如果存在且非空）
+4. `recent_summary.txt`（如果存在且非空）
+
+### conversations/ 目录结构
+
+对话历史存储在 `conversations/` 目录（运行后自动生成）：
+
+```text
+conversations/
+├─ 2026-03-03.json
+├─ 2026-03-04.json
+└─ 2026-03-05.json
+```
+
+每个文件包含一个消息列表：
+
+```json
+[
+  {"role": "user", "content": "你好", "timestamp": "2026-03-04T10:00:00Z"},
+  {"role": "assistant", "content": "你好呀！", "timestamp": "2026-03-04T10:00:01Z"}
+]
+```
+
+### 启动方式
+
+**独立启动（推荐测试用）：**
+
+```bash
+# 通过 justfile
+just memory-chat-server          # 默认端口 8080
+just memory-chat-server 9090     # 自定义端口
+
+# 直接调用
+uv run memory_bench/server/chat_server.py --port 8080
+
+# 启用实时图谱写入
+just memory-chat-server --enable-graph
+```
+
+**挂载到 lab server：**
+
+在 `config/lab.toml` 中开启：
+
+```toml
+[package]
+memory_bench = true
+```
+
+lab server 启动时会自动挂载 router：
+- `router.py` → `/memory/v1/chat/completions`
+- `chat_router.py` → `/memory/chat`
+
+### 环境变量
+
+配置通过 `memory_bench/.env.benchmark` 加载：
+
+```bash
+# Chat LLM 配置
+CHAT_API_KEY=sk-xxx
+CHAT_BASE_URL=https://api.openai.com/v1
+CHAT_MODEL=gpt-4o-mini
+
+# Server 鉴权（可选）
+CHAT_SERVER_API_KEY=your-secret-key
+
+# 实时图谱写入（可选）
+ENABLE_GRAPH=true
+NEO4J_CONTAINER=membench-neo4j-mem0
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=neo4jneo4j
+```
+
+### 使用场景对比
+
+| 场景 | 推荐 router | 理由 |
+|------|------------|------|
+| AIChat 客户端集成 | `chat_router.py` | 协议兼容，配置简单 |
+| 需要记忆检索 | `router.py` | 集成 mem0 向量检索 |
+| 快速测试/调试 | `chat_router.py` | 无需 mem0/Qdrant |
+| 生产环境（完整功能） | `router.py` | 支持记忆、图谱、工具调用 |
+
