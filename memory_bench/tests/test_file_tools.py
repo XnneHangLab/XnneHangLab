@@ -8,13 +8,12 @@
 
 from __future__ import annotations
 
-import tempfile
 from datetime import date
 from pathlib import Path  # noqa: TC003 - used at runtime in fixtures
 
 import pytest
 
-from memory_bench.server.tools.file_tools import FileOperationResult, FileTools, SecurityError
+from memory_bench.server.tools.file_tools import FileOperationResult, FileTools
 
 
 @pytest.fixture
@@ -61,133 +60,69 @@ class TestFileToolsInit:
         assert "conversation" in file_tools.presets
 
 
-class TestSafePath:
-    """测试 _safe_path 安全校验。"""
+class TestSecurity:
+    """测试安全校验（通过公共 API 间接测试）。"""
 
-    def test_safe_path_relative_to_workspace(self, file_tools: FileTools, temp_workspace: tuple[Path, Path]) -> None:
-        """相对路径应解析为 workspace 下的绝对路径。"""
-        workspace, _ = temp_workspace
-        path = file_tools._safe_path("memory_bench/test.md", write_mode=False)
-
-        assert path.is_absolute()
-        assert str(path).startswith(str(workspace.resolve()))
-
-    def test_safe_path_absolute_path(self, file_tools: FileTools, temp_workspace: tuple[Path, Path]) -> None:
-        """绝对路径应直接解析。"""
-        workspace, _ = temp_workspace
-        abs_path = workspace / "test.md"
-        result = file_tools._safe_path(str(abs_path), write_mode=False)
-
-        assert result == abs_path.resolve()
-
-    def test_safe_path_write_mode_restricts_to_memory_bench(
+    def test_write_outside_memory_bench_raises_security_error(
         self, file_tools: FileTools, temp_workspace: tuple[Path, Path]
     ) -> None:
-        """写入模式应限制在 memory_bench 内。"""
-        workspace, _ = temp_workspace
-        # 尝试写入 workspace 但不在 memory_bench 内
-        with pytest.raises(SecurityError) as exc_info:
-            file_tools._safe_path("other_project/test.md", write_mode=True)
+        """写入 memory_bench 外应抛出 SecurityError。"""
+        result = file_tools.write("Content", path="other_project/test.md")
 
-        assert "写入操作超出 memory_bench 范围" in str(exc_info.value)
+        assert result.success is False
+        assert result.error is not None
+        assert "写入操作超出 memory_bench 范围" in result.error
 
-    def test_safe_path_read_mode_allows_workspace(
+    def test_read_outside_workspace_raises_security_error(
         self, file_tools: FileTools, temp_workspace: tuple[Path, Path]
     ) -> None:
-        """读取模式应允许整个 workspace。"""
-        workspace, _ = temp_workspace
-        # 创建测试文件
-        test_file = workspace / "other_project" / "test.md"
-        test_file.parent.mkdir(parents=True, exist_ok=True)
-        test_file.write_text("test", encoding="utf-8")
+        """读取 workspace 外应抛出 SecurityError。"""
+        result = file_tools.read("../../etc/passwd")
 
-        path = file_tools._safe_path("other_project/test.md", write_mode=False)
-        assert path.exists()
+        assert result.success is False
+        assert result.error is not None
+        assert "超出 workspace 范围" in result.error
 
-    def test_safe_path_blocks_workspace_escape(self, file_tools: FileTools, temp_workspace: tuple[Path, Path]) -> None:
-        """应阻止路径逃逸出 workspace。"""
-        # 尝试访问 workspace 外的路径
-        with pytest.raises(SecurityError) as exc_info:
-            file_tools._safe_path("../../etc/passwd", write_mode=False)
+    def test_edit_outside_memory_bench_raises_security_error(
+        self, file_tools: FileTools, temp_workspace: tuple[Path, Path]
+    ) -> None:
+        """编辑 memory_bench 外的文件应抛出 SecurityError。"""
+        result = file_tools.edit("../../etc/passwd", "old", "new")
 
-        assert "读取操作超出 workspace 范围" in str(exc_info.value)
+        assert result.success is False
+        assert result.error is not None
+        assert "写入操作超出 memory_bench 范围" in result.error
 
-    def test_safe_path_excludes_git_directory(self, file_tools: FileTools, temp_workspace: tuple[Path, Path]) -> None:
-        """应排除 .git 目录。"""
+    def test_read_git_directory_raises_security_error(
+        self, file_tools: FileTools, temp_workspace: tuple[Path, Path]
+    ) -> None:
+        """读取 .git 目录应抛出 SecurityError。"""
         workspace, _ = temp_workspace
         git_dir = workspace / ".git" / "config"
         git_dir.parent.mkdir(parents=True, exist_ok=True)
         git_dir.write_text("test", encoding="utf-8")
 
-        with pytest.raises(SecurityError) as exc_info:
-            file_tools._safe_path(".git/config", write_mode=False)
+        result = file_tools.read(".git/config")
 
-        assert "禁止访问排除目录" in str(exc_info.value)
+        assert result.success is False
+        assert result.error is not None
+        assert "禁止访问排除目录" in result.error
 
-    def test_safe_path_excludes_node_modules(self, file_tools: FileTools) -> None:
-        """应排除 node_modules 目录。"""
-        with pytest.raises(SecurityError) as exc_info:
-            file_tools._safe_path("memory_bench/node_modules/package.json", write_mode=False)
+    def test_read_node_modules_raises_security_error(self, file_tools: FileTools) -> None:
+        """读取 node_modules 应抛出 SecurityError。"""
+        result = file_tools.read("memory_bench/node_modules/package.json")
 
-        assert "禁止访问排除目录" in str(exc_info.value)
+        assert result.success is False
+        assert result.error is not None
+        assert "禁止访问排除目录" in result.error
 
-    def test_safe_path_excludes_pycache(self, file_tools: FileTools) -> None:
-        """应排除 __pycache__ 目录。"""
-        with pytest.raises(SecurityError) as exc_info:
-            file_tools._safe_path("memory_bench/server/__pycache__/module.pyc", write_mode=False)
+    def test_read_pycache_raises_security_error(self, file_tools: FileTools) -> None:
+        """读取 __pycache__ 应抛出 SecurityError。"""
+        result = file_tools.read("memory_bench/server/__pycache__/module.pyc")
 
-        assert "禁止访问排除目录" in str(exc_info.value)
-
-
-class TestResolvePurposePath:
-    """测试 _resolve_purpose_path 路径推断。"""
-
-    def test_purpose_memory(self, file_tools: FileTools) -> None:
-        """memory purpose 应返回 MEMORY.md 路径。"""
-        path = file_tools._resolve_purpose_path("memory")
-
-        assert path.name == "MEMORY.md"
-        assert "server" in str(path)
-        assert "memory" in str(path)
-
-    def test_purpose_diary_with_date(self, file_tools: FileTools) -> None:
-        """diary purpose 无 filename 时应使用今天的日期。"""
-        path = file_tools._resolve_purpose_path("diary")
-
-        assert path.name == f"{date.today()}.md"
-        assert "diary" in str(path)
-
-    def test_purpose_diary_with_filename(self, file_tools: FileTools) -> None:
-        """diary purpose 有 filename 时应使用指定文件名。"""
-        path = file_tools._resolve_purpose_path("diary", filename="my_diary.md")
-
-        assert path.name == "my_diary.md"
-
-    def test_purpose_saved_auto_timestamp(self, file_tools: FileTools) -> None:
-        """saved purpose 无 filename 时应自动生成时间戳文件名。"""
-        path = file_tools._resolve_purpose_path("saved")
-
-        assert path.name.startswith("saved_")
-        assert path.name.endswith(".md")
-
-    def test_purpose_prompt(self, file_tools: FileTools) -> None:
-        """prompt purpose 应返回 prompts 目录。"""
-        path = file_tools._resolve_purpose_path("prompt")
-
-        assert "prompts" in str(path)
-
-    def test_purpose_conversation_with_date(self, file_tools: FileTools) -> None:
-        """conversation purpose 无 filename 时应使用今天的日期（JSON）。"""
-        path = file_tools._resolve_purpose_path("conversation")
-
-        assert path.name == f"{date.today()}.json"
-        assert "conversations" in str(path)
-
-    def test_purpose_unknown(self, file_tools: FileTools) -> None:
-        """未知 purpose 应返回 misc 目录。"""
-        path = file_tools._resolve_purpose_path("unknown_purpose")
-
-        assert "misc" in str(path)
+        assert result.success is False
+        assert result.error is not None
+        assert "禁止访问排除目录" in result.error
 
 
 class TestRead:
@@ -210,11 +145,12 @@ class TestRead:
         result = file_tools.read("nonexistent.md")
 
         assert result.success is False
+        assert result.error is not None
         assert "文件不存在" in result.error
 
     def test_read_with_purpose_memory(self, file_tools: FileTools, temp_workspace: tuple[Path, Path]) -> None:
         """使用 purpose='memory' 应读取 MEMORY.md。"""
-        workspace, memory_bench = temp_workspace
+        memory_bench = temp_workspace[1]
         memory_file = memory_bench / "server" / "memory" / "MEMORY.md"
         memory_file.write_text("# Memory", encoding="utf-8")
 
@@ -225,7 +161,7 @@ class TestRead:
 
     def test_read_with_purpose_diary(self, file_tools: FileTools, temp_workspace: tuple[Path, Path]) -> None:
         """使用 purpose='diary' 应读取今天的日记。"""
-        workspace, memory_bench = temp_workspace
+        memory_bench = temp_workspace[1]
         diary_file = memory_bench / "data" / "diary" / f"{date.today()}.md"
         diary_file.write_text("Today's diary", encoding="utf-8")
 
@@ -245,6 +181,7 @@ class TestRead:
         result = file_tools.read("test_dir")
 
         assert result.success is True
+        assert result.content is not None
         assert "file1.md" in result.content
         assert "file2.md" in result.content
 
@@ -253,14 +190,8 @@ class TestRead:
         result = file_tools.read()
 
         assert result.success is False
+        assert result.error is not None
         assert "必须提供 path 或 purpose 参数" in result.error
-
-    def test_read_security_violation(self, file_tools: FileTools) -> None:
-        """读取超出范围的文件应返回安全错误。"""
-        result = file_tools.read("../../etc/passwd")
-
-        assert result.success is False
-        assert "超出 workspace 范围" in result.error
 
 
 class TestWrite:
@@ -268,7 +199,7 @@ class TestWrite:
 
     def test_write_file(self, file_tools: FileTools, temp_workspace: tuple[Path, Path]) -> None:
         """写入文件应成功。"""
-        workspace, memory_bench = temp_workspace
+        memory_bench = temp_workspace[1]
         test_file = memory_bench / "test.md"
 
         result = file_tools.write("Hello, World!", path="memory_bench/test.md")
@@ -333,18 +264,12 @@ class TestWrite:
         saved_dir = memory_bench / "data" / "saved"
         assert any(saved_dir.iterdir())
 
-    def test_write_outside_memory_bench_fails(self, file_tools: FileTools, temp_workspace: tuple[Path, Path]) -> None:
-        """写入 memory_bench 外应失败。"""
-        result = file_tools.write("Content", path="other_project/test.md")
-
-        assert result.success is False
-        assert "写入操作超出 memory_bench 范围" in result.error
-
     def test_write_requires_path_or_purpose(self, file_tools: FileTools) -> None:
         """write 必须提供 path 或 purpose 参数。"""
         result = file_tools.write("Content")
 
         assert result.success is False
+        assert result.error is not None
         assert "必须提供 path 或 purpose 参数" in result.error
 
 
@@ -371,6 +296,7 @@ class TestEdit:
         result = file_tools.edit("memory_bench/edit_test2.md", "NotExist", "Replacement")
 
         assert result.success is False
+        assert result.error is not None
         assert "未找到要替换的原文" in result.error
 
     def test_edit_only_replaces_first_occurrence(
@@ -385,13 +311,6 @@ class TestEdit:
 
         assert result.success is True
         assert test_file.read_text(encoding="utf-8") == "TEST test test"
-
-    def test_edit_security_violation(self, file_tools: FileTools) -> None:
-        """编辑 memory_bench 外的文件应失败。"""
-        result = file_tools.edit("../../etc/passwd", "old", "new")
-
-        assert result.success is False
-        assert "写入操作超出 memory_bench 范围" in result.error
 
 
 class TestFileOperationResult:

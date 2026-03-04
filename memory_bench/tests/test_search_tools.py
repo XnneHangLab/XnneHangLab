@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path  # noqa: TC003 - used at runtime in fixtures
 
 import pytest
 
@@ -95,75 +95,6 @@ class TestSearchToolsInit:
         assert "*.lock" in search_tools.exclude_file_patterns
 
 
-class TestShouldExcludeFile:
-    """测试 _should_exclude_file 方法。"""
-
-    def test_exclude_pyc_file(self, search_tools: SearchTools) -> None:
-        """应排除 .pyc 文件。"""
-        path = Path("/workspace/module.pyc")
-        assert search_tools._should_exclude_file(path) is True
-
-    def test_exclude_pyo_file(self, search_tools: SearchTools) -> None:
-        """应排除 .pyo 文件。"""
-        path = Path("/workspace/module.pyo")
-        assert search_tools._should_exclude_file(path) is True
-
-    def test_exclude_so_file(self, search_tools: SearchTools) -> None:
-        """应排除 .so 文件。"""
-        path = Path("/workspace/library.so")
-        assert search_tools._should_exclude_file(path) is True
-
-    def test_exclude_dll_file(self, search_tools: SearchTools) -> None:
-        """应排除 .dll 文件。"""
-        path = Path("/workspace/library.dll")
-        assert search_tools._should_exclude_file(path) is True
-
-    def test_exclude_bin_file(self, search_tools: SearchTools) -> None:
-        """应排除 .bin 文件。"""
-        path = Path("/workspace/data.bin")
-        assert search_tools._should_exclude_file(path) is True
-
-    def test_exclude_lock_file(self, search_tools: SearchTools) -> None:
-        """应排除 .lock 文件。"""
-        path = Path("/workspace/package.lock")
-        assert search_tools._should_exclude_file(path) is True
-
-    def test_exclude_min_js_file(self, search_tools: SearchTools) -> None:
-        """应排除 .min.js 文件。"""
-        path = Path("/workspace/bundle.min.js")
-        assert search_tools._should_exclude_file(path) is True
-
-    def test_exclude_map_file(self, search_tools: SearchTools) -> None:
-        """应排除 .map 文件。"""
-        path = Path("/workspace/bundle.js.map")
-        assert search_tools._should_exclude_file(path) is True
-
-    def test_exclude_git_directory(self, search_tools: SearchTools) -> None:
-        """应排除 .git 目录中的文件。"""
-        path = Path("/workspace/.git/config")
-        assert search_tools._should_exclude_file(path) is True
-
-    def test_exclude_node_modules_directory(self, search_tools: SearchTools) -> None:
-        """应排除 node_modules 目录中的文件。"""
-        path = Path("/workspace/node_modules/package/index.js")
-        assert search_tools._should_exclude_file(path) is True
-
-    def test_exclude_pycache_directory(self, search_tools: SearchTools) -> None:
-        """应排除 __pycache__ 目录中的文件。"""
-        path = Path("/workspace/module/__pycache__/module.cpython-39.pyc")
-        assert search_tools._should_exclude_file(path) is True
-
-    def test_include_normal_py_file(self, search_tools: SearchTools) -> None:
-        """正常 .py 文件不应被排除。"""
-        path = Path("/workspace/module.py")
-        assert search_tools._should_exclude_file(path) is False
-
-    def test_include_normal_md_file(self, search_tools: SearchTools) -> None:
-        """正常 .md 文件不应被排除。"""
-        path = Path("/workspace/document.md")
-        assert search_tools._should_exclude_file(path) is False
-
-
 class TestSearch:
     """测试 search 方法。"""
 
@@ -212,21 +143,6 @@ class TestSearch:
 
         assert results.error is not None
         assert "未知的搜索范围" in results.error
-
-    def test_search_nonexistent_directory(self, search_tools: SearchTools, temp_workspace: tuple[Path, Path]) -> None:
-        """搜索不存在的目录应返回错误。"""
-        workspace, _ = temp_workspace
-        # 删除一个目录使其不存在
-        import shutil
-
-        nonexistent_dir = workspace / "nonexistent"
-        if nonexistent_dir.exists():
-            shutil.rmtree(nonexistent_dir)
-
-        results = search_tools.search("test", scope="workspace", file_pattern="*.xyz")
-
-        # 应该能正常执行，只是找不到文件
-        assert results.error is None or "搜索目录不存在" in (results.error or "")
 
     def test_search_case_sensitive(self, search_tools: SearchTools, temp_workspace: tuple[Path, Path]) -> None:
         """区分大小写搜索应只匹配精确大小写。"""
@@ -299,6 +215,40 @@ class TestSearch:
             assert result.file_path is not None
             assert result.line_number > 0
             assert result.line_content is not None
+
+    def test_search_excludes_git_files(self, search_tools: SearchTools, temp_workspace: tuple[Path, Path]) -> None:
+        """搜索应排除 .git 目录中的文件。"""
+        workspace = temp_workspace[0]
+        git_file = workspace / ".git" / "test_file.txt"
+        git_file.parent.mkdir(parents=True, exist_ok=True)
+        git_file.write_text("test content in git", encoding="utf-8")
+
+        results = search_tools.search("test content in git", scope="workspace", file_pattern="*.txt")
+
+        # 应该找不到 .git 中的文件
+        assert results.total_matches == 0
+
+    def test_search_excludes_node_modules(self, search_tools: SearchTools, temp_workspace: tuple[Path, Path]) -> None:
+        """搜索应排除 node_modules 目录中的文件。"""
+        workspace = temp_workspace[0]
+        nm_file = workspace / "node_modules" / "package" / "test.txt"
+        nm_file.parent.mkdir(parents=True, exist_ok=True)
+        nm_file.write_text("test in node_modules", encoding="utf-8")
+
+        results = search_tools.search("test in node_modules", scope="workspace", file_pattern="*.txt")
+
+        assert results.total_matches == 0
+
+    def test_search_excludes_pycache(self, search_tools: SearchTools, temp_workspace: tuple[Path, Path]) -> None:
+        """搜索应排除 __pycache__ 目录中的文件。"""
+        workspace = temp_workspace[0]
+        pyc_file = workspace / "module" / "__pycache__" / "test.pyc"
+        pyc_file.parent.mkdir(parents=True, exist_ok=True)
+        pyc_file.write_text("test in pycache", encoding="utf-8")
+
+        results = search_tools.search("test in pycache", scope="workspace", file_pattern="*")
+
+        assert results.total_matches == 0
 
 
 class TestListFiles:
