@@ -33,9 +33,15 @@ _DOTENV_BENCHMARK_PATH = _REPO_ROOT / "memory_bench" / ".env.benchmark"
 _PERSONA_PATH = _REPO_ROOT / "memory_bench" / "docs" / "22_PERSONA_CANON.md"
 
 _DEFAULT_BASE_URL = "http://localhost:8080"
-_DEFAULT_ENDPOINT = "/v1/chat/completions"
+_DEFAULT_ENDPOINT = "openai"  # Choices: "openai" or "memory"
 _USER_PROMPT = "xnne"
 _ASSISTANT_PROMPT = "congyin"
+
+# Endpoint mapping
+_ENDPOINT_MAP = {
+    "openai": "/v1/chat/completions",
+    "memory": "/memory/chat",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -207,9 +213,9 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--endpoint",
-        choices=["/v1/chat/completions", "/memory/chat"],
+        choices=["openai", "memory"],
         default=None,
-        help=f"Chat endpoint (default: {_DEFAULT_ENDPOINT})",
+        help=f"Chat endpoint: 'openai' for /v1/chat/completions, 'memory' for /memory/chat (default: {_DEFAULT_ENDPOINT})",
     )
     p.add_argument(
         "--system",
@@ -234,8 +240,11 @@ def main() -> None:
     args = _build_parser().parse_args()
 
     base_url = args.base_url or _get_env("CHAT_CLI_BASE_URL", _DEFAULT_BASE_URL) or _DEFAULT_BASE_URL
-    endpoint = args.endpoint or _get_env("CHAT_CLI_ENDPOINT", _DEFAULT_ENDPOINT) or _DEFAULT_ENDPOINT
+    endpoint_name = args.endpoint or _get_env("CHAT_CLI_ENDPOINT", _DEFAULT_ENDPOINT) or _DEFAULT_ENDPOINT
     api_key = args.api_key or _get_env("CHAT_SERVER_API_KEY")
+
+    # Map endpoint name to actual path
+    endpoint = _ENDPOINT_MAP.get(endpoint_name, endpoint_name)
 
     # Build system prompt
     parts: list[str] = []

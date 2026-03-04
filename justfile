@@ -179,11 +179,13 @@ memory-chat-cli base_url='http://localhost:8080' endpoint='/v1/chat/completions'
 
 # 快速调试：使用 /memory/chat 端点（带 session 管理）
 memory-chat-cli-memory base_url='http://localhost:8080':
-  uv run memory_bench/server/chat_cli.py --base-url {{ base_url }} --endpoint '/memory/chat'
+  @echo "Starting chat CLI with /memory/chat endpoint..."
+  uv run memory_bench/server/chat_cli.py --base-url {{ base_url }} --endpoint memory
 
 # 快速调试：使用 /v1/chat/completions 端点（OpenAI 兼容）
 memory-chat-cli-openai base_url='http://localhost:8080':
-  uv run memory_bench/server/chat_cli.py --base-url {{ base_url }} --endpoint '/v1/chat/completions'
+  @echo "Starting chat CLI with /v1/chat/completions endpoint..."
+  uv run memory_bench/server/chat_cli.py --base-url {{ base_url }} --endpoint openai
 
 build-index limit='' tail='' offset='':
   uv run memory_bench/scripts/build_index.py --force {{ if limit != '' { '--limit ' + limit } else { '' } }} {{ if tail != '' { '--tail ' + tail } else { '' } }} {{ if offset != '' { '--offset ' + offset } else { '' } }}
