@@ -11,7 +11,7 @@ Key features:
 Usage::
 
     from memory_bench.server.chat_router import router, chat_state
-    
+
     app = FastAPI()
     app.include_router(router, prefix="/memory")
 """
