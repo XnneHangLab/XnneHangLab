@@ -10,16 +10,20 @@ Usage from an external FastAPI app::
         load_memory_bench_env,
         resolve_memory_bench_config,
         init_router_state,
+        init_chat_router_state,
     )
     from memory_bench.server.router import router as memory_router, state as memory_state
+    from memory_bench.server.chat_router import router as chat_router, chat_state
 
     # In your lifespan:
     load_memory_bench_env()
     cfg = resolve_memory_bench_config()
     await init_router_state(memory_state, cfg)
+    await init_chat_router_state(chat_state, cfg)
 
     # Mount under /memory prefix:
     app.include_router(memory_router, prefix="/memory")
+    app.include_router(chat_router, prefix="/memory")  # /memory/chat endpoint
 
 Configuration isolation
 -----------------------
@@ -160,7 +164,8 @@ def resolve_memory_bench_config(overrides: dict[str, Any] | None = None) -> dict
         "neo4j_user": neo4j_user,
         "neo4j_password": neo4j_password,
         # overrides (CLI --enable-graph) > ENABLE_GRAPH env var > False
-        "enable_graph": overrides.get("enable_graph") or (_get_env("ENABLE_GRAPH") or "").lower() in ("1", "true", "yes"),
+        "enable_graph": overrides.get("enable_graph")
+        or (_get_env("ENABLE_GRAPH") or "").lower() in ("1", "true", "yes"),
         # Metadata nodes
         "metadata_user_id": overrides.get("metadata_user_id") or _get_env("METADATA_USER_ID", "xnne"),
         "metadata_user_name": overrides.get("metadata_user_name") or _get_env("METADATA_USER_NAME", "xnne"),
@@ -338,3 +343,36 @@ def init_router_state(state: ServerState, cfg: dict[str, Any]) -> None:
         init_metadata_nodes()
     else:
         logger.info("ℹ️ Graph pipeline disabled (set enable_graph=True or --enable-graph to enable)")
+
+
+# ---------------------------------------------------------------------------
+# Chat router state initialisation
+# ---------------------------------------------------------------------------
+
+
+def init_chat_router_state(state: Any, cfg: dict[str, Any]) -> None:
+    """Populate ``chat_router.chat_state`` from a resolved config dict.
+
+    This function initializes the autonomous chat router state.
+
+    Args:
+        state: The ``ChatServerState`` singleton imported from ``chat_router.py``.
+        cfg: Config dict returned by :func:`resolve_memory_bench_config`.
+    """
+    from openai import OpenAI  # type: ignore[reportMissingImports]
+
+    # OpenAI client for chat
+    state.openai_client = OpenAI(api_key=cfg["chat_api_key"], base_url=cfg["chat_base_url"])
+    state.chat_model = cfg["chat_model"]
+
+    # Prompts directory
+    prompts_dir = _REPO_ROOT / "memory_bench" / "server" / "prompts"
+    state.prompts_dir = str(prompts_dir)
+
+    # Conversations directory
+    conversations_dir = _REPO_ROOT / "memory_bench" / "conversations"
+    state.conversations_dir = str(conversations_dir)
+
+    logger.info("✅ Chat router initialized: %s / %s", cfg["chat_base_url"], cfg["chat_model"])
+    logger.info("✅ Prompts directory: %s", state.prompts_dir)
+    logger.info("✅ Conversations directory: %s", state.conversations_dir)
