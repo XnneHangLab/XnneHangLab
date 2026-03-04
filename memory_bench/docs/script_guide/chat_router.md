@@ -49,10 +49,38 @@ prompts/
 │  ├─ base_persona.txt      （基础人设）
 │  └─ emotion_system.txt    （情绪系统）
 ├─ tools/
-│  └─ tool_definitions.txt  （工具定义，可选）
+│  ├─ tool_definitions.txt  （工具定义 + 文件路径速查）
+│  └─ FILE_STRUCTURE.md     （文件结构指南）
 └─ diary/
    └─ recent_summary.txt    （日记摘要，可选）
 ```
+
+---
+
+## 工具调用（Function Calling）
+
+内置 4 个工具，LLM 可通过 tool_call 格式调用：
+
+| 工具 | 说明 | 安全限制 |
+|------|------|----------|
+| **READ** | 读取文件/列出目录 | workspace 只读 |
+| **WRITE** | 创建/覆盖文件 | memory_bench 内部 |
+| **EDIT** | 精确替换文本 | memory_bench 内部 |
+| **SEARCH** | 搜索关键词 | workspace/memory_bench |
+
+**工具调用示例**：
+```json
+{
+  "name": "READ",
+  "arguments": {
+    "path": "memory_bench/server/memory/MEMORY.md"
+  }
+}
+```
+
+**实现模块**：
+- [`file_tools.py`](./file_tools.md) — READ/WRITE/EDIT 实现
+- [`search_tools.py`](./search_tools.md) — SEARCH 实现
 
 ## 与 router.py 的对比
 
