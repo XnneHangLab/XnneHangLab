@@ -41,6 +41,91 @@ _DEFAULT_SESSION_TTL = 3600  # 1 hour
 
 
 # ---------------------------------------------------------------------------
+# Tool Definitions (JSON Schema for Function Calling)
+# ---------------------------------------------------------------------------
+
+TOOL_DEFINITIONS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "READ",
+            "description": "读取文件内容或列出目录",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "文件路径（相对路径或绝对路径）"},
+                    "purpose": {
+                        "type": "string",
+                        "enum": ["memory", "diary", "saved", "prompt", "conversation"],
+                        "description": "预设位置快捷方式（当 path 未提供时使用）",
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "WRITE",
+            "description": "创建或覆盖文件（仅限 memory_bench/ 内部）",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "文件相对路径（必须在 memory_bench/ 内部）"},
+                    "content": {"type": "string", "description": "文件内容"},
+                    "purpose": {
+                        "type": "string",
+                        "enum": ["diary", "saved"],
+                        "description": "预设位置快捷方式（当 path 未提供时使用）",
+                    },
+                    "append": {"type": "boolean", "description": "是否追加模式", "default": False},
+                },
+                "required": ["content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "EDIT",
+            "description": "精确替换文件中的文本（仅限 memory_bench/ 内部）",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "文件相对路径（必须在 memory_bench/ 内部）"},
+                    "old_text": {"type": "string", "description": "要替换的原文（必须精确匹配）"},
+                    "new_text": {"type": "string", "description": "新内容"},
+                },
+                "required": ["path", "old_text", "new_text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "SEARCH",
+            "description": "在指定范围内搜索关键词",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "搜索关键词"},
+                    "scope": {
+                        "type": "string",
+                        "enum": ["workspace", "memory_bench", "diary", "prompts", "saved"],
+                        "description": "搜索范围",
+                    },
+                    "file_pattern": {"type": "string", "description": "文件通配符（如 *.py, *.md, *）", "default": "*"},
+                    "context_lines": {"type": "integer", "description": "上下文行数", "default": 2},
+                },
+                "required": ["query"],
+            },
+        },
+    },
+]
+
+
+# ---------------------------------------------------------------------------
 # Pydantic models
 # ---------------------------------------------------------------------------
 
