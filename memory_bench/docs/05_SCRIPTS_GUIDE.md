@@ -40,6 +40,8 @@
 - **Memory Chat Server**（`memory_bench/server/`）
   - `startup.py`（初始化帮助函数 — 供外部 host app 调用）
   - `chat_server.py`（独立启动器 + CLI）
+  - `chat_router.py`（轻量级 chat 端点 — `/memory/chat`，兼容 AIChat 客户端）
+  - `conversation_store.py`（日期为基础的对话 JSONL 持久化存储）
   - `neo4j_queries.py`（Neo4j Cypher 查询模板，与业务逻辑分离）
   - `router.py`（FastAPI router，可独立挂载到其他 app）
   - `claim_extractor.py`（实时 claim/entity 提取，`claimify_all.py` 的实时对应物）
@@ -1132,3 +1134,234 @@ Markdown 文档包含两个章节：
 1. **排查边字段一致性**：快速检查某类边的属性是否完整（如 `src/dst/predicate/domain`）
 2. **校验命名规范**：检查 `r.id` 的前缀分布是否符合预期
 3. **联调实时/离线写图**：确认不同写入链路产出的边结构一致
+
+---
+
+## 23. Conversation Store（`memory_bench/server/conversation_store.py`）
+
+### 作用
+
+日期为基础的对话 JSONL 持久化存储模块，为 `chat_router.py` 提供轻量级对话历史管理。
+
+与 mem0 的向量检索不同，`conversation_store.py` 采用简单的文件存储：
+- **按日期分文件**：`conversations/YYYY-MM-DD.json`
+- **纯 JSON 格式**：无需额外依赖，易于调试和备份
+- **增量追加**：每次对话追加新消息，不覆盖历史
+
+### 文件结构
+
+```text
+conversations/
+├─ 2026-03-03.json
+├─ 2026-03-04.json
+└─ 2026-03-05.json
+```
+
+每个文件包含一个消息列表：
+
+```json
+[
+  {"role": "user", "content": "你好", "timestamp": "2026-03-04T10:00:00Z"},
+  {"role": "assistant", "content": "你好呀！", "timestamp": "2026-03-04T10:00:01Z"}
+]
+```
+
+### 核心函数
+
+| 函数 | 说明 |
+|------|------|
+| `read_conversation(date_id)` | 读取指定日期的对话消息，返回 `list[dict]` |
+| `append_turn(date_id, role, content, extra)` | 追加一条新消息到对话文件 |
+| `list_conversations()` | 列出所有可用的对话日期 ID |
+| `get_today_id()` | 获取今天的日期 ID（`YYYY-MM-DD` 格式） |
+
+### 使用方式
+
+```python
+from memory_bench.server.conversation_store import ConversationStore
+
+# 初始化（默认存储在当前目录的 conversations/ 文件夹）
+conv_store = ConversationStore(base_dir="conversations")
+
+# 读取今天的对话
+today = conv_store.get_today_id()
+messages = conv_store.read_conversation(today)
+
+# 追加一条用户消息
+conv_store.append_turn(today, role="user", content="今天天气怎么样？")
+
+# 追加一条助手回复
+conv_store.append_turn(today, role="assistant", content="今天晴朗，气温适宜~")
+```
+
+### 与 `chat_router.py` 的集成
+
+`chat_router.py` 在每次对话时：
+1. 调用 `read_conversation(date_id)` 加载历史对话
+2. 将历史对话转换为 OpenAI 格式（`role + content`）
+3. 拼接 system prompt + 历史 + 新消息，调用 LLM
+4. 调用 `append_turn()` 保存用户消息和助手回复
+
+```python
+# chat_router.py 简化示例
+conv_store = ConversationStore(base_dir=chat_state.conversations_dir)
+conv_messages = conv_store.read_conversation(date_id)
+
+# 转换为 OpenAI 格式
+messages = [
+    {"role": msg["role"], "content": msg["content"]}
+    for msg in conv_messages
+    if msg.get("role") in ("user", "assistant")
+]
+
+# ... 调用 LLM ...
+
+# 保存对话
+conv_store.append_turn(date_id, role="user", content=request.message)
+conv_store.append_turn(date_id, role="assistant", content=assistant_content)
+```
+
+### 设计决策
+
+- **日期分文件**：便于按天归档和清理，避免单个文件过大
+- **无依赖**：只用标准库 `json` 和 `pathlib`，无需数据库
+- **类型注解**：使用 `list[dict[str, str]]` 明确类型，通过 pyright 检查
+- **优雅降级**：文件不存在/损坏时返回空列表，不中断对话
+
+### 使用场景
+
+1. **轻量级对话历史**：不需要向量检索，只需按时间顺序读取历史
+2. **调试和测试**：直接查看 JSON 文件即可了解对话内容
+3. **备份和迁移**：复制 JSON 文件即可备份对话历史
+4. **AIChat 客户端集成**：配合 `chat_router.py` 提供兼容接口
+
+---
+
+## 24. Chat Router（`memory_bench/server/chat_router.py`）
+
+### 作用
+
+轻量级 FastAPI router，提供 `/memory/chat` 端点，兼容 AIChat 客户端的对话协议。
+
+与 `router.py`（OpenAI 兼容的 `/v1/chat/completions` 代理）不同，`chat_router.py` 是简化版本：
+- **单一端点**：`POST /memory/chat`
+- **简化请求/响应模型**：直接传 `message`，返回 `content`
+- **内置对话存储**：集成 `conversation_store.py`，无需 mem0
+- **可选图谱写入**：通过 `--enable-graph` 启用实时 claim 提取和 Neo4j 写入
+
+### 端点
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/memory/chat` | POST | 对话端点（兼容 AIChat 客户端） |
+| `/memory/sessions` | GET | 列出可用的对话日期 |
+| `/memory/health` | GET | 健康检查 |
+
+### 请求/响应格式
+
+**请求**：
+
+```json
+{
+  "session_id": "sess_xxx",  // 可选，不传则自动生成
+  "message": "你好",
+  "model": "gpt-4o-mini"     // 可选
+}
+```
+
+**响应**：
+
+```json
+{
+  "session_id": "sess_xxx",
+  "content": "你好呀！",
+  "model": "gpt-4o-mini",
+  "created": 1709553600
+}
+```
+
+### 调用示例
+
+```bash
+# 启动独立 server
+uv run memory_bench/server/chat_server.py --enable-graph
+
+# 测试对话
+curl -X POST http://localhost:8080/memory/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "你好", "session_id": "test-001"}'
+```
+
+### 在其他 FastAPI app 中挂载
+
+```python
+from fastapi import FastAPI
+from memory_bench.server.chat_router import router as chat_router, chat_state
+from memory_bench.server.startup import (
+    load_memory_bench_env,
+    resolve_memory_bench_config,
+    init_chat_router_state,
+)
+
+# 在 lifespan 里初始化
+load_memory_bench_env()
+cfg = resolve_memory_bench_config()
+init_chat_router_state(chat_state, cfg)
+
+app = FastAPI()
+app.include_router(chat_router, prefix="/memory")
+# → /memory/chat, /memory/sessions, /memory/health
+```
+
+### 环境变量
+
+配置通过 `memory_bench/.env.benchmark` 加载，CLI 参数优先。
+
+| 环境变量 | 说明 | 回退 |
+|----------|------|------|
+| `CHAT_API_KEY` | Chat LLM 的 API key | `BENCHMARK_LLM_API_KEY` |
+| `CHAT_BASE_URL` | Chat LLM 的 base URL | `BENCHMARK_LLM_BASE_URL` |
+| `CHAT_MODEL` | Chat 模型名 | `BENCHMARK_LLM_MODEL` |
+| `CHAT_SERVER_API_KEY` | Server 鉴权密钥（Bearer token） | 不设则不鉴权 |
+| `ENABLE_GRAPH` | 启用实时 graph pipeline | `false` |
+| `NEO4J_*` | Neo4j 配置（仅在 `ENABLE_GRAPH=true` 时需要） | — |
+
+### 系统 Prompt 构建
+
+`chat_router.py` 从 `prompts/` 目录动态拼接 system prompt：
+
+```text
+prompts/
+├─ emotion/
+│  ├─ base_persona.txt      （基础人设）
+│  └─ emotion_system.txt    （情绪系统）
+├─ tools/
+│  └─ tool_definitions.txt  （工具定义，可选）
+└─ diary/
+   └─ recent_summary.txt    （日记摘要，可选）
+```
+
+拼接顺序：
+1. `base_persona.txt`（必有）
+2. `emotion_system.txt`（必有）
+3. `tool_definitions.txt`（可选，跳过空文件）
+4. `recent_summary.txt`（可选，跳过空文件）
+
+### 与 `router.py` 的对比
+
+| 特性 | `chat_router.py` | `router.py` |
+|------|-----------------|-------------|
+| **端点** | `/memory/chat` | `/memory/v1/chat/completions` |
+| **协议** | 简化自定义协议 | OpenAI 兼容 |
+| **对话存储** | `conversation_store.py`（JSON 文件） | mem0（Qdrant 向量检索） |
+| **系统 prompt** | 从 `prompts/` 动态拼接 | 由客户端传入 |
+| **图谱写入** | 可选（`--enable-graph`） | 可选（`ENABLE_GRAPH=true`） |
+| **适用场景** | AIChat 客户端、轻量级对话 | 需要记忆检索的复杂场景 |
+
+### 使用场景
+
+1. **AIChat 客户端集成**：兼容 AIChat 的 `/memory/chat` 端点
+2. **快速测试**：无需配置 mem0/Qdrant，直接启动对话 server
+3. **轻量级部署**：只需 LLM API key，无需向量数据库
+4. **调试人设**：修改 `prompts/` 文件即可调整 system prompt
+
