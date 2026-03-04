@@ -33,6 +33,7 @@ _DOTENV_BENCHMARK_PATH = _REPO_ROOT / "memory_bench" / ".env.benchmark"
 _PERSONA_PATH = _REPO_ROOT / "memory_bench" / "docs" / "22_PERSONA_CANON.md"
 
 _DEFAULT_BASE_URL = "http://localhost:8080"
+_DEFAULT_ENDPOINT = "/v1/chat/completions"
 _USER_PROMPT = "xnne"
 _ASSISTANT_PROMPT = "congyin"
 
@@ -77,10 +78,15 @@ def _load_persona() -> str:
 
 def _send_chat(
     base_url: str,
+    endpoint: str,
     messages: list[dict[str, str]],
     api_key: str | None,
 ) -> str:
-    """POST to /v1/chat/completions and return assistant content.
+    """POST to chat endpoint and return assistant content.
+
+    Supports two endpoints:
+    - /v1/chat/completions: OpenAI-compatible standard endpoint
+    - /memory/chat: Memory Chat Server endpoint (with session management)
 
     Creates a new client for each request to avoid keep-alive issues on Windows.
     """
@@ -88,10 +94,17 @@ def _send_chat(
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
 
-    payload = {
-        "messages": messages,
-        "stream": False,
-    }
+    # Build payload based on endpoint
+    if endpoint == "/memory/chat":
+        payload = {
+            "messages": messages,
+            "stream": False,
+        }
+    else:  # /v1/chat/completions
+        payload = {
+            "messages": messages,
+            "stream": False,
+        }
 
     # Create new client per request to avoid keep-alive issues.
     # Use trust_env=False to completely ignore HTTP_PROXY/HTTPS_PROXY
@@ -99,7 +112,7 @@ def _send_chat(
     with httpx.Client(http2=False, trust_env=False) as client:  # type: ignore[reportUnknownMemberType,reportUnknownVariableType]
         try:
             resp = client.post(  # type: ignore[reportUnknownMemberType]
-                f"{base_url.rstrip('/')}/v1/chat/completions",
+                f"{base_url.rstrip('/')}{endpoint}",
                 json=payload,
                 headers=headers,
                 timeout=120.0,
@@ -110,10 +123,16 @@ def _send_chat(
         resp.raise_for_status()  # type: ignore[reportUnknownMemberType]
         data = resp.json()  # type: ignore[reportUnknownMemberType]
 
-        choices = data.get("choices", [])
-        if not choices:
-            return "(empty response)"
-        return choices[0].get("message", {}).get("content", "(no content)")
+        # Handle different response formats
+        if endpoint == "/memory/chat":
+            # Memory Chat Server returns: {"content": "...", "session_id": "..."}
+            return data.get("content", "(no content)")
+        else:
+            # OpenAI-compatible returns: {"choices": [{"message": {"content": "..."}}]}
+            choices = data.get("choices", [])
+            if not choices:
+                return "(empty response)"
+            return choices[0].get("message", {}).get("content", "(no content)")
 
 
 # ---------------------------------------------------------------------------
@@ -123,6 +142,7 @@ def _send_chat(
 
 def _run_repl(
     base_url: str,
+    endpoint: str,
     system_prompt: str,
     api_key: str | None,
 ) -> None:
@@ -131,7 +151,7 @@ def _run_repl(
     if system_prompt:
         messages.append({"role": "system", "content": system_prompt})
 
-    print(f"\n\u2728 Chat CLI — connected to {base_url}")
+    print(f"\n\u2728 Chat CLI — connected to {base_url}{endpoint}")
     print("   Type 'quit' or 'exit' to leave, Ctrl+C / Ctrl+D also works.\n")
 
     while True:
@@ -150,7 +170,7 @@ def _run_repl(
         messages.append({"role": "user", "content": user_input})
 
         try:
-            reply = _send_chat(base_url, messages, api_key)
+            reply = _send_chat(base_url, endpoint, messages, api_key)
         except httpx.HTTPStatusError as exc:  # type: ignore[reportUnknownMemberType,reportUnknownVariableType]
             print(f"\u274c HTTP {exc.response.status_code}: {exc.response.text}")  # type: ignore[reportUnknownMemberType]
             messages.pop()  # remove failed user message
@@ -186,6 +206,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help=f"Server base URL (default: {_DEFAULT_BASE_URL})",
     )
     p.add_argument(
+        "--endpoint",
+        choices=["/v1/chat/completions", "/memory/chat"],
+        default=None,
+        help=f"Chat endpoint (default: {_DEFAULT_ENDPOINT})",
+    )
+    p.add_argument(
         "--system",
         default=None,
         help="Extra system prompt (appended after persona)",
@@ -208,6 +234,7 @@ def main() -> None:
     args = _build_parser().parse_args()
 
     base_url = args.base_url or _get_env("CHAT_CLI_BASE_URL", _DEFAULT_BASE_URL) or _DEFAULT_BASE_URL
+    endpoint = args.endpoint or _get_env("CHAT_CLI_ENDPOINT", _DEFAULT_ENDPOINT) or _DEFAULT_ENDPOINT
     api_key = args.api_key or _get_env("CHAT_SERVER_API_KEY")
 
     # Build system prompt
@@ -222,7 +249,7 @@ def main() -> None:
 
     system_prompt = "\n\n".join(parts)
 
-    _run_repl(base_url=base_url, system_prompt=system_prompt, api_key=api_key)
+    _run_repl(base_url=base_url, endpoint=endpoint, system_prompt=system_prompt, api_key=api_key)
 
 
 if __name__ == "__main__":
