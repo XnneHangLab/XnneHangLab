@@ -53,7 +53,9 @@ async def lifespan(app: FastAPI):
         # 动态导入合成器模块, 此处可写成 from gsv.Synthesizers.xxx import TTS_Synthesizer, TTS_Task
         from importlib import import_module
 
-        from gsv.gsv_state_manager import gsv_tts_state_manager  # type: ignore[reportMissingImports,reportUnknownVariableType]
+        from gsv.gsv_state_manager import (
+            gsv_tts_state_manager,  # type: ignore[reportMissingImports,reportUnknownVariableType]
+        )
 
         logger.info("预加载 GPT-SoVITS 模型...")
         synthesizer_name = "gsv_fast"
