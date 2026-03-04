@@ -233,7 +233,7 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> JSONResp
     conv_messages = conv_store.read_conversation(date_id)
 
     # Convert to OpenAI format (only role + content)
-    messages: list[dict] = [
+    messages: list[dict[str, str]] = [
         {"role": msg["role"], "content": msg["content"]}
         for msg in conv_messages
         if msg.get("role") in ("user", "assistant")
@@ -245,7 +245,7 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> JSONResp
     system_prompt = _build_system_prompt()
 
     # 5. Prepare full message list (system + conversation + new user message)
-    full_messages: list[dict] = [{"role": "system", "content": system_prompt}]
+    full_messages: list[dict[str, str]] = [{"role": "system", "content": system_prompt}]
     full_messages.extend(messages)
     full_messages.append({"role": "user", "content": request.message})
 
@@ -267,18 +267,18 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> JSONResp
         log.error("%s", traceback.format_exc())
         raise HTTPException(status_code=502, detail=f"LLM provider error: {type(exc).__name__}: {exc}") from exc
 
-    assistant_content = completion.choices[0].message.content or ""  # type: ignore[reportUnknownMemberType,reportUnknownVariableType]
-    log.info("📥 LLM response: %d chars", len(assistant_content))
+    assistant_content: str = completion.choices[0].message.content or ""  # type: ignore[reportUnknownMemberType,reportUnknownVariableType]
+    log.info("📥 LLM response: %d chars", len(assistant_content))  # type: ignore[reportUnknownArgumentType]
 
     # 7. Save to conversation store (user + assistant turns)
     conv_store.append_turn(date_id, role="user", content=request.message)
-    conv_store.append_turn(date_id, role="assistant", content=assistant_content)
+    conv_store.append_turn(date_id, role="assistant", content=assistant_content)  # type: ignore[reportUnknownArgumentType]
 
     # 8. Build response
     created = int(time.time())
     response = ChatResponse(
         session_id=session_id,
-        content=assistant_content,  # Changed from 'message' to 'content'
+        content=assistant_content,  # type: ignore[reportUnknownArgumentType]
         model=model,
         created=created,
     )

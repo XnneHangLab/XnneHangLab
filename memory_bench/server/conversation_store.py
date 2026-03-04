@@ -70,7 +70,7 @@ class ConversationStore:
         """
         return self.base_dir / f"{date_id}.json"
 
-    def read_conversation(self, date_id: str) -> list[dict]:
+    def read_conversation(self, date_id: str) -> list[dict[str, str]]:
         """Read conversation messages from a date file.
 
         Args:
@@ -88,7 +88,7 @@ class ConversationStore:
         try:
             with file_path.open(encoding="utf-8") as f:
                 data = json.load(f)
-                messages: list[dict] = data  # type: ignore[assignment]
+                messages: list[dict[str, str]] = data  # type: ignore[assignment]
                 self.log.info("📖 Loaded %d messages from %s", len(messages), date_id)
                 return messages
         except json.JSONDecodeError as e:
@@ -103,7 +103,7 @@ class ConversationStore:
         date_id: str,
         role: str,
         content: str,
-        extra: dict | None = None,
+        extra: dict[str, str] | None = None,
     ) -> None:
         """Append a new message turn to the conversation file.
 
@@ -120,7 +120,7 @@ class ConversationStore:
 
         # Create new message
         now_iso = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-        message: dict = {
+        message: dict[str, str] = {
             "role": role,
             "content": content,
             "timestamp": now_iso,

@@ -87,10 +87,8 @@ async def lifespan(app: FastAPI):
         try:
             from memory_bench.server.chat_router import (  # type: ignore[reportMissingImports]
                 chat_state,
-                router as chat_router,
             )
             from memory_bench.server.router import (  # type: ignore[reportMissingImports]
-                router as memory_router,
                 state as memory_state,
             )
             from memory_bench.server.startup import (
