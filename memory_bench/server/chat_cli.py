@@ -109,7 +109,7 @@ def _send_chat(
             if msg.get("role") == "user":
                 last_user_message = msg.get("content", "")
                 break
-        
+
         payload = {
             "message": last_user_message,
             "stream": False,

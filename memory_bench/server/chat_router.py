@@ -250,7 +250,7 @@ def _build_system_prompt() -> str:
     if tool_content:
         parts.append(tool_content)
         log.info("✅ Loaded tool definitions from %s", tool_file)
-    
+
     # 4. Diary summary (optional)
     diary_file = prompts_path / "diary" / "recent_summary.txt"
     diary_content = _load_prompt_file(diary_file)
