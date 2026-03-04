@@ -102,11 +102,20 @@ def _send_chat(
 
     # Build payload based on endpoint
     if endpoint == "/memory/chat":
+        # Memory Chat Server expects: {"message": "...", "session_id": "...", "model": "..."}
+        # Extract the last user message
+        last_user_message = ""
+        for msg in reversed(messages):
+            if msg.get("role") == "user":
+                last_user_message = msg.get("content", "")
+                break
+        
         payload = {
-            "messages": messages,
+            "message": last_user_message,
             "stream": False,
         }
     else:  # /v1/chat/completions
+        # OpenAI-compatible format
         payload = {
             "messages": messages,
             "stream": False,
@@ -131,7 +140,7 @@ def _send_chat(
 
         # Handle different response formats
         if endpoint == "/memory/chat":
-            # Memory Chat Server returns: {"content": "...", "session_id": "..."}
+            # Memory Chat Server returns: {"session_id": "...", "content": "...", "model": "...", "created": ...}
             return data.get("content", "(no content)")
         else:
             # OpenAI-compatible returns: {"choices": [{"message": {"content": "..."}}]}
