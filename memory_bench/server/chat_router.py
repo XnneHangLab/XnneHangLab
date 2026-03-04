@@ -471,8 +471,8 @@ async def _execute_tool(tool_name: str, tool_args: dict, log: object) -> str:  #
     )
 
     # Initialize tools (workspace and memory_bench paths)
-    workspace = Path(__file__).parent.parent.parent  # /wangwang/workspace/XnneHangLab
-    memory_bench = workspace / "XnneHangLab" / "memory_bench"
+    workspace = Path(__file__).parent.parent.parent  # D:\tmp\XnneHangLab (or /wangwang/workspace/XnneHangLab)
+    memory_bench = workspace / "memory_bench"  # D:\tmp\XnneHangLab\memory_bench
 
     file_tools = FileTools(workspace=workspace, memory_bench=memory_bench)
     search_tools = SearchTools(workspace=workspace, memory_bench=memory_bench)
