@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import funasr
 import torch
 import torchaudio
-from todo.__version__ import VERSION
+from todo.__version__ import VERSION  # type: ignore[reportMissingImports,reportUnknownVariableType]
 
 from lab.asr.funasr.method import generate_asr_results, generate_sense_voice_results
 from lab.asr.funasr.model import FunASRModel

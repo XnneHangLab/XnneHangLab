@@ -149,7 +149,6 @@ class SearchTools:
         files_searched = 0
 
         # 编译搜索模式
-        flags = 0 if case_sensitive else 0  # Python re.IGNORECASE
         import re
 
         try:
@@ -251,11 +250,11 @@ class SearchTools:
                         error="必须提供 path 或 purpose 参数",
                     )
                 # 使用预设路径的目录部分
-                full_path = tools._resolve_purpose_path(purpose)
+                full_path = tools._resolve_purpose_path(purpose)  # type: ignore[reportPrivateUsage]
                 if full_path.is_file():
                     full_path = full_path.parent
             else:
-                full_path = tools._safe_path(path, write_mode=False)
+                full_path = tools._safe_path(path, write_mode=False)  # type: ignore[reportPrivateUsage]
                 if full_path.is_file():
                     full_path = full_path.parent
 
@@ -269,7 +268,7 @@ class SearchTools:
                     error=f"目录不存在：{full_path}",
                 )
 
-            results = []
+            results: list[SearchResult] = []
             if recursive:
                 items = list(full_path.rglob("*"))
             else:

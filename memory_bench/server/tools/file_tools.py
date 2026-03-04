@@ -158,6 +158,7 @@ class FileTools:
             tools.read(purpose="memory")
         """
         try:
+            full_path: Path | None = None
             if path is None:
                 if purpose is None:
                     return FileOperationResult(success=False, path="", error="必须提供 path 或 purpose 参数")
@@ -178,8 +179,8 @@ class FileTools:
         except FileNotFoundError:
             return FileOperationResult(
                 success=False,
-                path=str(full_path) if "full_path" in locals() else path or "",
-                error=f"文件不存在：{full_path if 'full_path' in locals() else path}",
+                path=str(full_path) if full_path else path or "",  # type: ignore[reportPossiblyUnboundVariable]
+                error=f"文件不存在：{full_path or path}",  # type: ignore[reportPossiblyUnboundVariable]
             )
         except Exception as e:
             return FileOperationResult(success=False, path=path or "", error=f"读取失败：{e}")

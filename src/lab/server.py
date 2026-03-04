@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI):
         # 动态导入合成器模块, 此处可写成 from gsv.Synthesizers.xxx import TTS_Synthesizer, TTS_Task
         from importlib import import_module
 
-        from gsv.gsv_state_manager import gsv_tts_state_manager
+        from gsv.gsv_state_manager import gsv_tts_state_manager  # type: ignore[reportMissingImports,reportUnknownVariableType]
 
         logger.info("预加载 GPT-SoVITS 模型...")
         synthesizer_name = "gsv_fast"
@@ -62,9 +62,9 @@ async def lifespan(app: FastAPI):
         # TTS_Task = synthesizer_module.TTS_Task
         # 初始化合成器的类
         tts_synthesizer = TTS_Synthesizer(debug_mode=True)
-        gsv_tts_state_manager.set_state(tts_synthesizer)
+        gsv_tts_state_manager.set_state(tts_synthesizer)  # type: ignore[reportUnknownMemberType]
         # 生成一句话充当测试，减少第一次请求的等待时间
-        gen = tts_synthesizer.generate(tts_synthesizer.params_parser({"text": "筆者はすでにエッセイの序論"}))
+        gen = tts_synthesizer.generate(tts_synthesizer.params_parser({"text": "筆者はすでにエッセイの序論"}))  # type: ignore[reportUnknownMemberType]
         next(gen)
 
     ctx = getattr(app.state, "default_context_cache", None)
