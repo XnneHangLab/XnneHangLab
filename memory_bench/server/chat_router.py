@@ -244,12 +244,19 @@ def _build_system_prompt() -> str:
     else:
         log.warning("⚠️  Emotion file not found or empty: %s", emotion_file)
 
-    # 3. Tool definitions (optional)
+    # 3. Tool definitions (includes file structure guide)
     tool_file = prompts_path / "tools" / "tool_definitions.txt"
     tool_content = _load_prompt_file(tool_file)
     if tool_content:
         parts.append(tool_content)
         log.info("✅ Loaded tool definitions from %s", tool_file)
+    
+    # 4. Diary summary (optional)
+    diary_file = prompts_path / "diary" / "recent_summary.txt"
+    diary_content = _load_prompt_file(diary_file)
+    if diary_content:
+        parts.append(diary_content)
+        log.info("✅ Loaded diary summary from %s", diary_file)
 
     # 4. Diary summary (optional)
     diary_file = prompts_path / "diary" / "recent_summary.txt"
