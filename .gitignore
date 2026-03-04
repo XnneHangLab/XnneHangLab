@@ -92,3 +92,7 @@ model_list.json
 memory_bench/.env.benchmark
 memory_bench/state/*
 memory_bench/conversations/
+# nested repos (workspace copies)
+AIChat/
+XnneHangLab/
+
