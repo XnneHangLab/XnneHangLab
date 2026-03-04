@@ -192,6 +192,8 @@ chat_router.py
 | 工具 | 说明 |
 |------|------|
 | [`chat_cli.md`](./script_guide/chat_cli.md) | 终端交互式对话客户端 |
+| [`file_tools.md`](./script_guide/file_tools.md) | 文件操作工具（READ/WRITE/EDIT） |
+| [`search_tools.md`](./script_guide/search_tools.md) | 搜索工具（SEARCH） |
 
 ### 2.5 启动方式
 
@@ -217,6 +219,8 @@ just memory-chat-cli
 
 | 模块 | 说明 |
 |------|------|
+| [`file_tools.md`](./script_guide/file_tools.md) | 文件操作工具（READ/WRITE/EDIT） |
+| [`search_tools.md`](./script_guide/search_tools.md) | 搜索工具（SEARCH） |
 | [`bench_logger.md`](./script_guide/bench_logger.md) | 统一彩色日志 |
 | [`rate_limiter.md`](./script_guide/rate_limiter.md) | LLM API 令牌桶 + 并发控制 |
 | [`tag_registry.md`](./script_guide/tag_registry.md) | tag 归一化与候选选择 |

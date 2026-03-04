@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
-from gsv.gsv_state_manager import gsv_tts_state_manager
+from gsv.gsv_state_manager import gsv_tts_state_manager  # type: ignore[reportMissingImports,reportUnknownVariableType]
 from loguru import logger
 
 from lab.utils.FFmpegHelper import file_to_mp3
@@ -134,17 +134,17 @@ async def tts_webapi_v2_compat(request: Request, background_tasks: BackgroundTas
     # 你的内部实现如果必须要 sample_rate 等，params_parser 里一般会补齐；
     # 这里不强行校验 sample_rate。
 
-    tts_synthesizer = gsv_tts_state_manager.get_tts_synthesizer()
+    tts_synthesizer = gsv_tts_state_manager.get_tts_synthesizer()  # type: ignore[reportUnknownMemberType]
     if tts_synthesizer is None:
         logger.error("[GSV v2] TTS synthesizer 未初始化")
         raise HTTPException(status_code=500, detail="TTS synthesizer not initialized")
 
     logger.debug(f"[GSV v2] 开始生成语音：text={text[:50]}...")
 
-    task = tts_synthesizer.params_parser(data)  # type: ignore
+    task = tts_synthesizer.params_parser(data)  # type: ignore[reportUnknownMemberType]
     logger.debug(f"[GSV v2] params_parser 完成：task={task}")
 
-    save_path = tts_synthesizer.generate(task, return_type="filepath")  # type: ignore
+    save_path = tts_synthesizer.generate(task, return_type="filepath")  # type: ignore[reportUnknownMemberType]
     if not isinstance(save_path, str):
         logger.error(f"[GSV v2] 生成失败：save_path={save_path}")
         raise HTTPException(status_code=500, detail="Failed to generate audio file")

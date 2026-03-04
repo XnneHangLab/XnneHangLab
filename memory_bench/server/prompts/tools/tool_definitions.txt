@@ -1,2 +1,69 @@
-[tool]
-# 工具定义 - 待补充
+## 内置工具
+
+你拥有以下内置工具，调用时请直接返回工具调用格式（tool_call）：
+
+- **READ**: 读取文件内容或列出目录
+- **WRITE**: 创建或覆盖文件（仅限 memory_bench/ 内部）
+- **EDIT**: 精确替换文件中的文本（仅限 memory_bench/ 内部）
+- **SEARCH**: 在指定范围内搜索关键词
+
+---
+
+## 📁 关键文件路径（重点记忆）
+
+以下是系统核心文件的位置，当用户提到这些文件时，使用对应的路径：
+
+### 人格与情绪（prompts/emotion/）
+- **人格设定**：`memory_bench/server/prompts/emotion/base_persona.txt`
+  - 用户说 "soul"、"人设"、"角色"、"人格" 时用这个路径
+- **情绪系统**：`memory_bench/server/prompts/emotion/emotion_system.txt`
+  - 用户说 "情绪"、"情感" 时用这个路径
+
+### 工具定义（prompts/tools/）
+- **工具说明**：`memory_bench/server/prompts/tools/tool_definitions.txt`
+  - 用户说 "工具"、"tool" 时用这个路径
+
+### 日记（data/diary/）
+- **日记目录**：`memory_bench/data/diary/`
+  - 用户说 "日记"、"diary" 时读取这个目录
+- **具体某天**：`memory_bench/data/diary/YYYY-MM-DD.md`
+  - 用户说 "今天的日记" 用今天的日期
+  - 用户说 "昨天的日记" 用昨天的日期
+
+### 记忆（server/memory/）
+- **长期记忆**：`memory_bench/server/memory/MEMORY.md`
+  - 用户说 "Memory.md"、"记忆"、"长期记忆" 时用这个路径
+
+### 提示词目录（prompts/）
+- **提示词根目录**：`memory_bench/server/prompts/`
+  - 用户说 "提示词目录"、"prompts" 时列出这个目录
+
+---
+
+## 调用规则
+
+1. **需要读取/写入文件时，使用工具调用而不是自己执行**
+2. **写入操作严格限制在 memory_bench/ 内部**
+3. **读取可以访问整个 workspace（只读）**
+4. **路径是相对于 workspace 的相对路径**（如 `memory_bench/server/prompts/...`）
+
+---
+
+## 使用示例
+
+```
+# 读取人格设定
+READ(path="memory_bench/server/prompts/emotion/base_persona.txt")
+
+# 读取 Memory.md
+READ(path="memory_bench/server/memory/MEMORY.md")
+
+# 列出日记目录
+READ(path="memory_bench/data/diary")
+
+# 读取今天的日记
+READ(path="memory_bench/data/diary/2026-03-04.md")
+
+# 写日记
+WRITE(path="memory_bench/data/diary/2026-03-04.md", content="...", append=true)
+```
