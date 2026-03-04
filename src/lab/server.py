@@ -85,11 +85,17 @@ async def lifespan(app: FastAPI):
     # Memory bench router initialisation (配置完全隔离：从 memory_bench/.env.benchmark 加载)
     if lab_settings.package.memory_bench:
         try:
-            from memory_bench.server.router import router as memory_router, state as memory_state  # type: ignore[reportMissingImports]
-            from memory_bench.server.chat_router import router as chat_router, chat_state  # type: ignore[reportMissingImports]
+            from memory_bench.server.chat_router import (  # type: ignore[reportMissingImports]
+                chat_state,
+                router as chat_router,
+            )
+            from memory_bench.server.router import (  # type: ignore[reportMissingImports]
+                router as memory_router,
+                state as memory_state,
+            )
             from memory_bench.server.startup import (
-                init_router_state,  # type: ignore[reportMissingImports]
                 init_chat_router_state,  # type: ignore[reportMissingImports]
+                init_router_state,  # type: ignore[reportMissingImports]
                 load_memory_bench_env,  # type: ignore[reportMissingImports]
                 resolve_memory_bench_config,  # type: ignore[reportMissingImports]
             )
@@ -144,8 +150,8 @@ class WebSocketServer:
 
             self.app.include_router(gsv_v2_router)
         if lab_settings.package.memory_bench:
-            from memory_bench.server.router import router as memory_router  # type: ignore[reportMissingImports]
             from memory_bench.server.chat_router import router as chat_router  # type: ignore[reportMissingImports]
+            from memory_bench.server.router import router as memory_router  # type: ignore[reportMissingImports]
 
             self.app.include_router(memory_router, prefix="/memory")
             self.app.include_router(chat_router, prefix="/memory")

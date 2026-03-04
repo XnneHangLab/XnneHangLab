@@ -33,11 +33,11 @@ import uvicorn  # type: ignore[reportMissingImports,reportUnknownVariableType]
 from fastapi import FastAPI  # type: ignore[reportMissingImports,reportUnknownVariableType]
 
 from memory_bench.scripts.bench_logger import logger
+from memory_bench.server.chat_router import chat_state, router as chat_router
 from memory_bench.server.router import router, state as router_state
-from memory_bench.server.chat_router import router as chat_router, chat_state
 from memory_bench.server.startup import (
-    init_router_state,
     init_chat_router_state,
+    init_router_state,
     load_memory_bench_env,
     resolve_memory_bench_config,
 )

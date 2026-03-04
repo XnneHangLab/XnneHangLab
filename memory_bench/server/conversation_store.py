@@ -20,16 +20,16 @@ Each file contains a list of messages::
 Usage::
 
     from memory_bench.server.conversation_store import ConversationStore
-    
+
     store = ConversationStore(base_dir="conversations")
-    
+
     # Read today's conversation
     messages = store.read_conversation("2026-03-03")
-    
+
     # Append a new turn
     store.append_turn("2026-03-03", role="user", content="Hello")
     store.append_turn("2026-03-03", role="assistant", content="Hi there!")
-    
+
     # Start a new file (e.g., "2026-03-03_02.json")
     store.append_turn("2026-03-03_02", role="user", content="New day!")
 """
@@ -37,7 +37,7 @@ Usage::
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 
 from memory_bench.scripts.bench_logger import logger
@@ -86,7 +86,7 @@ class ConversationStore:
             return []
 
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with file_path.open(encoding="utf-8") as f:
                 data = json.load(f)
                 messages: list[dict] = data  # type: ignore[assignment]
                 self.log.info("📖 Loaded %d messages from %s", len(messages), date_id)
@@ -119,7 +119,7 @@ class ConversationStore:
         messages = self.read_conversation(date_id) if file_path.exists() else []
 
         # Create new message
-        now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        now_iso = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         message: dict = {
             "role": role,
             "content": content,
@@ -134,7 +134,7 @@ class ConversationStore:
 
         # Write back
         try:
-            with open(file_path, "w", encoding="utf-8") as f:
+            with file_path.open("w", encoding="utf-8") as f:
                 json.dump(messages, f, ensure_ascii=False, indent=2)
             self.log.info("💾 Appended %s turn to %s (total: %d messages)", role, date_id, len(messages))
         except Exception as e:
@@ -159,4 +159,4 @@ class ConversationStore:
         Returns:
             Date string in YYYY-MM-DD format
         """
-        return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        return datetime.now(UTC).strftime("%Y-%m-%d")
