@@ -74,8 +74,102 @@ test-gsv:
 test-gsv-v2:
     curl -G "http://127.0.0.1:12393/tts/gptsovitsv2/tts" --data-urlencode "text=こんにちは、お元気ですか？今日も一緒に頑張りましょう！" --data-urlencode "text_lang=ja" --data-urlencode "ref_audio_path=elaina.wav" --data-urlencode "prompt_text=君が集中した時のシータ波を検出して、リンクをつなぎ直せば元通りになるはず。" --data-urlencode "prompt_lang=ja" --data-urlencode "speed_factor=1.0" -o tts.wav
 
-# Qwen3-TTS Test
+# =============================================================================
+# Qwen3-TTS Streaming (https://github.com/dffdeeq/Qwen3-TTS-streaming)
+# =============================================================================
 
+# 流式语音克隆 - 输出到文件
+# 用法：just tts-stream "文本" "参考音频" "参考文本" [输出文件]
+tts-stream text='こんにちは、お元気ですか？' ref_audio='./examples/elaina_example.wav' ref_text='これはテストです' output='output_streaming.wav':
+	@echo "🎤 Qwen3-TTS Streaming TTS"
+	@echo "Text: {{text}}"
+	@echo "Reference: {{ref_audio}}"
+	@echo "Output: {{output}}"
+	uv run python -c \
+	    "import torch, soundfile as sf, numpy as np; \
+	    from qwen_tts import Qwen3TTSModel; \
+	    print('Loading model...'); \
+	    model = Qwen3TTSModel.from_pretrained('Qwen/Qwen3-TTS-12Hz-1.7B-Base', device_map='cuda:0' if torch.cuda.is_available() else 'cpu', dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32, attn_implementation='sdpa'); \
+	    print('Generating...'); \
+	    chunks = []; sr = 24000; \
+	    for chunk, chunk_sr in model.stream_generate_voice_clone(text='{{text}}', language='Auto', voice_clone_prompt={'ref_audio': '{{ref_audio}}', 'ref_text': '{{ref_text}}'}, emit_every_frames=4, decode_window_frames=80): \
+	        chunks.append(chunk); sr = chunk_sr; \
+	    audio = np.concatenate(chunks); \
+	    sf.write('{{output}}', audio, sr); \
+	    print(f'✅ Saved to {{output}} ({len(audio)/sr:.2f}s)')"
+
+# 流式语音克隆 - 直接播放（需要 pyaudio）
+tts-stream-play text='こんにちは' ref_audio='./examples/elaina_example.wav' ref_text='テスト':
+	@echo "🎤 Qwen3-TTS Streaming + Playback"
+	uv run python -c \
+	    "import torch, pyaudio as pa, numpy as np; \
+	    from qwen_tts import Qwen3TTSModel; \
+	    model = Qwen3TTSModel.from_pretrained('Qwen/Qwen3-TTS-12Hz-1.7B-Base', device_map='cuda:0' if torch.cuda.is_available() else 'cpu', dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32, attn_implementation='sdpa'); \
+	    p = pa.PyAudio(); stream = p.open(format=pa.paFloat32, channels=1, rate=24000, output=True); \
+	    print('Streaming...'); \
+	    for chunk, sr in model.stream_generate_voice_clone(text='{{text}}', language='Auto', voice_clone_prompt={'ref_audio': '{{ref_audio}}', 'ref_text': '{{ref_text}}'}, emit_every_frames=4): \
+	        stream.write(chunk.astype(np.float32).tobytes()); \
+	    stream.stop_stream(); stream.close(); p.terminate(); \
+	    print('✅ Done')"
+
+# 离线语音克隆（非流式）
+tts-offline text='こんにちは、お元気ですか？' ref_audio='./examples/elaina_example.wav' ref_text='これはテストです' output='output_offline.wav':
+	@echo "🎤 Qwen3-TTS Offline TTS"
+	uv run python -c \
+	    "import torch, soundfile as sf; \
+	    from qwen_tts import Qwen3TTSModel; \
+	    model = Qwen3TTSModel.from_pretrained('Qwen/Qwen3-TTS-12Hz-1.7B-Base', device_map='cuda:0' if torch.cuda.is_available() else 'cpu', dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32, attn_implementation='sdpa'); \
+	    wavs, sr = model.generate_voice_clone(text='{{text}}', language='Auto', ref_audio='{{ref_audio}}', ref_text='{{ref_text}}'); \
+	    sf.write('{{output}}', wavs[0], sr); \
+	    print(f'✅ Saved to {{output}} ({len(wavs[0])/sr:.2f}s)')"
+
+# 性能测试
+tts-bench:
+	@echo "⚡ Qwen3-TTS Performance Benchmark"
+	uv run python -c \
+	    "import torch, time, numpy as np; \
+	    from qwen_tts import Qwen3TTSModel; \
+	    print('Loading model...'); \
+	    model = Qwen3TTSModel.from_pretrained('Qwen/Qwen3-TTS-12Hz-1.7B-Base', device_map='cuda:0' if torch.cuda.is_available() else 'cpu', dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32, attn_implementation='sdpa'); \
+	    text = 'これはテストです。こんにちは、お元気ですか？'; \
+	    print('Warmup...'); \
+	    model.generate_voice_clone(text='テスト', language='Auto', ref_audio='./examples/elaina_example.wav', ref_text='テスト'); \
+	    print('Testing streaming...'); \
+	    start = time.time(); chunks = []; sr = 24000; first_chunk = None; \
+	    for chunk, chunk_sr in model.stream_generate_voice_clone(text=text, language='Auto', voice_clone_prompt={'ref_audio': './examples/elaina_example.wav', 'ref_text': 'テスト'}, emit_every_frames=4): \
+	        if first_chunk is None: first_chunk = time.time() - start; \
+	        chunks.append(chunk); sr = chunk_sr; \
+	    total = time.time() - start; audio = np.concatenate(chunks); dur = len(audio)/sr; rtf = total/dur; \
+	    print(f'First chunk: {first_chunk*1000:.0f}ms'); \
+	    print(f'Total: {total:.2f}s, Audio: {dur:.2f}s, RTF: {rtf:.2f}'); \
+	    print(f'Speedup: {1/rtf:.1f}x real-time')"
+
+# 启动流式 TTS 服务器
+tts-server port='12394':
+	@echo "🚀 Starting Qwen3-TTS Streaming Server on port {{port}}"
+	uv run uvicorn qwen_tts_server:app --host 0.0.0.0 --port {{port}} --reload
+
+# 检查 Qwen-TTS 环境
+tts-check:
+	@echo "🔍 Checking Qwen3-TTS environment..."
+	uv run python -c \
+	    "import torch; \
+	    print(f'PyTorch: {torch.__version__}'); \
+	    print(f'CUDA available: {torch.cuda.is_available()}'); \
+	    if torch.cuda.is_available(): print(f'GPU: {torch.cuda.get_device_name(0)}'); \
+	    try: \
+	        from qwen_tts import Qwen3TTSModel; \
+	        print('✅ qwen_tts installed'); \
+	    except: \
+	        print('❌ qwen_tts not installed')"
+
+# 清理输出文件
+tts-clean:
+	@echo "🧹 Cleaning output files..."
+	rm -f output_*.wav output_*.mp3 qwen_*.wav qwen_*.mp3
+	@echo "✅ Cleaned"
+
+# Qwen3-TTS API 测试（通过 FastAPI 服务）
 test-qwen-tts ref_audio='./examples/elaina_example.wav' ref_text='こんにちは、お元気ですか？今日も一緒に頑張りましょう！' text='こんにちは、お元気ですか？今日も一緒に頑張りましょう！':
 	@echo "Testing Qwen3-TTS voice clone..."
 	@echo "Reference audio: {{ref_audio}}"
