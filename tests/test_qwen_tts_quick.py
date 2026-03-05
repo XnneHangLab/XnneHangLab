@@ -21,6 +21,9 @@ def main():
     
     # 发送请求
     print("Sending request to /tts/qwen/clone_base64...")
+    print("⏳ 首次请求需要加载模型（约 10-30 秒），请耐心等待...")
+    import time
+    start = time.time()
     resp = requests.post(
         'http://127.0.0.1:12393/tts/qwen/clone_base64',
         data={
@@ -28,8 +31,11 @@ def main():
             'language': 'Chinese',
             'ref_audio_base64': audio_b64,
             'ref_text': ref_text
-        }
+        },
+        timeout=120  # 2 分钟超时
     )
+    elapsed = time.time() - start
+    print(f"Request completed in {elapsed:.2f}s")
     
     print(f"Status: {resp.status_code}")
     result = resp.json()
@@ -44,7 +50,8 @@ def main():
         audio_data = base64.b64decode(result['audio_base64'])
         with open('qwen_output.mp3', 'wb') as f:
             f.write(audio_data)
-        print("✅ Output saved to qwen_output.mp3")
+        print(f"✅ Output saved to qwen_output.mp3 ({len(audio_data)} bytes)")
+        print(f"🎉 总耗时：{elapsed:.2f}s")
     else:
         print(f"❌ No audio_base64 in response: {result}")
         sys.exit(1)
