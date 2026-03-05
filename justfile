@@ -81,21 +81,7 @@ test-qwen-tts ref_audio='./examples/elaina_example.wav' ref_text='こんにち�
 	@echo "Reference audio: {{ref_audio}}"
 	@echo "Reference text: {{ref_text}}"
 	@echo "Target text: {{text}}"
-	@echo "Step 1: Encode audio to base64 (Python for cross-platform)..."
-	uv run python -c "import base64; data=open('{{ref_audio}}','rb').read(); print(base64.b64encode(data).decode())" > qwen_audio_b64.txt
-	@echo "Step 2: Send request..."
-	curl -X POST "http://127.0.0.1:12393/tts/qwen/clone_base64" \
-		-F "text={{text}}" \
-		-F "language=Chinese" \
-		-F "ref_audio_base64=@qwen_audio_b64.txt" \
-		-F "ref_text={{ref_text}}" \
-		-o qwen_response.json
-	@echo "Response:"
-	@uv run python -c "import json; print(json.dumps(json.load(open('qwen_response.json')), indent=2, ensure_ascii=False))"
-	@echo ""
-	@uv run python -c "import json, base64; data=json.load(open('qwen_response.json')); open('qwen_output.mp3', 'wb').write(base64.b64decode(data['audio_base64']))" \
-		&& echo "✅ Output saved to qwen_output.mp3"
-	rm -f qwen_response.json qwen_audio_b64.txt
+	uv run python tests/test_qwen_tts_quick.py "{{ref_audio}}" "{{text}}" "{{ref_text}}"
 
 test-qwen-tts-health:
 	@echo "Checking Qwen3-TTS health..."
