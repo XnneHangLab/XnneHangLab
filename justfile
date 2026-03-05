@@ -94,16 +94,10 @@ tts-stream text='こんにちは、お元気ですか？' ref_audio='./examples/
 # 流式语音克隆 - 直接播放（需要 pyaudio）
 tts-stream-play text='こんにちは' ref_audio='./examples/elaina_example.wav' ref_text='テスト':
 	@echo "🎤 Qwen3-TTS Streaming + Playback"
-	uv run python -c \
-	    "import torch, pyaudio as pa, numpy as np; \
-	    from qwen_tts import Qwen3TTSModel; \
-	    model = Qwen3TTSModel.from_pretrained('Qwen/Qwen3-TTS-12Hz-1.7B-Base', device_map='cuda:0' if torch.cuda.is_available() else 'cpu', dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32, attn_implementation='sdpa'); \
-	    p = pa.PyAudio(); stream = p.open(format=pa.paFloat32, channels=1, rate=24000, output=True); \
-	    print('Streaming...'); \
-	    for chunk, sr in model.stream_generate_voice_clone(text='{{text}}', language='Auto', voice_clone_prompt={'ref_audio': '{{ref_audio}}', 'ref_text': '{{ref_text}}'}, emit_every_frames=4): \
-	        stream.write(chunk.astype(np.float32).tobytes()); \
-	    stream.stop_stream(); stream.close(); p.terminate(); \
-	    print('✅ Done')"
+	uv run python scripts/tts_stream_play.py \
+	    --text "{{text}}" \
+	    --ref-audio "{{ref_audio}}" \
+	    --ref-text "{{ref_text}}"
 
 # 离线语音克隆（非流式）
 tts-offline text='こんにちは、お元気ですか？' ref_audio='./examples/elaina_example.wav' ref_text='これはテストです' output='output_offline.wav':
@@ -126,17 +120,7 @@ tts-server port='12394':
 
 # 检查 Qwen-TTS 环境
 tts-check:
-	@echo "🔍 Checking Qwen3-TTS environment..."
-	uv run python -c \
-	    "import torch; \
-	    print(f'PyTorch: {torch.__version__}'); \
-	    print(f'CUDA available: {torch.cuda.is_available()}'); \
-	    if torch.cuda.is_available(): print(f'GPU: {torch.cuda.get_device_name(0)}'); \
-	    try: \
-	        from qwen_tts import Qwen3TTSModel; \
-	        print('✅ qwen_tts installed'); \
-	    except: \
-	        print('❌ qwen_tts not installed')"
+	uv run python scripts/tts_check.py
 
 # 清理输出文件
 tts-clean:
