@@ -1,19 +1,27 @@
 """Qwen3-TTS API Router - 仅负责 HTTP 请求/响应处理"""
 from __future__ import annotations
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Request
 from fastapi.responses import Response
-
-from lab.api.logic.qwen_tts_logic import get_logic
 
 router = APIRouter()
 
 
+def _get_logic(request: Request):
+    """从 app.state 获取 QwenTTSLogic 实例（Windows 兼容）"""
+    logic = getattr(request.app.state, "qwen_tts_logic", None)
+    if logic is None:
+        # Fallback: 尝试从全局变量获取（非 Windows 环境）
+        from lab.api.logic.qwen_tts_logic import get_logic
+        logic = get_logic()
+    return logic
+
+
 @router.get("/tts/qwen/health")
-async def health_check():
+async def health_check(request: Request):
     """健康检查端点"""
     try:
-        logic = get_logic()
+        logic = _get_logic(request)
         return logic.health_check()
     except FileNotFoundError as e:
         return {"status": "error", "message": str(e)}
@@ -23,6 +31,7 @@ async def health_check():
 
 @router.post("/tts/qwen/clone")
 async def voice_clone(
+    request: Request,
     text: str = Form(..., description="要合成的文本"),
     language: str = Form("Chinese", description="语言（Chinese/English/Japanese/Korean 等）"),
     ref_audio: UploadFile = File(..., description="参考音频文件（用于语音克隆）"),
@@ -38,7 +47,7 @@ async def voice_clone(
     from pathlib import Path
     
     try:
-        logic = get_logic()
+        logic = _get_logic(request)
         
         # 保存上传的参考音频到临时文件
         with tempfile.NamedTemporaryFile(delete=False, suffix=Path(ref_audio.filename).suffix) as tmp:
@@ -70,6 +79,7 @@ async def voice_clone(
 
 @router.post("/tts/qwen/clone_base64")
 async def voice_clone_base64(
+    request: Request,
     text: str = Form(..., description="要合成的文本"),
     language: str = Form("Chinese", description="语言"),
     ref_audio_base64: str = Form(..., description="参考音频的 base64 编码"),
@@ -81,7 +91,7 @@ async def voice_clone_base64(
     ref_audio_base64: base64 编码的音频数据（支持 wav/mp3 等）
     """
     try:
-        logic = get_logic()
+        logic = _get_logic(request)
         
         result = logic.generate_voice_clone_base64(
             text=text,
