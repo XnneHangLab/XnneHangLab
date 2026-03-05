@@ -25,15 +25,16 @@ class QwenTTSLogic:
         if self._model is None:
             logger.info(f"Loading Qwen3-TTS model from {self.model_path}...")
             
+            # 注意力实现：优先 sdpa（PyTorch 2.x 内置），兼容 Windows/无 GPU 环境
+            attn_impl = "sdpa"  # 可选：sdpa / eager / auto / flash_attention_2
+            
             if torch.cuda.is_available():
                 device_map = "cuda:0"
                 dtype = torch.bfloat16
-                attn_impl = "flash_attention_2"
-                logger.info("Using GPU with FlashAttention 2")
+                logger.info(f"Using GPU with attn_implementation={attn_impl}")
             else:
                 device_map = "cpu"
                 dtype = torch.float32
-                attn_impl = "eager"
                 logger.warning("GPU not available, using CPU (slow)")
             
             self._model = Qwen3TTSModel.from_pretrained(
