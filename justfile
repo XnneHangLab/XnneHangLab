@@ -74,6 +74,26 @@ test-gsv:
 test-gsv-v2:
     curl -G "http://127.0.0.1:12393/tts/gptsovitsv2/tts" --data-urlencode "text=こんにちは、お元気ですか？今日も一緒に頑張りましょう！" --data-urlencode "text_lang=ja" --data-urlencode "ref_audio_path=elaina.wav" --data-urlencode "prompt_text=君が集中した時のシータ波を検出して、リンクをつなぎ直せば元通りになるはず。" --data-urlencode "prompt_lang=ja" --data-urlencode "speed_factor=1.0" -o tts.wav
 
+# Qwen3-TTS Test
+
+test-qwen-tts ref_audio='./examples/example3.opus' ref_text='这是参考音频的测试文本' text='你好，这是使用 Qwen3-TTS 生成的语音克隆测试。':
+	@echo "Testing Qwen3-TTS voice clone..."
+	@echo "Reference audio: {{ref_audio}}"
+	@echo "Reference text: {{ref_text}}"
+	@echo "Target text: {{text}}"
+	curl -X POST "http://127.0.0.1:12393/tts/qwen/clone_base64" \
+		-F "text={{text}}" \
+		-F "language=Chinese" \
+		-F "ref_audio_base64=$$(base64 -i {{ref_audio}})" \
+		-F "ref_text={{ref_text}}" \
+		-o qwen_response.json \
+		&& uv run python -c "import json, base64; data=json.load(open('qwen_response.json')); open('qwen_output.mp3', 'wb').write(base64.b64decode(data['audio_base64']))" \
+		&& echo "✅ Output saved to qwen_output.mp3"
+	rm -f qwen_response.json
+
+test-qwen-tts-health:
+	@echo "Checking Qwen3-TTS health..."
+	curl -s "http://127.0.0.1:12393/tts/qwen/health" | uv run python -m json.tool
 
 test-deeplx:
 	curl -X POST "http://127.0.0.1:12393/translate/deeplx" \
@@ -136,6 +156,23 @@ install-gsv-model:
   uv lock
   uv sync
   uv run modelscope download --model xnnehang/elaina-gsv-v2 --local_dir ./models/gptsovits/elaina
+
+# Qwen3-TTS Installation
+
+install-qwen-tts:
+  # 下载 Qwen3-TTS-12Hz-1.7B-Base 模型
+  uv lock
+  uv sync
+  uv pip install qwen-tts soundfile
+  
+  # 创建模型目录
+  mkdir -p ./models/qwen-tts
+  
+  # 下载 Tokenizer
+  uv run modelscope download --model Qwen/Qwen3-TTS-Tokenizer-12Hz --local_dir ./models/qwen-tts/Qwen3-TTS-Tokenizer-12Hz
+  
+  # 下载 Base 模型（支持语音克隆）
+  uv run modelscope download --model Qwen/Qwen3-TTS-12Hz-1.7B-Base --local_dir ./models/qwen-tts/Qwen3-TTS-12Hz-1.7B-Base
 
 # Code Quality Check
 

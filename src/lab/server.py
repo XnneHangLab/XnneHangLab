@@ -149,6 +149,10 @@ class WebSocketServer:
             from lab.api.routes.gpt_sovits_v2 import router as gsv_v2_router
 
             self.app.include_router(gsv_v2_router)
+        if lab_settings.package.qwen_tts:
+            from lab.api.routes.qwen_tts import router as qwen_tts_router
+
+            self.app.include_router(qwen_tts_router)
         if lab_settings.package.memory_bench:
             from memory_bench.server.chat_router import router as chat_router  # type: ignore[reportMissingImports]
             from memory_bench.server.router import router as memory_router  # type: ignore[reportMissingImports]

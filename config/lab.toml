@@ -143,6 +143,7 @@ whisper = false
 to_do_list = true
 yutto_uiya = true
 gpt_sovits = true
+qwen_tts = true
 
 [root]
 root_dir = "D:\\tmp\\XnneHangLab"
