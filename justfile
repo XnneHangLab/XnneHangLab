@@ -91,7 +91,7 @@ test-qwen-tts ref_audio='./examples/elaina_example.wav' ref_text='こんにち�
 		-F "ref_text={{ref_text}}" \
 		-o qwen_response.json
 	@echo "Response:"
-	@type qwen_response.json
+	@uv run python -c "import json; print(json.dumps(json.load(open('qwen_response.json')), indent=2, ensure_ascii=False))"
 	@echo ""
 	@uv run python -c "import json, base64; data=json.load(open('qwen_response.json')); open('qwen_output.mp3', 'wb').write(base64.b64decode(data['audio_base64']))" \
 		&& echo "✅ Output saved to qwen_output.mp3"
