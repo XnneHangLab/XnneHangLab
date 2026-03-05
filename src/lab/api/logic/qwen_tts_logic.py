@@ -137,13 +137,25 @@ def get_logic() -> QwenTTSLogic:
     global _logic
     
     if _logic is None:
-        # 默认模型路径
+        # 默认模型路径 - 使用项目根目录
+        import os
         from pathlib import Path
-        model_path = Path(__file__).parent.parent.parent.parent / "models" / "qwen-tts" / "Qwen3-TTS-12Hz-1.7B-Base"
         
-        if not model_path.exists():
+        # 方法 1: 从当前工作目录查找（run_server.py 的目录）
+        cwd_model_path = Path.cwd() / "models" / "qwen-tts" / "Qwen3-TTS-12Hz-1.7B-Base"
+        
+        # 方法 2: 从 __file__ 向上查找（备用）
+        file_model_path = Path(__file__).parent.parent.parent.parent.parent / "models" / "qwen-tts" / "Qwen3-TTS-12Hz-1.7B-Base"
+        
+        # 选择存在的路径
+        if cwd_model_path.exists():
+            model_path = cwd_model_path
+        elif file_model_path.exists():
+            model_path = file_model_path
+        else:
             raise FileNotFoundError(
-                f"Model not found at {model_path}. Run `just install-qwen-tts` first."
+                f"Model not found at {cwd_model_path} or {file_model_path}. "
+                f"Run `just install-qwen-tts` to download the model."
             )
         
         _logic = QwenTTSLogic(str(model_path))
