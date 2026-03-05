@@ -137,6 +137,23 @@ install-gsv-model:
   uv sync
   uv run modelscope download --model xnnehang/elaina-gsv-v2 --local_dir ./models/gptsovits/elaina
 
+# Qwen3-TTS Installation
+
+install-qwen-tts:
+  # 下载 Qwen3-TTS-12Hz-1.7B-Base 模型
+  uv lock
+  uv sync
+  uv pip install qwen-tts
+  
+  # 创建模型目录
+  mkdir -p ./models/qwen-tts
+  
+  # 下载 Tokenizer
+  uv run modelscope download --model Qwen/Qwen3-TTS-Tokenizer-12Hz --local_dir ./models/qwen-tts/Qwen3-TTS-Tokenizer-12Hz
+  
+  # 下载 Base 模型（支持语音克隆）
+  uv run modelscope download --model Qwen/Qwen3-TTS-12Hz-1.7B-Base --local_dir ./models/qwen-tts/Qwen3-TTS-12Hz-1.7B-Base
+
 # Code Quality Check
 
 fmt: # 似乎不会检查被 .gitignore 忽略的文件
