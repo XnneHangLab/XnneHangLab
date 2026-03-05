@@ -69,6 +69,19 @@ async def lifespan(app: FastAPI):
         gen = tts_synthesizer.generate(tts_synthesizer.params_parser({"text": "筆者はすでにエッセイの序論"}))  # type: ignore[reportUnknownMemberType]
         next(gen)
 
+    if lab_settings.package.qwen_tts:
+        # 预加载 Qwen3-TTS 模型（避免首次请求慢）
+        try:
+            from lab.api.logic.qwen_tts_logic import get_logic
+
+            logger.info("预加载 Qwen3-TTS 模型...")
+            logic = get_logic()
+            # 触发模型加载
+            _ = logic.model
+            logger.info("✅ Qwen3-TTS 模型预加载完成")
+        except Exception as exc:
+            logger.warning("⚠️ Qwen3-TTS 预加载失败：%s — /tts/qwen 端点将不可用", exc)
+
     ctx = getattr(app.state, "default_context_cache", None)
     if ctx is not None and lab_settings.agent.enable_mcp:
         # 尝试连接 MCP 服务器
