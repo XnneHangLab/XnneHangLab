@@ -76,7 +76,7 @@ test-gsv-v2:
 
 # Qwen3-TTS Test
 
-test-qwen-tts ref_audio='./examples/example3.opus' ref_text='这是参考音频的测试文本' text='你好，这是使用 Qwen3-TTS 生成的语音克隆测试。':
+test-qwen-tts ref_audio='./examples/elaina_example.wav' ref_text='こんにちは、お元気ですか？今日も一緒に頑張りましょう！' text='こんにちは、お元気ですか？今日も一緒に頑張りましょう！':
 	@echo "Testing Qwen3-TTS voice clone..."
 	@echo "Reference audio: {{ref_audio}}"
 	@echo "Reference text: {{ref_text}}"
@@ -163,14 +163,9 @@ install-qwen-tts:
   # 下载 Qwen3-TTS-12Hz-1.7B-Base 模型
   uv lock
   uv sync
-  uv pip install qwen-tts soundfile
-  
-  # 创建模型目录
   mkdir -p ./models/qwen-tts
-  
   # 下载 Tokenizer
   uv run modelscope download --model Qwen/Qwen3-TTS-Tokenizer-12Hz --local_dir ./models/qwen-tts/Qwen3-TTS-Tokenizer-12Hz
-  
   # 下载 Base 模型（支持语音克隆）
   uv run modelscope download --model Qwen/Qwen3-TTS-12Hz-1.7B-Base --local_dir ./models/qwen-tts/Qwen3-TTS-12Hz-1.7B-Base
 
