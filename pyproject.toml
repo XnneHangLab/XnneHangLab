@@ -23,6 +23,7 @@ dependencies = [
     "typing-extensions>=4.15.0",
     "python-dotenv>=1.1.1",
     "bs4>=0.0.2",
+    "grpcio==1.78.0",
 ]
 authors = [{ name = "MrXnneHang", email = "XnneHang@gmail.com" }]
 keywords = []
@@ -55,15 +56,14 @@ test-database="lab.database.test:main"
 [dependency-groups]
 base = [
   "numpy==1.26.4",
-  "torch==2.6.0",
-  "torchaudio==2.6.0",
-  "transformers==4.36.2",
+  "torch==2.9",
+  "torchaudio==2.9",
+  "transformers>=4.57",
 ]
 
 funasr = [
-  "funasr==1.2.6",
+  "funasr>=1.3.1",
   "modelscope>=1.23.1",
-  "setuptools>=76.0.0", # for install funasr
 ]
 
 whisper = [
@@ -95,7 +95,7 @@ yutto-uiya = [
 
 # 如果希望使用 tts 比如 gpt_sovits 均需要加入以下前置
 tts_base = [
-  "librosa==0.9.2",
+  "librosa>=0.9.2",
   "g2p-en>=2.1.0",
   "cn2an>=0.5.23",
   "pypinyin>=0.54.0",
@@ -142,6 +142,10 @@ memory_bench = [
   "rank-bm25>=0.2.2",
 ]
 
+qwen-tts = [
+  "faster-qwen3-tts>=0.2.4",
+]
+
 [tool.uv]
 default-groups = ["base","funasr","whisper","dev", "yutto-uiya", "tts_base", "gpt_sovits", "vtuber", "database", "memory_bench"]
 
@@ -149,8 +153,8 @@ default-groups = ["base","funasr","whisper","dev", "yutto-uiya", "tts_base", "gp
 members = ["packages/yutto-uiya","packages/todo/","packages/gpt_sovits"]
 
 [[tool.uv.index]]
-name = "pytorch-cu118"
-url = "https://download.pytorch.org/whl/cu118"
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
 explicit = true
 
 [[tool.uv.index]]
@@ -160,11 +164,11 @@ explicit = true
 
 [tool.uv.sources]
 torch = [
-  { index = "pytorch-cu118", marker = "sys_platform == 'win32'" }, # sys_platform : 'win32' , 'linux' , 'Darwin'
+  { index = "pytorch-cu130", marker = "sys_platform == 'win32'" }, # sys_platform : 'win32' , 'linux' , 'Darwin'
   { index = "pytorch-cpu", marker = "sys_platform != 'win32'"}
 ]
 torchaudio = [
-  { index = "pytorch-cu118", marker = "sys_platform == 'win32'" },
+  { index = "pytorch-cu130", marker = "sys_platform == 'win32'" },
   { index = "pytorch-cpu", marker = "sys_platform != 'win32'"}
 ]
 langsegment = { path = "./dist/LangSegment-0.3.5-py3-none-any.whl"}
