@@ -234,7 +234,8 @@ class SearchTools:
         Returns:
             SearchResults（results 中的 file_path 字段包含文件列表）
         """
-        from .file_tools import FileTools, SecurityError
+        # Use absolute import to support dynamic module loading in tests
+        from memory_bench.server.tools.file_tools import FileTools, SecurityError
 
         tools = FileTools(self.workspace, self.memory_bench)
 
@@ -250,8 +251,13 @@ class SearchTools:
                         error="必须提供 path 或 purpose 参数",
                     )
                 # 使用预设路径的目录部分
+                # 对于 diary/saved/conversation 等 purpose，_resolve_purpose_path 可能返回文件路径（默认当日文件）
+                # 但 list_files 需要目录，所以先检查目录是否存在
                 full_path = tools._resolve_purpose_path(purpose)  # type: ignore[reportPrivateUsage]
                 if full_path.is_file():
+                    full_path = full_path.parent
+                # 如果文件不存在，返回目录（因为可能是当日文件还未创建）
+                elif not full_path.exists():
                     full_path = full_path.parent
             else:
                 full_path = tools._safe_path(path, write_mode=False)  # type: ignore[reportPrivateUsage]
