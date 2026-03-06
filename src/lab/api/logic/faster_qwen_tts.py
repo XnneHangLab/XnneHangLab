@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import struct
+import threading
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -9,11 +11,16 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 import numpy as np
-import soundfile as sf
 from fastapi import HTTPException
 from loguru import logger
 
-DEFAULT_MODEL_NAME = "Qwen/Qwen3-TTS-1.7B-Base"
+DEFAULT_MODEL_NAME = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
+DEFAULT_SAMPLE_RATE = 24000
+
+_tts_logger = logger.bind(group="tts")
+_qwen_tts_engine: Any | None = None
+_sample_rate: int = DEFAULT_SAMPLE_RATE
+_model_lock = threading.Lock()
 
 
 def resolve_model_name() -> str:
@@ -22,7 +29,9 @@ def resolve_model_name() -> str:
         return env_model
 
     local_candidates = [
+        Path("./models/Qwen3-TTS-12Hz-1.7B-Base"),
         Path("./models/Qwen3-TTS-1.7B-Base"),
+        Path("./models/Qwen/Qwen3-TTS-12Hz-1.7B-Base"),
         Path("./models/Qwen/Qwen3-TTS-1.7B-Base"),
     ]
     for candidate in local_candidates:
@@ -32,45 +41,41 @@ def resolve_model_name() -> str:
     return DEFAULT_MODEL_NAME
 
 
-_tts_logger = logger.bind(group="tts")
-_qwen_tts_engine: Any | None = None
+def _resolve_device() -> str:
+    if device := os.environ.get("XNNEHANG_QWEN_TTS_DEVICE", "").strip():
+        return device
+
+    try:
+        import torch
+
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    except Exception:
+        return "cpu"
 
 
 def _init_engine() -> Any:
     """初始化 faster-qwen3-tts 引擎（全局单例）。"""
-    global _qwen_tts_engine
+    global _qwen_tts_engine, _sample_rate
     if _qwen_tts_engine is not None:
         return _qwen_tts_engine
 
     try:
-        import faster_qwen3_tts as fq
+        from faster_qwen3_tts import FasterQwen3TTS
     except Exception as exc:  # pragma: no cover - 依赖未安装时的保护
         raise RuntimeError("faster-qwen3-tts is not installed") from exc
 
     model_name = resolve_model_name()
+    device = _resolve_device()
     _tts_logger.info(f"qwen-tts model source: {model_name}")
+    _tts_logger.info(f"qwen-tts model device: {device}")
 
-    constructors: list[tuple[str, Any]] = [
-        ("Qwen3TTS", getattr(fq, "Qwen3TTS", None)),
-        ("FasterQwen3TTS", getattr(fq, "FasterQwen3TTS", None)),
-    ]
+    _qwen_tts_engine = FasterQwen3TTS.from_pretrained(model_name, device=device)
 
-    for ctor_name, ctor in constructors:
-        if ctor is None:
-            continue
-        try:
-            _qwen_tts_engine = ctor.from_pretrained(model_name)
-            _tts_logger.info(f"faster-qwen-tts model initialized via {ctor_name}.from_pretrained")
-            return _qwen_tts_engine
-        except Exception:
-            try:
-                _qwen_tts_engine = ctor(model_name=model_name)
-                _tts_logger.info(f"faster-qwen-tts model initialized via {ctor_name}(model_name=...)")
-                return _qwen_tts_engine
-            except Exception:
-                continue
+    sample_rate_raw = getattr(_qwen_tts_engine, "sample_rate", DEFAULT_SAMPLE_RATE)
+    _sample_rate = int(sample_rate_raw) if isinstance(sample_rate_raw, int | float) else DEFAULT_SAMPLE_RATE
 
-    raise RuntimeError("Unsupported faster-qwen3-tts API. Please update logic initializer.")
+    _tts_logger.info(f"faster-qwen-tts model initialized. sample_rate={_sample_rate}")
+    return _qwen_tts_engine
 
 
 def init_qwen_tts_model() -> None:
@@ -83,90 +88,73 @@ def get_qwen_tts_model() -> Any:
     return _qwen_tts_engine
 
 
-def _as_wav_bytes(payload: Any, *, sample_rate: int = 24000) -> bytes:
-    if isinstance(payload, bytes):
-        return payload
-    if isinstance(payload, bytearray):
-        return bytes(payload)
+def get_sample_rate() -> int:
+    return _sample_rate
 
-    audio_data: Any = payload
-    sr = sample_rate
 
-    if isinstance(payload, dict):
-        audio_data = payload.get("audio", payload.get("wav", payload.get("samples", payload)))
-        sr_raw = payload.get("sample_rate", payload.get("sr", sample_rate))
-        if isinstance(sr_raw, int):
-            sr = sr_raw
+def _to_pcm16(pcm: np.ndarray) -> bytes:
+    return np.clip(pcm * 32768, -32768, 32767).astype(np.int16).tobytes()
 
-    arr = np.asarray(audio_data, dtype=np.float32)
-    if arr.ndim > 1:
-        arr = arr.reshape(-1)
 
-    with BytesIO() as buffer:
-        sf.write(buffer, arr, samplerate=sr, format="WAV")
-        return buffer.getvalue()
+def _wav_header(sample_rate: int, data_len: int = 0xFFFFFFFF) -> bytes:
+    n_channels = 1
+    bits = 16
+    byte_rate = sample_rate * n_channels * bits // 8
+    block_align = n_channels * bits // 8
+    riff_size = 0xFFFFFFFF if data_len == 0xFFFFFFFF else 36 + data_len
+    buf = BytesIO()
+    buf.write(b"RIFF")
+    buf.write(struct.pack("<I", riff_size))
+    buf.write(b"WAVE")
+    buf.write(b"fmt ")
+    buf.write(struct.pack("<IHHIIHH", 16, 1, n_channels, sample_rate, byte_rate, block_align, bits))
+    buf.write(b"data")
+    buf.write(struct.pack("<I", data_len))
+    return buf.getvalue()
+
+
+def _to_wav_bytes(pcm: np.ndarray, sample_rate: int) -> bytes:
+    raw = _to_pcm16(pcm)
+    return _wav_header(sample_rate, len(raw)) + raw
+
+
+def _resolve_ref(ref_audio: Path | None, ref_text: str | None) -> tuple[str | None, str]:
+    ref_audio_str = str(ref_audio) if ref_audio is not None else None
+    return ref_audio_str, ref_text or ""
 
 
 def synthesize_once(*, text: str, ref_audio: Path | None, ref_text: str | None) -> bytes:
-    """非流式一次性合成，返回 WAV bytes。"""
-    engine = get_qwen_tts_model()
+    """非流式一次性合成，返回完整 WAV bytes。"""
+    model = get_qwen_tts_model()
+    ref_audio_str, ref_text_str = _resolve_ref(ref_audio, ref_text)
 
-    kwargs: dict[str, Any] = {"text": text, "stream": False}
-    if ref_audio is not None:
-        kwargs["ref_audio"] = str(ref_audio)
-    if ref_text:
-        kwargs["ref_text"] = ref_text
+    with _model_lock:
+        audio_arrays, sample_rate = model.generate_voice_clone(
+            text=text,
+            language="Auto",
+            ref_audio=ref_audio_str,
+            ref_text=ref_text_str,
+        )
 
-    for method_name in ("tts", "synthesize", "generate"):
-        method = getattr(engine, method_name, None)
-        if method is None:
-            continue
-        try:
-            result = method(**kwargs)
-            return _as_wav_bytes(result)
-        except TypeError:
-            # 部分版本参数名不兼容，降级使用 prompt_audio / prompt_text
-            fallback_kwargs = dict(kwargs)
-            if "ref_audio" in fallback_kwargs:
-                fallback_kwargs["prompt_audio"] = fallback_kwargs.pop("ref_audio")
-            if "ref_text" in fallback_kwargs:
-                fallback_kwargs["prompt_text"] = fallback_kwargs.pop("ref_text")
-            result = method(**fallback_kwargs)
-            return _as_wav_bytes(result)
-
-    raise HTTPException(status_code=500, detail="No usable synth method found on qwen tts engine")
+    audio = audio_arrays[0] if audio_arrays else np.zeros(1, dtype=np.float32)
+    sr = int(sample_rate) if isinstance(sample_rate, int | float) else get_sample_rate()
+    return _to_wav_bytes(audio, sr)
 
 
 def synthesize_stream(*, text: str, ref_audio: Path | None, ref_text: str | None) -> Iterator[bytes]:
-    """流式合成，逐段返回音频 bytes。"""
-    engine = get_qwen_tts_model()
+    """流式合成，返回 `wav header + pcm chunks`。"""
+    model = get_qwen_tts_model()
+    ref_audio_str, ref_text_str = _resolve_ref(ref_audio, ref_text)
 
-    kwargs: dict[str, Any] = {"text": text, "stream": True}
-    if ref_audio is not None:
-        kwargs["ref_audio"] = str(ref_audio)
-    if ref_text:
-        kwargs["ref_text"] = ref_text
+    yield _wav_header(get_sample_rate())
 
-    for method_name in ("tts", "synthesize", "generate"):
-        method = getattr(engine, method_name, None)
-        if method is None:
-            continue
-        try:
-            stream_result = method(**kwargs)
-        except TypeError:
-            fallback_kwargs = dict(kwargs)
-            if "ref_audio" in fallback_kwargs:
-                fallback_kwargs["prompt_audio"] = fallback_kwargs.pop("ref_audio")
-            if "ref_text" in fallback_kwargs:
-                fallback_kwargs["prompt_text"] = fallback_kwargs.pop("ref_text")
-            stream_result = method(**fallback_kwargs)
-
-        if hasattr(stream_result, "__iter__"):
-            for chunk in stream_result:
-                if isinstance(chunk, bytes):
-                    yield chunk
-                else:
-                    yield _as_wav_bytes(chunk)
-            return
-
-    raise HTTPException(status_code=500, detail="No usable stream synth method found on qwen tts engine")
+    with _model_lock:
+        for chunk, _sr, _timing in model.generate_voice_clone_streaming(
+            text=text,
+            language="Auto",
+            ref_audio=ref_audio_str,
+            ref_text=ref_text_str,
+            chunk_size=12,
+            non_streaming_mode=False,
+        ):
+            yield _to_pcm16(chunk)
