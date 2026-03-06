@@ -69,7 +69,25 @@ def _init_engine() -> Any:
     _tts_logger.info(f"qwen-tts model source: {model_name}")
     _tts_logger.info(f"qwen-tts model device: {device}")
 
-    _qwen_tts_engine = FasterQwen3TTS.from_pretrained(model_name, device=device)
+    kwargs: dict[str, Any] = {"device": device}
+    if device == "cuda":
+        try:
+            import torch
+
+            kwargs["dtype"] = torch.bfloat16
+        except Exception:
+            pass
+
+    _qwen_tts_engine = FasterQwen3TTS.from_pretrained(model_name, **kwargs)
+
+    warmup_fn = getattr(_qwen_tts_engine, "_warmup", None)
+    if callable(warmup_fn):
+        try:
+            _tts_logger.info("warming up qwen-tts model (cuda graphs)...")
+            warmup_fn(prefill_len=100)
+            _tts_logger.info("qwen-tts warmup done")
+        except Exception:
+            _tts_logger.warning("qwen-tts warmup failed, continue without warmup")
 
     sample_rate_raw = getattr(_qwen_tts_engine, "sample_rate", DEFAULT_SAMPLE_RATE)
     _sample_rate = int(sample_rate_raw) if isinstance(sample_rate_raw, int | float) else DEFAULT_SAMPLE_RATE
@@ -120,6 +138,27 @@ def _to_pcm16(pcm: np.ndarray | Any) -> bytes:
     return pcm16.tobytes()
 
 
+def _concat_audio(audio_list: Any) -> np.ndarray:
+    """对齐官方 demo：把多段音频拼接为一段 float32。"""
+    if isinstance(audio_list, np.ndarray):
+        return audio_list.astype(np.float32).squeeze()
+
+    parts: list[np.ndarray] = []
+    try:
+        for chunk in audio_list:
+            arr = np.asarray(chunk, dtype=np.float32).squeeze()
+            if arr.size > 0:
+                parts.append(arr)
+    except TypeError:
+        arr = np.asarray(audio_list, dtype=np.float32).squeeze()
+        if arr.size > 0:
+            parts.append(arr)
+
+    if not parts:
+        return np.zeros(0, dtype=np.float32)
+    return np.concatenate(parts)
+
+
 def _wav_header(sample_rate: int, data_len: int = 0xFFFFFFFF) -> bytes:
     n_channels = 1
     bits = 16
@@ -160,7 +199,9 @@ def synthesize_once(*, text: str, ref_audio: Path | None, ref_text: str | None) 
             ref_text=ref_text_str,
         )
 
-    audio = audio_arrays[0] if audio_arrays else np.zeros(1, dtype=np.float32)
+    audio = _concat_audio(audio_arrays)
+    if audio.size == 0:
+        audio = np.zeros(1, dtype=np.float32)
     sr = int(sample_rate) if isinstance(sample_rate, int | float) else get_sample_rate()
     return _to_wav_bytes(audio, sr)
 
@@ -178,7 +219,7 @@ def synthesize_stream(*, text: str, ref_audio: Path | None, ref_text: str | None
             language="Auto",
             ref_audio=ref_audio_str,
             ref_text=ref_text_str,
-            chunk_size=12,
+            chunk_size=8,
             non_streaming_mode=False,
         ):
-            yield _to_pcm16(chunk)
+            yield _to_pcm16(_concat_audio(chunk))
