@@ -1,16 +1,20 @@
 from __future__ import annotations
 
+import asyncio
+import base64
+import io
+import json
 import os
-import struct
 import threading
-from io import BytesIO
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import AsyncIterator
 
 import numpy as np
+import soundfile as sf
 from fastapi import HTTPException
 from loguru import logger
 
@@ -61,7 +65,7 @@ def _init_engine() -> Any:
 
     try:
         from faster_qwen3_tts import FasterQwen3TTS
-    except Exception as exc:  # pragma: no cover - 依赖未安装时的保护
+    except Exception as exc:  # pragma: no cover
         raise RuntimeError("faster-qwen3-tts is not installed") from exc
 
     model_name = resolve_model_name()
@@ -90,7 +94,7 @@ def _init_engine() -> Any:
             _tts_logger.warning("qwen-tts warmup failed, continue without warmup")
 
     sample_rate_raw = getattr(_qwen_tts_engine, "sample_rate", DEFAULT_SAMPLE_RATE)
-    _sample_rate = int(sample_rate_raw) if isinstance(sample_rate_raw, int | float) else DEFAULT_SAMPLE_RATE
+    _sample_rate = int(sample_rate_raw) if isinstance(sample_rate_raw, (int, float)) else DEFAULT_SAMPLE_RATE
 
     _tts_logger.info(f"faster-qwen-tts model initialized. sample_rate={_sample_rate}")
     return _qwen_tts_engine
@@ -110,36 +114,20 @@ def get_sample_rate() -> int:
     return _sample_rate
 
 
-def _to_pcm16(pcm: np.ndarray | Any) -> bytes:
-    """把 chunk 转成 int16 PCM，避免重复缩放导致机械音。"""
-    arr_any: Any = pcm
-    if hasattr(arr_any, "detach"):
-        arr_any = arr_any.detach()
-    if hasattr(arr_any, "cpu"):
-        arr_any = arr_any.cpu()
-    if hasattr(arr_any, "numpy"):
-        arr_any = arr_any.numpy()
+def _to_wav_chunk(pcm: np.ndarray, sample_rate: int) -> bytes:
+    """把 float32 音频写成完整独立 WAV bytes。"""
+    buf = io.BytesIO()
+    sf.write(buf, pcm, sample_rate, format="WAV", subtype="PCM_16")
+    return buf.getvalue()
 
-    arr = np.asarray(arr_any)
-    if arr.ndim > 1:
-        arr = arr.reshape(-1)
 
-    if np.issubdtype(arr.dtype, np.integer):
-        return np.clip(arr, -32768, 32767).astype(np.int16).tobytes()
-
-    arr_f = arr.astype(np.float32)
-    peak = float(np.max(np.abs(arr_f))) if arr_f.size else 0.0
-
-    if peak <= 1.5:
-        pcm16 = np.clip(arr_f * 32768.0, -32768, 32767).astype(np.int16)
-    else:
-        # 某些实现可能已输出接近 PCM16 的数值范围
-        pcm16 = np.clip(arr_f, -32768, 32767).astype(np.int16)
-    return pcm16.tobytes()
+def _to_wav_b64(pcm: np.ndarray, sample_rate: int) -> str:
+    wav_bytes = _to_wav_chunk(pcm, sample_rate)
+    return base64.b64encode(wav_bytes).decode("utf-8")
 
 
 def _concat_audio(audio_list: Any) -> np.ndarray:
-    """对齐官方 demo：把多段音频拼接为一段 float32。"""
+    """把多段音频拼接为一段 float32。"""
     if isinstance(audio_list, np.ndarray):
         return audio_list.astype(np.float32).squeeze()
 
@@ -159,26 +147,9 @@ def _concat_audio(audio_list: Any) -> np.ndarray:
     return np.concatenate(parts)
 
 
-def _wav_header(sample_rate: int, data_len: int = 0xFFFFFFFF) -> bytes:
-    n_channels = 1
-    bits = 16
-    byte_rate = sample_rate * n_channels * bits // 8
-    block_align = n_channels * bits // 8
-    riff_size = 0xFFFFFFFF if data_len == 0xFFFFFFFF else 36 + data_len
-    buf = BytesIO()
-    buf.write(b"RIFF")
-    buf.write(struct.pack("<I", riff_size))
-    buf.write(b"WAVE")
-    buf.write(b"fmt ")
-    buf.write(struct.pack("<IHHIIHH", 16, 1, n_channels, sample_rate, byte_rate, block_align, bits))
-    buf.write(b"data")
-    buf.write(struct.pack("<I", data_len))
-    return buf.getvalue()
-
-
 def _to_wav_bytes(pcm: np.ndarray, sample_rate: int) -> bytes:
-    raw = _to_pcm16(pcm)
-    return _wav_header(sample_rate, len(raw)) + raw
+    """非流式：生成完整 WAV。"""
+    return _to_wav_chunk(pcm, sample_rate)
 
 
 def _resolve_ref(ref_audio: Path | None, ref_text: str | None) -> tuple[str | None, str]:
@@ -202,24 +173,123 @@ def synthesize_once(*, text: str, ref_audio: Path | None, ref_text: str | None) 
     audio = _concat_audio(audio_arrays)
     if audio.size == 0:
         audio = np.zeros(1, dtype=np.float32)
-    sr = int(sample_rate) if isinstance(sample_rate, int | float) else get_sample_rate()
+    sr = int(sample_rate) if isinstance(sample_rate, (int, float)) else get_sample_rate()
     return _to_wav_bytes(audio, sr)
 
 
-def synthesize_stream(*, text: str, ref_audio: Path | None, ref_text: str | None) -> Iterator[bytes]:
-    """流式合成，返回 `wav header + pcm chunks`。"""
+async def synthesize_stream(*, text: str, ref_audio: Path | None, ref_text: str | None) -> AsyncIterator[str]:
+    """
+    流式合成：返回 SSE 文本事件。
+    每个 chunk 都是一个 JSON payload，audio_b64 是完整独立 WAV。
+    完全对齐官方 demo 的传输思路，而不是直接输出 raw wav byte stream。
+    """
     model = get_qwen_tts_model()
     ref_audio_str, ref_text_str = _resolve_ref(ref_audio, ref_text)
 
-    yield _wav_header(get_sample_rate())
+    queue: asyncio.Queue[str | None] = asyncio.Queue()
+    loop = asyncio.get_running_loop()
 
-    with _model_lock:
-        for chunk, _sr, _timing in model.generate_voice_clone_streaming(
-            text=text,
-            language="Auto",
-            ref_audio=ref_audio_str,
-            ref_text=ref_text_str,
-            chunk_size=8,
-            non_streaming_mode=False,
-        ):
-            yield _to_pcm16(_concat_audio(chunk))
+    def _run_inference() -> None:
+        try:
+            t0 = time.perf_counter()
+            total_audio_s = 0.0
+            total_gen_ms = 0.0
+            ttfa_ms: float | None = None
+            voice_clone_ms = 0.0
+
+            with _model_lock:
+                gen = model.generate_voice_clone_streaming(
+                    text=text,
+                    language="Auto",
+                    ref_audio=ref_audio_str,
+                    ref_text=ref_text_str,
+                    chunk_size=8,
+                    non_streaming_mode=False,
+                )
+
+                first_audio = next(gen, None)
+                if first_audio is not None:
+                    audio_chunk, sr, timing = first_audio
+                    sr = int(sr) if isinstance(sr, (int, float)) else get_sample_rate()
+
+                    wall_first_ms = (time.perf_counter() - t0) * 1000.0
+                    model_ms = float(timing.get("prefill_ms", 0.0)) + float(timing.get("decode_ms", 0.0))
+                    voice_clone_ms = max(0.0, wall_first_ms - model_ms)
+
+                    total_gen_ms += model_ms
+                    if ttfa_ms is None:
+                        ttfa_ms = total_gen_ms
+
+                    audio_chunk = _concat_audio(audio_chunk)
+                    if audio_chunk.size > 0:
+                        dur = len(audio_chunk) / sr
+                        total_audio_s += dur
+                        rtf = total_audio_s / (total_gen_ms / 1000.0) if total_gen_ms > 0 else 0.0
+
+                        payload = {
+                            "type": "chunk",
+                            "audio_b64": _to_wav_b64(audio_chunk, sr),
+                            "sample_rate": sr,
+                            "ttfa_ms": round(ttfa_ms),
+                            "voice_clone_ms": round(voice_clone_ms),
+                            "rtf": round(rtf, 3),
+                            "total_audio_s": round(total_audio_s, 3),
+                            "elapsed_ms": round((time.perf_counter() - t0) * 1000.0),
+                        }
+                        loop.call_soon_threadsafe(queue.put_nowait, json.dumps(payload))
+
+                for audio_chunk, sr, timing in gen:
+                    sr = int(sr) if isinstance(sr, (int, float)) else get_sample_rate()
+
+                    total_gen_ms += float(timing.get("prefill_ms", 0.0)) + float(timing.get("decode_ms", 0.0))
+                    if ttfa_ms is None:
+                        ttfa_ms = total_gen_ms
+
+                    audio_chunk = _concat_audio(audio_chunk)
+                    if audio_chunk.size == 0:
+                        continue
+
+                    dur = len(audio_chunk) / sr
+                    total_audio_s += dur
+                    rtf = total_audio_s / (total_gen_ms / 1000.0) if total_gen_ms > 0 else 0.0
+
+                    payload = {
+                        "type": "chunk",
+                        "audio_b64": _to_wav_b64(audio_chunk, sr),
+                        "sample_rate": sr,
+                        "ttfa_ms": round(ttfa_ms),
+                        "voice_clone_ms": round(voice_clone_ms),
+                        "rtf": round(rtf, 3),
+                        "total_audio_s": round(total_audio_s, 3),
+                        "elapsed_ms": round((time.perf_counter() - t0) * 1000.0),
+                    }
+                    loop.call_soon_threadsafe(queue.put_nowait, json.dumps(payload))
+
+            final_rtf = total_audio_s / (total_gen_ms / 1000.0) if total_gen_ms > 0 else 0.0
+            done_payload = {
+                "type": "done",
+                "ttfa_ms": round(ttfa_ms) if ttfa_ms is not None else 0,
+                "voice_clone_ms": round(voice_clone_ms),
+                "rtf": round(final_rtf, 3),
+                "total_audio_s": round(total_audio_s, 3),
+                "total_ms": round((time.perf_counter() - t0) * 1000.0),
+            }
+            loop.call_soon_threadsafe(queue.put_nowait, json.dumps(done_payload))
+
+        except Exception as exc:
+            _tts_logger.exception("streaming inference failed")
+            err_payload = {
+                "type": "error",
+                "message": str(exc),
+            }
+            loop.call_soon_threadsafe(queue.put_nowait, json.dumps(err_payload))
+        finally:
+            loop.call_soon_threadsafe(queue.put_nowait, None)
+
+    threading.Thread(target=_run_inference, daemon=True).start()
+
+    while True:
+        msg = await queue.get()
+        if msg is None:
+            break
+        yield f"data: {msg}\n\n"
