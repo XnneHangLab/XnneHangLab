@@ -92,8 +92,32 @@ def get_sample_rate() -> int:
     return _sample_rate
 
 
-def _to_pcm16(pcm: np.ndarray) -> bytes:
-    return np.clip(pcm * 32768, -32768, 32767).astype(np.int16).tobytes()
+def _to_pcm16(pcm: np.ndarray | Any) -> bytes:
+    """把 chunk 转成 int16 PCM，避免重复缩放导致机械音。"""
+    arr_any: Any = pcm
+    if hasattr(arr_any, "detach"):
+        arr_any = arr_any.detach()
+    if hasattr(arr_any, "cpu"):
+        arr_any = arr_any.cpu()
+    if hasattr(arr_any, "numpy"):
+        arr_any = arr_any.numpy()
+
+    arr = np.asarray(arr_any)
+    if arr.ndim > 1:
+        arr = arr.reshape(-1)
+
+    if np.issubdtype(arr.dtype, np.integer):
+        return np.clip(arr, -32768, 32767).astype(np.int16).tobytes()
+
+    arr_f = arr.astype(np.float32)
+    peak = float(np.max(np.abs(arr_f))) if arr_f.size else 0.0
+
+    if peak <= 1.5:
+        pcm16 = np.clip(arr_f * 32768.0, -32768, 32767).astype(np.int16)
+    else:
+        # 某些实现可能已输出接近 PCM16 的数值范围
+        pcm16 = np.clip(arr_f, -32768, 32767).astype(np.int16)
+    return pcm16.tobytes()
 
 
 def _wav_header(sample_rate: int, data_len: int = 0xFFFFFFFF) -> bytes:

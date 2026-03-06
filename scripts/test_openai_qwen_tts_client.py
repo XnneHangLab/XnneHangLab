@@ -82,6 +82,13 @@ def test_stream_play_and_save(
     """边流式接收边播放（依赖 ffplay），并落盘完整文件。"""
     start = time.perf_counter()
     with tempfile.TemporaryDirectory() as tmp_dir:
+        if not hasattr(os, "mkfifo"):
+            logger.warning("os.mkfifo unavailable on this platform, fallback to stream-save without live play")
+            test_stream_save(client, out_file, text, extra_body=extra_body)
+            elapsed = time.perf_counter() - start
+            logger.info(f"stream-play-save elapsed: {elapsed:.3f}s")
+            return
+
         fifo_path = Path(tmp_dir) / "tts_stream.wav"
         if fifo_path.exists():
             fifo_path.unlink()

@@ -43,7 +43,7 @@ async def list_models() -> dict[str, Any]:
     }
 
 
-async def _parse_request_payload(request: Request) -> tuple[OpenAISpeechRequest, Path | None, str | None]:
+async def _parse_request_payload(request: Request) -> tuple[OpenAISpeechRequest, Path | None, str | None, bool]:
     content_type = (request.headers.get("content-type") or "").lower()
 
     if "multipart/form-data" in content_type:
@@ -57,13 +57,15 @@ async def _parse_request_payload(request: Request) -> tuple[OpenAISpeechRequest,
         )
         ref_text = str(form.get("ref_text")) if form.get("ref_text") else None
         ref_audio_path = None
+        is_temp_ref_audio = False
         ref_audio_obj = form.get("ref_audio")
         if isinstance(ref_audio_obj, UploadFile):
             suffix = Path(ref_audio_obj.filename or "ref.wav").suffix or ".wav"
             with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
                 temp_file.write(await ref_audio_obj.read())
                 ref_audio_path = Path(temp_file.name)
-        return payload, ref_audio_path, ref_text
+            is_temp_ref_audio = True
+        return payload, ref_audio_path, ref_text, is_temp_ref_audio
 
     data = await request.json()
     payload = OpenAISpeechRequest.model_validate(data)
@@ -76,15 +78,15 @@ async def _parse_request_payload(request: Request) -> tuple[OpenAISpeechRequest,
     if ref_audio_path is not None and not ref_audio_path.exists():
         raise HTTPException(status_code=400, detail=f"ref_audio file not found: {ref_audio_path}")
 
-    return payload, ref_audio_path, ref_text
+    return payload, ref_audio_path, ref_text, False
 
 
 @router.post("/v1/audio/speech")
 async def create_speech(request: Request) -> Response:
     temp_ref_path: Path | None = None
     try:
-        payload, ref_audio_path, ref_text = await _parse_request_payload(request)
-        temp_ref_path = ref_audio_path if ref_audio_path and ref_audio_path.is_file() else None
+        payload, ref_audio_path, ref_text, is_temp_ref_audio = await _parse_request_payload(request)
+        temp_ref_path = ref_audio_path if is_temp_ref_audio and ref_audio_path and ref_audio_path.is_file() else None
 
         if payload.response_format.lower() != "wav":
             raise HTTPException(status_code=400, detail="Only wav response_format is supported")
