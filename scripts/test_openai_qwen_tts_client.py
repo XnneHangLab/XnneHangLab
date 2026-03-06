@@ -38,26 +38,28 @@ def test_health(base_server_url: str) -> None:
         logger.info(f"health: {response.status_code} {response.json()}")
 
 
-def test_non_stream(client: OpenAI, out_file: Path, text: str, *, extra_body: dict[str, str] | None = None) -> None:
+def test_non_stream(
+    client: OpenAI, out_file: Path, text: str, *, extra_body: dict[str, str | bool] | None = None
+) -> None:
     response = client.audio.speech.create(
         model="tts-1",
         input=text,
         voice="default",
         response_format="wav",
-        stream=False,
         extra_body=extra_body,
     )
     response.stream_to_file(str(out_file))
     logger.info(f"non-stream saved => {out_file}")
 
 
-def test_stream_save(client: OpenAI, out_file: Path, text: str, *, extra_body: dict[str, str] | None = None) -> None:
+def test_stream_save(
+    client: OpenAI, out_file: Path, text: str, *, extra_body: dict[str, str | bool] | None = None
+) -> None:
     with client.audio.speech.with_streaming_response.create(
         model="tts-1",
         input=text,
         voice="default",
         response_format="wav",
-        stream=True,
         extra_body=extra_body,
     ) as response:
         response.stream_to_file(str(out_file))
@@ -65,7 +67,7 @@ def test_stream_save(client: OpenAI, out_file: Path, text: str, *, extra_body: d
 
 
 def test_stream_play_and_save(
-    client: OpenAI, out_file: Path, text: str, *, extra_body: dict[str, str] | None = None
+    client: OpenAI, out_file: Path, text: str, *, extra_body: dict[str, str | bool] | None = None
 ) -> None:
     """边流式接收边播放（依赖 ffplay），并落盘完整文件。"""
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -91,7 +93,6 @@ def test_stream_play_and_save(
                     input=text,
                     voice="default",
                     response_format="wav",
-                    stream=True,
                     extra_body=extra_body,
                 ) as response,
                 fifo_path.open("wb") as fifo_writer,
@@ -114,6 +115,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default="./tmp/tts_tests")
     parser.add_argument("--ref-audio", default="")
     parser.add_argument("--ref-text", default="")
+    parser.add_argument("--text", default="你好，这是一个 qwen tts 的测试。Hello from XnneHangLab.")
     parser.add_argument("--mode", default="all", choices=["all", "health", "non-stream", "stream", "stream-play"])
     return parser.parse_args()
 
@@ -133,23 +135,29 @@ def main() -> None:
 
     client = _build_client(openai_base)
 
-    base_text = "你好，这是一个 qwen tts 的测试。Hello from XnneHangLab."
+    base_text = args.text
 
-    clone_kwargs: dict[str, str] | None = None
+    base_extra: dict[str, str | bool] = {}
     if args.ref_audio:
-        clone_kwargs = {"ref_audio": args.ref_audio}
-        if args.ref_text:
-            clone_kwargs["ref_text"] = args.ref_text
+        base_extra["ref_audio"] = args.ref_audio
+    if args.ref_text:
+        base_extra["ref_text"] = args.ref_text
+
+    non_stream_extra = dict(base_extra)
+    non_stream_extra["stream"] = False
+
+    stream_extra = dict(base_extra)
+    stream_extra["stream"] = True
 
     if args.mode in {"all", "non-stream"}:
-        test_non_stream(client, out_dir / "non_stream.wav", base_text, extra_body=clone_kwargs)
+        test_non_stream(client, out_dir / "non_stream.wav", base_text, extra_body=non_stream_extra)
 
     if args.mode in {"all", "stream"}:
-        test_stream_save(client, out_dir / "stream_save.wav", base_text, extra_body=clone_kwargs)
+        test_stream_save(client, out_dir / "stream_save.wav", base_text, extra_body=stream_extra)
 
     if args.mode in {"all", "stream-play"}:
         try:
-            test_stream_play_and_save(client, out_dir / "stream_play_save.wav", base_text, extra_body=clone_kwargs)
+            test_stream_play_and_save(client, out_dir / "stream_play_save.wav", base_text, extra_body=stream_extra)
         except FileNotFoundError:
             logger.warning("ffplay not found, skip stream-play test")
 
