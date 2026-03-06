@@ -8,18 +8,21 @@ import os
 import threading
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import soundfile as sf
 from fastapi import HTTPException
 from loguru import logger
+from numpy.typing import NDArray
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 DEFAULT_MODEL_NAME = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
 DEFAULT_SAMPLE_RATE = 24000
+
+Float32Array = NDArray[np.float32]
 
 _tts_logger = logger.bind(group="tts")
 _qwen_tts_engine: Any | None = None
@@ -114,40 +117,54 @@ def get_sample_rate() -> int:
     return _sample_rate
 
 
-def _to_wav_chunk(pcm: np.ndarray, sample_rate: int) -> bytes:
+def _as_float32_mono_array(value: Any) -> Float32Array:
+    """
+    把任意输入规整成 float32 一维数组。
+    """
+    arr = np.asarray(value, dtype=np.float32).squeeze()
+    return arr
+
+
+def _empty_float32() -> Float32Array:
+    return np.zeros(0, dtype=np.float32)
+
+
+def _to_wav_chunk(pcm: Float32Array, sample_rate: int) -> bytes:
     """把 float32 音频写成完整独立 WAV bytes。"""
     buf = io.BytesIO()
-    sf.write(buf, pcm, sample_rate, format="WAV", subtype="PCM_16")
+    sf.write(buf, pcm, sample_rate, format="WAV", subtype="PCM_16")  # type: ignore[reportUnknownMemberType]
     return buf.getvalue()
 
 
-def _to_wav_b64(pcm: np.ndarray, sample_rate: int) -> str:
+def _to_wav_b64(pcm: Float32Array, sample_rate: int) -> str:
     wav_bytes = _to_wav_chunk(pcm, sample_rate)
     return base64.b64encode(wav_bytes).decode("utf-8")
 
 
-def _concat_audio(audio_list: Any) -> np.ndarray:
+def _concat_audio(audio_list: Any) -> Float32Array:
     """把多段音频拼接为一段 float32。"""
     if isinstance(audio_list, np.ndarray):
-        return audio_list.astype(np.float32).squeeze()
+        return _as_float32_mono_array(audio_list)
 
-    parts: list[np.ndarray] = []
+    parts: list[Float32Array] = []
     try:
         for chunk in audio_list:
-            arr = np.asarray(chunk, dtype=np.float32).squeeze()
+            arr = _as_float32_mono_array(chunk)
             if arr.size > 0:
                 parts.append(arr)
     except TypeError:
-        arr = np.asarray(audio_list, dtype=np.float32).squeeze()
+        arr = _as_float32_mono_array(audio_list)
         if arr.size > 0:
             parts.append(arr)
 
     if not parts:
-        return np.zeros(0, dtype=np.float32)
-    return np.concatenate(parts)
+        return _empty_float32()
+
+    concatenated = np.concatenate(parts)
+    return concatenated
 
 
-def _to_wav_bytes(pcm: np.ndarray, sample_rate: int) -> bytes:
+def _to_wav_bytes(pcm: Float32Array, sample_rate: int) -> bytes:
     """非流式：生成完整 WAV。"""
     return _to_wav_chunk(pcm, sample_rate)
 
@@ -163,16 +180,19 @@ def synthesize_once(*, text: str, ref_audio: Path | None, ref_text: str | None) 
     ref_audio_str, ref_text_str = _resolve_ref(ref_audio, ref_text)
 
     with _model_lock:
-        audio_arrays, sample_rate = model.generate_voice_clone(
+        result: Any = model.generate_voice_clone(
             text=text,
             language="Auto",
             ref_audio=ref_audio_str,
             ref_text=ref_text_str,
         )
 
+    audio_arrays, sample_rate = cast("tuple[Any, Any]", result)
+
     audio = _concat_audio(audio_arrays)
     if audio.size == 0:
         audio = np.zeros(1, dtype=np.float32)
+
     sr = int(sample_rate) if isinstance(sample_rate, (int, float)) else get_sample_rate()
     return _to_wav_bytes(audio, sr)
 
@@ -198,7 +218,7 @@ async def synthesize_stream(*, text: str, ref_audio: Path | None, ref_text: str 
             voice_clone_ms = 0.0
 
             with _model_lock:
-                gen = model.generate_voice_clone_streaming(
+                gen: Any = model.generate_voice_clone_streaming(
                     text=text,
                     language="Auto",
                     ref_audio=ref_audio_str,
@@ -207,10 +227,13 @@ async def synthesize_stream(*, text: str, ref_audio: Path | None, ref_text: str 
                     non_streaming_mode=False,
                 )
 
-                first_audio = next(gen, None)
+                first_audio: Any = next(gen, None)
                 if first_audio is not None:
-                    audio_chunk, sr, timing = first_audio
-                    sr = int(sr) if isinstance(sr, (int, float)) else get_sample_rate()
+                    first_audio_tuple = cast("tuple[Any, Any, Any]", first_audio)
+                    raw_audio_chunk, sr_raw, timing_raw = first_audio_tuple
+
+                    sr = int(sr_raw) if isinstance(sr_raw, (int, float)) else get_sample_rate()
+                    timing = cast("dict[str, Any]", timing_raw)
 
                     wall_first_ms = (time.perf_counter() - t0) * 1000.0
                     model_ms = float(timing.get("prefill_ms", 0.0)) + float(timing.get("decode_ms", 0.0))
@@ -220,9 +243,9 @@ async def synthesize_stream(*, text: str, ref_audio: Path | None, ref_text: str 
                     if ttfa_ms is None:
                         ttfa_ms = total_gen_ms
 
-                    audio_chunk = _concat_audio(audio_chunk)
+                    audio_chunk = _concat_audio(raw_audio_chunk)
                     if audio_chunk.size > 0:
-                        dur = len(audio_chunk) / sr
+                        dur = audio_chunk.shape[0] / sr
                         total_audio_s += dur
                         rtf = total_audio_s / (total_gen_ms / 1000.0) if total_gen_ms > 0 else 0.0
 
@@ -238,18 +261,22 @@ async def synthesize_stream(*, text: str, ref_audio: Path | None, ref_text: str 
                         }
                         loop.call_soon_threadsafe(queue.put_nowait, json.dumps(payload))
 
-                for audio_chunk, sr, timing in gen:
-                    sr = int(sr) if isinstance(sr, (int, float)) else get_sample_rate()
+                for item in gen:
+                    audio_tuple = cast("tuple[Any, Any, Any]", item)
+                    raw_audio_chunk, sr_raw, timing_raw = audio_tuple
+
+                    sr = int(sr_raw) if isinstance(sr_raw, (int, float)) else get_sample_rate()
+                    timing = cast("dict[str, Any]", timing_raw)
 
                     total_gen_ms += float(timing.get("prefill_ms", 0.0)) + float(timing.get("decode_ms", 0.0))
                     if ttfa_ms is None:
                         ttfa_ms = total_gen_ms
 
-                    audio_chunk = _concat_audio(audio_chunk)
+                    audio_chunk = _concat_audio(raw_audio_chunk)
                     if audio_chunk.size == 0:
                         continue
 
-                    dur = len(audio_chunk) / sr
+                    dur = audio_chunk.shape[0] / sr
                     total_audio_s += dur
                     rtf = total_audio_s / (total_gen_ms / 1000.0) if total_gen_ms > 0 else 0.0
 
