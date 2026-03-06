@@ -93,6 +93,4 @@ memory_bench/.env.benchmark
 memory_bench/state/*
 memory_bench/conversations/
 # nested repos (workspace copies)
-AIChat/
-XnneHangLab/
-
+Qwen3-TTS-12Hz-1.7B-Base
