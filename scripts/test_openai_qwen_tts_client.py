@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import os
 import subprocess
-import tempfile
 import time
 from pathlib import Path
 
@@ -79,49 +78,50 @@ def test_stream_save(
 def test_stream_play_and_save(
     client: OpenAI, out_file: Path, text: str, *, extra_body: dict[str, str | bool] | None = None
 ) -> None:
-    """边流式接收边播放（依赖 ffplay），并落盘完整文件。"""
+    """流式接收：边播放（ffplay stdin）边缓存，结束后一次性落盘。"""
     start = time.perf_counter()
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        if not hasattr(os, "mkfifo"):
-            logger.warning("os.mkfifo unavailable on this platform, fallback to stream-save without live play")
-            test_stream_save(client, out_file, text, extra_body=extra_body)
-            elapsed = time.perf_counter() - start
-            logger.info(f"stream-play-save elapsed: {elapsed:.3f}s")
-            return
 
-        fifo_path = Path(tmp_dir) / "tts_stream.wav"
-        if fifo_path.exists():
-            fifo_path.unlink()
-        os.mkfifo(fifo_path)
+    ffplay_cmd = [
+        "ffplay",
+        "-autoexit",
+        "-nodisp",
+        "-loglevel",
+        "error",
+        "-i",
+        "pipe:0",
+    ]
 
-        ffplay_cmd = [
-            "ffplay",
-            "-autoexit",
-            "-nodisp",
-            "-loglevel",
-            "error",
-            str(fifo_path),
-        ]
-        proc = subprocess.Popen(ffplay_cmd)
+    play_proc: subprocess.Popen[bytes] | None = None
+    audio_buffer = bytearray()
 
-        try:
-            with (
-                client.audio.speech.with_streaming_response.create(
-                    model="tts-1",
-                    input=text,
-                    voice="default",
-                    response_format="wav",
-                    extra_body=extra_body,
-                ) as response,
-                fifo_path.open("wb") as fifo_writer,
-                out_file.open("wb") as file_writer,
-            ):
-                for chunk in response.iter_bytes():
-                    fifo_writer.write(chunk)
-                    fifo_writer.flush()
-                    file_writer.write(chunk)
-        finally:
-            proc.wait(timeout=30)
+    try:
+        play_proc = subprocess.Popen(ffplay_cmd, stdin=subprocess.PIPE)
+    except FileNotFoundError:
+        logger.warning("ffplay not found, stream-play will buffer+save only")
+
+    with client.audio.speech.with_streaming_response.create(
+        model="tts-1",
+        input=text,
+        voice="default",
+        response_format="wav",
+        extra_body=extra_body,
+    ) as response:
+        for chunk in response.iter_bytes():
+            audio_buffer.extend(chunk)
+            if play_proc is not None and play_proc.stdin is not None:
+                try:
+                    play_proc.stdin.write(chunk)
+                    play_proc.stdin.flush()
+                except BrokenPipeError:
+                    # 播放器提前退出，不影响最终文件保存
+                    play_proc = None
+
+    if play_proc is not None:
+        if play_proc.stdin is not None:
+            play_proc.stdin.close()
+        play_proc.wait(timeout=30)
+
+    out_file.write_bytes(bytes(audio_buffer))
 
     elapsed = time.perf_counter() - start
     logger.info(f"stream-play-save saved => {out_file}")
