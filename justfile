@@ -85,6 +85,19 @@ test-deeplx:
 	}' \
 
 
+
+test-qwen-tts-health server='http://localhost:12393':
+  uv run python scripts/test_openai_qwen_tts_client.py --server {{ server }} --base-url {{ server }}/tts/qwen-tts/v1 --mode health
+
+test-qwen-tts-non-stream server='http://localhost:12393' ref_audio='' ref_text='':
+  uv run python scripts/test_openai_qwen_tts_client.py --server {{ server }} --base-url {{ server }}/tts/qwen-tts/v1 --mode non-stream --ref-audio {{ ref_audio }} --ref-text {{ ref_text }}
+
+test-qwen-tts-stream server='http://localhost:12393' ref_audio='' ref_text='':
+  uv run python scripts/test_openai_qwen_tts_client.py --server {{ server }} --base-url {{ server }}/tts/qwen-tts/v1 --mode stream --ref-audio {{ ref_audio }} --ref-text {{ ref_text }}
+
+test-qwen-tts-stream-play server='http://localhost:12393' ref_audio='' ref_text='':
+  uv run python scripts/test_openai_qwen_tts_client.py --server {{ server }} --base-url {{ server }}/tts/qwen-tts/v1 --mode stream-play --ref-audio {{ ref_audio }} --ref-text {{ ref_text }}
+
 # deploy
 
 install-model:

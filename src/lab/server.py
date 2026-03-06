@@ -10,6 +10,7 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 
 from lab.api.routes.deeplx import router as deeplx_router
+from lab.api.routes.faster_qwen_tts import router as qwen_tts_router
 from lab.api.routes.vtuber import init_client_ws_route, router as vtuber_router
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.service_context import ServiceContext
@@ -47,6 +48,12 @@ async def lifespan(app: FastAPI):
 
         logger.info("预加载 FunASR 模型...")
         load_model()  # 预加载模型，确保模型在启动时初始化
+
+    if lab_settings.package.qwen_tts:
+        from lab.api.logic.faster_qwen_tts import init_qwen_tts_model
+
+        logger.bind(group="tts").info("预加载 faster-qwen-tts 模型...")
+        init_qwen_tts_model()
 
     if lab_settings.package.gpt_sovits:
         # 应用启动时执行
@@ -142,6 +149,8 @@ class WebSocketServer:
             from lab.api.routes.asr import router as asr_router
 
             self.app.include_router(asr_router)
+        if lab_settings.package.qwen_tts:
+            self.app.include_router(qwen_tts_router)
         if lab_settings.package.gpt_sovits:
             from lab.api.routes.gpt_sovits import router as gsv_router
 
@@ -155,7 +164,6 @@ class WebSocketServer:
 
             self.app.include_router(memory_router, prefix="/memory")
             self.app.include_router(chat_router, prefix="/memory")
-
         # Mount static files
         logger.info(f"Mounting static files from {ROOT_DIR}")
         self.app.mount(

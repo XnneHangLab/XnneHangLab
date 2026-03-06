@@ -147,7 +147,7 @@ qwen-tts = [
 ]
 
 [tool.uv]
-default-groups = ["base","funasr","whisper","dev", "yutto-uiya", "tts_base", "gpt_sovits", "vtuber", "database", "memory_bench"]
+default-groups = ["base","funasr","whisper","dev", "yutto-uiya", "tts_base", "gpt_sovits", "qwen-tts", "vtuber", "database", "memory_bench"]
 
 [tool.uv.workspace]
 members = ["packages/yutto-uiya","packages/todo/","packages/gpt_sovits"]
