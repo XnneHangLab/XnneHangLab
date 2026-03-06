@@ -1,18 +1,36 @@
 from __future__ import annotations
 
+import os
 from io import BytesIO
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
-    from pathlib import Path
 
 import numpy as np
 import soundfile as sf
 from fastapi import HTTPException
 from loguru import logger
 
-MODEL_NAME = "Qwen/Qwen3-TTS-1.7B"
+DEFAULT_MODEL_NAME = "Qwen/Qwen3-TTS-1.7B"
+
+
+def resolve_model_name() -> str:
+    """解析模型来源：环境变量 > 本地目录 > HuggingFace 模型 ID。"""
+    if env_model := os.environ.get("XNNEHANG_QWEN_TTS_MODEL", "").strip():
+        return env_model
+
+    local_candidates = [
+        Path("./models/Qwen3-TTS-1.7B"),
+        Path("./models/Qwen/Qwen3-TTS-1.7B"),
+    ]
+    for candidate in local_candidates:
+        if candidate.exists():
+            return str(candidate.resolve())
+
+    return DEFAULT_MODEL_NAME
+
 
 _tts_logger = logger.bind(group="tts")
 _qwen_tts_engine: Any | None = None
@@ -29,6 +47,9 @@ def _init_engine() -> Any:
     except Exception as exc:  # pragma: no cover - 依赖未安装时的保护
         raise RuntimeError("faster-qwen3-tts is not installed") from exc
 
+    model_name = resolve_model_name()
+    _tts_logger.info(f"qwen-tts model source: {model_name}")
+
     constructors: list[tuple[str, Any]] = [
         ("Qwen3TTS", getattr(fq, "Qwen3TTS", None)),
         ("FasterQwen3TTS", getattr(fq, "FasterQwen3TTS", None)),
@@ -38,12 +59,12 @@ def _init_engine() -> Any:
         if ctor is None:
             continue
         try:
-            _qwen_tts_engine = ctor.from_pretrained(MODEL_NAME)
+            _qwen_tts_engine = ctor.from_pretrained(model_name)
             _tts_logger.info(f"faster-qwen-tts model initialized via {ctor_name}.from_pretrained")
             return _qwen_tts_engine
         except Exception:
             try:
-                _qwen_tts_engine = ctor(model_name=MODEL_NAME)
+                _qwen_tts_engine = ctor(model_name=model_name)
                 _tts_logger.info(f"faster-qwen-tts model initialized via {ctor_name}(model_name=...)")
                 return _qwen_tts_engine
             except Exception:
