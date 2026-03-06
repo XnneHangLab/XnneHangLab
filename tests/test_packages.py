@@ -17,7 +17,7 @@ def test_package_versions() -> None:
     assert todo_version.VERSION == "0.1.0", f"TODO 版本应为 0.1.0，实际为 {todo_version.VERSION}"  # type: ignore[reportUnknownMemberType]
     assert VERSION == "0.0.5", f"LAB 版本应为 0.0.5，实际为 {VERSION}"
     # 避免直接 import funasr：其 __init__ 会递归导入大量子模块，pytest 下成本会被放大。
-    assert version("funasr") == "1.2.6"
+    assert version("funasr") == "1.3.1"
 
 
 def test_mem0_runtime_version() -> None:
