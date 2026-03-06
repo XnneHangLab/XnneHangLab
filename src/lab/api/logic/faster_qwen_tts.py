@@ -13,7 +13,7 @@ import soundfile as sf
 from fastapi import HTTPException
 from loguru import logger
 
-DEFAULT_MODEL_NAME = "Qwen/Qwen3-TTS-1.7B"
+DEFAULT_MODEL_NAME = "Qwen/Qwen3-TTS-1.7B-Base"
 
 
 def resolve_model_name() -> str:
@@ -22,8 +22,8 @@ def resolve_model_name() -> str:
         return env_model
 
     local_candidates = [
-        Path("./models/Qwen3-TTS-1.7B"),
-        Path("./models/Qwen/Qwen3-TTS-1.7B"),
+        Path("./models/Qwen3-TTS-1.7B-Base"),
+        Path("./models/Qwen/Qwen3-TTS-1.7B-Base"),
     ]
     for candidate in local_candidates:
         if candidate.exists():
