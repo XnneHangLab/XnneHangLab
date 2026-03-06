@@ -8,12 +8,15 @@ import os
 import subprocess
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import httpx
 import numpy as np
 import soundfile as sf
 from loguru import logger
+from numpy.typing import NDArray
+
+Float32Array = NDArray[np.float32]
 
 
 def _build_client() -> httpx.Client:
@@ -35,29 +38,36 @@ def _normalize_router_base(server_url: str) -> str:
     return f"{base}/tts/qwen-tts"
 
 
-def _decode_wav_b64_to_pcm(audio_b64: str) -> tuple[np.ndarray, int]:
+def _as_float32_mono_array(value: Any) -> Float32Array:
+    arr = np.asarray(value, dtype=np.float32).squeeze()
+    if arr.ndim > 1:
+        arr = arr.mean(axis=1, dtype=np.float32)
+    return cast("Float32Array", arr)
+
+
+def _decode_wav_b64_to_pcm(audio_b64: str) -> tuple[Float32Array, int]:
     wav_bytes = base64.b64decode(audio_b64)
-    audio, sr = sf.read(io.BytesIO(wav_bytes), dtype="float32", always_2d=False)
-    audio = np.asarray(audio, dtype=np.float32).squeeze()
-    if audio.ndim > 1:
-        audio = audio.mean(axis=1)
-    return audio, int(sr)
+    audio_raw, sr_raw = sf.read(  # type: ignore[reportUnknownMemberType]
+        io.BytesIO(wav_bytes),
+        dtype="float32",
+        always_2d=False,
+    )
+    audio = _as_float32_mono_array(audio_raw)
+    return audio, int(sr_raw)
 
 
-def _iter_sse_events(response: httpx.Response):
+def _iter_sse_events(response: httpx.Response) -> tuple[str, ...] | list[str]:
     """
     简单 SSE 解析器：
     每个事件以空行分隔，只取 data: 开头的行并拼起来。
     """
+    events: list[str] = []
     data_lines: list[str] = []
 
     for line in response.iter_lines():
-        if line is None:
-            continue
-
         if line == "":
             if data_lines:
-                yield "\n".join(data_lines)
+                events.append("\n".join(data_lines))
                 data_lines.clear()
             continue
 
@@ -65,7 +75,9 @@ def _iter_sse_events(response: httpx.Response):
             data_lines.append(line[5:].lstrip())
 
     if data_lines:
-        yield "\n".join(data_lines)
+        events.append("\n".join(data_lines))
+
+    return events
 
 
 def test_health(base_server_url: str) -> None:
@@ -95,7 +107,7 @@ def test_non_stream(
     data: dict[str, Any] = {
         "text": text,
     }
-    files = None
+    files: dict[str, tuple[str, bytes, str]] | None = None
 
     if ref_text:
         data["ref_text"] = ref_text
@@ -133,7 +145,7 @@ def test_stream_save(
     data: dict[str, Any] = {
         "text": text,
     }
-    files = None
+    files: dict[str, tuple[str, bytes, str]] | None = None
 
     if ref_text:
         data["ref_text"] = ref_text
@@ -143,7 +155,7 @@ def test_stream_save(
             "ref_audio": (Path(ref_audio).name, Path(ref_audio).read_bytes(), "audio/wav"),
         }
 
-    pcm_parts: list[np.ndarray] = []
+    pcm_parts: list[Float32Array] = []
     final_sr: int | None = None
     last_metrics: dict[str, Any] | None = None
 
@@ -157,11 +169,12 @@ def test_stream_save(
         response.raise_for_status()
 
         for event_data in _iter_sse_events(response):
-            payload = json.loads(event_data)
+            payload = cast("dict[str, Any]", json.loads(event_data))
             event_type = payload.get("type")
 
             if event_type == "chunk":
-                audio, sr = _decode_wav_b64_to_pcm(payload["audio_b64"])
+                audio_b64 = cast("str", payload["audio_b64"])
+                audio, sr = _decode_wav_b64_to_pcm(audio_b64)
 
                 if final_sr is None:
                     final_sr = sr
@@ -191,7 +204,7 @@ def test_stream_save(
         raise RuntimeError("stream produced no audio chunks")
 
     merged = np.concatenate(pcm_parts)
-    sf.write(out_file, merged, final_sr or 24000, format="WAV", subtype="PCM_16")
+    sf.write(out_file, merged, final_sr or 24000, format="WAV", subtype="PCM_16")  # type: ignore[reportUnknownMemberType]
 
     elapsed = time.perf_counter() - start
     logger.info(f"stream-save saved => {out_file}")
@@ -217,7 +230,7 @@ def test_stream_play_and_save(
     data: dict[str, Any] = {
         "text": text,
     }
-    files = None
+    files: dict[str, tuple[str, bytes, str]] | None = None
 
     if ref_text:
         data["ref_text"] = ref_text
@@ -227,7 +240,7 @@ def test_stream_play_and_save(
             "ref_audio": (Path(ref_audio).name, Path(ref_audio).read_bytes(), "audio/wav"),
         }
 
-    pcm_parts: list[np.ndarray] = []
+    pcm_parts: list[Float32Array] = []
     final_sr: int | None = None
     play_proc: subprocess.Popen[bytes] | None = None
     last_metrics: dict[str, Any] | None = None
@@ -243,11 +256,12 @@ def test_stream_play_and_save(
             response.raise_for_status()
 
             for event_data in _iter_sse_events(response):
-                payload = json.loads(event_data)
+                payload = cast("dict[str, Any]", json.loads(event_data))
                 event_type = payload.get("type")
 
                 if event_type == "chunk":
-                    audio, sr = _decode_wav_b64_to_pcm(payload["audio_b64"])
+                    audio_b64 = cast("str", payload["audio_b64"])
+                    audio, sr = _decode_wav_b64_to_pcm(audio_b64)
 
                     if final_sr is None:
                         final_sr = sr
@@ -313,7 +327,7 @@ def test_stream_play_and_save(
         raise RuntimeError("stream produced no audio chunks")
 
     merged = np.concatenate(pcm_parts)
-    sf.write(out_file, merged, final_sr or 24000, format="WAV", subtype="PCM_16")
+    sf.write(out_file, merged, final_sr or 24000, format="WAV", subtype="PCM_16")  # type: ignore[reportUnknownMemberType]
 
     elapsed = time.perf_counter() - start
     logger.info(f"stream-play-save saved => {out_file}")
