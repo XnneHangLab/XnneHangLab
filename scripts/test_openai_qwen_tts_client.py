@@ -23,9 +23,17 @@ def _build_client(base_url: str) -> OpenAI:
     return OpenAI(api_key="not-needed", base_url=base_url, http_client=http_client)
 
 
+def _normalize_router_base(server_url: str) -> str:
+    base = server_url.rstrip("/")
+    if base.endswith("/tts/qwen-tts"):
+        return base
+    return f"{base}/tts/qwen-tts"
+
+
 def test_health(base_server_url: str) -> None:
+    health_base = _normalize_router_base(base_server_url)
     with httpx.Client(trust_env=False, timeout=10.0) as client:
-        response = client.get(f"{base_server_url.rstrip('/')}/health")
+        response = client.get(f"{health_base}/health")
         response.raise_for_status()
         logger.info(f"health: {response.status_code} {response.json()}")
 
@@ -102,7 +110,7 @@ def test_stream_play_and_save(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Test qwen-tts OpenAI-compatible server")
     parser.add_argument("--server", default="http://localhost:12393")
-    parser.add_argument("--base-url", default="http://localhost:12393/tts/qwen-tts/v1")
+    parser.add_argument("--base-url", default="", help="Optional OpenAI base_url override")
     parser.add_argument("--output-dir", default="./tmp/tts_tests")
     parser.add_argument("--ref-audio", default="")
     parser.add_argument("--ref-text", default="")
@@ -119,7 +127,11 @@ def main() -> None:
     if args.mode == "health":
         return
 
-    client = _build_client(args.base_url)
+    openai_base = args.base_url.rstrip("/") if args.base_url else ""
+    if not openai_base:
+        openai_base = f"{_normalize_router_base(args.server)}/v1"
+
+    client = _build_client(openai_base)
 
     base_text = "你好，这是一个 qwen tts 的测试。Hello from XnneHangLab."
 

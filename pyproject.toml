@@ -144,6 +144,7 @@ memory_bench = [
 
 qwen-tts = [
   "faster-qwen3-tts>=0.2.4",
+  "soxr>=1.0.0",
 ]
 
 [tool.uv]
