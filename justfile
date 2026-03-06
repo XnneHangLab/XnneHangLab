@@ -89,13 +89,13 @@ test-deeplx:
 test-qwen-tts-health server='http://localhost:12393':
   uv run python scripts/test_openai_qwen_tts_client.py --server {{ server }} --mode health
 
-test-qwen-tts-non-stream server='http://localhost:12393' ref_audio='' ref_text='':
+test-qwen-tts-non-stream server='http://localhost:12393' ref_audio='5_vocals_cut.wav' ref_text='そうそう、この間気分転換に料理したんだ。テスト勉強のモチベを上げるためにも、自分の好物を作ることにしたんだ。あれこれ考え事しちゃって、お鍋吹きこぼれちゃったんだ。けどね、味はすごく美味しくできたよ。君がご近所さんだったら届けてあげたいくらい。この作業通話アプリがもっともっと進化したら。':
   uv run python scripts/test_openai_qwen_tts_client.py --server {{ server }} --mode non-stream --ref-audio {{ ref_audio }} --ref-text {{ ref_text }}
 
-test-qwen-tts-stream server='http://localhost:12393' ref_audio='' ref_text='':
+test-qwen-tts-stream server='http://localhost:12393' ref_audio='5_vocals_cut.wav' ref_text='そうそう、この間気分転換に料理したんだ。テスト勉強のモチベを上げるためにも、自分の好物を作ることにしたんだ。あれこれ考え事しちゃって、お鍋吹きこぼれちゃったんだ。けどね、味はすごく美味しくできたよ。君がご近所さんだったら届けてあげたいくらい。この作業通話アプリがもっともっと進化したら。':
   uv run python scripts/test_openai_qwen_tts_client.py --server {{ server }} --mode stream --ref-audio {{ ref_audio }} --ref-text {{ ref_text }}
 
-test-qwen-tts-stream-play server='http://localhost:12393' ref_audio='' ref_text='':
+test-qwen-tts-stream-play server='http://localhost:12393' ref_audio='5_vocals_cut.wav' ref_text='そうそう、この間気分転換に料理したんだ。テスト勉強のモチベを上げるためにも、自分の好物を作ることにしたんだ。あれこれ考え事しちゃって、お鍋吹きこぼれちゃったんだ。けどね、味はすごく美味しくできたよ。君がご近所さんだったら届けてあげたいくらい。この作業通話アプリがもっともっと進化したら。':
   uv run python scripts/test_openai_qwen_tts_client.py --server {{ server }} --mode stream-play --ref-audio {{ ref_audio }} --ref-text {{ ref_text }}
 
 # deploy

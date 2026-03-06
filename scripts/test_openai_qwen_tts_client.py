@@ -4,6 +4,7 @@ import argparse
 import os
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 import httpx
@@ -31,16 +32,20 @@ def _normalize_router_base(server_url: str) -> str:
 
 
 def test_health(base_server_url: str) -> None:
+    start = time.perf_counter()
     health_base = _normalize_router_base(base_server_url)
     with httpx.Client(trust_env=False, timeout=10.0) as client:
         response = client.get(f"{health_base}/health")
         response.raise_for_status()
         logger.info(f"health: {response.status_code} {response.json()}")
+    elapsed = time.perf_counter() - start
+    logger.info(f"health elapsed: {elapsed:.3f}s")
 
 
 def test_non_stream(
     client: OpenAI, out_file: Path, text: str, *, extra_body: dict[str, str | bool] | None = None
 ) -> None:
+    start = time.perf_counter()
     response = client.audio.speech.create(
         model="tts-1",
         input=text,
@@ -49,12 +54,15 @@ def test_non_stream(
         extra_body=extra_body,
     )
     response.stream_to_file(str(out_file))
+    elapsed = time.perf_counter() - start
     logger.info(f"non-stream saved => {out_file}")
+    logger.info(f"non-stream elapsed: {elapsed:.3f}s")
 
 
 def test_stream_save(
     client: OpenAI, out_file: Path, text: str, *, extra_body: dict[str, str | bool] | None = None
 ) -> None:
+    start = time.perf_counter()
     with client.audio.speech.with_streaming_response.create(
         model="tts-1",
         input=text,
@@ -63,13 +71,16 @@ def test_stream_save(
         extra_body=extra_body,
     ) as response:
         response.stream_to_file(str(out_file))
+    elapsed = time.perf_counter() - start
     logger.info(f"stream-save saved => {out_file}")
+    logger.info(f"stream-save elapsed: {elapsed:.3f}s")
 
 
 def test_stream_play_and_save(
     client: OpenAI, out_file: Path, text: str, *, extra_body: dict[str, str | bool] | None = None
 ) -> None:
     """边流式接收边播放（依赖 ffplay），并落盘完整文件。"""
+    start = time.perf_counter()
     with tempfile.TemporaryDirectory() as tmp_dir:
         fifo_path = Path(tmp_dir) / "tts_stream.wav"
         if fifo_path.exists():
@@ -105,7 +116,9 @@ def test_stream_play_and_save(
         finally:
             proc.wait(timeout=30)
 
+    elapsed = time.perf_counter() - start
     logger.info(f"stream-play-save saved => {out_file}")
+    logger.info(f"stream-play-save elapsed: {elapsed:.3f}s")
 
 
 def parse_args() -> argparse.Namespace:
@@ -121,12 +134,15 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    total_start = time.perf_counter()
     args = parse_args()
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     test_health(args.server)
     if args.mode == "health":
+        total_elapsed = time.perf_counter() - total_start
+        logger.info(f"total elapsed: {total_elapsed:.3f}s")
         return
 
     openai_base = args.base_url.rstrip("/") if args.base_url else ""
@@ -160,6 +176,9 @@ def main() -> None:
             test_stream_play_and_save(client, out_dir / "stream_play_save.wav", base_text, extra_body=stream_extra)
         except FileNotFoundError:
             logger.warning("ffplay not found, skip stream-play test")
+
+    total_elapsed = time.perf_counter() - total_start
+    logger.info(f"total elapsed: {total_elapsed:.3f}s")
 
 
 if __name__ == "__main__":
