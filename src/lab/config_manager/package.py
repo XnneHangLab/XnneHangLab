@@ -17,6 +17,7 @@ class PackagesSettings(BaseModel):
         Field(True, title="是否包含 yutto-uiya"),
     ]
     gpt_sovits: Annotated[bool, Field(True, title="是否包含 gpt-sovits")]
+    qwen_tts: Annotated[bool, Field(False, title="是否包含 faster-qwen-tts")]
     memory_bench: Annotated[
         bool,
         Field(False, title="是否挂载 memory_bench 记忆服务 (路由前缀: /memory)"),
@@ -28,6 +29,7 @@ class PackagesSettings(BaseModel):
             "to_do_list": self.to_do_list,
             "yutto_uiya": self.yutto_uiya,
             "gpt_sovits": self.gpt_sovits,
+            "qwen_tts": self.qwen_tts,
             "funasr": self.funasr,
             "memory_bench": self.memory_bench,
         }

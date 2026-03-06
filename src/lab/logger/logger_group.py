@@ -20,6 +20,7 @@ PREFIX_TO_GROUP = {
     "lab.mcp": "mcp",
     "lab.api": "fastapi",
     "lab.api.routes": "tts",
+    "lab.api.logic": "tts",
     "lab.api.clients": "tts",
     "lab.asr": "asr",
     "lab.config_manager": "config",

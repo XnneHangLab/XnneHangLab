@@ -85,6 +85,19 @@ test-deeplx:
 	}' \
 
 
+
+test-qwen-tts-health server='http://localhost:12393':
+  uv run python scripts/test_qwen_tts_client.py --server {{ server }} --mode health
+
+test-qwen-tts-non-stream server='http://localhost:12393' ref_audio='5_vocals_cut.wav' ref_text='そうそう、この間気分転換に料理したんだ。テスト勉強のモチベを上げるためにも、自分の好物を作ることにしたんだ。あれこれ考え事しちゃって、お鍋吹きこぼれちゃったんだ。けどね、味はすごく美味しくできたよ。君がご近所さんだったら届けてあげたいくらい。この作業通話アプリがもっともっと進化したら。':
+  uv run python scripts/test_qwen_tts_client.py --server {{ server }} --mode non-stream --ref-audio {{ ref_audio }} --ref-text {{ ref_text }}
+
+test-qwen-tts-stream server='http://localhost:12393' ref_audio='5_vocals_cut.wav' ref_text='そうそう、この間気分転換に料理したんだ。テスト勉強のモチベを上げるためにも、自分の好物を作ることにしたんだ。あれこれ考え事しちゃって、お鍋吹きこぼれちゃったんだ。けどね、味はすごく美味しくできたよ。君がご近所さんだったら届けてあげたいくらい。この作業通話アプリがもっともっと進化したら。':
+  uv run python scripts/test_qwen_tts_client.py --server {{ server }} --mode stream --ref-audio {{ ref_audio }} --ref-text {{ ref_text }}
+
+test-qwen-tts-stream-play server='http://localhost:12393' ref_audio='5_vocals_cut.wav' ref_text='そうそう、この間気分転換に料理したんだ。テスト勉強のモチベを上げるためにも、自分の好物を作ることにしたんだ。あれこれ考え事しちゃって、お鍋吹きこぼれちゃったんだ。けどね、味はすごく美味しくできたよ。君がご近所さんだったら届けてあげたいくらい。この作業通話アプリがもっともっと進化したら。':
+  uv run python scripts/test_qwen_tts_client.py --server {{ server }} --mode stream-play --ref-audio {{ ref_audio }} --ref-text {{ ref_text }}
+
 # deploy
 
 install-model:
@@ -97,6 +110,7 @@ install-model:
   just install-sensevoice
   just install-bert-model
   just install-gsv-model
+  just install-qwen-tts
 
 install-nltk:
   uv run python -c "import nltk; nltk.download('averaged_perceptron_tagger_eng')"
@@ -137,6 +151,12 @@ install-gsv-model:
   uv sync
   uv run modelscope download --model xnnehang/elaina-gsv-v2 --local_dir ./models/gptsovits/elaina
 
+
+install-qwen-tts:
+  uv lock
+  uv sync
+  uv run modelscope download --model Qwen/Qwen3-TTS-12Hz-1.7B-Base --local_dir ./models/Qwen3-TTS-12Hz-1.7B-Base
+
 # Code Quality Check
 
 fmt: # 似乎不会检查被 .gitignore 忽略的文件
@@ -144,7 +164,7 @@ fmt: # 似乎不会检查被 .gitignore 忽略的文件
   uv run ruff format . --exclude packages --exclude .git --exclude justfile
 
 lint:
-  uv run pyright src/lab tests memory_bench
+  uv run pyright src/lab tests memory_bench scripts
   uv run ruff check . --exclude packages --exclude .git --exclude justfile
 
 fmt-docs:

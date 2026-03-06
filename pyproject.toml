@@ -144,10 +144,11 @@ memory_bench = [
 
 qwen-tts = [
   "faster-qwen3-tts>=0.2.4",
+  "soxr>=1.0.0",
 ]
 
 [tool.uv]
-default-groups = ["base","funasr","whisper","dev", "yutto-uiya", "tts_base", "gpt_sovits", "vtuber", "database", "memory_bench"]
+default-groups = ["base","funasr","whisper","dev", "yutto-uiya", "tts_base", "gpt_sovits", "qwen-tts", "vtuber", "database", "memory_bench"]
 
 [tool.uv.workspace]
 members = ["packages/yutto-uiya","packages/todo/","packages/gpt_sovits"]
