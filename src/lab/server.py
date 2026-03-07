@@ -43,10 +43,10 @@ class AvatarStaticFiles(StaticFiles):
 # 应用生命周期管理
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if lab_settings.package.funasr:
+    if lab_settings.package.funasr or lab_settings.package.whisper:
         from lab.api.core_logic import load_model
 
-        logger.info("预加载 FunASR 模型...")
+        logger.info("预加载 ASR 模型（FunASR/Whisper）...")
         load_model()  # 预加载模型，确保模型在启动时初始化
 
     if lab_settings.package.qwen_tts:
@@ -145,7 +145,7 @@ class WebSocketServer:
         )
         self.app.include_router(vtuber_router)
         self.app.include_router(deeplx_router)
-        if lab_settings.package.funasr:
+        if lab_settings.package.funasr or lab_settings.package.whisper:
             from lab.api.routes.asr import router as asr_router
 
             self.app.include_router(asr_router)
