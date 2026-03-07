@@ -342,7 +342,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default="./tmp/tts_tests")
     parser.add_argument("--ref-audio", default="")
     parser.add_argument("--ref-text", default="")
-    parser.add_argument("--text", default="你好，这是一个 qwen tts 的测试。Hello from XnneHangLab.")
+    parser.add_argument("--text", default="何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している。")
     parser.add_argument("--mode", default="all", choices=["all", "health", "non-stream", "stream", "stream-play"])
     return parser.parse_args()
 
