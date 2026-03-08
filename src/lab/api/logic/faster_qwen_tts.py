@@ -197,7 +197,13 @@ def synthesize_once(*, text: str, ref_audio: Path | None, ref_text: str | None) 
     return _to_wav_bytes(audio, sr)
 
 
-async def synthesize_stream(*, text: str, ref_audio: Path | None, ref_text: str | None) -> AsyncIterator[str]:
+async def synthesize_stream(
+    *,
+    text: str,
+    ref_audio: Path | None,
+    ref_text: str | None,
+    chunk_size: int = 8,
+) -> AsyncIterator[str]:
     """
     流式合成：返回 SSE 文本事件。
     每个 chunk 都是一个 JSON payload，audio_b64 是完整独立 WAV。
@@ -223,7 +229,7 @@ async def synthesize_stream(*, text: str, ref_audio: Path | None, ref_text: str 
                     language="Auto",
                     ref_audio=ref_audio_str,
                     ref_text=ref_text_str,
-                    chunk_size=8,
+                    chunk_size=chunk_size,
                     non_streaming_mode=False,
                 )
 

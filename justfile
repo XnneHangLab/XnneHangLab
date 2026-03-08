@@ -96,7 +96,7 @@ test-qwen-tts-stream server='http://localhost:12393' ref_audio='examples/congyin
   uv run python scripts/test_qwen_tts_client.py --server {{ server }} --mode stream --ref-audio {{ ref_audio }} --ref-text {{ ref_text }}
 
 test-qwen-tts-stream-play server='http://localhost:12393' ref_audio='examples/congyin.wav' ref_text='そうそう、この間気分転換に料理したんだ。テスト勉強のモチベを上げるためにも、自分の好物を作ることにしたんだ。あれこれ考え事しちゃって、お鍋吹きこぼれちゃったんだ。けどね、味はすごく美味しくできたよ。君がご近所さんだったら届けてあげたいくらい。この作業通話アプリがもっともっと進化したら。':
-  uv run python scripts/test_qwen_tts_client.py --server {{ server }} --mode stream-play --ref-audio {{ ref_audio }} --ref-text {{ ref_text }}
+  uv run python scripts/test_qwen_tts_client.py --server {{ server }} --mode stream-play --stream-chunk-size 8 --playback-buffer-ms 500 --ref-audio {{ ref_audio }} --ref-text {{ ref_text }}
 
 # deploy
 
