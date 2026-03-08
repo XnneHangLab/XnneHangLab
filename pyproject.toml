@@ -95,7 +95,7 @@ yutto-uiya = [
 
 # 如果希望使用 tts 比如 gpt_sovits 均需要加入以下前置
 tts_base = [
-  "librosa>=0.9.2",
+  "librosa>=0.10.2,<0.12",
   "g2p-en>=2.1.0",
   "cn2an>=0.5.23",
   "pypinyin>=0.54.0",
