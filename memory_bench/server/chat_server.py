@@ -174,7 +174,12 @@ def main() -> None:
     """CLI entrypoint."""
     load_memory_bench_env()
     args = _parse_args()
-    uvicorn.run(app, host=args.host, port=args.port)  # type: ignore[reportUnknownMemberType]
+    uvicorn.run(
+        app,
+        host=args.host,
+        port=args.port,
+        ws="websockets-sansio",
+    )  # type: ignore[reportUnknownMemberType]
 
 
 if __name__ == "__main__":

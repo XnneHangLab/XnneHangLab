@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
 DEFAULT_MODEL_NAME = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
-DEFAULT_SAMPLE_RATE = 24000
+DEFAULT_SAMPLE_RATE = 24000  # https://github.com/andimarafioti/faster-qwen3-tts/issues/50
 
 Float32Array = NDArray[np.float32]
 
@@ -96,8 +96,7 @@ def _init_engine() -> Any:
         except Exception:
             _tts_logger.warning("qwen-tts warmup failed, continue without warmup")
 
-    sample_rate_raw = getattr(_qwen_tts_engine, "sample_rate", DEFAULT_SAMPLE_RATE)
-    _sample_rate = int(sample_rate_raw) if isinstance(sample_rate_raw, (int, float)) else DEFAULT_SAMPLE_RATE
+    _sample_rate = DEFAULT_SAMPLE_RATE
 
     _tts_logger.info(f"faster-qwen-tts model initialized. sample_rate={_sample_rate}")
     return _qwen_tts_engine

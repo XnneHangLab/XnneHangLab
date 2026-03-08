@@ -9,8 +9,6 @@ import uvicorn
 from loguru import logger
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
-from lab.logger.logger_group import init_logger
-from lab.server import WebSocketServer
 
 os.environ["HF_HOME"] = str(Path(__file__).parent / "models")
 os.environ["MODELSCOPE_CACHE"] = str(Path(__file__).parent / "models")
@@ -31,6 +29,9 @@ def parse_args(lab_settings: XnneHangLabSettings):
 
 @logger.catch
 def run(lab_settings: XnneHangLabSettings, args: argparse.Namespace):
+    from lab.logger.logger_group import init_logger
+    from lab.server import WebSocketServer
+
     init_logger()
     logger.info(f"XnneHangLab, version v{get_version()}")
 
@@ -46,6 +47,7 @@ def run(lab_settings: XnneHangLabSettings, args: argparse.Namespace):
         host=server_config.host,
         port=server_config.port,
         log_level=server_config.uvicorn_log_level.lower(),
+        ws="websockets-sansio",
     )
 
 
