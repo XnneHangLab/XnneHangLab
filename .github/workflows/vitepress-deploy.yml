@@ -4,7 +4,7 @@ on:
   push:
     branches: [dev]
     paths:
-      - "docs-site/**"
+      - "docs/**"
       - ".github/workflows/vitepress-deploy.yml"
   workflow_dispatch:
 
@@ -24,21 +24,21 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          package_json_file: "docs-site/package.json"
+          package_json_file: "docs/package.json"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: "pnpm"
-          cache-dependency-path: "docs-site/pnpm-lock.yaml"
+          cache-dependency-path: "docs/pnpm-lock.yaml"
 
       - name: Install dependencies
-        working-directory: ./docs-site
+        working-directory: ./docs
         run: pnpm i --frozen-lockfile
 
       - name: Build VitePress site
-        working-directory: ./docs-site
+        working-directory: ./docs
         run: pnpm build
 
       - name: Deploy to GitHub Pages
@@ -46,5 +46,5 @@ jobs:
         if: github.ref == 'refs/heads/dev'
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: docs-site/.vitepress/dist
+          publish_dir: docs/.vitepress/dist
           cname: lab.xnnehang.top

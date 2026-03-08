@@ -65,11 +65,11 @@
 
 ## 🛠️本地部署
 
-参见 [deploy.md](./docs/deploy.md)
+参见 [deploy.md](./docs-legacy/deploy.md)
 
 ## ⚙️配置
 
-參見 [settings.md](./docs/settings.md)
+參見 [settings.md](./docs-legacy/settings.md)
 
 ## 📦引用的仓库
 
