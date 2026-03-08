@@ -1018,7 +1018,7 @@ requires-dist = [
     { name = "torchaudio", marker = "sys_platform == 'win32'", specifier = "==2.9.0", index = "https://download.pytorch.org/whl/cu130" },
     { name = "tqdm", specifier = ">=4.67.1" },
     { name = "transformers", specifier = ">=4.57" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.33.0" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.35.0" },
     { name = "wordsegment", specifier = ">=1.3.1" },
 ]
 
@@ -4327,7 +4327,7 @@ requires-dist = [
     { name = "tomli", specifier = ">=2.2.1" },
     { name = "tomli-w", specifier = ">=1.2.0" },
     { name = "typing-extensions", specifier = ">=4.15.0" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.33.0" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.35.0" },
     { name = "websocket-client", specifier = ">=1.8.0" },
 ]
 
@@ -4377,7 +4377,7 @@ memory-bench = [
     { name = "pydantic", specifier = ">=2.10.6" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "rank-bm25", specifier = ">=0.2.2" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.33.0" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.35.0" },
 ]
 qwen-tts = [
     { name = "faster-qwen3-tts", specifier = ">=0.2.4" },

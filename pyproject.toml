@@ -13,7 +13,7 @@ dependencies = [
     "pandas==2.2.3",
     # special for fastapi
     "fastapi[standard]>=0.115.8",
-    "uvicorn[standard]>=0.33.0",
+    "uvicorn[standard]>=0.35.0",
     "python-multipart>=0.0.20",
     "websocket-client>=1.8.0",
     "socksio>=1.0.0",
@@ -133,7 +133,7 @@ memory_bench = [
   "mem0ai==1.0.3",
   # Memory Chat Server dependencies (keep versions aligned with top-level [project.dependencies])
   "fastapi[standard]>=0.115.8",
-  "uvicorn[standard]>=0.33.0",
+  "uvicorn[standard]>=0.35.0",
   "openai>=1.93.0",
   "python-dotenv>=1.1.1",
   "pydantic>=2.10.6",

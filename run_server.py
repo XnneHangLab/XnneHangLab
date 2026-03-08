@@ -46,6 +46,7 @@ def run(lab_settings: XnneHangLabSettings, args: argparse.Namespace):
         host=server_config.host,
         port=server_config.port,
         log_level=server_config.uvicorn_log_level.lower(),
+        ws="websockets-sansio",
     )
 
 
