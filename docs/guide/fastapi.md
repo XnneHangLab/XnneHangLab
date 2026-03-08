@@ -1,205 +1,354 @@
-# 🚀 FastAPI 接口说明（fastapi.md）
+# 🚀 FastAPI 接口说明
 
-本项目后端基于 **FastAPI**，提供：
+本项目后端基于 **FastAPI**，统一提供 ASR、TTS、翻译、WebSocket 对话以及 Memory Bench 等服务。
 
-- 🎙️ ASR（FunASR / Whisper）
-- 🗣️ TTS（GPT-SoVITS / GPT-SoVITS v2）
-- 🌍 翻译（DeepLX）
+> 🧭 默认地址：`http://127.0.0.1:12393`（端口由 `lab.toml` 的 `[server] port` 配置）
+>
+> 🔎 自动文档：Swagger `/docs` ｜ ReDoc `/redoc`
+>
+> ✅ 测试命令以 justfile 为准（`just test-*`）
 
-> 🧭 默认地址：`http://127.0.0.1:12393`  
-> 🔎 Swagger：`/docs`（推荐）｜ReDoc：`/redoc`  
-> ✅ 示例命令 **全部以项目 Justfile 为准**（不再“自己编” curl），因为 `./examples/*` 也是项目的一部分。
-
----
-
-## ▶️ 启动服务
-
-推荐用 Justfile：
+## 启动服务
 
 ```bash
 just server
 ```
 
+等价于 `uv run run_server.py`。可通过 `--port` 覆盖端口：
+
+```bash
+uv run run_server.py --port 8080
+```
+
 ---
 
-## 🌳 路由总览（tree view）
+## 路由总览
+
+各路由模块按 `lab.toml` 中的 `[package]` 开关**条件加载**，未启用的模块不会注册路由。
 
 ```text
 /
-├─ /docs
-├─ /redoc
+├─ /docs                              Swagger UI
+├─ /redoc                             ReDoc
 │
-├─ /asr
-│  ├─ /funasr/with_punc      POST   (multipart/form-data: file)
-│  ├─ /funasr/no_punc        POST   (multipart/form-data: file)
-│  ├─ /funasr/vad            POST   (multipart/form-data: file)
-│  └─ /whisper               POST   (multipart/form-data: file)
+├─ /asr                               🎙️ 语音识别（需要 funasr=true 或 whisper=true）
+│  ├─ POST /funasr/with_punc          FunASR 带标点识别
+│  ├─ POST /funasr/no_punc            FunASR 不带标点识别
+│  ├─ POST /funasr/vad                FunASR VAD（语音活动检测）
+│  ├─ POST /reload                    重载 FunASR 模型
+│  └─ POST /whisper                   Whisper 识别
 │
-├─ /tts
-│  ├─ /gptsovits             POST   (application/json)
-│  └─ /gptsovitsv2/tts        GET   (query params, returns audio)
+├─ /tts                               🗣️ 语音合成
+│  ├─ /gptsovits                       GPT-SoVITS v1（需要 gpt_sovits=true）
+│  │  ├─ POST /                       合成（JSON → base64 音频）
+│  │  └─ POST /character_list         获取可用角色列表
+│  ├─ /gptsovitsv2                     GPT-SoVITS v2（需要 gpt_sovits=true）
+│  │  ├─ GET|POST /tts                合成（query/JSON → 直接返回音频文件）
+│  │  └─ GET /health                  健康检查
+│  └─ /qwen-tts                        Qwen-TTS（需要 qwen_tts=true）
+│     ├─ POST /generate               非流式合成（返回 WAV）
+│     ├─ POST /generate/stream        流式合成（SSE 事件流）
+│     └─ GET /health                  健康检查
 │
-└─ /translate
-   └─ /deeplx                POST   (application/json)
+├─ /translate                         🌍 翻译
+│  └─ /deeplx
+│     ├─ POST /                       DeepLX 翻译
+│     └─ GET /health                  健康检查
+│
+├─ /client-ws                         🔌 WebSocket（Open-LLM-VTuber 对话）
+│
+├─ /memory                            🧠 Memory Bench（需要 memory_bench=true）
+│  ├─ POST /v1/chat/completions       OpenAI 兼容代理
+│  └─ POST /chat                      Memory Chat（带 session 管理 + 工具调用）
+│
+├─ /web-tool                          🛠️ 静态 Web 工具页
+├─ /live2d-models/*                   📦 Live2D 模型静态文件
+├─ /bg/*                              🖼️ 背景图片静态文件
+└─ /avatars/*                         👤 头像静态文件
 ```
 
 ---
 
-## 🧪 一键自测（直接用 Justfile）
+## 🎙️ ASR（语音识别）
 
-你可以在服务启动后，直接跑这些命令验证接口是否工作（与项目 `Justfile` 保持一致）：
+**前缀**：`/asr` — **源码**：`src/lab/api/routes/asr.py`
+
+所有 ASR 端点接收 `multipart/form-data`，字段名 `file`，返回 JSON。
+
+### POST `/asr/funasr/with_punc`
+
+FunASR 识别，包含标点。
 
 ```bash
 just test-asr
-just test-asr-no-punc
-just test-vad
-just test-whisper
-just test-gsv
-just test-gsv-v2
-just test-deeplx
+# curl -X POST "http://localhost:12393/asr/funasr/with_punc" -F "file=@./examples/example3.opus"
 ```
 
-> 💡 如果你刚拉完代码/换了 Key：可以用 `just key` 同步 API Key（Justfile 中的 recipe：`uv run scripts/sync_apikey.py`）。
-
----
-
-## 📦 通用约定
-
-### 🎧 音频上传字段
-- 统一使用表单字段名：`file`
-- 格式：`multipart/form-data`
-
-### ⏱️ 时间戳单位
-- ASR / VAD 的 `timestamp` 通常是 **毫秒 ms**
-- 结构：`[[start_ms, end_ms], ...]`
-
----
-
-## 🎙️ ASR
-
-### ✅ FunASR：带标点识别
-`POST /asr/funasr/with_punc`
-
-**推荐测试（Justfile）：**
-```bash
-just test-asr
+**响应示例**：
+```json
+{
+  "key": "example3",
+  "processing_time": 0.568,
+  "text": "那年，长街春意正浓，策马同游。",
+  "code": "200",
+  "message": "ASR processed successfully"
+}
 ```
 
-**Justfile 实际执行内容：**
-```bash
-curl -X POST "http://localhost:12393/asr/funasr/with_punc" -F "file=@./examples/example3.opus"
-```
+### POST `/asr/funasr/no_punc`
 
----
+FunASR 识别，不含标点，返回逐字时间戳。
 
-### 🧩 FunASR：不带标点识别
-`POST /asr/funasr/no_punc`
-
-**推荐测试（Justfile）：**
 ```bash
 just test-asr-no-punc
 ```
 
-**Justfile 实际执行内容：**
-```bash
-curl -X POST "http://localhost:12393/asr/funasr/no_punc" -F "file=@./examples/example3.opus"
+**响应示例**：
+```json
+{
+  "key": "example3",
+  "processing_time": 0.581,
+  "text": "那 年 长 街 春 意 正 浓 策 马 同 游",
+  "timestamp": [[890,1130],[1170,1410],[1490,1730]],
+  "code": "200",
+  "message": "ASR processed successfully"
+}
 ```
 
----
+### POST `/asr/funasr/vad`
 
-### 🔍 FunASR：VAD（语音活动检测）
-`POST /asr/funasr/vad`
+语音活动检测（Voice Activity Detection），返回语音片段的起止时间。
 
-**推荐测试（Justfile）：**
 ```bash
 just test-vad
 ```
 
-**Justfile 实际执行内容：**
-```bash
-curl -X POST "http://localhost:12393/asr/funasr/vad" -F "file=@./examples/example3.opus"
-```
+### POST `/asr/whisper`
 
----
+Whisper 模型识别，支持多语言。
 
-### 🌀 Whisper：识别（含 segments）
-`POST /asr/whisper`
-
-**推荐测试（Justfile）：**
 ```bash
 just test-whisper
 ```
 
-**Justfile 实际执行内容：**
-```bash
-curl -X POST "http://localhost:12393/asr/whisper" -F "file=@./examples/example3.opus"
-```
+### POST `/asr/reload`
+
+重载 FunASR 模型（热更新，无需重启服务）。
 
 ---
 
-## 🗣️ TTS
+## 🗣️ TTS（语音合成）
 
-### 🧙 GPT-SoVITS（JSON → base64 音频）
-`POST /tts/gptsovits`
+### GPT-SoVITS v1
 
-**推荐测试（Justfile）：**
+**前缀**：`/tts/gptsovits` — **源码**：`src/lab/api/routes/gpt_sovits.py`
+
+#### POST `/tts/gptsovits`
+
+提交 JSON，返回 base64 编码的音频。
+
 ```bash
 just test-gsv
 ```
 
-**Justfile 实际执行内容（保持原样）：**
-```bash
-curl -X POST "http://127.0.0.1:12393/tts/gptsovits" \
--H "Content-Type: application/json" \
--d '{ \
-	"text": "それでは問題です。澄み渡った青空をゆく、そこに人がいたのなら間違いなく誰もが振り返り、ため息をこぼしてしまうほどの美貌の魔女は、いったい誰でしょう？", \
-	"character": "elaina", \
-	"text_language": "ja", \
-	"ref_audio_path": "./models/gptsovits/elaina/elaina.wav" \
-}' \
--o response.json \
-&& uv run python -c "import json, base64; data=json.load(open('response.json')); open('output.mp3', 'wb').write(base64.b64decode(data['audio_byte']))"
-rm response.json
+**请求体**：
+```json
+{
+  "text": "合成文本",
+  "character": "elaina",
+  "text_language": "ja",
+  "ref_audio_path": "./models/gptsovits/elaina/elaina.wav"
+}
 ```
 
-> 📌 这个测试会生成 `output.mp3`（从返回的 `audio_byte` base64 解码）。
+**响应**：
+```json
+{
+  "audio_byte": "<base64>",
+  "audio_rate": 32000,
+  "audio_type": "mp3"
+}
+```
+
+#### POST `/tts/gptsovits/character_list`
+
+获取当前可用的角色列表。
 
 ---
 
-### 🧪 GPT-SoVITS v2（Query → 直接返回音频）
-`GET /tts/gptsovitsv2/tts`
+### GPT-SoVITS v2
 
-**推荐测试（Justfile）：**
+**前缀**：`/tts/gptsovitsv2` — **源码**：`src/lab/api/routes/gpt_sovits_v2.py`
+
+#### GET|POST `/tts/gptsovitsv2/tts`
+
+支持 GET（query params）和 POST（JSON/form），直接返回音频文件。兼容 [AIChat Mod](https://github.com/qzrs777/AIChat) 的请求格式。
+
 ```bash
 just test-gsv-v2
+# curl -G "http://127.0.0.1:12393/tts/gptsovitsv2/tts" \
+#   --data-urlencode "text=こんにちは" \
+#   --data-urlencode "text_lang=ja" \
+#   --data-urlencode "ref_audio_path=elaina.wav" \
+#   --data-urlencode "prompt_text=..." \
+#   --data-urlencode "prompt_lang=ja" \
+#   -o tts.wav
 ```
 
-**Justfile 实际执行内容：**
+**参数**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `text` | string | 合成文本（必填） |
+| `text_lang` | string | 文本语言（`ja` / `zh` / `en`） |
+| `ref_audio_path` | string | 参考音频路径（相对于模型目录） |
+| `prompt_text` | string | 参考文本 |
+| `prompt_lang` | string | 参考文本语言 |
+| `speed_factor` | float | 语速倍率（默认 1.0） |
+| `audio_type` | string | 输出格式：`wav`（默认）/ `mp3` |
+| `streaming_mode` | bool | 是否流式返回（默认 false） |
+
+#### GET `/health`
+
+健康检查，返回 `{"status": "ok", "service": "gpt-sovits-v2"}`。
+
+---
+
+### Qwen-TTS
+
+**前缀**：`/tts/qwen-tts` — **源码**：`src/lab/api/routes/faster_qwen_tts.py`
+
+基于 faster-qwen-tts，支持非流式和流式（SSE）两种模式。
+
+#### POST `/tts/qwen-tts/generate`
+
+非流式合成，返回完整 WAV 音频。
+
 ```bash
-curl -G "http://127.0.0.1:12393/tts/gptsovitsv2/tts" --data-urlencode "text=こんにちは、お元気ですか？今日も一緒に頑張りましょう！" --data-urlencode "text_lang=ja" --data-urlencode "ref_audio_path=Voice_MainScenario_27_016.wav" --data-urlencode "prompt_text=君が集中した時のシータ波を検出して、リンクをつなぎ直せば元通りになるはず。" --data-urlencode "prompt_lang=ja" --data-urlencode "speed_factor=1.0" -o tts.wav
+just test-qwen-tts-non-stream
 ```
 
-> 📌 这个测试会把返回音频保存为 `tts.wav`。
+**参数**（`multipart/form-data`）：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `text` | string | 合成文本（必填） |
+| `ref_text` | string | 参考文本（可选） |
+| `ref_audio` | file | 参考音频文件（可选） |
+
+**响应**：`audio/wav` 二进制流。
+
+#### POST `/tts/qwen-tts/generate/stream`
+
+流式合成，以 SSE（Server-Sent Events）逐块返回音频数据。
+
+```bash
+just test-qwen-tts-stream
+```
+
+额外参数：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `chunk_size` | int | 每块 token 数（默认 8，≥1） |
+
+带实时播放的测试：
+
+```bash
+just test-qwen-tts-stream-play
+```
+
+#### GET `/tts/qwen-tts/health`
+
+健康检查，返回 `{"status": "ok", "service": "faster-qwen-tts"}`。
 
 ---
 
 ## 🌍 翻译
 
-### 🔤 DeepLX 翻译
-`POST /translate/deeplx`
+**前缀**：`/translate` — **源码**：`src/lab/api/routes/deeplx.py`
 
-**推荐测试（Justfile）：**
+### POST `/translate/deeplx`
+
+通过 DeepLX API 翻译文本。需要在 `lab.toml` 的 `[agent]` 中配置 `deeplx_api_key`。
+
 ```bash
 just test-deeplx
 ```
 
-**Justfile 实际执行内容（保持原样）：**
-```bash
-curl -X POST "http://127.0.0.1:12393/translate/deeplx" \
--H "Content-Type: application/json" \
--d '{ \
-	"text": "それでは問題です。澄み渡った青空をゆく、そこに人がいたのなら間違いなく誰もが振り返り、ため息をこぼしてしまうほどの美貌の魔女は、いったい誰でしょう？", \
-	"source_language": "JA", \
-	"target_language": "ZH" \
-}' \
+**请求体**：
+```json
+{
+  "text": "要翻译的文本",
+  "source_language": "JA",
+  "target_language": "ZH"
+}
 ```
+
+**响应**：
+```json
+{
+  "code": 200,
+  "message": "success",
+  "source_text": "原文",
+  "target_text": "译文"
+}
+```
+
+### GET `/translate/deeplx/health`
+
+健康检查。仅检测 `deeplx_api_key` 是否已配置，未配置返回 503。
+
+---
+
+## 🔌 WebSocket
+
+**源码**：`src/lab/api/routes/vtuber.py`
+
+### WS `/client-ws`
+
+Open-LLM-VTuber 前端的 WebSocket 连接端点。每个连接分配唯一 `client_uid`，通过 `WebSocketHandler` 管理对话状态。
+
+---
+
+## 🧠 Memory Bench
+
+**前缀**：`/memory` — **源码**：`memory_bench/server/`
+
+需要 `lab.toml` 中 `[package] memory_bench = true`。配置从 `memory_bench/.env.benchmark` 独立加载。
+
+### POST `/memory/v1/chat/completions`
+
+OpenAI 兼容的透明代理端点。
+
+### POST `/memory/chat`
+
+Memory Chat 端点，带 session 管理、上下文存储、记忆注入和工具调用（READ/WRITE/EDIT/SEARCH）。
+
+详见 [Memory Bench 文档](/memory-bench/)。
+
+---
+
+## 🛠️ 静态文件
+
+| 路径 | 说明 |
+|------|------|
+| `/web-tool` | 静态 Web 工具页（HTML） |
+| `/live2d-models/*` | Live2D 模型资源 |
+| `/bg/*` | 背景图片 |
+| `/avatars/*` | 头像图片（仅允许 jpg/png/gif/svg） |
+
+---
+
+## 条件加载
+
+路由模块根据 `lab.toml` 中 `[package]` 配置按需加载：
+
+| 配置项 | 加载的路由 |
+|--------|-----------|
+| `funasr = true` 或 `whisper = true` | `/asr/*` |
+| `gpt_sovits = true` | `/tts/gptsovits*` |
+| `qwen_tts = true` | `/tts/qwen-tts/*` |
+| `memory_bench = true` | `/memory/*` |
+
+DeepLX (`/translate/*`)、WebSocket (`/client-ws`)、VTuber 路由始终加载。
