@@ -3,6 +3,17 @@ sync:
   git pull origin dev
   git submodule update --init --recursive
 
+# Docs
+
+docs-dev:
+  cd docs && pnpm dev
+
+docs-build:
+  cd docs && pnpm build
+
+docs-clean:
+  rm -rf docs/.vitepress/cache docs/.vitepress/dist
+
 key:
   uv run scripts/sync_apikey.py  # 同步 API Key
 

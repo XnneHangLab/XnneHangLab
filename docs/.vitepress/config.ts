@@ -8,6 +8,7 @@ export default defineConfig({
   head: [["link", { rel: "icon", href: "/logo.svg" }]],
 
   themeConfig: {
+    outline: "deep",
     logo: "/logo.svg",
     siteTitle: "XnneHangLab",
 
