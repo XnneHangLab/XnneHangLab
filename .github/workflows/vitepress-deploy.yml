@@ -5,6 +5,7 @@ on:
     branches: [dev]
     paths:
       - "docs-site/**"
+      - ".github/workflows/vitepress-deploy.yml"
   workflow_dispatch:
 
 permissions:
