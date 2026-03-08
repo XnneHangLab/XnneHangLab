@@ -25,7 +25,7 @@ export default defineConfig({
     sidebar: {
       "/guide/": [
         {
-          text: "入门",
+          text: "开始",
           items: [
             { text: "部署", link: "/guide/deploy" },
             { text: "配置", link: "/guide/settings" },
@@ -34,16 +34,23 @@ export default defineConfig({
           ],
         },
         {
-          text: "进阶",
+          text: "架构",
           items: [
-            { text: "Neo4j 导入", link: "/guide/neo4j-import" },
-            { text: "已知问题", link: "/guide/issue" },
+            { text: "概览", link: "/guide/architecture/" },
+            { text: "Agent", link: "/guide/architecture/agent" },
+            { text: "API", link: "/guide/architecture/api" },
+            { text: "ASR", link: "/guide/architecture/asr" },
+            { text: "MCP", link: "/guide/architecture/mcp" },
+            { text: "Conversations", link: "/guide/architecture/conversations" },
+            { text: "Config", link: "/guide/architecture/config" },
+            { text: "Database", link: "/guide/architecture/database" },
+            { text: "Memory Agent", link: "/guide/architecture/memory-agent" },
           ],
         },
         {
-          text: "架构",
+          text: "开发",
           items: [
-            { text: "Memory Agent", link: "/guide/architecture/memory-agent" },
+            { text: "已知问题", link: "/guide/issue" },
           ],
         },
       ],
@@ -54,6 +61,7 @@ export default defineConfig({
           items: [
             { text: "文档地图", link: "/memory-bench/" },
             { text: "脚本指南", link: "/memory-bench/scripts-guide" },
+            { text: "Neo4j 导入", link: "/memory-bench/neo4j-import" },
           ],
         },
         {
