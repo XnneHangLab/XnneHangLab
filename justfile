@@ -1,3 +1,8 @@
+sync:
+  git checkout dev
+  git pull origin dev
+  git submodule update --init --recursive
+
 key:
   uv run scripts/sync_apikey.py  # 同步 API Key
 
