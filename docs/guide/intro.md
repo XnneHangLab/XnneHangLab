@@ -89,7 +89,7 @@ XnneHangLab 是支撑这两个实验的引擎——提供 Agent 框架、MCP 工
 
 她不只是翻聊天记录——配合 **Memory Bench** 子项目，我们在测试和杂糅不同的记忆系统：
 - **mem0** — 自动提取和存储记忆
-- **memsearch** — 语义检索和上下文召回
+- **memsearch** — Markdown-first，基于文件的记忆系统（受 OpenClaw 启发）
 - **zep / memu**（规划中）— 更多记忆架构的可行性探索
 
 根据场景选择合适的记忆方案，Neo4j 只是可视化手段之一。
