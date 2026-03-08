@@ -4,19 +4,13 @@
 
 ## 模块分层
 
-```mermaid
-flowchart LR
-A[MemoryAgent(agent.py)
-Orchestrator] --> B[ToolRunner
-(tool_runner.py)]
-A --> C[VisionSummarizer
-(vision_summarizer.py)]
-A --> D[PromptBuilder
-(prompt_builder.py)]
-A --> E[MessageFactory
-(message_factory.py)]
-A --> F[MemoryStore
-(memory_store.py)]
+```
+MemoryAgent (agent.py)              ← 编排器
+├── ToolRunner (tool_runner.py)           ← MCP tool loop
+├── VisionSummarizer (vision_summarizer.py) ← 图片摘要
+├── PromptBuilder (prompt_builder.py)     ← prompt 拼装
+├── MessageFactory (message_factory.py)   ← 消息解析与构造
+└── MemoryStore (memory_store.py)         ← memory / history / interrupt
 ```
 
 - **MemoryAgent（编排器）**：只负责“决策树”与组件调用，避免拼接/解析细节膨胀。
