@@ -25,13 +25,11 @@ settings = load_settings_file("lab.toml", XnneHangLabSettings)
 3. Pydantic 校验并填充默认值
 4. 使用 `tomli_w` 回写（补全缺失字段）
 
-### 配置版本
-
-当前配置版本：**v1.1.2**
+### 主配置类
 
 ```python
 class XnneHangLabSettings(BaseModel):
-    conf_version: str = "v1.1.2"
+    conf_version: str = "v1.1.2"  # 配置版本（见入门文档）
     asr: ASRSettings
     agent: AgentSettings
     mcp: MCPSettings
