@@ -1,0 +1,46 @@
+name: VitePress Deploy
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - "docs-site/**"
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: "docs-site/package.json"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+          cache-dependency-path: "docs-site/pnpm-lock.yaml"
+
+      - name: Install dependencies
+        working-directory: ./docs-site
+        run: pnpm i --frozen-lockfile
+
+      - name: Build VitePress site
+        working-directory: ./docs-site
+        run: pnpm build
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        if: github.ref == 'refs/heads/dev'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: docs-site/.vitepress/dist
+          cname: lab.xnnehang.top
