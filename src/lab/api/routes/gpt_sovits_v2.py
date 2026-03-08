@@ -18,6 +18,14 @@ router = APIRouter()
 REF_AUDIO_BASE_DIR = Path("./models/gptsovits/elaina").resolve()
 
 
+@router.get("/health")
+async def health() -> dict[str, str]:
+    synthesizer = gsv_tts_state_manager.get_tts_synthesizer()  # type: ignore[reportUnknownMemberType]
+    if synthesizer is None:
+        raise HTTPException(status_code=503, detail="TTS synthesizer not initialized")
+    return {"status": "ok", "service": "gpt-sovits-v2"}
+
+
 def _resolve_ref_audio_path(p: str) -> str:
     """
     解析 ref_audio_path，确保它是绝对路径，且在 REF_AUDIO_BASE_DIR 下。
