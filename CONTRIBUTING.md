@@ -18,20 +18,15 @@
 
 [uv](https://docs.astral.sh/uv/) 是 yutto 用来进行项目管理的工具，你可以从[安装指南](https://docs.astral.sh/uv/getting-started/installation/)找到合适的安装方式～
 
-## 如何使用
 
-运行代码：
+## PR template
 
-```shell
-git clone https://github.com/XnneHangLab/XnneHangLab.git
-cd XnneHangLab
-git submodule update --init --recursive
-just start
-```
+参见 `./.github/PULL_REQUEST_TEMPLATE.md`
 
-然后你可以修改代码来实现你想要的功能，或者修复 bug。
 
-最后你只需要在你 commit 之前对你的代码进行检查和格式化:
+## 如何参与开发
+
+确保提交代码前通过以下检查：
 
 ```shell
 just fmt
