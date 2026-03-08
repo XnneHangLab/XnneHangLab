@@ -2,7 +2,7 @@
 
 `lab.toml` 是 **XnneHangLab** 的主配置文件，后端（ASR / TTS / Translate / Chat）、WebUI、Agent、MCP、包启用开关等都会从这里读取。
 
-> ✅ 这份文档假设你的 `lab.toml` 位于 `./config/lab.toml`（推荐）。
+> ✅ **当前配置版本：v1.1.2**
 >
 > 💡 配置加载规则：程序会优先在项目 `config/` 下找配置；找不到会尝试从系统配置目录读取；再找不到会初始化默认配置并写回（保证字段齐全）。
 

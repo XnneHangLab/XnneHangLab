@@ -2,40 +2,16 @@
 
 `src/lab/config_manager/` — TOML 配置加载与校验。
 
-## 目录结构
+## 核心设计
 
-```
-config_manager/
-├── __init__.py           # 导出 XnneHangLabSettings 和 load_settings_file
-├── config.py             # XnneHangLabSettings：主配置类
-├── agent.py              # AgentSettings：Agent 配置
-├── asr.py                # ASRSettings：语音识别配置
-├── server.py             # ServerSettings：服务器配置
-├── vtuber.py             # CharacterSettings / TTSPreprocessorConfig
-├── package.py            # PackageSettings：功能开关
-├── abs_root.py           # RootSettings：根目录配置
-├── audio_recognize.py    # AudioRecognizeSettings：音频识别配置
-├── mcp.py                # MCPSettings：MCP 工具配置
-└── webui_i18n_model.py   # WebUI 国际化配置
-```
+### Pydantic 驱动的配置管理
 
-## 核心概念
+所有配置均以 **Pydantic BaseModel** 管理，提供：
+- **类型安全** — 字段类型自动校验
+- **默认值** — Field() 定义默认配置
+- **序列化** — model_dump() 转为字典，tomli_w 写入 TOML
 
-### XnneHangLabSettings
-
-主配置类，聚合所有子配置：
-
-```python
-class XnneHangLabSettings(BaseModel):
-    root: RootSettings
-    package: PackageSettings
-    agent: AgentSettings
-    asr: ASRSettings
-    mcp: MCPSettings
-    # ...
-```
-
-### 配置加载
+### 配置加载流程
 
 ```python
 from lab.config_manager import load_settings_file, XnneHangLabSettings
@@ -44,55 +20,75 @@ settings = load_settings_file("lab.toml", XnneHangLabSettings)
 ```
 
 `load_settings_file()` 会：
-1. 从 `root_dir` 读取 TOML 文件
-2. 使用 Pydantic 校验
-3. 返回类型安全的配置对象
+1. 搜索配置文件（当前目录 `config/` → XDG_CONFIG_HOME）
+2. 使用 `tomllib` 读取 TOML（Python 3.11+ 内置）
+3. Pydantic 校验并填充默认值
+4. 使用 `tomli_w` 回写（补全缺失字段）
 
-### 配置文件位置
+### 主配置类
 
-默认配置文件：`{root_dir}/lab.toml`
-
-可通过环境变量 `XNNEHANGLAB_ROOT` 覆盖根目录。
-
-## 关键配置项
-
-### Agent 配置
-
-```toml
-[agent]
-enable_mcp = true
-chat_model = { llm_provider = "openai", llm_model_name = "gpt-4" }
-tool_model = { llm_provider = "openai", llm_model_name = "gpt-4" }
-vision_model = { llm_provider = "openai", llm_model_name = "gpt-4-vision" }
-faster_first_response = true
-segment_method = "pysbd"
-interrupt_method = "user"
+```python
+class XnneHangLabSettings(BaseModel):
+    conf_version: str = "v1.1.2"  # 配置版本（见入门文档）
+    asr: ASRSettings
+    agent: AgentSettings
+    mcp: MCPSettings
+    package: PackagesSettings
+    server: ServerSettings
+    vtuber: VtuberSettings
+    webui: AudioRecognizeSettings
+    root: RootAbsDir
 ```
 
-### MCP 配置
+## 目录结构
 
-```toml
-[[mcp.servers]]
-name = "tool"
-url = "http://localhost:8001/mcp/sse"
-
-[[mcp.servers]]
-name = "vision"
-url = "http://localhost:8001/mcp/vision/sse"
+```
+config_manager/
+├── __init__.py           # 导出 XnneHangLabSettings 和 load_settings_file
+├── config.py             # XnneHangLabSettings：主配置类 + 加载/写入逻辑
+├── agent.py              # AgentSettings：Agent 配置
+├── asr.py                # ASRSettings / FunASRSettings / WhisperSettings
+├── server.py             # ServerSettings：服务器配置
+├── vtuber.py             # VtuberSettings / CharacterSettings / TTSPreprocessorConfig
+├── package.py            # PackagesSettings：功能开关
+├── abs_root.py           # RootAbsDir：根目录配置
+├── audio_recognize.py    # AudioRecognizeSettings：WebUI 音频识别配置
+├── mcp.py                # MCPSettings：MCP 工具配置
+└── webui_i18n_model.py   # WebUI 国际化配置
 ```
 
-### Package 开关
+## Package 开关（功能模块）
+
+`PackagesSettings` 控制哪些功能模块被加载：
 
 ```toml
 [package]
-funasr = true
-whisper = false
-to_do_list = false
-yutto_uiya = false
+funasr = false           # FunASR 语音识别
+whisper = false          # Whisper 语音识别
+gpt_sovits = true        # GPT-SoVITS TTS
+qwen_tts = false         # Qwen-TTS（faster-qwen-tts）
+memory_bench = false     # Memory Bench 记忆服务（路由前缀 /memory）
+to_do_list = true        # TODO List 功能
+yutto_uiya = true        # Yutto-Uiya 功能
 ```
+
+**路由条件加载：**
+- `funasr=true` 或 `whisper=true` → 加载 `/asr/*`
+- `gpt_sovits=true` → 加载 `/tts/gptsovits*`
+- `qwen_tts=true` → 加载 `/tts/qwen-tts/*`
+- `memory_bench=true` → 加载 `/memory/*`
+
+## 配置文件位置
+
+默认搜索顺序：
+1. `{当前目录}/config/lab.toml`
+2. `{XDG_CONFIG_HOME}/lab.toml`（Linux/macOS: `~/.config/`，Windows: `~/AppData/`）
+
+如果不存在，`load_settings_file()` 会在 `config/` 下创建默认配置。
 
 ## 与其他模块的关系
 
 - **所有模块** 通过 `load_settings_file()` 读取配置
 - **service_context.py** 使用配置初始化 Agent 和服务
-- **server.py** 根据配置决定加载哪些路由和模型
+- **server.py** 根据 `package` 开关决定加载哪些路由和模型
+- **配置热重载** — 部分模块（如 FunASR）支持 `/asr/reload` 端点重载模型

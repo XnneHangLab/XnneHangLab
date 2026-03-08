@@ -14,7 +14,7 @@ export default defineConfig({
 
     nav: [
       { text: "首页", link: "/" },
-      { text: "指南", link: "/guide/deploy" },
+      { text: "指南", link: "/guide/intro" },
       { text: "Memory Bench", link: "/memory-bench/" },
       {
         text: "GitHub",
@@ -27,10 +27,11 @@ export default defineConfig({
         {
           text: "开始",
           items: [
+            { text: "项目介绍", link: "/guide/intro" },
             { text: "部署", link: "/guide/deploy" },
             { text: "配置", link: "/guide/settings" },
-            { text: "CLI", link: "/guide/cli" },
             { text: "FastAPI 服务", link: "/guide/fastapi" },
+            { text: "CLI", link: "/guide/cli" },
           ],
         },
         {
