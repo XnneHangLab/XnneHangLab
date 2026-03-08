@@ -30,8 +30,8 @@ export default defineConfig({
             { text: "项目介绍", link: "/guide/intro" },
             { text: "部署", link: "/guide/deploy" },
             { text: "配置", link: "/guide/settings" },
-            { text: "CLI", link: "/guide/cli" },
             { text: "FastAPI 服务", link: "/guide/fastapi" },
+            { text: "CLI", link: "/guide/cli" },
           ],
         },
         {
