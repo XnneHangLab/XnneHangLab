@@ -4,49 +4,32 @@
 
 ## 分层结构
 
-```mermaid
-flowchart TB
-    subgraph 入口层
-        CLI["cli.py — CLI 入口"]
-        UI["ui.py — Streamlit WebUI"]
-        Server["server.py — FastAPI 服务"]
-    end
-
-    subgraph 通信层
-        WS["websocket_handler.py — WebSocket 协议"]
-        MsgH["message_handler.py — 消息事件总线"]
-    end
-
-    subgraph 对话层
-        Conv["conversations/ — 对话编排"]
-        SC["service_context.py — 会话上下文"]
-    end
-
-    subgraph 智能体层
-        Agent["agent/ — Agent 框架"]
-        MCP["mcp/ — 工具调用（MCP）"]
-    end
-
-    subgraph 基础设施层
-        API["api/ — HTTP 路由 & TTS/ASR 客户端"]
-        ASR["asr/ — 语音识别"]
-        DB["database/ — 数据层"]
-        Config["config_manager/ — 配置管理"]
-        Logger["logger/ — 日志"]
-        Utils["utils/ — 工具函数"]
-    end
-
-    CLI --> Server
-    UI --> Server
-    Server --> WS
-    WS --> MsgH
-    MsgH --> Conv
-    Conv --> SC
-    SC --> Agent
-    Agent --> MCP
-    Agent --> API
-    API --> ASR
-    SC --> Config
+```
+src/lab/
+├── 入口层
+│   ├── cli.py                    # CLI 入口
+│   ├── ui.py                     # Streamlit WebUI
+│   └── server.py                 # FastAPI 服务
+│
+├── 通信层
+│   ├── websocket_handler.py      # WebSocket 协议处理
+│   └── message_handler.py        # 消息事件总线
+│
+├── 对话层
+│   ├── conversations/            # 对话编排、TTS 管理、中断处理
+│   └── service_context.py        # 会话上下文（Agent + 配置）
+│
+├── 智能体层
+│   ├── agent/                    # Agent 框架（LLM 调用、记忆管理）
+│   └── mcp/                      # 工具调用（MCP 协议）
+│
+└── 基础设施层
+    ├── api/                      # HTTP 路由 & TTS/ASR 客户端
+    ├── asr/                      # 语音识别（FunASR / Whisper）
+    ├── database/                 # 数据层（SQLite）
+    ├── config_manager/           # 配置管理（TOML 加载）
+    ├── logger/                   # 分组日志
+    └── utils/                    # 工具函数（音频处理、文本工具）
 ```
 
 ## 请求流程
