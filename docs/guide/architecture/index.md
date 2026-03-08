@@ -7,9 +7,8 @@
 ```
 src/lab/
 ├── 入口层
-│   ├── cli.py                    # CLI 入口
-│   ├── ui.py                     # Streamlit WebUI
-│   └── server.py                 # FastAPI 服务
+│   ├── server.py                 # FastAPI 服务（主入口，WebSocket + HTTP API）
+│   └── ui.py                     # Streamlit WebUI（管理界面）
 │
 ├── 通信层
 │   ├── websocket_handler.py      # WebSocket 协议处理
@@ -29,8 +28,13 @@ src/lab/
     ├── database/                 # 数据层（SQLite）
     ├── config_manager/           # 配置管理（TOML 加载）
     ├── logger/                   # 分组日志
-    └── utils/                    # 工具函数（音频处理、文本工具）
+    ├── utils/                    # 工具函数（音频处理、文本工具）
+    └── cli.py                    # CLI 工具（ASR 命令行）
 ```
+
+**外部客户端：**
+- [Open-LLM-VTuber-Web](https://github.com/XnneHangLab/Open-LLM-VTuber-Web) — VTuber 前端（WebSocket 连接）
+- [AIChat](https://github.com/XnneHangLab/AIChat) — 对话客户端（WebSocket 连接）
 
 ## 请求流程
 
