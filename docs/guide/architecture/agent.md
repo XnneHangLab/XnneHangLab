@@ -71,23 +71,41 @@ MemoryAgent 的行为由配置决定：
 
 ## 数据流
 
+一次完整的对话请求经过以下处理管线：
+
 ```
-BatchInput
+📥 BatchInput（用户输入）
     ↓
-[enable_tool?] → ToolRunner → tool_trace + tool_images
+🔧 [enable_tool?] ToolRunner
+    → tool_trace + tool_images
     ↓
-[has_images?] → VisionSummarizer → vision_summaries
+👁️ [has_images?] VisionSummarizer
+    → vision_summaries
     ↓
-PromptBuilder.build(base + summaries)
+📝 PromptBuilder
+    → system_prompt (base + summaries)
     ↓
-MessageFactory.create(prompt + user_text + images)
+✉️ MessageFactory
+    → OpenAI messages (prompt + text + images)
     ↓
-AsyncLLM.chat_completion_stream(messages)
+🤖 AsyncLLM.chat_completion_stream
+    → raw LLM response (streaming)
     ↓
-transformers: sentence_divider → actions_extractor → tts_filter → display_processor
+🔄 Transformers 管线
+    sentence_divider      # 断句
+      → actions_extractor # 提取表情/音效
+      → tts_filter        # TTS 文本清理
+      → display_processor # 显示文本处理
     ↓
-yield SentenceOutput(...)
+📤 yield SentenceOutput
+    (display_text, tts_text, actions)
 ```
+
+**关键节点：**
+- 🔧 工具调用是可选的（`enable_tool=True` 时触发）
+- 👁️ 图片摘要根据模型能力决定（chat 不支持 vision 时必须生成）
+- 🔄 Transformers 是纯文本后处理，不涉及 LLM 调用
+- 📤 输出是流式的，逐句 yield
 
 ## 不变量
 
