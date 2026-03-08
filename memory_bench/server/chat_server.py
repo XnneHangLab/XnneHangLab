@@ -29,10 +29,6 @@ from __future__ import annotations
 import argparse
 from contextlib import asynccontextmanager
 
-from warnings_config import suppress_known_runtime_warnings
-
-suppress_known_runtime_warnings()
-
 import uvicorn  # type: ignore[reportMissingImports,reportUnknownVariableType]
 from fastapi import FastAPI  # type: ignore[reportMissingImports,reportUnknownVariableType]
 

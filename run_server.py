@@ -3,16 +3,12 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import tomli
+import uvicorn
 from loguru import logger
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
-from warnings_config import suppress_known_runtime_warnings
-
-if TYPE_CHECKING:
-    import uvicorn
 
 os.environ["HF_HOME"] = str(Path(__file__).parent / "models")
 os.environ["MODELSCOPE_CACHE"] = str(Path(__file__).parent / "models")
@@ -33,10 +29,6 @@ def parse_args(lab_settings: XnneHangLabSettings):
 
 @logger.catch
 def run(lab_settings: XnneHangLabSettings, args: argparse.Namespace):
-    suppress_known_runtime_warnings()
-
-    import uvicorn
-
     from lab.logger.logger_group import init_logger
     from lab.server import WebSocketServer
 
