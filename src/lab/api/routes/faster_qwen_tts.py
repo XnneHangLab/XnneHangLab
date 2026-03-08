@@ -81,6 +81,7 @@ async def generate_non_stream(
 async def generate_stream(
     text: str = Form(...),
     ref_text: str = Form(""),
+    chunk_size: int = Form(8),
     ref_audio: UploadFile | None = None,
 ) -> StreamingResponse:
     temp_ref_path: Path | None = None
@@ -91,11 +92,13 @@ async def generate_stream(
 
         if not text:
             raise HTTPException(status_code=400, detail="text is required")
+        if chunk_size < 1:
+            raise HTTPException(status_code=400, detail="chunk_size must be >= 1")
 
         temp_ref_path = await _save_upload_to_temp(ref_audio)
 
         _tts_logger.info(
-            f"qwen-tts stream request received: text_len={len(text)}, has_ref_audio={temp_ref_path is not None}, has_ref_text={bool(ref_text)}"
+            f"qwen-tts stream request received: text_len={len(text)}, has_ref_audio={temp_ref_path is not None}, has_ref_text={bool(ref_text)}, chunk_size={chunk_size}"
         )
 
         async def _event_stream():
@@ -104,6 +107,7 @@ async def generate_stream(
                     text=text,
                     ref_audio=temp_ref_path,
                     ref_text=ref_text or None,
+                    chunk_size=chunk_size,
                 ):
                     yield chunk
             finally:

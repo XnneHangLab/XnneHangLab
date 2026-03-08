@@ -5,13 +5,15 @@ import base64
 import io
 import json
 import os
-import subprocess
+import queue
+import threading
 import time
 from pathlib import Path
 from typing import Any, cast
 
 import httpx
 import numpy as np
+import sounddevice as sd
 import soundfile as sf
 from loguru import logger
 from numpy.typing import NDArray
@@ -56,18 +58,14 @@ def _decode_wav_b64_to_pcm(audio_b64: str) -> tuple[Float32Array, int]:
     return audio, int(sr_raw)
 
 
-def _iter_sse_events(response: httpx.Response) -> tuple[str, ...] | list[str]:
-    """
-    简单 SSE 解析器：
-    每个事件以空行分隔，只取 data: 开头的行并拼起来。
-    """
-    events: list[str] = []
+def _iter_sse_events(response: httpx.Response):
+    """Yield SSE `data:` events as soon as they arrive."""
     data_lines: list[str] = []
 
     for line in response.iter_lines():
         if line == "":
             if data_lines:
-                events.append("\n".join(data_lines))
+                yield "\n".join(data_lines)
                 data_lines.clear()
             continue
 
@@ -75,9 +73,7 @@ def _iter_sse_events(response: httpx.Response) -> tuple[str, ...] | list[str]:
             data_lines.append(line[5:].lstrip())
 
     if data_lines:
-        events.append("\n".join(data_lines))
-
-    return events
+        yield "\n".join(data_lines)
 
 
 def test_health(base_server_url: str) -> None:
@@ -137,6 +133,7 @@ def test_stream_save(
     out_file: Path,
     text: str,
     *,
+    stream_chunk_size: int = 8,
     ref_audio: str = "",
     ref_text: str = "",
 ) -> None:
@@ -149,6 +146,7 @@ def test_stream_save(
 
     if ref_text:
         data["ref_text"] = ref_text
+    data["chunk_size"] = str(stream_chunk_size)
 
     if ref_audio:
         files = {
@@ -219,11 +217,13 @@ def test_stream_play_and_save(
     out_file: Path,
     text: str,
     *,
+    stream_chunk_size: int = 8,
+    playback_buffer_ms: int = 500,
     ref_audio: str = "",
     ref_text: str = "",
 ) -> None:
     """
-    流式接收：边解码边播放（ffplay raw f32le），同时缓存 PCM，结束后统一写 WAV。
+    流式接收：边解码边播放（sounddevice），同时缓存 PCM，结束后统一写 WAV。
     """
     start = time.perf_counter()
 
@@ -234,6 +234,7 @@ def test_stream_play_and_save(
 
     if ref_text:
         data["ref_text"] = ref_text
+    data["chunk_size"] = str(stream_chunk_size)
 
     if ref_audio:
         files = {
@@ -242,8 +243,65 @@ def test_stream_play_and_save(
 
     pcm_parts: list[Float32Array] = []
     final_sr: int | None = None
-    play_proc: subprocess.Popen[bytes] | None = None
+    playback_queue: queue.Queue[Float32Array] = queue.Queue()
+    playback_started = False
+    startup_chunks: list[Float32Array] = []
+    startup_frames = 0
+    queued_frames = 0
+    pending_audio = np.zeros(0, dtype=np.float32)
+    queue_lock = threading.Lock()
+    stream: sd.OutputStream | None = None
     last_metrics: dict[str, Any] | None = None
+
+    def _queue_audio(audio_chunk: Float32Array) -> None:
+        nonlocal queued_frames
+        if audio_chunk.size == 0:
+            return
+        playback_queue.put(audio_chunk)
+        with queue_lock:
+            queued_frames += int(audio_chunk.size)
+
+    def _ensure_stream(sr: int) -> None:
+        nonlocal stream, pending_audio, queued_frames
+        if stream is not None:
+            return
+
+        def _callback(
+            outdata: NDArray[np.float32],
+            frames: int,
+            _time_info: Any,
+            status: sd.CallbackFlags,
+        ) -> None:
+            nonlocal pending_audio, queued_frames
+
+            if status:
+                logger.warning("sounddevice callback status: {}", status)
+
+            mixed = np.zeros(frames, dtype=np.float32)
+            written = 0
+
+            while written < frames:
+                if pending_audio.size == 0:
+                    try:
+                        pending_audio = playback_queue.get_nowait()
+                    except queue.Empty:
+                        break
+
+                take = min(frames - written, int(pending_audio.size))
+                mixed[written : written + take] = pending_audio[:take]
+                pending_audio = pending_audio[take:]
+                written += take
+                with queue_lock:
+                    queued_frames -= take
+
+            outdata[:, 0] = mixed
+
+        stream = sd.OutputStream(
+            samplerate=sr,
+            channels=1,
+            dtype="float32",
+            callback=_callback,
+        )
 
     try:
         with client.stream(
@@ -265,38 +323,25 @@ def test_stream_play_and_save(
 
                     if final_sr is None:
                         final_sr = sr
-                        ffplay_cmd = [
-                            "ffplay",
-                            "-autoexit",
-                            "-nodisp",
-                            "-loglevel",
-                            "error",
-                            "-f",
-                            "f32le",
-                            "-ar",
-                            str(final_sr),
-                            "-ac",
-                            "1",
-                            "-i",
-                            "pipe:0",
-                        ]
-                        try:
-                            play_proc = subprocess.Popen(ffplay_cmd, stdin=subprocess.PIPE)
-                        except FileNotFoundError:
-                            logger.warning("ffplay not found, stream-play will save only")
-
+                        _ensure_stream(final_sr)
                     elif final_sr != sr:
                         raise RuntimeError(f"sample rate mismatch: {final_sr} != {sr}")
 
                     if audio.size > 0:
                         pcm_parts.append(audio)
-
-                        if play_proc is not None and play_proc.stdin is not None:
-                            try:
-                                play_proc.stdin.write(audio.astype(np.float32).tobytes())
-                                play_proc.stdin.flush()
-                            except BrokenPipeError:
-                                play_proc = None
+                        if not playback_started:
+                            startup_chunks.append(audio)
+                            startup_frames += int(audio.size)
+                            required_frames = int((playback_buffer_ms / 1000.0) * sr)
+                            if startup_frames >= required_frames:
+                                for startup_chunk in startup_chunks:
+                                    _queue_audio(startup_chunk)
+                                startup_chunks.clear()
+                                playback_started = True
+                                if stream is not None:
+                                    stream.start()
+                        else:
+                            _queue_audio(audio)
 
                     logger.info(
                         "chunk sr={} ttfa_ms={} rtf={} total_audio_s={} elapsed_ms={}",
@@ -315,13 +360,24 @@ def test_stream_play_and_save(
                     raise RuntimeError(f"stream error: {payload.get('message')}")
 
     finally:
-        if play_proc is not None and play_proc.stdin is not None:
-            play_proc.stdin.close()
-        if play_proc is not None:
-            try:
-                play_proc.wait(timeout=30)
-            except subprocess.TimeoutExpired:
-                play_proc.kill()
+        if not playback_started and startup_chunks:
+            for startup_chunk in startup_chunks:
+                _queue_audio(startup_chunk)
+            startup_chunks.clear()
+            playback_started = True
+            if stream is not None:
+                stream.start()
+
+        if stream is not None:
+            deadline = time.perf_counter() + 30
+            while time.perf_counter() < deadline:
+                with queue_lock:
+                    remaining_frames = queued_frames
+                if remaining_frames <= 0 and playback_queue.empty() and pending_audio.size == 0:
+                    break
+                time.sleep(0.02)
+            stream.stop()
+            stream.close()
 
     if not pcm_parts:
         raise RuntimeError("stream produced no audio chunks")
@@ -342,6 +398,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default="./tmp/tts_tests")
     parser.add_argument("--ref-audio", default="")
     parser.add_argument("--ref-text", default="")
+    parser.add_argument("--stream-chunk-size", type=int, default=8)
+    parser.add_argument("--playback-buffer-ms", type=int, default=500)
     parser.add_argument("--text", default="何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している。")
     parser.add_argument("--mode", default="all", choices=["all", "health", "non-stream", "stream", "stream-play"])
     return parser.parse_args()
@@ -379,6 +437,7 @@ def main() -> None:
                 server_base,
                 out_dir / "stream_save.wav",
                 args.text,
+                stream_chunk_size=args.stream_chunk_size,
                 ref_audio=args.ref_audio,
                 ref_text=args.ref_text,
             )
@@ -389,6 +448,8 @@ def main() -> None:
                 server_base,
                 out_dir / "stream_play_save.wav",
                 args.text,
+                stream_chunk_size=args.stream_chunk_size,
+                playback_buffer_ms=args.playback_buffer_ms,
                 ref_audio=args.ref_audio,
                 ref_text=args.ref_text,
             )
