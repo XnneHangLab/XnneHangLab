@@ -25,7 +25,6 @@ src/lab/
 └── 基础设施层
     ├── api/                      # HTTP 路由 & TTS/ASR 客户端
     ├── asr/                      # 语音识别（FunASR / Whisper）
-    ├── database/                 # 数据层（SQLite）
     ├── config_manager/           # 配置管理（TOML 加载）
     ├── logger/                   # 分组日志
     ├── utils/                    # 工具函数（音频处理、文本工具）
@@ -59,7 +58,6 @@ src/lab/
 | **MCP** | `mcp/` | MCP 工具服务器、工具注册与路由 | [→ mcp](./mcp) |
 | **Conversations** | `conversations/` | 对话编排、TTS 管理、中断处理 | [→ conversations](./conversations) |
 | **Config** | `config_manager/` | TOML 配置加载与校验 | [→ config](./config) |
-| **Database** | `database/` | SQLite 数据层（评论等） | [→ database](./database) |
 | **Live2D** | `live2d_model.py` | Live2D 模型 Payload 构建 | — |
 | **Logger** | `logger/` | 分组日志 | — |
 | **Utils** | `utils/` | 音频处理、文本工具、控制台 | — |

@@ -43,13 +43,13 @@ export default defineConfig({
             { text: "MCP", link: "/guide/architecture/mcp" },
             { text: "Conversations", link: "/guide/architecture/conversations" },
             { text: "Config", link: "/guide/architecture/config" },
-            { text: "Database", link: "/guide/architecture/database" },
             { text: "Memory Agent", link: "/guide/architecture/memory-agent" },
           ],
         },
         {
           text: "开发",
           items: [
+            { text: "RoadMap", link: "/guide/roadmap" },
             { text: "已知问题", link: "/guide/issue" },
           ],
         },
