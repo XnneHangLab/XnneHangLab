@@ -30,6 +30,21 @@ XnneHangLab 项目的开发路线图与技术债务清理计划。
 
 ## 功能开发
 
+### 独立翻译大模型
+
+**状态：** 规划中  
+**优先级：** 中
+
+当前翻译依赖外部 DeepLX 服务，计划接入独立的翻译大模型。
+
+**候选模型：**
+- [Tencent-Hunyuan/HY-MT1.5-1.8B](https://modelscope.cn/models/Tencent-Hunyuan/HY-MT1.5-1.8B) — 腾讯混元翻译模型
+
+**待完成：**
+- [ ] 模型集成与推理封装
+- [ ] 路由层适配（保持 API 兼容）
+- [ ] 性能对比测试（vs DeepLX）
+
 ### Memory Bench 集成优化
 
 **状态：** 进行中  

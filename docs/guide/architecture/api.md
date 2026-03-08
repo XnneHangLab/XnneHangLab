@@ -36,12 +36,12 @@ api/
 
 | 路由 | 前缀 | 功能 |
 |------|------|------|
-| `asr.py` | `/asr` | 音频上传 → FunASR/Whisper 识别 → 返回文本 |
-| `deeplx.py` | `/translate` | 文本翻译代理（调用外部 DeepLX 服务） |
-| `faster_qwen_tts.py` | `/tts/qwen-tts` | Qwen-TTS 语音合成（单次 + SSE 流式） |
-| `gpt_sovits.py` | — | GPT-SoVITS v1 TTS |
-| `gpt_sovits_v2.py` | — | GPT-SoVITS v2 TTS（流式 + 文件下载） |
-| `vtuber.py` | — | VTuber WebSocket 连接管理 |
+| `asr.py` | `/asr` | FunASR / Whisper 语音识别（带标点 / 不带标点 / VAD / 模型热重载） |
+| `deeplx.py` | `/translate/deeplx` | DeepLX 翻译代理（调用外部服务） |
+| `faster_qwen_tts.py` | `/tts/qwen-tts` | Qwen-TTS 语音合成（非流式 + SSE 流式） |
+| `gpt_sovits.py` | `/tts/gptsovits` | GPT-SoVITS v1 TTS（JSON → base64 音频） |
+| `gpt_sovits_v2.py` | `/tts/gptsovitsv2` | GPT-SoVITS v2 TTS（GET/POST → 音频文件，支持流式） |
+| `vtuber.py` | `/client-ws` | Open-LLM-VTuber WebSocket 连接管理 |
 
 ### Clients — 外部服务封装
 
