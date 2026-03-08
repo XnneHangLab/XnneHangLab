@@ -96,6 +96,6 @@ memory_bench/conversations/
 Qwen3-TTS-12Hz-1.7B-Base
 
 # VitePress docs
-docs-site/node_modules/
-docs-site/.vitepress/cache/
-docs-site/.vitepress/dist/
+docs/node_modules/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
