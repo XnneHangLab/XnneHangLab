@@ -5,10 +5,6 @@ import json
 import sys
 from typing import TYPE_CHECKING
 
-from warnings_config import suppress_known_runtime_warnings
-
-suppress_known_runtime_warnings()
-
 from lab.asr.combiner import combine_sentences
 from lab.asr.cutter import cut_sentences
 from lab.asr.funasr.converter import convert_asr_response_to_sentences
