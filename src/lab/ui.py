@@ -3,6 +3,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from warnings_config import suppress_known_runtime_warnings
+
+suppress_known_runtime_warnings()
+
 import streamlit as st
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file

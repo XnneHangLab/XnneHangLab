@@ -4,10 +4,13 @@ import argparse
 import os
 from pathlib import Path
 
+from warnings_config import suppress_known_runtime_warnings
+
+suppress_known_runtime_warnings()
+
 import tomli
 import uvicorn
 from loguru import logger
-
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.logger.logger_group import init_logger
 from lab.server import WebSocketServer
