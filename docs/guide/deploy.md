@@ -1,3 +1,9 @@
+---
+outline: deep
+---
+
+# 部署指南
+
 ## 🏠 本地部署
 
 这份指南会带你在本地跑起来 **后端服务**（ASR / TTS / 翻译 / Chat）以及 **三种前端**（Streamlit / Open-LLM-VTuber / 游戏 Mod TTS 服务）。
