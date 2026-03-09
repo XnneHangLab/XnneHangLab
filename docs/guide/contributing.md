@@ -2,20 +2,20 @@
 
 感谢你愿意参与 XnneHangLab 的开发！
 
-## 了解项目结构
+## 🏗️ 了解项目结构
 
-开始贡献前，建议先熟悉项目架构（详见文档站）：
+开始贡献前，建议先熟悉项目架构：
 
-- [架构概览](https://lab.xnnehang.top/guide/architecture/) — 分层结构与模块职责总览
-- [Agent 模块](https://lab.xnnehang.top/guide/architecture/agent) — LLM 调用与记忆管理
-- [API 模块](https://lab.xnnehang.top/guide/architecture/api) — HTTP 路由与客户端
-- [ASR 模块](https://lab.xnnehang.top/guide/architecture/asr) — 语音识别
-- [MCP 模块](https://lab.xnnehang.top/guide/architecture/mcp) — 工具调用框架
-- [Conversations 模块](https://lab.xnnehang.top/guide/architecture/conversations) — 对话编排
-- [Config 模块](https://lab.xnnehang.top/guide/architecture/config) — 配置管理
-- [Memory Agent](https://lab.xnnehang.top/guide/architecture/memory-agent) — 记忆代理
+- [架构概览](./architecture/) — 分层结构与模块职责总览
+- [Agent 模块](./architecture/agent) — LLM 调用与记忆管理
+- [API 模块](./architecture/api) — HTTP 路由与客户端
+- [ASR 模块](./architecture/asr) — 语音识别
+- [MCP 模块](./architecture/mcp) — 工具调用框架
+- [Conversations 模块](./architecture/conversations) — 对话编排
+- [Config 模块](./architecture/config) — 配置管理
+- [Memory Agent](./architecture/memory-agent) — 记忆代理
 
-推荐先读架构概览，再按需深入具体模块。
+> [!TIP] 推荐先读 [架构概览](./architecture/)，再按需深入具体模块。
 
 ---
 
@@ -63,9 +63,6 @@ just docs-dev     # 本地预览，确认渲染正常
 
 # 6. 推送并开 PR，目标分支为 dev
 git push origin feat/your-feature
-
-# 7. PR 合入或 close 后，清理远程分支
-git push origin --delete feat/your-feature
 ```
 
 ## PR 规范
