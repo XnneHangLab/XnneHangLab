@@ -65,11 +65,11 @@
 
 ## 🛠️本地部署
 
-参见 [deploy.md](./docs-legacy/deploy.md)
+参见 [部署指南](https://lab.xnnehang.top/guide/deploy)
 
 ## ⚙️配置
 
-參見 [settings.md](./docs-legacy/settings.md)
+參見 [配置说明](https://lab.xnnehang.top/guide/settings)
 
 ## 📦引用的仓库
 
