@@ -1,7 +1,7 @@
-import{_ as n,o as e,c as t,ag as s}from"./chunks/framework.ePeAWSvT.js";const h=JSON.parse('{"title":"架构概览","description":"","frontmatter":{},"headers":[],"relativePath":"guide/architecture/index.md","filePath":"guide/architecture/index.md"}'),r={name:"guide/architecture/index.md"};function o(d,a,p,l,i,c){return e(),t("div",null,[...a[0]||(a[0]=[s(`<h1 id="架构概览" tabindex="-1">架构概览 <a class="header-anchor" href="#架构概览" aria-label="Permalink to &quot;架构概览&quot;">​</a></h1><p>本文描述 XnneHangLab 主项目（<code>src/lab/</code>）的整体分层与模块职责，帮助开发者快速定位代码。</p><h2 id="分层结构" tabindex="-1">分层结构 <a class="header-anchor" href="#分层结构" aria-label="Permalink to &quot;分层结构&quot;">​</a></h2><div class="language- vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang"></span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0"><code><span class="line"><span>src/lab/</span></span>
+import{_ as n,o as e,c as t,ag as s}from"./chunks/framework.ePeAWSvT.js";const h=JSON.parse('{"title":"架构概览","description":"","frontmatter":{},"headers":[],"relativePath":"guide/architecture/index.md","filePath":"guide/architecture/index.md"}'),r={name:"guide/architecture/index.md"};function o(p,a,d,l,i,c){return e(),t("div",null,[...a[0]||(a[0]=[s(`<h1 id="架构概览" tabindex="-1">架构概览 <a class="header-anchor" href="#架构概览" aria-label="Permalink to &quot;架构概览&quot;">​</a></h1><p>本文描述 XnneHangLab 主项目（<code>src/lab/</code>）的整体分层与模块职责，帮助开发者快速定位代码。</p><h2 id="分层结构" tabindex="-1">分层结构 <a class="header-anchor" href="#分层结构" aria-label="Permalink to &quot;分层结构&quot;">​</a></h2><div class="language- vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang"></span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0"><code><span class="line"><span>src/lab/</span></span>
 <span class="line"><span>├── 入口层</span></span>
 <span class="line"><span>│   ├── server.py                 # FastAPI 服务（主入口，WebSocket + HTTP API）</span></span>
-<span class="line"><span>│   └── ui.py                     # Streamlit WebUI 入口（页面路由）</span></span>
+<span class="line"><span>│   └── streamlit/app.py              # Streamlit WebUI 入口（页面路由）</span></span>
 <span class="line"><span>│</span></span>
 <span class="line"><span>├── 通信层</span></span>
 <span class="line"><span>│   ├── websocket_handler.py      # WebSocket 协议处理</span></span>
@@ -21,7 +21,10 @@ import{_ as n,o as e,c as t,ag as s}from"./chunks/framework.ePeAWSvT.js";const h
 <span class="line"><span>    ├── config_manager/           # 配置管理（TOML 加载）</span></span>
 <span class="line"><span>    ├── logger/                   # 分组日志</span></span>
 <span class="line"><span>    ├── streamlit/                # Streamlit UI 页面与样式</span></span>
+<span class="line"><span>    │   ├── app.py                # 页面路由入口（原 ui.py）</span></span>
 <span class="line"><span>    │   ├── style.py              # 全局 CSS 样式注入</span></span>
+<span class="line"><span>    │   ├── i18n.py               # UI i18n 枚举（Device / Guide / SubtitleSpeed 等）</span></span>
+<span class="line"><span>    │   ├── session_keys.py       # session_state key 常量</span></span>
 <span class="line"><span>    │   ├── project/              # 主功能页（主页、音频识别）</span></span>
 <span class="line"><span>    │   ├── setting/              # 设置页</span></span>
 <span class="line"><span>    │   └── dialogs/              # 对话框组件</span></span>
