@@ -26,7 +26,7 @@
 </p>
 
 <p align="center">
-<a href='https://xnnehang.top/' style='font-size: 20px;'><strong>文档网站(等等噢)</strong></a> ·
+<a href='https://lab.xnnehang.top/' style='font-size: 20px;'><strong>文档网站</strong></a> ·
 <a href='https://space.bilibili.com/556737824'><strong>bilibili视频教程(再等等噢)</strong></a>
 </p>
 
