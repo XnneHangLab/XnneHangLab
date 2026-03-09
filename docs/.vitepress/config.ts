@@ -52,6 +52,8 @@ export default defineConfig({
           items: [
             { text: "RoadMap", link: "/guide/roadmap" },
             { text: "已知问题", link: "/guide/issue" },
+            { text: "分支", link: "/guide/branches" },
+            { text: "贡献指南", link: "/guide/contributing" },
           ],
         },
       ],
