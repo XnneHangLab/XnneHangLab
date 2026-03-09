@@ -2,6 +2,23 @@
 
 感谢你愿意参与 XnneHangLab 的开发！
 
+## 🏗️ 了解项目结构
+
+开始贡献前，建议先熟悉项目架构：
+
+- [架构概览](./architecture/) — 分层结构与模块职责总览
+- [Agent 模块](./architecture/agent) — LLM 调用与记忆管理
+- [API 模块](./architecture/api) — HTTP 路由与客户端
+- [ASR 模块](./architecture/asr) — 语音识别
+- [MCP 模块](./architecture/mcp) — 工具调用框架
+- [Conversations 模块](./architecture/conversations) — 对话编排
+- [Config 模块](./architecture/config) — 配置管理
+- [Memory Agent](./architecture/memory-agent) — 记忆代理
+
+> [!TIP] 推荐先读 [架构概览](./architecture/)，再按需深入具体模块。
+
+---
+
 ## 参与方式
 
 - **报告问题 / 提建议** → 直接在 [Issues](https://github.com/XnneHangLab/XnneHangLab/issues) 中提出即可
