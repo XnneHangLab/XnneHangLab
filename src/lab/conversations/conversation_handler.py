@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from loguru import logger
 
-from lab.chat_history_manager import store_message
+from lab.conversations.chat_history_manager import store_message
 from lab.conversations.conversation_utils import EMOJI_LIST
 from lab.conversations.single_conversation import process_single_conversation
 

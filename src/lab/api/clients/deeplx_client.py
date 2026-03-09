@@ -5,8 +5,8 @@ from typing import Literal
 from loguru import logger
 from pydantic import Field
 
-from lab._typing import DeepLXResponse
 from lab.api.clients.base_client_interface import BaseClientInterface, BaseRequest, BaseResponse
+from lab.api.types import DeepLXResponse
 
 
 class DeepLXRequest(BaseRequest):

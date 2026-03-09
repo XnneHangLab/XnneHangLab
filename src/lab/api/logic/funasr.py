@@ -13,8 +13,8 @@ from lab.config_manager import XnneHangLabSettings, load_settings_file
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from lab._typing import ASRResponse, VadResponse
     from lab.api.types import FunASRModels
+    from lab.asr.types import ASRResponse, VadResponse
 
 
 class FunASRModel(ASRBaseModel):  # 对于 api 需要快速响应, 不能 lazy-import，所以独立出来一个版本.

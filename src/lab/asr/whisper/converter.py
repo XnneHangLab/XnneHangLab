@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from lab._typing import Sentence, WhisperResponse, Word
+    from lab.asr.types import Sentence, WhisperResponse, Word
 
 
 def convert_whisper_response_to_sentences(input_data: WhisperResponse) -> list[Sentence]:

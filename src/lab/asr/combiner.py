@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from lab._typing import Sentence, Word
+    from lab.asr.types import Sentence, Word
 
 # ====
 # 根据 combine_line 把间隔较短的两个句子合并成一个句子

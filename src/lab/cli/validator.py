@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from typing import TYPE_CHECKING
 
-from lab.exceptions import ErrorCode
+from lab.cli.exceptions import ErrorCode
 from lab.utils.console.logger import Logger
 
 if TYPE_CHECKING:

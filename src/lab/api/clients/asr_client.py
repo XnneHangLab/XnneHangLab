@@ -5,9 +5,9 @@ from pathlib import Path  # noqa: TC003
 
 from loguru import logger
 
-from lab._typing import ASRResponse, Sentence, WhisperResponse, WhisperSegment
 from lab.api.clients.base_client_interface import BaseClientInterface, BaseRequest, BaseResponse
 from lab.asr.funasr.converter import convert_asr_response_to_sentences
+from lab.asr.types import ASRResponse, Sentence, WhisperResponse, WhisperSegment
 from lab.asr.whisper.converter import convert_whisper_response_to_sentences
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 

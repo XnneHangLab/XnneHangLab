@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
     from funasr import AutoModel
 
-    from lab._typing import ASRResponse, VadResponse
+    from lab.asr.types import ASRResponse, VadResponse
 
 
 def generate_asr_results(model: AutoModel, input_path: Path) -> ASRResponse:

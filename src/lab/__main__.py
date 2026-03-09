@@ -10,17 +10,16 @@ from lab.asr.cutter import cut_sentences
 from lab.asr.funasr.converter import convert_asr_response_to_sentences
 from lab.asr.funasr.method import generate_asr_results, generate_punc_results, generate_vad_results
 from lab.asr.funasr.model import FunASRModel
-from lab.cli import cli, handle_default_subcommand
+from lab.cli import cli, handle_default_subcommand, validate_recognizer_args, validate_setting_args
 
 # from lab.exceptions import ErrorCode
 from lab.utils.console.logger import Badge, Logger
 from lab.utils.SrtHelper import write_srt_from_sentences
-from lab.validator import validate_recognizer_args, validate_setting_args
 
 if TYPE_CHECKING:
     import argparse
 
-    from lab._typing import ASRResponse, Sentence, VadResponse
+    from lab.asr.types import ASRResponse, Sentence, VadResponse
 
 
 def main():
