@@ -7,7 +7,7 @@ from lab.utils.TxtHelper import write_txt_to_file
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from lab._typing import Sentence
+    from lab.asr.types import Sentence
 
 
 def ms_to_srt_time(ms: int) -> str:

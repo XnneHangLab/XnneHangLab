@@ -10,19 +10,19 @@ from fastapi import WebSocket, WebSocketDisconnect
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from lab.chat_group import (
+from lab.config_manager.vtuber import scan_bg_directory
+from lab.conversations.chat_group import (
     ChatGroupManager,
     handle_client_disconnect,
     handle_group_operation,
 )
-from lab.chat_history_manager import (
+from lab.conversations.chat_history_manager import (
     HistoryMessage,
     create_new_history,
     delete_history,
     get_history,
     get_history_list,  # type: ignore[import]
 )
-from lab.config_manager.vtuber import scan_bg_directory
 from lab.conversations.conversation_handler import (
     handle_conversation_trigger,  # type: ignore[import]
     handle_group_interrupt,

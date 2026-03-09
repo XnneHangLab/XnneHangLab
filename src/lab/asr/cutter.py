@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from lab.asr.funasr.converter import rewrite_sentence_text_by_words
 
 if TYPE_CHECKING:
-    from lab._typing import CutPoint, Sentence, Word
+    from lab.asr.types import CutPoint, Sentence, Word
 
 # ====
 # 根据 cut_line 把单个句子拆成多个句子，如果句子停顿时间超过 cut_line 。

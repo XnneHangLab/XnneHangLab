@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from lab.chat_history_manager import get_history, store_message
+from lab.conversations.chat_history_manager import get_history, store_message
 from lab.mcp import OpenAIMessage
 
 if TYPE_CHECKING:

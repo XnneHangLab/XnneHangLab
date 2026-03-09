@@ -5,8 +5,8 @@ from pathlib import Path  # noqa: TC003
 
 from loguru import logger
 
-from lab._typing import VadResponse
 from lab.api.clients.base_client_interface import BaseClientInterface, BaseRequest, BaseResponse
+from lab.asr.types import VadResponse
 
 
 class VADRequest(BaseRequest):

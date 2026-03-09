@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from lab._typing import ASRResponse, Sentence, Word
+    from lab.asr.types import ASRResponse, Sentence, Word
 
 
 # =====

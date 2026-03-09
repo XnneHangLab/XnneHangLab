@@ -1,11 +1,17 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated, TypedDict
 
 from pydantic import BaseModel, Field
 
-if TYPE_CHECKING:
-    from lab._typing import Packages
+
+class Packages(TypedDict):
+    funasr: bool  # 是否包含 funasr 模块
+    to_do_list: bool
+    yutto_uiya: bool
+    gpt_sovits: bool
+    qwen_tts: bool
+    memory_bench: bool  # 是否挂载 memory_bench 记忆服务
 
 
 class PackagesSettings(BaseModel):
