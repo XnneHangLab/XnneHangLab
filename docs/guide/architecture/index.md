@@ -36,7 +36,7 @@ src/lab/
     │   ├── setting/              # 设置页
     │   └── dialogs/              # 对话框组件
     ├── utils/                    # 工具函数（音频处理、文本工具）
-    └── cli.py                    # CLI 工具（ASR 命令行）
+    └── cli/                      # CLI 工具（args.py / exceptions.py / validator.py）
 ```
 
 **外部客户端：**
@@ -62,10 +62,11 @@ src/lab/
 |------|------|------|------|
 | **Agent** | `agent/` | LLM 调用、工具循环、记忆存储 | [→ agent](./agent) |
 | **API** | `api/` | HTTP 路由、TTS/ASR 客户端封装 | [→ api](./api) |
-| **ASR** | `asr/` | FunASR / Whisper 语音识别 | [→ asr](./asr) |
+| **ASR** | `asr/` | FunASR / Whisper 语音识别；`types.py` 统一类型定义 | [→ asr](./asr) |
 | **MCP** | `mcp/` | MCP 工具服务器、工具注册与路由 | [→ mcp](./mcp) |
 | **Conversations** | `conversations/` | 对话编排、TTS 管理、中断处理 | [→ conversations](./conversations) |
 | **Config** | `config_manager/` | TOML 配置加载与校验 | [→ config](./config) |
+| **CLI** | `cli/` | CLI 参数解析（args.py）、错误码（exceptions.py）、参数校验（validator.py） | — |
 | **Live2D** | `live2d_model.py` | Live2D 模型 Payload 构建 | — |
 | **Logger** | `logger/` | 分组日志 | — |
 | **Streamlit** | `streamlit/` | Streamlit UI 页面与全局样式 | — |
