@@ -7,10 +7,11 @@ from typing import Any
 from fastapi import APIRouter, File, UploadFile
 from pydantic import BaseModel
 
-from lab.api.core_logic import (  # 导入 load_model 用于预加载
+from lab.api.logic import (
     funasr_asr_audio,
     funasr_vad_audio,
-    reload_model,
+    reload_funasr,
+    reload_whisper,
     whisper_asr_audio,
 )
 from lab.config_manager import XnneHangLabSettings, load_settings_file
@@ -40,15 +41,18 @@ file_default = File(...)
 @router.post("/reload", response_model=dict)
 async def reload():
     """
-    Reload the FunASR model.
-    Returns a message indicating the model has been reloaded.
+    Reload enabled ASR models (FunASR / Whisper).
+    Only reloads models that are enabled in lab.toml [package].
     """
     try:
-        reload_model()
+        if lab_settings.package.funasr:
+            reload_funasr()
+        if lab_settings.package.whisper:
+            reload_whisper()
     except Exception as e:
-        return {"code": 500, "message": f"Failed to reload FunASR model: {str(e)}"}
+        return {"code": 500, "message": f"Failed to reload ASR model: {str(e)}"}
 
-    return {"code": 200, "message": "FunASR model has been reloaded successfully!"}
+    return {"code": 200, "message": "ASR model(s) reloaded successfully!"}
 
 
 @router.post("/funasr/with_punc", response_model=dict)
