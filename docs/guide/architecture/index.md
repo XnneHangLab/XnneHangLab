@@ -8,7 +8,7 @@
 src/lab/
 ├── 入口层
 │   ├── server.py                 # FastAPI 服务（主入口，WebSocket + HTTP API）
-│   └── ui.py                     # Streamlit WebUI（管理界面）
+│   └── ui.py                     # Streamlit WebUI 入口（页面路由）
 │
 ├── 通信层
 │   ├── websocket_handler.py      # WebSocket 协议处理
@@ -27,6 +27,11 @@ src/lab/
     ├── asr/                      # 语音识别（FunASR / Whisper）
     ├── config_manager/           # 配置管理（TOML 加载）
     ├── logger/                   # 分组日志
+    ├── streamlit/                # Streamlit UI 页面与样式
+    │   ├── style.py              # 全局 CSS 样式注入
+    │   ├── project/              # 主功能页（主页、音频识别）
+    │   ├── setting/              # 设置页
+    │   └── dialogs/              # 对话框组件
     ├── utils/                    # 工具函数（音频处理、文本工具）
     └── cli.py                    # CLI 工具（ASR 命令行）
 ```
@@ -60,6 +65,7 @@ src/lab/
 | **Config** | `config_manager/` | TOML 配置加载与校验 | [→ config](./config) |
 | **Live2D** | `live2d_model.py` | Live2D 模型 Payload 构建 | — |
 | **Logger** | `logger/` | 分组日志 | — |
+| **Streamlit** | `streamlit/` | Streamlit UI 页面与全局样式 | — |
 | **Utils** | `utils/` | 音频处理、文本工具、控制台 | — |
 
 ## 关键设计决策

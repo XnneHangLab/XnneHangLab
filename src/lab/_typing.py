@@ -196,7 +196,7 @@ class AudioSessionStateKeys(TypedDict):
 
 
 class SettingSessionSateKeys(TypedDict):
-    """pages/setting/set.py 中用到的 st.session_state 的 key_names"""
+    """streamlit/setting/set.py 中用到的 st.session_state 的 key_names"""
 
     batch_size_s: str  # 批处理大小
     device: str  # 设备
@@ -215,7 +215,7 @@ class SettingSessionSateKeys(TypedDict):
 
 
 class HomeSessionStateKeys(TypedDict):
-    """pages/project/home.py 中用到的 st.session_state 的 key_names"""
+    """streamlit/project/home.py 中用到的 st.session_state 的 key_names"""
 
     stars: str  # github stars
 
