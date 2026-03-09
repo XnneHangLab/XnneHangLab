@@ -20,8 +20,8 @@ from lab.config_manager import (
     load_settings_file,
     write_settings_file,
 )
-from lab.pages.dialogs.audio import AudioReadme, upload_audio
-from lab.styles.global_style import style
+from lab.streamlit.dialogs.audio import AudioReadme, upload_audio
+from lab.streamlit.style import style
 from lab.utils.FFmpegHelper import file_to_wav
 from lab.utils.public import (
     parse_srt_file,

@@ -6,7 +6,7 @@ from pathlib import Path
 import streamlit as st
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
-from lab.styles.global_style import style
+from lab.streamlit.style import style
 
 style(True)
 
@@ -19,9 +19,9 @@ def main():
 
     # 所有页面路径基于 ROOT_DIR 计算
     PAGE_PATHS = {
-        "home": ROOT_DIR / "src" / "lab" / "pages" / "project" / "home.py",
-        "audio": ROOT_DIR / "src" / "lab" / "pages" / "project" / "audio.py",
-        "settings": ROOT_DIR / "src" / "lab" / "pages" / "setting" / "set.py",
+        "home": ROOT_DIR / "src" / "lab" / "streamlit" / "project" / "home.py",
+        "audio": ROOT_DIR / "src" / "lab" / "streamlit" / "project" / "audio.py",
+        "settings": ROOT_DIR / "src" / "lab" / "streamlit" / "setting" / "set.py",
     }
     if lab_settings.package.to_do_list:
         PAGE_PATHS["todo"] = ROOT_DIR / "packages" / "todo" / "src" / "todo" / "streamlit_to_do.py"

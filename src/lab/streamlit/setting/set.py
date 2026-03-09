@@ -17,7 +17,7 @@ from lab.config_manager import (
     load_settings_file,
     write_settings_file,
 )
-from lab.styles.global_style import style
+from lab.streamlit.style import style
 
 # 我也很想用 st.write , 但是它存在类型未知 (> _ <)
 

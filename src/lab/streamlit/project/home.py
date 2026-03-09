@@ -4,7 +4,7 @@ import requests
 import streamlit as st
 
 from lab._session_keys import home_keys
-from lab.styles.global_style import style
+from lab.streamlit.style import style
 
 # 参数配置
 style()
