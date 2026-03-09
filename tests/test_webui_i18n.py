@@ -75,37 +75,37 @@ def test_enum_name_and_label(member: I18nEnum, expected_name: str, expected_labe
 
 
 def test_get_labels_returns_correct_options() -> None:
-    settings = ASRSettings()
+    settings = ASRSettings()  # pyright: ignore[reportCallIssue]
     assert settings.get_labels("device") == ["cpu", "gpu"]
     assert settings.get_labels("asr_model_provider") == ["FunASR", "Whisper"]
 
 
 def test_get_index_reflects_current_value() -> None:
-    settings = ASRSettings()
+    settings = ASRSettings()  # pyright: ignore[reportCallIssue]
     # 默认 device="cpu" → index 0
     assert settings.get_index("device") == 0
 
 
 def test_set_by_label_updates_field() -> None:
-    settings = ASRSettings()
+    settings = ASRSettings()  # pyright: ignore[reportCallIssue]
     settings.set_by_label("device", "gpu")
     assert settings.device == "cuda"
 
 
 def test_set_by_label_unknown_label_raises() -> None:
-    settings = ASRSettings()
+    settings = ASRSettings()  # pyright: ignore[reportCallIssue]
     with pytest.raises(ValueError, match="不存在 label"):
         settings.set_by_label("device", "tpu")
 
 
 def test_get_index_unregistered_field_raises() -> None:
-    settings = ASRSettings()
+    settings = ASRSettings()  # pyright: ignore[reportCallIssue]
     with pytest.raises(ValueError, match="未在 _I18N_FIELDS"):
         settings.get_index("cache_dir")
 
 
 def test_audio_recognize_settings_i18n() -> None:
-    settings = AudioRecognizeSettings()
+    settings = AudioRecognizeSettings()  # pyright: ignore[reportCallIssue]
     assert settings.get_labels("guide") == ["开启", "关闭"]
     assert settings.get_index("guide") == 0  # 默认 "open"
     settings.set_by_label("guide", "关闭")

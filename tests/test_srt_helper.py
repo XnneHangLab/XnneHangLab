@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, cast
+
 import pytest
 
 from lab.utils.SrtHelper import convert_sentence_to_srt, ms_to_srt_time
+
+if TYPE_CHECKING:
+    from lab.asr.types import Sentence
+
 
 # ── ms_to_srt_time ────────────────────────────────────────────────────────────
 
@@ -32,21 +38,16 @@ def test_ms_to_srt_time(ms: int, expected: str) -> None:
 
 
 def test_convert_sentence_to_srt_basic() -> None:
-    sentence = {
-        "text": "你好世界",
-        "start": 1000,
-        "end": 3000,
-        "Words": [],
-    }
-    start_time, end_time, text = convert_sentence_to_srt(sentence)  # type: ignore[arg-type]
+    sentence = cast("Sentence", {"text": "你好世界", "start": 1000, "end": 3000, "Words": []})
+    start_time, end_time, text = convert_sentence_to_srt(sentence)
     assert start_time == "00:00:01,000"
     assert end_time == "00:00:03,000"
     assert text == "你好世界"
 
 
 def test_convert_sentence_to_srt_zero_start() -> None:
-    sentence = {"text": "hello", "start": 0, "end": 500, "Words": []}
-    start_time, end_time, text = convert_sentence_to_srt(sentence)  # type: ignore[arg-type]
+    sentence = cast("Sentence", {"text": "hello", "start": 0, "end": 500, "Words": []})
+    start_time, end_time, text = convert_sentence_to_srt(sentence)
     assert start_time == "00:00:00,000"
     assert end_time == "00:00:00,500"
     assert text == "hello"
@@ -54,7 +55,7 @@ def test_convert_sentence_to_srt_zero_start() -> None:
 
 def test_convert_sentence_to_srt_large_timestamp() -> None:
     """超过一小时的时间戳格式正确。"""
-    sentence = {"text": "test", "start": 3_600_000, "end": 3_661_500, "Words": []}
-    start_time, end_time, _ = convert_sentence_to_srt(sentence)  # type: ignore[arg-type]
+    sentence = cast("Sentence", {"text": "test", "start": 3_600_000, "end": 3_661_500, "Words": []})
+    start_time, end_time, _ = convert_sentence_to_srt(sentence)
     assert start_time == "01:00:00,000"
     assert end_time == "01:01:01,500"

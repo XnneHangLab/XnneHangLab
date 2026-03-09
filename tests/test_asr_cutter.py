@@ -2,28 +2,29 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-import pytest
+from typing import TYPE_CHECKING, cast
 
 from lab.asr.cutter import cut_sentences
 
 if TYPE_CHECKING:
-    from lab.asr.types import Sentence
+    from lab.asr.types import Sentence, Word
 
 
 def make_sentence(words: list[tuple[str, int, int]]) -> Sentence:
     """辅助：从 (text, start, end) 三元组列表构造 Sentence。"""
-    word_dicts = [{"text": t, "start": s, "end": e} for t, s, e in words]
-    return {
-        "text": " ".join(t for t, _, _ in words),
-        "start": words[0][1],
-        "end": words[-1][2],
-        "Words": word_dicts,
-    }
+    word_dicts: list[Word] = [cast("Word", {"text": t, "start": s, "end": e}) for t, s, e in words]
+    return cast(
+        "Sentence",
+        {
+            "text": " ".join(t for t, _, _ in words),
+            "start": words[0][1],
+            "end": words[-1][2],
+            "Words": word_dicts,
+        },
+    )
 
 
-# ── 无切分点 ──────────────────────────────────────────────────────────────────
+# ── 無切分點 ──────────────────────────────────────────────────────────────────
 
 
 def test_no_cut_when_gap_below_threshold() -> None:
@@ -122,7 +123,6 @@ def test_cut_text_is_rewritten_by_words() -> None:
         ]
     )
     result = cut_sentences([sentence], cut_line=500)
-    # "你好" 独立成一句，text 应为 "你好"（无多余空格）
     assert result[0]["text"] == "你好"
     assert result[1]["text"] == "world"
 

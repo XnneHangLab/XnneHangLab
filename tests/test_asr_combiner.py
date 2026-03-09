@@ -2,20 +2,20 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from lab.asr.combiner import combine_sentences
 
 if TYPE_CHECKING:
-    from lab.asr.types import Sentence
+    from lab.asr.types import Sentence, Word
 
 
 def make_sentence(text: str, start: int, end: int, words: list[tuple[str, int, int]] | None = None) -> Sentence:
     """辅助：快速构造 Sentence。words 可选，默认单词等于整句。"""
     if words is None:
         words = [(text, start, end)]
-    word_dicts = [{"text": t, "start": s, "end": e} for t, s, e in words]
-    return {"text": text, "start": start, "end": end, "Words": word_dicts}
+    word_dicts: list[Word] = [cast("Word", {"text": t, "start": s, "end": e}) for t, s, e in words]
+    return cast("Sentence", {"text": text, "start": start, "end": end, "Words": word_dicts})
 
 
 # ── 无合并 ────────────────────────────────────────────────────────────────────
