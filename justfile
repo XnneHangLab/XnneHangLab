@@ -57,9 +57,6 @@ server:
   uv run get_root
   uv run run_server.py
 
-db-server:
-  uv run uvicorn src.lab.database.main:app --reload --host localhost --port 8000
-
 # API Router Test
 
 test-asr:

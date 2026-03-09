@@ -2,20 +2,6 @@
 
 XnneHangLab 项目的开发路线图与技术债务清理计划。
 
-## 代码清理
-
-### 移除 database 模块
-
-**状态：** 待处理  
-**优先级：** 低
-
-`src/lab/database/` 是早期学习 MongoDB 时的练手代码，与主项目无关联，应该移除。
-
-**清理范围：**
-- 删除 `src/lab/database/` 目录
-- 移除 `server.py` 中的 database routes 挂载
-- 清理相关配置和依赖
-
 ## 功能开发
 
 ### 独立翻译大模型

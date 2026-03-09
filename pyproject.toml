@@ -51,7 +51,6 @@ get_root = "lab.config_manager.abs_root:main" # 获取项目所在根目录绝�
 package = "lab.config_manager.package:main"
 agent_setting = "lab.config_manager.agent:main"
 tmp = "lab.tmp:main" # debug 时随意写的一些脚本
-test-database="lab.database.test:main"
 
 [dependency-groups]
 base = [
@@ -77,11 +76,6 @@ dev = [
   "pytest-rerunfailures>=15.0",
 ]
 
-database = [
-  "pymongo>=4.13.2",
-  "beanie>=1.30.0",
-  "motor>=3.3.2",
-]
 
 yutto-uiya = [
   "uiya-yutto==0.0.2-rc.2",
@@ -149,7 +143,7 @@ qwen-tts = [
 ]
 
 [tool.uv]
-default-groups = ["base","funasr","whisper","dev", "yutto-uiya", "tts_base", "gpt_sovits", "qwen-tts", "vtuber", "database", "memory_bench"]
+default-groups = ["base","funasr","whisper","dev", "yutto-uiya", "tts_base", "gpt_sovits", "qwen-tts", "vtuber", "memory_bench"]
 
 [tool.uv.workspace]
 members = ["packages/yutto-uiya","packages/todo/","packages/gpt_sovits"]
