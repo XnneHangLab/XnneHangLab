@@ -71,8 +71,16 @@ git push origin --delete feat/your-feature
 ## PR 规范
 
 - **标题**：必须带 gitmoji，例如 `:sparkles: 新增 xxx` / `:bug: 修复 xxx`
-- **描述**：按 `.github/PULL_REQUEST_TEMPLATE.md` 格式填写（动机 / 解决方案 / 类型 checkbox）
+- **描述**：按 [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md) 格式填写（动机 / 解决方案 / 类型 checkbox）
 - **目标分支**：一律向 `dev` 提 PR
+- **RoadMap 联动**：PR 合入前，检查本次改动是否覆盖了 [RoadMap](https://lab.xnnehang.top/guide/roadmap.html)（源文件：[`docs/guide/roadmap.md`](docs/guide/roadmap.md)）中的某项。如果是，请在 PR 描述里注明，并在同一个 PR 中将该条目从 `roadmap.md` 移除。
+
+## 文档同步规则
+
+`CONTRIBUTING.md` 与 `docs/guide/contributing.md` 内容保持同步：
+
+- 修改其中任意一个时，**必须同步更新另一个**
+- 二者唯一的差异：`docs/guide/contributing.md` 里的链接使用相对路径（如 `./architecture/`），`CONTRIBUTING.md` 里使用完整 URL（如 `https://lab.xnnehang.top/guide/architecture/`）
 
 ## CI 检查项
 
@@ -102,3 +110,6 @@ git push origin --delete feat/your-feature
    git push origin --delete feat/your-feature  # 合入后清理远程分支
    ```
 4. **PR 合入或 close 后，删除对应的远程分支**，保持仓库整洁
+5. **修改 `CONTRIBUTING.md` 时，必须同步修改 `docs/guide/contributing.md`**（见上方"文档同步规则"）
+6. **PR 描述必须遵循 [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md)** 的格式（动机 / 解决方案 / 类型 checkbox）
+7. **PR 合入前检查 RoadMap**：若本次改动覆盖了 [`docs/guide/roadmap.md`](docs/guide/roadmap.md) 中的某项，在 PR 描述里说明，并在同一 PR 中将该条目从 RoadMap 移除
