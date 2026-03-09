@@ -54,7 +54,7 @@ config_manager/
 ├── abs_root.py           # RootAbsDir：根目录配置
 ├── audio_recognize.py    # AudioRecognizeSettings：WebUI 音频识别配置
 ├── mcp.py                # MCPSettings：MCP 工具配置
-└── webui_i18n_model.py   # WebUI 国际化配置
+└── webui_i18n_model.py   # WebUI i18n 基类（WebUIi18nSettings，提供 get_labels / get_index / set_by_label）
 ```
 
 ## Package 开关（功能模块）
@@ -92,3 +92,4 @@ yutto_uiya = true        # Yutto-Uiya 功能
 - **service_context.py** 使用配置初始化 Agent 和服务
 - **server.py** 根据 `package` 开关决定加载哪些路由和模型
 - **配置热重载** — 部分模块（如 FunASR）支持 `/asr/reload` 端点重载模型
+- **i18n 枚举** — `Device` / `Guide` / `SubtitleSpeed` 等定义在 `src/lab/streamlit/i18n.py`，`webui_i18n_model.py` 的基类方法通过枚举驱动，无需维护额外映射字典
