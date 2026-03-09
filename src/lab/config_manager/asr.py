@@ -4,7 +4,8 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
-from lab.config_manager.webui_i18n_model import Device, WebUIi18nSettings
+from lab.config_manager.webui_i18n_model import WebUIi18nSettings
+from lab.streamlit.i18n import ASRModelProvider, Device, WhisperModelSize
 
 # 并不是所有的配置项目都向用户开放。有 title 的是开放项。
 # 开放的配置项
@@ -49,24 +50,17 @@ class FunASRSettings(WebUIi18nSettings):
 
     need_punc: Annotated[bool, Field(False)]
 
-    _FIELD_TO_LITERAL = {
-        "device": Device,
-    }
-
 
 # ====== Whisper
 # 开放的配置项
 WhisperSettingsTitle = Literal["whisper_models_base_dir", "whisper_model_size"]
-# 下拉式配置项
-WhisperDropDownSetting = Literal["whisper_model_size"]
-WhisperModelSize = Literal["tiny", "turbo"]
 
 
 class WhisperSettings(WebUIi18nSettings):
     whisper_models_base_dir: Annotated[str, Field("./models/whisper/", title="Whisper 模型存放列表目录")]
     whisper_model_size: Annotated[str, Field("turbo", title="Whisper 模型规格")]
 
-    _FIELD_TO_LITERAL = {
+    _I18N_FIELDS = {
         "whisper_model_size": WhisperModelSize,
     }
 
@@ -84,9 +78,6 @@ ASRSettingsTitle = Literal[
     "cut_line",
     "max_sentence_length",
 ]
-# 下拉式配置项
-ASRDropdownSetting = Literal["device", "asr_model_provider"]
-ASRModelProvider = Literal["funasr", "whisper"]
 
 
 class ASRSettings(WebUIi18nSettings):
@@ -95,7 +86,7 @@ class ASRSettings(WebUIi18nSettings):
     custom_output_dir: Annotated[bool, Field(False, title="自定义输出目录")]
     cache_dir: Annotated[str, Field("./cache", title="缓存路径")]
     output_dir: Annotated[str, Field("./output", title="输出路径")]
-    asr_model_provider: Annotated[ASRModelProvider, Field("funasr", title="ASR 模型提供商")]
+    asr_model_provider: Annotated[str, Field("funasr", title="ASR 模型提供商")]
     funasr: Annotated[FunASRSettings, Field(FunASRSettings())]  # pyright: ignore[reportCallIssue]
     whisper: Annotated[WhisperSettings, Field(WhisperSettings())]  # pyright: ignore[reportCallIssue]
     cut: Annotated[bool, Field(False)]
@@ -103,7 +94,8 @@ class ASRSettings(WebUIi18nSettings):
     combine: Annotated[bool, Field(False)]
     combine_line: Annotated[int, Field(400, title="合并间隔(毫秒)")]
     max_sentence_length: Annotated[int, Field(20, title="最大单句长度")]
-    _FIELD_TO_LITERAL = {
+
+    _I18N_FIELDS = {
         "device": Device,
         "asr_model_provider": ASRModelProvider,
     }

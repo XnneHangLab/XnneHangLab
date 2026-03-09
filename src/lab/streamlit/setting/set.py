@@ -5,11 +5,9 @@ from typing import TypedDict
 
 import streamlit as st
 
-from lab._session_keys import setting_keys
 from lab.api.clients import ReloadClient
 from lab.config_manager import (
     ASRSettings,
-    Device,
     FunASRSettings,
     WhisperSettings,
     XnneHangLabSettings,
@@ -17,6 +15,7 @@ from lab.config_manager import (
     load_settings_file,
     write_settings_file,
 )
+from lab.streamlit.session_keys import setting_keys
 from lab.streamlit.style import style
 
 # 我也很想用 st.write , 但是它存在类型未知 (> _ <)
@@ -30,7 +29,7 @@ def message_box(title: str, message: str):
     st.markdown(f"### {title} \n {message}")
 
 
-def check_device_is_available(device: Device):
+def check_device_is_available(device: str):
     if device == "cuda":
         pass
     # todo. 检查cuda是否可用
@@ -44,7 +43,7 @@ whisper_settings: WhisperSettings = asr_settings.whisper
 
 
 class BasicSettingsDict(TypedDict):
-    device: Device
+    device: str
     custom_output_dir: bool
     cache_dir: str
     output_dir: str
@@ -123,7 +122,7 @@ with BOTSetting:
     st.markdown("###### 基础配置")
     st.markdown("")
     device = st.selectbox(
-        "设备选择", asr_settings.get_zh_option_list("device"), index=asr_settings.get_index("device"), key="device"
+        "设备选择", asr_settings.get_labels("device"), index=asr_settings.get_index("device"), key="device"
     )  # Add key
     ffmpeg_path = st.text_input(
         get_setting_title("FFMPEG_PATH", ASRSettings),
@@ -134,7 +133,7 @@ with BOTSetting:
     # ASR 模型系列
     asr_model_provider = st.selectbox(
         get_setting_title("asr_model_provider", ASRSettings),
-        asr_settings.get_zh_option_list("asr_model_provider"),
+        asr_settings.get_labels("asr_model_provider"),
         index=asr_settings.get_index("asr_model_provider"),
     )
     st.caption("FunASR 仅支持中英文(但支持单词级的时间戳调整), Whisper 支持多语言。")
@@ -194,7 +193,7 @@ with BOTSetting:
     )  # Add key
     whisper_model_size = st.selectbox(
         get_setting_title("whisper_model_size", WhisperSettings),
-        whisper_settings.get_zh_option_list("whisper_model_size"),
+        whisper_settings.get_labels("whisper_model_size"),
         index=whisper_settings.get_index("whisper_model_size"),
         key="whisper_model_size",
     )  # Add key
@@ -236,14 +235,14 @@ with BOTSave:
             )
 
             if current_settings != initial_settings:  # Compare dictionaries
-                asr_settings.zh_set_value("device", device)
+                asr_settings.set_by_label("device", device)
                 asr_settings.custom_output_dir = (
                     custom_output_dir if custom_output_dir else initial_settings["basic"]["custom_output_dir"]
                 )
                 asr_settings.FFMPEG_PATH = ffmpeg_path if ffmpeg_path else initial_settings["basic"]["ffmpeg_path"]
                 asr_settings.cache_dir = cache_dir if cache_dir else initial_settings["basic"]["cache_dir"]
                 asr_settings.output_dir = output_dir if output_dir else initial_settings["basic"]["output_dir"]
-                asr_settings.zh_set_value("asr_model_provider", asr_model_provider)  # type: ignore
+                asr_settings.set_by_label("asr_model_provider", asr_model_provider)  # type: ignore
 
                 funasr_settings.batch_size_s = batch_size_s
                 funasr_settings.base_model = base_model if base_model else initial_settings["funasr"]["base_model"]

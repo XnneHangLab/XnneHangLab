@@ -5,9 +5,11 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field
 
+from lab.streamlit.i18n import Device
+
 from .abs_root import RootAbsDir
 from .agent import AgentSettings, LLM_Provider
-from .asr import ASRSettings, Device, FunASRSettings, WhisperSettings
+from .asr import ASRSettings, FunASRSettings, WhisperSettings
 from .audio_recognize import AudioRecognizeSettings
 from .config import XnneHangLabSettings, get_setting_title, load_settings_file, write_settings_file
 from .mcp import ToolContextConfig

@@ -8,7 +8,7 @@
 src/lab/
 ├── 入口层
 │   ├── server.py                 # FastAPI 服务（主入口，WebSocket + HTTP API）
-│   └── ui.py                     # Streamlit WebUI 入口（页面路由）
+│   └── streamlit/app.py              # Streamlit WebUI 入口（页面路由）
 │
 ├── 通信层
 │   ├── websocket_handler.py      # WebSocket 协议处理
@@ -28,7 +28,10 @@ src/lab/
     ├── config_manager/           # 配置管理（TOML 加载）
     ├── logger/                   # 分组日志
     ├── streamlit/                # Streamlit UI 页面与样式
+    │   ├── app.py                # 页面路由入口（原 ui.py）
     │   ├── style.py              # 全局 CSS 样式注入
+    │   ├── i18n.py               # UI i18n 枚举（Device / Guide / SubtitleSpeed 等）
+    │   ├── session_keys.py       # session_state key 常量
     │   ├── project/              # 主功能页（主页、音频识别）
     │   ├── setting/              # 设置页
     │   └── dialogs/              # 对话框组件

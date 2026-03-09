@@ -5,8 +5,8 @@ from pathlib import Path
 
 import streamlit as st
 
-from lab._session_keys import audio_keys
 from lab.config_manager import XnneHangLabSettings, load_settings_file
+from lab.streamlit.session_keys import audio_keys
 
 lab_settings = load_settings_file("lab.toml", setting=XnneHangLabSettings)
 ROOT_DIR = lab_settings.root.root_dir

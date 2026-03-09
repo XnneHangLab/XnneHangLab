@@ -25,7 +25,7 @@ start:
   uv lock
   uv sync
   uv run get_root
-  uv run streamlit run src/lab/ui.py --server.port 8051
+  uv run streamlit run src/lab/streamlit/app.py --server.port 8051
 
 clean-venv:
   # 如果在 windows 上删不干净，可以运行 `FileLocksmithCLI.exe --kill "D:\tmp\XnneHangLab\.venv"`
@@ -40,7 +40,7 @@ dev:
     uv build packages/wexpect-uv
     uv lock --no-cache
     uv run get_root
-    uv run streamlit run src/lab/ui.py --server.port 8000
+    uv run streamlit run src/lab/streamlit/app.py --server.port 8000
 
 dev-clean:
   rm packages/yutto/dist -rf
