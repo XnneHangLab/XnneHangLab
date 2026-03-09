@@ -5,7 +5,7 @@ from funasr import AutoModel
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 
 
-# 目前这个仅用于 cli 和单测， WebUI 和 vtuber 均调用 api.core_logic.load_model 预加载模型
+# 目前这个仅用于 cli 和单测， WebUI 和 vtuber 均调用 api.logic.load_funasr / load_whisper 预加载模型
 class FunASRModel:
     def __init__(self):
         self.settings = load_settings_file("lab.toml", XnneHangLabSettings)

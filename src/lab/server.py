@@ -43,11 +43,17 @@ class AvatarStaticFiles(StaticFiles):
 # 应用生命周期管理
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if lab_settings.package.funasr or lab_settings.package.whisper:
-        from lab.api.core_logic import load_model
+    if lab_settings.package.funasr:
+        from lab.api.logic import load_funasr
 
-        logger.info("预加载 ASR 模型（FunASR/Whisper）...")
-        load_model()  # 预加载模型，确保模型在启动时初始化
+        logger.info("预加载 FunASR 模型...")
+        load_funasr()
+
+    if lab_settings.package.whisper:
+        from lab.api.logic import load_whisper
+
+        logger.info("预加载 Whisper 模型...")
+        load_whisper()
 
     if lab_settings.package.qwen_tts:
         from lab.api.logic.faster_qwen_tts import init_qwen_tts_model
