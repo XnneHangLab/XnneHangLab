@@ -68,6 +68,13 @@ export default defineConfig({
           ],
         },
         {
+          text: "Server 架构",
+          items: [
+            { text: "设计理念", link: "/memory-bench/server/design" },
+            { text: "路由与端点", link: "/memory-bench/server/routes" },
+          ],
+        },
+        {
           text: "Schema",
           items: [
             {
