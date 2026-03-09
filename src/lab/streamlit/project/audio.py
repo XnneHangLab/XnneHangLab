@@ -6,7 +6,6 @@ from pathlib import Path
 
 import streamlit as st
 
-from lab._session_keys import audio_keys
 from lab.api.clients import ASRClient, ASRRequest
 from lab.asr.combiner import combine_sentences
 from lab.asr.cutter import cut_sentences
@@ -21,6 +20,7 @@ from lab.config_manager import (
     write_settings_file,
 )
 from lab.streamlit.dialogs.audio import AudioReadme, upload_audio
+from lab.streamlit.session_keys import audio_keys
 from lab.streamlit.style import style
 from lab.utils.FFmpegHelper import file_to_wav
 from lab.utils.public import (
@@ -103,19 +103,19 @@ with setting_tab:
     with AudioSetting:
         guide = st.selectbox(
             get_setting_title("guide", AudioRecognizeSettings),
-            webui_setting.get_zh_option_list("guide"),
+            webui_setting.get_labels("guide"),
             index=webui_setting.get_index("guide"),
         )
         asr_model_provider = st.selectbox(
             get_setting_title("asr_model_provider", ASRSettings),
-            asr_setting.get_zh_option_list("asr_model_provider"),
+            asr_setting.get_labels("asr_model_provider"),
             index=asr_setting.get_index("asr_model_provider"),
         )
         st.caption("FunASR 仅支持中英文,Whisper 支持多语言, 中文任务 FunASR 精度高")
         if asr_model_provider == "Whisper":
             whisper_model_size = st.selectbox(
                 get_setting_title("whisper_model_size", WhisperSettings),
-                whisper_setting.get_zh_option_list("whisper_model_size"),
+                whisper_setting.get_labels("whisper_model_size"),
                 index=whisper_setting.get_index("whisper_model_size"),
             )
             st.caption("tiny < base < turbo < large. 模型越大, 精度越高, 但速度越慢")
@@ -126,10 +126,10 @@ with setting_tab:
             st.markdown("")
             st.markdown("")
             if st.button("**保存更改**", use_container_width=True, type="primary"):
-                webui_setting.zh_set_value("guide", guide)
-                asr_setting.zh_set_value("asr_model_provider", asr_model_provider)
+                webui_setting.set_by_label("guide", guide)
+                asr_setting.set_by_label("asr_model_provider", asr_model_provider)
                 if asr_model_provider == "Whisper":
-                    whisper_setting.zh_set_value("whisper_model_size", whisper_model_size)
+                    whisper_setting.set_by_label("whisper_model_size", whisper_model_size)
                     asr_setting.whisper = whisper_setting
                 lab_settings.asr = asr_setting
                 lab_settings.webui = webui_setting
@@ -337,7 +337,7 @@ with working_tab:
                 st.caption("所有自定义行为均在生成字幕后操作，请先生成字幕。")
                 subtitle_speed = st.selectbox(
                     get_setting_title("subtitle_speed", AudioRecognizeSettings),
-                    webui_setting.get_zh_option_list("subtitle_speed"),
+                    webui_setting.get_labels("subtitle_speed"),
                     index=webui_setting.get_index("subtitle_speed"),
                 )
                 st.caption("字幕单句长则慢，单句短则快")

@@ -3,7 +3,7 @@ from __future__ import annotations
 import requests
 import streamlit as st
 
-from lab._session_keys import home_keys
+from lab.streamlit.session_keys import home_keys
 from lab.streamlit.style import style
 
 # 参数配置
