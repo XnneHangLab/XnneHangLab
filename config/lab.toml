@@ -57,6 +57,11 @@ llm_model_name = "qwen-3-235b-a22b-instruct-2507"
 llm_provider = "oaipro"
 llm_model_name = "gpt-5.1-2025-11-13"
 
+[agent.embedding]
+api_key = ""
+base_url = "https://api.oaipro.com/v1"
+model = "text-embedding-3-small"
+
 [agent.prompts]
 live2d_expression_prompt = "./prompts/live2d_expression_prompt.txt"
 think_tag_prompt = "./prompts/think_tag_prompt.txt"
@@ -156,17 +161,6 @@ user_id = "xnne"
 agent_id = "congyin"
 search_limit = 10
 server_api_key = ""
-
-[memory_bench.embedding]
-api_key = ""
-base_url = "https://api.oaipro.com/v1"
-model = "text-embedding-3-small"
-
-[memory_bench.llm]
-# 留空则自动复用 chat_model 的 provider 配置（api_key / base_url / model_name）
-api_key = ""
-base_url = ""
-model = ""
 
 [root]
 root_dir = "D:\\tmp\\XnneHangLab"
