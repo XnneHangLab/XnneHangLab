@@ -27,14 +27,14 @@ memory_bench proxy_router 内嵌到 src/lab，统一配置入口。
 
 ## 待做
 
-### 清理 PR（联调验证通过后）
-
-- `memory_bench/server/chat_server.py` 中已移除 chat_router mount，但 standalone 启动器本身可能需要评估是否保留
-- prompts/ 目录和 conversations/ 目录仍在 memory_bench 下，后续可考虑迁移到 src/lab 或统一配置
-
 ### Plugin 化（#262 Phase 2-4）
 
-- Plugin 注册机制 + ToolPlugin 基类
-- Skill 文件系统 + SkillLoader
-- Hook 机制 + SystemPromptBuilder + Profile 配置
-- memory_bench 封装为 MemoryPlugin
+- [ ] Plugin 注册机制 + ToolPlugin 基类
+- [ ] Skill 文件系统 + SkillLoader
+- [ ] Hook 机制 + SystemPromptBuilder + Profile 配置
+- [ ] memory_bench 封装为 MemoryPlugin
+
+### 后续清理（可选）
+
+- [ ] 评估 `memory_bench/server/chat_server.py` standalone 启动器是否还需要（已移除 chat_router mount，但文件保留）
+- [ ] 删除 `memory_bench/server/prompts/`（已迁移到根目录 `prompts/`，旧目录不再使用）
