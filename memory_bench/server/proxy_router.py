@@ -163,7 +163,7 @@ def _upstream_headers() -> dict[str, str]:
 proxy_router = APIRouter()
 
 
-@proxy_router.post("/v1/chat/completions", dependencies=[Depends(verify_api_key)])
+@proxy_router.post("/v1/chat/completions", dependencies=[Depends(verify_api_key)], response_model=None)
 async def proxy_chat_completions(raw_request: Request) -> StreamingResponse | JSONResponse:
     """透明代理：注入记忆后完整转发给上游 LLM，stream / non-stream 均支持。"""
     log = logger.bind(group="proxy")
@@ -308,7 +308,7 @@ async def _stream_generator(
             asyncio.create_task(memory_and_graph_background(latest_user, assistant_content))
 
 
-@proxy_router.get("/v1/models", dependencies=[Depends(verify_api_key)])
+@proxy_router.get("/v1/models", dependencies=[Depends(verify_api_key)], response_model=None)
 async def proxy_list_models() -> JSONResponse:
     """透传上游 /v1/models，或返回本地 fallback。"""
     try:
@@ -329,7 +329,7 @@ async def proxy_list_models() -> JSONResponse:
     )
 
 
-@proxy_router.get("/health")
+@proxy_router.get("/health", response_model=None)
 async def proxy_health() -> JSONResponse:
     """健康检查。"""
     return JSONResponse(
