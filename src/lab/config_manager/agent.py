@@ -82,6 +82,17 @@ class LLMSettings(BaseModel):
     memory_proxy: Annotated[MemoryProxySetting, Field(MemoryProxySetting())]  # pyright: ignore[reportCallIssue]
 
 
+class EmbeddingModelSetting(BaseModel):
+    """全局 Embedding 模型配置。
+
+    供所有需要向量化的模块使用（memory_bench、未来的 RAG 等），统一在此配置，不重复定义。
+    """
+
+    api_key: Annotated[str, Field("", title="Embedding API Key")]
+    base_url: Annotated[str, Field("https://api.oaipro.com/v1", title="Embedding Base URL")]
+    model: Annotated[str, Field("text-embedding-3-small", title="Embedding Model Name")]
+
+
 class PromptSettings(BaseModel):
     """Agent 侧提示词配置所在的路径"""
 
@@ -111,6 +122,7 @@ class AgentSettings(BaseModel):
     chat_model: Annotated[ChatModelSetting, Field(ChatModelSetting())]  # pyright: ignore[reportCallIssue]
     tool_model: Annotated[ToolModelSetting, Field(ToolModelSetting())]  # pyright: ignore[reportCallIssue]
     vision_model: Annotated[VisionModelSetting, Field(VisionModelSetting())]  # pyright: ignore[reportCallIssue]
+    embedding: Annotated[EmbeddingModelSetting, Field(EmbeddingModelSetting())]  # pyright: ignore[reportCallIssue]
     enable_mcp: Annotated[bool, Field(True, title="Enable MCP")]
     prompts: Annotated[PromptSettings, Field(PromptSettings())]  # pyright: ignore[reportCallIssue]
     llm: Annotated[LLMSettings, Field(LLMSettings())]  # pyright: ignore[reportCallIssue]
