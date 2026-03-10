@@ -40,7 +40,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from memory_bench.scripts.bench_logger import logger
+from loguru import logger
 
 # Avoid importing typing module due to conflict with local typing/ directory
 # Use dict instead of dict[str, Any] - works fine with PEP 563
