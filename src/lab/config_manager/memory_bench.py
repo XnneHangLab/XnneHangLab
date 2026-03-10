@@ -4,7 +4,7 @@
 
 LLM 配置：
 - proxy 上游转发目标由 upstream_llm_provider 显式指定（不能复用 chat_model.llm_provider，
-  因为 chat_model 此时指向 memory_proxy 自身，直接读会回环）
+  因为 chat_model 此时指向 memory_bench 自身，直接读会回环）
 - mem0 事实提取 LLM 复用同一个 upstream_llm_provider
 - embedding 复用 agent.embedding
 """
@@ -23,7 +23,7 @@ class MemoryBenchSettings(BaseModel):
 
     upstream_llm_provider: Annotated[
         LLM_Provider,
-        Field("oaipro", title="proxy 上游真实 LLM provider（不能填 memory_proxy，否则回环）"),
+        Field("oaipro", title="proxy 上游真实 LLM provider（不能填 memory_bench，否则回环）"),
     ]
     user_id: Annotated[str, Field("xnne", title="mem0 用户 ID")]
     agent_id: Annotated[str, Field("congyin", title="mem0 Agent ID")]
