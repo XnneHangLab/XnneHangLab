@@ -91,7 +91,7 @@ api_format = "chat_completion"
 
 [agent.llm.memory_proxy]
 llm_api_key = "any"
-llm_base_url = "http://localhost:12393"
+llm_base_url = "http://localhost:12393/v1"
 api_format = "chat_completion"
 
 [agent.llm.cerebras]

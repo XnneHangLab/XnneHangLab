@@ -70,7 +70,7 @@ class MemoryProxySetting(LLMSettingBase):
     llm_base_url 指向本地 memory_bench chat_server 即可。
     """
 
-    llm_base_url: Annotated[str, Field("http://localhost:8081", title="Memory Proxy Base URL")]
+    llm_base_url: Annotated[str, Field("http://localhost:12393/v1", title="Memory Proxy Base URL")]
 
 
 class LLMSettings(BaseModel):
