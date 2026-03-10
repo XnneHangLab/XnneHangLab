@@ -264,6 +264,7 @@ async def _stream_generator(
     async with httpx.AsyncClient(timeout=120.0) as client:
         try:
             async with client.stream("POST", url, json=body, headers=headers) as resp:
+                log.info(f"🔀 upstream status: {resp.status_code}")
                 if resp.status_code != 200:
                     error_text = await resp.aread()
                     try:
