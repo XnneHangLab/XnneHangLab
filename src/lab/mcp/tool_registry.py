@@ -5,10 +5,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from lab.mcp._typing import (
-    GetDateAndTimeArgs,
-    GetDateAndTimeResult,
-    ReadFileArgs,
-    ReadFileResult,
     RollDiceArgs,
     RollDiceByTimeArgs,
     RollDiceByTimeResult,
@@ -87,6 +83,9 @@ class ToolRegistry:
         """
         解析 tool_call.arguments（JSON 字符串）为对应 Args(BaseModel)。
 
+        注意：get_date_and_time 和 read_file 已迁移为内置工具，不再经过此处。
+        此处只保留仍在 MCP 侧的工具分支。
+
         输入示例：
             full_name="timeemi__roll_dice"
             arguments_json='{"n_dice": 3}'
@@ -97,10 +96,6 @@ class ToolRegistry:
         server, name = full_name.split("__", 1)
         s = arguments_json or "{}"
 
-        if full_name == "timeemi__get_date_and_time":
-            args_model = GetDateAndTimeArgs.model_validate_json(s)
-            return ParsedTool(full_name, server, name, args_model)
-
         if full_name == "timeemi__roll_dice":
             args_model = RollDiceArgs.model_validate_json(s)
             return ParsedTool(full_name, server, name, args_model)
@@ -110,7 +105,6 @@ class ToolRegistry:
             return ParsedTool(full_name, server, name, args_model)
 
         if full_name == "vision__screen_shot":
-            # 无参数工具
             args_model = ScreenShotArgs.model_validate_json(s)
             return ParsedTool(full_name, server, name, args_model)
 
@@ -122,9 +116,6 @@ class ToolRegistry:
             args_model = WebFetchArgs.model_validate_json(s)
             return ParsedTool(full_name, server, name, args_model)
 
-        if full_name == "tool__read_file":
-            args_model = ReadFileArgs.model_validate_json(s)
-            return ParsedTool(full_name, server, name, args_model)
         try:
             raw = json.loads(s)
             if not isinstance(raw, dict):
@@ -132,7 +123,7 @@ class ToolRegistry:
         except Exception:
             raw = {}
 
-        args_model = UnknownArgs(raw)  # 注意：RootModel 的构造方式 # type: ignore
+        args_model = UnknownArgs(raw)  # type: ignore
         return ParsedTool(full_name, server, name, args_model)
 
     @staticmethod
@@ -140,17 +131,14 @@ class ToolRegistry:
         """
         将 FastMCP call_tool 返回转成 Result(BaseModel)。
 
+        注意：get_date_and_time 和 read_file 已迁移为内置工具，不再经过此处。
+
         说明：
         - 若 is_error=True，则返回 UnknownResult(data=错误文本)
         - 否则优先读取 result.data（FastMCP 已反序列化）
-
-        已知工具强校验：
-        - get_date_and_time: data 必须是 str 且符合格式
-        - roll_dice: data 必须是 list[int] 且 1..6
         """
         is_error = bool(getattr(call_tool_result, "is_error", False))
         if is_error:
-            # 尽量提取错误文本
             blocks = getattr(call_tool_result, "content", None) or []  # type: ignore
             err_text = None
             for b in blocks:  # type: ignore
@@ -161,12 +149,6 @@ class ToolRegistry:
             return UnknownResult(data=err_text or "tool_error")
 
         data = getattr(call_tool_result, "data", None)
-
-        if full_name == "timeemi__get_date_and_time":
-            data = _coerce_scalar(data)
-            if data is None or not isinstance(data, str):
-                raise TypeError(f"timeemi.get_date_and_time expects str, got {type(data)}")
-            return GetDateAndTimeResult(datetime=data)
 
         if full_name == "timeemi__roll_dice":
             data = _coerce_list(data)
@@ -181,8 +163,9 @@ class ToolRegistry:
             if "numbers" not in data:
                 raise TypeError(
                     f"timeemi.roll_dice_by_current_time expects dict with 'numbers', got {type(data)} {data}"  # type: ignore
-                )  # type: ignore
+                )
             return RollDiceByTimeResult.model_validate(data)  # type: ignore
+
         if full_name == "vision__screen_shot":
             data = _coerce_scalar(data)
             if data is None or not isinstance(data, str):
@@ -201,12 +184,6 @@ class ToolRegistry:
                 raise TypeError(f"tool.web_fetch expects dict-like, got {type(data)}")
             return WebFetchResult.model_validate(data)
 
-        if full_name == "tool__read_file":
-            data = _coerce_dict_deep(data)
-            if data is None:
-                raise TypeError(f"tool.read_file expects dict-like, got {type(data)}")
-            return ReadFileResult.model_validate(data)
-
         return UnknownResult(data=data)
 
     @staticmethod
@@ -214,14 +191,8 @@ class ToolRegistry:
         """
         生成回填给 Tool Model 的 tool message content（尽量短）。
 
-        注意：你不希望 client 侧做口语化，所以这里返回“原始但简短”的值。
-
-        输出示例：
-            "2026-01-27 20:54:37"
-            "[5, 3, 1]"
+        注意：get_date_and_time 和 read_file 已迁移为内置工具，不再经过此处。
         """
-        if isinstance(result_model, GetDateAndTimeResult):
-            return result_model.datetime
         if isinstance(result_model, RollDiceResult):
             return json.dumps(result_model.numbers, ensure_ascii=False)
         if isinstance(result_model, RollDiceByTimeResult):
@@ -232,13 +203,8 @@ class ToolRegistry:
             )
         if isinstance(result_model, WebFetchResult):
             return result_model.text
-        if isinstance(result_model, ReadFileResult):
-            return result_model.text
         if isinstance(result_model, ScreenShotResult):
             raise TypeError("ScreenShotResult should not be converted to tool content directly.")
-        #     return result_model.image_b64
-        # 它实际上从来没进来过，也不应该进来，因为 image 的 base64 直接放进 user prompt 里面太大
-        # 它被分流然后以 {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}} 的形式放进 user prompt 里面了
         data = result_model.model_dump(exclude_none=True)
         return json.dumps(data, ensure_ascii=False, default=str)
 
@@ -278,12 +244,6 @@ TOOL_RETRY_HINTS: dict[str, str] = {
         "or fetch a more specific URL/section.\n"
         "If blocked by robots or 4xx/5xx: report the status and ask user for another URL."
     ),
-    "tool__read_file": (
-        "Retry once with a correct path (relative to project root) "
-        "or adjust start_line/end_line.\n"
-        "If file not found: ask user for the correct file path."
-    ),
-    "timeemi__get_date_and_time": "Retry once with NO arguments.",
     "timeemi__roll_dice": "Retry once with a reasonable n_dice (1~100).",
     "timeemi__roll_dice_by_current_time": (
         "Retry once with unit in ['hour','minute','second'].\n"

@@ -39,6 +39,10 @@ class ToolManager:
         self._builtin[tool.name] = tool
         logger.debug(f"[ToolManager] registered builtin tool: {tool.name}")
 
+    def has_builtin(self, name: str) -> bool:
+        """判断给定工具名是否已注册为内置工具。"""
+        return name in self._builtin
+
     # ------------------------------------------------------------------
     # Schema 接口
     # ------------------------------------------------------------------

@@ -26,19 +26,35 @@ if TYPE_CHECKING:
     from lab.agent.stateless_llm.openai_compatible_llm import AsyncLLM
     from lab.config_manager import ToolContextConfig
     from lab.mcp import FastMcpRouter
+    from lab.tools import AgentContext, ToolManager
 
 
 class McpToolLoopRunner:
-    """Run an OpenAI tool-calling loop, execute MCP tools, and return tool_trace.
+    """Run an OpenAI tool-calling loop, execute tools via ToolManager (builtin) or MCP, and return tool_trace.
 
     Protocol notes:
     - After an assistant message with `tool_calls`, you MUST append all tool messages immediately,
       with no interleaving user/system messages, otherwise OpenAI will 400.
+
+    Tool routing:
+    - If tool_manager is provided and the tool name is registered as a builtin, it is executed
+      locally without going through MCP (zero network overhead).
+    - All other tools fall back to the MCP router (FastMcpRouter).
     """
 
-    def __init__(self, *, tool_llm: AsyncLLM, mcp: FastMcpRouter, tool_context_config: ToolContextConfig) -> None:
+    def __init__(
+        self,
+        *,
+        tool_llm: AsyncLLM,
+        mcp: FastMcpRouter,
+        tool_context_config: ToolContextConfig,
+        tool_manager: ToolManager | None = None,
+        agent_context: AgentContext | None = None,
+    ) -> None:
         self.tool_llm = tool_llm
         self.mcp = mcp
+        self.tool_manager = tool_manager
+        self.agent_context = agent_context
         self.blob_store: dict[str, dict[str, object]] = {}  # call_id -> {"mime":..., "b64":...}
         self.tool_ctx_cfg = tool_context_config
 
@@ -100,7 +116,11 @@ class McpToolLoopRunner:
         tool_output_as_user_prompt: bool = True,
     ) -> tuple[OpenAIMessage, list[OpenAIMessage], ToolTraceItem]:
         """
-        执行单个 tool_call（强类型校验 + trace）。
+        执行单个 tool_call。
+
+        路由策略：
+        - 若 tool_manager 已注册该工具名 → 走内置路径（本地执行，零网络开销）
+        - 否则 → 走 MCP 路径（FastMcpRouter，保持原有逻辑）
 
         返回：
         - OpenAIMessage：回填给 Tool Model
@@ -109,11 +129,98 @@ class McpToolLoopRunner:
         """
         full_name = tool_call.function.name
 
+        # ----------------------------------------------------------------
+        # 路由：内置工具优先
+        # ----------------------------------------------------------------
+        if self.tool_manager is not None and self.tool_manager.has_builtin(full_name):
+            return await self._execute_builtin_tool_call(tool_call, tool_output_as_user_prompt=tool_output_as_user_prompt)
+
+        # ----------------------------------------------------------------
+        # 路由：MCP 工具（原有逻辑）
+        # ----------------------------------------------------------------
+        return await self._execute_mcp_tool_call(tool_call, tool_output_as_user_prompt=tool_output_as_user_prompt)
+
+    async def _execute_builtin_tool_call(
+        self,
+        tool_call: ToolCallLike,
+        *,
+        tool_output_as_user_prompt: bool = True,
+    ) -> tuple[OpenAIMessage, list[OpenAIMessage], ToolTraceItem]:
+        """
+        执行内置工具（通过 ToolManager，本地直接执行）。
+
+        - 无需 ToolRegistry 解析（内置工具的 args 直接传 JSON string）
+        - trace.server = "builtin"
+        - 错误不中断 tool loop，回填错误文本
+        """
+        from lab.tools.types import AgentContext as _AgentContext
+
+        full_name = tool_call.function.name
+        args_json = tool_call.function.arguments or "{}"
+
+        # 解析 args（只为构造 trace，实际调用 ToolManager 接受 JSON string）
+        try:
+            args_dict: dict[str, object] = json.loads(args_json) if args_json.strip() else {}
+        except json.JSONDecodeError:
+            args_dict = {}
+
+        assert self.tool_manager is not None  # 路由前已检查
+        ctx = self.agent_context if self.agent_context is not None else _AgentContext(workspace_root=__import__("pathlib").Path(".").resolve())
+
+        try:
+            result = await self.tool_manager.call_tool(full_name, args_json, ctx)
+            tool_msg = OpenAIMessage(role="tool", content=result.text or "", tool_call_id=tool_call.id)
+            trace = ToolTraceItem(
+                server="builtin",
+                name=full_name,
+                args=args_dict,
+                raw_result=result.data or {"text": result.text},
+                ok=result.ok,
+                error=result.error,
+            )
+        except Exception as e:
+            err = f"{type(e).__name__}: {e}"
+            tool_msg = OpenAIMessage(role="tool", content=err, tool_call_id=tool_call.id)
+            trace = ToolTraceItem(
+                server="builtin",
+                name=full_name,
+                args=args_dict,
+                raw_result={},
+                ok=False,
+                error=err,
+            )
+
+        extra_msgs: list[OpenAIMessage] = []
+        if tool_output_as_user_prompt and not trace.ok:
+            hint = TOOL_RETRY_HINTS.get(full_name, DEFAULT_RETRY_HINT)
+            extra_msgs.append(
+                OpenAIMessage(
+                    role="user",
+                    content=f"[TOOL_ERROR] {full_name} failed.\nError: {trace.error}\n{hint}",
+                )
+            )
+
+        return tool_msg, extra_msgs, trace
+
+    async def _execute_mcp_tool_call(
+        self,
+        tool_call: ToolCallLike,
+        *,
+        tool_output_as_user_prompt: bool = True,
+    ) -> tuple[OpenAIMessage, list[OpenAIMessage], ToolTraceItem]:
+        """
+        执行 MCP 工具（原有逻辑，经 FastMcpRouter 路由）。
+
+        保留 ToolRegistry 强类型解析和 ScreenShot / web_search / web_fetch 的后处理。
+        已迁移为内置工具的分支（get_date_and_time、read_file）已从此处移除。
+        """
+        full_name = tool_call.function.name
+
         # 1) args 强校验
         parsed = ToolRegistry.parse_args(full_name, tool_call.function.arguments)
         args_dict = parsed.args_model.model_dump(exclude_none=True, mode="json")
 
-        # 2) 调工具
+        # 2) 调 MCP 工具
         try:
             result_obj = await self.mcp.call_tool(full_name=full_name, args=args_dict)
             result_model = ToolRegistry.parse_result(full_name, result_obj)
@@ -127,7 +234,6 @@ class McpToolLoopRunner:
                     tool_call_id=tool_call.id,
                 )
 
-                # ✅ 关键：trace_item 直接吃 ImageRefResult，raw_result 统一建模
                 trace = ToolRegistry.trace_item(
                     parsed,
                     ImageRefResult(image_ref=tool_call.id, mime="image/jpeg", b64_len=len(b64)),
@@ -140,7 +246,6 @@ class McpToolLoopRunner:
                 trace = ToolRegistry.trace_item(parsed, result_model, ok=True, error=None)
 
         except Exception as e:
-            # 不让异常打断 tool loop：记录错误，tool_msg 回填错误文本
             err = f"{type(e).__name__}: {e}"
             tool_msg = OpenAIMessage(role="tool", content=err, tool_call_id=tool_call.id)
             trace = ToolTraceItem(
@@ -152,22 +257,10 @@ class McpToolLoopRunner:
                 error=err,
             )
 
-        # 3) 链式 extra prompt（可选）
+        # 3) 链式 extra prompt（仅保留仍在 MCP 侧的工具）
         extra_msgs: list[OpenAIMessage] = []
         if tool_output_as_user_prompt:
             if trace.ok:
-                # 只对你已知工具做 prompt
-                if parsed.full_name == "timeemi__get_date_and_time":
-                    # 这里传 raw datetime 给 server prompt 模板（让 Tool Model/Chat Model 自己口语化）
-                    dt = trace.raw_result.get("datetime")
-                    if isinstance(dt, str):
-                        pr = await self.mcp.get_prompt(
-                            full_name=parsed.full_name,
-                            prompt_name="convert_time_readable",
-                            args={"time_str": dt},
-                        )
-                        extra_msgs.append(OpenAIMessage(role="user", content=prompt_result_to_text(pr)))
-
                 if parsed.full_name == "timeemi__roll_dice":
                     nums = trace.raw_result.get("numbers")
                     if isinstance(nums, list) and all(isinstance(x, int) for x in nums):  # type: ignore
@@ -196,11 +289,8 @@ class McpToolLoopRunner:
                     )
                     extra_msgs.append(OpenAIMessage(role="user", content=prompt_result_to_text(pr)))
 
-                # --------------------------
-                # tool__web_search: extract
-                # --------------------------
                 if parsed.full_name == "tool__web_search":
-                    raw_result = trace.raw_result  # dict[str, object]
+                    raw_result = trace.raw_result
                     search_results = raw_result.get("results")
 
                     if isinstance(search_results, list):
@@ -214,11 +304,8 @@ class McpToolLoopRunner:
                             lines.append(f"{idx}. {title}\n   {url}\n   {snippet}")
                         extra_msgs.append(OpenAIMessage(role="user", content="\n".join(lines)))
 
-                # --------------------------
-                # tool__web_fetch: extract
-                # --------------------------
                 if parsed.full_name == "tool__web_fetch":
-                    raw_result = trace.raw_result  # dict[str, object]
+                    raw_result = trace.raw_result
 
                     fetch_url = str(raw_result.get("url", "") or "")
                     status_code = raw_result.get("status_code", "")
