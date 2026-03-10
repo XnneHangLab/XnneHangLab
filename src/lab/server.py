@@ -97,13 +97,10 @@ async def lifespan(app: FastAPI):
             )
             logger.warning("继续启动应用，但本次运行工具调用功能将被禁用。")
 
-    # Memory bench router initialisation
-    # overrides 优先级高于 .env.benchmark，配置来源：lab.toml [memory_bench]
+    # Memory bench proxy_router initialisation
+    # 配置优先级：lab.toml [memory_bench] > memory_bench/.env.benchmark
     if lab_settings.package.memory_bench:
         try:
-            from memory_bench.server.proxy_router import (
-                proxy_router as _proxy_router,  # type: ignore[reportMissingImports]
-            )
             from memory_bench.server.router import (  # type: ignore[reportMissingImports]
                 state as memory_state,
             )
@@ -113,41 +110,58 @@ async def lifespan(app: FastAPI):
                 resolve_memory_bench_config,  # type: ignore[reportMissingImports]
             )
 
-            mb = lab_settings.memory_bench
+            memory_bench_cfg = lab_settings.memory_bench
 
-            # 从 chat_model 定位实际的 LLM provider 配置
+            # 从 chat_model 定位实际的上游 LLM provider（proxy 转发目标）
+            # 注意：chat_model.llm_provider 此时应指向真实 provider（oaipro 等），
+            # 而非 memory_proxy 自身，否则会形成回环。
             chat_model_cfg = lab_settings.agent.chat_model
-            chat_llm_provider = getattr(lab_settings.agent.llm, chat_model_cfg.llm_provider)
+            upstream_llm_provider = getattr(lab_settings.agent.llm, chat_model_cfg.llm_provider)
 
-            # 构造 overrides：lab.toml 优先，空值 fallback 到 .env.benchmark
-            overrides: dict[str, object] = {
-                # chat（上游转发目标）复用 chat_model 的真实 provider
-                "chat_api_key": chat_llm_provider.llm_api_key or None,
-                "chat_base_url": chat_llm_provider.llm_base_url or None,
-                "chat_model": chat_model_cfg.llm_model_name or None,
-                # mem0 LLM：优先用 [memory_bench.llm]，空则 fallback 到 chat_model
-                "llm_api_key": mb.llm.api_key or chat_llm_provider.llm_api_key or None,
-                "llm_base_url": mb.llm.base_url or chat_llm_provider.llm_base_url or None,
-                "llm_model": mb.llm.model or chat_model_cfg.llm_model_name or None,
-                # embedding（必填）
-                "embedding_api_key": mb.embedding.api_key or None,
-                "embedding_base_url": mb.embedding.base_url or None,
-                "embedding_model": mb.embedding.model or None,
+            # 必填字段校验（embedding_api_key 无法从 chat_model 推断，必须显式配置）
+            missing: list[str] = []
+            if not upstream_llm_provider.llm_api_key:
+                missing.append("agent.llm.<chat_provider>.llm_api_key")
+            if not memory_bench_cfg.embedding.api_key:
+                missing.append("memory_bench.embedding.api_key")
+            if missing:
+                raise ValueError(
+                    f"memory_bench 启动缺少必填配置，请在 lab.toml 中补充：{', '.join(missing)}"
+                )
+
+            # 构造 overrides：非空值覆盖 .env.benchmark，空值自动 fallback
+            raw_overrides: dict[str, object] = {
+                # proxy 上游转发目标（复用 chat_model 的真实 provider）
+                "chat_api_key": upstream_llm_provider.llm_api_key,
+                "chat_base_url": upstream_llm_provider.llm_base_url,
+                "chat_model": chat_model_cfg.llm_model_name,
+                # mem0 事实提取 LLM：优先用 [memory_bench.llm]，空则复用 chat_model
+                "llm_api_key": memory_bench_cfg.llm.api_key or upstream_llm_provider.llm_api_key,
+                "llm_base_url": memory_bench_cfg.llm.base_url or upstream_llm_provider.llm_base_url,
+                "llm_model": memory_bench_cfg.llm.model or chat_model_cfg.llm_model_name,
+                # embedding（必须显式配置）
+                "embedding_api_key": memory_bench_cfg.embedding.api_key,
+                "embedding_base_url": memory_bench_cfg.embedding.base_url,
+                "embedding_model": memory_bench_cfg.embedding.model,
                 # 检索参数
-                "user_id": mb.user_id,
-                "agent_id": mb.agent_id,
-                "search_limit": mb.search_limit,
-                "server_api_key": mb.server_api_key or None,
+                "user_id": memory_bench_cfg.user_id,
+                "agent_id": memory_bench_cfg.agent_id,
+                "search_limit": memory_bench_cfg.search_limit,
+                "server_api_key": memory_bench_cfg.server_api_key or None,
             }
-            # 过滤掉 None，让 resolve_memory_bench_config 从 .env.benchmark fallback
-            overrides = {k: v for k, v in overrides.items() if v is not None}
+            # 过滤掉空字符串 / None，让 resolve_memory_bench_config fallback 到 .env.benchmark
+            overrides = {k: v for k, v in raw_overrides.items() if v}
 
             load_memory_bench_env()
             cfg = resolve_memory_bench_config(overrides=overrides)
             init_router_state(memory_state, cfg)
-            logger.info("✅ memory_bench proxy_router initialized (chat→%s / %s)", cfg["chat_base_url"], cfg["chat_model"])
+            logger.info(
+                "✅ memory_bench proxy_router initialized (upstream→%s / %s)",
+                cfg["chat_base_url"],
+                cfg["chat_model"],
+            )
         except Exception as exc:
-            logger.warning("⚠️ memory_bench router init failed: %s — /v1/chat/completions proxy will be unavailable", exc)
+            logger.warning("⚠️ memory_bench router init failed: %s — proxy_router will be unavailable", exc)
 
     yield
 
