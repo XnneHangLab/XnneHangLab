@@ -178,11 +178,12 @@ async def proxy_chat_completions(raw_request: Request) -> StreamingResponse | JS
 
     req = _ProxyRequest.model_validate(raw_body)
 
-    # 2. 记忆召回
+    # 2. 记忆召回（search_memories 是同步 IO，用线程池避免阻塞事件循环）
     latest_user_text = _extract_last_user_text(req.messages)
     memories: list[dict[str, Any]] = []
     if latest_user_text:
-        memories = search_memories(latest_user_text)
+        loop = asyncio.get_event_loop()
+        memories = await loop.run_in_executor(None, search_memories, latest_user_text)
         if memories:
             log.info("🔍 Found %d memories for query", len(memories))
 

@@ -65,6 +65,9 @@ test-asr:
 test-proxy:
   curl -X POST "http://localhost:12393/v1/chat/completions" -H "Content-Type: application/json" -d '{"model":"gpt-5.1-2025-11-13","messages":[{"role":"user","content":"hi"}],"stream":false}'
 
+test-proxy-stream:
+  curl -X POST "http://localhost:12393/v1/chat/completions" -H "Content-Type: application/json" -d '{"model":"gpt-5.1-2025-11-13","messages":[{"role":"user","content":"hi"}],"stream":true}' --no-buffer
+
 test-proxy-health:
   curl http://localhost:12393/health
 
