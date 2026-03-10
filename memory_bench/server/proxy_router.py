@@ -141,7 +141,9 @@ def _upstream_url(path: str) -> str:
     client = state.openai_client
     if client is None:
         raise HTTPException(status_code=503, detail="Server not initialized")
+    # OpenAI SDK 会在 base_url 末尾自动追加 /v1/，需要剥掉再拼接，避免 double /v1/
     base = str(client.base_url).rstrip("/")
+    base = base.removesuffix("/v1")
     return f"{base}/{path.lstrip('/')}"
 
 

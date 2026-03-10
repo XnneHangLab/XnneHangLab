@@ -150,7 +150,7 @@ async def lifespan(app: FastAPI):
             cfg = resolve_memory_bench_config(overrides=overrides)
             init_router_state(memory_state, cfg)
             logger.info(
-                "✅ memory_bench proxy_router initialized (upstream→%s / %s)",
+                "✅ memory_bench proxy_router initialized (upstream→{} / {})",
                 cfg["chat_base_url"],
                 cfg["chat_model"],
             )
