@@ -151,6 +151,22 @@ gpt_sovits = false
 qwen_tts = true
 memory_bench = false
 
+[memory_bench]
+user_id = "xnne"
+agent_id = "congyin"
+search_limit = 10
+server_api_key = ""
+
+[memory_bench.embedding]
+api_key = ""
+base_url = "https://api.oaipro.com/v1"
+model = "text-embedding-3-small"
+
+[memory_bench.llm]
+api_key = ""
+base_url = ""
+model = ""
+
 [root]
 root_dir = "D:\\tmp\\XnneHangLab"
 
