@@ -144,7 +144,7 @@ state = ServerState()
 # ---------------------------------------------------------------------------
 
 
-async def _verify_api_key(request: Request) -> None:
+async def verify_api_key(request: Request) -> None:
     """Validate Bearer token against ``state.api_key``.
 
     Skipped when ``state.api_key`` is *None* (no auth configured).
@@ -164,7 +164,7 @@ async def _verify_api_key(request: Request) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _search_memories(query: str) -> list[dict[str, Any]]:
+def search_memories(query: str) -> list[dict[str, Any]]:
     if state.mem0 is None:
         return []
     try:
@@ -184,7 +184,7 @@ def _search_memories(query: str) -> list[dict[str, Any]]:
     return []
 
 
-def _format_memories(memories: list[dict[str, Any]]) -> str:
+def format_memories(memories: list[dict[str, Any]]) -> str:
     if not memories:
         return ""
     lines: list[str] = []
@@ -475,7 +475,7 @@ def _graph_pipeline_sync(mem0_results: list[dict[str, Any]]) -> None:
         log.error("\u274c Graph pipeline failed: %s", exc)
 
 
-async def _memory_and_graph_background(user_msg: str, assistant_msg: str) -> None:
+async def memory_and_graph_background(user_msg: str, assistant_msg: str) -> None:
     """Background task: mem0 write-back (sync) → graph pipeline (async).
 
     mem0.add() is synchronous and must complete before graph pipeline starts
@@ -497,7 +497,7 @@ async def _memory_and_graph_background(user_msg: str, assistant_msg: str) -> Non
 router = APIRouter()  # type: ignore[reportUnknownVariableType]
 
 
-@router.post("/v1/chat/completions", dependencies=[Depends(_verify_api_key)])  # type: ignore[reportUnknownMemberType,reportUntypedFunctionDecorator]
+@router.post("/v1/chat/completions", dependencies=[Depends(verify_api_key)])  # type: ignore[reportUnknownMemberType,reportUntypedFunctionDecorator]
 async def chat_completions(request: ChatCompletionRequest) -> JSONResponse:  # type: ignore[reportUnknownParameterType]
     """OpenAI-compatible chat completions with memory augmentation."""
     if state.openai_client is None:  # type: ignore[reportUnknownMemberType]
@@ -512,8 +512,8 @@ async def chat_completions(request: ChatCompletionRequest) -> JSONResponse:  # t
     latest_user_msg = user_messages[-1].content if user_messages else ""
 
     # 2. Memory search
-    memories = _search_memories(latest_user_msg) if latest_user_msg else []
-    memories_text = _format_memories(memories)
+    memories = search_memories(latest_user_msg) if latest_user_msg else []
+    memories_text = format_memories(memories)
     if memories:
         log.info("\U0001f50d Found %d memories for user query", len(memories))
         for rank, mem in enumerate(memories[:2], 1):
@@ -548,7 +548,7 @@ async def chat_completions(request: ChatCompletionRequest) -> JSONResponse:  # t
     # 5. Async write-back + graph pipeline (user + assistant only, no system prompt)
     if latest_user_msg and assistant_content:
         log.info("\U0001f4be Queued memory write-back + graph pipeline (async)")
-        asyncio.create_task(_memory_and_graph_background(latest_user_msg, assistant_content))  # type: ignore[reportUnknownArgumentType]
+        asyncio.create_task(memory_and_graph_background(latest_user_msg, assistant_content))  # type: ignore[reportUnknownArgumentType]
 
     # 6. Response
     resp = ChatCompletionResponse(
