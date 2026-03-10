@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+import httpx
 from loguru import logger
 from openai import APIConnectionError, APIError, AsyncOpenAI, AsyncStream, RateLimitError
 
@@ -56,11 +57,20 @@ class AsyncLLM:
         self.base_url = base_url
         self.model = model
         self.temperature = temperature
+
+        # localhost/127.0.0.1 绕过系统代理（Clash 等会拦截本地请求导致 502）
+        # trust_env=False 阻止 httpx 读取 HTTP_PROXY/HTTPS_PROXY 等环境变量
+        _no_proxy = "localhost" in base_url or "127.0.0.1" in base_url
+        _http_client = httpx.AsyncClient(trust_env=False) if _no_proxy else None
+        if _no_proxy:
+            logger.info(f"AsyncLLM: {base_url} is local, bypassing system proxy")
+
         self.client = AsyncOpenAI(
             base_url=base_url,
             organization=organization_id,
             project=project_id,
             api_key=llm_api_key,
+            http_client=_http_client,
         )
         logger.info(f"Initialized AsyncLLM: base_url={self.base_url}, model={self.model}")
 
