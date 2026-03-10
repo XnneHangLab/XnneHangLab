@@ -9,7 +9,6 @@ This module intentionally does NOT depend on any MemoryManager abstraction.
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
-from urllib.parse import urlparse
 
 import httpx
 from loguru import logger
@@ -60,9 +59,10 @@ class AsyncLLM:
         self.temperature = temperature
 
         # localhost/127.0.0.1 绕过系统代理（Clash 等会拦截本地请求导致 502）
-        _host = urlparse(base_url).hostname or ""
-        _no_proxy = _host in ("localhost", "127.0.0.1", "::1")
+        _no_proxy = "localhost" in base_url or "127.0.0.1" in base_url
         _http_client = httpx.AsyncClient(proxy=None) if _no_proxy else None
+        if _no_proxy:
+            logger.info(f"AsyncLLM: {base_url} is local, bypassing system proxy")
 
         self.client = AsyncOpenAI(
             base_url=base_url,
