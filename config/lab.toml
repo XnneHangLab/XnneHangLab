@@ -1,4 +1,4 @@
-conf_version = "v1.1.2"
+conf_version = "v1.2.0"
 
 [asr]
 FFMPEG_PATH = "ffmpeg"
@@ -86,7 +86,7 @@ api_format = "chat_completion"
 
 [agent.llm.memory_proxy]
 llm_api_key = "any"
-llm_base_url = "http://localhost:8081"
+llm_base_url = "http://localhost:12393"
 api_format = "chat_completion"
 
 [agent.llm.cerebras]
@@ -163,6 +163,7 @@ base_url = "https://api.oaipro.com/v1"
 model = "text-embedding-3-small"
 
 [memory_bench.llm]
+# 留空则自动复用 chat_model 的 provider 配置（api_key / base_url / model_name）
 api_key = ""
 base_url = ""
 model = ""
