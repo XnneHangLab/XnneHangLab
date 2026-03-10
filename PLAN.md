@@ -13,10 +13,11 @@ memory_bench proxy_router 内嵌到 src/lab，统一配置入口。
 ### chat_router 迁移到 src/lab（本次 PR）
 
 **变更：**
-- `memory_bench/server/chat_router.py` → `src/lab/api/routes/chat.py`
+- `memory_bench/server/chat_router.py` → `src/lab/api/routes/chat.py`  
 - `memory_bench/server/conversation_store.py` → `src/lab/conversation/store.py`
 - 删除 `memory_bench/server/tools/`（file_tools.py、search_tools.py），已被 `src/lab/tools/builtin` 替代
 - chat endpoint 现在使用 `ToolManager` + `AsyncLLM`，直接 import memory_bench 的 `search_memories()` / `memory_and_graph_background()`
+- 聊天终端 现在使用 `ToolManager` + `AsyncLLM`，直接导入 memory_bench 的 `search_memories()` / `memory_and_graph_background()`  
 - memory_bench 职责纯化：只做记忆存取 + 图谱管线
 
 **架构对齐 #262：**
@@ -33,6 +34,10 @@ memory_bench proxy_router 内嵌到 src/lab，统一配置入口。
 - [ ] Skill 文件系统 + SkillLoader
 - [ ] Hook 机制 + SystemPromptBuilder + Profile 配置
 - [ ] memory_bench 封装为 MemoryPlugin
+- [ ] system prompt 加入 docs/index.md
+- [ ] fastapi 新增 v1/openai/chat_completion, chat
+- [ ] MCP 架构变化
+- [ ] Tool 架构变化
 
 ### 后续清理（可选）
 
