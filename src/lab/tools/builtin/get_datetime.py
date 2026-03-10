@@ -17,6 +17,7 @@ class GetDatetimeTool(BuiltinTool):
 
     name = "get_datetime"
     description = "Get the current date and time. Returns format: YYYY-MM-DD HH:MM:SS"
+    usage_hint = "当用户询问当前时间、日期、今天是几号等时调用此工具。"
 
     def get_schema(self) -> dict[str, Any]:
         return {

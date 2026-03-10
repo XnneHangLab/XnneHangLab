@@ -21,6 +21,7 @@ class ListDirTool(BuiltinTool):
         "List files and subdirectories in a workspace directory. "
         "Returns a sorted list with type (file/dir) and size for files."
     )
+    usage_hint = "当需要查看某个目录下有哪些文件时调用此工具。"
 
     def get_schema(self) -> dict[str, Any]:
         return {

@@ -315,3 +315,37 @@ class TestToolManager:
         tm.register_builtin(GetDatetimeTool())
         result = asyncio.run(tm.call_tool("get_datetime", {}, ctx))
         assert result.ok
+
+    def test_build_system_prompt_empty(self, ctx: AgentContext) -> None:
+        """没有注册任何工具时返回空字符串。"""
+        tm = ToolManager()
+        prompt = tm.build_system_prompt()
+        assert prompt == ""
+
+    def test_build_system_prompt_with_tools(self, ctx: AgentContext) -> None:
+        """注册工具后 prompt 包含工具名、description、usage_hint。"""
+        tm = ToolManager()
+        tm.register_builtin(GetDatetimeTool())
+        tm.register_builtin(ReadFileTool())
+        prompt = tm.build_system_prompt()
+        assert "## 可用工具" in prompt
+        assert "get_datetime" in prompt
+        assert "read_file" in prompt
+        # usage_hint 应该出现
+        assert "使用时机" in prompt
+
+    def test_build_system_prompt_with_preamble(self, ctx: AgentContext) -> None:
+        """preamble 出现在 prompt 最前面。"""
+        tm = ToolManager()
+        tm.register_builtin(GetDatetimeTool())
+        preamble = "你是一个助手，拥有以下工具："
+        prompt = tm.build_system_prompt(preamble=preamble)
+        assert prompt.startswith(preamble)
+        assert "get_datetime" in prompt
+
+    def test_build_system_prompt_no_mcp(self, ctx: AgentContext) -> None:
+        """include_mcp=False 时不列 MCP 工具（内置工具仍然列出）。"""
+        tm = ToolManager()
+        tm.register_builtin(GetDatetimeTool())
+        prompt = tm.build_system_prompt(include_mcp=False)
+        assert "get_datetime" in prompt
