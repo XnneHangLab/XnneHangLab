@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from lab.live2d_model import Live2dModel
 
 
-def _build_default_tool_manager(workspace_root: Path) -> ToolManager:
+def build_default_tool_manager(workspace_root: Path) -> ToolManager:
     """构建并注册默认内置工具集的 ToolManager。
 
     工具集：get_datetime / read_file / write_file / edit_file / list_dir
@@ -86,7 +86,7 @@ class AgentFactory:
 
         # 构建 ToolManager + AgentContext
         ws_root = workspace_root or Path.cwd()
-        tool_manager = _build_default_tool_manager(ws_root)
+        tool_manager = build_default_tool_manager(ws_root)
         agent_context = AgentContext(workspace_root=ws_root)
 
         return MemoryAgent(

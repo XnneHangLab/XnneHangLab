@@ -75,14 +75,27 @@ class ChatState:
     """Mutable singleton holding chat endpoint config.
 
     Populated at application startup (in ``server.py`` lifespan).
+
+    Prompt paths follow the 5-layer system prompt architecture
+    (see docs/architecture/system-prompt-layers.md):
+    - persona_file: Layer 1 (character identity)
+    - format_file: Layer 2 (output format constraints)
+    - skill_files: Layer 3 (behavioral strategies)
+    - Layer 4 (tools) is auto-generated from ToolManager
+    - Layer 5 (context) is injected per-request at runtime
     """
 
     chat_llm: AsyncLLM | None = None
     tool_manager: ToolManager | None = None
     agent_context: AgentContext | None = None
     chat_model: str = ""
-    prompts_dir: str = ""
     conversations_dir: str = "conversations"
+
+    # --- Prompt layers (configurable per profile) ---
+    persona_file: str = ""          # Layer 1: e.g. "prompts/characters/satone.txt"
+    format_file: str = ""           # Layer 2: e.g. "prompts/formats/emotion_pipe.txt"
+    skill_files: list[str] | None = None  # Layer 3: e.g. ["prompts/skills/diary_writing.md", ...]
+    workspace_root: str = ""        # For resolving relative prompt paths
 
 
 chat_state = ChatState()
@@ -110,40 +123,55 @@ def _load_prompt_file(file_path: Path) -> str | None:
 
 
 def _build_system_prompt() -> str:
-    """Build system prompt by concatenating modular files + tool descriptions.
+    """Build system prompt following the 5-layer architecture.
 
-    Order:
-    1. [persona] base_persona.txt
-    2. [emotion] emotion_system.txt
-    3. [tools] auto-generated from ToolManager (replaces hardcoded tool_definitions.txt)
-    4. [diary] recent_summary.txt (optional)
+    See docs/architecture/system-prompt-layers.md for design rationale.
+
+    Layers:
+    1. Persona — character identity (from persona_file)
+    2. Format — output format constraints (from format_file)
+    3. Skills — behavioral strategies (from skill_files)
+    4. Tools — auto-generated from ToolManager
+    5. Context — injected per-request (memories, diary summaries) — NOT here, done in chat_endpoint
     """
     log = logger.bind(group="chat")
     parts: list[str] = []
 
-    if not chat_state.prompts_dir:
-        log.warning("⚠️  prompts_dir not configured, using minimal system prompt")
-        return "You are a helpful assistant."
+    ws_root = Path(chat_state.workspace_root) if chat_state.workspace_root else None
 
-    prompts_path = Path(chat_state.prompts_dir)
+    def _resolve_and_load(rel_path: str, layer_name: str) -> str | None:
+        """Resolve relative path against workspace_root and load."""
+        if not rel_path:
+            return None
+        if ws_root is not None:
+            full_path = ws_root / rel_path
+        else:
+            full_path = Path(rel_path)
+        content = _load_prompt_file(full_path)
+        if content:
+            log.info("✅ [{}] Loaded: {}", layer_name, rel_path)
+        else:
+            log.warning("⚠️  [{}] Not found or empty: {}", layer_name, full_path)
+        return content
 
-    # 1. Base persona
-    persona_file = prompts_path / "emotion" / "base_persona.txt"
-    persona_content = _load_prompt_file(persona_file)
-    if persona_content:
-        parts.append(persona_content)
-        log.info("✅ Loaded persona from {}", persona_file)
-    else:
-        log.warning("⚠️  Persona file not found or empty: {}", persona_file)
+    # Layer 1: Persona
+    persona = _resolve_and_load(chat_state.persona_file, "persona")
+    if persona:
+        parts.append(persona)
 
-    # 2. Emotion system
-    emotion_file = prompts_path / "emotion" / "emotion_system.txt"
-    emotion_content = _load_prompt_file(emotion_file)
-    if emotion_content:
-        parts.append(emotion_content)
-        log.info("✅ Loaded emotion system from {}", emotion_file)
+    # Layer 2: Format
+    fmt = _resolve_and_load(chat_state.format_file, "format")
+    if fmt:
+        parts.append(fmt)
 
-    # 3. Tool descriptions (auto-generated from ToolManager)
+    # Layer 3: Skills
+    if chat_state.skill_files:
+        for skill_path in chat_state.skill_files:
+            skill = _resolve_and_load(skill_path, "skill")
+            if skill:
+                parts.append(skill)
+
+    # Layer 4: Tools (auto-generated)
     if chat_state.tool_manager is not None:
         tool_prompt = chat_state.tool_manager.build_system_prompt(
             preamble="你可以使用以下工具来帮助完成任务：",
@@ -151,21 +179,16 @@ def _build_system_prompt() -> str:
         )
         if tool_prompt.strip():
             parts.append(tool_prompt)
-            log.info("✅ Generated tool prompt from ToolManager")
+            log.info("✅ [tools] Generated from ToolManager")
 
-    # 4. Diary summary (optional)
-    diary_file = prompts_path / "diary" / "recent_summary.txt"
-    diary_content = _load_prompt_file(diary_file)
-    if diary_content:
-        parts.append(diary_content)
-        log.info("✅ Loaded diary summary from {}", diary_file)
+    # Layer 5: Context is NOT added here — it's per-request, added in chat_endpoint
 
     if not parts:
-        log.error("❌ No valid prompt files found, using fallback")
+        log.error("❌ No valid prompt layers loaded, using fallback")
         return "You are a helpful assistant."
 
-    system_prompt = "\n\n".join(parts)
-    log.info("✅ Built system prompt ({} parts, {} chars)", len(parts), len(system_prompt))
+    system_prompt = "\n\n---\n\n".join(parts)
+    log.info("✅ Built system prompt ({} layers, {} chars)", len(parts), len(system_prompt))
     return system_prompt
 
 
@@ -453,7 +476,9 @@ async def chat_health() -> JSONResponse:
             "llm_ready": chat_state.chat_llm is not None,
             "model": chat_state.chat_model,
             "tools_count": tools_count,
-            "prompts_dir": chat_state.prompts_dir or None,
+            "persona_file": chat_state.persona_file or None,
+            "format_file": chat_state.format_file or None,
+            "skill_files": chat_state.skill_files,
             "conversations_dir": chat_state.conversations_dir,
         }
     )

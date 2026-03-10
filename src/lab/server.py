@@ -158,13 +158,13 @@ async def lifespan(app: FastAPI):
             # --- Chat endpoint (src/lab) ---
             # Uses ToolManager + AsyncLLM, imports memory functions from memory_bench
             try:
-                from lab.agent.agent_factory import _build_default_tool_manager
+                from lab.agent.agent_factory import build_default_tool_manager
                 from lab.agent.stateless_llm_factory import LLMFactory
                 from lab.api.routes.chat import chat_state
                 from lab.tools import AgentContext
 
                 ws_root = Path(lab_settings.root.root_dir)
-                tool_manager = _build_default_tool_manager(ws_root)
+                tool_manager = build_default_tool_manager(ws_root)
                 agent_context = AgentContext(workspace_root=ws_root)
 
                 chat_llm_instance = LLMFactory.create_llm(
@@ -177,8 +177,14 @@ async def lifespan(app: FastAPI):
                 chat_state.tool_manager = tool_manager
                 chat_state.agent_context = agent_context
                 chat_state.chat_model = chat_model_cfg.llm_model_name
-                chat_state.prompts_dir = str(ws_root / "memory_bench" / "server" / "prompts")
-                chat_state.conversations_dir = str(ws_root / "memory_bench" / "conversations")
+                chat_state.workspace_root = str(ws_root)
+                chat_state.persona_file = "prompts/characters/satone.txt"
+                chat_state.format_file = "prompts/formats/emotion_pipe.txt"
+                chat_state.skill_files = [
+                    "prompts/skills/diary_writing.md",
+                    "prompts/skills/file_navigation.md",
+                ]
+                chat_state.conversations_dir = str(ws_root / "data" / "conversations")
 
                 logger.info(
                     "✅ Chat endpoint initialized (model={}, tools={})",
