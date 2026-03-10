@@ -97,30 +97,65 @@ async def lifespan(app: FastAPI):
             )
             logger.warning("继续启动应用，但本次运行工具调用功能将被禁用。")
 
-    # Memory bench router initialisation (配置完全隔离：从 memory_bench/.env.benchmark 加载)
+    # Memory bench proxy_router initialisation
+    # 配置优先级：lab.toml > memory_bench/.env.benchmark
     if lab_settings.package.memory_bench:
         try:
-            from memory_bench.server.chat_router import (  # type: ignore[reportMissingImports]
-                chat_state,
-            )
             from memory_bench.server.router import (  # type: ignore[reportMissingImports]
                 state as memory_state,
             )
             from memory_bench.server.startup import (
-                init_chat_router_state,  # type: ignore[reportMissingImports]
                 init_router_state,  # type: ignore[reportMissingImports]
                 load_memory_bench_env,  # type: ignore[reportMissingImports]
                 resolve_memory_bench_config,  # type: ignore[reportMissingImports]
             )
 
+            memory_bench_cfg = lab_settings.memory_bench
+            chat_model_cfg = lab_settings.agent.chat_model
+            embedding_cfg = lab_settings.agent.embedding
+            # upstream_llm_provider 显式指定真实上游，与 chat_model.llm_provider 职责分离
+            # （chat_model 此时指向 memory_proxy 自身，直接读会回环）
+            upstream_llm = getattr(lab_settings.agent.llm, memory_bench_cfg.upstream_llm_provider)
+
+            # 必填校验：缺配置直接报错，不静默失败
+            missing: list[str] = []
+            if not upstream_llm.llm_api_key:
+                missing.append(f"agent.llm.{memory_bench_cfg.upstream_llm_provider}.llm_api_key")
+            if not embedding_cfg.api_key:
+                missing.append("agent.embedding.api_key")
+            if missing:
+                raise ValueError(f"memory_bench 启动缺少必填配置：{', '.join(missing)}")
+
+            overrides: dict[str, object] = {
+                # proxy 上游转发目标
+                "chat_api_key": upstream_llm.llm_api_key,
+                "chat_base_url": upstream_llm.llm_base_url,
+                "chat_model": chat_model_cfg.llm_model_name,
+                # mem0 事实提取 LLM：直接复用 chat_model（无 fallback 链）
+                "llm_api_key": upstream_llm.llm_api_key,
+                "llm_base_url": upstream_llm.llm_base_url,
+                "llm_model": chat_model_cfg.llm_model_name,
+                # embedding：来自 agent.embedding
+                "embedding_api_key": embedding_cfg.api_key,
+                "embedding_base_url": embedding_cfg.base_url,
+                "embedding_model": embedding_cfg.model,
+                # 检索参数
+                "user_id": memory_bench_cfg.user_id,
+                "agent_id": memory_bench_cfg.agent_id,
+                "search_limit": memory_bench_cfg.search_limit,
+                "server_api_key": memory_bench_cfg.server_api_key or None,
+            }
+
             load_memory_bench_env()
-            cfg = resolve_memory_bench_config()
+            cfg = resolve_memory_bench_config(overrides=overrides)
             init_router_state(memory_state, cfg)
-            init_chat_router_state(chat_state, cfg)
-            logger.info("✅ memory_bench router initialized (mounted at /memory)")
-            logger.info("✅ memory_bench chat_router initialized (mounted at /memory/chat)")
+            logger.info(
+                "✅ memory_bench proxy_router initialized (upstream→%s / %s)",
+                cfg["chat_base_url"],
+                cfg["chat_model"],
+            )
         except Exception as exc:
-            logger.warning("⚠️ memory_bench router init failed: %s — /memory endpoints will be unavailable", exc)
+            logger.warning("⚠️ memory_bench router init failed: %s — proxy_router will be unavailable", exc)
 
     yield
 
@@ -165,11 +200,9 @@ class WebSocketServer:
 
             self.app.include_router(gsv_v2_router)
         if lab_settings.package.memory_bench:
-            from memory_bench.server.chat_router import router as chat_router  # type: ignore[reportMissingImports]
-            from memory_bench.server.router import router as memory_router  # type: ignore[reportMissingImports]
+            from memory_bench.server.proxy_router import proxy_router  # type: ignore[reportMissingImports]
 
-            self.app.include_router(memory_router, prefix="/memory")
-            self.app.include_router(chat_router, prefix="/memory")
+            self.app.include_router(proxy_router)  # /v1/chat/completions  /v1/models  /health
         # Mount static files
         logger.info(f"Mounting static files from {ROOT_DIR}")
         self.app.mount(
