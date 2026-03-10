@@ -59,8 +59,9 @@ class AsyncLLM:
         self.temperature = temperature
 
         # localhost/127.0.0.1 绕过系统代理（Clash 等会拦截本地请求导致 502）
+        # trust_env=False 阻止 httpx 读取 HTTP_PROXY/HTTPS_PROXY 等环境变量
         _no_proxy = "localhost" in base_url or "127.0.0.1" in base_url
-        _http_client = httpx.AsyncClient(proxy=None) if _no_proxy else None
+        _http_client = httpx.AsyncClient(trust_env=False) if _no_proxy else None
         if _no_proxy:
             logger.info(f"AsyncLLM: {base_url} is local, bypassing system proxy")
 
