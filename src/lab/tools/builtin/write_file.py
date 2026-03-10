@@ -21,6 +21,7 @@ class WriteFileTool(BuiltinTool):
         "Creates parent directories if needed. "
         "Use append=true to append instead of overwrite."
     )
+    usage_hint = "当需要创建或覆盖写入本地文件时调用此工具。支持追加模式。"
 
     def get_schema(self) -> dict[str, Any]:
         return {

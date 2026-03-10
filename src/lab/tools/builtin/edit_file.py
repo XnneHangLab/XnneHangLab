@@ -21,6 +21,7 @@ class EditFileTool(BuiltinTool):
         "old_text must match exactly (including whitespace and newlines). "
         "By default replaces only the first occurrence."
     )
+    usage_hint = "当需要精确修改文件中的某段文本时调用此工具。old_text 必须与文件内容完全匹配。"
 
     def get_schema(self) -> dict[str, Any]:
         return {

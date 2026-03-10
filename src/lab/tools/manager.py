@@ -39,13 +39,79 @@ class ToolManager:
         self._builtin[tool.name] = tool
         logger.debug(f"[ToolManager] registered builtin tool: {tool.name}")
 
-    def has_builtin(self, name: str) -> bool:
-        """判断给定工具名是否已注册为内置工具。"""
-        return name in self._builtin
+    def build_system_prompt(
+        self,
+        *,
+        preamble: str = "",
+        include_mcp: bool = True,
+    ) -> str:
+        """
+        根据已注册工具自动生成 tool system prompt。
+
+        生成格式：
+            {preamble}（可选引言，如"你是一个助手，你有以下工具可以使用："）
+
+            ## 可用工具
+
+            ### get_datetime
+            获取当前时间和日期。
+            > 使用时机：当用户询问当前时间、日期、今天是几号等时调用此工具。
+
+            ### read_file
+            ...
+
+        参数：
+        - preamble: 追加在工具列表前的引言段落（留空则直接从工具列表开始）
+        - include_mcp: 是否在 prompt 中包含 MCP 工具（仅列出工具名和描述，无 usage_hint）
+
+        注意：
+        - 内置工具 description 和 usage_hint 均使用中文友好描述
+        - MCP 工具没有 usage_hint，只列 description
+        - 生成结果可直接作为 tool_system_prompt 传给 McpToolLoopRunner
+        """
+        sections: list[str] = []
+
+        if preamble:
+            sections.append(preamble.strip())
+
+        tool_lines: list[str] = []
+
+        # 先列 MCP 工具（如果有且 include_mcp）
+        if include_mcp and self._mcp is not None:
+            try:
+                mcp_schemas: list[dict[str, Any]] = self._mcp.list_tools()  # type: ignore[attr-defined]
+                for s in mcp_schemas:  # type: ignore[union-attr]
+                    fn: dict[str, Any] = s.get("function", {})  # type: ignore[assignment]
+                    name: str = fn.get("name", "")  # type: ignore[assignment]
+                    desc: str = fn.get("description", "")  # type: ignore[assignment]
+                    if name and name not in self._builtin:
+                        tool_lines.append(f"### {name}")
+                        if desc:
+                            tool_lines.append(desc)  # type: ignore[arg-type]
+                        tool_lines.append("")
+            except Exception as e:
+                logger.warning(f"[ToolManager] build_system_prompt: failed to list MCP tools: {e}")
+
+        # 再列内置工具（内置工具有 usage_hint，描述更完整）
+        for name, tool in self._builtin.items():
+            tool_lines.append(f"### {name}")
+            tool_lines.append(tool.description)
+            if tool.usage_hint:
+                tool_lines.append(f"> 使用时机：{tool.usage_hint}")
+            tool_lines.append("")
+
+        if tool_lines:
+            sections.append("## 可用工具\n\n" + "\n".join(tool_lines).rstrip())
+
+        return "\n\n".join(sections)
 
     # ------------------------------------------------------------------
     # Schema 接口
     # ------------------------------------------------------------------
+
+    def has_builtin(self, name: str) -> bool:
+        """判断给定工具名是否已注册为内置工具。"""
+        return name in self._builtin
 
     def list_tools_schema(self) -> list[dict[str, Any]]:
         """

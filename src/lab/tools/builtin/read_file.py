@@ -30,6 +30,7 @@ class ReadFileTool(BuiltinTool):
         "Optionally specify start_line/end_line (1-based, inclusive). "
         "Returns file content as text."
     )
+    usage_hint = "当需要读取本地文件内容时调用此工具。支持指定行范围。"
 
     def get_schema(self) -> dict[str, Any]:
         return {

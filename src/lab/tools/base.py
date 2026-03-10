@@ -72,6 +72,11 @@ class BuiltinTool(ABC):
 
     name: str
     description: str
+    usage_hint: str = ""
+    """可选：描述"什么时候应该调用这个工具"，用于自动生成 system prompt。
+    留空时 build_system_prompt() 只用 description 生成工具说明。
+    示例：'当用户询问当前时间、日期时调用此工具。'
+    """
 
     def get_schema(self) -> dict[str, Any]:
         """
