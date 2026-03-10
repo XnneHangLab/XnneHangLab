@@ -30,6 +30,11 @@ EnvKeyNames = Literal[
     "TOOL_MODEL_NAME",
     "VISION_MODEL_PROVIDER",
     "VISION_MODEL_NAME",
+    "EMBEDDING_API_KEY",
+    "EMBEDDING_BASE_URL",
+    "EMBEDDING_MODEL",
+    "MEMORY_BENCH_UPSTREAM_LLM_PROVIDER",
+    "MEMORY_BENCH_SERVER_API_KEY",
 ]
 
 
@@ -106,6 +111,23 @@ def main():
     settings.agent.vision_model.llm_provider = validate_llm_provider("VISION_MODEL_PROVIDER")
     settings.agent.vision_model.llm_model_name = os.environ.get("VISION_MODEL_NAME", "")
 
+    # Embedding model
+    if v := os.environ.get("EMBEDDING_API_KEY"):
+        settings.agent.embedding.api_key = v
+    if v := os.environ.get("EMBEDDING_BASE_URL"):
+        settings.agent.embedding.base_url = v
+    if v := os.environ.get("EMBEDDING_MODEL"):
+        settings.agent.embedding.model = v
+
+    # Memory bench
+    if v := os.environ.get("MEMORY_BENCH_UPSTREAM_LLM_PROVIDER"):
+        if is_llm_provider(v):
+            settings.memory_bench.upstream_llm_provider = v  # type: ignore[assignment]
+        else:
+            logger.warning("Invalid MEMORY_BENCH_UPSTREAM_LLM_PROVIDER=%r, skipped", v)
+    if v := os.environ.get("MEMORY_BENCH_SERVER_API_KEY"):
+        settings.memory_bench.server_api_key = v
+
     # 记录脱敏后的配置信息
     logger.info("llm.openai.llm_api_key: {}", mask_api_key(settings.agent.llm.openai.llm_api_key))
     logger.info("llm.openai.api_format: {}", settings.agent.llm.openai.api_format)
@@ -133,6 +155,13 @@ def main():
 
     logger.info("agent.vision_model.llm_provider: {}", settings.agent.vision_model.llm_provider)
     logger.info("agent.vision_model.llm_model_name: {}", settings.agent.vision_model.llm_model_name)
+
+    logger.info("agent.embedding.api_key: {}", mask_api_key(settings.agent.embedding.api_key))
+    logger.info("agent.embedding.base_url: {}", settings.agent.embedding.base_url)
+    logger.info("agent.embedding.model: {}", settings.agent.embedding.model)
+
+    logger.info("memory_bench.upstream_llm_provider: {}", settings.memory_bench.upstream_llm_provider)
+    logger.info("memory_bench.server_api_key: {}", mask_api_key(settings.memory_bench.server_api_key))
 
     logger.info("Sync API key done!")
     write_settings_file("lab.toml", settings)
