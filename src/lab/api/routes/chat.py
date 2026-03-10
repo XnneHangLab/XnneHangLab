@@ -149,9 +149,9 @@ def _build_system_prompt() -> str:
             full_path = Path(rel_path)
         content = _load_prompt_file(full_path)
         if content:
-            log.info("✅ [{}] Loaded: {}", layer_name, rel_path)
+            log.info(f"✅ [{layer_name}] Loaded: {rel_path}")
         else:
-            log.warning("⚠️  [{}] Not found or empty: {}", layer_name, full_path)
+            log.warning(f"⚠️  [{layer_name}] Not found or empty: {full_path}")
         return content
 
     # Layer 1: Persona
@@ -188,7 +188,7 @@ def _build_system_prompt() -> str:
         return "You are a helpful assistant."
 
     system_prompt = "\n\n---\n\n".join(parts)
-    log.info("✅ Built system prompt ({} layers, {} chars)", len(parts), len(system_prompt))
+    log.info(f"✅ Built system prompt ({len(parts)} layers, {len(system_prompt)} chars)")
     return system_prompt
 
 
@@ -219,13 +219,13 @@ def _search_and_format_memories(query: str) -> str:
         if not memories:
             return ""
         formatted = format_memories(memories)
-        logger.bind(group="chat").info("🔍 Found {} memories for query", len(memories))
+        logger.bind(group="chat").info(f"🔍 Found {len(memories)} memories for query")
         return _MEMORY_INJECTION_TEMPLATE.format(memories=formatted)
     except ImportError:
         logger.bind(group="chat").warning("⚠️  memory_bench not available, skipping memory search")
         return ""
     except Exception as exc:
-        logger.bind(group="chat").warning("⚠️  Memory search failed: {}", exc)
+        logger.bind(group="chat").warning(f"⚠️  Memory search failed: {exc}")
         return ""
 
 
@@ -241,7 +241,7 @@ async def _writeback_memory(user_msg: str, assistant_msg: str) -> None:
     except ImportError:
         pass
     except Exception as exc:
-        logger.bind(group="chat").warning("⚠️  Memory write-back failed: {}", exc)
+        logger.bind(group="chat").warning(f"⚠️  Memory write-back failed: {exc}")
 
 
 # ---------------------------------------------------------------------------
@@ -291,7 +291,7 @@ async def _run_tool_loop(
             # No tool calls — we're done
             return assistant_message.content or ""
 
-        log.info("🔧 Step {}: LLM returned {} tool_call(s)", step, len(tool_calls))
+        log.info(f"🔧 Step {step}: LLM returned {len(tool_calls)} tool_call(s)")
 
         # Append assistant message (with tool_calls) to conversation
         assistant_dict: dict[str, Any] = {
@@ -316,7 +316,7 @@ async def _run_tool_loop(
             tool_name = tc.function.name
             args_json = tc.function.arguments or "{}"
 
-            log.info("🛠️  Executing: {}({})", tool_name, args_json[:200])
+            log.info(f"🛠️  Executing: {tool_name}({args_json[:200]})")
 
             result = await chat_state.tool_manager.call_tool(
                 tool_name,
@@ -337,7 +337,7 @@ async def _run_tool_loop(
             )
 
     # Exhausted max_steps — do one final call without tools
-    log.warning("⚠️  Tool loop exhausted {} steps, doing final call without tools", max_steps)
+    log.warning(f"⚠️  Tool loop exhausted {max_steps} steps, doing final call without tools")
     final_content = ""
     async for token in chat_state.chat_llm.chat_completion(oai_messages, system=None, stream_=False):
         final_content += token
@@ -359,7 +359,7 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> JSONResp
     1. Create/retrieve session
     2. Load conversation history
     3. Search memories → inject into system prompt
-    4. Build system prompt (persona + emotion + tools + diary + memories)
+    4. Build system prompt (persona + format + skills + tools + memories)
     5. Run tool loop (ToolManager + AsyncLLM)
     6. Write-back memories (async)
     7. Save to conversation store
@@ -371,7 +371,7 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> JSONResp
 
     # 1. Session ID
     session_id = request.session_id or f"sess_{uuid.uuid4().hex[:12]}"
-    log.info("💬 Chat request: session={}, message_len={}", session_id, len(request.message))
+    log.info(f"💬 Chat request: session={session_id}, message_len={len(request.message)}")
 
     # 2. Load conversation history
     from datetime import datetime, timezone
@@ -385,7 +385,7 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> JSONResp
         for msg in conv_messages
         if msg.get("role") in ("user", "assistant")
     ]
-    log.info("📚 Loaded {} conversation messages from {}", len(history), date_id)
+    log.info(f"📚 Loaded {len(history)} conversation messages from {date_id}")
 
     # 3. Search memories
     loop = asyncio.get_running_loop()
@@ -403,7 +403,7 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> JSONResp
 
     # 6. Run tool loop or plain chat
     model = request.model or chat_state.chat_model
-    log.info("📤 Calling LLM: {} (messages: {})", model, len(full_messages))
+    log.info(f"📤 Calling LLM: {model} (messages: {len(full_messages)})")
 
     try:
         if chat_state.tool_manager is not None:
@@ -424,14 +424,14 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> JSONResp
     except Exception as exc:
         import traceback
 
-        log.error("❌ LLM error: {}", exc)
-        log.error("{}", traceback.format_exc())
+        log.error(f"❌ LLM error: {exc}")
+        log.error(traceback.format_exc())
         raise HTTPException(
             status_code=502,
             detail=f"LLM error: {type(exc).__name__}: {exc}",
         ) from exc
 
-    log.info("📥 LLM response: {} chars", len(assistant_content))
+    log.info(f"📥 LLM response: {len(assistant_content)} chars")
 
     # 7. Memory write-back (async, non-blocking)
     if request.message and assistant_content:
@@ -451,7 +451,7 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> JSONResp
         created=created,
     )
 
-    log.info("✅ Chat response sent (session={}, date={})", session_id, date_id)
+    log.info(f"✅ Chat response sent (session={session_id}, date={date_id})")
     return JSONResponse(content=json.loads(response.model_dump_json()))
 
 
