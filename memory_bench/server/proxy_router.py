@@ -198,6 +198,7 @@ async def proxy_chat_completions(raw_request: Request) -> StreamingResponse | JS
 
     url = _upstream_url("v1/chat/completions")
     headers = _upstream_headers()
+    log.info(f"🔀 Forwarding to: {url}")
 
     # 4. 透传
     if req.stream:
@@ -276,7 +277,8 @@ async def _stream_generator(
                         yield "\n"
                         continue
 
-                    yield line + "\n"
+                    # SSE 每条 data: 行需要以 \n\n 结尾，OpenAI SDK 才能正确解析
+                    yield line + "\n\n"
 
                     # 解析 data: 行，用于写回判断
                     if line.startswith("data: "):

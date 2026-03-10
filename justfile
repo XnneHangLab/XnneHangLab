@@ -62,6 +62,12 @@ server:
 test-asr:
   curl -X POST "http://localhost:12393/asr/funasr/with_punc" -F "file=@./examples/example3.opus"
 
+test-proxy:
+  curl -X POST "http://localhost:12393/v1/chat/completions" -H "Content-Type: application/json" -d '{"model":"gpt-5.1-2025-11-13","messages":[{"role":"user","content":"hi"}],"stream":false}'
+
+test-proxy-health:
+  curl http://localhost:12393/health
+
 test-asr-no-punc:
   curl -X POST "http://localhost:12393/asr/funasr/no_punc" -F "file=@./examples/example3.opus"
 
