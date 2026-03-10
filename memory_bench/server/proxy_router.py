@@ -141,7 +141,9 @@ def _upstream_url(path: str) -> str:
     client = state.openai_client
     if client is None:
         raise HTTPException(status_code=503, detail="Server not initialized")
+    # OpenAI SDK 会在 base_url 末尾自动追加 /v1/，需要剥掉再拼接，避免 double /v1/
     base = str(client.base_url).rstrip("/")
+    base = base.removesuffix("/v1")
     return f"{base}/{path.lstrip('/')}"
 
 
@@ -163,7 +165,7 @@ def _upstream_headers() -> dict[str, str]:
 proxy_router = APIRouter()
 
 
-@proxy_router.post("/v1/chat/completions", dependencies=[Depends(verify_api_key)])
+@proxy_router.post("/v1/chat/completions", dependencies=[Depends(verify_api_key)], response_model=None)
 async def proxy_chat_completions(raw_request: Request) -> StreamingResponse | JSONResponse:
     """透明代理：注入记忆后完整转发给上游 LLM，stream / non-stream 均支持。"""
     log = logger.bind(group="proxy")
@@ -176,11 +178,12 @@ async def proxy_chat_completions(raw_request: Request) -> StreamingResponse | JS
 
     req = _ProxyRequest.model_validate(raw_body)
 
-    # 2. 记忆召回
+    # 2. 记忆召回（search_memories 是同步 IO，用线程池避免阻塞事件循环）
     latest_user_text = _extract_last_user_text(req.messages)
     memories: list[dict[str, Any]] = []
     if latest_user_text:
-        memories = search_memories(latest_user_text)
+        loop = asyncio.get_event_loop()
+        memories = await loop.run_in_executor(None, search_memories, latest_user_text)
         if memories:
             log.info("🔍 Found %d memories for query", len(memories))
 
@@ -196,6 +199,7 @@ async def proxy_chat_completions(raw_request: Request) -> StreamingResponse | JS
 
     url = _upstream_url("v1/chat/completions")
     headers = _upstream_headers()
+    log.info(f"🔀 Forwarding to: {url}")
 
     # 4. 透传
     if req.stream:
@@ -260,6 +264,7 @@ async def _stream_generator(
     async with httpx.AsyncClient(timeout=120.0) as client:
         try:
             async with client.stream("POST", url, json=body, headers=headers) as resp:
+                log.info(f"🔀 upstream status: {resp.status_code}")
                 if resp.status_code != 200:
                     error_text = await resp.aread()
                     try:
@@ -274,7 +279,8 @@ async def _stream_generator(
                         yield "\n"
                         continue
 
-                    yield line + "\n"
+                    # SSE 每条 data: 行需要以 \n\n 结尾，OpenAI SDK 才能正确解析
+                    yield line + "\n\n"
 
                     # 解析 data: 行，用于写回判断
                     if line.startswith("data: "):
@@ -308,7 +314,7 @@ async def _stream_generator(
             asyncio.create_task(memory_and_graph_background(latest_user, assistant_content))
 
 
-@proxy_router.get("/v1/models", dependencies=[Depends(verify_api_key)])
+@proxy_router.get("/v1/models", dependencies=[Depends(verify_api_key)], response_model=None)
 async def proxy_list_models() -> JSONResponse:
     """透传上游 /v1/models，或返回本地 fallback。"""
     try:
@@ -329,7 +335,7 @@ async def proxy_list_models() -> JSONResponse:
     )
 
 
-@proxy_router.get("/health")
+@proxy_router.get("/health", response_model=None)
 async def proxy_health() -> JSONResponse:
     """健康检查。"""
     return JSONResponse(
