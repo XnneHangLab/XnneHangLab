@@ -1,9 +1,19 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lab.agent.agents.memory_agent import MemoryAgent
 from lab.agent.stateless_llm_factory import LLMFactory
+from lab.tools import (
+    AgentContext,
+    EditFileTool,
+    GetDatetimeTool,
+    ListDirTool,
+    ReadFileTool,
+    ToolManager,
+    WriteFileTool,
+)
 
 if TYPE_CHECKING:
     from lab.agent.agents.agent_interface import AgentInterface
@@ -12,21 +22,41 @@ if TYPE_CHECKING:
     from lab.live2d_model import Live2dModel
 
 
+def _build_default_tool_manager(workspace_root: Path) -> ToolManager:
+    """构建并注册默认内置工具集的 ToolManager。
+
+    工具集：get_datetime / read_file / write_file / edit_file / list_dir
+    workspace_root 作为文件操作的安全边界传入 AgentContext。
+    """
+    tm = ToolManager()
+    tm.register_builtin(GetDatetimeTool())
+    tm.register_builtin(ReadFileTool())
+    tm.register_builtin(WriteFileTool())
+    tm.register_builtin(EditFileTool())
+    tm.register_builtin(ListDirTool())
+    return tm
+
+
 class AgentFactory:
     @staticmethod
     def create_agent(
         lab_setting: XnneHangLabSettings,
         chat_system_prompt: str,
-        tool_system_prompt: str,
-        vision_system_prompt: str,
-        live2d_model: Live2dModel,
-        tts_preprocessor_config: TTSPreprocessorConfig,
+        tool_system_prompt: str = "",
+        vision_system_prompt: str = "",
+        live2d_model: Live2dModel | None = None,
+        tts_preprocessor_config: TTSPreprocessorConfig | None = None,
+        workspace_root: Path | None = None,
     ) -> AgentInterface:
         """Create an agent based on configuration (OpenAI only, dual-model ready).
 
-        Note:
-        - `enable_tool` is an explicit switch (defaults to False if not present in config).
-        - We still create tool_llm so you can turn tools on/off at runtime without re-wiring.
+        tool_system_prompt 现在是可选参数：
+        - 传入时直接使用（向后兼容）
+        - 不传时由 ToolManager.build_system_prompt() 自动生成
+
+        workspace_root 用于 AgentContext 的文件操作安全边界：
+        - 传入时使用指定路径
+        - 不传时默认使用当前工作目录
         """
         tool_model = lab_setting.agent.tool_model
         chat_model = lab_setting.agent.chat_model
@@ -54,18 +84,25 @@ class AgentFactory:
             llm_api_key=vision_llm.llm_api_key,
         )
 
+        # 构建 ToolManager + AgentContext
+        ws_root = workspace_root or Path.cwd()
+        tool_manager = _build_default_tool_manager(ws_root)
+        agent_context = AgentContext(workspace_root=ws_root)
+
         return MemoryAgent(
             lab_settings=lab_setting,
             chat_llm=chat_llm_interface,
             tool_llm=tool_llm_interface,
             vision_llm=vision_llm_interface,
             chat_system_prompt=chat_system_prompt,
-            tool_system_prompt=tool_system_prompt,
+            tool_system_prompt=tool_system_prompt,  # 空串时由 MemoryAgent 自动生成
             vision_system_prompt=vision_system_prompt,
             enable_tool=lab_setting.agent.enable_mcp,
-            live2d_model=live2d_model,
-            tts_preprocessor_config=tts_preprocessor_config,
+            live2d_model=live2d_model,  # type: ignore[arg-type]
+            tts_preprocessor_config=tts_preprocessor_config,  # type: ignore[arg-type]
             faster_first_response=lab_setting.agent.faster_first_response,
             segment_method=lab_setting.agent.segment_method,
             interrupt_method=lab_setting.agent.interrupt_method,
+            tool_manager=tool_manager,
+            agent_context=agent_context,
         )

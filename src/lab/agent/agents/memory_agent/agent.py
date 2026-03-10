@@ -18,6 +18,7 @@ from .vision_summarizer import VisionSummarizer
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable
+    from pathlib import Path
 
     from lab.agent.input_types import BatchInput
     from lab.agent.output_types import AudioOutput, SentenceOutput
@@ -25,6 +26,7 @@ if TYPE_CHECKING:
     from lab.config_manager.config import XnneHangLabSettings
     from lab.config_manager.vtuber import TTSPreprocessorConfig
     from lab.live2d_model import Live2dModel
+    from lab.tools import AgentContext, ToolManager
 
 
 class MemoryAgent(AgentInterface):
@@ -48,12 +50,15 @@ class MemoryAgent(AgentInterface):
         tool_llm: AsyncLLM,
         vision_llm: AsyncLLM,
         chat_system_prompt: str,
-        tool_system_prompt: str,
+        tool_system_prompt: str = "",
         vision_system_prompt: str,
         live2d_model: Live2dModel,
         tts_preprocessor_config: TTSPreprocessorConfig,
         enable_tool: bool = False,
         mcp: FastMcpRouter | None = None,
+        tool_manager: ToolManager | None = None,
+        agent_context: AgentContext | None = None,
+        workspace_root: Path | None = None,
         faster_first_response: bool = True,
         segment_method: str = "pysbd",
         interrupt_method: Literal["system", "user"] = "user",
@@ -69,7 +74,6 @@ class MemoryAgent(AgentInterface):
         self.vision_llm = vision_llm
 
         self.chat_system_prompt = chat_system_prompt
-        self.tool_system_prompt = tool_system_prompt
         self.vision_system_prompt = vision_system_prompt
 
         # switches
@@ -80,10 +84,34 @@ class MemoryAgent(AgentInterface):
         # MCP
         self.enable_tool = enable_tool
         self.mcp = mcp or FastMcpRouter(prefix_delim="__")
+
+        # ToolManager + AgentContext
+        self.tool_manager = tool_manager
+        if agent_context is not None:
+            self.agent_context = agent_context
+        elif workspace_root is not None:
+            from lab.tools.types import AgentContext as _AgentContext
+
+            self.agent_context: AgentContext | None = _AgentContext(workspace_root=workspace_root)
+        else:
+            self.agent_context = None
+
+        # tool_system_prompt：优先用外部传入，否则从 tool_manager 自动生成
+        if tool_system_prompt:
+            self.tool_system_prompt = tool_system_prompt
+        elif self.tool_manager is not None:
+            self.tool_system_prompt = self.tool_manager.build_system_prompt(
+                preamble="你是一个 AI 助手，可以使用以下工具来帮助完成任务：",
+            )
+        else:
+            self.tool_system_prompt = ""
+
         self.tool_loop = McpToolLoopRunner(
             tool_llm=self.tool_llm,
             mcp=self.mcp,
             tool_context_config=lab_settings.mcp.tool_context,
+            tool_manager=self.tool_manager,
+            agent_context=self.agent_context,
         )
 
         # components
