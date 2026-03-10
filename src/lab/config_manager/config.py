@@ -23,6 +23,7 @@ from lab.config_manager.asr import (
 )
 from lab.config_manager.audio_recognize import AudioRecognizeSettings, AudioRecognizeSettingsTitle
 from lab.config_manager.mcp import MCPSettings
+from lab.config_manager.memory_bench import MemoryBenchSettings
 from lab.config_manager.package import PackagesSettings
 from lab.config_manager.server import ServerSettings
 from lab.config_manager.vtuber import VtuberSettings
@@ -104,6 +105,7 @@ class XnneHangLabSettings(BaseModel):
     root: Annotated[RootAbsDir, Field(RootAbsDir())]  # pyright: ignore[reportCallIssue]
     server: Annotated[ServerSettings, Field(ServerSettings())]  # pyright: ignore[reportCallIssue]
     vtuber: Annotated[VtuberSettings, Field(VtuberSettings())]  # pyright: ignore[reportCallIssue]
+    memory_bench: Annotated[MemoryBenchSettings, Field(MemoryBenchSettings())]  # pyright: ignore[reportCallIssue]
 
 
 def load_settings_file(
