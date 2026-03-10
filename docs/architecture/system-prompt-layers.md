@@ -44,9 +44,9 @@ System Prompt（运行时拼接）
 
 ```
 prompts/characters/
-├── satone.txt      # Satone（さとね）— 写小说的女孩
-├── elaina.txt      # 伊蕾娜 — 灰之魔女
-├── congyin.txt     # 聪音 — AI 伴侣
+├── satone.md       # Satone（さとね）— 写小说的女孩
+├── elaina.txt      # 伊蕾娜 — 灰之魔女（VTuber 管线使用，暂不迁移）
+├── congyin.md      # 聪音 — AI 伴侣（待创建）
 └── ...
 ```
 
@@ -61,9 +61,9 @@ prompts/characters/
 
 ```
 prompts/formats/
-├── emotion_pipe.txt        # AIChat 格式: [Emotion] ||| TEXT
-├── emotion_bracket.txt     # VTuber 格式: [expression] inline in text
-├── plain.txt               # 纯文本（无 emotion tag）
+├── emotion_pipe.md         # AIChat 格式: [Emotion] ||| TEXT
+├── emotion_bracket.md      # VTuber 格式: [expression] inline in text
+├── plain.md                # 纯文本（无 emotion tag）
 └── ...
 ```
 
@@ -72,7 +72,7 @@ prompts/formats/
 - 前端决定用哪个格式
 - VTuber 的 `live2d_expression_prompt.txt` 属于这一层
 
-**示例：emotion_pipe.txt**
+**示例：emotion_pipe.md**
 ```
 【回复格式】
 你必须严格按照以下格式回复：
@@ -81,7 +81,7 @@ prompts/formats/
 可用情感：[Happy] [Sad] [Think] [Wave] ...
 ```
 
-**示例：emotion_bracket.txt**
+**示例：emotion_bracket.md**
 ```
 你可以在回复中使用 [expression] 标签来表达情感。
 标签应放在句子开头。支持在一条回复中使用多个标签。
@@ -165,8 +165,8 @@ prompts/skills/
 ```toml
 # profiles/congyin_aichat.toml
 [prompt]
-persona = "characters/congyin.txt"
-format = "formats/emotion_pipe.txt"
+persona = "characters/congyin.md"
+format = "formats/emotion_pipe.md"
 skills = ["skills/diary_writing.md", "skills/file_navigation.md"]
 
 [tools]
@@ -176,8 +176,8 @@ builtin = ["read_file", "write_file", "edit_file", "list_dir", "get_datetime"]
 ```toml
 # profiles/elaina_vtuber.toml
 [prompt]
-persona = "characters/elaina.txt"
-format = "formats/emotion_bracket.txt"
+persona = "characters/elaina.txt"       # VTuber 管线仍用 .txt（暂未迁移）
+format = "formats/emotion_bracket.md"
 skills = []
 
 [tools]
@@ -241,11 +241,13 @@ src/lab/
 
 | 旧位置 | 新位置 | 层 |
 |---|---|---|
-| `memory_bench/server/prompts/emotion/base_persona.txt` | `prompts/characters/satone.txt` | L1 |
-| `memory_bench/server/prompts/emotion/emotion_system.txt` | `prompts/formats/emotion_pipe.txt` | L2 |
+| `memory_bench/server/prompts/emotion/base_persona.txt` | `prompts/characters/satone.md` | L1 |
+| `memory_bench/server/prompts/emotion/emotion_system.txt` | `prompts/formats/emotion_pipe.md` | L2 |
 | `memory_bench/server/prompts/tools/tool_definitions.txt` | **删除**（工具 schema 自动生成）+ 文件导航部分提取到 `prompts/skills/file_navigation.md` | L3/L4 |
 | `memory_bench/server/prompts/diary/recent_summary.txt` | **删除**（运行时动态生成） | L5 |
 | `memory_bench/data/diary/` | `data/diary/` | 数据 |
 | `memory_bench/server/memory/MEMORY.md` | `data/memory/MEMORY.md` | 数据 |
-| `prompts/characters/elaina.txt` 等 | `prompts/characters/elaina.txt`（位置不变） | L1 |
-| `prompts/live2d_expression_prompt.txt` | `prompts/formats/emotion_bracket.txt` | L2 |
+| `prompts/characters/elaina.txt` 等 | 保留原位（VTuber 管线从 config 路径读取） | L1 |
+| `prompts/live2d_expression_prompt.txt` | `prompts/formats/emotion_bracket.md`（副本） | L2 |
+| `prompts/tool_prompt.txt` | 保留原位（VTuber 管线 tool_llm 使用） | 不属于五层 |
+| `prompts/vision_prompt.txt` | 保留原位（VTuber 管线 vision_llm 使用） | 不属于五层 |

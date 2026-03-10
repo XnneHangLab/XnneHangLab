@@ -92,8 +92,8 @@ class ChatState:
     conversations_dir: str = "conversations"
 
     # --- Prompt layers (configurable per profile) ---
-    persona_file: str = ""          # Layer 1: e.g. "prompts/characters/satone.txt"
-    format_file: str = ""           # Layer 2: e.g. "prompts/formats/emotion_pipe.txt"
+    persona_file: str = ""          # Layer 1: e.g. "prompts/characters/satone.md"
+    format_file: str = ""           # Layer 2: e.g. "prompts/formats/emotion_pipe.md"
     skill_files: list[str] | None = None  # Layer 3: e.g. ["prompts/skills/diary_writing.md", ...]
     workspace_root: str = ""        # For resolving relative prompt paths
 

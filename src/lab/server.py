@@ -178,8 +178,8 @@ async def lifespan(app: FastAPI):
                 chat_state.agent_context = agent_context
                 chat_state.chat_model = chat_model_cfg.llm_model_name
                 chat_state.workspace_root = str(ws_root)
-                chat_state.persona_file = "prompts/characters/satone.txt"
-                chat_state.format_file = "prompts/formats/emotion_pipe.txt"
+                chat_state.persona_file = "prompts/characters/satone.md"
+                chat_state.format_file = "prompts/formats/emotion_pipe.md"
                 chat_state.skill_files = [
                     "prompts/skills/diary_writing.md",
                     "prompts/skills/file_navigation.md",
