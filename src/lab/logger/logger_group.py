@@ -13,6 +13,7 @@ MODULE_TO_GROUP = {
     "lab.service_context": "server",
     "lab.websocket_handler": "server",
     "lab.agent.transformers": "dialog",
+    "lab.api.routes.chat": "chat",
 }
 
 PREFIX_TO_GROUP = {
@@ -54,6 +55,7 @@ GROUP_LEVEL = {
     "dialog": "INFO",
     "fastapi": "INFO",
     "tts": "INFO",
+    "chat": "INFO",
     "chore": "WARNING",
     "util": "INFO",
 }
@@ -66,6 +68,7 @@ GROUP_COLOR = {
     "fastapi": "blue",
     "asr": "light-cyan",
     "tts": "light-green",
+    "chat": "white",
     "config": "light-black",
     "util": "white",
 }

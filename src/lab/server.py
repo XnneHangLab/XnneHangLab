@@ -154,6 +154,46 @@ async def lifespan(app: FastAPI):
                 cfg["chat_base_url"],
                 cfg["chat_model"],
             )
+
+            # --- Chat endpoint (src/lab) ---
+            # Uses ToolManager + AsyncLLM, imports memory functions from memory_bench
+            try:
+                from lab.agent.agent_factory import build_default_tool_manager
+                from lab.agent.stateless_llm_factory import LLMFactory
+                from lab.api.routes.chat import chat_state
+                from lab.tools import AgentContext
+
+                ws_root = Path(lab_settings.root.root_dir)
+                tool_manager = build_default_tool_manager(ws_root)
+                agent_context = AgentContext(workspace_root=ws_root)
+
+                chat_llm_instance = LLMFactory.create_llm(
+                    model=chat_model_cfg.llm_model_name,
+                    base_url=upstream_llm.llm_base_url,
+                    llm_api_key=upstream_llm.llm_api_key,
+                )
+
+                chat_state.chat_llm = chat_llm_instance
+                chat_state.tool_manager = tool_manager
+                chat_state.agent_context = agent_context
+                chat_state.chat_model = chat_model_cfg.llm_model_name
+                chat_state.workspace_root = str(ws_root)
+                chat_state.persona_file = "prompts/characters/satone.md"
+                chat_state.format_file = "prompts/formats/emotion_pipe.md"
+                chat_state.skill_files = [
+                    "prompts/skills/diary_writing.md",
+                    "prompts/skills/file_navigation.md",
+                ]
+                chat_state.conversations_dir = str(ws_root / "data" / "conversations")
+
+                logger.info(
+                    "✅ Chat endpoint initialized (model={}, tools={})",
+                    chat_state.chat_model,
+                    len(tool_manager.list_tools_schema()),
+                )
+            except Exception as chat_exc:
+                logger.warning("⚠️ Chat endpoint init failed: %s", chat_exc)
+
         except Exception as exc:
             logger.warning("⚠️ memory_bench router init failed: %s — proxy_router will be unavailable", exc)
 
@@ -203,6 +243,10 @@ class WebSocketServer:
             from memory_bench.server.proxy_router import proxy_router  # type: ignore[reportMissingImports]
 
             self.app.include_router(proxy_router)  # /v1/chat/completions  /v1/models  /health
+
+            from lab.api.routes.chat import chat_router
+
+            self.app.include_router(chat_router, prefix="/memory")  # /memory/chat  /memory/sessions  /memory/chat/health
         # Mount static files
         logger.info(f"Mounting static files from {ROOT_DIR}")
         self.app.mount(
