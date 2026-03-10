@@ -45,7 +45,7 @@ segment_method = "pysbd"
 interrupt_method = "user"
 
 [agent.chat_model]
-llm_provider = "memory_bench"
+llm_provider = "memory_proxy"
 llm_model_name = "gpt-5.1-2025-11-13"
 support_vision = false
 
@@ -89,7 +89,7 @@ llm_api_key = ""
 llm_base_url = "https://api.oaipro.com/v1"
 api_format = "chat_completion"
 
-[agent.llm.memory_bench]
+[agent.llm.memory_proxy]
 llm_api_key = "any"
 llm_base_url = "http://localhost:12393"
 api_format = "chat_completion"

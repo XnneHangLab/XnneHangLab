@@ -9,7 +9,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
-LLM_Provider = Literal["openai", "lingyi", "gemini", "oaipro", "cerebras", "memory_bench"]
+LLM_Provider = Literal["openai", "lingyi", "gemini", "oaipro", "cerebras", "memory_proxy"]
 
 
 # Tool Model
@@ -63,10 +63,10 @@ class CerebrasSetting(LLMSettingBase):
     llm_base_url: Annotated[str, Field("https://api.cerebras.ai/v1", title="Cerebras API Base URL")]
 
 
-class MemoryBenchProxySetting(LLMSettingBase):
+class MemoryProxySetting(LLMSettingBase):
     """memory_bench proxy_router — 透明记忆代理，对 chat_llm 完全透明。
 
-    联调时将 chat_model.llm_provider 切到 "memory_bench"，
+    联调时将 chat_model.llm_provider 切到 "memory_proxy"，
     llm_base_url 指向本地 memory_bench chat_server 即可。
     """
 
@@ -79,7 +79,7 @@ class LLMSettings(BaseModel):
     gemini: Annotated[GeminiSetting, Field(GeminiSetting())]  # pyright: ignore[reportCallIssue]
     oaipro: Annotated[OAIPROSetting, Field(OAIPROSetting())]  # pyright: ignore[reportCallIssue]
     cerebras: Annotated[CerebrasSetting, Field(CerebrasSetting())]  # pyright: ignore[reportCallIssue]
-    memory_bench: Annotated[MemoryBenchProxySetting, Field(MemoryBenchProxySetting())]  # pyright: ignore[reportCallIssue]
+    memory_proxy: Annotated[MemoryProxySetting, Field(MemoryProxySetting())]  # pyright: ignore[reportCallIssue]
 
 
 class EmbeddingModelSetting(BaseModel):
