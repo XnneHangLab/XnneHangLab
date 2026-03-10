@@ -35,6 +35,12 @@ EnvKeyNames = Literal[
     "EMBEDDING_MODEL",
     "MEMORY_BENCH_UPSTREAM_LLM_PROVIDER",
     "MEMORY_BENCH_SERVER_API_KEY",
+    # Package switches
+    "PKG_MEMORY_BENCH",
+    "PKG_QWEN_TTS",
+    "PKG_GPT_SOVITS",
+    "PKG_FUNASR",
+    "PKG_WHISPER",
 ]
 
 
@@ -128,6 +134,26 @@ def main():
     if v := os.environ.get("MEMORY_BENCH_SERVER_API_KEY"):
         settings.memory_bench.server_api_key = v
 
+    # Package switches（"true"/"1" = 开，"false"/"0" = 关，未设置 = 不变）
+    def _parse_bool_env(key: EnvKeyNames) -> bool | None:
+        v = os.environ.get(key, "").strip().lower()
+        if v in ("true", "1", "yes"):
+            return True
+        if v in ("false", "0", "no"):
+            return False
+        return None  # 未设置，不覆盖
+
+    if (v := _parse_bool_env("PKG_MEMORY_BENCH")) is not None:
+        settings.package.memory_bench = v
+    if (v := _parse_bool_env("PKG_QWEN_TTS")) is not None:
+        settings.package.qwen_tts = v
+    if (v := _parse_bool_env("PKG_GPT_SOVITS")) is not None:
+        settings.package.gpt_sovits = v
+    if (v := _parse_bool_env("PKG_FUNASR")) is not None:
+        settings.package.funasr = v
+    if (v := _parse_bool_env("PKG_WHISPER")) is not None:
+        settings.package.whisper = v
+
     # 记录脱敏后的配置信息
     logger.info("llm.openai.llm_api_key: {}", mask_api_key(settings.agent.llm.openai.llm_api_key))
     logger.info("llm.openai.api_format: {}", settings.agent.llm.openai.api_format)
@@ -162,6 +188,12 @@ def main():
 
     logger.info("memory_bench.upstream_llm_provider: {}", settings.memory_bench.upstream_llm_provider)
     logger.info("memory_bench.server_api_key: {}", mask_api_key(settings.memory_bench.server_api_key))
+
+    logger.info("package.memory_bench: {}", settings.package.memory_bench)
+    logger.info("package.qwen_tts: {}", settings.package.qwen_tts)
+    logger.info("package.gpt_sovits: {}", settings.package.gpt_sovits)
+    logger.info("package.funasr: {}", settings.package.funasr)
+    logger.info("package.whisper: {}", settings.package.whisper)
 
     logger.info("Sync API key done!")
     write_settings_file("lab.toml", settings)
