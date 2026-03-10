@@ -37,4 +37,3 @@ memory_bench proxy_router 内嵌到 src/lab，统一配置入口。
 ### 后续清理（可选）
 
 - [ ] 评估 `memory_bench/server/chat_server.py` standalone 启动器是否还需要（已移除 chat_router mount，但文件保留）
-- [ ] 删除 `memory_bench/server/prompts/`（已迁移到根目录 `prompts/`，旧目录不再使用）
