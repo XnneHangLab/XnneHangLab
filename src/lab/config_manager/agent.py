@@ -9,7 +9,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
-LLM_Provider = Literal["openai", "lingyi", "gemini", "oaipro", "cerebras", "memory_proxy"]
+LLM_Provider = Literal["openai", "lingyi", "gemini", "oaipro", "cerebras"]
 
 
 # Tool Model
@@ -63,34 +63,12 @@ class CerebrasSetting(LLMSettingBase):
     llm_base_url: Annotated[str, Field("https://api.cerebras.ai/v1", title="Cerebras API Base URL")]
 
 
-class MemoryProxySetting(LLMSettingBase):
-    """memory_bench proxy_router — 透明记忆代理，对 chat_llm 完全透明。
-
-    联调时将 chat_model.llm_provider 切到 "memory_proxy"，
-    llm_base_url 指向本地 memory_bench chat_server 即可。
-    """
-
-    llm_base_url: Annotated[str, Field("http://localhost:8081", title="Memory Proxy Base URL")]
-
-
 class LLMSettings(BaseModel):
     openai: Annotated[OpenAISetting, Field(OpenAISetting())]  # pyright: ignore[reportCallIssue]
     lingyi: Annotated[LingyiSetting, Field(LingyiSetting())]  # pyright: ignore[reportCallIssue]
     gemini: Annotated[GeminiSetting, Field(GeminiSetting())]  # pyright: ignore[reportCallIssue]
     oaipro: Annotated[OAIPROSetting, Field(OAIPROSetting())]  # pyright: ignore[reportCallIssue]
     cerebras: Annotated[CerebrasSetting, Field(CerebrasSetting())]  # pyright: ignore[reportCallIssue]
-    memory_proxy: Annotated[MemoryProxySetting, Field(MemoryProxySetting())]  # pyright: ignore[reportCallIssue]
-
-
-class EmbeddingModelSetting(BaseModel):
-    """全局 Embedding 模型配置。
-
-    供所有需要向量化的模块使用（memory_bench、未来的 RAG 等），统一在此配置，不重复定义。
-    """
-
-    api_key: Annotated[str, Field("", title="Embedding API Key")]
-    base_url: Annotated[str, Field("https://api.oaipro.com/v1", title="Embedding Base URL")]
-    model: Annotated[str, Field("text-embedding-3-small", title="Embedding Model Name")]
 
 
 class PromptSettings(BaseModel):
@@ -122,7 +100,6 @@ class AgentSettings(BaseModel):
     chat_model: Annotated[ChatModelSetting, Field(ChatModelSetting())]  # pyright: ignore[reportCallIssue]
     tool_model: Annotated[ToolModelSetting, Field(ToolModelSetting())]  # pyright: ignore[reportCallIssue]
     vision_model: Annotated[VisionModelSetting, Field(VisionModelSetting())]  # pyright: ignore[reportCallIssue]
-    embedding: Annotated[EmbeddingModelSetting, Field(EmbeddingModelSetting())]  # pyright: ignore[reportCallIssue]
     enable_mcp: Annotated[bool, Field(True, title="Enable MCP")]
     prompts: Annotated[PromptSettings, Field(PromptSettings())]  # pyright: ignore[reportCallIssue]
     llm: Annotated[LLMSettings, Field(LLMSettings())]  # pyright: ignore[reportCallIssue]

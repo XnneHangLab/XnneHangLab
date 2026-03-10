@@ -1,4 +1,4 @@
-conf_version = "v1.2.0"
+conf_version = "v1.1.2"
 
 [asr]
 FFMPEG_PATH = "ffmpeg"
@@ -45,7 +45,7 @@ segment_method = "pysbd"
 interrupt_method = "user"
 
 [agent.chat_model]
-llm_provider = "memory_proxy"
+llm_provider = "oaipro"
 llm_model_name = "gpt-5.1-2025-11-13"
 support_vision = false
 
@@ -56,11 +56,6 @@ llm_model_name = "qwen-3-235b-a22b-instruct-2507"
 [agent.vision_model]
 llm_provider = "oaipro"
 llm_model_name = "gpt-5.1-2025-11-13"
-
-[agent.embedding]
-api_key = ""
-base_url = "https://api.oaipro.com/v1"
-model = "text-embedding-3-small"
 
 [agent.prompts]
 live2d_expression_prompt = "./prompts/live2d_expression_prompt.txt"
@@ -87,11 +82,6 @@ api_format = "chat_completion"
 [agent.llm.oaipro]
 llm_api_key = ""
 llm_base_url = "https://api.oaipro.com/v1"
-api_format = "chat_completion"
-
-[agent.llm.memory_proxy]
-llm_api_key = "any"
-llm_base_url = "http://localhost:12393"
 api_format = "chat_completion"
 
 [agent.llm.cerebras]
@@ -155,12 +145,6 @@ yutto_uiya = true
 gpt_sovits = false
 qwen_tts = true
 memory_bench = false
-
-[memory_bench]
-user_id = "xnne"
-agent_id = "congyin"
-search_limit = 10
-server_api_key = ""
 
 [root]
 root_dir = "D:\\tmp\\XnneHangLab"
