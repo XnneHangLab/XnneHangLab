@@ -177,7 +177,6 @@ async def proxy_chat_completions(raw_request: Request) -> StreamingResponse | JS
         raise HTTPException(status_code=400, detail=f"Invalid JSON: {exc}") from exc
 
     req = _ProxyRequest.model_validate(raw_body)
-    log.debug(f"📥 raw_body keys={list(raw_body.keys())} stream={raw_body.get('stream')} model={raw_body.get('model')}")
 
     # 2. 记忆召回（search_memories 是同步 IO，用线程池避免阻塞事件循环）
     latest_user_text = _extract_last_user_text(req.messages)
