@@ -157,6 +157,7 @@ qwen_tts = true
 memory_bench = false
 
 [memory_bench]
+upstream_llm_provider = "oaipro"
 user_id = "xnne"
 agent_id = "congyin"
 search_limit = 10
