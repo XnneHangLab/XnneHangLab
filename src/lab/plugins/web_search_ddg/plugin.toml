@@ -1,0 +1,15 @@
+[plugin]
+id = "web_search_ddg"
+name = "Web Search (DuckDuckGo)"
+version = "0.1.0"
+type = "tool"
+description = "使用 DuckDuckGo HTML 结果搜索网页，免费无需部署"
+author = "XnneHangLab"
+source = "builtin"
+
+[config]
+user_agent = "XnneHangLab-ToolPlugin/1.0"
+timeout_s = 10.0
+
+[type_config]
+entry = "WebSearchDuckDuckGoPlugin"

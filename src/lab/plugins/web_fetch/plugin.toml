@@ -1,0 +1,20 @@
+[plugin]
+id = "web_fetch"
+name = "Web Fetch"
+version = "0.1.0"
+type = "tool"
+description = "抓取公开 URL 并提取可读正文内容"
+author = "XnneHangLab"
+source = "builtin"
+
+[config]
+user_agent = "XnneHangLab-ToolPlugin/1.0"
+respect_robots = false
+robots_fail_closed = false
+use_jina_fallback = false
+jina_api_key = ""
+timeout_s = 10.0
+max_chars_default = 8000
+
+[type_config]
+entry = "WebFetchPlugin"
