@@ -1,6 +1,6 @@
 [profile]
-name = "satone_aichat"
-description = "さとね — AIChat 聊天模式"
+name = "vtuber"
+description = "VTuber 主链路 — 多工具，memory agent"
 
 [prompt]
 persona = "prompts/characters/satone.md"
@@ -9,9 +9,6 @@ format = "prompts/formats/emotion_pipe.md"
 [plugins]
 enabled = ["web_search_ddg", "web_fetch", "screen_shot"]
 
-[plugins.web_fetch]
-timeout_s = 15.0
-
 [context]
 memory_search = true
-diary_summary = false
+diary_summary = true

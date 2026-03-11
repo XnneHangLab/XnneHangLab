@@ -33,6 +33,8 @@ from lab.conversation.store import ConversationStore
 
 if TYPE_CHECKING:
     from lab.agent.stateless_llm.openai_compatible_llm import AsyncLLM
+    from lab.profile.context_injector import ContextInjector
+    from lab.profile.schema import Profile
     from lab.tools import AgentContext, ToolManager
 
 
@@ -96,6 +98,8 @@ class ChatState:
     format_file: str = ""  # Layer 2: e.g. "prompts/formats/emotion_pipe.md"
     skill_files: list[str] | None = None  # Layer 3: e.g. ["prompts/skills/diary_writing.md", ...]
     workspace_root: str = ""  # For resolving relative prompt paths
+    profile: Profile | None = None
+    context_injector: ContextInjector | None = None
 
 
 chat_state = ChatState()
@@ -134,6 +138,16 @@ def _build_system_prompt() -> str:
     4. Tools — auto-generated from ToolManager
     5. Context — injected per-request (memories, diary summaries) — NOT here, done in chat_endpoint
     """
+    if chat_state.profile is not None and chat_state.workspace_root:
+        from lab.profile.system_prompt_builder import SystemPromptBuilder
+
+        return SystemPromptBuilder(Path(chat_state.workspace_root)).build(
+            persona_path=chat_state.profile.prompt.persona,
+            format_path=chat_state.profile.prompt.format,
+            skills=[],
+            tool_manager=chat_state.tool_manager,
+        )
+
     log = logger.bind(group="chat")
     parts: list[str] = []
 
@@ -476,6 +490,7 @@ async def chat_health() -> JSONResponse:
             "llm_ready": chat_state.chat_llm is not None,
             "model": chat_state.chat_model,
             "tools_count": tools_count,
+            "profile": chat_state.profile.profile.name if chat_state.profile else None,
             "persona_file": chat_state.persona_file or None,
             "format_file": chat_state.format_file or None,
             "skill_files": chat_state.skill_files,

@@ -12,7 +12,6 @@ if TYPE_CHECKING:
 class ContextConfig(BaseModel):
     memory_search: bool = True
     diary_summary: bool = False
-    user_context: bool = False
 
 
 class ProfileConfig(BaseModel):
