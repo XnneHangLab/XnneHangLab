@@ -246,7 +246,9 @@ class WebSocketServer:
 
             from lab.api.routes.chat import chat_router
 
-            self.app.include_router(chat_router, prefix="/memory")  # /memory/chat  /memory/sessions  /memory/chat/health
+            self.app.include_router(
+                chat_router, prefix="/memory"
+            )  # /memory/chat  /memory/sessions  /memory/chat/health
         # Mount static files
         logger.info(f"Mounting static files from {ROOT_DIR}")
         self.app.mount(
