@@ -37,16 +37,13 @@ memory_bench proxy_router 内嵌到 src/lab，统一配置入口。
 
 ## 待做
 
-### PR A：ToolRegistry 去中心化 + 基类建立（接 #279，从 dev 新开分支）
+### PR A：ToolRegistry 去中心化 + 清理（#283，已完成待合入）
 
-> 纯清理 + 架构，不涉及 plugin 目录结构，风险低，优先做
-
-- [ ] `src/lab/tools/plugin.py` — ToolPlugin 抽象基类 + PromptSegment
-- [ ] `src/lab/mcp/plugins/__init__.py` + `base.py` — McpPlugin 抽象基类
-- [ ] `src/lab/mcp/tool_registry.py` — 删除 if/elif 手写分支，变成轻量 McpPlugin 注册表，保留 `trace_item()` + `DEFAULT_RETRY_HINT`
-- [ ] `src/lab/mcp/_typing.py` — 删除已无用类：RollDice*/ScreenShot*/WebSearch*/WebFetch*/ReadFile*/GetDateAndTime*
-- [ ] `src/lab/agent/mcp_tool_loop.py` — 修复 L431 cache sig bug（内置工具名不应走 ToolRegistry.parse_args）；`_execute_mcp_tool_call` 改为调用 McpPlugin
-- [ ] `src/lab/mcp/example/openai_client.py` — 同款 L482 bug 修复
+- [x] `src/lab/tools/plugin.py` — ToolPlugin 抽象基类 + PromptSegment
+- [x] `src/lab/mcp/tool_registry.py` — 删除 if/elif 手写分支，变成轻量注册表，删除 RollDice 全部残留
+- [x] `src/lab/mcp/_typing.py` — 删除已无用类：RollDice*/ScreenShot*/WebSearch*/WebFetch*/GetDateAndTime*
+- [x] `src/lab/agent/mcp_tool_loop.py` — 修复 L431 cache sig bug
+- [x] `src/lab/mcp/example/openai_client.py` — 删除（已被 MemoryAgent 完全取代）
 
 ### PR B：#281 Plugin 生态 — plugin.toml + PluginLoader（接 PR A）
 
@@ -66,6 +63,15 @@ memory_bench proxy_router 内嵌到 src/lab，统一配置入口。
 - [ ] `SystemPromptBuilder` 正式实现（替换 chat.py 里的 `_build_system_prompt()`）
 - [ ] `server.py` 改为从 Profile 驱动，删除硬编码路径
 - [ ] 启动参数 / 环境变量支持指定 profile 文件
+
+### AgentLoop 重构 — 废弃 mcp_tool_loop.py（接 PR B/C）
+
+> `mcp_tool_loop.py` 命名撒谎（含 builtin 逻辑）、职责混乱（loop 核心 + 截图指代消解 + web_search 串行策略 + 后处理 if/else 全塞一起）、硬编码中文关键词。待 PluginLoader 合入后重构。关联 #262 Phase 4/5
+
+- [ ] 新建 `AgentLoop`：纯循环逻辑（while tool_call → ToolManager.call → 回填 → 下一轮），不含任何业务 if/else
+- [ ] 截图复用逻辑下沉：`_user_wants_reuse_screenshot` / `_can_reuse_last_image` 等移入 `ScreenShotPlugin` 自身的 hook / state
+- [ ] web_search 串行策略下沉：移入 ToolPlugin 配置项或 HookPlugin
+- [ ] 废弃 `mcp_tool_loop.py`
 
 ### 后续清理（可选）
 
