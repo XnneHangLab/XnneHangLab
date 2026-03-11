@@ -79,7 +79,7 @@ class ScreenShotPlugin(ToolPlugin):
 
     async def on_register(self, ctx: AgentContext) -> bool:
         try:
-            from PIL import ImageGrab
+            from PIL import ImageGrab  # type: ignore[attr-defined] # noqa: F401
         except Exception as exc:
             logger.info("Skip ScreenShotPlugin registration because ImageGrab is unavailable: {}", exc)
             return False

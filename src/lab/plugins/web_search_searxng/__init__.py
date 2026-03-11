@@ -10,7 +10,7 @@ import pydantic
 from bs4 import BeautifulSoup
 from loguru import logger
 
-from lab.plugins.web_fetch import _clamp_int, _get_with_retries
+from lab.plugins.web_fetch import clamp_int, get_with_retries
 from lab.plugins.web_search_ddg import WebSearchArgs, WebSearchResult, WebSearchResultItem
 from lab.tools.base import BuiltinTool
 from lab.tools.plugin import ToolPlugin
@@ -48,7 +48,7 @@ def _parse_searxng_html_results(html_text: str, base_url: str, max_results: int)
         if not href:
             continue
 
-        href = html.unescape(href)
+        href = html.unescape(str(href))  # type: ignore[arg-type]
         if href.startswith("//"):
             href = "https:" + href
         elif href.startswith("/"):
@@ -146,10 +146,10 @@ class WebSearchSearxngPlugin(ToolPlugin):
         return True
 
     async def search(self, *, query: str, max_results: int) -> WebSearchResult:
-        max_results = _clamp_int(max_results, 1, 10)
+        max_results = clamp_int(max_results, 1, 10)
         base = self.searxng_url.rstrip("/")
         async with httpx.AsyncClient(timeout=float(self.timeout_s), follow_redirects=True) as client:
-            response = await _get_with_retries(
+            response = await get_with_retries(
                 client,
                 f"{base}/search",
                 params={"q": query, "categories": "general", "count": max_results},

@@ -43,7 +43,7 @@ _MEMORY_INJECTION_TEMPLATE = (
     "The following memories were recalled from previous conversations and may be relevant:\n\n"
     "{memories}\n\n"
     "---\n"
-    'Use these memories naturally in your response when relevant. '
+    "Use these memories naturally in your response when relevant. "
     'Do not mention that you "recalled" or "retrieved" them.'
 )
 

@@ -10,7 +10,7 @@ import pydantic
 from bs4 import BeautifulSoup
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
 
-from lab.plugins.web_fetch import _clamp_int, _get_with_retries
+from lab.plugins.web_fetch import clamp_int, get_with_retries
 from lab.tools.base import BuiltinTool
 from lab.tools.plugin import ToolPlugin
 from lab.tools.types import AgentContext, ToolResult
@@ -87,7 +87,7 @@ def _parse_ddg_html_results(html_text: str, max_results: int) -> list[WebSearchR
 
     for anchor in soup.select("a.result__a"):
         title = anchor.get_text(" ", strip=True) or "No title"
-        href = html.unescape(anchor.get("href") or "")
+        href: str = html.unescape(str(anchor.get("href") or ""))
         href = _decode_ddg_redirect(href)
         if href.startswith("//"):
             href = "https:" + href
@@ -164,9 +164,9 @@ class WebSearchDuckDuckGoPlugin(ToolPlugin):
         return [self._tool]
 
     async def search(self, *, query: str, max_results: int) -> WebSearchResult:
-        max_results = _clamp_int(max_results, 1, 10)
+        max_results = clamp_int(max_results, 1, 10)
         async with httpx.AsyncClient(timeout=float(self.timeout_s), follow_redirects=True) as client:
-            response = await _get_with_retries(
+            response = await get_with_retries(
                 client,
                 "https://duckduckgo.com/html/",
                 params={"q": query},

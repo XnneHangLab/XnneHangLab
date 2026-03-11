@@ -52,7 +52,7 @@ def _headers(user_agent: str, extra: dict[str, str] | None = None) -> dict[str, 
     return headers
 
 
-def _clamp_int(v: int, lo: int, hi: int) -> int:
+def clamp_int(v: int, lo: int, hi: int) -> int:
     try:
         iv = int(v)
     except (TypeError, ValueError):
@@ -60,7 +60,7 @@ def _clamp_int(v: int, lo: int, hi: int) -> int:
     return max(lo, min(hi, iv))
 
 
-async def _get_with_retries(
+async def get_with_retries(
     client: httpx.AsyncClient,
     url: str,
     *,
@@ -140,7 +140,7 @@ async def _allowed_by_robots(
 
     async with httpx.AsyncClient(timeout=timeout_s, follow_redirects=True) as client:
         try:
-            response = await _get_with_retries(client, robots_url, headers=_headers(user_agent))
+            response = await get_with_retries(client, robots_url, headers=_headers(user_agent))
             if response.status_code >= 400:
                 _ROBOTS_CACHE[base] = (now, parser)
                 return not robots_fail_closed
@@ -185,11 +185,11 @@ def _extract_next_data_text(raw_html: str) -> str | None:
 
     def walk(value: Any) -> None:
         if isinstance(value, dict):
-            for item in value.values():
+            for item in value.values():  # type: ignore[union-attr]
                 walk(item)
             return
         if isinstance(value, list):
-            for item in value:
+            for item in value:  # type: ignore[union-attr]
                 walk(item)
             return
         if isinstance(value, str):
@@ -226,7 +226,7 @@ async def _fetch_via_jina(
 
     jina_url = f"https://r.jina.ai/{original_url}"
     async with httpx.AsyncClient(timeout=timeout_s, follow_redirects=True) as client:
-        response = await _get_with_retries(client, jina_url, headers=headers)
+        response = await get_with_retries(client, jina_url, headers=headers)
     if response.status_code >= 400:
         return None
     text = response.text.strip()
@@ -315,7 +315,7 @@ class WebFetchPlugin(ToolPlugin):
     async def fetch(self, *, url: str, max_chars: int, timeout_s: float) -> WebFetchResult:
         _validate_public_http_url(url)
 
-        max_chars = _clamp_int(max_chars or self.max_chars_default, 256, 20000)
+        max_chars = clamp_int(max_chars or self.max_chars_default, 256, 20000)
         timeout_s = max(1.0, min(float(timeout_s or self.timeout_s), 30.0))
 
         allowed = await _allowed_by_robots(
@@ -335,7 +335,7 @@ class WebFetchPlugin(ToolPlugin):
             )
 
         async with httpx.AsyncClient(timeout=timeout_s, follow_redirects=True) as client:
-            response = await _get_with_retries(client, url, headers=_headers(self.user_agent))
+            response = await get_with_retries(client, url, headers=_headers(self.user_agent))
 
         content_type = response.headers.get("content-type")
         raw = response.text

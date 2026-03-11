@@ -133,7 +133,9 @@ class McpToolLoopRunner:
         # 路由：内置工具优先
         # ----------------------------------------------------------------
         if self.tool_manager is not None and self.tool_manager.has_builtin(full_name):
-            return await self._execute_builtin_tool_call(tool_call, tool_output_as_user_prompt=tool_output_as_user_prompt)
+            return await self._execute_builtin_tool_call(
+                tool_call, tool_output_as_user_prompt=tool_output_as_user_prompt
+            )
 
         # ----------------------------------------------------------------
         # 路由：MCP 工具（原有逻辑）
@@ -165,7 +167,11 @@ class McpToolLoopRunner:
             args_dict = {}
 
         assert self.tool_manager is not None  # 路由前已检查
-        ctx = self.agent_context if self.agent_context is not None else _AgentContext(workspace_root=__import__("pathlib").Path(".").resolve())
+        ctx = (
+            self.agent_context
+            if self.agent_context is not None
+            else _AgentContext(workspace_root=__import__("pathlib").Path(".").resolve())
+        )
 
         try:
             result = await self.tool_manager.call_tool(full_name, args_json, ctx)

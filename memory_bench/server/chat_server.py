@@ -102,7 +102,7 @@ async def lifespan(app: FastAPI):  # type: ignore[reportUnknownParameterType]
 # ---------------------------------------------------------------------------
 
 app = FastAPI(title="Memory Chat Server", lifespan=lifespan)  # type: ignore[reportUnknownVariableType]
-app.include_router(proxy_router)   # /v1/chat/completions  /v1/models  /health（透明代理）
+app.include_router(proxy_router)  # /v1/chat/completions  /v1/models  /health（透明代理）
 
 
 # ---------------------------------------------------------------------------
