@@ -66,9 +66,7 @@ class AgentToolLoop:
                 full_messages.append({"role": "assistant", "content": final_text})
                 break
 
-            logger.info(
-                f"[AgentToolLoop step={step}] tool_calls={[tc.function.name for tc in tool_calls]}"
-            )
+            logger.info(f"[AgentToolLoop step={step}] tool_calls={[tc.function.name for tc in tool_calls]}")
 
             assistant_dict: dict[str, Any] = {
                 "role": "assistant",
@@ -89,7 +87,7 @@ class AgentToolLoop:
 
             results = await asyncio.gather(*(self._call_tool(tc) for tc in tool_calls))
 
-            for tc, result in zip(tool_calls, results):
+            for tc, result in zip(tool_calls, results, strict=True):
                 full_messages.append(
                     {
                         "role": "tool",
