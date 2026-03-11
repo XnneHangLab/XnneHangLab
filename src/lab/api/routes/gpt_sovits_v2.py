@@ -19,6 +19,7 @@ REF_AUDIO_BASE_DIR = Path("./models/gptsovits/elaina").resolve()
 
 
 @router.get("/health")
+@router.get("/tts/gptsovitsv2/health")
 async def health() -> dict[str, str]:
     synthesizer = gsv_tts_state_manager.get_tts_synthesizer()  # type: ignore[reportUnknownMemberType]
     if synthesizer is None:
