@@ -1,0 +1,13 @@
+[plugin]
+id = "screen_shot"
+name = "Screen Shot"
+version = "0.1.0"
+type = "tool"
+description = "捕获当前桌面截图并返回 base64 编码 JPEG，无显示器环境自动跳过注册"
+author = "XnneHangLab"
+source = "builtin"
+
+[config]
+
+[type_config]
+entry = "ScreenShotPlugin"

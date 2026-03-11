@@ -1,0 +1,16 @@
+[plugin]
+id = "web_search_searxng"
+name = "Web Search (SearXNG)"
+version = "0.1.0"
+type = "tool"
+description = "通过自建 SearXNG 实例搜索网页，searxng_url 为空时跳过注册"
+author = "XnneHangLab"
+source = "builtin"
+
+[config]
+searxng_url = ""
+user_agent = "XnneHangLab-ToolPlugin/1.0"
+timeout_s = 10.0
+
+[type_config]
+entry = "WebSearchSearxngPlugin"
