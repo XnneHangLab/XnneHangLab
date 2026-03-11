@@ -123,16 +123,11 @@ class AgentSettings(BaseModel):
     tool_model: Annotated[ToolModelSetting, Field(ToolModelSetting())]  # pyright: ignore[reportCallIssue]
     vision_model: Annotated[VisionModelSetting, Field(VisionModelSetting())]  # pyright: ignore[reportCallIssue]
     embedding: Annotated[EmbeddingModelSetting, Field(EmbeddingModelSetting())]  # pyright: ignore[reportCallIssue]
-    enable_mcp: Annotated[bool, Field(True, title="Enable MCP")]
+    enable_tool: Annotated[bool, Field(True, title="Enable Tool Calling (BuiltinTool)")]
+    # enable_mcp 已重命名为 enable_tool，原字段废弃
+    # character_name 已迁移到 Profile 系统（profiles/*.toml），此字段废弃
     prompts: Annotated[PromptSettings, Field(PromptSettings())]  # pyright: ignore[reportCallIssue]
     llm: Annotated[LLMSettings, Field(LLMSettings())]  # pyright: ignore[reportCallIssue]
-    character_name: Annotated[
-        str,
-        Field(
-            "elaina",
-            title="比如 elaina, paimeng, 等, 对应 ./prompts/characters/elaina.txt, ./prompts/characters/paimeng.txt 等",
-        ),
-    ]
     deeplx_api_key: Annotated[
         str,
         Field(

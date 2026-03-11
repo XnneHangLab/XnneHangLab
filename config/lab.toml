@@ -1,4 +1,4 @@
-conf_version = "v1.2.0"
+conf_version = "v1.3.0"
 
 [asr]
 FFMPEG_PATH = "ffmpeg"
@@ -32,8 +32,8 @@ guide = "open"
 subtitle_speed = "normal"
 
 [agent]
-enable_mcp = true
-character_name = "elaina"
+enable_tool = true
+# character_name 已迁移到 Profile 系统（profiles/*.toml），此字段废弃
 deeplx_api_key = ""
 user_lang = "ZH"
 speaker_lang = "EN"
@@ -98,46 +98,6 @@ api_format = "chat_completion"
 llm_api_key = ""
 llm_base_url = "https://api.cerebras.ai/v1"
 api_format = "chat_completion"
-
-[mcp.servers.timeemi]
-transport = "http"
-enable = true
-host = "127.0.0.1"
-port = 4200
-path = "/"
-log_level = "debug"
-
-[mcp.servers.vision]
-transport = "http"
-enable = true
-host = "127.0.0.1"
-port = 4201
-path = "/"
-log_level = "debug"
-
-[mcp.servers.tool]
-transport = "http"
-enable = true
-host = "127.0.0.1"
-port = 4202
-path = "/"
-log_level = "debug"
-
-[mcp.tools]
-user_agent = "XnneHangLab-MCP/1.1"
-
-[mcp.tools.web_search]
-provider = "duckduckgo"
-timeout_s = 10.0
-searxng_url = "http://127.0.0.1:8000"
-
-[mcp.tools.web_fetch]
-respect_robots = true
-robots_fail_closed = false
-use_jina_fallback = false
-jina_api_key = ""
-timeout_s = 10.0
-max_chars_default = 8000
 
 [mcp.tool_context]
 tool_budget_tokens = 2200
