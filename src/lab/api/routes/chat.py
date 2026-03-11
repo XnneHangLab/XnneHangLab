@@ -417,7 +417,7 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> JSONResp
     user_content = request.message
     if memories_text:
         if chat_state.context_injector is not None:
-            injected = chat_state.context_injector.build(memory_context=memories_text)
+            injected = chat_state.context_injector.build_context_prompt(memory_context=memories_text)
             if injected:
                 user_content = injected + "\n\n" + user_content
         else:
