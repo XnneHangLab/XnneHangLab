@@ -100,6 +100,7 @@ class ChatState:
     workspace_root: str = ""  # For resolving relative prompt paths
     profile: Profile | None = None
     context_injector: ContextInjector | None = None
+    skill_descriptors: list[Any] | None = None
 
 
 chat_state = ChatState()
@@ -144,7 +145,7 @@ def _build_system_prompt() -> str:
         return SystemPromptBuilder(Path(chat_state.workspace_root)).build(
             persona_path=chat_state.profile.prompt.persona,
             format_path=chat_state.profile.prompt.format,
-            skills=[],
+            skills=chat_state.skill_descriptors or [],
             tool_manager=chat_state.tool_manager,
         )
 
@@ -408,7 +409,12 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> JSONResp
     # 4. Build system prompt
     system_prompt = _build_system_prompt()
     if memories_text:
-        system_prompt += "\n\n" + memories_text
+        if chat_state.context_injector is not None:
+            injected = chat_state.context_injector.build(memory_context=memories_text)
+            if injected:
+                system_prompt += "\n\n" + injected
+        else:
+            system_prompt += "\n\n" + memories_text
 
     # 5. Build full message list
     full_messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
