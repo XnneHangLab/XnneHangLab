@@ -97,7 +97,7 @@ class AgentFactory:
             chat_system_prompt=chat_system_prompt,
             tool_system_prompt=tool_system_prompt,  # 空串时由 MemoryAgent 自动生成
             vision_system_prompt=vision_system_prompt,
-            enable_tool=lab_setting.agent.enable_mcp,
+            enable_tool=lab_setting.agent.enable_tool,
             live2d_model=live2d_model,  # type: ignore[arg-type]
             tts_preprocessor_config=tts_preprocessor_config,  # type: ignore[arg-type]
             faster_first_response=lab_setting.agent.faster_first_response,

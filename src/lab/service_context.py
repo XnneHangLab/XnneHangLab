@@ -170,7 +170,7 @@ class ServiceContext:
             if self._mcp_connected:  # double-check
                 return
             lab_settings = self.lab_setting
-            if lab_settings.agent.enable_mcp:
+            if lab_settings.agent.enable_tool:
                 await self.agent_engine.connect_mcp_servers()
             self._mcp_connected = True
 

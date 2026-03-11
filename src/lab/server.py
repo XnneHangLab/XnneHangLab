@@ -83,7 +83,7 @@ async def lifespan(app: FastAPI):
         next(gen)
 
     ctx = getattr(app.state, "default_context_cache", None)
-    if ctx is not None and lab_settings.agent.enable_mcp:
+    if ctx is not None and lab_settings.agent.enable_tool:
         # 尝试连接 MCP 服务器
         try:
             logger.info("Application startup: connecting to MCP servers...")
@@ -93,7 +93,7 @@ async def lifespan(app: FastAPI):
             logger.warning("Failed to connect to MCP servers on startup.")
             logger.warning("你可能没开启 MCP Server，先运行 `just mcp-server` 启动 MCP Server。")
             logger.warning(
-                "如果你不需要使用工具调用功能，可以忽略此警告。或者将 lab.toml 里的 enable_mcp 设置为 false。"
+                "如果你不需要使用工具调用功能，可以忽略此警告。或者将 lab.toml 里的 enable_tool 设置为 false。"
             )
             logger.warning("继续启动应用，但本次运行工具调用功能将被禁用。")
 
