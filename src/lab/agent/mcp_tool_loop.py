@@ -261,26 +261,6 @@ class McpToolLoopRunner:
         extra_msgs: list[OpenAIMessage] = []
         if tool_output_as_user_prompt:
             if trace.ok:
-                if parsed.full_name == "timeemi__roll_dice":
-                    nums = trace.raw_result.get("numbers")
-                    if isinstance(nums, list) and all(isinstance(x, int) for x in nums):  # type: ignore
-                        pr = await self.mcp.get_prompt(
-                            full_name=parsed.full_name,
-                            prompt_name="convert_list_int_readable",
-                            args={"numbers": nums},
-                        )
-                        extra_msgs.append(OpenAIMessage(role="user", content=prompt_result_to_text(pr)))
-
-                if parsed.full_name == "timeemi__roll_dice_by_current_time":
-                    unit = trace.raw_result.get("unit")
-                    if isinstance(unit, str):
-                        pr = await self.mcp.get_prompt(
-                            full_name=parsed.full_name,
-                            prompt_name="convert_time_unit_readable",
-                            args={"unit": unit},
-                        )
-                        extra_msgs.append(OpenAIMessage(role="user", content=prompt_result_to_text(pr)))
-
                 if parsed.full_name == "vision__screen_shot":
                     pr = await self.mcp.get_prompt(
                         full_name=parsed.full_name,
