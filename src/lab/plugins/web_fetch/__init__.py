@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import html
 import ipaddress
 import json
@@ -15,12 +14,11 @@ from bs4 import BeautifulSoup
 from loguru import logger
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
 
+from lab.plugin.http import clamp_int, get_with_retries, make_headers
 from lab.tools.base import BuiltinTool
 from lab.tools.plugin import ToolPlugin
 from lab.tools.types import AgentContext, ToolResult
 
-DEFAULT_ACCEPT = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-DEFAULT_ACCEPT_LANG = "zh-CN,zh;q=0.9,en;q=0.8"
 _ROBOTS_TTL_S = 6 * 3600
 _ROBOTS_CACHE: dict[str, tuple[float, urllib.robotparser.RobotFileParser]] = {}
 
@@ -39,57 +37,6 @@ class WebFetchResult(BaseModel):
     content_type: str | None = None
     text: str
     truncated: bool = False
-
-
-def _headers(user_agent: str, extra: dict[str, str] | None = None) -> dict[str, str]:
-    headers = {
-        "User-Agent": user_agent,
-        "Accept": DEFAULT_ACCEPT,
-        "Accept-Language": DEFAULT_ACCEPT_LANG,
-    }
-    if extra:
-        headers.update(extra)
-    return headers
-
-
-def clamp_int(v: int, lo: int, hi: int) -> int:
-    try:
-        iv = int(v)
-    except (TypeError, ValueError):
-        return lo
-    return max(lo, min(hi, iv))
-
-
-async def get_with_retries(
-    client: httpx.AsyncClient,
-    url: str,
-    *,
-    params: dict[str, Any] | None = None,
-    headers: dict[str, str] | None = None,
-    retries: int = 2,
-    backoff_s: float = 0.6,
-) -> httpx.Response:
-    last_exc: Exception | None = None
-    for i in range(retries + 1):
-        try:
-            return await client.get(url, params=params, headers=headers)
-        except httpx.RequestError as exc:
-            last_exc = exc
-            if i >= retries:
-                logger.warning(
-                    "HTTP GET failed after retries url={} retries={} error={} {}",
-                    url,
-                    retries,
-                    type(exc).__name__,
-                    exc,
-                )
-                break
-            await asyncio.sleep(backoff_s * (2**i))
-        except Exception as exc:
-            logger.exception("Non-retryable HTTP GET failure url={} error={} {}", url, type(exc).__name__, exc)
-            raise
-    assert last_exc is not None
-    raise last_exc
 
 
 def _is_probably_private_host(host: str) -> bool:
@@ -140,7 +87,7 @@ async def _allowed_by_robots(
 
     async with httpx.AsyncClient(timeout=timeout_s, follow_redirects=True) as client:
         try:
-            response = await get_with_retries(client, robots_url, headers=_headers(user_agent))
+            response = await get_with_retries(client, robots_url, headers=make_headers(user_agent))
             if response.status_code >= 400:
                 _ROBOTS_CACHE[base] = (now, parser)
                 return not robots_fail_closed
@@ -220,7 +167,7 @@ async def _fetch_via_jina(
     user_agent: str,
     jina_api_key: str,
 ) -> str | None:
-    headers = _headers(user_agent)
+    headers = make_headers(user_agent)
     if jina_api_key:
         headers["Authorization"] = f"Bearer {jina_api_key}"
 
@@ -335,7 +282,7 @@ class WebFetchPlugin(ToolPlugin):
             )
 
         async with httpx.AsyncClient(timeout=timeout_s, follow_redirects=True) as client:
-            response = await get_with_retries(client, url, headers=_headers(self.user_agent))
+            response = await get_with_retries(client, url, headers=make_headers(self.user_agent))
 
         content_type = response.headers.get("content-type")
         raw = response.text

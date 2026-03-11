@@ -3,49 +3,17 @@ from __future__ import annotations
 import html
 import json
 import urllib.parse
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import httpx
 import pydantic
 from bs4 import BeautifulSoup
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
 
-from lab.plugins.web_fetch import clamp_int, get_with_retries
+from lab.plugin.http import clamp_int, get_with_retries, make_headers
+from lab.plugin.search_types import WebSearchArgs, WebSearchResult, WebSearchResultItem
 from lab.tools.base import BuiltinTool
 from lab.tools.plugin import ToolPlugin
 from lab.tools.types import AgentContext, ToolResult
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable
-
-DEFAULT_ACCEPT = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-DEFAULT_ACCEPT_LANG = "zh-CN,zh;q=0.9,en;q=0.8"
-
-
-class WebSearchArgs(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    query: str = Field(..., min_length=1, description="Search query.")
-    max_results: int = Field(5, ge=1, le=10, description="Number of search results to return.")
-
-
-class WebSearchResultItem(BaseModel):
-    title: str
-    url: AnyHttpUrl
-    snippet: str | None = None
-
-
-class WebSearchResult(BaseModel):
-    query: str
-    results: list[WebSearchResultItem]
-
-
-def _headers(user_agent: str) -> dict[str, str]:
-    return {
-        "User-Agent": user_agent,
-        "Accept": DEFAULT_ACCEPT,
-        "Accept-Language": DEFAULT_ACCEPT_LANG,
-    }
 
 
 def _is_http_url(url: str) -> bool:
@@ -56,7 +24,7 @@ def _is_http_url(url: str) -> bool:
     return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
 
-def _dedup_keep_order(items: Iterable[WebSearchResultItem]) -> list[WebSearchResultItem]:
+def _dedup_keep_order(items: list[WebSearchResultItem]) -> list[WebSearchResultItem]:
     seen: set[str] = set()
     out: list[WebSearchResultItem] = []
     for item in items:
@@ -152,7 +120,7 @@ class _WebSearchTool(BuiltinTool):
 
 
 class WebSearchDuckDuckGoPlugin(ToolPlugin):
-    name = "web_search"
+    name = "web_search_ddg"
     description = "Search the web using DuckDuckGo HTML results."
 
     def __init__(self, *, user_agent: str = "XnneHangLab-ToolPlugin/1.0", timeout_s: float = 10.0) -> None:
@@ -170,7 +138,7 @@ class WebSearchDuckDuckGoPlugin(ToolPlugin):
                 client,
                 "https://duckduckgo.com/html/",
                 params={"q": query},
-                headers=_headers(self.user_agent),
+                headers=make_headers(self.user_agent),
             )
         response.raise_for_status()
         return WebSearchResult(query=query, results=_parse_ddg_html_results(response.text, max_results))

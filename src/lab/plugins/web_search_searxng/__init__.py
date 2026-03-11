@@ -10,22 +10,11 @@ import pydantic
 from bs4 import BeautifulSoup
 from loguru import logger
 
-from lab.plugins.web_fetch import clamp_int, get_with_retries
-from lab.plugins.web_search_ddg import WebSearchArgs, WebSearchResult, WebSearchResultItem
+from lab.plugin.http import clamp_int, get_with_retries, make_headers
+from lab.plugin.search_types import WebSearchArgs, WebSearchResult, WebSearchResultItem
 from lab.tools.base import BuiltinTool
 from lab.tools.plugin import ToolPlugin
 from lab.tools.types import AgentContext, ToolResult
-
-DEFAULT_ACCEPT = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-DEFAULT_ACCEPT_LANG = "zh-CN,zh;q=0.9,en;q=0.8"
-
-
-def _headers(user_agent: str) -> dict[str, str]:
-    return {
-        "User-Agent": user_agent,
-        "Accept": DEFAULT_ACCEPT,
-        "Accept-Language": DEFAULT_ACCEPT_LANG,
-    }
 
 
 def _is_http_url(url: str) -> bool:
@@ -121,7 +110,7 @@ class _WebSearchTool(BuiltinTool):
 
 
 class WebSearchSearxngPlugin(ToolPlugin):
-    name = "web_search"
+    name = "web_search_searxng"
     description = "Search the web using a SearXNG instance."
 
     def __init__(
@@ -153,7 +142,7 @@ class WebSearchSearxngPlugin(ToolPlugin):
                 client,
                 f"{base}/search",
                 params={"q": query, "categories": "general", "count": max_results},
-                headers=_headers(self.user_agent),
+                headers=make_headers(self.user_agent),
             )
         response.raise_for_status()
         return WebSearchResult(
