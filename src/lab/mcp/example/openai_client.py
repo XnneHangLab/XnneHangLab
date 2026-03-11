@@ -6,20 +6,23 @@ from pathlib import Path
 
 from loguru import logger
 from openai import APIConnectionError, APIError, AsyncOpenAI, RateLimitError
+from pydantic import BaseModel
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.mcp._typing import (
     ConversationState,
     ImageRefResult,
     OpenAIMessage,
-    ScreenShotResult,
     ToolCallLike,
     ToolTraceItem,
+    UnknownArgs,
+    UnknownResult,
 )
 from lab.mcp.context_policy import build_resolved_refs_msg
 from lab.mcp.fastmcp_router import FastMcpRouter
+from lab.mcp.plugins import McpPlugin
 from lab.mcp.state_updater import update_state_from_tool_trace, update_state_from_user_text
-from lab.mcp.tool_registry import DEFAULT_RETRY_HINT, TOOL_RETRY_HINTS, ToolRegistry
+from lab.mcp.tool_registry import DEFAULT_RETRY_HINT, ToolRegistry
 from lab.mcp.util import call_with_short_retry, dump_openai_msg, prompt_result_to_text  # type: ignore
 
 
@@ -136,6 +139,30 @@ class Agent:
         t = text or ""
         return any(x in t for x in ["现在截图", "重新截图", "再截一张", "此刻截图", "再截图一次"])
 
+    def _parse_mcp_args(self, full_name: str, arguments_json: str | None) -> tuple[McpPlugin | None, "ParsedTool"]:
+        from lab.mcp.tool_registry import ParsedTool
+
+        server, name = full_name.split("__", 1)
+        plugin = ToolRegistry.get(full_name)
+        payload = arguments_json or "{}"
+        if plugin is not None:
+            args_model = plugin.parse_args(payload)
+            return plugin, ParsedTool(full_name=full_name, server=server, name=name, args_model=args_model)
+
+        try:
+            raw = json.loads(payload)
+            if not isinstance(raw, dict):
+                raw = {}
+        except json.JSONDecodeError:
+            raw = {}
+        return plugin, ParsedTool(full_name=full_name, server=server, name=name, args_model=UnknownArgs(raw))  # type: ignore[arg-type]
+
+    @staticmethod
+    def _format_unknown_tool_message(result_model: BaseModel) -> str:
+        if isinstance(result_model, UnknownResult) and isinstance(result_model.data, str):
+            return result_model.data
+        return result_model.model_dump_json(exclude_none=True)
+
     def _can_reuse_last_image(self) -> bool:
         refs = getattr(self.state, "refs", {})
         if not isinstance(refs, dict):
@@ -243,33 +270,45 @@ class Agent:
         full_name = tool_call.function.name
 
         # 1) args 强校验
-        parsed = ToolRegistry.parse_args(full_name, tool_call.function.arguments)
+        plugin, parsed = self._parse_mcp_args(full_name, tool_call.function.arguments)
         args_dict = parsed.args_model.model_dump(exclude_none=True, mode="json")
 
         # 2) 调工具
         try:
             result_obj = await self.mcp.call_tool(full_name=full_name, args=args_dict)
-            result_model = ToolRegistry.parse_result(full_name, result_obj)
+            is_error = bool(getattr(result_obj, "is_error", False))
+            if is_error:
+                blocks = getattr(result_obj, "content", None) or []  # type: ignore[assignment]
+                err_text = next((getattr(block, "text", None) for block in blocks if getattr(block, "text", None)), None)
+                result_model = UnknownResult(data=err_text or "tool_error")
+            elif plugin is not None:
+                result_model = plugin.parse_result(result_obj)
+            else:
+                result_model = UnknownResult(data=getattr(result_obj, "data", None))
 
-            if isinstance(result_model, ScreenShotResult):
-                b64 = result_model.image_b64
-                self._blob_store[tool_call.id] = {"mime": "image/jpeg", "b64": b64}
+            image_b64 = getattr(result_model, "image_b64", None)
+            if isinstance(image_b64, str):
+                self._blob_store[tool_call.id] = {"mime": "image/jpeg", "b64": image_b64}
 
                 tool_msg = OpenAIMessage(
                     role="tool",
-                    content=f"[screenshot captured] ref={tool_call.id} mime=image/jpeg b64_len={len(b64)}",
+                    content=f"[screenshot captured] ref={tool_call.id} mime=image/jpeg b64_len={len(image_b64)}",
                     tool_call_id=tool_call.id,
                 )
 
                 # ✅ 关键：trace_item 直接吃 ImageRefResult，raw_result 统一建模
                 trace = ToolRegistry.trace_item(
                     parsed,
-                    ImageRefResult(image_ref=tool_call.id, mime="image/jpeg", b64_len=len(b64)),
+                    ImageRefResult(image_ref=tool_call.id, mime="image/jpeg", b64_len=len(image_b64)),
                     ok=True,
                     error=None,
                 )
             else:
-                tool_text = ToolRegistry.tool_content_for_tool_model(result_model)
+                tool_text = (
+                    plugin.format_tool_message(result_model)
+                    if plugin is not None
+                    else self._format_unknown_tool_message(result_model)
+                )
                 tool_msg = OpenAIMessage(role="tool", content=tool_text, tool_call_id=tool_call.id)
                 trace = ToolRegistry.trace_item(parsed, result_model, ok=True, error=None)
 
@@ -381,7 +420,7 @@ class Agent:
 
                     extra_msgs.append({"role": "user", "content": "\n".join(lines)})
             else:
-                hint = TOOL_RETRY_HINTS.get(parsed.full_name, DEFAULT_RETRY_HINT)
+                hint = plugin.get_retry_hint() if plugin is not None else DEFAULT_RETRY_HINT
                 extra_msgs.append(
                     {
                         "role": "user",
@@ -479,8 +518,12 @@ class Agent:
 
             for tc in tool_calls_exec:
                 full_name = tc.function.name
-                parsed = ToolRegistry.parse_args(full_name, tc.function.arguments)
-                args_dict = parsed.args_model.model_dump(exclude_none=True, mode="json")
+                try:
+                    args_dict = json.loads(tc.function.arguments or "{}")
+                    if not isinstance(args_dict, dict):
+                        args_dict = {}
+                except json.JSONDecodeError:
+                    args_dict = {}
                 sig = _sig(full_name, args_dict)
                 planned.append((tc, sig))
 

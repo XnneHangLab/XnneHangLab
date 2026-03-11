@@ -9,11 +9,14 @@ from lab.tools.builtin import (
     WriteFileTool,
 )
 from lab.tools.manager import ToolManager
+from lab.tools.plugin import PromptSegment, ToolPlugin
 from lab.tools.types import AgentContext, ToolResult
 
 __all__ = [
     # 基类
     "BuiltinTool",
+    "ToolPlugin",
+    "PromptSegment",
     # 内置工具
     "GetDatetimeTool",
     "ReadFileTool",
