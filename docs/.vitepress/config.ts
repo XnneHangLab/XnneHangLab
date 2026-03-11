@@ -45,6 +45,9 @@ export default defineConfig({
             { text: "Conversations", link: "/guide/architecture/conversations" },
             { text: "Config", link: "/guide/architecture/config" },
             { text: "Memory Agent", link: "/guide/architecture/memory-agent" },
+            { text: "Plugin 系统", link: "/guide/architecture/plugin-system" },
+            { text: "Profile 系统", link: "/guide/architecture/profile-system" },
+            { text: "System Prompt 分层", link: "/guide/architecture/system-prompt-layers" },
           ],
         },
         {
@@ -54,6 +57,7 @@ export default defineConfig({
             { text: "已知问题", link: "/guide/issue" },
             { text: "分支", link: "/guide/branches" },
             { text: "贡献指南", link: "/guide/contributing" },
+            { text: "插件开发指南", link: "/guide/dev/plugin-development" },
           ],
         },
       ],

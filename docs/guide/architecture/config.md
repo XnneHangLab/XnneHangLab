@@ -29,10 +29,10 @@ settings = load_settings_file("lab.toml", XnneHangLabSettings)
 
 ```python
 class XnneHangLabSettings(BaseModel):
-    conf_version: str = "v1.1.2"  # 配置版本（见入门文档）
+    conf_version: str = "v1.3.0"  # 配置版本（v1.3.0 起迁移到 Plugin/Profile 架构）
     asr: ASRSettings
     agent: AgentSettings
-    mcp: MCPSettings
+    mcp: MCPSettings              # MCP tool loop 相关，待 AgentLoop 重构后更新
     package: PackagesSettings
     server: ServerSettings
     vtuber: VtuberSettings
@@ -86,7 +86,21 @@ yutto_uiya = true        # Yutto-Uiya 功能
 
 如果不存在，`load_settings_file()` 会在 `config/` 下创建默认配置。
 
-## 与其他模块的关系
+## AgentSettings 变更（v1.3.0）
+
+`[agent]` 配置段有以下变更：
+
+| 字段 | 变更 |
+|---|---|
+| `enable_mcp` | **重命名为 `enable_tool`**，控制 BuiltinTool 开关 |
+| `character_name` | **废弃**，迁移到 `profiles/*.toml` 的 `[prompt].persona` |
+
+已删除的配置段：
+
+- `[mcp.servers.*]`（timeemi / vision / tool）— MCP server 已移除
+- `[mcp.tools]` / `[mcp.tools.web_search]` / `[mcp.tools.web_fetch]` — 已迁移到 plugin.toml
+
+
 
 - **所有模块** 通过 `load_settings_file()` 读取配置
 - **service_context.py** 使用配置初始化 Agent 和服务
