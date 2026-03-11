@@ -48,7 +48,11 @@ class _ScreenShotTool(BuiltinTool):
             return ToolResult(ok=False, text="", error=str(exc))
 
         result = ScreenShotPlugin.capture()
-        return ToolResult(ok=True, text=result.image_b64, data=result.model_dump(exclude_none=True, mode="json"))
+        return ToolResult(
+            ok=True,
+            text="[screenshot captured]",
+            data=result.model_dump(exclude_none=True, mode="json"),
+        )
 
 
 class ScreenShotPlugin(ToolPlugin):
