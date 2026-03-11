@@ -180,20 +180,13 @@ async def lifespan(app: FastAPI):
                 chat_state.agent_context = agent_context
                 chat_state.chat_model = chat_model_cfg.llm_model_name
                 chat_state.workspace_root = str(ws_root)
-                _profile_path = ws_root / "profiles" / "songyin.toml"
-                if _profile_path.exists():
-                    _profile = Profile.from_toml(_profile_path)
-                    chat_state.profile = _profile
-                    chat_state.context_injector = ContextInjector(_profile.context)
-                    logger.info("✅ Chat profile loaded: {}", _profile.profile.name)
-                else:
-                    chat_state.persona_file = "prompts/characters/satone.md"
-                    chat_state.format_file = "prompts/formats/emotion_pipe.md"
-                    chat_state.skill_files = [
-                        "prompts/skills/diary_writing.md",
-                        "prompts/skills/file_navigation.md",
-                    ]
-                    logger.warning("⚠️ profiles/songyin.toml not found, using legacy hardcoded paths")
+                _profile_path = ws_root / "profiles" / "congyin.toml"
+                if not _profile_path.exists():
+                    raise FileNotFoundError(f"Profile not found: {_profile_path}")
+                _profile = Profile.from_toml(_profile_path)
+                chat_state.profile = _profile
+                chat_state.context_injector = ContextInjector(_profile.context)
+                logger.info("✅ Chat profile loaded: {}", _profile.profile.name)
                 chat_state.conversations_dir = str(ws_root / "data" / "conversations")
 
                 logger.info(
