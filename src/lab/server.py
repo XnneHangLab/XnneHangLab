@@ -161,10 +161,12 @@ async def lifespan(app: FastAPI):
                 from lab.agent.agent_factory import build_default_tool_manager
                 from lab.agent.stateless_llm_factory import LLMFactory
                 from lab.api.routes.chat import chat_state
+                from lab.plugin.loader import PluginLoader
+                from lab.profile.context_injector import ContextInjector
+                from lab.profile.schema import Profile
                 from lab.tools import AgentContext
 
                 ws_root = Path(lab_settings.root.root_dir)
-                tool_manager = build_default_tool_manager(ws_root)
                 agent_context = AgentContext(workspace_root=ws_root)
 
                 chat_llm_instance = LLMFactory.create_llm(
@@ -174,16 +176,37 @@ async def lifespan(app: FastAPI):
                 )
 
                 chat_state.chat_llm = chat_llm_instance
-                chat_state.tool_manager = tool_manager
                 chat_state.agent_context = agent_context
                 chat_state.chat_model = chat_model_cfg.llm_model_name
                 chat_state.workspace_root = str(ws_root)
-                chat_state.persona_file = "prompts/characters/satone.md"
-                chat_state.format_file = "prompts/formats/emotion_pipe.md"
-                chat_state.skill_files = [
-                    "prompts/skills/diary_writing.md",
-                    "prompts/skills/file_navigation.md",
-                ]
+
+                _profile_path = ws_root / "profiles" / "congyin.toml"
+                if not _profile_path.exists():
+                    raise FileNotFoundError(f"Profile not found: {_profile_path}")
+                _profile = Profile.from_toml(_profile_path)
+                chat_state.profile = _profile
+                chat_state.context_injector = ContextInjector(_profile.context)
+                logger.info("✅ Chat profile loaded: {}", _profile.profile.name)
+
+                # Load plugins declared in profile
+                plugin_loader = PluginLoader()
+                tool_plugins, skill_descriptors = await plugin_loader.load_many(
+                    _profile.plugins.enabled,
+                    profile_overrides=_profile.plugins.overrides,
+                    ctx=agent_context,
+                )
+                tool_manager = build_default_tool_manager(ws_root)
+                for tp in tool_plugins:
+                    for bt in tp.get_tools():
+                        tool_manager.register_builtin(bt)
+                chat_state.tool_manager = tool_manager
+                chat_state.skill_descriptors = skill_descriptors
+                logger.info(
+                    "✅ Plugins loaded: {} tools, {} skills",
+                    len(tool_plugins),
+                    len(skill_descriptors),
+                )
+
                 chat_state.conversations_dir = str(ws_root / "data" / "conversations")
 
                 logger.info(

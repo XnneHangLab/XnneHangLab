@@ -33,6 +33,8 @@ from lab.conversation.store import ConversationStore
 
 if TYPE_CHECKING:
     from lab.agent.stateless_llm.openai_compatible_llm import AsyncLLM
+    from lab.profile.context_injector import ContextInjector
+    from lab.profile.schema import Profile
     from lab.tools import AgentContext, ToolManager
 
 
@@ -96,6 +98,9 @@ class ChatState:
     format_file: str = ""  # Layer 2: e.g. "prompts/formats/emotion_pipe.md"
     skill_files: list[str] | None = None  # Layer 3: e.g. ["prompts/skills/diary_writing.md", ...]
     workspace_root: str = ""  # For resolving relative prompt paths
+    profile: Profile | None = None
+    context_injector: ContextInjector | None = None
+    skill_descriptors: list[Any] | None = None
 
 
 chat_state = ChatState()
@@ -134,6 +139,16 @@ def _build_system_prompt() -> str:
     4. Tools — auto-generated from ToolManager
     5. Context — injected per-request (memories, diary summaries) — NOT here, done in chat_endpoint
     """
+    if chat_state.profile is not None and chat_state.workspace_root:
+        from lab.profile.system_prompt_builder import SystemPromptBuilder
+
+        return SystemPromptBuilder(Path(chat_state.workspace_root)).build(
+            persona_path=chat_state.profile.prompt.persona,
+            format_path=chat_state.profile.prompt.format,
+            skills=chat_state.skill_descriptors or [],
+            tool_manager=chat_state.tool_manager,
+        )
+
     log = logger.bind(group="chat")
     parts: list[str] = []
 
@@ -393,13 +408,21 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> JSONResp
 
     # 4. Build system prompt
     system_prompt = _build_system_prompt()
-    if memories_text:
-        system_prompt += "\n\n" + memories_text
 
     # 5. Build full message list
     full_messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
     full_messages.extend(history)
-    full_messages.append({"role": "user", "content": request.message})
+
+    # Inject memory context into user message
+    user_content = request.message
+    if memories_text:
+        if chat_state.context_injector is not None:
+            injected = chat_state.context_injector.build_context_prompt(memory_context=memories_text)
+            if injected:
+                user_content = injected + "\n\n" + user_content
+        else:
+            user_content = memories_text + "\n\n" + user_content
+    full_messages.append({"role": "user", "content": user_content})
 
     # 6. Run tool loop or plain chat
     model = request.model or chat_state.chat_model
@@ -476,6 +499,7 @@ async def chat_health() -> JSONResponse:
             "llm_ready": chat_state.chat_llm is not None,
             "model": chat_state.chat_model,
             "tools_count": tools_count,
+            "profile": chat_state.profile.profile.name if chat_state.profile else None,
             "persona_file": chat_state.persona_file or None,
             "format_file": chat_state.format_file or None,
             "skill_files": chat_state.skill_files,
