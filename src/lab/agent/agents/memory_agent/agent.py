@@ -4,15 +4,15 @@ from typing import TYPE_CHECKING, Literal
 
 from loguru import logger
 
+from lab.agent.agent_tool_loop import AgentToolLoop
 from lab.agent.agents.agent_interface import AgentInterface
-from lab.agent.mcp_tool_loop import McpToolLoopRunner
 from lab.agent.transformers import actions_extractor, display_processor, sentence_divider, tts_filter
 from lab.mcp import ConversationState, FastMcpRouter, OpenAIMessage
 
+from .agent_tool_loop_runner import AgentToolLoopRunner, AgentToolLoopRunResult
 from .memory_store import MemoryStore
 from .message_factory import MessageFactory
 from .prompt_builder import PromptBuilder
-from .tool_runner import ToolRunner
 from .types import ImagePayload
 from .vision_summarizer import VisionSummarizer
 
@@ -63,6 +63,30 @@ class MemoryAgent(AgentInterface):
         segment_method: str = "pysbd",
         interrupt_method: Literal["system", "user"] = "user",
     ) -> None:
+        """Initialize the memory agent.
+
+        Args:
+            lab_settings: Global application settings.
+            chat_llm: Chat model used for the final response.
+            tool_llm: Tool-calling model used before the final response.
+            vision_llm: Vision model used for image summarization.
+            chat_system_prompt: System prompt for the chat model.
+            tool_system_prompt: Optional system prompt for the tool model.
+            vision_system_prompt: System prompt for the vision model.
+            live2d_model: Live2D model used by the action extractor.
+            tts_preprocessor_config: TTS preprocessing configuration.
+            enable_tool: Whether tool use is enabled.
+            mcp: Optional MCP router kept for lifecycle compatibility.
+            tool_manager: Tool manager providing builtin tools.
+            agent_context: Runtime context passed into builtin tools.
+            workspace_root: Optional workspace root used to build a fallback agent context.
+            faster_first_response: Whether to favor lower-latency sentence splitting.
+            segment_method: Sentence segmentation method.
+            interrupt_method: Interrupt handling strategy for memory.
+
+        Returns:
+            None.
+        """
         super().__init__()
 
         self.lab_settings = lab_settings
@@ -106,13 +130,16 @@ class MemoryAgent(AgentInterface):
         else:
             self.tool_system_prompt = ""
 
-        self.tool_loop = McpToolLoopRunner(
-            tool_llm=self.tool_llm,
-            mcp=self.mcp,
-            tool_context_config=lab_settings.mcp.tool_context,
-            tool_manager=self.tool_manager,
-            agent_context=self.agent_context,
-        )
+        if self.tool_manager is not None and self.agent_context is not None:
+            self.tool_loop: AgentToolLoopRunner | None = AgentToolLoopRunner(
+                agent_tool_loop=AgentToolLoop(
+                    llm=self.tool_llm,
+                    tool_manager=self.tool_manager,
+                    agent_context=self.agent_context,
+                )
+            )
+        else:
+            self.tool_loop = None
 
         # components
         self.msg = MessageFactory()
@@ -120,7 +147,6 @@ class MemoryAgent(AgentInterface):
         self.memory = MemoryStore()
         self.memory.set_interrupt_method(interrupt_method)
 
-        self.tools = ToolRunner(mcp=self.mcp, tool_loop=self.tool_loop, state=self.state)
         self.vision = VisionSummarizer(
             vision_llm=self.vision_llm,
             vision_system_prompt=self.vision_system_prompt,
@@ -144,7 +170,14 @@ class MemoryAgent(AgentInterface):
     # MCP lifecycle
     # ---------------------------------------------------------------------
     async def connect_mcp_servers(self, servers: list[tuple[str, str]] | None = None) -> None:
-        """连接 MCP servers（保持与你原实现一致）。"""
+        """Connect MCP servers for compatibility with the existing lifecycle.
+
+        Args:
+            servers: Optional `(name, url)` pairs to connect.
+
+        Returns:
+            None.
+        """
         if servers:
             for name, url in servers:
                 await self.mcp.connect(name=name, url=url)
@@ -153,18 +186,51 @@ class MemoryAgent(AgentInterface):
         logger.info("No builtin MCP servers to connect. Pass servers= to connect external MCP servers.")
 
     async def close(self) -> None:
+        """Close MCP resources owned by the agent.
+
+        Args:
+            None.
+
+        Returns:
+            None.
+        """
         await self.mcp.close()
 
     # ---------------------------------------------------------------------
     # Public helpers for history/interrupt (backward-compat)
     # ---------------------------------------------------------------------
     def set_memory_from_history(self, conf_uid: str, history_uid: str) -> None:
+        """Load memory state from a stored history.
+
+        Args:
+            conf_uid: Configuration identifier.
+            history_uid: History identifier.
+
+        Returns:
+            None.
+        """
         self.memory.set_memory_from_history(conf_uid, history_uid)
 
     def handle_interrupt(self, heard_response: str) -> None:
+        """Record a user interruption against the current response.
+
+        Args:
+            heard_response: Partial response heard by the user.
+
+        Returns:
+            None.
+        """
         self.memory.handle_interrupt(heard_response)
 
     def reset_interrupt(self) -> None:
+        """Reset interrupt tracking state.
+
+        Args:
+            None.
+
+        Returns:
+            None.
+        """
         self.memory.reset_interrupt()
 
     # ---------------------------------------------------------------------
@@ -187,13 +253,16 @@ class MemoryAgent(AgentInterface):
         messages_wo_user = messages[:-1]
 
         # 1) 工具（可选）
-        available_tools = await self.mcp.list_tools_openai_schema() if self.enable_tool else []
-        tool_result = await self.tools.run_tool_loop_if_enabled(
-            enable_tool=self.enable_tool,
-            tool_system_prompt=self.tool_system_prompt,
-            available_tools=available_tools,
-            user_input_text=user_input_text,
-        )
+        reuse_last_screenshot = self._should_reuse_last_screenshot(user_input_text)
+        if self.tool_loop is not None:
+            tool_result = await self.tool_loop.run_tool_loop_if_enabled(
+                enable_tool=self.enable_tool,
+                tool_system_prompt=self.tool_system_prompt,
+                messages=[{"role": "user", "content": user_input_text}],
+                reuse_last_screenshot=reuse_last_screenshot,
+            )
+        else:
+            tool_result = AgentToolLoopRunResult(trace_json="(无)", final_text="", tool_image=None)
 
         tool_trace_json = tool_result.trace_json if self.enable_tool else None
         base_prompt = self.prompt.build_base_prompt(user_input_text=user_input_text, tool_trace_json=tool_trace_json)
@@ -307,5 +376,32 @@ class MemoryAgent(AgentInterface):
         return chat_with_memory
 
     async def chat(self, input_data: BatchInput) -> AsyncIterator[SentenceOutput | AudioOutput]:  # type: ignore[override]
+        """Run the chat pipeline for one batch input.
+
+        Args:
+            input_data: User input batch containing text and optional images.
+
+        Returns:
+            An async iterator of sentence or audio chunks.
+        """
         async for chunk in self._bound_chat(input_data):
             yield chunk
+
+    @staticmethod
+    def _should_reuse_last_screenshot(user_input_text: str) -> bool:
+        """Return whether the user is asking to reuse the previous screenshot."""
+        reuse_keywords = [
+            "刚才那张截图",
+            "那张截图",
+            "上一个截图",
+            "上一张图",
+            "刚才那图",
+        ]
+        new_screenshot_keywords = [
+            "现在截图",
+            "重新截图",
+            "再截",
+        ]
+        return any(keyword in user_input_text for keyword in reuse_keywords) and not any(
+            keyword in user_input_text for keyword in new_screenshot_keywords
+        )
