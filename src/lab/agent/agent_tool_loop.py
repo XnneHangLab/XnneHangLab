@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from loguru import logger
 
 if TYPE_CHECKING:
-    from lab.agent.stateless_llm.openai_compatible_llm import AsyncLLM
+    from lab.agent.stateless_llm.openai_compatible_llm import AsyncLLM, OpenAIMessage
     from lab.tools import AgentContext, ToolManager
 
 
@@ -80,7 +80,7 @@ class AgentToolLoop:
 
         for step in range(self._max_steps):
             completion = await self._llm.tool_completion(
-                messages=full_messages,  # AsyncLLM accepts dict messages via normalize_messages()
+                messages=cast("list[OpenAIMessage]", full_messages),
                 tools=tools,
                 tool_choice="auto",
                 system=None,

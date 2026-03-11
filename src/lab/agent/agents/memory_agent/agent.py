@@ -9,7 +9,7 @@ from lab.agent.agents.agent_interface import AgentInterface
 from lab.agent.transformers import actions_extractor, display_processor, sentence_divider, tts_filter
 from lab.mcp import ConversationState, FastMcpRouter, OpenAIMessage
 
-from .agent_tool_loop_runner import AgentToolLoopRunner
+from .agent_tool_loop_runner import AgentToolLoopRunner, AgentToolLoopRunResult
 from .memory_store import MemoryStore
 from .message_factory import MessageFactory
 from .prompt_builder import PromptBuilder
@@ -130,13 +130,16 @@ class MemoryAgent(AgentInterface):
         else:
             self.tool_system_prompt = ""
 
-        self.tool_loop = AgentToolLoopRunner(
-            agent_tool_loop=AgentToolLoop(
-                llm=self.tool_llm,
-                tool_manager=self.tool_manager,
-                agent_context=self.agent_context,
+        if self.tool_manager is not None and self.agent_context is not None:
+            self.tool_loop: AgentToolLoopRunner | None = AgentToolLoopRunner(
+                agent_tool_loop=AgentToolLoop(
+                    llm=self.tool_llm,
+                    tool_manager=self.tool_manager,
+                    agent_context=self.agent_context,
+                )
             )
-        )
+        else:
+            self.tool_loop = None
 
         # components
         self.msg = MessageFactory()
@@ -251,12 +254,15 @@ class MemoryAgent(AgentInterface):
 
         # 1) 工具（可选）
         reuse_last_screenshot = self._should_reuse_last_screenshot(user_input_text)
-        tool_result = await self.tool_loop.run_tool_loop_if_enabled(
-            enable_tool=self.enable_tool,
-            tool_system_prompt=self.tool_system_prompt,
-            messages=[{"role": "user", "content": user_input_text}],
-            reuse_last_screenshot=reuse_last_screenshot,
-        )
+        if self.tool_loop is not None:
+            tool_result = await self.tool_loop.run_tool_loop_if_enabled(
+                enable_tool=self.enable_tool,
+                tool_system_prompt=self.tool_system_prompt,
+                messages=[{"role": "user", "content": user_input_text}],
+                reuse_last_screenshot=reuse_last_screenshot,
+            )
+        else:
+            tool_result = AgentToolLoopRunResult(trace_json="(无)", final_text="", tool_image=None)
 
         tool_trace_json = tool_result.trace_json if self.enable_tool else None
         base_prompt = self.prompt.build_base_prompt(user_input_text=user_input_text, tool_trace_json=tool_trace_json)
