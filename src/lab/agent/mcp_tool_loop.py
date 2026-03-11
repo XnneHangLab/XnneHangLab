@@ -383,6 +383,19 @@ class McpToolLoopRunner:
         def _sig(full_name: str, args_dict: dict[str, object]) -> str:
             return full_name + "::" + json.dumps(args_dict, ensure_ascii=False, sort_keys=True)
 
+        def _args_dict_for_sig(tool_call: ToolCallLike) -> dict[str, object]:
+            full_name = tool_call.function.name
+            if self.tool_manager is not None and self.tool_manager.has_builtin(full_name):
+                args_json = tool_call.function.arguments or "{}"
+                try:
+                    raw = json.loads(args_json) if args_json.strip() else {}
+                except json.JSONDecodeError:
+                    return {}
+                return raw if isinstance(raw, dict) else {}
+
+            parsed = ToolRegistry.parse_args(full_name, tool_call.function.arguments)
+            return parsed.args_model.model_dump(exclude_none=True, mode="json")
+
         for step in range(max_steps):
             tools_eff = self._effective_tools_for_step(
                 user_input=user_input,
@@ -428,8 +441,7 @@ class McpToolLoopRunner:
 
             for tool_call in tool_calls_exec:
                 full_name = tool_call.function.name
-                parsed = ToolRegistry.parse_args(full_name, tool_call.function.arguments)
-                args_dict = parsed.args_model.model_dump(exclude_none=True, mode="json")
+                args_dict = _args_dict_for_sig(tool_call)
                 sig = _sig(full_name, args_dict)
                 planned.append((tool_call, sig))
 

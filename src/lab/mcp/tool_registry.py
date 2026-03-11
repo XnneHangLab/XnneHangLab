@@ -9,19 +9,15 @@ from lab.mcp._typing import (
     RollDiceByTimeArgs,
     RollDiceByTimeResult,
     RollDiceResult,
-    ScreenShotArgs,
-    ScreenShotResult,
     ToolTraceItem,
     UnknownArgs,
     UnknownResult,
-    WebFetchArgs,
-    WebFetchResult,
-    WebSearchArgs,
-    WebSearchResult,
 )
 from lab.mcp.util import normalize_jsonlike
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from pydantic import BaseModel
 
 
@@ -39,26 +35,13 @@ def _coerce_list(x: object) -> list[Any] | None:
     return y if isinstance(y, list) else None  # type: ignore
 
 
-def _coerce_scalar(x: object) -> str | int | float | bool | None:
-    """Ensure `x` becomes a scalar (str, int, float, bool or None) after coercion."""
-    y = normalize_jsonlike(x)
-    if y is None or isinstance(y, (str, int, float, bool)):
-        return y
-    return None
-
-
-# =============================================================================
-# 4) ToolRegistry：强类型解析入口（你以后扩展就在这里加分支）
-# =============================================================================
-
-
 @dataclass(frozen=True)
 class ParsedTool:
     """
-    { full_name: timeemi__get_date_and_time,
+    { full_name: timeemi__roll_dice,
       server: timeemi,
-      name: get_date_and_time,
-      args_model: GetDateAndTimeArgs
+      name: roll_dice,
+      args_model: RollDiceArgs
     }
     """
 
@@ -70,13 +53,60 @@ class ParsedTool:
 
 class ToolRegistry:
     """
-    工具注册表（强类型入口）。
+    轻量工具注册表（强类型入口）。
 
-    你要扩展新工具，照着已有分支加：
-    - Args(BaseModel)
-    - Result(BaseModel)
-    - parse_args / parse_result 各加一个 elif
+    你要扩展新工具，只需要在注册表里登记 Args/Result 模型，
+    以及给对应 Result 模型补一个解析器。
     """
+
+    _MODELS: dict[str, tuple[type[BaseModel], type[BaseModel]]] = {
+        "timeemi__roll_dice": (RollDiceArgs, RollDiceResult),
+        "timeemi__roll_dice_by_current_time": (RollDiceByTimeArgs, RollDiceByTimeResult),
+    }
+
+    @staticmethod
+    def _parse_roll_dice_result(data: object) -> RollDiceResult:
+        data = _coerce_list(data)
+        if data is None:
+            raise TypeError(f"timeemi.roll_dice expects list[int], got {type(data)} {data}")  # type: ignore[arg-type]
+        return RollDiceResult(numbers=data)  # type: ignore[arg-type]
+
+    @staticmethod
+    def _parse_roll_dice_by_time_result(data: object) -> RollDiceByTimeResult:
+        data = _coerce_dict_deep(data)
+        if data is None:
+            raise TypeError(f"timeemi.roll_dice_by_current_time expects dict-like, got {type(data)}")
+        if "numbers" not in data:
+            raise TypeError(
+                f"timeemi.roll_dice_by_current_time expects dict with 'numbers', got {type(data)} {data}"  # type: ignore[arg-type]
+            )
+        return RollDiceByTimeResult.model_validate(data)  # type: ignore[arg-type]
+
+    _RESULT_PARSERS: dict[type[BaseModel], Callable[[object], BaseModel]] = {
+        RollDiceResult: _parse_roll_dice_result.__func__,
+        RollDiceByTimeResult: _parse_roll_dice_by_time_result.__func__,
+    }
+
+    @staticmethod
+    def _tool_content_roll_dice(result_model: BaseModel) -> str:
+        assert isinstance(result_model, RollDiceResult)
+        return json.dumps(result_model.numbers, ensure_ascii=False)
+
+    @staticmethod
+    def _tool_content_roll_dice_by_time(result_model: BaseModel) -> str:
+        assert isinstance(result_model, RollDiceByTimeResult)
+        return json.dumps(result_model.numbers, ensure_ascii=False)
+
+    @staticmethod
+    def _parse_unknown_args(arguments_json: str | None) -> UnknownArgs:
+        s = arguments_json or "{}"
+        try:
+            raw = json.loads(s)
+            if not isinstance(raw, dict):
+                raw = {}
+        except Exception:
+            raw = {}
+        return UnknownArgs(raw)  # type: ignore[arg-type]
 
     @staticmethod
     def parse_args(full_name: str, arguments_json: str | None) -> ParsedTool:
@@ -93,37 +123,14 @@ class ToolRegistry:
         输出示例：
             ParsedTool(..., args_model=RollDiceArgs(n_dice=3))
         """
-        server, name = full_name.split("__", 1)
-        s = arguments_json or "{}"
-
-        if full_name == "timeemi__roll_dice":
-            args_model = RollDiceArgs.model_validate_json(s)
+        server, name = full_name.split("__", 1) if "__" in full_name else ("builtin", full_name)
+        entry = ToolRegistry._MODELS.get(full_name)
+        if entry is None:
+            args_model = ToolRegistry._parse_unknown_args(arguments_json)
             return ParsedTool(full_name, server, name, args_model)
 
-        if full_name == "timeemi__roll_dice_by_current_time":
-            args_model = RollDiceByTimeArgs.model_validate_json(s)
-            return ParsedTool(full_name, server, name, args_model)
-
-        if full_name == "vision__screen_shot":
-            args_model = ScreenShotArgs.model_validate_json(s)
-            return ParsedTool(full_name, server, name, args_model)
-
-        if full_name == "tool__web_search":
-            args_model = WebSearchArgs.model_validate_json(s)
-            return ParsedTool(full_name, server, name, args_model)
-
-        if full_name == "tool__web_fetch":
-            args_model = WebFetchArgs.model_validate_json(s)
-            return ParsedTool(full_name, server, name, args_model)
-
-        try:
-            raw = json.loads(s)
-            if not isinstance(raw, dict):
-                raw = {}
-        except Exception:
-            raw = {}
-
-        args_model = UnknownArgs(raw)  # type: ignore
+        args_cls, _ = entry
+        args_model = args_cls.model_validate_json(arguments_json or "{}")
         return ParsedTool(full_name, server, name, args_model)
 
     @staticmethod
@@ -149,42 +156,18 @@ class ToolRegistry:
             return UnknownResult(data=err_text or "tool_error")
 
         data = getattr(call_tool_result, "data", None)
+        entry = ToolRegistry._MODELS.get(full_name)
+        if entry is None:
+            return UnknownResult(data=data)
 
-        if full_name == "timeemi__roll_dice":
-            data = _coerce_list(data)
-            if data is None:
-                raise TypeError(f"timeemi.roll_dice expects list[int], got {type(data)} {data}")  # type: ignore
-            return RollDiceResult(numbers=data)  # type: ignore
+        _, result_cls = entry
+        parser = ToolRegistry._RESULT_PARSERS[result_cls]
+        return parser(data)
 
-        if full_name == "timeemi__roll_dice_by_current_time":
-            data = _coerce_dict_deep(data)
-            if data is None:
-                raise TypeError(f"timeemi.roll_dice_by_current_time expects dict-like, got {type(data)}")
-            if "numbers" not in data:
-                raise TypeError(
-                    f"timeemi.roll_dice_by_current_time expects dict with 'numbers', got {type(data)} {data}"  # type: ignore
-                )
-            return RollDiceByTimeResult.model_validate(data)  # type: ignore
-
-        if full_name == "vision__screen_shot":
-            data = _coerce_scalar(data)
-            if data is None or not isinstance(data, str):
-                raise TypeError(f"vision.screen_shot expects str (base64), got {type(data)}")
-            return ScreenShotResult(image_b64=data)
-
-        if full_name == "tool__web_search":
-            data = _coerce_dict_deep(data)
-            if data is None:
-                raise TypeError(f"tool.web_search expects dict-like, got {type(data)}")
-            return WebSearchResult.model_validate(data)
-
-        if full_name == "tool__web_fetch":
-            data = _coerce_dict_deep(data)
-            if data is None:
-                raise TypeError(f"tool.web_fetch expects dict-like, got {type(data)}")
-            return WebFetchResult.model_validate(data)
-
-        return UnknownResult(data=data)
+    _TOOL_CONTENT_PARSERS: dict[type[BaseModel], Callable[[BaseModel], str]] = {
+        RollDiceResult: _tool_content_roll_dice.__func__,
+        RollDiceByTimeResult: _tool_content_roll_dice_by_time.__func__,
+    }
 
     @staticmethod
     def tool_content_for_tool_model(result_model: BaseModel) -> str:
@@ -193,18 +176,10 @@ class ToolRegistry:
 
         注意：get_date_and_time 和 read_file 已迁移为内置工具，不再经过此处。
         """
-        if isinstance(result_model, RollDiceResult):
-            return json.dumps(result_model.numbers, ensure_ascii=False)
-        if isinstance(result_model, RollDiceByTimeResult):
-            return json.dumps(result_model.numbers, ensure_ascii=False)
-        if isinstance(result_model, WebSearchResult):
-            return json.dumps(
-                [r.model_dump(exclude_none=True, mode="json") for r in result_model.results], ensure_ascii=False
-            )
-        if isinstance(result_model, WebFetchResult):
-            return result_model.text
-        if isinstance(result_model, ScreenShotResult):
-            raise TypeError("ScreenShotResult should not be converted to tool content directly.")
+        parser = ToolRegistry._TOOL_CONTENT_PARSERS.get(type(result_model))
+        if parser is not None:
+            return parser(result_model)
+
         data = result_model.model_dump(exclude_none=True)
         return json.dumps(data, ensure_ascii=False, default=str)
 
@@ -223,7 +198,7 @@ class ToolRegistry:
             server=parsed.server,
             name=parsed.name,
             args=args_dict,
-            raw_result=raw_dict,  # type: ignore
+            raw_result=raw_dict,  # type: ignore[arg-type]
             ok=ok,
             error=error,
         )
