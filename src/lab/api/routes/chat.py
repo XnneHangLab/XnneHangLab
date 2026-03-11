@@ -408,18 +408,21 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> JSONResp
 
     # 4. Build system prompt
     system_prompt = _build_system_prompt()
-    if memories_text:
-        if chat_state.context_injector is not None:
-            injected = chat_state.context_injector.build(memory_context=memories_text)
-            if injected:
-                system_prompt += "\n\n" + injected
-        else:
-            system_prompt += "\n\n" + memories_text
 
     # 5. Build full message list
     full_messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
     full_messages.extend(history)
-    full_messages.append({"role": "user", "content": request.message})
+
+    # Inject memory context into user message
+    user_content = request.message
+    if memories_text:
+        if chat_state.context_injector is not None:
+            injected = chat_state.context_injector.build(memory_context=memories_text)
+            if injected:
+                user_content = injected + "\n\n" + user_content
+        else:
+            user_content = memories_text + "\n\n" + user_content
+    full_messages.append({"role": "user", "content": user_content})
 
     # 6. Run tool loop or plain chat
     model = request.model or chat_state.chat_model
