@@ -150,13 +150,7 @@ class MemoryAgent(AgentInterface):
                 await self.mcp.connect(name=name, url=url)
             return
 
-        for name, s in [
-            ("timeemi", self.lab_settings.mcp.servers.timeemi),
-            ("vision", self.lab_settings.mcp.servers.vision),
-            ("tool", self.lab_settings.mcp.servers.tool),
-        ]:
-            url = f"{s.transport}://{s.host}:{s.port}{s.path}"
-            await self.mcp.connect(name=name, url=url)
+        logger.info("No builtin MCP servers to connect. Pass servers= to connect external MCP servers.")
 
     async def close(self) -> None:
         await self.mcp.close()
