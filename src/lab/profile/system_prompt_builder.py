@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
-from lab.plugin.loader import SkillDescriptor
-
 if TYPE_CHECKING:
+    from pathlib import Path
+
+    from lab.plugin.loader import SkillDescriptor
     from lab.tools.manager import ToolManager
 
 

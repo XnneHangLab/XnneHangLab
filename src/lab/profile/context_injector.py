@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from lab.profile.schema import ContextConfig
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from lab.profile.schema import ContextConfig
 
 
 class ContextInjector:

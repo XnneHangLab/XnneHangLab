@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import tomllib
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class ContextConfig(BaseModel):
@@ -43,6 +45,8 @@ class Profile(BaseModel):
 
         plugins_raw = raw.get("plugins", {})
         enabled = plugins_raw.get("enabled", [])
-        overrides = {k: v for k, v in plugins_raw.items() if k != "enabled" and isinstance(v, dict)}
+        overrides: dict[str, dict[str, Any]] = {
+            k: v for k, v in plugins_raw.items() if k != "enabled" and isinstance(v, dict)
+        }
         raw["plugins"] = {"enabled": enabled, "overrides": overrides}
         return cls.model_validate(raw)
