@@ -127,6 +127,14 @@ class AgentSettings(BaseModel):
     # enable_mcp 已重命名为 enable_tool，原字段废弃
     # character_name 已迁移到 Profile 系统（profiles/*.toml），此字段废弃
     prompts: Annotated[PromptSettings, Field(PromptSettings())]  # pyright: ignore[reportCallIssue]
+    memory_chat_profile: Annotated[
+        str,
+        Field("profiles/congyin.toml", title="memory/chat 使用的 Profile 路径（相对 workspace_root）"),
+    ]
+    memory_agent_profile: Annotated[
+        str,
+        Field("profiles/congyin.toml", title="MemoryAgent (VTuber) 使用的 Profile 路径（相对 workspace_root）"),
+    ]
     llm: Annotated[LLMSettings, Field(LLMSettings())]  # pyright: ignore[reportCallIssue]
     deeplx_api_key: Annotated[
         str,

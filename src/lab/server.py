@@ -83,6 +83,9 @@ async def lifespan(app: FastAPI):
         next(gen)
 
     ctx = getattr(app.state, "default_context_cache", None)
+    if ctx is not None:
+        await ctx.load_from_config(ctx.lab_setting)
+
     if ctx is not None and lab_settings.agent.enable_tool:
         # 尝试连接 MCP 服务器
         try:
@@ -180,7 +183,7 @@ async def lifespan(app: FastAPI):
                 chat_state.chat_model = chat_model_cfg.llm_model_name
                 chat_state.workspace_root = str(ws_root)
 
-                _profile_path = ws_root / "profiles" / "congyin.toml"
+                _profile_path = ws_root / lab_settings.agent.memory_chat_profile
                 if not _profile_path.exists():
                     raise FileNotFoundError(f"Profile not found: {_profile_path}")
                 _profile = Profile.from_toml(_profile_path)
@@ -241,7 +244,6 @@ class WebSocketServer:
 
         # Load configurations and initialize the default context cache
         default_context_cache = ServiceContext()
-        default_context_cache.load_from_config(default_context_cache.lab_setting)
 
         # Include routes
         self.app.include_router(

@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from lab.config_manager.config import XnneHangLabSettings
     from lab.config_manager.vtuber import TTSPreprocessorConfig
     from lab.live2d_model import Live2dModel
+    from lab.profile.context_injector import ContextInjector
     from lab.tools import AgentContext, ToolManager
 
 
@@ -58,34 +59,36 @@ class MemoryAgent(AgentInterface):
         mcp: FastMcpRouter | None = None,
         tool_manager: ToolManager | None = None,
         agent_context: AgentContext | None = None,
+        context_injector: ContextInjector | None = None,
         workspace_root: Path | None = None,
         faster_first_response: bool = True,
         segment_method: str = "pysbd",
         interrupt_method: Literal["system", "user"] = "user",
     ) -> None:
-        """Initialize the memory agent.
+        """初始化 MemoryAgent。
 
         Args:
-            lab_settings: Global application settings.
-            chat_llm: Chat model used for the final response.
-            tool_llm: Tool-calling model used before the final response.
-            vision_llm: Vision model used for image summarization.
-            chat_system_prompt: System prompt for the chat model.
-            tool_system_prompt: Optional system prompt for the tool model.
-            vision_system_prompt: System prompt for the vision model.
-            live2d_model: Live2D model used by the action extractor.
-            tts_preprocessor_config: TTS preprocessing configuration.
-            enable_tool: Whether tool use is enabled.
-            mcp: Optional MCP router kept for lifecycle compatibility.
-            tool_manager: Tool manager providing builtin tools.
-            agent_context: Runtime context passed into builtin tools.
-            workspace_root: Optional workspace root used to build a fallback agent context.
-            faster_first_response: Whether to favor lower-latency sentence splitting.
-            segment_method: Sentence segmentation method.
-            interrupt_method: Interrupt handling strategy for memory.
+            lab_settings: 全局应用配置。
+            chat_llm: 最终回复使用的聊天模型。
+            tool_llm: 工具调用阶段使用的模型。
+            vision_llm: 图像摘要使用的视觉模型。
+            chat_system_prompt: 聊天模型的系统提示词。
+            tool_system_prompt: 工具模型的系统提示词。
+            vision_system_prompt: 视觉模型的系统提示词。
+            live2d_model: 动作提取阶段使用的 Live2D 模型。
+            tts_preprocessor_config: TTS 预处理配置。
+            enable_tool: 是否启用工具调用。
+            mcp: 可选的 MCP 路由器。
+            tool_manager: 提供内置工具的 ToolManager。
+            agent_context: 传给工具的运行时上下文。
+            context_injector: 按 Profile 向用户输入注入上下文的构造器。
+            workspace_root: 用于兜底构造 AgentContext 的工作区根目录。
+            faster_first_response: 是否优先更快地产生首句输出。
+            segment_method: 句子切分方法。
+            interrupt_method: 中断写入 memory 的策略。
 
         Returns:
-            None.
+            None。
         """
         super().__init__()
 
@@ -119,6 +122,7 @@ class MemoryAgent(AgentInterface):
             self.agent_context: AgentContext | None = _AgentContext(workspace_root=workspace_root)
         else:
             self.agent_context = None
+        self.context_injector = context_injector
 
         # tool_system_prompt：优先用外部传入，否则从 tool_manager 自动生成
         if tool_system_prompt:
@@ -251,6 +255,12 @@ class MemoryAgent(AgentInterface):
 
         user_input_text, user_up_images = self.msg.extract_text_and_data_images(messages[-1])
         messages_wo_user = messages[:-1]
+
+        memory_ctx: str | None = None  # TODO: 下一个 PR 接入 mem0 召回
+        if self.context_injector is not None:
+            injected = self.context_injector.build_context_prompt(memory_context=memory_ctx)
+            if injected:
+                user_input_text = injected + "\n\n" + user_input_text
 
         # 1) 工具（可选）
         reuse_last_screenshot = self._should_reuse_last_screenshot(user_input_text)
