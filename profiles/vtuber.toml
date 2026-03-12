@@ -4,7 +4,7 @@ description = "VTuber 主链路 — 多工具，memory agent"
 
 [prompt]
 persona = "prompts/characters/satone.md"
-format = "prompts/formats/emotion_pipe.md"
+format = "prompts/formats/emotion_bracket.md"
 
 [plugins]
 enabled = ["web_search_ddg", "web_fetch", "screen_shot"]
