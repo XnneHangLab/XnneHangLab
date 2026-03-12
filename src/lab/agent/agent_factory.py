@@ -52,7 +52,6 @@ class AgentFactory:
         tool_system_prompt: str = "",
         vision_system_prompt: str = "",
         workspace_root: Path | None = None,
-        emotion_keys: list[str] | None = None,
     ) -> AgentCore:
         """基于 Profile 构造 AgentCore。
 
@@ -112,7 +111,6 @@ class AgentFactory:
             format_path=profile.prompt.format,
             skills=skill_descriptors,
             tool_manager=tool_manager,
-            emotion_keys=emotion_keys,
         )
 
         core = AgentCore(
@@ -179,7 +177,6 @@ class AgentFactory:
             profile_path=profile_path,
             storage=storage,
             workspace_root=ws_root,
-            emotion_keys=live2d_model.emo_key if live2d_model is not None else None,
         )
 
         agent = MemoryAgent(
