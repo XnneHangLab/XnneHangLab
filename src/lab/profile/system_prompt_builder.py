@@ -20,6 +20,7 @@ class SystemPromptBuilder:
         format_path: str | None,
         skills: list[SkillDescriptor],
         tool_manager: ToolManager | None,
+        emotion_keys: list[str] | None = None,
     ) -> str:
         parts: list[str] = []
 
@@ -32,6 +33,12 @@ class SystemPromptBuilder:
             format_file = self._root / format_path
             if format_file.exists():
                 parts.append(format_file.read_text(encoding="utf-8").strip())
+
+        # emotion key 紧跟 format，语义上属于表情系统的一部分
+        if emotion_keys:
+            lines = ["以下是你可用的全部 Emotion Tag，请从中选择，不要使用列表以外的 Tag："]
+            lines.extend(f"- {k}" for k in emotion_keys)
+            parts.append("\n".join(lines))
 
         if skills:
             lines = ["你有以下技能可按需调用："]

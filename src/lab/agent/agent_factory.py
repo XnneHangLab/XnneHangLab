@@ -52,6 +52,7 @@ class AgentFactory:
         tool_system_prompt: str = "",
         vision_system_prompt: str = "",
         workspace_root: Path | None = None,
+        emotion_keys: list[str] | None = None,
     ) -> AgentCore:
         """基于 Profile 构造 AgentCore。
 
@@ -111,6 +112,7 @@ class AgentFactory:
             format_path=profile.prompt.format,
             skills=skill_descriptors,
             tool_manager=tool_manager,
+            emotion_keys=emotion_keys,
         )
 
         core = AgentCore(
@@ -177,15 +179,8 @@ class AgentFactory:
             profile_path=profile_path,
             storage=storage,
             workspace_root=ws_root,
+            emotion_keys=live2d_model.emo_key if live2d_model is not None else None,
         )
-
-        # 将 Live2D emotion key 列表追加到 chat system prompt
-        # 旧路径是在 service_context.init_agent 里手动拼接的，这里统一处理
-        if live2d_model is not None and live2d_model.emo_key:
-            emotion_block = "\n\n这是你的 Emotion 列表，请在合适的时候使用它们：\n" + "\n".join(
-                f"- {k}" for k in live2d_model.emo_key
-            )
-            core.chat_system_prompt += emotion_block
 
         agent = MemoryAgent(
             lab_settings=lab_setting,
