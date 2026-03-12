@@ -123,7 +123,6 @@ class AgentToolLoop:
                         "role": "tool",
                         "tool_call_id": tc.id,
                         "content": result["content"],
-                        "name": result["name"],
                     }
                 )
 
