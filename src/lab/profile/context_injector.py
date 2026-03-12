@@ -1,26 +1,14 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from lab.profile.schema import ContextConfig
-
 
 class ContextInjector:
-    """
-    负责生成注入 user prompt 的 context 标签块。
-    Context 不进 system prompt，每轮动态生成。
-    """
-
-    def __init__(self, config: ContextConfig) -> None:
-        self._config = config
+    """Build tagged context blocks for user prompt injection."""
 
     def build_context_prompt(
         self,
         *,
         memory_context: str | None = None,
     ) -> str | None:
-        parts: list[str] = []
-        if self._config.memory_search and memory_context:
-            parts.append(f"[memory context]\n{memory_context}\n[/memory context]")
-        return "\n\n".join(parts) if parts else None
+        if not memory_context:
+            return None
+        return f"[memory context]\n{memory_context}\n[/memory context]"

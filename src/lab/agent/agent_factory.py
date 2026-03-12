@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from lab.agent.hook_manager import HookManager
 from lab.agent.agents.memory_agent import MemoryAgent
 from lab.agent.core import AgentCore
 from lab.agent.stateless_llm_factory import LLMFactory
@@ -51,6 +52,7 @@ class AgentFactory:
         storage: ConversationStorage,
         vision_system_prompt: str = "",
         workspace_root: Path | None = None,
+        packages: dict[str, bool] | None = None,
     ) -> AgentCore:
         """基于 Profile 构造 AgentCore。
 
@@ -95,7 +97,7 @@ class AgentFactory:
         resolved_vision_prompt = vision_system_prompt or _read_prompt(lab_setting.agent.prompts.vision_prompt)
 
         plugin_loader = PluginLoader()
-        tool_plugins, skill_descriptors = await plugin_loader.load_many(
+        tool_plugins, skill_descriptors, hook_plugins = await plugin_loader.load_many(
             profile.plugins.enabled,
             profile_overrides=profile.plugins.overrides,
             ctx=agent_context,
@@ -123,6 +125,18 @@ class AgentFactory:
                     "but they are not registered. "
                     "Add the required ToolPlugin to profile.plugins.enabled."
                 )
+        for hook in hook_plugins:
+            req_pkg = getattr(hook, "_requires_package", None)
+            if req_pkg and not (packages or {}).get(req_pkg, False):
+                raise ValueError(
+                    f"Profile 启用了 '{hook.__class__.__name__}' plugin，"
+                    f"但 lab.toml 的 [package] {req_pkg} = false。\n"
+                    f"请先设置 {req_pkg} = true 并确认服务已安装。"
+                )
+
+        hook_manager = HookManager()
+        for hook in hook_plugins:
+            hook_manager.register(hook)
 
         chat_system_prompt = SystemPromptBuilder(ws_root).build(
             persona_path=profile.prompt.persona,
@@ -137,13 +151,14 @@ class AgentFactory:
             vision_llm=vision_llm_interface,
             tool_manager=tool_manager,
             agent_context=agent_context,
-            context_injector=ContextInjector(profile.context),
+            context_injector=ContextInjector(),
             storage=storage,
             chat_system_prompt=chat_system_prompt,
             vision_system_prompt=resolved_vision_prompt,
             enable_tool=lab_setting.agent.enable_tool,
             max_vision_concurrency=lab_setting.agent.max_vision_concurrency,
             require_detailed=lab_setting.agent.require_detailed,
+            hook_manager=hook_manager,
         )
         core.chat_supports_vision = lab_setting.agent.chat_model.support_vision
         return core
@@ -194,6 +209,7 @@ class AgentFactory:
             profile_path=profile_path,
             storage=storage,
             workspace_root=ws_root,
+            packages=lab_setting.package.to_dict(),
         )
 
         agent = MemoryAgent(
