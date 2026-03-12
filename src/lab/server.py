@@ -156,85 +156,38 @@ async def lifespan(app: FastAPI):
             )
 
             # --- Chat endpoint (src/lab) ---
-            # Uses ToolManager + AsyncLLM, imports memory functions from memory_bench
+            # AgentCore handles everything: LLM, tools, prompt, storage.
             try:
-                from lab.agent.agent_factory import AgentFactory, build_default_tool_manager
-                from lab.agent.stateless_llm_factory import LLMFactory
+                from lab.agent.agent_factory import AgentFactory
                 from lab.agent.storage import ConversationStoreAdapter
                 from lab.api.routes.chat import chat_state
                 from lab.conversation.store import ConversationStore
-                from lab.plugin.loader import PluginLoader
-                from lab.profile.context_injector import ContextInjector
-                from lab.profile.schema import Profile
-                from lab.tools import AgentContext
 
                 ws_root = Path(lab_settings.root.root_dir)
-                agent_context = AgentContext(workspace_root=ws_root)
-
-                chat_llm_instance = LLMFactory.create_llm(
-                    model=chat_model_cfg.llm_model_name,
-                    base_url=upstream_llm.llm_base_url,
-                    llm_api_key=upstream_llm.llm_api_key,
-                )
-
-                chat_state.chat_llm = chat_llm_instance
-                chat_state.agent_context = agent_context
                 chat_state.chat_model = chat_model_cfg.llm_model_name
                 chat_state.workspace_root = str(ws_root)
-
-                _profile_setting = lab_settings.agent.memory_chat_profile or "profiles/congyin.toml"
-                _profile_path = Path(_profile_setting)
-                if not _profile_path.is_absolute():
-                    _profile_path = ws_root / _profile_setting
-                if not _profile_path.exists():
-                    raise FileNotFoundError(f"Profile not found: {_profile_path}")
-                _profile = Profile.from_toml(_profile_path)
-                chat_state.profile = _profile
-                chat_state.context_injector = ContextInjector(_profile.context)
-                logger.info("✅ Chat profile loaded: {}", _profile.profile.name)
-
-                # Load plugins declared in profile
-                plugin_loader = PluginLoader()
-                tool_plugins, skill_descriptors = await plugin_loader.load_many(
-                    _profile.plugins.enabled,
-                    profile_overrides=_profile.plugins.overrides,
-                    ctx=agent_context,
-                )
-                tool_manager = build_default_tool_manager(ws_root)
-                for tp in tool_plugins:
-                    for bt in tp.get_tools():
-                        tool_manager.register_builtin(bt)
-                chat_state.tool_manager = tool_manager
-                chat_state.skill_descriptors = skill_descriptors
-                logger.info(
-                    "✅ Plugins loaded: {} tools, {} skills",
-                    len(tool_plugins),
-                    len(skill_descriptors),
-                )
-
                 chat_state.conversations_dir = str(ws_root / "data" / "conversations")
 
                 _chat_profile_path_str = lab_settings.agent.memory_chat_profile
-                if _chat_profile_path_str:
-                    _chat_profile_path = Path(_chat_profile_path_str)
-                    if not _chat_profile_path.is_absolute():
-                        _chat_profile_path = ws_root / _chat_profile_path_str
-                    if not _chat_profile_path.exists():
-                        raise FileNotFoundError(f"memory_chat_profile not found: {_chat_profile_path}")
-                    chat_store = ConversationStore(base_dir=chat_state.conversations_dir)
-                    chat_state.agent_core = await AgentFactory.create_core_with_profile(
-                        lab_setting=lab_settings,
-                        profile_path=_chat_profile_path,
-                        storage=ConversationStoreAdapter(chat_store),
-                        workspace_root=ws_root,
+                if not _chat_profile_path_str:
+                    raise ValueError(
+                        "lab_settings.agent.memory_chat_profile 未配置，"
+                        '请在 lab.toml 的 [agent] 下设置 memory_chat_profile = "profiles/xxx.toml"'
                     )
-                    logger.info("✅ AgentCore initialized with profile: {}", _chat_profile_path_str)
+                _chat_profile_path = Path(_chat_profile_path_str)
+                if not _chat_profile_path.is_absolute():
+                    _chat_profile_path = ws_root / _chat_profile_path_str
+                if not _chat_profile_path.exists():
+                    raise FileNotFoundError(f"memory_chat_profile not found: {_chat_profile_path}")
 
-                logger.info(
-                    "✅ Chat endpoint initialized (model={}, tools={})",
-                    chat_state.chat_model,
-                    len(tool_manager.list_tools_schema()),
+                chat_store = ConversationStore(base_dir=chat_state.conversations_dir)
+                chat_state.agent_core = await AgentFactory.create_core_with_profile(
+                    lab_setting=lab_settings,
+                    profile_path=_chat_profile_path,
+                    storage=ConversationStoreAdapter(chat_store),
+                    workspace_root=ws_root,
                 )
+                logger.info("✅ Chat endpoint initialized (AgentCore, profile={})", _chat_profile_path_str)
             except Exception as chat_exc:
                 logger.warning("⚠️ Chat endpoint init failed: %s", chat_exc)
 
