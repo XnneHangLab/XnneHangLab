@@ -2,10 +2,31 @@ from __future__ import annotations
 
 import asyncio
 import random
-from typing import Annotated, Any, Literal, Protocol
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+from typing import Annotated, Any, Literal, Protocol, TypeAlias, TypeGuard, TypeVar, cast
 
 from openai import APIError, RateLimitError
 from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator, model_validator
+
+JsonPrimitive: TypeAlias = str | int | float | bool | None
+JsonLike: TypeAlias = JsonPrimitive | dict[str, "JsonLike"] | list["JsonLike"]
+_T = TypeVar("_T")
+
+
+def _is_jsonlike(value: object) -> TypeGuard[JsonLike]:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return True
+    if isinstance(value, list):
+        items = cast("list[object]", value)
+        return all(_is_jsonlike(item) for item in items)
+    if isinstance(value, dict):
+        items = cast("dict[object, object]", value)
+        return all(isinstance(key, str) and _is_jsonlike(item) for key, item in items.items())
+    return False
+
+
+def _normalize_mapping(mapping: Mapping[object, object]) -> dict[str, JsonLike]:
+    return {str(k): cast("JsonLike", normalize_jsonlike(v)) for k, v in mapping.items()}
 
 
 def dump_openai_msg(obj: object) -> dict[str, object]:
@@ -31,11 +52,15 @@ def prompt_result_to_text(prompt_result: object) -> str:
     return "\n".join(lines).strip()
 
 
-async def call_with_short_retry(awaitable_factory, *, max_retries: int = 2):  # type: ignore
+async def call_with_short_retry(
+    awaitable_factory: Callable[[], Awaitable[_T]],
+    *,
+    max_retries: int = 2,
+) -> _T:
     last: Exception | None = None
     for i in range(max_retries + 1):
         try:
-            return await awaitable_factory()  # type: ignore[misc]
+            return await awaitable_factory()
         except (RateLimitError, APIError) as e:
             last = e
             msg = str(e)
@@ -45,21 +70,27 @@ async def call_with_short_retry(awaitable_factory, *, max_retries: int = 2):  # 
                 raise
             sleep_s = (0.25 * (2**i)) + random.uniform(0.0, 0.2)
             await asyncio.sleep(sleep_s)
-    raise last  # pragma: no cover
+    if last is not None:
+        raise last  # pragma: no cover
+    raise RuntimeError("call_with_short_retry exited without result or captured exception")
 
 
-def normalize_jsonlike(x: object, strict: bool = False) -> object:
+def normalize_jsonlike(x: object, strict: bool = False) -> JsonLike | object:
     if x is None or isinstance(x, (str, int, float, bool)):
         return x
 
-    if isinstance(x, dict) and set(x.keys()) == {"_url"}:  # type: ignore[arg-type]
-        return str(x["_url"])  # type: ignore[index]
+    if isinstance(x, Mapping):
+        mapping = cast("Mapping[object, object]", x)
+        if set(mapping.keys()) == {"_url"}:
+            return str(mapping["_url"])
 
-    if isinstance(x, dict):
-        return {str(k): normalize_jsonlike(v) for k, v in x.items()}
+    if isinstance(x, Mapping):
+        mapping = cast("Mapping[object, object]", x)
+        return _normalize_mapping(mapping)
 
-    if isinstance(x, (list, tuple)):
-        return [normalize_jsonlike(v) for v in x]
+    if isinstance(x, Sequence) and not isinstance(x, (str, bytes, bytearray)):
+        seq = cast("Sequence[object]", x)
+        return [cast("JsonLike", normalize_jsonlike(v)) for v in seq]
 
     md = getattr(x, "model_dump", None)
     if callable(md):
@@ -74,8 +105,8 @@ def normalize_jsonlike(x: object, strict: bool = False) -> object:
         return normalize_jsonlike(root)
 
     d3 = getattr(x, "__dict__", None)
-    if isinstance(d3, dict) and d3:
-        return normalize_jsonlike(d3)
+    if isinstance(d3, Mapping) and d3:
+        return _normalize_mapping(cast("Mapping[object, object]", d3))
 
     if strict:
         return x
@@ -276,7 +307,7 @@ class UnknownResult(BaseModel):
     @classmethod
     def _normalize(cls, v: object) -> object:
         nv = normalize_jsonlike(v)
-        if nv is None or isinstance(nv, (dict, list, str, int, float, bool)):
+        if _is_jsonlike(nv):
             return nv
         return repr(nv)
 
@@ -305,12 +336,12 @@ class ConversationState(BaseModel):
     def _summary_not_too_long(cls, v: str) -> str:
         return (v or "").strip()[:4000]
 
-    def to_tool_pinned_json(self) -> dict[str, Any]:
+    def to_tool_pinned_json(self) -> dict[str, JsonLike]:
         return {
-            "user_prefs": self.user_prefs,
+            "user_prefs": cast("dict[str, JsonLike]", normalize_jsonlike(self.user_prefs)),
             "active_task": self.active_task,
-            "refs": self.refs,
-            "slots": self.slots,
+            "refs": cast("dict[str, JsonLike]", normalize_jsonlike(self.refs)),
+            "slots": cast("dict[str, JsonLike]", normalize_jsonlike(self.slots)),
             "summary": (self.summary or "")[:1000],
         }
 
