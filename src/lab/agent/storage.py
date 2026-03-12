@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from lab.agent.agents.memory_agent.user_prompt_block import UserPromptBlock
@@ -148,17 +149,25 @@ class ConversationStoreAdapter:
     """包装 ConversationStore，实现统一的会话存储接口。
 
     user message 以结构化 UserPromptBlock 存储；加载时按轮次自动 condense。
+    date_id 每次调用时动态计算，避免跨午夜写入错误日期。
     """
 
-    def __init__(self, store: ConversationStore, date_id: str) -> None:
+    def __init__(self, store: ConversationStore) -> None:
         """初始化适配器。
 
         Args:
             store: 要包装的 ConversationStore 实例。
-            date_id: 当前会话对应的日期 ID。
         """
         self._store = store
-        self._date_id = date_id
+
+    @staticmethod
+    def _current_date_id() -> str:
+        """获取当前 UTC 日期 ID。
+
+        Returns:
+            格式为 YYYY-MM-DD 的日期字符串。
+        """
+        return datetime.now(UTC).strftime("%Y-%m-%d")
 
     def load(self) -> list[OpenAIMessage]:
         """加载 ConversationStore 中的消息列表，超出保留轮数的轮次压缩为 brief。
@@ -166,7 +175,7 @@ class ConversationStoreAdapter:
         Returns:
             渲染后的消息列表。
         """
-        raw = self._store.read_conversation(self._date_id)
+        raw = self._store.read_conversation(self._current_date_id())
         # 过滤出 user/assistant 消息，按顺序配对
         filtered = [m for m in raw if m.get("role") in ("user", "assistant")]
         pairs: list[tuple[str, str]] = []
@@ -186,8 +195,8 @@ class ConversationStoreAdapter:
             user_block: 结构化 user prompt block。
             assistant_text: assistant 回复文本。
         """
-        self._store.append_turn(self._date_id, role="user", content=user_block.to_storage_content())
-        self._store.append_turn(self._date_id, role="assistant", content=assistant_text)
+        self._store.append_turn(self._current_date_id(), role="user", content=user_block.to_storage_content())
+        self._store.append_turn(self._current_date_id(), role="assistant", content=assistant_text)
 
     def handle_interrupt(self, heard_response: str) -> None:
         """ConversationStore 暂不处理打断事件。

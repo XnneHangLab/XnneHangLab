@@ -93,9 +93,14 @@ class PromptBuilder:
             return ContextEntry(full="无上传图片。", brief=None)
         lines = [json.dumps({"id": k, "summary": labeled[k]}, ensure_ascii=False) for k in sorted(labeled)]
         full = "\n".join(lines)
-        # brief：拼接所有有效的 scene，以 "；" 分隔；全部为 None 时 brief 为 None
+        # brief：多图时只取首张 scene + 图片数；单图直接用 scene
         brief_parts = [briefs.get(k) for k in sorted(labeled) if briefs.get(k)]
-        brief = "；".join(p for p in brief_parts if p) or None
+        if len(brief_parts) > 1:
+            brief = f"{brief_parts[0]}（共{len(labeled)}张图）"
+        elif brief_parts:
+            brief = brief_parts[0]
+        else:
+            brief = None
         return ContextEntry(full=full, brief=brief)
 
     @staticmethod

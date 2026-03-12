@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
     from lab.agent.agents.memory_agent.types import ImagePayload
+    from lab.agent.agents.memory_agent.user_prompt_block import ContextEntry
     from lab.agent.stateless_llm.openai_compatible_llm import AsyncLLM
     from lab.agent.storage import ConversationStorage
     from lab.profile.context_injector import ContextInjector
@@ -154,8 +155,8 @@ class AgentCore:
         )
 
         # —— Vision summary ContextEntry ——
-        vision_tool_entry: object = None
-        vision_upload_entry: object = None
+        vision_tool_entry: ContextEntry | None = None
+        vision_upload_entry: ContextEntry | None = None
 
         if not self.chat_supports_vision:
             has_images = bool(tool_result.tool_image or user_images)
@@ -204,15 +205,13 @@ class AgentCore:
                     )
 
         # —— 组装 UserPromptBlock ——
-        from lab.agent.agents.memory_agent.user_prompt_block import ContextEntry
-
         user_block = self.prompt.build(
             user_text=user_text,
             memory_context=mem_entry,
             diary_context=diary_entry,
             tool_summary=tool_entry,
-            vision_tool_summary=vision_tool_entry if isinstance(vision_tool_entry, ContextEntry) else None,
-            vision_upload_summary=vision_upload_entry if isinstance(vision_upload_entry, ContextEntry) else None,
+            vision_tool_summary=vision_tool_entry,
+            vision_upload_summary=vision_upload_entry,
         )
 
         # —— 构建发往 LLM 的消息列表 ——
