@@ -95,6 +95,10 @@ class MemoryAgent(AgentInterface):
         self.lab_settings = lab_settings
         self.state = ConversationState()
         self.core = core
+        # MemoryAgent 自身通过 _chat_function_factory 管理存储写回，
+        # 关掉 AgentCore 的写回避免 assistant message 双写。
+        if self.core is not None:
+            self.core._write_back = False
 
         # LLMs
         self.chat_llm = chat_llm
@@ -410,6 +414,9 @@ class MemoryAgent(AgentInterface):
                     user_images=user_images,
                 ):
                     yield token
+                # AgentCore._write_back=False，这里补写 user message 到 MemoryStore，
+                # assistant 由 _chat_function_factory 统一写回。
+                self.memory.add_message(OpenAIMessage(role="user", content=user_text))
 
             bound_chat = self._chat_function_factory(_core_stream)
         else:

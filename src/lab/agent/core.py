@@ -72,6 +72,7 @@ class AgentCore:
         self.max_vision_concurrency = max_vision_concurrency
         self.require_detailed = require_detailed
         self.chat_supports_vision = False
+        self._write_back = True  # 设为 False 时 run_turn 不写回 storage（由外层调用方负责）
 
         if tool_system_prompt:
             self.tool_system_prompt = tool_system_prompt
@@ -129,83 +130,120 @@ class AgentCore:
         history = self.storage.load()
         user_images = user_images or []
 
-        context_prompt = None
-        if self.context_injector is not None:
-            context_prompt = self.context_injector.build_context_prompt(
-                memory_context=memory_context,
-                diary_context=diary_context,
-            )
+        # —— 背景上下文 ContextEntry ——
+        mem_entry = (
+            self.prompt.make_context_entry(memory_context, brief=memory_context.split("\n")[0][:80])
+            if memory_context
+            else None
+        )
+        diary_entry = (
+            self.prompt.make_context_entry(diary_context, brief=diary_context.split("\n")[0][:80])
+            if diary_context
+            else None
+        )
 
-        effective_user_text = user_text
-        if context_prompt:
-            effective_user_text = f"{context_prompt}\n\n{user_text}"
-
+        # —— Tool loop ——
         reuse_last_screenshot = self._should_reuse_last_screenshot(user_text)
         if self.tool_loop is not None:
             tool_result = await self.tool_loop.run_tool_loop_if_enabled(
                 enable_tool=self.enable_tool,
                 tool_system_prompt=self.tool_system_prompt,
-                messages=[{"role": "user", "content": effective_user_text}],
+                messages=[{"role": "user", "content": user_text}],
                 reuse_last_screenshot=reuse_last_screenshot,
             )
         else:
             tool_result = AgentToolLoopRunResult(trace_json="(无)", final_text="", tool_image=None)
 
-        tool_trace_json = tool_result.trace_json if self.enable_tool else None
-        base_prompt = self.prompt.build_base_prompt(
-            user_input_text=effective_user_text,
-            tool_trace_json=tool_trace_json,
+        # —— Tool summary ContextEntry ——
+        tool_entry = (
+            self.prompt.make_tool_summary(
+                tool_result.trace_json,
+                brief="（工具调用已完成，详情见原始轮次）",
+            )
+            if self.enable_tool
+            else None
         )
 
-        final_messages: list[OpenAIMessage]
+        # —— Vision summary ContextEntry ——
+        vision_tool_entry: object = None
+        vision_upload_entry: object = None
+
         if not self.chat_supports_vision:
-            if (tool_result.tool_image or user_images) and self.vision is None:
-                warn = "注意：当前 chat_model 不支持图像输入，且未配置可用的 vision_model，无法读取图片内容。\n\n"
-                full_prompt = warn + base_prompt
-            elif self.vision is not None:
+            has_images = bool(tool_result.tool_image or user_images)
+            if has_images and self.vision is None:
+                # 没有 vision model，降级为文字警告注入 tool_entry
+                warn = "注意：当前 chat_model 不支持图像输入，且未配置可用的 vision_model，无法读取图片内容。"
+                tool_entry = self.prompt.make_context_entry(
+                    (tool_entry.full + "\n\n" + warn) if tool_entry else warn,
+                    brief="（图片未处理：无 vision model）",
+                )
+            elif self.vision is not None and has_images:
                 summaries = await self.vision.summarize_all(
-                    user_input_text=effective_user_text,
+                    user_input_text=user_text,
                     tool_image=tool_result.tool_image,
-                    upload_images=[(image.b64, image.mime) for image in user_images],
+                    upload_images=[(img.b64, img.mime) for img in user_images],
                     require_detailed=self.require_detailed,
                 )
-                full_prompt = self.prompt.build_prompt_with_image_summaries(
-                    user_input_text=effective_user_text,
-                    tools_summary_str=tool_result.trace_json if self.enable_tool else "(无)",
-                    tool_image_summary=summaries.tool_image_summary,
-                    user_image_summary=self.prompt.format_labeled_summaries(summaries.upload_summaries),
-                )
-            else:
-                full_prompt = base_prompt
-
-            final_messages = [*history, OpenAIMessage(role="user", content=full_prompt)]
+                if summaries.tool_image_summary:
+                    vision_tool_entry = self.prompt.make_vision_tool_summary(
+                        summaries.tool_image_summary,
+                        brief="（工具截图摘要见原始轮次）",
+                    )
+                if summaries.upload_summaries:
+                    vision_upload_entry = self.prompt.make_vision_upload_summary(
+                        summaries.upload_summaries,
+                        brief="（上传图片摘要见原始轮次）",
+                    )
         else:
-            if self.require_detailed and self.vision is not None:
+            # chat model 原生支持视觉时，vision 摘要仍可选做（require_detailed 控制）
+            if self.require_detailed and self.vision is not None and (tool_result.tool_image or user_images):
                 summaries = await self.vision.summarize_all(
-                    user_input_text=effective_user_text,
+                    user_input_text=user_text,
                     tool_image=tool_result.tool_image,
-                    upload_images=[(image.b64, image.mime) for image in user_images],
+                    upload_images=[(img.b64, img.mime) for img in user_images],
                     require_detailed=True,
                 )
-                full_prompt = self.prompt.build_prompt_with_image_summaries(
-                    user_input_text=effective_user_text,
-                    tools_summary_str=tool_result.trace_json if self.enable_tool else "(无)",
-                    tool_image_summary=summaries.tool_image_summary,
-                    user_image_summary=self.prompt.format_labeled_summaries(summaries.upload_summaries),
-                )
-            else:
-                full_prompt = base_prompt
+                if summaries.tool_image_summary:
+                    vision_tool_entry = self.prompt.make_vision_tool_summary(
+                        summaries.tool_image_summary,
+                        brief="（工具截图摘要见原始轮次）",
+                    )
+                if summaries.upload_summaries:
+                    vision_upload_entry = self.prompt.make_vision_upload_summary(
+                        summaries.upload_summaries,
+                        brief="（上传图片摘要见原始轮次）",
+                    )
 
+        # —— 组装 UserPromptBlock ——
+        from lab.agent.agents.memory_agent.user_prompt_block import ContextEntry
+
+        user_block = self.prompt.build(
+            user_text=user_text,
+            memory_context=mem_entry,
+            diary_context=diary_entry,
+            tool_summary=tool_entry,
+            vision_tool_summary=vision_tool_entry if isinstance(vision_tool_entry, ContextEntry) else None,
+            vision_upload_summary=vision_upload_entry if isinstance(vision_upload_entry, ContextEntry) else None,
+        )
+
+        # —— 构建发往 LLM 的消息列表 ——
+        rendered_user_content = user_block.render(condensed=False)
+
+        if self.chat_supports_vision:
             labeled_images: list[ImagePayload] = []
             if tool_result.tool_image:
                 labeled_images.append(tool_result.tool_image)
             labeled_images.extend(user_images)
-
             if labeled_images:
-                final_messages = [*history, self.msg.user_msg_with_labeled_images(full_prompt, labeled_images)]
+                current_user_msg = self.msg.user_msg_with_labeled_images(rendered_user_content, labeled_images)
             else:
-                final_messages = [*history, OpenAIMessage(role="user", content=full_prompt)]
+                current_user_msg = OpenAIMessage(role="user", content=rendered_user_content)
+        else:
+            current_user_msg = OpenAIMessage(role="user", content=rendered_user_content)
 
+        final_messages: list[OpenAIMessage] = [*history, current_user_msg]
+
+        # —— 调用 chat LLM ——
         complete_response = ""
         async for token in self.chat_llm.chat_completion(
             final_messages,
@@ -215,8 +253,9 @@ class AgentCore:
             yield token
             complete_response += token
 
-        self.storage.append("user", user_text)
-        self.storage.append("assistant", complete_response)
+        # —— 写回存储 ——
+        if self._write_back:
+            self.storage.append_turn(user_block, complete_response)
 
     @staticmethod
     def _should_reuse_last_screenshot(user_input_text: str) -> bool:
