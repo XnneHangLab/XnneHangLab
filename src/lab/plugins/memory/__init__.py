@@ -42,7 +42,11 @@ class MemoryPlugin(HookPlugin):
                 memories = payload.get("results", []) if isinstance(payload, dict) else []
                 if not isinstance(memories, list) or not memories:
                     return None
-                lines = [memory.get("memory", "") for memory in memories if isinstance(memory, dict) and memory.get("memory")]
+                lines = [
+                    memory.get("memory", "")
+                    for memory in memories
+                    if isinstance(memory, dict) and memory.get("memory")
+                ]
                 return "\n".join(lines) if lines else None
         except Exception:
             return None

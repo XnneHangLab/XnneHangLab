@@ -113,8 +113,6 @@ async def lifespan(app: FastAPI):
             memory_bench_cfg = lab_settings.memory_bench
             chat_model_cfg = lab_settings.agent.chat_model
             embedding_cfg = lab_settings.agent.embedding
-            # upstream_llm_provider 显式指定真实上游，与 chat_model.llm_provider 职责分离
-            # （chat_model 此时指向 memory_bench 自身，直接读会回环）
             chat_llm = getattr(lab_settings.agent.llm, chat_model_cfg.llm_provider)
 
             # 必填校验：缺配置直接报错，不静默失败
@@ -124,7 +122,7 @@ async def lifespan(app: FastAPI):
             if not embedding_cfg.api_key:
                 missing.append("agent.embedding.api_key")
             if missing:
-                raise ValueError(f"memory_bench 启动缺少必填配置：{', '.join(missing)}")
+                raise ValueError(f"memory_bench startup is missing required config: {', '.join(missing)}")
 
             overrides: dict[str, object] = {
                 # proxy 上游转发目标

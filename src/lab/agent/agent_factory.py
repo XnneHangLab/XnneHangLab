@@ -1,0 +1,196 @@
+from __future__ import annotations
+
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from lab.agent.agents.memory_agent import MemoryAgent
+from lab.agent.core import AgentCore
+from lab.agent.hook_manager import HookManager
+from lab.agent.stateless_llm_factory import LLMFactory
+from lab.plugin.loader import PluginLoader
+from lab.profile.context_injector import ContextInjector
+from lab.profile.schema import Profile
+from lab.profile.system_prompt_builder import SystemPromptBuilder
+from lab.tools import (
+    AgentContext,
+    EditFileTool,
+    GetDatetimeTool,
+    ListDirTool,
+    ReadFileTool,
+    ToolManager,
+    WriteFileTool,
+)
+
+if TYPE_CHECKING:
+    from lab.agent.agents.agent_interface import AgentInterface
+    from lab.agent.storage import ConversationStorage
+    from lab.config_manager import XnneHangLabSettings
+    from lab.config_manager.vtuber import TTSPreprocessorConfig
+    from lab.live2d_model import Live2dModel
+
+
+def build_default_tool_manager(workspace_root: Path) -> ToolManager:
+    del workspace_root
+
+    tm = ToolManager()
+    tm.register_builtin(GetDatetimeTool())
+    tm.register_builtin(ReadFileTool())
+    tm.register_builtin(WriteFileTool())
+    tm.register_builtin(EditFileTool())
+    tm.register_builtin(ListDirTool())
+    return tm
+
+
+class AgentFactory:
+    @staticmethod
+    async def create_core_with_profile(
+        lab_setting: XnneHangLabSettings,
+        profile_path: Path,
+        storage: ConversationStorage,
+        vision_system_prompt: str = "",
+        workspace_root: Path | None = None,
+        packages: dict[str, bool] | None = None,
+    ) -> AgentCore:
+        chat_model = lab_setting.agent.chat_model
+        vision_model = lab_setting.agent.vision_model
+
+        ws_root = workspace_root or Path.cwd()
+        profile = Profile.from_toml(profile_path)
+        agent_context = AgentContext(workspace_root=ws_root)
+
+        def _read_prompt(path_str: str) -> str:
+            path = Path(path_str)
+            if not path.is_absolute():
+                path = ws_root / path_str
+            return path.read_text(encoding="utf-8").strip() if path.exists() else ""
+
+        resolved_vision_prompt = vision_system_prompt or _read_prompt(lab_setting.agent.prompts.vision_prompt)
+
+        plugin_loader = PluginLoader()
+        tool_plugins, skill_descriptors, hook_plugins = await plugin_loader.load_many(
+            profile.plugins.enabled,
+            profile_overrides=profile.plugins.overrides,
+            ctx=agent_context,
+        )
+
+        tool_manager = build_default_tool_manager(ws_root)
+        for tool_plugin in tool_plugins:
+            for builtin_tool in tool_plugin.get_tools():
+                tool_manager.register_builtin(builtin_tool)
+
+        registered_tool_names = {
+            name
+            for schema in tool_manager.list_tools_schema()
+            if (name := schema.get("function", {}).get("name"))
+        }
+        for skill in skill_descriptors:
+            missing = [
+                required_tool
+                for required_tool in skill.requires
+                if required_tool not in registered_tool_names
+            ]
+            if missing:
+                raise ValueError(
+                    f"Skill '{skill.id}' requires tools {missing}, "
+                    "but they are not registered. "
+                    "Add the required ToolPlugin to profile.plugins.enabled."
+                )
+
+        for hook in hook_plugins:
+            req_pkg = getattr(hook, "_requires_package", None)
+            if req_pkg and not (packages or {}).get(req_pkg, False):
+                raise ValueError(
+                    f"Profile enabled '{hook.__class__.__name__}' plugin, "
+                    f"but lab.toml [package].{req_pkg} = false.\n"
+                    f"Set {req_pkg} = true and make sure the backend service is installed."
+                )
+
+        hook_manager = HookManager()
+        for hook in hook_plugins:
+            hook_manager.register(hook)
+
+        chat_llm = getattr(lab_setting.agent.llm, chat_model.llm_provider)
+        vision_llm = getattr(lab_setting.agent.llm, vision_model.llm_provider)
+
+        chat_llm_interface = LLMFactory.create_llm(
+            model=chat_model.llm_model_name,
+            base_url=chat_llm.llm_base_url,
+            llm_api_key=chat_llm.llm_api_key,
+        )
+        vision_llm_interface = LLMFactory.create_llm(
+            model=vision_model.llm_model_name,
+            base_url=vision_llm.llm_base_url,
+            llm_api_key=vision_llm.llm_api_key,
+        )
+
+        chat_system_prompt = SystemPromptBuilder(ws_root).build(
+            persona_path=profile.prompt.persona,
+            format_path=profile.prompt.format,
+            skills=skill_descriptors,
+            tool_manager=tool_manager,
+            agent_name=profile.profile.agent_name.lower(),
+        )
+
+        core = AgentCore(
+            chat_llm=chat_llm_interface,
+            vision_llm=vision_llm_interface,
+            tool_manager=tool_manager,
+            agent_context=agent_context,
+            context_injector=ContextInjector(),
+            storage=storage,
+            chat_system_prompt=chat_system_prompt,
+            vision_system_prompt=resolved_vision_prompt,
+            enable_tool=lab_setting.agent.enable_tool,
+            max_vision_concurrency=lab_setting.agent.max_vision_concurrency,
+            require_detailed=lab_setting.agent.require_detailed,
+            hook_manager=hook_manager,
+        )
+        core.chat_supports_vision = lab_setting.agent.chat_model.support_vision
+        return core
+
+    @staticmethod
+    async def create_agent(
+        lab_setting: XnneHangLabSettings,
+        live2d_model: Live2dModel | None = None,
+        tts_preprocessor_config: TTSPreprocessorConfig | None = None,
+        workspace_root: Path | None = None,
+    ) -> AgentInterface:
+        from lab.agent.agents.memory_agent.memory_store import MemoryStore
+        from lab.agent.storage import MemoryStoreAdapter
+
+        ws_root = workspace_root or Path.cwd()
+
+        profile_path_str = lab_setting.agent.memory_agent_profile
+        if not profile_path_str:
+            raise ValueError(
+                "lab_setting.agent.memory_agent_profile is not configured. "
+                'Set memory_agent_profile = "profiles/xxx.toml" in [agent].'
+            )
+        profile_path = Path(profile_path_str)
+        if not profile_path.is_absolute():
+            profile_path = ws_root / profile_path_str
+        if not profile_path.exists():
+            raise FileNotFoundError(f"memory_agent_profile not found: {profile_path}")
+
+        memory_store = MemoryStore()
+        storage = MemoryStoreAdapter(memory_store)
+
+        core = await AgentFactory.create_core_with_profile(
+            lab_setting=lab_setting,
+            profile_path=profile_path,
+            storage=storage,
+            workspace_root=ws_root,
+            packages=lab_setting.package.to_dict(),
+        )
+
+        agent = MemoryAgent(
+            lab_settings=lab_setting,
+            core=core,
+            live2d_model=live2d_model,  # type: ignore[arg-type]
+            tts_preprocessor_config=tts_preprocessor_config,  # type: ignore[arg-type]
+            faster_first_response=lab_setting.agent.faster_first_response,
+            segment_method=lab_setting.agent.segment_method,
+            interrupt_method=lab_setting.agent.interrupt_method,
+        )
+        agent.memory = memory_store
+        return agent

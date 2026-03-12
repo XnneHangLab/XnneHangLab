@@ -55,7 +55,7 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> JSONResp
 
     log = logger.bind(group="chat")
     session_id = request.session_id or f"sess_{uuid.uuid4().hex[:12]}"
-    log.info("Chat request: session={}, message_len={}", session_id, len(request.message))
+    log.info(f"Chat request: session={session_id}, message_len={len(request.message)}")
 
     from datetime import datetime, timezone
 
@@ -69,14 +69,14 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> JSONResp
     except Exception as exc:
         import traceback
 
-        log.error("LLM error: {}", exc)
+        log.error(f"LLM error: {exc}")
         log.error(traceback.format_exc())
         raise HTTPException(
             status_code=502,
             detail=f"LLM error: {type(exc).__name__}: {exc}",
         ) from exc
 
-    log.info("LLM response: {} chars", len(assistant_content))
+    log.info(f"LLM response: {len(assistant_content)} chars")
 
     response = ChatResponse(
         session_id=session_id,
@@ -84,7 +84,7 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> JSONResp
         model=model,
         created=int(time.time()),
     )
-    log.info("Chat response sent (session={}, date={})", session_id, date_id)
+    log.info(f"Chat response sent (session={session_id}, date={date_id})")
     return JSONResponse(content=json.loads(response.model_dump_json()))
 
 
