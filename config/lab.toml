@@ -1,12 +1,12 @@
-conf_version = "v1.3.0"
+conf_version = "v1.4.0"
 
 [asr]
 FFMPEG_PATH = "ffmpeg"
-device = "cuda"
+device = "cpu"
 custom_output_dir = false
 cache_dir = "./cache"
 output_dir = "./output"
-asr_model_provider = "whisper"
+asr_model_provider = "funasr"
 cut = false
 cut_line = 400
 combine = false
@@ -33,7 +33,6 @@ subtitle_speed = "normal"
 
 [agent]
 enable_tool = true
-# character_name 已迁移到 Profile 系统（profiles/*.toml），此字段废弃
 deeplx_api_key = ""
 user_lang = "ZH"
 speaker_lang = "EN"
@@ -43,15 +42,13 @@ max_vision_concurrency = 4
 require_detailed = true
 segment_method = "pysbd"
 interrupt_method = "user"
+memory_agent_profile = "profiles/vtuber.toml"
+memory_chat_profile = "profiles/congyin.toml"
 
 [agent.chat_model]
-llm_provider = "memory_proxy"
+llm_provider = "oaipro"
 llm_model_name = "gpt-5.1-2025-11-13"
 support_vision = false
-
-[agent.tool_model]
-llm_provider = "cerebras"
-llm_model_name = "qwen-3-235b-a22b-instruct-2507"
 
 [agent.vision_model]
 llm_provider = "oaipro"
@@ -89,14 +86,14 @@ llm_api_key = ""
 llm_base_url = "https://api.oaipro.com/v1"
 api_format = "chat_completion"
 
-[agent.llm.memory_proxy]
-llm_api_key = "any"
-llm_base_url = "http://localhost:12393/v1"
-api_format = "chat_completion"
-
 [agent.llm.cerebras]
 llm_api_key = ""
 llm_base_url = "https://api.cerebras.ai/v1"
+api_format = "chat_completion"
+
+[agent.llm.memory_proxy]
+llm_api_key = ""
+llm_base_url = "http://localhost:12393/v1"
 api_format = "chat_completion"
 
 [mcp.tool_context]
@@ -112,19 +109,12 @@ funasr = false
 whisper = false
 to_do_list = true
 yutto_uiya = true
-gpt_sovits = false
-qwen_tts = true
+gpt_sovits = true
+qwen_tts = false
 memory_bench = false
 
-[memory_bench]
-upstream_llm_provider = "oaipro"
-user_id = "xnne"
-agent_id = "congyin"
-search_limit = 10
-server_api_key = ""
-
 [root]
-root_dir = "D:\\tmp\\XnneHangLab"
+root_dir = ""
 
 [server]
 host = "localhost"
@@ -146,3 +136,10 @@ ignore_brackets = true
 ignore_parentheses = true
 ignore_asterisks = true
 ignore_angle_brackets = true
+
+[memory_bench]
+upstream_llm_provider = "oaipro"
+user_id = "xnne"
+agent_id = "congyin"
+search_limit = 10
+server_api_key = ""

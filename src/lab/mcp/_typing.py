@@ -131,6 +131,7 @@ class OpenAIMessage(BaseModel):
 
     # tool role 使用
     tool_call_id: str | None = None
+    name: str | None = None  # tool message 可选，标识工具名称
 
     # assistant role 可能返回
     tool_calls: list[ToolCall] | None = None

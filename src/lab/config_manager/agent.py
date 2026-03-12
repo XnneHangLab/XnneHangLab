@@ -12,12 +12,6 @@ from pydantic import BaseModel, Field
 LLM_Provider = Literal["openai", "lingyi", "gemini", "oaipro", "cerebras", "memory_proxy"]
 
 
-# Tool Model
-class ToolModelSetting(BaseModel):
-    llm_provider: Annotated[LLM_Provider, Field("cerebras", title="LLM Provider for Tool Model")]
-    llm_model_name: Annotated[str, Field("qwen-3-235b-a22b-instruct-2507", title="Tool Model Name")]
-
-
 # Chat Model
 class ChatModelSetting(BaseModel):
     llm_provider: Annotated[LLM_Provider, Field("oaipro", title="LLM Provider for Chat Model")]
@@ -120,7 +114,6 @@ class PromptSettings(BaseModel):
 
 class AgentSettings(BaseModel):
     chat_model: Annotated[ChatModelSetting, Field(ChatModelSetting())]  # pyright: ignore[reportCallIssue]
-    tool_model: Annotated[ToolModelSetting, Field(ToolModelSetting())]  # pyright: ignore[reportCallIssue]
     vision_model: Annotated[VisionModelSetting, Field(VisionModelSetting())]  # pyright: ignore[reportCallIssue]
     embedding: Annotated[EmbeddingModelSetting, Field(EmbeddingModelSetting())]  # pyright: ignore[reportCallIssue]
     enable_tool: Annotated[bool, Field(True, title="Enable Tool Calling (BuiltinTool)")]
@@ -162,6 +155,20 @@ class AgentSettings(BaseModel):
         title="Interrupt Method",
         description="Method for writing interruptions signal in chat history. 'system' uses system prompt, 'user' uses user input.",
     )
+    memory_agent_profile: Annotated[
+        str,
+        Field(
+            "profiles/vtuber.toml",
+            title="MemoryAgent 使用的 Profile 路径（相对于 workspace root），留空则走旧逻辑",
+        ),
+    ]
+    memory_chat_profile: Annotated[
+        str,
+        Field(
+            "profiles/congyin.toml",
+            title="/memory/chat 端点使用的 Profile 路径（相对于 workspace root），留空则走旧逻辑",
+        ),
+    ]
 
 
 def main():

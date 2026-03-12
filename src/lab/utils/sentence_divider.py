@@ -7,7 +7,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, overload
 
 import pysbd
 from langdetect import detect
@@ -57,6 +57,12 @@ ABBREVIATIONS = [
     "Rd.",
     "Dr.",
 ]
+COMMAS = [",", ";", "\u3001", "\uff0c", "\uff1b"]
+END_PUNCTUATIONS = [".", "!", "?", "\u3002", "\uff01", "\uff1f", "...", "\u2026\u2026"]
+SENTENCE_END_CHARS = {".", "!", "?", "\u3002", "\uff01", "\uff1f"}
+TRAILING_SENTENCE_CHARS = set("\"'”’)]}】）」』」")
+LIST_MARKER_RE = re.compile(r"(^|[\s\[\(\{\]\)\}])\d+\.$")
+FRAGILE_DOT_RE = re.compile(r"(?<!\S)\d+\.(?=\s*\S)|[A-Za-z0-9_/-]+(?:\.[A-Za-z0-9_/-]+)+")
 
 # Set of languages directly supported by pysbd
 SUPPORTED_LANGUAGES = {
@@ -116,7 +122,12 @@ def is_complete_sentence(text: str) -> bool:
     if any(text.endswith(abbrev) for abbrev in ABBREVIATIONS):
         return False
 
-    return any(text.endswith(punct) for punct in END_PUNCTUATIONS)
+    idx = len(text) - 1
+    while idx >= 0 and text[idx] in TRAILING_SENTENCE_CHARS:
+        idx -= 1
+    if idx < 0:
+        return False
+    return _boundary_token_length(text, idx) > 0
 
 
 def contains_comma(text: str) -> bool:
@@ -164,10 +175,7 @@ def has_punctuation(text: str) -> bool:
     Returns:
         bool: Whether the text is a punctuation mark
     """
-    for punct in COMMAS + END_PUNCTUATIONS:
-        if punct in text:
-            return True
-    return False
+    return contains_comma(text) or contains_end_punctuation(text)
 
 
 def contains_end_punctuation(text: str) -> bool:
@@ -180,7 +188,104 @@ def contains_end_punctuation(text: str) -> bool:
     Returns:
         bool: Whether the text contains ending punctuation
     """
-    return any(punct in text for punct in END_PUNCTUATIONS)
+    return _find_first_sentence_boundary(text) is not None
+
+
+def _next_non_space_index(text: str, start: int) -> int | None:
+    for idx in range(start, len(text)):
+        if not text[idx].isspace():
+            return idx
+    return None
+
+
+def _looks_like_abbreviation(text: str, period_idx: int) -> bool:
+    probe = text[max(0, period_idx - 12) : period_idx + 1].lower()
+    return any(probe.endswith(abbrev.lower()) for abbrev in ABBREVIATIONS)
+
+
+def _is_inline_period(text: str, idx: int) -> bool:
+    if text[idx] != ".":
+        return False
+
+    if _looks_like_abbreviation(text, idx):
+        return True
+
+    prev_char = text[idx - 1] if idx > 0 else ""
+    immediate_next = text[idx + 1] if idx + 1 < len(text) else ""
+    next_idx = _next_non_space_index(text, idx + 1)
+    next_char = text[next_idx] if next_idx is not None else ""
+
+    # Streaming often pauses on a bare list marker like "1." before the item text arrives.
+    if prev_char.isdigit() and next_idx is None:
+        return True
+
+    if prev_char.isalnum() and immediate_next.isalnum():
+        return True
+
+    number_start = idx
+    while number_start > 0 and text[number_start - 1].isdigit():
+        number_start -= 1
+    marker_candidate = text[max(0, number_start - 1) : idx + 1]
+    if LIST_MARKER_RE.fullmatch(marker_candidate):
+        return True
+
+    return False
+
+
+def _boundary_token_length(text: str, idx: int) -> int:
+    if idx < 0 or idx >= len(text):
+        return 0
+
+    if text.startswith("...", idx):
+        return 3
+    if text.startswith("\u2026\u2026", idx):
+        return 2
+
+    char = text[idx]
+    if char not in SENTENCE_END_CHARS:
+        return 0
+    if char == "." and _is_inline_period(text, idx):
+        return 0
+    return 1
+
+
+def _find_first_sentence_boundary(text: str) -> int | None:
+    for idx in range(len(text)):
+        if _boundary_token_length(text, idx) > 0:
+            return idx
+    return None
+
+
+def segment_text_by_rules(text: str) -> tuple[list[str], str]:
+    """Segment text with lightweight rules that preserve filenames and list markers."""
+    if not text:
+        return [], ""
+
+    complete_sentences: list[str] = []
+    start = 0
+    idx = 0
+
+    while idx < len(text):
+        token_len = _boundary_token_length(text, idx)
+        if token_len == 0:
+            idx += 1
+            continue
+
+        end = idx + token_len
+        while end < len(text) and text[end] in TRAILING_SENTENCE_CHARS:
+            end += 1
+
+        sentence = text[start:end].strip()
+        if sentence:
+            complete_sentences.append(sentence)
+
+        start = end
+        while start < len(text) and text[start].isspace():
+            start += 1
+        idx = start
+
+    remaining = text[start:].strip()
+    return complete_sentences, remaining
 
 
 def segment_text_by_regex(text: str) -> tuple[list[str], str]:
@@ -194,33 +299,7 @@ def segment_text_by_regex(text: str) -> tuple[list[str], str]:
     Returns:
         tuple[list[str], str]: (list of complete sentences, remaining incomplete text)
     """
-    if not text:
-        return [], ""
-
-    complete_sentences = []
-    remaining_text = text.strip()
-
-    # Create pattern for matching sentences ending with any end punctuation
-    escaped_punctuations = [re.escape(p) for p in END_PUNCTUATIONS]
-    pattern = r"(.*?(?:[" + "|".join(escaped_punctuations) + r"]))"
-
-    while remaining_text:
-        match = re.search(pattern, remaining_text)
-        if not match:
-            break
-
-        end_pos = match.end(1)
-        potential_sentence = remaining_text[:end_pos].strip()
-
-        # Skip if sentence ends with abbreviation
-        if any(potential_sentence.endswith(abbrev) for abbrev in ABBREVIATIONS):
-            remaining_text = remaining_text[end_pos:].lstrip()
-            continue
-
-        complete_sentences.append(potential_sentence)
-        remaining_text = remaining_text[end_pos:].lstrip()
-
-    return complete_sentences, remaining_text
+    return segment_text_by_rules(text)
 
 
 def segment_text_by_pysbd(text: str) -> tuple[list[str], str]:
@@ -236,6 +315,9 @@ def segment_text_by_pysbd(text: str) -> tuple[list[str], str]:
     """
     if not text:
         return [], ""
+
+    if FRAGILE_DOT_RE.search(text):
+        return segment_text_by_rules(text)
 
     try:
         # Detect language
@@ -268,13 +350,16 @@ def segment_text_by_pysbd(text: str) -> tuple[list[str], str]:
             # Use regex for unsupported languages
             return segment_text_by_regex(text)
 
+        if any(len(sent) <= 2 and contains_end_punctuation(sent) for sent in complete_sentences):
+            return segment_text_by_rules(text)
+
         logger.debug(f"Processed sentences: {complete_sentences}, Remaining: {remaining}")
         return complete_sentences, remaining
 
     except Exception as e:
         logger.error(f"Error in sentence segmentation: {e}")
         # Fallback to regex on any error
-        return segment_text_by_regex(text)
+        return segment_text_by_rules(text)
 
 
 class TagState(Enum):
@@ -451,8 +536,16 @@ class SentenceDivider:
                 text_before_tag = self._buffer[:next_tag_pos]
                 current_tags = self._get_current_tags()
 
-                # Process complete sentences in text before tag
-                if contains_end_punctuation(text_before_tag):
+                # Preserve text inside active tags as a single chunk.
+                if current_tags and text_before_tag.strip():
+                    result.append(
+                        SentenceWithTags(
+                            text=text_before_tag.strip(),
+                            tags=current_tags,
+                        )
+                    )
+                # Process complete sentences in plain text before tag
+                elif contains_end_punctuation(text_before_tag):
                     sentences, remaining = self._segment_text(text_before_tag)
                     for sentence in sentences:
                         if sentence.strip():
@@ -542,7 +635,17 @@ class SentenceDivider:
 
         return result
 
-    async def process_stream(self, segment_stream) -> AsyncIterator[SentenceWithTags]:
+    @overload
+    def process_stream(self, segment_stream: AsyncIterator[str]) -> AsyncIterator[SentenceWithTags]: ...
+
+    @overload
+    def process_stream(
+        self, segment_stream: AsyncIterator[str | AudioOutput]
+    ) -> AsyncIterator[SentenceWithTags | AudioOutput]: ...
+
+    async def process_stream(
+        self, segment_stream: AsyncIterator[str | AudioOutput]
+    ) -> AsyncIterator[SentenceWithTags | AudioOutput]:
         """
         Process a stream of tokens and yield complete sentences with tag information.
         pysbd may not able to handle ...

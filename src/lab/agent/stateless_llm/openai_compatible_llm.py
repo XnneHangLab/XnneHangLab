@@ -1,14 +1,14 @@
 """OpenAI-compatible async LLM wrapper (no extra interface layer).
 
 - chat_completion: stream tokens for final chat output
-- tool_completion: non-stream call with tools for MCP tool loop
+- stream_with_tools: stream raw chunks with native tool-calling support
 
 This module intentionally does NOT depend on any MemoryManager abstraction.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import httpx
 from loguru import logger
@@ -141,30 +141,37 @@ class AsyncLLM:
                 except Exception:
                     pass
 
-    async def tool_completion(
+    async def stream_with_tools(
         self,
-        *,
         messages: list[OpenAIMessage],
-        tools: list[dict[str, Any]],
-        tool_choice: str | dict[str, Any] = "auto",
+        *,
         system: str | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        tool_choice: str = "auto",
         temperature: float | None = None,
-    ) -> ChatCompletion:
-        """Non-stream tool decision call (returns full response object)."""
+    ) -> AsyncIterator[ChatCompletionChunk]:
+        """Stream raw chunks with tool call support."""
         messages_with_system = normalize_messages(messages, system=system)
         temp = self.temperature if temperature is None else temperature
+        kwargs: dict[str, Any] = {
+            "messages": messages_with_system,
+            "model": self.model,
+            "stream": True,
+            "temperature": temp,
+        }
+        if tools:
+            kwargs["tools"] = tools
+            kwargs["tool_choice"] = tool_choice
 
-        return await call_with_short_retry(
-            lambda: self.client.chat.completions.create(  # type: ignore[return-value]
-                model=self.model,
-                messages=messages_with_system,  # type: ignore[arg-type]
-                tools=tools,  # type: ignore[arg-type]
-                tool_choice=tool_choice,  # type: ignore[arg-type]
-                stream=False,
-                temperature=temp,
-            ),
-            max_retries=2,
-        )  # type: ignore[return-value]
+        stream = cast("AsyncStream[ChatCompletionChunk]", await self.client.chat.completions.create(**kwargs))
+        try:
+            async for chunk in stream:
+                yield chunk
+        finally:
+            try:
+                await stream.close()
+            except Exception:
+                pass
 
     async def vision_completion_once(
         self,
@@ -176,13 +183,16 @@ class AsyncLLM:
         messages_with_system = normalize_messages(messages, system=system)
         temp = self.temperature if temperature is None else temperature
 
-        resp = await call_with_short_retry(  # type: ignore[assignment]
-            lambda: self.client.chat.completions.create(  # type: ignore[return-value]
-                model=self.model,
-                messages=messages_with_system,  # type: ignore[arg-type]
-                stream=False,
-                temperature=temp,
+        resp = cast(
+            "ChatCompletion",
+            await call_with_short_retry(  # type: ignore[assignment]
+                lambda: self.client.chat.completions.create(  # type: ignore[return-value]
+                    model=self.model,
+                    messages=messages_with_system,  # type: ignore[arg-type]
+                    stream=False,
+                    temperature=temp,
+                ),
+                max_retries=2,
             ),
-            max_retries=2,
         )
         return (resp.choices[0].message.content or "").strip()  # type: ignore[misc]

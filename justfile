@@ -3,6 +3,12 @@ sync:
   git pull origin dev
   git submodule update --init --recursive
 
+# Config
+
+reload-lab-setting:  # 重新生成 config/lab.toml（升级默认值 / 重置配置）
+  uv run get_root
+  uv run scripts/reload_lab_setting.py
+
 # Docs
 
 docs-dev:
