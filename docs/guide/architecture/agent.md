@@ -15,7 +15,6 @@ agent/
 ├── input_types.py            # 输入类型（BatchInput / ImageData / TextData）
 ├── output_types.py           # 输出类型（SentenceOutput / AudioOutput / Actions）
 ├── transformers.py           # 文本后处理管线（断句、表情提取、TTS 过滤）
-├── mcp_tool_loop.py          # MCP 工具循环（legacy，待后续清理）
 └── agents/
     ├── agent_interface.py    # AgentInterface：抽象基类
     └── memory_agent/         # MemoryAgent：当前唯一实现
