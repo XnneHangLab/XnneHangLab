@@ -14,8 +14,7 @@ import httpx
 from loguru import logger
 from openai import APIConnectionError, APIError, AsyncOpenAI, AsyncStream, RateLimitError
 
-from lab.mcp import OpenAIMessage
-from lab.mcp.util import call_with_short_retry  # type: ignore
+from lab.agent.types import OpenAIMessage, call_with_short_retry
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Sequence

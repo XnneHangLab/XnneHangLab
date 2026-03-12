@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
-    from lab.mcp import ToolTraceItem
+    from lab.agent.types import ToolTraceItem
 
 
 ImageSource = Literal["tool", "upload"]

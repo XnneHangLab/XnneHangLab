@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 from lab.agent.agents.memory_agent.message_factory import MessageFactory
 from lab.agent.agents.memory_agent.prompt_builder import PromptBuilder
 from lab.agent.agents.memory_agent.vision_summarizer import VisionSummarizer
-from lab.mcp import ConversationState, OpenAIMessage
+from lab.agent.types import ConversationState, OpenAIMessage
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
