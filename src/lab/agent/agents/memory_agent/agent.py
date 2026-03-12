@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from lab.live2d_model import Live2dModel
 
 
-_TOOL_STATUS_RE = re.compile(r"<tool>\[馃敡 [^\]]+]</tool>")
+_TOOL_STATUS_RE = re.compile(r"<tool>\[[^\]]+]</tool>")
 
 
 def _strip_tool_status_tokens(text: str) -> str:
