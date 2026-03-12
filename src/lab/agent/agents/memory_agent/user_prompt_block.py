@@ -11,41 +11,44 @@ _SEP = "\n\n###\n\n"
 
 @dataclass
 class ContextEntry:
-    """一条可衰减的上下文条目，持有完整版和一句话简要版。
+    """一条可衰减的上下文条目，持有完整版和可选的一句话简要版。
 
     Args:
         full: 完整版内容，超出保留轮数后被丢弃。
-        brief: 一句话简要版，永久保留。
+        brief: 一句话简要版；为 None 表示无法生成摘要，condensed 时整条被忽略。
     """
 
     full: str
-    brief: str
+    brief: str | None
 
     def validate(self) -> None:
-        """校验 full / brief 均非空且 brief 不含换行。
+        """校验 full 非空，若 brief 存在则不含换行。
 
         Raises:
-            ValueError: full 或 brief 为空，或 brief 包含换行符。
+            ValueError: full 为空，或 brief 包含换行符。
         """
         if not self.full.strip():
             raise ValueError("ContextEntry.full 不能为空")
-        if not self.brief.strip():
-            raise ValueError("ContextEntry.brief 不能为空")
-        if "\n" in self.brief:
+        if self.brief is not None and "\n" in self.brief:
             raise ValueError(f"ContextEntry.brief 不能包含换行符，当前值：{self.brief!r}")
 
-    def render(self, *, condensed: bool = False) -> str:
+    def render(self, *, condensed: bool = False) -> str | None:
         """渲染为字符串。
 
+        condensed=True 时：brief 存在则返回 brief，否则返回 None（调用方应忽略整条）。
+        condensed=False 时：始终返回 full。
+
         Args:
-            condensed: 为 True 时只返回 brief，否则返回 full。
+            condensed: 为 True 时只保留 brief 版本。
 
         Returns:
-            渲染后的字符串。
+            渲染后的字符串，或 None（condensed 且无 brief 时）。
         """
-        return self.brief if condensed else self.full
+        if condensed:
+            return self.brief  # 可能是 None
+        return self.full
 
-    def to_dict(self) -> dict[str, str]:
+    def to_dict(self) -> dict[str, str | None]:
         """序列化为 dict。
 
         Returns:
@@ -54,7 +57,7 @@ class ContextEntry:
         return {"full": self.full, "brief": self.brief}
 
     @classmethod
-    def from_dict(cls, d: dict[str, str]) -> ContextEntry:
+    def from_dict(cls, d: dict[str, str | None]) -> ContextEntry:
         """从 dict 反序列化。
 
         Args:
@@ -63,7 +66,7 @@ class ContextEntry:
         Returns:
             ContextEntry 实例。
         """
-        return cls(full=d["full"], brief=d["brief"])
+        return cls(full=d["full"], brief=d.get("brief"))  # type: ignore[arg-type]
 
 
 @dataclass
@@ -130,10 +133,12 @@ class UserPromptBlock:
         bg_lines: list[str] = []
         if self.memory_context is not None:
             rendered = self.memory_context.render(condensed=condensed)
-            bg_lines.append(f"[memory context]\n{rendered}\n[/memory context]")
+            if rendered is not None:
+                bg_lines.append(f"[memory context]\n{rendered}\n[/memory context]")
         if self.diary_context is not None:
             rendered = self.diary_context.render(condensed=condensed)
-            bg_lines.append(f"[diary context]\n{rendered}\n[/diary context]")
+            if rendered is not None:
+                bg_lines.append(f"[diary context]\n{rendered}\n[/diary context]")
         if bg_lines:
             segments.append("[Background Context]\n" + "\n\n".join(bg_lines))
 
@@ -144,13 +149,16 @@ class UserPromptBlock:
         wk_lines: list[str] = []
         if self.tool_summary is not None:
             rendered = self.tool_summary.render(condensed=condensed)
-            wk_lines.append(f"[Tool Call Summary]\n{rendered}")
+            if rendered is not None:
+                wk_lines.append(f"[Tool Call Summary]\n{rendered}")
         if self.vision_tool_summary is not None:
             rendered = self.vision_tool_summary.render(condensed=condensed)
-            wk_lines.append(f"[Tool Call Image Summary]\n{rendered}")
+            if rendered is not None:
+                wk_lines.append(f"[Tool Call Image Summary]\n{rendered}")
         if self.vision_upload_summary is not None:
             rendered = self.vision_upload_summary.render(condensed=condensed)
-            wk_lines.append(f"[User Upload Image Summary]\n{rendered}")
+            if rendered is not None:
+                wk_lines.append(f"[User Upload Image Summary]\n{rendered}")
         if wk_lines:
             segments.append("[Working Context]\n" + "\n\n".join(wk_lines))
 

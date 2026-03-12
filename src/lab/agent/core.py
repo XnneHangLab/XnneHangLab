@@ -130,17 +130,9 @@ class AgentCore:
         history = self.storage.load()
         user_images = user_images or []
 
-        # —— 背景上下文 ContextEntry ——
-        mem_entry = (
-            self.prompt.make_context_entry(memory_context, brief=memory_context.split("\n")[0][:80])
-            if memory_context
-            else None
-        )
-        diary_entry = (
-            self.prompt.make_context_entry(diary_context, brief=diary_context.split("\n")[0][:80])
-            if diary_context
-            else None
-        )
+        # —— 背景上下文 ContextEntry（brief 由调用方提供；暂无则为 None）——
+        mem_entry = self.prompt.make_context_entry(memory_context, brief=None) if memory_context else None
+        diary_entry = self.prompt.make_context_entry(diary_context, brief=None) if diary_context else None
 
         # —— Tool loop ——
         reuse_last_screenshot = self._should_reuse_last_screenshot(user_text)
@@ -152,14 +144,11 @@ class AgentCore:
                 reuse_last_screenshot=reuse_last_screenshot,
             )
         else:
-            tool_result = AgentToolLoopRunResult(trace_json="(无)", final_text="", tool_image=None)
+            tool_result = AgentToolLoopRunResult(trace_json="(无)", final_text="", tool_image=None, tool_brief=None)
 
-        # —— Tool summary ContextEntry ——
+        # —— Tool summary ContextEntry（brief 来自 TOOL_BRIEF 行）——
         tool_entry = (
-            self.prompt.make_tool_summary(
-                tool_result.trace_json,
-                brief="（工具调用已完成，详情见原始轮次）",
-            )
+            self.prompt.make_tool_summary(tool_result.trace_json, brief=tool_result.tool_brief)
             if self.enable_tool
             else None
         )
@@ -187,12 +176,12 @@ class AgentCore:
                 if summaries.tool_image_summary:
                     vision_tool_entry = self.prompt.make_vision_tool_summary(
                         summaries.tool_image_summary,
-                        brief="（工具截图摘要见原始轮次）",
+                        brief=summaries.tool_image_brief,
                     )
                 if summaries.upload_summaries:
                     vision_upload_entry = self.prompt.make_vision_upload_summary(
                         summaries.upload_summaries,
-                        brief="（上传图片摘要见原始轮次）",
+                        summaries.upload_briefs,
                     )
         else:
             # chat model 原生支持视觉时，vision 摘要仍可选做（require_detailed 控制）
@@ -206,12 +195,12 @@ class AgentCore:
                 if summaries.tool_image_summary:
                     vision_tool_entry = self.prompt.make_vision_tool_summary(
                         summaries.tool_image_summary,
-                        brief="（工具截图摘要见原始轮次）",
+                        brief=summaries.tool_image_brief,
                     )
                 if summaries.upload_summaries:
                     vision_upload_entry = self.prompt.make_vision_upload_summary(
                         summaries.upload_summaries,
-                        brief="（上传图片摘要见原始轮次）",
+                        summaries.upload_briefs,
                     )
 
         # —— 组装 UserPromptBlock ——

@@ -48,12 +48,12 @@ class PromptBuilder:
         return block
 
     @staticmethod
-    def make_tool_summary(trace_json: str, *, brief: str) -> ContextEntry:
+    def make_tool_summary(trace_json: str, *, brief: str | None) -> ContextEntry:
         """将 tool call trace JSON 包装为可衰减的 ContextEntry。
 
         Args:
             trace_json: Tool call 执行的完整 JSON 轨迹。
-            brief: 一句话摘要，用于历史轮次压缩。
+            brief: 一句话摘要（来自 TOOL_BRIEF 行）；None 表示提取失败，condensed 时整条忽略。
 
         Returns:
             ContextEntry 实例。
@@ -61,12 +61,12 @@ class PromptBuilder:
         return ContextEntry(full=trace_json, brief=brief)
 
     @staticmethod
-    def make_vision_tool_summary(summary: str, *, brief: str) -> ContextEntry:
+    def make_vision_tool_summary(summary: str, *, brief: str | None) -> ContextEntry:
         """将工具截图的视觉摘要包装为可衰减的 ContextEntry。
 
         Args:
             summary: 视觉模型输出的完整摘要文本。
-            brief: 一句话摘要，用于历史轮次压缩。
+            brief: 一句话摘要（来自 scene 字段）；None 表示提取失败，condensed 时整条忽略。
 
         Returns:
             ContextEntry 实例。
@@ -74,28 +74,37 @@ class PromptBuilder:
         return ContextEntry(full=summary, brief=brief)
 
     @staticmethod
-    def make_vision_upload_summary(labeled: dict[str, str], *, brief: str) -> ContextEntry:
+    def make_vision_upload_summary(
+        labeled: dict[str, str], briefs: dict[str, str | None], *, prefix: str = "p"
+    ) -> ContextEntry:
         """将用户上传图片的多图摘要包装为可衰减的 ContextEntry。
 
+        brief 取第一张有效 brief；若所有张均为 None，则 brief 为 None。
+
         Args:
-            labeled: 标签到摘要的映射，格式为 {"p1": "...", "p2": "..."}。
-            brief: 一句话摘要，用于历史轮次压缩。
+            labeled: 标签到完整摘要的映射，格式为 {"p1": "...", "p2": "..."}。
+            briefs: 标签到一句话摘要的映射，None 值表示该张解析失败。
+            prefix: 标签前缀，用于排序（默认 "p"）。
 
         Returns:
             ContextEntry 实例。
         """
         if not labeled:
-            return ContextEntry(full="无上传图片。", brief=brief or "无上传图片。")
+            return ContextEntry(full="无上传图片。", brief=None)
         lines = [json.dumps({"id": k, "summary": labeled[k]}, ensure_ascii=False) for k in sorted(labeled)]
-        return ContextEntry(full="\n".join(lines), brief=brief)
+        full = "\n".join(lines)
+        # brief：拼接所有有效的 scene，以 "；" 分隔；全部为 None 时 brief 为 None
+        brief_parts = [briefs.get(k) for k in sorted(labeled) if briefs.get(k)]
+        brief = "；".join(p for p in brief_parts if p) or None
+        return ContextEntry(full=full, brief=brief)
 
     @staticmethod
-    def make_context_entry(full: str, *, brief: str) -> ContextEntry:
+    def make_context_entry(full: str, *, brief: str | None) -> ContextEntry:
         """通用工厂：将任意文本包装为可衰减的 ContextEntry。
 
         Args:
             full: 完整版内容。
-            brief: 一句话简要版。
+            brief: 一句话简要版；None 表示无摘要，condensed 时整条忽略。
 
         Returns:
             ContextEntry 实例。
