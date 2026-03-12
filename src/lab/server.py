@@ -261,8 +261,10 @@ class WebSocketServer:
         )
 
         # Load configurations and initialize the default context cache
+        import asyncio
+
         default_context_cache = ServiceContext()
-        default_context_cache.load_from_config(default_context_cache.lab_setting)
+        asyncio.run(default_context_cache.load_from_config(default_context_cache.lab_setting))
 
         # Include routes
         self.app.include_router(

@@ -132,70 +132,62 @@ class AgentFactory:
         return core
 
     @staticmethod
-    def create_agent(
+    async def create_agent(
         lab_setting: XnneHangLabSettings,
-        chat_system_prompt: str,
-        tool_system_prompt: str = "",
-        vision_system_prompt: str = "",
         live2d_model: Live2dModel | None = None,
         tts_preprocessor_config: TTSPreprocessorConfig | None = None,
         workspace_root: Path | None = None,
     ) -> AgentInterface:
-        """Create an agent based on configuration (OpenAI only, dual-model ready).
+        """基于 lab_setting 构造 MemoryAgent（AgentCore 模式）。
 
-        tool_system_prompt 现在是可选参数：
-        - 传入时直接使用（向后兼容）
-        - 不传时由 ToolManager.build_system_prompt() 自动生成
+        从 lab_setting.agent.memory_agent_profile 读取 Profile 路径，
+        构建 AgentCore，再包装为 MemoryAgent。
 
-        workspace_root 用于 AgentContext 的文件操作安全边界：
-        - 传入时使用指定路径
-        - 不传时默认使用当前工作目录
+        Args:
+            lab_setting: 全局实验室配置。
+            live2d_model: Live2D 模型实例。
+            tts_preprocessor_config: TTS 预处理配置。
+            workspace_root: 工作区根目录，默认为当前目录。
+
+        Returns:
+            构造完成的 MemoryAgent 实例。
         """
-        tool_model = lab_setting.agent.tool_model
-        chat_model = lab_setting.agent.chat_model
-        vision_model = lab_setting.agent.vision_model
+        from lab.agent.agents.memory_agent.memory_store import MemoryStore
+        from lab.agent.storage import MemoryStoreAdapter
 
-        tool_llm = getattr(lab_setting.agent.llm, tool_model.llm_provider)
-        chat_llm = getattr(lab_setting.agent.llm, chat_model.llm_provider)
-        vision_llm = getattr(lab_setting.agent.llm, vision_model.llm_provider)
-
-        chat_llm_interface = LLMFactory.create_llm(
-            model=chat_model.llm_model_name,
-            base_url=chat_llm.llm_base_url,
-            llm_api_key=chat_llm.llm_api_key,
-        )
-
-        tool_llm_interface = LLMFactory.create_llm(
-            model=tool_model.llm_model_name,
-            base_url=tool_llm.llm_base_url,
-            llm_api_key=tool_llm.llm_api_key,
-        )
-
-        vision_llm_interface = LLMFactory.create_llm(
-            model=vision_model.llm_model_name,
-            base_url=vision_llm.llm_base_url,
-            llm_api_key=vision_llm.llm_api_key,
-        )
-
-        # 构建 ToolManager + AgentContext
         ws_root = workspace_root or Path.cwd()
-        tool_manager = build_default_tool_manager(ws_root)
-        agent_context = AgentContext(workspace_root=ws_root)
 
-        return MemoryAgent(
+        profile_path_str = lab_setting.agent.memory_agent_profile
+        if not profile_path_str:
+            raise ValueError(
+                "lab_setting.agent.memory_agent_profile 未配置，"
+                '请在 lab.toml 的 [agent] 下设置 memory_agent_profile = "profiles/xxx.toml"'
+            )
+        profile_path = Path(profile_path_str)
+        if not profile_path.is_absolute():
+            profile_path = ws_root / profile_path_str
+        if not profile_path.exists():
+            raise FileNotFoundError(f"memory_agent_profile not found: {profile_path}")
+
+        memory_store = MemoryStore()
+        storage = MemoryStoreAdapter(memory_store)
+
+        core = await AgentFactory.create_core_with_profile(
+            lab_setting=lab_setting,
+            profile_path=profile_path,
+            storage=storage,
+            workspace_root=ws_root,
+        )
+
+        agent = MemoryAgent(
             lab_settings=lab_setting,
-            chat_llm=chat_llm_interface,
-            tool_llm=tool_llm_interface,
-            vision_llm=vision_llm_interface,
-            chat_system_prompt=chat_system_prompt,
-            tool_system_prompt=tool_system_prompt,  # 空串时由 MemoryAgent 自动生成
-            vision_system_prompt=vision_system_prompt,
-            enable_tool=lab_setting.agent.enable_tool,
+            core=core,
             live2d_model=live2d_model,  # type: ignore[arg-type]
             tts_preprocessor_config=tts_preprocessor_config,  # type: ignore[arg-type]
             faster_first_response=lab_setting.agent.faster_first_response,
             segment_method=lab_setting.agent.segment_method,
             interrupt_method=lab_setting.agent.interrupt_method,
-            tool_manager=tool_manager,
-            agent_context=agent_context,
         )
+        # 让 MemoryAgent 和 AgentCore 共用同一个 MemoryStore
+        agent.memory = memory_store
+        return agent

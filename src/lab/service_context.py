@@ -77,7 +77,7 @@ class ServiceContext:
         self.agent_engine = agent_engine
         logger.debug(f"Loaded service context with cache: {character_config}")
 
-    def load_from_config(self, config: XnneHangLabSettings) -> None:
+    async def load_from_config(self, config: XnneHangLabSettings) -> None:
         """
         Load the ServiceContext with the config.
         Reinitialize the instances if the config is different.
@@ -99,7 +99,7 @@ class ServiceContext:
         self.init_live2d(config.vtuber.character_config.live2d_model_name)
 
         # init agent from character config
-        self.init_agent(config)
+        await self.init_agent(config)
 
         # self.init_translate(config.vtuber.character_config.tts_preprocessor_config.translator_config) # 到时替换成自己的
         # store typed config references
@@ -118,50 +118,20 @@ class ServiceContext:
             logger.critical(f"Error initializing Live2D: {e}")
             logger.critical("Try to proceed without Live2D...")
 
-    def init_agent(self, lab_settings: XnneHangLabSettings) -> None:
+    async def init_agent(self, lab_settings: XnneHangLabSettings) -> None:
         """Initialize or update the LLM engine based on agent configuration."""
-        # agent 暂时不需要多次启动模型，所以不需要自检是否初始化。
-        chat_system_prompt = read_prompt_from_text_file(lab_settings.agent.prompts.character_prompt)
-        chat_system_prompt += "\n\n" + read_prompt_from_text_file(lab_settings.agent.prompts.live2d_expression_prompt)
         if self.live2d_model is None:
             logger.error("Live2D model is not initialized, cannot create agent.")
             raise ValueError("Live2D model must be initialized before creating agent.")
-        chat_system_prompt += (
-            "这是你的 Emotion 列表，请在合适的时候使用它们：\n" + str(self.live2d_model.emo_key) + "\n"
-        )
-        if lab_settings.agent.user_lang == "ZH":
-            chat_system_prompt += "\n**请回复中文。**"
-        elif lab_settings.agent.user_lang == "EN":
-            chat_system_prompt += "\n**Please reply in English.**"
-        elif lab_settings.agent.user_lang == "JA":
-            chat_system_prompt += "\n**日本語で返信してください。**"
-        else:
-            raise ValueError(f"speaker_lang {lab_settings.agent.user_lang} not supported")
-        tool_system_prompt = read_prompt_from_text_file(lab_settings.agent.prompts.tool_prompt)
-        vision_system_prompt = read_prompt_from_text_file(lab_settings.agent.prompts.vision_prompt)
         if self.character_config is None:
             logger.error("character_config is None, cannot create agent.")
             raise ValueError("character_config cannot be None")
 
-        # Pass avatar to agent factory
-        # avatar = self.character_config.avatar or ""  # Get avatar from config
-
-        self.agent_engine = AgentFactory.create_agent(  # type: ignore
+        self.agent_engine = await AgentFactory.create_agent(
             lab_setting=lab_settings,
-            chat_system_prompt=chat_system_prompt,
-            tool_system_prompt=tool_system_prompt,
-            vision_system_prompt=vision_system_prompt,
             live2d_model=self.live2d_model,
             tts_preprocessor_config=self.character_config.tts_preprocessor_config,
-            # character_avatar=avatar,  # Add avatar parameter
         )
-
-        # logger.debug(f"System prompt: {system_prompt}")
-
-        # Save the current configuration
-        self.chat_system_prompt = chat_system_prompt
-        self.tool_system_prompt = tool_system_prompt
-        self.vision_system_prompt = vision_system_prompt
 
     async def ensure_mcp_connected(self) -> None:
         if self._mcp_connected or self.agent_engine is None:
