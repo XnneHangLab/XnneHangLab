@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from loguru import logger
+
 from lab.agent.agent_tool_loop import AgentToolLoop
 from lab.agent.agents.memory_agent.agent_tool_loop_runner import AgentToolLoopRunner, AgentToolLoopRunResult
 from lab.agent.agents.memory_agent.message_factory import MessageFactory
@@ -148,6 +150,8 @@ class AgentCore:
             tool_result = AgentToolLoopRunResult(trace_json="(无)", final_text="", tool_image=None, tool_brief=None)
 
         # —— Tool summary ContextEntry（brief 来自 TOOL_BRIEF 行）——
+        if self.enable_tool and tool_result.tool_brief:
+            logger.info("[AgentCore] tool_brief: {}", tool_result.tool_brief)
         tool_entry = (
             self.prompt.make_tool_summary(tool_result.trace_json, brief=tool_result.tool_brief)
             if self.enable_tool
