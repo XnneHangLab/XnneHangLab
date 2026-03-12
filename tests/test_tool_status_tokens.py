@@ -4,6 +4,7 @@ import asyncio
 
 from lab.agent.agents.memory_agent.agent import _strip_tool_status_tokens
 from lab.agent.core import _format_tool_status_token
+from lab.conversations.tts_manager import has_audible_tts_text
 from lab.utils.sentence_divider import SentenceDivider
 
 
@@ -44,3 +45,13 @@ def test_tool_status_token_keeps_filename_whole_inside_tool_tag() -> None:
 
     chunks = asyncio.run(_collect())
     assert "[🔧 write_file path=test.txt append=true]" in chunks
+
+
+def test_tool_status_text_is_not_audible_for_tts_or_translation() -> None:
+    assert not has_audible_tts_text("")
+    assert not has_audible_tts_text("[🔧 list_dir path=/]\n")
+    assert not has_audible_tts_text("...")
+
+
+def test_regular_sentence_remains_audible() -> None:
+    assert has_audible_tts_text("Read test.txt and report back.")

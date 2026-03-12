@@ -13,6 +13,7 @@ from loguru import logger
 from lab.agent.input_types import BatchInput, ImageData, ImageSource, TextData, TextSource
 from lab.api.clients import ASRClient, ASRRequest, DeepLXClient, DeepLXRequest
 from lab.config_manager import XnneHangLabSettings, load_settings_file
+from lab.conversations.tts_manager import has_audible_tts_text
 from lab.message_handler import message_handler
 
 if TYPE_CHECKING:
@@ -88,7 +89,13 @@ async def handle_sentence_output(
     full_response = ""
     lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
     async for display_text, tts_text, actions in output:
-        if lab_settings.agent.speaker_lang != lab_settings.agent.user_lang:
+        tts_text = tts_text.replace("*", "")
+        display_text.text = display_text.text.replace("*", "")
+
+        if (
+            lab_settings.agent.speaker_lang != lab_settings.agent.user_lang
+            and has_audible_tts_text(tts_text)
+        ):
             logger.debug(f"🏃 Processing output: '''{tts_text}'''...")
             logger.debug(f"🏃 Translating text to {lab_settings.agent.speaker_lang}...")
             deeplx_client = DeepLXClient()
@@ -103,9 +110,6 @@ async def handle_sentence_output(
                 response["target_text"] if response else tts_text
             )  # 我打算用 MCP 实现表情播放，看看能不能简化一下复杂度？
             logger.debug(f"🏃 Text after translation: '''{tts_text}'''...")
-        tts_text.replace("*", "")
-        display_text.text = display_text.text.replace("*", "")
-
         full_response += display_text.text
         await tts_manager.speak(
             tts_text=tts_text,  # 直接使用大模型回復作為 TTS Text
