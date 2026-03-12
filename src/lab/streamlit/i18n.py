@@ -17,10 +17,10 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import Enum, StrEnum
 
 
-class I18nEnum(str, Enum):
+class I18nEnum(StrEnum):
     """基类：value 是中文 label，name 是英文 key。"""
 
     @classmethod
