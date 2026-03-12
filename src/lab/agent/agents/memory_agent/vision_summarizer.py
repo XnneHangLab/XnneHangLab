@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import json
 import re
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from loguru import logger
 
@@ -365,7 +365,7 @@ class VisionSummarizer:
                 for it in parsed["items"]:  # type: ignore[union-attr]
                     if not isinstance(it, dict):
                         continue
-                    it_typed: dict[str, Any] = it
+                    it_typed = cast("dict[str, Any]", it)
                     _id = it_typed.get("id")
                     _sum = it_typed.get("summary")
                     _scene = it_typed.get("scene")

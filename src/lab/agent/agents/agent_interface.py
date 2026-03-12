@@ -30,3 +30,9 @@ class AgentInterface(ABC):
     def set_memory_from_history(self, conf_uid: str, history_uid: str) -> None:
         """Load the agent's working memory from chat history."""
         raise NotImplementedError
+
+    async def connect_mcp_servers(self, servers: list[tuple[str, str]] | None = None) -> None:  # noqa: B027
+        """Connect MCP servers. Override in subclasses that support MCP."""
+
+    async def close(self) -> None:  # noqa: B027
+        """Release resources. Override in subclasses that hold connections."""
