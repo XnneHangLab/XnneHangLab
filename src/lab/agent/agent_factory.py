@@ -94,6 +94,16 @@ class AgentFactory:
         profile = Profile.from_toml(profile_path)
         agent_context = AgentContext(workspace_root=ws_root)
 
+        # tool_prompt / vision_prompt 从 lab_setting 的路径读取，外部未传入时自动加载
+        def _read_prompt(path_str: str) -> str:
+            p = Path(path_str)
+            if not p.is_absolute():
+                p = ws_root / path_str
+            return p.read_text(encoding="utf-8").strip() if p.exists() else ""
+
+        resolved_tool_prompt = tool_system_prompt or _read_prompt(lab_setting.agent.prompts.tool_prompt)
+        resolved_vision_prompt = vision_system_prompt or _read_prompt(lab_setting.agent.prompts.vision_prompt)
+
         plugin_loader = PluginLoader()
         tool_plugins, skill_descriptors = await plugin_loader.load_many(
             profile.plugins.enabled,
@@ -122,8 +132,8 @@ class AgentFactory:
             context_injector=ContextInjector(profile.context),
             storage=storage,
             chat_system_prompt=chat_system_prompt,
-            tool_system_prompt=tool_system_prompt,
-            vision_system_prompt=vision_system_prompt,
+            tool_system_prompt=resolved_tool_prompt,
+            vision_system_prompt=resolved_vision_prompt,
             enable_tool=lab_setting.agent.enable_tool,
             max_vision_concurrency=lab_setting.agent.max_vision_concurrency,
             require_detailed=lab_setting.agent.require_detailed,
