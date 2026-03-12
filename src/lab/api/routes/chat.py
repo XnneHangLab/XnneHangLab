@@ -396,7 +396,13 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> JSONResp
 
     try:
         if chat_state.agent_core is not None:
-            async for token in chat_state.agent_core.run_turn(user_text=request.message):
+            # 检索 memory context，传给 AgentCore（与旧路径行为一致）
+            loop = asyncio.get_running_loop()
+            memories_text = await loop.run_in_executor(None, _search_and_format_memories, request.message)
+            async for token in chat_state.agent_core.run_turn(
+                user_text=request.message,
+                memory_context=memories_text or None,
+            ):
                 assistant_content += token
         else:
             # 2. Load conversation history
