@@ -8,7 +8,7 @@ This module intentionally does NOT depend on any MemoryManager abstraction.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import httpx
 from loguru import logger
@@ -20,7 +20,7 @@ from lab.mcp.util import call_with_short_retry  # type: ignore
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Sequence
 
-    from openai.types.chat import ChatCompletionChunk
+    from openai.types.chat import ChatCompletion, ChatCompletionChunk
 
 
 def normalize_messages(
@@ -163,7 +163,7 @@ class AsyncLLM:
             kwargs["tools"] = tools
             kwargs["tool_choice"] = tool_choice
 
-        stream = await self.client.chat.completions.create(**kwargs)
+        stream = cast("AsyncStream[ChatCompletionChunk]", await self.client.chat.completions.create(**kwargs))
         try:
             async for chunk in stream:
                 yield chunk
@@ -183,13 +183,16 @@ class AsyncLLM:
         messages_with_system = normalize_messages(messages, system=system)
         temp = self.temperature if temperature is None else temperature
 
-        resp = await call_with_short_retry(  # type: ignore[assignment]
-            lambda: self.client.chat.completions.create(  # type: ignore[return-value]
-                model=self.model,
-                messages=messages_with_system,  # type: ignore[arg-type]
-                stream=False,
-                temperature=temp,
+        resp = cast(
+            "ChatCompletion",
+            await call_with_short_retry(  # type: ignore[assignment]
+                lambda: self.client.chat.completions.create(  # type: ignore[return-value]
+                    model=self.model,
+                    messages=messages_with_system,  # type: ignore[arg-type]
+                    stream=False,
+                    temperature=temp,
+                ),
+                max_retries=2,
             ),
-            max_retries=2,
         )
         return (resp.choices[0].message.content or "").strip()  # type: ignore[misc]

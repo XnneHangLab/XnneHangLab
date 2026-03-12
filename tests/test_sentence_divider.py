@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from typing import TYPE_CHECKING
 
 from lab.utils.sentence_divider import (
     SentenceDivider,
@@ -8,6 +9,9 @@ from lab.utils.sentence_divider import (
     segment_text_by_pysbd,
     segment_text_by_regex,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 
 def test_regex_splitter_keeps_filename_intact() -> None:
@@ -55,7 +59,7 @@ def test_sentence_divider_stream_keeps_filename_whole() -> None:
             valid_tags=["think", "tool"],
         )
 
-        async def _source():
+        async def _source() -> AsyncIterator[str]:
             yield "Read test.txt and report back."
 
         chunks: list[str] = []
@@ -74,7 +78,7 @@ def test_sentence_divider_stream_keeps_emotion_prefixed_number_marker_together()
             valid_tags=["think", "tool"],
         )
 
-        async def _source():
+        async def _source() -> AsyncIterator[str]:
             yield "[\u5e73\u9759]1."
             yield "\u6839\u76ee\u5f55\u91cc\u5df2\u7ecf\u6709 `test.txt` \u4e86\uff0c\u6211\u521a\u624d\u67e5\u8fc7\uff0c\u4e0d\u9700\u8981\u91cd\u65b0\u5efa\u3002"
 

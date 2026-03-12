@@ -31,6 +31,9 @@ def _strip_tool_status_tokens(text: str) -> str:
     return _TOOL_STATUS_RE.sub("", text)
 
 
+strip_tool_status_tokens = _strip_tool_status_tokens
+
+
 class MemoryAgent(AgentInterface):
     """MemoryAgent：编排层，将 AgentCore 的 token 流接入 TTS/Live2D pipeline。
 

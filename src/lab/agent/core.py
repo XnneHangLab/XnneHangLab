@@ -89,6 +89,9 @@ def _format_tool_status_token(tool_name: str, args_json: str = "") -> str:
     return f"<tool>[🔧 {name}{suffix}]</tool>"
 
 
+format_tool_status_token = _format_tool_status_token
+
+
 class AgentCore:
     """统一封装 Agent 的 tool loop、vision 和 chat 主流程。"""
 
@@ -322,8 +325,12 @@ class AgentCore:
             if finish_reason != "tool_calls" or not ordered_tool_calls:
                 break
 
-            if self.tool_manager is None or self.agent_context is None:
+            tool_manager = self.tool_manager
+            agent_context = self.agent_context
+            if tool_manager is None or agent_context is None:
                 break
+            active_tool_manager = tool_manager
+            active_agent_context = agent_context
 
             for tc in ordered_tool_calls:
                 yield _format_tool_status_token(tc["name"], tc["arguments"])
@@ -332,7 +339,7 @@ class AgentCore:
                 name = tc_info["name"]
                 args_json = tc_info["arguments"]
                 try:
-                    result = await self.tool_manager.call_tool(name, args_json, self.agent_context)
+                    result = await active_tool_manager.call_tool(name, args_json, active_agent_context)
                     return result.text if result.ok else f"Error: {result.error}"
                 except Exception as exc:  # pragma: no cover - defensive path
                     return f"tool_error: {type(exc).__name__}: {exc}"
@@ -350,7 +357,7 @@ class AgentCore:
                 )
                 final_messages.append(tool_msg)
 
-            tools_schema = self.tool_manager.list_tools_schema() if (self.enable_tool and self.tool_manager) else None
+            tools_schema = active_tool_manager.list_tools_schema() if self.enable_tool else None
 
         # —— 写回存储 ——
         if self.write_back:

@@ -7,7 +7,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, overload
 
 import pysbd
 from langdetect import detect
@@ -635,7 +635,17 @@ class SentenceDivider:
 
         return result
 
-    async def process_stream(self, segment_stream) -> AsyncIterator[SentenceWithTags]:
+    @overload
+    def process_stream(self, segment_stream: AsyncIterator[str]) -> AsyncIterator[SentenceWithTags]: ...
+
+    @overload
+    def process_stream(
+        self, segment_stream: AsyncIterator[str | AudioOutput]
+    ) -> AsyncIterator[SentenceWithTags | AudioOutput]: ...
+
+    async def process_stream(
+        self, segment_stream: AsyncIterator[str | AudioOutput]
+    ) -> AsyncIterator[SentenceWithTags | AudioOutput]:
         """
         Process a stream of tokens and yield complete sentences with tag information.
         pysbd may not able to handle ...

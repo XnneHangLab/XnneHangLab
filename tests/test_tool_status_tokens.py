@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 import asyncio
+from typing import TYPE_CHECKING
 
-from lab.agent.agents.memory_agent.agent import _strip_tool_status_tokens
-from lab.agent.core import _format_tool_status_token
+from lab.agent.agents.memory_agent.agent import strip_tool_status_tokens
+from lab.agent.core import format_tool_status_token
 from lab.conversations.tts_manager import has_audible_tts_text
 from lab.utils.sentence_divider import SentenceDivider
 
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
 
 def test_tool_status_token_includes_selected_args() -> None:
-    token = _format_tool_status_token(
+    token = format_tool_status_token(
         "write_file",
         '{"path":"notes/test.txt","content":"hello world","append":true}',
     )
@@ -18,7 +22,7 @@ def test_tool_status_token_includes_selected_args() -> None:
 
 
 def test_tool_status_token_truncates_long_values() -> None:
-    token = _format_tool_status_token(
+    token = format_tool_status_token(
         "read_file",
         '{"path":"some/really/long/path/that/should/be/truncated/because/it/is/far/too/long.txt"}',
     )
@@ -27,16 +31,16 @@ def test_tool_status_token_truncates_long_values() -> None:
 
 
 def test_strip_tool_status_token_removes_wrapped_marker() -> None:
-    token = _format_tool_status_token("list_dir", '{"path":"tmp"}')
-    assert _strip_tool_status_tokens(f"before {token} after") == "before  after"
+    token = format_tool_status_token("list_dir", '{"path":"tmp"}')
+    assert strip_tool_status_tokens(f"before {token} after") == "before  after"
 
 
 def test_tool_status_token_keeps_filename_whole_inside_tool_tag() -> None:
     async def _collect() -> list[str]:
         divider = SentenceDivider(faster_first_response=True, segment_method="regex", valid_tags=["think", "tool"])
 
-        async def _source():
-            yield _format_tool_status_token("write_file", '{"path":"test.txt","append":true}')
+        async def _source() -> AsyncIterator[str]:
+            yield format_tool_status_token("write_file", '{"path":"test.txt","append":true}')
 
         chunks: list[str] = []
         async for chunk in divider.process_stream(_source()):

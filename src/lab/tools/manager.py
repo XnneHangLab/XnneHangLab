@@ -67,7 +67,7 @@ class ToolManager:
         注意：
         - 内置工具 description 和 usage_hint 均使用中文友好描述
         - MCP 工具没有 usage_hint，只列 description
-        - 生成结果可直接作为 tool_system_prompt 传给 McpToolLoopRunner
+        - 生成结果可直接作为 tool_system_prompt 传给 agent tool loop
         """
         sections: list[str] = []
 

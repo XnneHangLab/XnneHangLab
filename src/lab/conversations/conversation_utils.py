@@ -92,10 +92,7 @@ async def handle_sentence_output(
         tts_text = tts_text.replace("*", "")
         display_text.text = display_text.text.replace("*", "")
 
-        if (
-            lab_settings.agent.speaker_lang != lab_settings.agent.user_lang
-            and has_audible_tts_text(tts_text)
-        ):
+        if lab_settings.agent.speaker_lang != lab_settings.agent.user_lang and has_audible_tts_text(tts_text):
             logger.debug(f"🏃 Processing output: '''{tts_text}'''...")
             logger.debug(f"🏃 Translating text to {lab_settings.agent.speaker_lang}...")
             deeplx_client = DeepLXClient()
