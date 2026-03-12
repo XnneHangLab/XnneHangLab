@@ -118,12 +118,7 @@ prompts/formats/
 （正文）用户发的消息
 ```
 
-哪些 context 块被注入，由 Profile 的 `[context]` 配置决定：
-
-```toml
-[context]
-memory_search = true
-```
+记忆 context 是否注入，由 Profile 是否启用 `memory` HookPlugin 决定。
 
 ---
 
@@ -133,7 +128,7 @@ memory_search = true
 Profile.from_toml("profiles/congyin.toml")
     ↓
 PluginLoader.load_many(profile.plugins.enabled)
-    ↓ tool_plugins, skill_descriptors
+    ↓ tool_plugins, skill_descriptors, hook_plugins
     ↓
 SystemPromptBuilder.build(
     persona_path=profile.prompt.persona,   # Layer 1

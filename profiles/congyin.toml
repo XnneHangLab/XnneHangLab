@@ -8,7 +8,13 @@ persona = "prompts/characters/satone.md"
 format = "prompts/formats/emotion_pipe.md"
 
 [plugins]
-enabled = ["web_fetch", "diary"]
+enabled = ["web_fetch", "diary", "memory"]
 
-[context]
-memory_search = true
+[plugins.web_fetch]
+timeout_s = 15.0
+
+[plugins.memory]
+user_id = "xnne"
+agent_id = "congyin"
+search_limit = 10
+# base_url 默认 http://localhost:12393，不填即可

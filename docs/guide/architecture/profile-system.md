@@ -46,9 +46,6 @@ enabled = ["web_fetch", "diary"]
 
 [plugins.web_fetch]
 timeout_s = 15.0
-
-[context]
-memory_search = true
 ```
 
 ### 字段说明
@@ -62,7 +59,6 @@ memory_search = true
 | `[prompt].format` | str \| null | 格式文件相对路径 |
 | `[plugins].enabled` | list[str] | 按顺序加载的插件 id |
 | `[plugins.<id>]` | table | 覆盖对应插件的 `[config]` 默认值 |
-| `[context].memory_search` | bool | 开启记忆召回注入 |
 
 ---
 
@@ -79,7 +75,7 @@ profile = Profile.from_toml(ws_root / "profiles" / "congyin.toml")
 
 # 2. 加载插件
 loader = PluginLoader(ws_root)
-tool_plugins, skill_descriptors = await loader.load_many(
+tool_plugins, skill_descriptors, hook_plugins = await loader.load_many(
     profile.plugins.enabled,
     profile_overrides=profile.plugins.overrides,
 )
@@ -97,7 +93,7 @@ system_prompt = SystemPromptBuilder(ws_root).build(
 )
 
 # 5. 每轮请求注入 context（Layer 5，注入 user prompt）
-injector = ContextInjector(profile.context)
+injector = ContextInjector()
 context_block = injector.build_context_prompt(
     memory_context=recalled_memories,
 )
@@ -111,7 +107,7 @@ context_block = injector.build_context_prompt(
 |---|---|---|
 | 入口 | WebSocket（VTuber 管线） | HTTP POST `/memory/chat` |
 | 插件 | web_search_ddg, web_fetch, screen_shot, diary | web_fetch, diary |
-| Context | memory only | memory only |
+| Context | HookPlugin 注入（按 profile 启用） | HookPlugin 注入（按 profile 启用） |
 | 历史存储 | `chat_history/` | `conversations/` |
 | 状态 | 接管中 | 已接管 |
 
