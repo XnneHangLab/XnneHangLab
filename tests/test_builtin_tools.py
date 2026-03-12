@@ -344,8 +344,7 @@ class TestToolManager:
         assert "get_datetime" in prompt
 
     def test_build_system_prompt_no_mcp(self, ctx: AgentContext) -> None:
-        """include_mcp=False 时不列 MCP 工具（内置工具仍然列出）。"""
         tm = ToolManager()
         tm.register_builtin(GetDatetimeTool())
-        prompt = tm.build_system_prompt(include_mcp=False)
+        prompt = tm.build_system_prompt()
         assert "get_datetime" in prompt
