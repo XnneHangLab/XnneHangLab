@@ -28,6 +28,13 @@ def test_regex_splitter_keeps_numbered_items_together() -> None:
     assert remaining == ""
 
 
+def test_regex_splitter_keeps_emotion_prefixed_number_marker_together() -> None:
+    text = "[\u5e73\u9759]1.\u6839\u76ee\u5f55\u91cc\u5df2\u7ecf\u6709 test.txt \u4e86\uff0c\u4e0d\u9700\u8981\u91cd\u65b0\u5efa\u3002"
+    sentences, remaining = segment_text_by_regex(text)
+    assert sentences == [text]
+    assert remaining == ""
+
+
 def test_end_punctuation_check_ignores_filename_dot() -> None:
     assert not contains_end_punctuation("test.txt")
     assert contains_end_punctuation("test.txt is present.")
@@ -42,7 +49,11 @@ def test_pysbd_path_uses_rule_fallback_for_fragile_dot_patterns() -> None:
 
 def test_sentence_divider_stream_keeps_filename_whole() -> None:
     async def _collect() -> list[str]:
-        divider = SentenceDivider(faster_first_response=False, segment_method="pysbd", valid_tags=["think", "tool"])
+        divider = SentenceDivider(
+            faster_first_response=False,
+            segment_method="pysbd",
+            valid_tags=["think", "tool"],
+        )
 
         async def _source():
             yield "Read test.txt and report back."
@@ -53,3 +64,25 @@ def test_sentence_divider_stream_keeps_filename_whole() -> None:
         return chunks
 
     assert asyncio.run(_collect()) == ["Read test.txt and report back."]
+
+
+def test_sentence_divider_stream_keeps_emotion_prefixed_number_marker_together() -> None:
+    async def _collect() -> list[str]:
+        divider = SentenceDivider(
+            faster_first_response=False,
+            segment_method="pysbd",
+            valid_tags=["think", "tool"],
+        )
+
+        async def _source():
+            yield "[\u5e73\u9759]1."
+            yield "\u6839\u76ee\u5f55\u91cc\u5df2\u7ecf\u6709 `test.txt` \u4e86\uff0c\u6211\u521a\u624d\u67e5\u8fc7\uff0c\u4e0d\u9700\u8981\u91cd\u65b0\u5efa\u3002"
+
+        chunks: list[str] = []
+        async for chunk in divider.process_stream(_source()):
+            chunks.append(chunk.text)
+        return chunks
+
+    assert asyncio.run(_collect()) == [
+        "[\u5e73\u9759]1.\u6839\u76ee\u5f55\u91cc\u5df2\u7ecf\u6709 `test.txt` \u4e86\uff0c\u6211\u521a\u624d\u67e5\u8fc7\uff0c\u4e0d\u9700\u8981\u91cd\u65b0\u5efa\u3002"
+    ]

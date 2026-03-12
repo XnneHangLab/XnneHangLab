@@ -61,7 +61,7 @@ COMMAS = [",", ";", "\u3001", "\uff0c", "\uff1b"]
 END_PUNCTUATIONS = [".", "!", "?", "\u3002", "\uff01", "\uff1f", "...", "\u2026\u2026"]
 SENTENCE_END_CHARS = {".", "!", "?", "\u3002", "\uff01", "\uff1f"}
 TRAILING_SENTENCE_CHARS = set("\"'”’)]}】）」』」")
-LIST_MARKER_RE = re.compile(r"(^|[\s([{])\d+\.$")
+LIST_MARKER_RE = re.compile(r"(^|[\s\[\(\{\]\)\}])\d+\.$")
 FRAGILE_DOT_RE = re.compile(r"(?<!\S)\d+\.(?=\s*\S)|[A-Za-z0-9_/-]+(?:\.[A-Za-z0-9_/-]+)+")
 
 # Set of languages directly supported by pysbd
@@ -214,6 +214,10 @@ def _is_inline_period(text: str, idx: int) -> bool:
     immediate_next = text[idx + 1] if idx + 1 < len(text) else ""
     next_idx = _next_non_space_index(text, idx + 1)
     next_char = text[next_idx] if next_idx is not None else ""
+
+    # Streaming often pauses on a bare list marker like "1." before the item text arrives.
+    if prev_char.isdigit() and next_idx is None:
+        return True
 
     if prev_char.isalnum() and immediate_next.isalnum():
         return True
