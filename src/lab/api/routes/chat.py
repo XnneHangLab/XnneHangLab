@@ -32,6 +32,7 @@ from pydantic import BaseModel  # type: ignore[reportMissingImports]
 from lab.conversation.store import ConversationStore
 
 if TYPE_CHECKING:
+    from lab.agent.core import AgentCore
     from lab.agent.stateless_llm.openai_compatible_llm import AsyncLLM
     from lab.profile.context_injector import ContextInjector
     from lab.profile.schema import Profile
@@ -101,6 +102,7 @@ class ChatState:
     profile: Profile | None = None
     context_injector: ContextInjector | None = None
     skill_descriptors: list[Any] | None = None
+    agent_core: AgentCore | None = None
 
 
 chat_state = ChatState()
@@ -368,18 +370,16 @@ chat_router = APIRouter()
 
 @chat_router.post("/chat", response_model=None)
 async def chat_endpoint(request: ChatRequest, http_request: Request) -> JSONResponse:
-    """Autonomous chat endpoint with tool calling and memory integration.
+    """处理 autonomous chat 请求。
 
-    Flow:
-    1. Create/retrieve session
-    2. Load conversation history
-    3. Search memories → inject into system prompt
-    4. Build system prompt (persona + format + skills + tools + memories)
-    5. Run tool loop (ToolManager + AsyncLLM)
-    6. Write-back memories (async)
-    7. Save to conversation store
+    Args:
+        request: 聊天请求体，包含会话 ID、消息文本和可选模型名。
+        http_request: FastAPI 原始 HTTP 请求对象。
+
+    Returns:
+        标准 JSONResponse，包含 session_id、content、model 和 created 字段。
     """
-    if chat_state.chat_llm is None:
+    if chat_state.chat_llm is None and chat_state.agent_core is None:
         raise HTTPException(status_code=503, detail="Chat endpoint not initialized")
 
     log = logger.bind(group="chat")
@@ -388,62 +388,75 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> JSONResp
     session_id = request.session_id or f"sess_{uuid.uuid4().hex[:12]}"
     log.info(f"💬 Chat request: session={session_id}, message_len={len(request.message)}")
 
-    # 2. Load conversation history
     from datetime import datetime, timezone
 
     date_id = datetime.now(timezone.utc).strftime("%Y-%m-%d")  # noqa: UP017
-    conv_store = ConversationStore(base_dir=chat_state.conversations_dir)
-    conv_messages = conv_store.read_conversation(date_id)
-
-    history: list[dict[str, str]] = [
-        {"role": msg["role"], "content": msg["content"]}
-        for msg in conv_messages
-        if msg.get("role") in ("user", "assistant")
-    ]
-    log.info(f"📚 Loaded {len(history)} conversation messages from {date_id}")
-
-    # 3. Search memories
-    loop = asyncio.get_running_loop()
-    memories_text = await loop.run_in_executor(None, _search_and_format_memories, request.message)
-
-    # 4. Build system prompt
-    system_prompt = _build_system_prompt()
-
-    # 5. Build full message list
-    full_messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
-    full_messages.extend(history)
-
-    # Inject memory context into user message
-    user_content = request.message
-    if memories_text:
-        if chat_state.context_injector is not None:
-            injected = chat_state.context_injector.build_context_prompt(memory_context=memories_text)
-            if injected:
-                user_content = injected + "\n\n" + user_content
-        else:
-            user_content = memories_text + "\n\n" + user_content
-    full_messages.append({"role": "user", "content": user_content})
-
-    # 6. Run tool loop or plain chat
     model = request.model or chat_state.chat_model
-    log.info(f"📤 Calling LLM: {model} (messages: {len(full_messages)})")
+    assistant_content = ""
 
     try:
-        if chat_state.tool_manager is not None:
-            tools = chat_state.tool_manager.list_tools_schema()
-            assistant_content = await _run_tool_loop(
-                messages=full_messages,
-                tools=tools,
-                model=model,
-            )
-        else:
-            # No tools — plain chat
-            from lab.mcp import OpenAIMessage
-
-            oai_msgs = [OpenAIMessage.model_validate(m) for m in full_messages]
-            assistant_content = ""
-            async for token in chat_state.chat_llm.chat_completion(oai_msgs, system=None, stream_=False):
+        if chat_state.agent_core is not None:
+            # 检索 memory context，传给 AgentCore（与旧路径行为一致）
+            loop = asyncio.get_running_loop()
+            memories_text = await loop.run_in_executor(None, _search_and_format_memories, request.message)
+            async for token in chat_state.agent_core.run_turn(
+                user_text=request.message,
+                memory_context=memories_text or None,
+            ):
                 assistant_content += token
+        else:
+            # 2. Load conversation history
+            conv_store = ConversationStore(base_dir=chat_state.conversations_dir)
+            conv_messages = conv_store.read_conversation(date_id)
+
+            history: list[dict[str, str]] = [
+                {"role": msg["role"], "content": msg["content"]}
+                for msg in conv_messages
+                if msg.get("role") in ("user", "assistant")
+            ]
+            log.info(f"📚 Loaded {len(history)} conversation messages from {date_id}")
+
+            # 3. Search memories
+            loop = asyncio.get_running_loop()
+            memories_text = await loop.run_in_executor(None, _search_and_format_memories, request.message)
+
+            # 4. Build system prompt
+            system_prompt = _build_system_prompt()
+
+            # 5. Build full message list
+            full_messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
+            full_messages.extend(history)
+
+            # Inject memory context into user message
+            user_content = request.message
+            if memories_text:
+                if chat_state.context_injector is not None:
+                    injected = chat_state.context_injector.build_context_prompt(memory_context=memories_text)
+                    if injected:
+                        user_content = injected + "\n\n" + user_content
+                else:
+                    user_content = memories_text + "\n\n" + user_content
+            full_messages.append({"role": "user", "content": user_content})
+
+            # 6. Run tool loop or plain chat
+            log.info(f"📤 Calling LLM: {model} (messages: {len(full_messages)})")
+
+            if chat_state.tool_manager is not None:
+                tools = chat_state.tool_manager.list_tools_schema()
+                assistant_content = await _run_tool_loop(
+                    messages=full_messages,
+                    tools=tools,
+                    model=model,
+                )
+            else:
+                # No tools — plain chat
+                from lab.mcp import OpenAIMessage
+
+                oai_msgs = [OpenAIMessage.model_validate(m) for m in full_messages]
+                chat_llm = chat_state.chat_llm
+                assert chat_llm is not None, "chat_llm must be initialized for non-AgentCore path"
+                async for token in chat_llm.chat_completion(oai_msgs, system=None, stream_=False):
+                    assistant_content += token
     except Exception as exc:
         import traceback
 
@@ -462,8 +475,10 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> JSONResp
         asyncio.create_task(_writeback_memory(request.message, assistant_content))
 
     # 8. Save to conversation store
-    conv_store.append_turn(date_id, role="user", content=request.message)
-    conv_store.append_turn(date_id, role="assistant", content=assistant_content)
+    if chat_state.agent_core is None:
+        _conv_store = ConversationStore(base_dir=chat_state.conversations_dir)
+        _conv_store.append_turn(date_id, role="user", content=request.message)
+        _conv_store.append_turn(date_id, role="assistant", content=assistant_content)
 
     # 9. Response
     created = int(time.time())

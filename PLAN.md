@@ -76,3 +76,35 @@ memory_bench proxy_router 内嵌到 src/lab，统一配置入口。
 ### 后续清理（可选）
 
 - [ ] 评估 `memory_bench/server/chat_server.py` standalone 启动器是否还需要（已移除 chat_router mount，但文件保留）
+
+---
+
+## 后续 PR 计划（来自 feat/agent-core 讨论）
+
+### PR：流式并行 Tool Call（合并 Tool Model + Chat Model）
+
+> 当前双模型串行架构的缺陷：tool call 只能在回复前，无法在回复中途触发；chat model 不感知自己的工具能力。
+>
+> 新架构：Chat Model 同时传 `tools=schema` 和 `stream=True`，流式输出的同时监听 tool_call chunk，异步派发执行，结果追加上下文后继续流式生成。
+
+- [ ] `AgentCore.run_turn()` 改为单模型流式 + tool call
+- [ ] 移除独立 Tool Model loop（`AgentToolLoop` / `AgentToolLoopRunner`）
+- [ ] 流式消费时并发监听 `tool_calls` chunk，异步执行工具
+- [ ] Tool 结果追加后触发第二轮流式补充
+- [ ] 更新 `lab.toml` 去掉 `tool_model` 配置项
+
+### PR：elaina 角色拆分（memory_bench 多 character 支持）
+
+> 当前 memory_bench 只有 congyin/xnne，vtuber 端是 elaina/xnne，需要两条管道并发写入同一图并实时生成。
+
+- [ ] memory_bench 支持多 character（owner 路由）
+- [ ] elaina 作为独立 character 注册
+- [ ] 两条管道并发写入兼容性测试
+
+### PR：AIChat 流式 SSE 支持
+
+> 当前 /memory/chat 是 non-stream，攒完整响应返回。流式攒句子延迟更高需要优化。
+
+- [ ] 后端 `/memory/chat` 改为 `StreamingResponse`（SSE）
+- [ ] 按标点切割攒句子，降低首包延迟
+- [ ] AIChat 前端接入 SSE

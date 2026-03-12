@@ -158,9 +158,11 @@ async def lifespan(app: FastAPI):
             # --- Chat endpoint (src/lab) ---
             # Uses ToolManager + AsyncLLM, imports memory functions from memory_bench
             try:
-                from lab.agent.agent_factory import build_default_tool_manager
+                from lab.agent.agent_factory import AgentFactory, build_default_tool_manager
                 from lab.agent.stateless_llm_factory import LLMFactory
+                from lab.agent.storage import ConversationStoreAdapter
                 from lab.api.routes.chat import chat_state
+                from lab.conversation.store import ConversationStore
                 from lab.plugin.loader import PluginLoader
                 from lab.profile.context_injector import ContextInjector
                 from lab.profile.schema import Profile
@@ -180,7 +182,10 @@ async def lifespan(app: FastAPI):
                 chat_state.chat_model = chat_model_cfg.llm_model_name
                 chat_state.workspace_root = str(ws_root)
 
-                _profile_path = ws_root / "profiles" / "congyin.toml"
+                _profile_setting = lab_settings.agent.memory_chat_profile or "profiles/congyin.toml"
+                _profile_path = Path(_profile_setting)
+                if not _profile_path.is_absolute():
+                    _profile_path = ws_root / _profile_setting
                 if not _profile_path.exists():
                     raise FileNotFoundError(f"Profile not found: {_profile_path}")
                 _profile = Profile.from_toml(_profile_path)
@@ -208,6 +213,22 @@ async def lifespan(app: FastAPI):
                 )
 
                 chat_state.conversations_dir = str(ws_root / "data" / "conversations")
+
+                _chat_profile_path_str = lab_settings.agent.memory_chat_profile
+                if _chat_profile_path_str:
+                    _chat_profile_path = Path(_chat_profile_path_str)
+                    if not _chat_profile_path.is_absolute():
+                        _chat_profile_path = ws_root / _chat_profile_path_str
+                    if not _chat_profile_path.exists():
+                        raise FileNotFoundError(f"memory_chat_profile not found: {_chat_profile_path}")
+                    chat_store = ConversationStore(base_dir=chat_state.conversations_dir)
+                    chat_state.agent_core = await AgentFactory.create_core_with_profile(
+                        lab_setting=lab_settings,
+                        profile_path=_chat_profile_path,
+                        storage=ConversationStoreAdapter(chat_store),
+                        workspace_root=ws_root,
+                    )
+                    logger.info("✅ AgentCore initialized with profile: {}", _chat_profile_path_str)
 
                 logger.info(
                     "✅ Chat endpoint initialized (model={}, tools={})",
@@ -240,8 +261,10 @@ class WebSocketServer:
         )
 
         # Load configurations and initialize the default context cache
+        import asyncio
+
         default_context_cache = ServiceContext()
-        default_context_cache.load_from_config(default_context_cache.lab_setting)
+        asyncio.run(default_context_cache.load_from_config(default_context_cache.lab_setting))
 
         # Include routes
         self.app.include_router(

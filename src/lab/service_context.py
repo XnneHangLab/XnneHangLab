@@ -9,12 +9,11 @@ from loguru import logger
 from lab.agent.agent_factory import AgentFactory
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.live2d_model import Live2dModel
-from lab.utils.TxtHelper import read_prompt_from_text_file
 
 if TYPE_CHECKING:
     from fastapi import WebSocket
 
-    from lab.agent.agents.memory_agent import MemoryAgent
+    from lab.agent.agents.agent_interface import AgentInterface
     from lab.config_manager.server import ServerSettings
     from lab.config_manager.vtuber import CharacterSettings
 
@@ -31,7 +30,7 @@ class ServiceContext:
         self.character_config: CharacterSettings | None = None
 
         self.live2d_model: Live2dModel | None = None
-        self.agent_engine: MemoryAgent | None = None  # type: ignore
+        self.agent_engine: AgentInterface | None = None
 
         # the system prompt is a combination of the persona prompt and live2d expression prompt
         self.chat_system_prompt: str | None = None
@@ -59,7 +58,7 @@ class ServiceContext:
         server_config: ServerSettings | None,
         character_config: CharacterSettings | None,
         live2d_model: Live2dModel,
-        agent_engine: MemoryAgent,
+        agent_engine: AgentInterface,
     ) -> None:
         """
         Load the ServiceContext with the reference of the provided instances.
@@ -77,7 +76,7 @@ class ServiceContext:
         self.agent_engine = agent_engine
         logger.debug(f"Loaded service context with cache: {character_config}")
 
-    def load_from_config(self, config: XnneHangLabSettings) -> None:
+    async def load_from_config(self, config: XnneHangLabSettings) -> None:
         """
         Load the ServiceContext with the config.
         Reinitialize the instances if the config is different.
@@ -99,7 +98,7 @@ class ServiceContext:
         self.init_live2d(config.vtuber.character_config.live2d_model_name)
 
         # init agent from character config
-        self.init_agent(config)
+        await self.init_agent(config)
 
         # self.init_translate(config.vtuber.character_config.tts_preprocessor_config.translator_config) # 到时替换成自己的
         # store typed config references
@@ -118,50 +117,20 @@ class ServiceContext:
             logger.critical(f"Error initializing Live2D: {e}")
             logger.critical("Try to proceed without Live2D...")
 
-    def init_agent(self, lab_settings: XnneHangLabSettings) -> None:
+    async def init_agent(self, lab_settings: XnneHangLabSettings) -> None:
         """Initialize or update the LLM engine based on agent configuration."""
-        # agent 暂时不需要多次启动模型，所以不需要自检是否初始化。
-        chat_system_prompt = read_prompt_from_text_file(lab_settings.agent.prompts.character_prompt)
-        chat_system_prompt += "\n\n" + read_prompt_from_text_file(lab_settings.agent.prompts.live2d_expression_prompt)
         if self.live2d_model is None:
             logger.error("Live2D model is not initialized, cannot create agent.")
             raise ValueError("Live2D model must be initialized before creating agent.")
-        chat_system_prompt += (
-            "这是你的 Emotion 列表，请在合适的时候使用它们：\n" + str(self.live2d_model.emo_key) + "\n"
-        )
-        if lab_settings.agent.user_lang == "ZH":
-            chat_system_prompt += "\n**请回复中文。**"
-        elif lab_settings.agent.user_lang == "EN":
-            chat_system_prompt += "\n**Please reply in English.**"
-        elif lab_settings.agent.user_lang == "JA":
-            chat_system_prompt += "\n**日本語で返信してください。**"
-        else:
-            raise ValueError(f"speaker_lang {lab_settings.agent.user_lang} not supported")
-        tool_system_prompt = read_prompt_from_text_file(lab_settings.agent.prompts.tool_prompt)
-        vision_system_prompt = read_prompt_from_text_file(lab_settings.agent.prompts.vision_prompt)
         if self.character_config is None:
             logger.error("character_config is None, cannot create agent.")
             raise ValueError("character_config cannot be None")
 
-        # Pass avatar to agent factory
-        # avatar = self.character_config.avatar or ""  # Get avatar from config
-
-        self.agent_engine = AgentFactory.create_agent(  # type: ignore
+        self.agent_engine = await AgentFactory.create_agent(
             lab_setting=lab_settings,
-            chat_system_prompt=chat_system_prompt,
-            tool_system_prompt=tool_system_prompt,
-            vision_system_prompt=vision_system_prompt,
             live2d_model=self.live2d_model,
             tts_preprocessor_config=self.character_config.tts_preprocessor_config,
-            # character_avatar=avatar,  # Add avatar parameter
         )
-
-        # logger.debug(f"System prompt: {system_prompt}")
-
-        # Save the current configuration
-        self.chat_system_prompt = chat_system_prompt
-        self.tool_system_prompt = tool_system_prompt
-        self.vision_system_prompt = vision_system_prompt
 
     async def ensure_mcp_connected(self) -> None:
         if self._mcp_connected or self.agent_engine is None:
@@ -195,13 +164,13 @@ class ServiceContext:
             if self.server_config is None:
                 logger.error("server_config is None, cannot switch configuration")
                 raise ValueError("server_config cannot be None")
-            if config_file_name not in {"lab.toml"}:
+            if config_file_name != "lab.toml":
                 raise ValueError("Only lab.toml is supported")
 
             new_config = load_settings_file(
                 "lab.toml", XnneHangLabSettings
             )  # 这里实际上欲盖弥彰，因为我们并没有提供额外的配置文件，config switch 暂时只能切换到 lab.toml。
-            self.load_from_config(new_config)
+            await self.load_from_config(new_config)
             logger.debug(f"New config: {self}")
             logger.debug(f"New character config: {self.character_config.model_dump()}")
 
