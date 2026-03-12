@@ -14,7 +14,6 @@ from .types import ImagePayload
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable
-    from pathlib import Path
 
     from lab.agent.core import AgentCore
     from lab.agent.input_types import BatchInput

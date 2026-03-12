@@ -9,12 +9,11 @@ from loguru import logger
 from lab.agent.agent_factory import AgentFactory
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.live2d_model import Live2dModel
-from lab.utils.TxtHelper import read_prompt_from_text_file
 
 if TYPE_CHECKING:
     from fastapi import WebSocket
 
-    from lab.agent.agents.memory_agent import MemoryAgent
+    from lab.agent.agents.agent_interface import AgentInterface
     from lab.config_manager.server import ServerSettings
     from lab.config_manager.vtuber import CharacterSettings
 
@@ -31,7 +30,7 @@ class ServiceContext:
         self.character_config: CharacterSettings | None = None
 
         self.live2d_model: Live2dModel | None = None
-        self.agent_engine: MemoryAgent | None = None  # type: ignore
+        self.agent_engine: AgentInterface | None = None
 
         # the system prompt is a combination of the persona prompt and live2d expression prompt
         self.chat_system_prompt: str | None = None
@@ -59,7 +58,7 @@ class ServiceContext:
         server_config: ServerSettings | None,
         character_config: CharacterSettings | None,
         live2d_model: Live2dModel,
-        agent_engine: MemoryAgent,
+        agent_engine: AgentInterface,
     ) -> None:
         """
         Load the ServiceContext with the reference of the provided instances.
@@ -171,7 +170,7 @@ class ServiceContext:
             new_config = load_settings_file(
                 "lab.toml", XnneHangLabSettings
             )  # 这里实际上欲盖弥彰，因为我们并没有提供额外的配置文件，config switch 暂时只能切换到 lab.toml。
-            self.load_from_config(new_config)
+            await self.load_from_config(new_config)
             logger.debug(f"New config: {self}")
             logger.debug(f"New character config: {self.character_config.model_dump()}")
 

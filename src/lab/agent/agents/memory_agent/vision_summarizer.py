@@ -74,10 +74,9 @@ class VisionSummarizer:
             return s, None
         try:
             obj: dict[str, Any] = json.loads(s)
-            if isinstance(obj, dict):
-                scene = obj.get("scene")
-                if isinstance(scene, str) and scene.strip():
-                    return s, scene.strip().replace("\n", " ")
+            scene = obj.get("scene")
+            if isinstance(scene, str) and scene.strip():
+                return s, scene.strip().replace("\n", " ")
             logger.warning("[VISION] JSON 解析成功但缺少 scene 字段，无法生成 brief：{}", s[:200])
         except Exception:
             logger.warning("[VISION] vision 输出非 JSON，无法提取 brief：{}", s[:200])
@@ -359,11 +358,11 @@ class VisionSummarizer:
 
         # 1) JSON 优先（期望含 scene 字段）
         try:
-            obj: dict[str, Any] = json.loads(s)
-            if isinstance(obj, dict) and "items" in obj and isinstance(obj["items"], list):
+            parsed: dict[str, Any] = json.loads(s)
+            if "items" in parsed and isinstance(parsed["items"], list):
                 out: dict[str, str] = {}
                 briefs: dict[str, str | None] = {}
-                for it in obj["items"]:  # type: ignore[union-attr]
+                for it in parsed["items"]:  # type: ignore[union-attr]
                     if not isinstance(it, dict):
                         continue
                     it_typed: dict[str, Any] = it
