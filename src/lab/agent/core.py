@@ -335,16 +335,22 @@ class AgentCore:
             for tc in ordered_tool_calls:
                 yield _format_tool_status_token(tc["name"], tc["arguments"])
 
-            async def _exec_tool(tc_info: dict[str, str]) -> str:
+            async def _exec_tool(
+                tc_info: dict[str, str],
+                bound_tool_manager: ToolManager,
+                bound_agent_context: AgentContext,
+            ) -> str:
                 name = tc_info["name"]
                 args_json = tc_info["arguments"]
                 try:
-                    result = await active_tool_manager.call_tool(name, args_json, active_agent_context)
+                    result = await bound_tool_manager.call_tool(name, args_json, bound_agent_context)
                     return result.text if result.ok else f"Error: {result.error}"
                 except Exception as exc:  # pragma: no cover - defensive path
                     return f"tool_error: {type(exc).__name__}: {exc}"
 
-            results = await asyncio.gather(*(_exec_tool(tc) for tc in ordered_tool_calls))
+            results = await asyncio.gather(
+                *(_exec_tool(tc, active_tool_manager, active_agent_context) for tc in ordered_tool_calls)
+            )
 
             for tc_info, result_text in zip(ordered_tool_calls, results, strict=False):
                 tool_msg = OpenAIMessage.model_validate(
