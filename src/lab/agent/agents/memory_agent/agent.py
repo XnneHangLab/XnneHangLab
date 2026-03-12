@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, Literal
 
 from loguru import logger
@@ -21,6 +22,13 @@ if TYPE_CHECKING:
     from lab.config_manager.config import XnneHangLabSettings
     from lab.config_manager.vtuber import TTSPreprocessorConfig
     from lab.live2d_model import Live2dModel
+
+
+_TOOL_STATUS_RE = re.compile(r"<tool>\[🔧 [^\]]+]</tool>")
+
+
+def _strip_tool_status_tokens(text: str) -> str:
+    return _TOOL_STATUS_RE.sub("", text)
 
 
 class MemoryAgent(AgentInterface):
@@ -183,7 +191,7 @@ class MemoryAgent(AgentInterface):
         @sentence_divider(
             faster_first_response=self.faster_first_response,
             segment_method=self.segment_method,
-            valid_tags=["think"],
+            valid_tags=["think", "tool"],
         )
         async def chat_with_memory(input_data: BatchInput) -> AsyncIterator[str | AudioOutput]:
             user_msg = self.msg.build_user_message_from_batch(input_data)
@@ -196,7 +204,9 @@ class MemoryAgent(AgentInterface):
                 yield token
                 complete_response += token
 
-            self.memory.add_message(OpenAIMessage(role="assistant", content=complete_response))
+            cleaned_response = _strip_tool_status_tokens(complete_response)
+            if cleaned_response:
+                self.memory.add_message(OpenAIMessage(role="assistant", content=cleaned_response))
 
         return chat_with_memory
 

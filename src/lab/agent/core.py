@@ -19,6 +19,12 @@ if TYPE_CHECKING:
     from lab.tools import AgentContext, ToolManager
 
 
+def _format_tool_status_token(tool_name: str) -> str:
+    """Emit a display-only marker so the UI can show tool activity immediately."""
+    name = tool_name.strip() or "tool"
+    return f"<tool>[🔧 {name}]</tool>"
+
+
 class AgentCore:
     """统一封装 Agent 的 tool loop、vision 和 chat 主流程。"""
 
@@ -254,6 +260,9 @@ class AgentCore:
 
             if self.tool_manager is None or self.agent_context is None:
                 break
+
+            for tc in ordered_tool_calls:
+                yield _format_tool_status_token(tc["name"])
 
             async def _exec_tool(tc_info: dict[str, str]) -> str:
                 name = tc_info["name"]
