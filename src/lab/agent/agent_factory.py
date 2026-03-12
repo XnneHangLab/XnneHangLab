@@ -49,7 +49,6 @@ class AgentFactory:
         lab_setting: XnneHangLabSettings,
         profile_path: Path,
         storage: ConversationStorage,
-        tool_system_prompt: str = "",
         vision_system_prompt: str = "",
         workspace_root: Path | None = None,
     ) -> AgentCore:
@@ -59,18 +58,15 @@ class AgentFactory:
             lab_setting: 全局实验室配置。
             profile_path: Profile 配置文件路径。
             storage: 会话存储实现。
-            tool_system_prompt: 可选的工具系统提示词。
             vision_system_prompt: 可选的视觉系统提示词。
             workspace_root: 工作区根目录。
 
         Returns:
             构造完成的 AgentCore 实例。
         """
-        tool_model = lab_setting.agent.tool_model
         chat_model = lab_setting.agent.chat_model
         vision_model = lab_setting.agent.vision_model
 
-        tool_llm = getattr(lab_setting.agent.llm, tool_model.llm_provider)
         chat_llm = getattr(lab_setting.agent.llm, chat_model.llm_provider)
         vision_llm = getattr(lab_setting.agent.llm, vision_model.llm_provider)
 
@@ -78,11 +74,6 @@ class AgentFactory:
             model=chat_model.llm_model_name,
             base_url=chat_llm.llm_base_url,
             llm_api_key=chat_llm.llm_api_key,
-        )
-        tool_llm_interface = LLMFactory.create_llm(
-            model=tool_model.llm_model_name,
-            base_url=tool_llm.llm_base_url,
-            llm_api_key=tool_llm.llm_api_key,
         )
         vision_llm_interface = LLMFactory.create_llm(
             model=vision_model.llm_model_name,
@@ -94,14 +85,13 @@ class AgentFactory:
         profile = Profile.from_toml(profile_path)
         agent_context = AgentContext(workspace_root=ws_root)
 
-        # tool_prompt / vision_prompt 从 lab_setting 的路径读取，外部未传入时自动加载
+        # vision_prompt 从 lab_setting 的路径读取，外部未传入时自动加载
         def _read_prompt(path_str: str) -> str:
             p = Path(path_str)
             if not p.is_absolute():
                 p = ws_root / path_str
             return p.read_text(encoding="utf-8").strip() if p.exists() else ""
 
-        resolved_tool_prompt = tool_system_prompt or _read_prompt(lab_setting.agent.prompts.tool_prompt)
         resolved_vision_prompt = vision_system_prompt or _read_prompt(lab_setting.agent.prompts.vision_prompt)
 
         plugin_loader = PluginLoader()
@@ -125,14 +115,12 @@ class AgentFactory:
 
         core = AgentCore(
             chat_llm=chat_llm_interface,
-            tool_llm=tool_llm_interface,
             vision_llm=vision_llm_interface,
             tool_manager=tool_manager,
             agent_context=agent_context,
             context_injector=ContextInjector(profile.context),
             storage=storage,
             chat_system_prompt=chat_system_prompt,
-            tool_system_prompt=resolved_tool_prompt,
             vision_system_prompt=resolved_vision_prompt,
             enable_tool=lab_setting.agent.enable_tool,
             max_vision_concurrency=lab_setting.agent.max_vision_concurrency,

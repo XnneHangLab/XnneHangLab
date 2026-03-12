@@ -34,7 +34,6 @@ class ServiceContext:
 
         # the system prompt is a combination of the persona prompt and live2d expression prompt
         self.chat_system_prompt: str | None = None
-        self.tool_system_prompt: str | None = None
         self.vision_system_prompt: str | None = None
         # self.mcp_handlers: list[MCPHandlerInterface]
         self.history_uid: str = ""  # Add history_uid field
@@ -46,7 +45,6 @@ class ServiceContext:
             f"    Details: {json.dumps(self.server_config.model_dump(), indent=6) if self.server_config else 'None'}\n"
             f"  Live2D Model: {self.live2d_model.model_info if self.live2d_model else 'Not Loaded'}\n"  # type: ignore
             f"  Chat System Prompt: {self.chat_system_prompt or 'Not Set'}\n"
-            f"  Tool System Prompt: {self.tool_system_prompt or 'Not Set'}\n"
             f"  Vision System Prompt: {self.vision_system_prompt or 'Not Set'}"
         )
 

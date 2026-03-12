@@ -26,8 +26,6 @@ EnvKeyNames = Literal[
     "CHAT_MODEL_PROVIDER",
     "CHAT_MODEL_NAME",
     "CHAT_MODEL_SUPPORT_VISION",
-    "TOOL_MODEL_PROVIDER",
-    "TOOL_MODEL_NAME",
     "VISION_MODEL_PROVIDER",
     "VISION_MODEL_NAME",
     "EMBEDDING_API_KEY",
@@ -112,8 +110,6 @@ def main():
     settings.agent.chat_model.llm_provider = validate_llm_provider("CHAT_MODEL_PROVIDER")
     settings.agent.chat_model.llm_model_name = os.environ.get("CHAT_MODEL_NAME", "")
     settings.agent.chat_model.support_vision = os.environ.get("CHAT_MODEL_SUPPORT_VISION", "false").lower() == "true"
-    settings.agent.tool_model.llm_provider = validate_llm_provider("TOOL_MODEL_PROVIDER")
-    settings.agent.tool_model.llm_model_name = os.environ.get("TOOL_MODEL_NAME", "")
     settings.agent.vision_model.llm_provider = validate_llm_provider("VISION_MODEL_PROVIDER")
     settings.agent.vision_model.llm_model_name = os.environ.get("VISION_MODEL_NAME", "")
 
@@ -175,9 +171,6 @@ def main():
     logger.info("agent.chat_model.llm_provider: {}", settings.agent.chat_model.llm_provider)
     logger.info("agent.chat_model.llm_model_name: {}", settings.agent.chat_model.llm_model_name)
     logger.info("agent.chat_model.support_vision: {}", settings.agent.chat_model.support_vision)
-
-    logger.info("agent.tool_model.llm_provider: {}", settings.agent.tool_model.llm_provider)
-    logger.info("agent.tool_model.llm_model_name: {}", settings.agent.tool_model.llm_model_name)
 
     logger.info("agent.vision_model.llm_provider: {}", settings.agent.vision_model.llm_provider)
     logger.info("agent.vision_model.llm_model_name: {}", settings.agent.vision_model.llm_model_name)

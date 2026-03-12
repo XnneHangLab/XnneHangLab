@@ -19,7 +19,6 @@ class PromptBuilder:
         user_text: str,
         memory_context: ContextEntry | None = None,
         diary_context: ContextEntry | None = None,
-        tool_summary: ContextEntry | None = None,
         vision_tool_summary: ContextEntry | None = None,
         vision_upload_summary: ContextEntry | None = None,
     ) -> UserPromptBlock:
@@ -29,7 +28,6 @@ class PromptBuilder:
             user_text: 原始用户输入文本。
             memory_context: 记忆检索上下文。
             diary_context: 日记摘要上下文。
-            tool_summary: Tool call 执行摘要。
             vision_tool_summary: 工具截图的视觉摘要。
             vision_upload_summary: 用户上传图片的视觉摘要。
 
@@ -40,25 +38,11 @@ class PromptBuilder:
             user_text=user_text,
             memory_context=memory_context,
             diary_context=diary_context,
-            tool_summary=tool_summary,
             vision_tool_summary=vision_tool_summary,
             vision_upload_summary=vision_upload_summary,
         )
         block.validate()
         return block
-
-    @staticmethod
-    def make_tool_summary(trace_json: str, *, brief: str | None) -> ContextEntry:
-        """将 tool call trace JSON 包装为可衰减的 ContextEntry。
-
-        Args:
-            trace_json: Tool call 执行的完整 JSON 轨迹。
-            brief: 一句话摘要（来自 TOOL_BRIEF 行）；None 表示提取失败，condensed 时整条忽略。
-
-        Returns:
-            ContextEntry 实例。
-        """
-        return ContextEntry(full=trace_json, brief=brief)
 
     @staticmethod
     def make_vision_tool_summary(summary: str, *, brief: str | None) -> ContextEntry:

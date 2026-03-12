@@ -17,6 +17,10 @@ if TYPE_CHECKING:
     from lab.live2d_model import Live2dModel
 
 
+SILENT_TAGS = {"think", "tool"}
+TOOL_MARKER_TEXT = {"<tool>", "</tool>", "<tool/>"}
+
+
 def sentence_divider(
     faster_first_response: bool = True,
     segment_method: str = "pysbd",
@@ -68,8 +72,10 @@ def actions_extractor(live2d_model: Live2dModel):
                     yield chunk
                 else:
                     actions = Actions()
-                    # Only extract emotions for non-tag text
-                    if not any(tag.state in [TagState.START, TagState.END] for tag in chunk.tags):
+                    # Internal/status tags should not drive visible emotions.
+                    if not any(tag.name in SILENT_TAGS for tag in chunk.tags) and not any(
+                        tag.state in [TagState.START, TagState.END] for tag in chunk.tags
+                    ):
                         expressions = live2d_model.extract_emotion(chunk.text)
                         if expressions:
                             actions.expressions = expressions
@@ -99,7 +105,11 @@ def display_processor():
                     yield chunk
                 else:
                     sentence, actions = chunk
+                    if sentence.text in TOOL_MARKER_TEXT and all(tag.name == "tool" for tag in sentence.tags):
+                        continue
                     text = sentence.text
+                    if any(tag.name == "tool" and tag.state == TagState.INSIDE for tag in sentence.tags):
+                        text = f"{text}\n"
                     # Handle think tag states
                     for tag in sentence.tags:
                         if tag.name == "think":
@@ -138,7 +148,7 @@ def tts_filter(
                     yield chunk
                 else:
                     sentence, display, actions = chunk
-                    if any(tag.name == "think" for tag in sentence.tags):
+                    if any(tag.name in SILENT_TAGS for tag in sentence.tags):
                         tts = ""
                     else:
                         tts = filter_text(
