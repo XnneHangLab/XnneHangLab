@@ -108,6 +108,8 @@ def display_processor():
                     if sentence.text in TOOL_MARKER_TEXT and all(tag.name == "tool" for tag in sentence.tags):
                         continue
                     text = sentence.text
+                    if any(tag.name == "tool" and tag.state == TagState.INSIDE for tag in sentence.tags):
+                        text = f"{text}\n"
                     # Handle think tag states
                     for tag in sentence.tags:
                         if tag.name == "think":

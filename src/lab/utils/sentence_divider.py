@@ -451,8 +451,16 @@ class SentenceDivider:
                 text_before_tag = self._buffer[:next_tag_pos]
                 current_tags = self._get_current_tags()
 
-                # Process complete sentences in text before tag
-                if contains_end_punctuation(text_before_tag):
+                # Preserve text inside active tags as a single chunk.
+                if current_tags and text_before_tag.strip():
+                    result.append(
+                        SentenceWithTags(
+                            text=text_before_tag.strip(),
+                            tags=current_tags,
+                        )
+                    )
+                # Process complete sentences in plain text before tag
+                elif contains_end_punctuation(text_before_tag):
                     sentences, remaining = self._segment_text(text_before_tag)
                     for sentence in sentences:
                         if sentence.strip():

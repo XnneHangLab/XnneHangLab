@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import asyncio
+
 from lab.agent.agents.memory_agent.agent import _strip_tool_status_tokens
 from lab.agent.core import _format_tool_status_token
+from lab.utils.sentence_divider import SentenceDivider
 
 
 def test_tool_status_token_includes_selected_args() -> None:
@@ -25,3 +28,19 @@ def test_tool_status_token_truncates_long_values() -> None:
 def test_strip_tool_status_token_removes_wrapped_marker() -> None:
     token = _format_tool_status_token("list_dir", '{"path":"tmp"}')
     assert _strip_tool_status_tokens(f"before {token} after") == "before  after"
+
+
+def test_tool_status_token_keeps_filename_whole_inside_tool_tag() -> None:
+    async def _collect() -> list[str]:
+        divider = SentenceDivider(faster_first_response=True, segment_method="regex", valid_tags=["think", "tool"])
+
+        async def _source():
+            yield _format_tool_status_token("write_file", '{"path":"test.txt","append":true}')
+
+        chunks: list[str] = []
+        async for chunk in divider.process_stream(_source()):
+            chunks.append(chunk.text)
+        return chunks
+
+    chunks = asyncio.run(_collect())
+    assert "[🔧 write_file path=test.txt append=true]" in chunks
