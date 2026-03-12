@@ -19,11 +19,8 @@ class ContextInjector:
         self,
         *,
         memory_context: str | None = None,
-        diary_context: str | None = None,
     ) -> str | None:
         parts: list[str] = []
         if self._config.memory_search and memory_context:
             parts.append(f"[memory context]\n{memory_context}\n[/memory context]")
-        if self._config.diary_summary and diary_context:
-            parts.append(f"[diary context]\n{diary_context}\n[/diary context]")
         return "\n\n".join(parts) if parts else None

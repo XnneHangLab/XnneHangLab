@@ -12,4 +12,3 @@ enabled = ["web_search_ddg", "web_fetch", "screen_shot", "diary"]
 
 [context]
 memory_search = true
-diary_summary = true
