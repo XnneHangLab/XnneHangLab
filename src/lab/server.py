@@ -158,9 +158,13 @@ async def lifespan(app: FastAPI):
             # --- Chat endpoint (src/lab) ---
             # Uses ToolManager + AsyncLLM, imports memory functions from memory_bench
             try:
-                from lab.agent.agent_factory import build_default_tool_manager
+                from datetime import UTC, datetime
+
+                from lab.agent.agent_factory import AgentFactory, build_default_tool_manager
                 from lab.agent.stateless_llm_factory import LLMFactory
+                from lab.agent.storage import ConversationStoreAdapter
                 from lab.api.routes.chat import chat_state
+                from lab.conversation.store import ConversationStore
                 from lab.plugin.loader import PluginLoader
                 from lab.profile.context_injector import ContextInjector
                 from lab.profile.schema import Profile
@@ -180,7 +184,10 @@ async def lifespan(app: FastAPI):
                 chat_state.chat_model = chat_model_cfg.llm_model_name
                 chat_state.workspace_root = str(ws_root)
 
-                _profile_path = ws_root / "profiles" / "congyin.toml"
+                _profile_setting = getattr(lab_settings.agent, "memory_chat_profile", "profiles/congyin.toml")
+                _profile_path = Path(_profile_setting)
+                if not _profile_path.is_absolute():
+                    _profile_path = ws_root / _profile_setting
                 if not _profile_path.exists():
                     raise FileNotFoundError(f"Profile not found: {_profile_path}")
                 _profile = Profile.from_toml(_profile_path)
@@ -208,6 +215,14 @@ async def lifespan(app: FastAPI):
                 )
 
                 chat_state.conversations_dir = str(ws_root / "data" / "conversations")
+                chat_store = ConversationStore(base_dir=chat_state.conversations_dir)
+                date_id = datetime.now(UTC).strftime("%Y-%m-%d")
+                chat_state.agent_core = await AgentFactory.create_core_with_profile(
+                    lab_setting=lab_settings,
+                    profile_path=_profile_path,
+                    storage=ConversationStoreAdapter(chat_store, date_id),
+                    workspace_root=ws_root,
+                )
 
                 logger.info(
                     "✅ Chat endpoint initialized (model={}, tools={})",

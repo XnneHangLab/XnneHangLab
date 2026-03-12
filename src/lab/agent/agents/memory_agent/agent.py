@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable
     from pathlib import Path
 
+    from lab.agent.core import AgentCore
     from lab.agent.input_types import BatchInput
     from lab.agent.output_types import AudioOutput, SentenceOutput
     from lab.agent.stateless_llm.openai_compatible_llm import AsyncLLM
@@ -62,35 +63,38 @@ class MemoryAgent(AgentInterface):
         faster_first_response: bool = True,
         segment_method: str = "pysbd",
         interrupt_method: Literal["system", "user"] = "user",
+        core: AgentCore | None = None,
     ) -> None:
-        """Initialize the memory agent.
+        """初始化 MemoryAgent。
 
         Args:
-            lab_settings: Global application settings.
-            chat_llm: Chat model used for the final response.
-            tool_llm: Tool-calling model used before the final response.
-            vision_llm: Vision model used for image summarization.
-            chat_system_prompt: System prompt for the chat model.
-            tool_system_prompt: Optional system prompt for the tool model.
-            vision_system_prompt: System prompt for the vision model.
-            live2d_model: Live2D model used by the action extractor.
-            tts_preprocessor_config: TTS preprocessing configuration.
-            enable_tool: Whether tool use is enabled.
-            mcp: Optional MCP router kept for lifecycle compatibility.
-            tool_manager: Tool manager providing builtin tools.
-            agent_context: Runtime context passed into builtin tools.
-            workspace_root: Optional workspace root used to build a fallback agent context.
-            faster_first_response: Whether to favor lower-latency sentence splitting.
-            segment_method: Sentence segmentation method.
-            interrupt_method: Interrupt handling strategy for memory.
+            lab_settings: 全局应用配置。
+            chat_llm: 最终回复使用的聊天模型。
+            tool_llm: 工具调用使用的模型。
+            vision_llm: 图片摘要使用的视觉模型。
+            chat_system_prompt: Chat 模型系统提示词。
+            tool_system_prompt: Tool 模型系统提示词。
+            vision_system_prompt: Vision 模型系统提示词。
+            live2d_model: 动作提取所需的 Live2D 模型。
+            tts_preprocessor_config: TTS 预处理配置。
+            enable_tool: 是否启用工具调用。
+            mcp: 兼容旧生命周期的 MCP Router。
+            tool_manager: 内置工具管理器。
+            agent_context: 工具运行上下文。
+            workspace_root: 用于兜底构造 AgentContext 的工作区根目录。
+            faster_first_response: 是否优先优化首句响应延迟。
+            segment_method: 句子切分方式。
+            interrupt_method: 中断写入 memory 的方式。
+            core: 可选的 AgentCore，传入后优先复用统一核心流程。
 
         Returns:
-            None.
+            None。
         """
         super().__init__()
 
         self.lab_settings = lab_settings
         self.state = ConversationState()
+        self.core = core
 
         # LLMs
         self.chat_llm = chat_llm
@@ -376,15 +380,42 @@ class MemoryAgent(AgentInterface):
         return chat_with_memory
 
     async def chat(self, input_data: BatchInput) -> AsyncIterator[SentenceOutput | AudioOutput]:  # type: ignore[override]
-        """Run the chat pipeline for one batch input.
+        """运行一轮聊天流程。
 
         Args:
-            input_data: User input batch containing text and optional images.
+            input_data: 当前轮的批量输入，包含文本和可选图片。
 
         Returns:
-            An async iterator of sentence or audio chunks.
+            句子片段或音频片段的异步迭代器。
         """
-        async for chunk in self._bound_chat(input_data):
+        if self.core is not None:
+
+            async def _core_stream(messages: list[OpenAIMessage]) -> AsyncIterator[str]:
+                """将 MemoryAgent 的输入消息转交给 AgentCore。
+
+                Args:
+                    messages: 当前轮构造出的消息列表，最后一条必须是用户消息。
+
+                Returns:
+                    AgentCore 输出的 token 流。
+                """
+                assert messages and messages[-1].role == "user", "last message must be user"
+                user_text, user_up_images = self.msg.extract_text_and_data_images(messages[-1])
+                user_images = [
+                    ImagePayload(label=f"p{i + 1}", b64=b64, mime=mime, source="upload")
+                    for i, (b64, mime) in enumerate(user_up_images)
+                ]
+                async for token in self.core.run_turn(
+                    user_text=user_text,
+                    user_images=user_images,
+                ):
+                    yield token
+
+            bound_chat = self._chat_function_factory(_core_stream)
+        else:
+            bound_chat = self._bound_chat
+
+        async for chunk in bound_chat(input_data):
             yield chunk
 
     @staticmethod
