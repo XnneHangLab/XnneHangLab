@@ -293,45 +293,67 @@ async def _run_tool_loop(
     oai_messages = [OpenAIMessage.model_validate(m) for m in messages]
 
     for step in range(max_steps):
-        # Non-streaming tool completion
-        completion = await chat_state.chat_llm.tool_completion(
-            messages=oai_messages,
+        text_buf = ""
+        tool_calls_buf: dict[int, dict[str, str]] = {}
+        finish_reason: str | None = None
+
+        async for chunk in chat_state.chat_llm.stream_with_tools(
+            oai_messages,
+            system=None,
             tools=tools,
             tool_choice="auto",
-            system=None,  # system is already in messages
-        )
+        ):
+            choice = chunk.choices[0] if chunk.choices else None
+            if choice is None:
+                continue
+            delta = choice.delta
 
-        assistant_message = completion.choices[0].message
-        tool_calls = getattr(assistant_message, "tool_calls", None)
+            if delta.content:
+                text_buf += delta.content
 
-        if not tool_calls:
-            # No tool calls — we're done
-            return assistant_message.content or ""
+            if delta.tool_calls:
+                for tc_delta in delta.tool_calls:
+                    idx = tc_delta.index
+                    if idx not in tool_calls_buf:
+                        tool_calls_buf[idx] = {"id": tc_delta.id or "", "name": "", "arguments": ""}
+                    if tc_delta.id:
+                        tool_calls_buf[idx]["id"] = tc_delta.id
+                    if tc_delta.function:
+                        if tc_delta.function.name:
+                            tool_calls_buf[idx]["name"] += tc_delta.function.name
+                        if tc_delta.function.arguments:
+                            tool_calls_buf[idx]["arguments"] += tc_delta.function.arguments
 
-        log.info(f"🔧 Step {step}: LLM returned {len(tool_calls)} tool_call(s)")
+            if choice.finish_reason:
+                finish_reason = choice.finish_reason
 
-        # Append assistant message (with tool_calls) to conversation
+        ordered_tool_calls = [tool_calls_buf[idx] for idx in sorted(tool_calls_buf)]
+        if not ordered_tool_calls or finish_reason != "tool_calls":
+            return text_buf
+
+        log.info(f"🔧 Step {step}: LLM returned {len(ordered_tool_calls)} tool_call(s)")
+
         assistant_dict: dict[str, Any] = {
             "role": "assistant",
-            "content": assistant_message.content or "",
+            "content": text_buf or None,
             "tool_calls": [
                 {
-                    "id": tc.id,
+                    "id": tc["id"],
                     "type": "function",
                     "function": {
-                        "name": tc.function.name,
-                        "arguments": tc.function.arguments,
+                        "name": tc["name"],
+                        "arguments": tc["arguments"],
                     },
                 }
-                for tc in tool_calls
+                for tc in ordered_tool_calls
             ],
         }
         oai_messages.append(OpenAIMessage.model_validate(assistant_dict))
 
         # Execute each tool call via ToolManager
-        for tc in tool_calls:
-            tool_name = tc.function.name
-            args_json = tc.function.arguments or "{}"
+        for tc in ordered_tool_calls:
+            tool_name = tc["name"]
+            args_json = tc["arguments"] or "{}"
 
             log.info(f"🛠️  Executing: {tool_name}({args_json[:200]})")
 
@@ -347,8 +369,9 @@ async def _run_tool_loop(
                 OpenAIMessage.model_validate(
                     {
                         "role": "tool",
-                        "tool_call_id": tc.id,
+                        "tool_call_id": tc["id"],
                         "content": tool_content,
+                        "name": tool_name,
                     }
                 )
             )

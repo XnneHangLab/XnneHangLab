@@ -76,13 +76,12 @@ class UserPromptBlock:
     三段式结构：
     - 背景块（Background）：memory_context / diary_context
     - 用户输入块（User Input）：原始用户文本，永不衰减
-    - 工作信息块（Working Context）：tool_summary / vision_tool_summary / vision_upload_summary
+    - 工作信息块（Working Context）：vision_tool_summary / vision_upload_summary
 
     Args:
         user_text: 原始用户输入文本，永不衰减。
         memory_context: 记忆检索上下文。
         diary_context: 日记摘要上下文。
-        tool_summary: Tool call 执行摘要。
         vision_tool_summary: 工具截图的视觉摘要。
         vision_upload_summary: 用户上传图片的视觉摘要。
     """
@@ -90,7 +89,6 @@ class UserPromptBlock:
     user_text: str
     memory_context: ContextEntry | None = field(default=None)
     diary_context: ContextEntry | None = field(default=None)
-    tool_summary: ContextEntry | None = field(default=None)
     vision_tool_summary: ContextEntry | None = field(default=None)
     vision_upload_summary: ContextEntry | None = field(default=None)
 
@@ -106,7 +104,7 @@ class UserPromptBlock:
         """
         if not self.user_text.strip():
             raise ValueError("UserPromptBlock.user_text 不能为空")
-        for attr in ("memory_context", "diary_context", "tool_summary", "vision_tool_summary", "vision_upload_summary"):
+        for attr in ("memory_context", "diary_context", "vision_tool_summary", "vision_upload_summary"):
             entry: ContextEntry | None = getattr(self, attr)
             if entry is not None:
                 try:
@@ -147,10 +145,6 @@ class UserPromptBlock:
 
         # —— 工作信息块 ——
         wk_lines: list[str] = []
-        if self.tool_summary is not None:
-            rendered = self.tool_summary.render(condensed=condensed)
-            if rendered is not None:
-                wk_lines.append(f"[Tool Call Summary]\n{rendered}")
         if self.vision_tool_summary is not None:
             rendered = self.vision_tool_summary.render(condensed=condensed)
             if rendered is not None:
@@ -181,7 +175,7 @@ class UserPromptBlock:
             "v": _SCHEMA_VERSION,
             "user_text": self.user_text,
         }
-        for attr in ("memory_context", "diary_context", "tool_summary", "vision_tool_summary", "vision_upload_summary"):
+        for attr in ("memory_context", "diary_context", "vision_tool_summary", "vision_upload_summary"):
             entry: ContextEntry | None = getattr(self, attr)
             if entry is not None:
                 payload[attr] = entry.to_dict()
@@ -205,7 +199,7 @@ class UserPromptBlock:
             raise ValueError(f"content 不是 UserPromptBlock 格式（期望前缀 {prefix!r}）")
         payload = json.loads(content[len(prefix) :])
         kwargs: dict[str, Any] = {"user_text": payload["user_text"]}
-        for attr in ("memory_context", "diary_context", "tool_summary", "vision_tool_summary", "vision_upload_summary"):
+        for attr in ("memory_context", "diary_context", "vision_tool_summary", "vision_upload_summary"):
             if attr in payload:
                 kwargs[attr] = ContextEntry.from_dict(payload[attr])
         return cls(**kwargs)

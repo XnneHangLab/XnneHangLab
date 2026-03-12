@@ -50,10 +50,6 @@ llm_provider = "oaipro"
 llm_model_name = "gpt-5.1-2025-11-13"
 support_vision = false
 
-[agent.tool_model]
-llm_provider = "cerebras"
-llm_model_name = "qwen-3-235b-a22b-instruct-2507"
-
 [agent.vision_model]
 llm_provider = "oaipro"
 llm_model_name = "gpt-5.1-2025-11-13"
