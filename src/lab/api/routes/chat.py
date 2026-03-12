@@ -213,20 +213,12 @@ async def list_sessions() -> JSONResponse:
 @chat_router.get("/chat/health", response_model=None)
 async def chat_health() -> JSONResponse:
     """Health check for chat endpoint."""
-    tools_count = 0
-    if chat_state.tool_manager is not None:
-        tools_count = len(chat_state.tool_manager.list_tools_schema())
-
+    core = chat_state.agent_core
     return JSONResponse(
         content={
             "status": "ok",
-            "llm_ready": chat_state.chat_llm is not None,
+            "agent_core_ready": core is not None,
             "model": chat_state.chat_model,
-            "tools_count": tools_count,
-            "profile": chat_state.profile.profile.name if chat_state.profile else None,
-            "persona_file": chat_state.persona_file or None,
-            "format_file": chat_state.format_file or None,
-            "skill_files": chat_state.skill_files,
             "conversations_dir": chat_state.conversations_dir,
         }
     )
