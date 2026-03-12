@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import json
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
@@ -73,7 +73,7 @@ class VisionSummarizer:
         if not s:
             return s, None
         try:
-            obj = json.loads(s)
+            obj: dict[str, Any] = json.loads(s)
             if isinstance(obj, dict):
                 scene = obj.get("scene")
                 if isinstance(scene, str) and scene.strip():
@@ -359,16 +359,17 @@ class VisionSummarizer:
 
         # 1) JSON 优先（期望含 scene 字段）
         try:
-            obj = json.loads(s)
+            obj: dict[str, Any] = json.loads(s)
             if isinstance(obj, dict) and "items" in obj and isinstance(obj["items"], list):
                 out: dict[str, str] = {}
                 briefs: dict[str, str | None] = {}
                 for it in obj["items"]:  # type: ignore[union-attr]
                     if not isinstance(it, dict):
                         continue
-                    _id = it.get("id")
-                    _sum = it.get("summary")
-                    _scene = it.get("scene")
+                    it_typed: dict[str, Any] = it
+                    _id = it_typed.get("id")
+                    _sum = it_typed.get("summary")
+                    _scene = it_typed.get("scene")
                     if isinstance(_id, str) and isinstance(_sum, str) and _id.strip():
                         label = _id.strip()
                         out[label] = _sum.strip()

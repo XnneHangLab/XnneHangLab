@@ -24,6 +24,7 @@ class ConversationStorage(Protocol):
         Returns:
             当前会话的消息列表，user message content 已按需渲染。
         """
+        return []
 
     def append_turn(self, user_block: UserPromptBlock, assistant_text: str) -> None:
         """追加一轮完整对话（user + assistant）。
@@ -118,8 +119,10 @@ class MemoryStoreAdapter:
         i = 0
         while i < len(raw) - 1:
             if raw[i].role == "user" and raw[i + 1].role == "assistant":
-                u = raw[i].content if isinstance(raw[i].content, str) else ""
-                a = raw[i + 1].content if isinstance(raw[i + 1].content, str) else ""
+                u_content = raw[i].content
+                a_content = raw[i + 1].content
+                u = u_content if isinstance(u_content, str) else ""
+                a = a_content if isinstance(a_content, str) else ""
                 pairs.append((u, a))
                 i += 2
             else:

@@ -73,7 +73,7 @@ class AgentCore:
         self.max_vision_concurrency = max_vision_concurrency
         self.require_detailed = require_detailed
         self.chat_supports_vision = False
-        self._write_back = True  # 设为 False 时 run_turn 不写回 storage（由外层调用方负责）
+        self.write_back = True  # 设为 False 时 run_turn 不写回 storage（由外层调用方负责）
 
         if tool_system_prompt:
             self.tool_system_prompt = tool_system_prompt
@@ -242,7 +242,7 @@ class AgentCore:
             complete_response += token
 
         # —— 写回存储 ——
-        if self._write_back:
+        if self.write_back:
             self.storage.append_turn(user_block, complete_response)
 
     @staticmethod

@@ -98,7 +98,7 @@ class MemoryAgent(AgentInterface):
         # MemoryAgent 自身通过 _chat_function_factory 管理存储写回，
         # 关掉 AgentCore 的写回避免 assistant message 双写。
         if self.core is not None:
-            self.core._write_back = False
+            self.core.write_back = False
 
         # LLMs
         self.chat_llm = chat_llm
@@ -393,6 +393,7 @@ class MemoryAgent(AgentInterface):
             句子片段或音频片段的异步迭代器。
         """
         if self.core is not None:
+            _core = self.core  # narrow type for closure
 
             async def _core_stream(messages: list[OpenAIMessage]) -> AsyncIterator[str]:
                 """将 MemoryAgent 的输入消息转交给 AgentCore。
@@ -409,12 +410,12 @@ class MemoryAgent(AgentInterface):
                     ImagePayload(label=f"p{i + 1}", b64=b64, mime=mime, source="upload")
                     for i, (b64, mime) in enumerate(user_up_images)
                 ]
-                async for token in self.core.run_turn(
+                async for token in _core.run_turn(
                     user_text=user_text,
                     user_images=user_images,
                 ):
                     yield token
-                # AgentCore._write_back=False，这里补写 user message 到 MemoryStore，
+                # AgentCore.write_back=False，这里补写 user message 到 MemoryStore，
                 # assistant 由 _chat_function_factory 统一写回。
                 self.memory.add_message(OpenAIMessage(role="user", content=user_text))
 

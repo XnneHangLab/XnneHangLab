@@ -453,7 +453,9 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> JSONResp
                 from lab.mcp import OpenAIMessage
 
                 oai_msgs = [OpenAIMessage.model_validate(m) for m in full_messages]
-                async for token in chat_state.chat_llm.chat_completion(oai_msgs, system=None, stream_=False):
+                chat_llm = chat_state.chat_llm
+                assert chat_llm is not None, "chat_llm must be initialized for non-AgentCore path"
+                async for token in chat_llm.chat_completion(oai_msgs, system=None, stream_=False):
                     assistant_content += token
     except Exception as exc:
         import traceback
@@ -474,8 +476,9 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> JSONResp
 
     # 8. Save to conversation store
     if chat_state.agent_core is None:
-        conv_store.append_turn(date_id, role="user", content=request.message)
-        conv_store.append_turn(date_id, role="assistant", content=assistant_content)
+        _conv_store = ConversationStore(base_dir=chat_state.conversations_dir)
+        _conv_store.append_turn(date_id, role="user", content=request.message)
+        _conv_store.append_turn(date_id, role="assistant", content=assistant_content)
 
     # 9. Response
     created = int(time.time())

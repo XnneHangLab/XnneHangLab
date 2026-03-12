@@ -33,7 +33,7 @@ def main() -> None:
     config_path.touch()
 
     # 写入默认值
-    settings = XnneHangLabSettings()
+    settings = XnneHangLabSettings.model_validate({})
     write_settings_file("lab.toml", settings)
     print(f"✅ 已生成新配置：{config_path}  (conf_version={settings.conf_version})")
 
