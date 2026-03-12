@@ -7,7 +7,7 @@ from loguru import logger
 
 from lab.agent.agents.agent_interface import AgentInterface
 from lab.agent.transformers import actions_extractor, display_processor, sentence_divider, tts_filter
-from lab.mcp import OpenAIMessage
+from lab.agent.types import OpenAIMessage
 
 from .memory_store import MemoryStore
 from .message_factory import MessageFactory
