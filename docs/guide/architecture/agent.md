@@ -6,27 +6,40 @@
 
 ```
 agent/
-├── agent_factory.py          # AgentFactory：根据配置创建 Agent
+├── agent_factory.py          # AgentFactory：根据配置创建 AgentCore / Agent 实例
+├── core.py                   # AgentCore：共享核心逻辑（tool calling / vision / prompt / storage）
+├── storage.py                # ConversationStorage Protocol + 两种实现
 ├── stateless_llm_factory.py  # LLMFactory：创建 OpenAI Compatible LLM 实例
 ├── stateless_llm/
-│   └── openai_compatible_llm.py  # AsyncLLM：异步流式 LLM 调用
+│   └── openai_compatible_llm.py  # AsyncLLM：异步流式 LLM 调用（含 stream_with_tools）
 ├── input_types.py            # 输入类型（BatchInput / ImageData / TextData）
 ├── output_types.py           # 输出类型（SentenceOutput / AudioOutput / Actions）
 ├── transformers.py           # 文本后处理管线（断句、表情提取、TTS 过滤）
-├── mcp_tool_loop.py          # MCP 工具循环执行器
+├── mcp_tool_loop.py          # MCP 工具循环（legacy，待后续清理）
 └── agents/
     ├── agent_interface.py    # AgentInterface：抽象基类
     └── memory_agent/         # MemoryAgent：当前唯一实现
         ├── agent.py          # 编排器（orchestrator）
         ├── memory_store.py   # 内存消息列表 + 历史读写
         ├── message_factory.py # OpenAI Message 构造
-        ├── prompt_builder.py  # System Prompt 拼装
-        ├── tool_runner.py     # MCP 工具执行 + 回调图提取
+        ├── prompt_builder.py  # UserPromptBlock 拼装
+        ├── user_prompt_block.py # UserPromptBlock 数据结构
         ├── vision_summarizer.py # 图片摘要生成
-        └── types.py           # 内部类型
+        └── types.py           # 内部类型（ImagePayload 等）
 ```
 
 ## 核心概念
+
+### AgentCore
+
+`AgentCore`（`core.py`）是 MemoryAgent 和 `/memory/chat` 的**共享核心**，统一实现了：
+
+- 流式 Tool Calling（`chat_llm` 原生，多轮循环，无独立 tool model）
+- Vision 预处理（`VisionSummarizer`）
+- Prompt 拼装（`PromptBuilder`）
+- 历史存储（`ConversationStorage`）
+
+详见 [AgentCore 架构](./agent-core.md)。
 
 ### AgentInterface
 
@@ -38,76 +51,76 @@ agent/
 
 ### MemoryAgent
 
-当前唯一的 Agent 实现，职责是**纯编排**——自己不做拼接/解析，全部委托给子组件：
+MemoryAgent 是 VTuber 链路的**编排器**，职责是将 `AgentCore` 的 token 流接入 TTS / Live2D pipeline：
 
 | 组件 | 职责 |
 |------|------|
-| `PromptBuilder` | 拼装 system prompt（base + vision summaries） |
-| `MessageFactory` | 构造 OpenAI 格式消息（支持多图、标签隔离） |
-| `MemoryStore` | 维护对话记忆 + 历史持久化 |
-| `ToolRunner` | 运行 MCP tool loop，收集 trace 和回调图 |
-| `VisionSummarizer` | 对图片生成文本摘要（快模式/细模式） |
+| `AgentCore` | tool calling / vision / prompt / chat LLM / 历史存储 |
+| `MemoryStore` | 维护对话 memory + 历史持久化 |
+| `MessageFactory` | 构造 / 解析 OpenAI 格式消息（含多图） |
+| Transformers 管线 | 断句 → 表情提取 → TTS 过滤 → 显示处理 |
 
-### 模式矩阵
+MemoryAgent 本身**不做 LLM 调用**，所有生成逻辑委托给 `AgentCore.run_turn()`。
 
-MemoryAgent 的行为由配置决定：
+### AsyncLLM
 
-- **enable_tool** — 是否先运行 MCP tool loop 再 chat
-- **chat_supports_vision** — chat model 是否接受图片输入
-- **faster_first_response** — 工具循环完成后是否加速首句响应
-- **segment_method** — 断句方式（`pysbd` / 中文标点）
-- **interrupt_method** — 中断信号注入方式（`system` / `user`）
+`stateless_llm/openai_compatible_llm.py` 提供两个核心方法：
 
-### 输入 / 输出类型
-
-**输入：**
-- `BatchInput` — 包含文本列表 + 可选图片 / 文件
-- `ImageData` — 图片（camera / screen / clipboard / upload）
-- `TextData` — 文本（input / clipboard），可带发送者名称
-
-**输出（流式 yield）：**
-- `SentenceOutput` — 一句话：display_text + tts_text + actions（表情/图片/音效）
-- `AudioOutput` — 一段音频：audio_path + display_text + transcript + actions
+| 方法 | 用途 |
+|------|------|
+| `chat_completion()` | 普通流式/非流式文本生成（不带工具） |
+| `stream_with_tools()` | 返回原始 `ChatCompletionChunk`，支持 text/tool_call delta 混合解析 |
+| `vision_completion_once()` | 单次 vision 调用（图片摘要） |
 
 ## 数据流
 
-一次完整的对话请求经过以下处理管线：
+一次完整对话请求的处理管线：
 
 ```
 📥 BatchInput（用户输入）
     ↓
-🔧 [enable_tool?] ToolRunner
-    → tool_trace + tool_images
-    ↓
+✉️ MessageFactory.extract_text_and_data_images()
+    → user_text + user_images
+    ↓ AgentCore.run_turn()
 👁️ [has_images?] VisionSummarizer
-    → vision_summaries
+    → vision_summaries（tool / upload 分开处理）
     ↓
-📝 PromptBuilder
-    → system_prompt (base + summaries)
+📝 PromptBuilder.build()
+    → UserPromptBlock（memory / diary / vision context 组合）
     ↓
-✉️ MessageFactory
-    → OpenAI messages (prompt + text + images)
+🤖 chat_llm.stream_with_tools(messages, tools=schema)
     ↓
-🤖 AsyncLLM.chat_completion_stream
-    → raw LLM response (streaming)
+🔄 多轮循环（max 6 rounds）
+    text delta    → yield str token（立刻流出）
+    tool_call     → yield [🔧 name] → execute → append result → 继续
+    finish=stop   → break
     ↓
+💾 ConversationStorage.append_turn()
+    ↓ （MemoryAgent 侧）
 🔄 Transformers 管线
-    sentence_divider      # 断句
-      → actions_extractor # 提取表情/音效
-      → tts_filter        # TTS 文本清理
-      → display_processor # 显示文本处理
+    sentence_divider → actions_extractor → tts_filter → display_processor
     ↓
-📤 yield SentenceOutput
-    (display_text, tts_text, actions)
+📤 yield SentenceOutput (display_text, tts_text, actions)
 ```
 
 **关键节点：**
-- 🔧 工具调用是可选的（`enable_tool=True` 时触发）
-- 👁️ 图片摘要根据模型能力决定（chat 不支持 vision 时必须生成）
-- 🔄 Transformers 是纯文本后处理，不涉及 LLM 调用
+- 👁️ 图片摘要根据模型能力决定（`chat_supports_vision=False` 时必须生成）
+- 🤖 工具调用与文本生成同在一个 `chat_llm` 中，无独立 tool model
+- 🔄 tool 执行期间 yield `[🔧 name]` 标签，保证用户不会看到空白等待
 - 📤 输出是流式的，逐句 yield
+
+## 模式矩阵
+
+`AgentCore` 的行为由以下配置控制：
+
+| 配置项 | 说明 |
+|--------|------|
+| `enable_tool` | 是否启用工具调用（`tools=schema` 传入 LLM） |
+| `chat_supports_vision` | chat_llm 是否支持图片输入；否则必须先做 vision 摘要 |
+| `require_detailed` | 是否对每张图片单独做详细摘要（True：逐图并发；False：一次多图） |
 
 ## 不变量
 
-- **History 不写 base64**：memory_store 只持久化纯文本内容
-- **Tool 图与用户图隔离**：tool 回调图默认标签 `tool1`，与用户上传图语义分离
+- **History 不写 base64**：`ConversationStorage` 只持久化纯文本内容
+- **Tool 图与用户图隔离**：tool 回调图标签 `tool1`，与用户上传图 `p1/p2...` 语义分离
+- **MemoryAgent 不直接调 LLM**：所有生成逻辑在 `AgentCore` 内部，MemoryAgent 只消费 token 流
