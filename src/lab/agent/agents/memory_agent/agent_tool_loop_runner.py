@@ -72,6 +72,10 @@ class AgentToolLoopRunner:
             brief = m.group(1).strip().replace("\n", " ")
             cleaned = pattern.sub("", text).strip()
             return cleaned, brief
+        # fallback：single-line, ≤50 字的 final_text 直接作为 brief
+        stripped = text.strip()
+        if "\n" not in stripped and len(stripped) <= 50:
+            return stripped, stripped
         logger.warning("[TOOL] final_text 中未找到 TOOL_BRIEF 行，brief 将为 None：{}", text[:200])
         return text, None
 
