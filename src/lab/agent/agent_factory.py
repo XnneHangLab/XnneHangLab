@@ -179,6 +179,14 @@ class AgentFactory:
             workspace_root=ws_root,
         )
 
+        # 将 Live2D emotion key 列表追加到 chat system prompt
+        # 旧路径是在 service_context.init_agent 里手动拼接的，这里统一处理
+        if live2d_model is not None and live2d_model.emo_key:
+            emotion_block = "\n\n这是你的 Emotion 列表，请在合适的时候使用它们：\n" + "\n".join(
+                f"- {k}" for k in live2d_model.emo_key
+            )
+            core.chat_system_prompt += emotion_block
+
         agent = MemoryAgent(
             lab_settings=lab_setting,
             core=core,
