@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from typing import TYPE_CHECKING, Any
 
 from lab.agent.agents.memory_agent.message_factory import MessageFactory
@@ -19,10 +20,73 @@ if TYPE_CHECKING:
     from lab.tools import AgentContext, ToolManager
 
 
-def _format_tool_status_token(tool_name: str) -> str:
+_TOOL_STATUS_ARG_KEYS: dict[str, tuple[str, ...]] = {
+    "list_dir": ("path", "show_hidden"),
+    "read_file": ("path", "start_line", "end_line"),
+    "write_file": ("path", "append"),
+    "edit_file": ("path", "count"),
+}
+_DEFAULT_TOOL_STATUS_ARG_KEYS = ("path", "query", "q", "url")
+_MAX_TOOL_STATUS_FIELDS = 2
+_MAX_TOOL_STATUS_VALUE_LEN = 48
+
+
+def _stringify_tool_status_value(value: Any) -> str | None:
+    if value is None:
+        return None
+
+    if isinstance(value, bool):
+        text = "true" if value else "false"
+    elif isinstance(value, (int, float)):
+        text = str(value)
+    elif isinstance(value, str):
+        text = " ".join(value.split())
+    else:
+        return None
+
+    if not text:
+        return None
+
+    text = text.replace("[", "(").replace("]", ")")
+    if len(text) > _MAX_TOOL_STATUS_VALUE_LEN:
+        text = text[: _MAX_TOOL_STATUS_VALUE_LEN - 3] + "..."
+    return text
+
+
+def _extract_tool_status_args(tool_name: str, args_json: str) -> list[str]:
+    if not args_json.strip():
+        return []
+
+    try:
+        args = json.loads(args_json)
+    except json.JSONDecodeError:
+        return []
+
+    if not isinstance(args, dict):
+        return []
+
+    preferred_keys = _TOOL_STATUS_ARG_KEYS.get(tool_name, _DEFAULT_TOOL_STATUS_ARG_KEYS)
+    parts: list[str] = []
+
+    for key in preferred_keys:
+        if key not in args:
+            continue
+        value_text = _stringify_tool_status_value(args[key])
+        if value_text is None:
+            continue
+        parts.append(f"{key}={value_text}")
+        if len(parts) >= _MAX_TOOL_STATUS_FIELDS:
+            break
+
+    return parts
+
+
+def _format_tool_status_token(tool_name: str, args_json: str = "") -> str:
     """Emit a display-only marker so the UI can show tool activity immediately."""
     name = tool_name.strip() or "tool"
-    return f"<tool>[🔧 {name}]</tool>"
+    arg_parts = _extract_tool_status_args(name, args_json)
+    suffix = f" {' '.join(arg_parts)}" if arg_parts else ""
+    return f"<tool>[🔧 {name}{suffix}]</tool>"
 
 
 class AgentCore:
@@ -262,7 +326,7 @@ class AgentCore:
                 break
 
             for tc in ordered_tool_calls:
-                yield _format_tool_status_token(tc["name"])
+                yield _format_tool_status_token(tc["name"], tc["arguments"])
 
             async def _exec_tool(tc_info: dict[str, str]) -> str:
                 name = tc_info["name"]
