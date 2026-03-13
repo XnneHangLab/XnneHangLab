@@ -1,85 +1,112 @@
 # 路由与端点
 
-Memory Chat Server 暴露两组 API，挂载在同一个 FastAPI 应用上：
+Memory Bench Server 暴露三个 API，挂载在 FastAPI 应用的 `/memory` 前缀下：
 
 ```python
-app.include_router(router)                    # /v1/chat/completions, /v1/models, /health
-app.include_router(chat_router, prefix="/memory")  # /memory/chat, /memory/sessions, /memory/health
+app.include_router(memory_router, prefix="/memory")
+# /memory/search   ← 记忆检索
+# /memory/add      ← 记忆写入 + 图谱管线
+# /memory/health   ← 健康检查
 ```
 
 ---
 
-## 透明代理（router.py）
+## `POST /memory/search`
 
-### `POST /v1/chat/completions`
+语义检索与某个 `agent_id` 相关的记忆。
 
-OpenAI 兼容的对话端点，在转发前注入记忆。
-
-**请求格式**（标准 OpenAI）：
+**请求格式**：
 
 ```json
 {
-  "model": "google/gemini-2.0-flash",
-  "messages": [
-    {"role": "system", "content": "你是一个助手"},
-    {"role": "user", "content": "我上次说了什么？"}
+  "query": "用户上次提到了什么",
+  "user_id": "xnne",
+  "agent_id": "elaina",
+  "limit": 5
+}
+```
+
+| 字段 | 必填 | 说明 |
+|------|:---:|------|
+| `query` | ✅ | 检索用的语义查询文本 |
+| `user_id` | ❌ | mem0 用户 ID，不传则使用 server 启动时配置的默认值 |
+| `agent_id` | ❌ | mem0 Agent ID，不传则使用 server 启动时配置的默认值 |
+| `limit` | ❌ | 返回结果数量上限，默认使用 server 配置的 `search_limit` |
+
+**响应格式**：
+
+```json
+{
+  "results": [
+    {
+      "id": "abc123",
+      "memory": "[Agent] 用户喜欢喝咖啡",
+      "score": 0.87
+    }
   ],
-  "temperature": 0.7,
-  "max_tokens": 2000,
-  "stream": false
+  "count": 1
 }
 ```
 
-**响应格式**（标准 OpenAI）：
+**调用方**：`MemoryPlugin.on_before_turn()`，在每轮对话前搜索相关记忆注入 context。
+
+---
+
+## `POST /memory/add`
+
+写入一轮对话到 mem0，并异步触发 Neo4j 图谱管线。
+
+**请求格式**：
 
 ```json
 {
-  "id": "chatcmpl-abc123",
-  "object": "chat.completion",
-  "created": 1709553600,
-  "model": "google/gemini-2.0-flash",
-  "choices": [{
-    "index": 0,
-    "message": {"role": "assistant", "content": "你上次提到了..."},
-    "finish_reason": "stop"
-  }],
-  "usage": {
-    "prompt_tokens": 150,
-    "completion_tokens": 50,
-    "total_tokens": 200
-  }
+  "user_text": "你还记得我喜欢喝什么吗",
+  "assistant_text": "记得，你喜欢喝咖啡～",
+  "user_id": "xnne",
+  "agent_id": "elaina"
 }
 ```
 
-**处理流程**：
+| 字段 | 必填 | 说明 |
+|------|:---:|------|
+| `user_text` | ✅ | 本轮用户消息 |
+| `assistant_text` | ✅ | 本轮 assistant 回复（完整收齐后再传） |
+| `user_id` | ✅ | mem0 用户 ID |
+| `agent_id` | ✅ | mem0 Agent ID，决定记忆写入哪个 agent 的命名空间 |
 
-```
-请求进入
-  ↓
-1. 提取最新 user message
-  ↓
-2. mem0.search() → 检索相关记忆
-  ↓
-3. 将记忆注入 system prompt 末尾
-   （## Recalled Memories 模板）
-  ↓
-4. 转发给 LLM Provider
-  ↓
-5. 返回原始响应
-  ↓
-6. 异步后台：mem0.add() 写回记忆
-   → claim_extractor → graph_writer → Neo4j
+**响应格式**：
+
+```json
+{
+  "status": "queued"
+}
 ```
 
-> [!NOTE] 认证：通过 `--server-api-key` 或 `CHAT_SERVER_API_KEY` 环境变量启用 Bearer token 认证。未配置时无需认证。
+写入是**异步**的——接口立即返回 `queued`，mem0 写入和图谱管线在后台执行，不阻塞 AgentCore 的主流程。
 
-### `GET /v1/models`
+**后台处理流程**：
 
-返回当前配置的模型信息，兼容 OpenAI `/v1/models` 接口。
+```
+mem0.add(user_text + assistant_text, user_id, agent_id)
+  ↓
+提取新增记忆结果
+  ↓
+claim_extractor → LLM 提取 claim / entity
+  ↓
+neo4j_queries → Cypher MERGE → MemoryItem 节点写入 Neo4j
+```
 
-### `GET /health`
+> [!NOTE] 认证：通过 `CHAT_SERVER_API_KEY` 环境变量启用 Bearer token 认证。未配置时无需认证。
+
+**调用方**：`MemoryPlugin.on_after_turn()`，在每轮 `run_turn()` 结束、`assistant_text` 完整收齐后调用。
+
+---
+
+## `GET /memory/health`
 
 健康检查端点。
+
+**响应格式**：
 
 ```json
 {
@@ -94,175 +121,23 @@ OpenAI 兼容的对话端点，在转发前注入记忆。
 
 ---
 
-## 自治 Agent（chat_router.py）
-
-### `POST /memory/chat`
-
-自治对话端点，Server 管理 session、上下文和工具调用。
-
-**请求格式**：
-
-```json
-{
-  "session_id": "sess_abc123",
-  "message": "帮我写一篇日记",
-  "model": "gpt-4o-mini"
-}
-```
-
-| 字段 | 必填 | 说明 |
-|------|:---:|------|
-| `session_id` | ❌ | 不传则自动生成 `sess_<uuid>` |
-| `message` | ✅ | 用户消息 |
-| `model` | ❌ | 覆盖默认模型 |
-
-**响应格式**：
-
-```json
-{
-  "session_id": "sess_abc123",
-  "content": "[Happy] 好的！我来帮你写今天的日记~",
-  "model": "gpt-4o-mini",
-  "created": 1709553600
-}
-```
-
-**处理流程**：
-
-```
-请求进入
-  ↓
-1. 获取/创建 session_id
-  ↓
-2. 从 conversations/YYYY-MM-DD.json 读取对话历史
-  ↓
-3. 拼接 system prompt
-   （persona + emotion + tools + diary）
-  ↓
-4. 组装 messages: [system, ...history, user]
-  ↓
-5. 调用 LLM（带 tools 定义）
-  ↓
-6. Tool-loop（如果 LLM 返回 tool_calls）:
-   ├─ 执行工具 → 结果塞回 messages
-   └─ 再次调用 LLM → 重复直到无 tool_calls
-  ↓
-7. 持久化 user + assistant 到日期 JSON
-  ↓
-8. 返回最终响应
-```
-
-### 🔧 内置工具
-
-LLM 通过 function calling 调用这四个工具：
-
-#### READ
-
-读取文件内容或列出目录。
-
-```json
-{
-  "name": "READ",
-  "arguments": {
-    "path": "memory_bench/server/memory/MEMORY.md"
-  }
-}
-```
-
-也支持通过 `purpose` 快捷访问预设位置：
-
-| purpose | 对应路径 |
-|---------|---------|
-| `memory` | `memory_bench/server/memory/MEMORY.md` |
-| `diary` | `memory_bench/data/diary/` |
-| `saved` | `memory_bench/data/saved/` |
-| `prompt` | `memory_bench/server/prompts/` |
-| `conversation` | `memory_bench/conversations/` |
-
-#### WRITE
-
-创建或覆盖文件（限 `memory_bench/` 内部）。
-
-```json
-{
-  "name": "WRITE",
-  "arguments": {
-    "content": "# 2026-03-04 日记\n\n今天天气不错...",
-    "purpose": "diary"
-  }
-}
-```
-
-#### EDIT
-
-精确替换文件中的文本（限 `memory_bench/` 内部）。
-
-```json
-{
-  "name": "EDIT",
-  "arguments": {
-    "path": "memory_bench/server/prompts/emotion/base_persona.txt",
-    "old_text": "性格有点内向",
-    "new_text": "性格温柔，有点内向"
-  }
-}
-```
-
-#### SEARCH
-
-在指定范围内搜索关键词。
-
-```json
-{
-  "name": "SEARCH",
-  "arguments": {
-    "query": "聪音",
-    "scope": "memory_bench",
-    "file_pattern": "*.md"
-  }
-}
-```
-
-| scope | 搜索范围 |
-|-------|---------|
-| `workspace` | 整个 XnneHangLab 仓库 |
-| `memory_bench` | memory_bench/ 目录 |
-| `diary` | memory_bench/data/diary/ |
-| `prompts` | memory_bench/server/prompts/ |
-| `saved` | memory_bench/data/saved/ |
-
-### `GET /memory/sessions`
-
-列出所有可用的对话日期。
-
-```json
-{
-  "sessions": ["2026-03-03", "2026-03-04", "2026-03-04_02"],
-  "count": 3
-}
-```
-
-### `GET /memory/health`
-
-Chat 端点的健康检查。
-
-```json
-{
-  "status": "ok",
-  "llm_ready": true,
-  "model": "gpt-4o-mini",
-  "prompts_dir": "/path/to/prompts",
-  "conversations_dir": "/path/to/conversations"
-}
-```
-
----
-
 ## 🚀 启动配置
 
 ### 环境变量（`.env.benchmark`）
 
 ```bash
+# mem0 identity（REQUIRED - 无 fallback）
+CHAT_USER_ID=""
+CHAT_AGENT_ID=""
+
+# Agent metadata（REQUIRED - 写入 Neo4j 图谱节点）
+METADATA_USER_ID=""
+METADATA_USER_NAME=""
+METADATA_AGENT_ID=""
+METADATA_AGENT_NAME=""
+METADATA_CHARACTER_ID=""
+METADATA_CHARACTER_NAME=""
+
 # Chat LLM
 CHAT_API_KEY=sk-xxx
 CHAT_BASE_URL=https://openrouter.ai/api/v1
@@ -289,29 +164,32 @@ CLAIM_LLM_MODEL=
 NEO4J_CONTAINER=membench-neo4j-mem0
 ```
 
-### CLI 快速启动
+### 作为 lab server 的内嵌服务启动
+
+主链路下，memory_bench 由 `src/lab/server.py` 在启动时自动挂载，不需要单独启动进程：
+
+```toml
+# lab.toml
+[package]
+memory_bench = true
+
+[memory_bench]
+search_limit = 10
+server_api_key = ""  # 可选
+```
+
+### 作为独立调试工具启动（chat_server）
+
+用于直接与特定 `agent_id` 的记忆对话，测试记忆内容或验证图谱写入：
 
 ```bash
-# 最简（依赖 .env.benchmark）
-just memory-chat-server
-
-# 指定端口
-just memory-chat-server 9090
-
-# 完整参数
-uv run memory_bench/server/chat_server.py \
-  --chat-api-key sk-xxx \
-  --chat-base-url https://openrouter.ai/api/v1 \
-  --chat-model google/gemini-2.0-flash \
-  --enable-graph \
-  --port 8080
+# 格式：just memory-chat-server <user_id> <agent_id> <agent_name> [port]
+just memory-chat-server xnne congyin 聪音 8080
+just memory-chat-server xnne elaina 伊蕾娜 8081
 ```
 
 ---
 
 ## 📚 延伸阅读
 
-- [设计理念](./design) — 架构决策与安全模型
-- [chat_server.py 脚本文档](/memory-bench/scripts/chat-server) — CLI 参数详情
-- [chat_router.py 脚本文档](/memory-bench/scripts/chat-router) — 实现细节
-- [conversation_store.py 脚本文档](/memory-bench/scripts/conversation-store) — 持久化实现
+- [设计理念](./design) — 架构决策与 Agent 关系
