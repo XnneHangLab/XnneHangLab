@@ -143,9 +143,9 @@ def _strip_codefence(text: str) -> str:
 def build_prompt(
     memory_items: list[MemoryItem],
     *,
+    character_id: str,
+    agent_id: str,
     scene_id: str = "chill_ai_chat",
-    character_id: str = "congyin",
-    agent_id: str = "congyin",
     user_id: str = "xnne",
 ) -> str:
     """Build the LLM prompt for realtime claim extraction.
@@ -308,9 +308,9 @@ def extract_claims(
     model: str,
     mem0_results: list[Mem0Result],
     *,
+    character_id: str,
+    agent_id: str,
     scene_id: str = "chill_ai_chat",
-    character_id: str = "congyin",
-    agent_id: str = "congyin",
     user_id: str = "xnne",
 ) -> list[dict[str, Any]]:
     """Extract claims/entities from mem0.add() results via LLM.

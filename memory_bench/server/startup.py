@@ -58,8 +58,6 @@ _DOTENV_BENCHMARK_PATH = _REPO_ROOT / "memory_bench" / ".env.benchmark"
 # ---------------------------------------------------------------------------
 
 _DEFAULT_SEARCH_LIMIT = 10
-_DEFAULT_USER_ID = "xnne"
-_DEFAULT_AGENT_ID = "congyin"
 
 # ---------------------------------------------------------------------------
 # Env loading
@@ -140,7 +138,7 @@ def resolve_memory_bench_config(overrides: dict[str, Any] | None = None) -> dict
     neo4j_user = overrides.get("neo4j_user") or _get_env("NEO4J_USER", "neo4j")
     neo4j_password = overrides.get("neo4j_password") or _get_env("NEO4J_PASSWORD", "neo4jneo4j")
 
-    return {
+    cfg = {
         "chat_api_key": chat_api_key,
         "chat_base_url": chat_base_url,
         "chat_model": chat_model,
@@ -150,8 +148,8 @@ def resolve_memory_bench_config(overrides: dict[str, Any] | None = None) -> dict
         "embedding_api_key": embedding_api_key,
         "embedding_base_url": embedding_base_url,
         "embedding_model": embedding_model,
-        "user_id": overrides.get("user_id") or _get_env("CHAT_USER_ID", _DEFAULT_USER_ID),
-        "agent_id": overrides.get("agent_id") or _get_env("CHAT_AGENT_ID", _DEFAULT_AGENT_ID),
+        "user_id": resolve("user_id", "CHAT_USER_ID"),
+        "agent_id": resolve("agent_id", "CHAT_AGENT_ID"),
         "search_limit": overrides.get("search_limit") or _DEFAULT_SEARCH_LIMIT,
         "server_api_key": overrides.get("server_api_key") or _get_env("CHAT_SERVER_API_KEY") or None,
         "port": overrides.get("port", 8080),
@@ -169,14 +167,14 @@ def resolve_memory_bench_config(overrides: dict[str, Any] | None = None) -> dict
         # Metadata nodes
         "metadata_user_id": overrides.get("metadata_user_id") or _get_env("METADATA_USER_ID", "xnne"),
         "metadata_user_name": overrides.get("metadata_user_name") or _get_env("METADATA_USER_NAME", "xnne"),
-        "metadata_agent_id": overrides.get("metadata_agent_id") or _get_env("METADATA_AGENT_ID", "congyin"),
-        "metadata_agent_name": overrides.get("metadata_agent_name") or _get_env("METADATA_AGENT_NAME", "congyin"),
+        "metadata_agent_id": resolve("metadata_agent_id", "METADATA_AGENT_ID"),
+        "metadata_agent_name": resolve("metadata_agent_name", "METADATA_AGENT_NAME"),
         "metadata_scene_id": overrides.get("metadata_scene_id") or _get_env("METADATA_SCENE_ID", "chill_ai_chat"),
         "metadata_scene_name": overrides.get("metadata_scene_name") or _get_env("METADATA_SCENE_NAME", "Chill AI Chat"),
-        "metadata_character_id": overrides.get("metadata_character_id") or _get_env("METADATA_CHARACTER_ID", "congyin"),
-        "metadata_character_name": overrides.get("metadata_character_name")
-        or _get_env("METADATA_CHARACTER_NAME", "聪音 (Congyin)"),
+        "metadata_character_id": resolve("metadata_character_id", "METADATA_CHARACTER_ID"),
+        "metadata_character_name": resolve("metadata_character_name", "METADATA_CHARACTER_NAME"),
     }
+    return cfg
 
 
 # ---------------------------------------------------------------------------

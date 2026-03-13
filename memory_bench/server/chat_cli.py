@@ -35,7 +35,7 @@ _PERSONA_PATH = _REPO_ROOT / "memory_bench" / "docs" / "22_PERSONA_CANON.md"
 _DEFAULT_BASE_URL = "http://localhost:8080"
 _DEFAULT_ENDPOINT = "openai"  # Choices: "openai" or "memory"
 _USER_PROMPT = "xnne"
-_ASSISTANT_PROMPT = "congyin"
+_DEFAULT_ASSISTANT_PROMPT = "assistant"
 
 # Endpoint mapping
 _ENDPOINT_MAP = {
@@ -160,6 +160,7 @@ def _run_repl(
     endpoint: str,
     system_prompt: str,
     api_key: str | None,
+    assistant_prompt: str,
 ) -> None:
     """Interactive read-eval-print loop."""
     messages: list[dict[str, str]] = []
@@ -193,7 +194,7 @@ def _run_repl(
         except httpx.ConnectError:  # type: ignore[reportUnknownMemberType]
             print(
                 f"\u274c Cannot connect to {base_url} — is the server running?"
-                "\n   Start it with: just memory-chat-server"
+                "\n   Start it with: just memory-chat-server <user_id> <agent_id> <agent_name> [port]"
             )
             messages.pop()
             continue
@@ -203,7 +204,7 @@ def _run_repl(
             continue
 
         messages.append({"role": "assistant", "content": reply})
-        print(f"{_ASSISTANT_PROMPT}> {reply}\n")
+        print(f"{assistant_prompt}> {reply}\n")
 
 
 # ---------------------------------------------------------------------------
@@ -241,6 +242,11 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Server API key (env: CHAT_SERVER_API_KEY)",
     )
+    p.add_argument(
+        "--agent-id",
+        default=None,
+        help="Assistant display label for the REPL prompt (defaults to CHAT_AGENT_ID or 'assistant')",
+    )
     return p
 
 
@@ -251,6 +257,7 @@ def main() -> None:
     base_url = args.base_url or _get_env("CHAT_CLI_BASE_URL", _DEFAULT_BASE_URL) or _DEFAULT_BASE_URL
     endpoint_name = args.endpoint or _get_env("CHAT_CLI_ENDPOINT", _DEFAULT_ENDPOINT) or _DEFAULT_ENDPOINT
     api_key = args.api_key or _get_env("CHAT_SERVER_API_KEY")
+    assistant_prompt = args.agent_id or _get_env("CHAT_AGENT_ID", _DEFAULT_ASSISTANT_PROMPT) or _DEFAULT_ASSISTANT_PROMPT
 
     # Map endpoint name to actual path
     endpoint = _ENDPOINT_MAP.get(endpoint_name, endpoint_name)
@@ -267,7 +274,13 @@ def main() -> None:
 
     system_prompt = "\n\n".join(parts)
 
-    _run_repl(base_url=base_url, endpoint=endpoint, system_prompt=system_prompt, api_key=api_key)
+    _run_repl(
+        base_url=base_url,
+        endpoint=endpoint,
+        system_prompt=system_prompt,
+        api_key=api_key,
+        assistant_prompt=assistant_prompt,
+    )
 
 
 if __name__ == "__main__":

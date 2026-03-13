@@ -42,8 +42,6 @@ from memory_bench.server.startup import (
 )
 
 _DEFAULT_SEARCH_LIMIT = 10
-_DEFAULT_USER_ID = "xnne"
-_DEFAULT_AGENT_ID = "congyin"
 
 
 # ---------------------------------------------------------------------------
@@ -125,8 +123,8 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--embedding-base-url", default=None, help="Base URL for embedding model")
     p.add_argument("--embedding-model", default=None, help="Embedding model name")
 
-    p.add_argument("--user-id", default=None, help=f"User ID for mem0 (default: {_DEFAULT_USER_ID})")
-    p.add_argument("--agent-id", default=None, help=f"Agent ID for mem0 (default: {_DEFAULT_AGENT_ID})")
+    p.add_argument("--user-id", required=True, help="User ID for mem0")
+    p.add_argument("--agent-id", required=True, help="Agent ID for mem0 (e.g. congyin, elaina)")
 
     p.add_argument(
         "--server-api-key", default=None, help="API key for server auth (env: CHAT_SERVER_API_KEY). If unset, no auth."
@@ -152,14 +150,12 @@ def _build_parser() -> argparse.ArgumentParser:
     # Metadata nodes
     p.add_argument("--metadata-user-id", default=None, help="User ID for metadata nodes (default: xnne)")
     p.add_argument("--metadata-user-name", default=None, help="User name for metadata nodes (default: xnne)")
-    p.add_argument("--metadata-agent-id", default=None, help="Agent ID for metadata nodes (default: congyin)")
-    p.add_argument("--metadata-agent-name", default=None, help="Agent name for metadata nodes (default: congyin)")
+    p.add_argument("--metadata-agent-id", required=True, help="Agent ID for metadata nodes")
+    p.add_argument("--metadata-agent-name", required=True, help="Agent name for metadata nodes")
     p.add_argument("--metadata-scene-id", default=None, help="Scene ID for metadata nodes (default: chill_ai_chat)")
     p.add_argument("--metadata-scene-name", default=None, help="Scene name for metadata nodes (default: Chill AI Chat)")
-    p.add_argument("--metadata-character-id", default=None, help="Character ID for metadata nodes (default: congyin)")
-    p.add_argument(
-        "--metadata-character-name", default=None, help="Character name for metadata nodes (default: 聪音 (Congyin))"
-    )
+    p.add_argument("--metadata-character-id", required=True, help="Character ID for metadata nodes")
+    p.add_argument("--metadata-character-name", required=True, help="Character name for metadata nodes")
     return p
 
 
