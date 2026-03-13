@@ -48,8 +48,6 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 _DEFAULT_SEARCH_LIMIT = 10
-_DEFAULT_USER_ID = "xnne"
-_DEFAULT_AGENT_ID = "congyin"
 
 _MEMORY_INJECTION_TEMPLATE = """## Recalled Memories
 The following memories were recalled from previous conversations and may be relevant:
@@ -120,8 +118,8 @@ class ServerState:
     mem0: Any = None
     openai_client: OpenAI | None = None  # type: ignore[reportUnknownVariableType]
     chat_model: str = ""
-    user_id: str = _DEFAULT_USER_ID
-    agent_id: str = _DEFAULT_AGENT_ID
+    user_id: str = ""
+    agent_id: str = ""
     search_limit: int = _DEFAULT_SEARCH_LIMIT
     api_key: str | None = None  # If set, require Bearer token auth
 
@@ -134,14 +132,14 @@ class ServerState:
     neo4j_password: str = "neo4jneo4j"
 
     # --- Metadata nodes ---
-    metadata_user_id: str = "xnne"
-    metadata_user_name: str = "xnne"
-    metadata_agent_id: str = "congyin"
-    metadata_agent_name: str = "congyin"
-    metadata_scene_id: str = "chill_ai_chat"
-    metadata_scene_name: str = "Chill AI Chat"
-    metadata_character_id: str = "congyin"
-    metadata_character_name: str = "聪音 (Congyin)"
+    metadata_user_id: str = ""
+    metadata_user_name: str = ""
+    metadata_agent_id: str = ""
+    metadata_agent_name: str = ""
+    metadata_scene_id: str = ""
+    metadata_scene_name: str = ""
+    metadata_character_id: str = ""
+    metadata_character_name: str = ""
 
 
 state = ServerState()
@@ -265,6 +263,8 @@ def init_metadata_nodes() -> None:
     """Create/update metadata nodes in Neo4j at server startup."""
     if not state.graph_pipeline_enabled:
         return
+    assert state.metadata_agent_id, "metadata_agent_id is not configured - refusing to write graph"
+    assert state.metadata_character_id, "metadata_character_id is not configured - refusing to write graph"
 
     log = logger.bind(group="metadata")
     log.info("Initializing metadata nodes...")
@@ -324,6 +324,8 @@ def create_memory_item_node_v2(mem0_item: dict[str, Any], memory_text: str) -> N
     """
     if not state.graph_pipeline_enabled:
         return
+    assert state.metadata_agent_id, "metadata_agent_id is not configured - refusing to write graph"
+    assert state.metadata_character_id, "metadata_character_id is not configured - refusing to write graph"
 
     log = logger.bind(group="metadata")
 
@@ -460,6 +462,7 @@ def _graph_pipeline_sync(mem0_results: list[dict[str, Any]]) -> None:
             openai_client=state.claim_llm_client,  # type: ignore[reportUnknownMemberType]
             model=state.claim_llm_model,
             mem0_results=mem0_results,  # type: ignore[reportArgumentType]
+            character_id=state.metadata_character_id,
             scene_id="chill_ai_chat",
             agent_id=state.agent_id,
             user_id=state.user_id,

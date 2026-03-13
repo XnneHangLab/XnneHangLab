@@ -219,8 +219,20 @@ ci-lint:
 
 # memory bench
 
-memory-chat-server port='8080':
-  uv run memory_bench/server/chat_server.py --port {{ port }} --enable-graph
+# just memory-chat-server xnne congyin 聪音 8080
+# just memory-chat-server xnne elaina 伊蕾娜 8081
+memory-chat-server user_id agent_id agent_name port='8080':
+  uv run memory_bench/server/chat_server.py \
+    --user-id {{ user_id }} \
+    --agent-id {{ agent_id }} \
+    --metadata-user-id {{ user_id }} \
+    --metadata-user-name {{ user_id }} \
+    --metadata-agent-id {{ agent_id }} \
+    --metadata-agent-name {{ agent_name }} \
+    --metadata-character-id {{ agent_id }} \
+    --metadata-character-name {{ agent_name }} \
+    --port {{ port }} \
+    --enable-graph
 
 memory-chat-cli base_url='http://localhost:8080' endpoint='/v1/chat/completions':
   uv run memory_bench/server/chat_cli.py --base-url {{ base_url }} --endpoint {{ endpoint }}
