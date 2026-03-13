@@ -3,8 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from lab.agent.input_types import BatchInput, TextSource
-from lab.mcp import ContentPart, ImagePart, OpenAIMessage, TextPart
-from lab.mcp._typing import ImageURL
+from lab.agent.types import ContentPart, ImagePart, ImageURL, OpenAIMessage, TextPart
 
 if TYPE_CHECKING:
     from lab.agent.agents.memory_agent.types import ImagePayload

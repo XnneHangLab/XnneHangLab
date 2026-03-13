@@ -8,14 +8,14 @@ from typing import TYPE_CHECKING, Any, cast
 
 from loguru import logger
 
-from lab.mcp import OpenAIMessage
+from lab.agent.types import OpenAIMessage
 
 from .message_factory import MessageFactory
 from .types import ImagePayload, VisionSummaryResult
 
 if TYPE_CHECKING:
     from lab.agent.stateless_llm.openai_compatible_llm import AsyncLLM
-    from lab.mcp import ConversationState
+    from lab.agent.types import ConversationState
 
 
 class VisionSummarizer:

@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from lab.agent.agents.memory_agent.user_prompt_block import UserPromptBlock
-from lab.mcp import OpenAIMessage
+from lab.agent.types import OpenAIMessage
 
 if TYPE_CHECKING:
     from lab.agent.agents.memory_agent.memory_store import MemoryStore

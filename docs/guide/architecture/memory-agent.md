@@ -2,62 +2,103 @@
 
 本文描述 `MemoryAgent` 的模块分层、数据流与关键决策，面向工程维护与架构理解。
 
+## 定位与职责
+
+`MemoryAgent` 是 VTuber 链路的**编排器**，职责是将 `AgentCore` 的 token 流接入 TTS / Live2D pipeline。
+
+它**不做**：
+- LLM 调用（委托给 AgentCore）
+- 工具调用（委托给 AgentCore + ToolManager）
+- Prompt 拼装（委托给 AgentCore → PromptBuilder）
+- Vision 摘要（委托给 AgentCore → VisionSummarizer）
+
+它**只做**：
+- 从 `AgentCore.run_turn()` 消费 token 流
+- 断句 → 表情/动作提取 → TTS 过滤 → 显示处理
+- 维护 `MemoryStore`（memory + history + interrupt）
+
 ## 模块分层
 
 ```
-MemoryAgent (agent.py)              ← 编排器
-├── ToolRunner (tool_runner.py)           ← MCP tool loop
-├── VisionSummarizer (vision_summarizer.py) ← 图片摘要
-├── PromptBuilder (prompt_builder.py)     ← prompt 拼装
-├── MessageFactory (message_factory.py)   ← 消息解析与构造
-└── MemoryStore (memory_store.py)         ← memory / history / interrupt
+MemoryAgent (agent.py)                ← 编排器
+├── AgentCore (core.py)               ← 共享核心（tool / vision / prompt / LLM）
+│   ├── AsyncLLM.stream_with_tools()  ← 统一流式 tool calling
+│   ├── VisionSummarizer              ← 图片摘要
+│   ├── PromptBuilder                 ← UserPromptBlock 拼装
+│   └── ConversationStorage           ← MemoryStoreAdapter（写回由 MemoryAgent 接管）
+├── MemoryStore (memory_store.py)     ← memory / history / interrupt
+├── MessageFactory (message_factory.py) ← 消息解析与构造
+└── Transformers 管线 (transformers.py)
+    sentence_divider → actions_extractor → tts_filter → display_processor
 ```
 
-- **MemoryAgent（编排器）**：只负责“决策树”与组件调用，避免拼接/解析细节膨胀。
-- **ToolRunner**：运行 MCP tool loop，返回 tool trace JSON + tool 回调图（默认单张 `tool1`）。
-- **VisionSummarizer**：对 tool 图与 upload 图生成 summaries，支持：
-- 快模式（一次多图 1 次调用）
-- 细模式（逐图并发 N 次调用，带并发上限）
-- **PromptBuilder**：纯文本 prompt 拼装（base / summaries）。
-- **MessageFactory**：OpenAIMessage 解析与构造（带标签多图）。
-- **MemoryStore**：memory + history + interrupt（不存 base64）。
+::: tip AgentCore.write_back = False
+`MemoryAgent` 初始化时将 `core.write_back` 设为 `False`，由 MemoryAgent 自身统一负责写回 `MemoryStore`。这样 assistant message 的写入时机与 TTS 流程对齐，避免双写。
+:::
 
-## 决策树（核心逻辑）
+## 数据流
 
-维度：
-- `enable_tool`
-- `chat_supports_vision`
-- `require_detailed`
+```
+📥 BatchInput（用户输入：文本 + 可选图片）
+    ↓
+✉️ MessageFactory.build_user_message_from_batch()
+    ↓
+💬 AgentCore.run_turn(user_text, user_images)
+    ─────────────────────────────────────────
+    │  [vision 预处理] VisionSummarizer
+    │  [prompt 拼装]   PromptBuilder
+    │
+    │  chat_llm.stream_with_tools(messages, tools=schema)
+    │  loop:
+    │    text delta → yield str
+    │    tool_call  → yield [🔧 name] → execute → continue
+    │    stop       → break
+    ─────────────────────────────────────────
+    ↓ yield str tokens
+🔄 Transformers 管线
+    sentence_divider      # 按标点断句
+      → actions_extractor # 提取 [emotion]/[sound] 等动作标签
+      → tts_filter        # 过滤 [think]/[🔧 ...] 等不朗读内容
+      → display_processor # 处理显示文本（think 折叠等）
+    ↓
+📤 yield SentenceOutput
+    ├── display_text  # 字幕 / 弹幕
+    ├── tts_text      # 送 TTS 朗读的文本（已过滤标签）
+    └── actions       # Live2D 动作 / 表情 / 音效
+    ↓
+💾 MemoryStore.add_message()  # 写回 user + assistant message
+```
 
-### 关键规则
+## 关键设计决策
 
-1. **最终回答由 chat_model 输出**（streaming）；vision_model 仅用于摘要预处理。
-2. **history 不存 base64**：即使发送给 chat 的 message 带图片，写入 history 的只存文本 prompt。
-3. **tool 图与 upload 图隔离**：tool 图默认单张，不混入 upload 的 p1/p2 标签。
+### 工具状态标签不朗读
 
-### 行为矩阵
+`AgentCore` 在执行工具前 yield `[🔧 tool_name]` 标签。`tts_filter` 依据 `ignore_brackets` 配置过滤掉方括号内容（或通过 tag 机制识别），保证 TTS 不读出工具状态，但字幕仍可展示。
+
+### Vision 决策
+
+`chat_supports_vision`（来自 `lab.toml` 的 `[agent.chat_model]`）决定图片处理方式：
 
 | chat_supports_vision | require_detailed | 行为 |
 |---|---|---|
-| False | False | vision 一次多图 → 得到 p1/p2... summaries → 纯文本喂给 chat |
-| False | True  | vision 逐图并发 → 得到 p1/p2... summaries → 纯文本喂给 chat |
-| True  | False | 不生成 summaries；图片直接喂给 chat（带标签） |
-| True  | True  | 生成逐图 summaries + 图片一并喂给 chat（图+摘要双保险） |
+| False | any | 必须生成 vision 摘要，纯文本喂 chat |
+| True | False | 图片直接喂 chat，不生成摘要 |
+| True | True | 图片喂 chat + 同步生成逐图摘要（双保险） |
 
-`enable_tool=True` 时，先追加 tool loop 的 trace JSON，并可额外对 tool 图生成 tool summary。
+### History 不存 base64
 
-## 性能与成本
+`MemoryStore` 写回时只存文本内容，不保留图片 base64，避免 memory 文件膨胀。
 
-- 并发（Semaphore + gather）主要降低 **墙钟时间**，不降低 token 成本。
-- `max_vision_concurrency` 是 in-flight vision 请求上限，用于防止限流与拥塞。
-- 快模式（一次多图）在成本与等待时间上更优，但细节/一致性可能不如逐图。
+### Tool 图与用户图隔离
 
-## 失败策略（推荐）
+- 工具回调图：标签 `tool1`，来源 `source="tool"`
+- 用户上传图：标签 `p1`/`p2`/...，来源 `source="upload"`
 
-- 逐图并发时：某张失败应返回占位（例如 `[ERROR] p2 摘要失败: ...`），避免 silent drop 导致下游对齐失败。
-- 解析失败：降级为 `p_all`（或 `p_all`）保底，确保链路不中断。
+两类图片在 vision 摘要和 prompt 注入时分开处理，不混用标签。
 
 ## 扩展点
 
-- tool 多图：在 `ToolRunner` 改为收集 image_refs 列表，并给出 tool1/tool2... summaries。
-- 支持 http(s) 图片：在 `MessageFactory.extract_text_and_data_images` 扩展。
+- **多工具截图**：在 ToolManager 侧收集多张 tool 图，给出 `tool1/tool2...` 标签（目前默认单张）
+- **支持 http(s) 图片**：在 `MessageFactory.extract_text_and_data_images` 扩展
+- **自定义断句**：`segment_method` 支持 `pysbd` / 自定义标点规则
+- **中断方式**：`interrupt_method=system`（注入 system message）或 `user`（注入 user message）
