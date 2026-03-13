@@ -165,8 +165,8 @@ def resolve_memory_bench_config(overrides: dict[str, Any] | None = None) -> dict
         "enable_graph": overrides.get("enable_graph")
         or (_get_env("ENABLE_GRAPH") or "").lower() in ("1", "true", "yes"),
         # Metadata nodes
-        "metadata_user_id": overrides.get("metadata_user_id") or _get_env("METADATA_USER_ID", "xnne"),
-        "metadata_user_name": overrides.get("metadata_user_name") or _get_env("METADATA_USER_NAME", "xnne"),
+        "metadata_user_id": resolve("metadata_user_id", "METADATA_USER_ID"),
+        "metadata_user_name": resolve("metadata_user_name", "METADATA_USER_NAME"),
         "metadata_agent_id": resolve("metadata_agent_id", "METADATA_AGENT_ID"),
         "metadata_agent_name": resolve("metadata_agent_name", "METADATA_AGENT_NAME"),
         "metadata_scene_id": overrides.get("metadata_scene_id") or _get_env("METADATA_SCENE_ID", "chill_ai_chat"),

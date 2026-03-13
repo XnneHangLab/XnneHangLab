@@ -148,8 +148,8 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--neo4j-user", default=None, help="Neo4j username (default: neo4j)")
     p.add_argument("--neo4j-password", default=None, help="Neo4j password (default: neo4jneo4j)")
     # Metadata nodes
-    p.add_argument("--metadata-user-id", default=None, help="User ID for metadata nodes (default: xnne)")
-    p.add_argument("--metadata-user-name", default=None, help="User name for metadata nodes (default: xnne)")
+    p.add_argument("--metadata-user-id", required=True, help="User ID for metadata nodes")
+    p.add_argument("--metadata-user-name", required=True, help="User name for metadata nodes")
     p.add_argument("--metadata-agent-id", required=True, help="Agent ID for metadata nodes")
     p.add_argument("--metadata-agent-name", required=True, help="Agent name for metadata nodes")
     p.add_argument("--metadata-scene-id", default=None, help="Scene ID for metadata nodes (default: chill_ai_chat)")

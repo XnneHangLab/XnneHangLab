@@ -225,6 +225,8 @@ memory-chat-server user_id agent_id agent_name port='8080':
   uv run memory_bench/server/chat_server.py \
     --user-id {{ user_id }} \
     --agent-id {{ agent_id }} \
+    --metadata-user-id {{ user_id }} \
+    --metadata-user-name {{ user_id }} \
     --metadata-agent-id {{ agent_id }} \
     --metadata-agent-name {{ agent_name }} \
     --metadata-character-id {{ agent_id }} \

@@ -132,8 +132,8 @@ class ServerState:
     neo4j_password: str = "neo4jneo4j"
 
     # --- Metadata nodes ---
-    metadata_user_id: str = "xnne"
-    metadata_user_name: str = "xnne"
+    metadata_user_id: str = ""
+    metadata_user_name: str = ""
     metadata_agent_id: str = ""
     metadata_agent_name: str = ""
     metadata_scene_id: str = ""

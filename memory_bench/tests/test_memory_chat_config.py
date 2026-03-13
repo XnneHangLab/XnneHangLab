@@ -28,9 +28,12 @@ def clear_memory_chat_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "BENCHMARK_EMBEDDING_API_KEY",
         "BENCHMARK_EMBEDDING_BASE_URL",
         "BENCHMARK_EMBEDDING_MODEL",
+        "CHAT_USER_ID",
         "CHAT_AGENT_ID",
         "METADATA_AGENT_ID",
         "METADATA_AGENT_NAME",
+        "METADATA_USER_ID",
+        "METADATA_USER_NAME",
         "METADATA_CHARACTER_ID",
         "METADATA_CHARACTER_NAME",
     )
@@ -56,6 +59,8 @@ def test_chat_server_requires_agent_identity_args() -> None:
 def test_resolve_memory_bench_config_requires_agent_id(monkeypatch: pytest.MonkeyPatch) -> None:
     _set_base_env(monkeypatch)
     monkeypatch.setenv("CHAT_USER_ID", "user-a")
+    monkeypatch.setenv("METADATA_USER_ID", "user-a")
+    monkeypatch.setenv("METADATA_USER_NAME", "User A")
     monkeypatch.setenv("METADATA_AGENT_ID", "agent-a")
     monkeypatch.setenv("METADATA_AGENT_NAME", "Agent A")
     monkeypatch.setenv("METADATA_CHARACTER_ID", "char-a")
@@ -68,6 +73,8 @@ def test_resolve_memory_bench_config_requires_agent_id(monkeypatch: pytest.Monke
 def test_resolve_memory_bench_config_requires_user_id(monkeypatch: pytest.MonkeyPatch) -> None:
     _set_base_env(monkeypatch)
     monkeypatch.setenv("CHAT_AGENT_ID", "agent-a")
+    monkeypatch.setenv("METADATA_USER_ID", "user-a")
+    monkeypatch.setenv("METADATA_USER_NAME", "User A")
     monkeypatch.setenv("METADATA_AGENT_ID", "agent-a")
     monkeypatch.setenv("METADATA_AGENT_NAME", "Agent A")
     monkeypatch.setenv("METADATA_CHARACTER_ID", "char-a")
@@ -81,9 +88,39 @@ def test_resolve_memory_bench_config_requires_metadata_agent_id(monkeypatch: pyt
     _set_base_env(monkeypatch)
     monkeypatch.setenv("CHAT_USER_ID", "user-a")
     monkeypatch.setenv("CHAT_AGENT_ID", "agent-a")
+    monkeypatch.setenv("METADATA_USER_ID", "user-a")
+    monkeypatch.setenv("METADATA_USER_NAME", "User A")
     monkeypatch.setenv("METADATA_AGENT_NAME", "Agent A")
     monkeypatch.setenv("METADATA_CHARACTER_ID", "char-a")
     monkeypatch.setenv("METADATA_CHARACTER_NAME", "Character A")
 
     with pytest.raises(RuntimeError, match="METADATA_AGENT_ID"):
+        resolve_memory_bench_config()
+
+
+def test_resolve_memory_bench_config_requires_metadata_user_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    _set_base_env(monkeypatch)
+    monkeypatch.setenv("CHAT_USER_ID", "user-a")
+    monkeypatch.setenv("CHAT_AGENT_ID", "agent-a")
+    monkeypatch.setenv("METADATA_USER_NAME", "User A")
+    monkeypatch.setenv("METADATA_AGENT_ID", "agent-a")
+    monkeypatch.setenv("METADATA_AGENT_NAME", "Agent A")
+    monkeypatch.setenv("METADATA_CHARACTER_ID", "char-a")
+    monkeypatch.setenv("METADATA_CHARACTER_NAME", "Character A")
+
+    with pytest.raises(RuntimeError, match="METADATA_USER_ID"):
+        resolve_memory_bench_config()
+
+
+def test_resolve_memory_bench_config_requires_metadata_user_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    _set_base_env(monkeypatch)
+    monkeypatch.setenv("CHAT_USER_ID", "user-a")
+    monkeypatch.setenv("CHAT_AGENT_ID", "agent-a")
+    monkeypatch.setenv("METADATA_USER_ID", "user-a")
+    monkeypatch.setenv("METADATA_AGENT_ID", "agent-a")
+    monkeypatch.setenv("METADATA_AGENT_NAME", "Agent A")
+    monkeypatch.setenv("METADATA_CHARACTER_ID", "char-a")
+    monkeypatch.setenv("METADATA_CHARACTER_NAME", "Character A")
+
+    with pytest.raises(RuntimeError, match="METADATA_USER_NAME"):
         resolve_memory_bench_config()
