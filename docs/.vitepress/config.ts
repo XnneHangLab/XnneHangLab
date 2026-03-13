@@ -2,7 +2,7 @@ import { defineConfig } from "vitepress";
 
 export default defineConfig({
   title: "XnneHangLab",
-  description: "魔女の实验室 — 文档站",
+  description: "魔女の实验室 - 文档站",
   lang: "zh-CN",
 
   head: [["link", { rel: "icon", href: "/logo.svg" }]],
@@ -41,12 +41,13 @@ export default defineConfig({
             { text: "Agent", link: "/guide/architecture/agent" },
             { text: "API", link: "/guide/architecture/api" },
             { text: "ASR", link: "/guide/architecture/asr" },
-            { text: "MCP", link: "/guide/architecture/mcp" },
             { text: "Conversations", link: "/guide/architecture/conversations" },
             { text: "Config", link: "/guide/architecture/config" },
             { text: "Memory Agent", link: "/guide/architecture/memory-agent" },
+            { text: "工具系统", link: "/guide/architecture/tools" },
             { text: "Plugin 系统", link: "/guide/architecture/plugin-system" },
             { text: "Profile 系统", link: "/guide/architecture/profile-system" },
+            { text: "Skill 系统", link: "/guide/architecture/skills" },
             { text: "System Prompt 分层", link: "/guide/architecture/system-prompt-layers" },
           ],
         },
@@ -57,7 +58,7 @@ export default defineConfig({
             { text: "已知问题", link: "/guide/issue" },
             { text: "分支", link: "/guide/branches" },
             { text: "贡献指南", link: "/guide/contributing" },
-            { text: "插件开发指南", link: "/guide/dev/plugin-development" },
+            { text: "插件开发指北", link: "/guide/dev/plugin-development" },
           ],
         },
       ],
