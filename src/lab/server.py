@@ -138,8 +138,6 @@ async def lifespan(app: FastAPI):
                 "embedding_base_url": embedding_cfg.base_url,
                 "embedding_model": embedding_cfg.model,
                 # 检索参数
-                "user_id": memory_bench_cfg.user_id,
-                "agent_id": memory_bench_cfg.agent_id,
                 "search_limit": memory_bench_cfg.search_limit,
                 "server_api_key": memory_bench_cfg.server_api_key or None,
             }
