@@ -1,0 +1,14 @@
+[plugin]
+id = "diary"
+name = "Diary & Memory Skill"
+version = "0.1.0"
+type = "skill"
+description = "日记读写策略：目录规范、格式、何时主动记录和回顾"
+author = "XnneHangLab"
+source = "builtin"
+
+[type_config]
+files = ["skill.md"]
+priority = 30
+inline = true
+requires = ["write_file", "read_file", "list_dir", "get_datetime"]

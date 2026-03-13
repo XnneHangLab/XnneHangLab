@@ -17,6 +17,7 @@ class ContextConfig(BaseModel):
 class ProfileConfig(BaseModel):
     name: str
     description: str = ""
+    agent_name: str = ""
 
 
 class PromptConfig(BaseModel):
