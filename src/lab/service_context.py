@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from typing import TYPE_CHECKING
 
 from loguru import logger
@@ -75,12 +76,19 @@ class ServiceContext:
         logger.debug(f"Loaded service context with cache: {character_config}")
 
     async def load_from_config(self, config: XnneHangLabSettings) -> None:
-        """
-        Load the ServiceContext with the config.
-        Reinitialize the instances if the config is different.
+        """从配置重新装载上下文，并输出关键初始化阶段的耗时日志。
 
-        Parameters:
-        - config (XnneHangLabSettings): The typed lab settings to load into the context.
+        当上下文内的缓存对象尚未建立时，会先补齐基础配置引用，再依次
+        初始化 Live2D 与 Agent。
+
+        Args:
+            config: 需要加载到当前上下文的完整配置对象。
+
+        Returns:
+            None.
+
+        Raises:
+            ValueError: Live2D 或 Agent 初始化阶段缺少必要前置状态时抛出。
         """
         self.lab_setting = config
 
@@ -93,10 +101,16 @@ class ServiceContext:
         # update all sub-configs
 
         # init live2d from character config
+        t0 = time.perf_counter()
+        logger.info("⏳ 初始化 Live2D...")
         self.init_live2d(config.vtuber.character_config.live2d_model_name)
+        logger.info("✅ Live2D 初始化完成 ({:.1f}s)", time.perf_counter() - t0)
 
         # init agent from character config
+        t1 = time.perf_counter()
+        logger.info("⏳ 初始化 Agent（加载 plugins / LLM client）...")
         await self.init_agent(config)
+        logger.info("✅ Agent 初始化完成 ({:.1f}s)", time.perf_counter() - t1)
 
         # self.init_translate(config.vtuber.character_config.tts_preprocessor_config.translator_config) # 到时替换成自己的
         # store typed config references
