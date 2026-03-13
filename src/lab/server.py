@@ -294,7 +294,7 @@ class WebSocketServer:
             )
         if lab_settings.package.funasr:
             _include_router_with_log(
-                "FunASR 端点",
+                "FunASR 端点（首次 import 可能需要约 20s，请耐心等待）",
                 lambda: self.app.include_router(import_module("lab.api.routes.asr_funasr").router),
             )
         if lab_settings.package.whisper:
