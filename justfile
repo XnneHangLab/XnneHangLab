@@ -86,6 +86,9 @@ test-vad:
 test-whisper:
   curl -X POST "http://localhost:12393/asr/whisper" -F "file=@./examples/example3.opus"
 
+test-sherpa audio='./examples/example3.opus' model_dir='./models/sherpa-onnx-streaming-paraformer-bilingual-zh-en' vad_model='./models/silero_vad.onnx' skip_vad='':
+  uv run --group sherpa-onnx src/lab/asr/sherpa/probe.py --audio {{ audio }} --model-dir {{ model_dir }} --vad-model {{ vad_model }} {{ if skip_vad != '' { '--skip-vad' } else { '' } }}
+
 test-gsv:
 	curl -X POST "http://127.0.0.1:12393/tts/gptsovits" \
 	-H "Content-Type: application/json" \
