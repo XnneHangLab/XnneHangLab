@@ -23,7 +23,7 @@ enabled = ["web_search_ddg", "web_fetch"]
 ```
 profiles/
 ├── elaina.toml        # VTuber 主链路（WebSocket + memory agent，多工具）
-└──  congyin.toml       # 聪音聊天链路（/memory/chat，读写日记为主）
+└── congyin.toml        # 聪音聊天链路（/memory/chat，读写日记为主）
 
 ```
 
