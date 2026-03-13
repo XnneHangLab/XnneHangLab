@@ -125,16 +125,21 @@ class SkillDescriptor:
 
 ### hook 插件
 
-`HookPlugin` 用来插入生命周期逻辑。当前典型用途是每轮对话前注入记忆：
+`HookPlugin` 用来插入生命周期逻辑，目前提供两个钩子：
 
 ```python
 class HookPlugin(ABC):
     @abstractmethod
     async def on_before_turn(self, user_text: str, ctx: AgentContext) -> str | None:
+        """轮次开始前调用。返回字符串时注入 memory_context，返回 None 则跳过。"""
         ...
+
+    async def on_after_turn(self, user_text: str, assistant_text: str, ctx: AgentContext) -> None:
+        """轮次结束后调用。默认空实现，子类按需覆盖。"""
+        return
 ```
 
-返回字符串时，这段内容会注入本轮 `memory_context`；返回 `None` 就表示跳过。
+`on_before_turn` 负责**读**——在每轮对话前拉取相关记忆注入上下文。`on_after_turn` 负责**写**——在 `complete_response` 完整收齐后触发，用于持久化本轮对话内容。两个钩子失败时都静默处理，不影响主流程。
 
 ---
 
@@ -188,7 +193,7 @@ timeout_s = 15.0
 
 [plugins.memory]
 user_id = "xnne"
-agent_id = "congyin"
+agent_id = "elaina"   # 决定读写哪个 agent 的记忆，每个 profile 各自配
 search_limit = 10
 ```
 
@@ -219,5 +224,5 @@ from lab.plugin.http import clamp_int
 - [Profile 系统](./profile-system) 决定启用哪些插件以及覆盖哪些配置
 - [工具系统](./tools) 负责承接 `tool` 插件返回的 `BuiltinTool`
 - [Skill 系统](./skills) 负责承接 `skill` 插件注入到 system prompt 的内容
-- `HookManager` 负责管理 `hook` 插件并在 `AgentCore.run_turn()` 前调用
+- `HookManager` 负责管理 `hook` 插件，在 `AgentCore.run_turn()` 前调用 `before_turn()`，结束后调用 `after_turn()`
 - `AgentFactory` 负责把 `PluginLoader` 的结果真正注册到运行时
