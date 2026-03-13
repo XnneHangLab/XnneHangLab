@@ -69,6 +69,10 @@ whisper = [
   "openai-whisper>=20250625",
 ]
 
+sherpa-onnx = [
+  "sherpa-onnx>=1.12.29",
+]
+
 dev = [
   "pyright>=1.1.391",
   "ruff>=0.9.3",

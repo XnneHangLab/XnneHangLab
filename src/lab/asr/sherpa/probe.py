@@ -4,7 +4,9 @@
 以及 convert_asr_response_to_sentences 是否能正常工作。
 
 依赖安装：
-uv add sherpa-onnx
+uv sync --group sherpa-onnx
+# 或
+uv add --group sherpa-onnx sherpa-onnx
 
 模型下载（选其一）：
 # paraformer-zh streaming（推荐，支持实时）
