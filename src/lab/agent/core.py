@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
     from lab.agent.agents.memory_agent.types import ImagePayload
     from lab.agent.agents.memory_agent.user_prompt_block import ContextEntry
+    from lab.agent.hook_manager import HookManager
     from lab.agent.stateless_llm.openai_compatible_llm import AsyncLLM
     from lab.agent.storage import ConversationStorage
     from lab.profile.context_injector import ContextInjector
@@ -109,6 +110,7 @@ class AgentCore:
         enable_tool: bool = False,
         max_vision_concurrency: int = 4,
         require_detailed: bool = True,
+        hook_manager: HookManager | None = None,
     ) -> None:
         """初始化 AgentCore。
 
@@ -139,6 +141,7 @@ class AgentCore:
         self.enable_tool = enable_tool
         self.max_vision_concurrency = max_vision_concurrency
         self.require_detailed = require_detailed
+        self._hook_manager = hook_manager
         self.chat_supports_vision = False
         self.write_back = True  # 设为 False 时 run_turn 不写回 storage（由外层调用方负责）
 
@@ -176,6 +179,11 @@ class AgentCore:
         history = self.storage.load()
         user_images = user_images or []
         tool_image = None
+
+        if self._hook_manager is not None and self.agent_context is not None:
+            hook_memory = await self._hook_manager.before_turn(user_text, self.agent_context)
+            if hook_memory:
+                memory_context = f"{memory_context}\n\n{hook_memory}" if memory_context else hook_memory
 
         # —— 背景上下文 ContextEntry（brief 由调用方提供；暂无则为 None）——
         mem_entry = self.prompt.make_context_entry(memory_context, brief=None) if memory_context else None

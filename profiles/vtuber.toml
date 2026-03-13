@@ -9,6 +9,3 @@ format = "prompts/formats/emotion_bracket.md"
 
 [plugins]
 enabled = ["web_search_ddg", "web_fetch", "screen_shot", "diary"]
-
-[context]
-memory_search = true

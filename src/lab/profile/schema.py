@@ -9,10 +9,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-class ContextConfig(BaseModel):
-    memory_search: bool = True
-
-
 class ProfileConfig(BaseModel):
     name: str
     description: str = ""
@@ -35,7 +31,6 @@ class Profile(BaseModel):
     profile: ProfileConfig
     prompt: PromptConfig = Field(default_factory=PromptConfig)
     plugins: PluginsConfig = Field(default_factory=PluginsConfig)
-    context: ContextConfig = Field(default_factory=ContextConfig)
 
     @classmethod
     def from_toml(cls, path: Path) -> Profile:

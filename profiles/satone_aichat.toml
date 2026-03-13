@@ -12,6 +12,3 @@ enabled = ["web_search_ddg", "web_fetch", "screen_shot"]
 
 [plugins.web_fetch]
 timeout_s = 15.0
-
-[context]
-memory_search = true

@@ -19,6 +19,7 @@ import hashlib
 import json
 import time
 import uuid
+from functools import partial
 from typing import TYPE_CHECKING, Any, cast
 
 from fastapi import (  # type: ignore[reportMissingImports,reportUnknownVariableType]
@@ -101,6 +102,13 @@ class ChatCompletionResponse(BaseModel):
     usage: UsageInfo = Field(default_factory=UsageInfo)
 
 
+class MemorySearchRequest(BaseModel):
+    query: str
+    user_id: str | None = None
+    agent_id: str | None = None
+    limit: int | None = Field(default=None, ge=1)
+
+
 # ---------------------------------------------------------------------------
 # Server state — populated by the hosting application at startup
 # ---------------------------------------------------------------------------
@@ -164,15 +172,24 @@ async def verify_api_key(request: Request) -> None:
 # ---------------------------------------------------------------------------
 
 
-def search_memories(query: str) -> list[dict[str, Any]]:
+def search_memories(
+    query: str,
+    *,
+    user_id: str | None = None,
+    agent_id: str | None = None,
+    limit: int | None = None,
+) -> list[dict[str, Any]]:
     if state.mem0 is None:
         return []
     try:
+        effective_user_id = user_id or state.user_id
+        effective_agent_id = agent_id or state.agent_id
+        effective_limit = limit if limit is not None else state.search_limit
         results = state.mem0.search(
             query=query,
-            user_id=state.user_id,
-            agent_id=state.agent_id,
-            limit=state.search_limit,
+            user_id=effective_user_id,
+            agent_id=effective_agent_id,
+            limit=effective_limit,
         )
         if isinstance(results, dict):
             results_dict = cast("dict[str, Any]", results)
@@ -495,6 +512,23 @@ async def memory_and_graph_background(user_msg: str, assistant_msg: str) -> None
 # ---------------------------------------------------------------------------
 
 router = APIRouter()  # type: ignore[reportUnknownVariableType]
+
+
+@router.post("/search", response_model=None)  # type: ignore[reportUnknownMemberType,reportUntypedFunctionDecorator]
+async def search_endpoint(request: MemorySearchRequest) -> JSONResponse:  # type: ignore[reportUnknownParameterType]
+    """Search memories via HTTP for hook plugins and other local callers."""
+    loop = asyncio.get_running_loop()
+    results = await loop.run_in_executor(
+        None,
+        partial(
+            search_memories,
+            request.query,
+            user_id=request.user_id,
+            agent_id=request.agent_id,
+            limit=request.limit,
+        ),
+    )
+    return JSONResponse(content={"results": results, "count": len(results)})  # type: ignore[reportUnknownArgumentType]
 
 
 @router.post("/v1/chat/completions", dependencies=[Depends(verify_api_key)])  # type: ignore[reportUnknownMemberType,reportUntypedFunctionDecorator]

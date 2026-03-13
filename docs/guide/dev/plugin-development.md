@@ -203,9 +203,10 @@ from lab.plugin.loader import PluginLoader
 
 async def test():
     loader = PluginLoader(Path('.'))
-    tools, skills = await loader.load_many(['get_time'])
+    tools, skills, hooks = await loader.load_many(['get_time'])
     print('tools:', tools)
     print('skills:', skills)
+    print('hooks:', hooks)
 
 asyncio.run(test())
 "

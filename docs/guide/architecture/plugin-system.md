@@ -54,7 +54,7 @@ src/lab/
 id = "web_fetch"                          # 唯一标识，Profile 里用这个引用
 name = "Web Fetch"                        # 显示名
 description = "抓取网页内容并提取纯文本"    # 一句话描述（skill 类型注入 system prompt）
-type = "tool"                             # 插件类型：tool | skill | mcp
+type = "tool"                             # 插件类型：tool | skill | hook | mcp
 
 [config]                                  # 默认配置（可被 Profile 覆盖）
 timeout_s = 10.0
@@ -137,7 +137,7 @@ loader = PluginLoader(workspace_root)
 plugin = await loader.load("web_fetch", profile_overrides={"timeout_s": 15.0})
 
 # 批量加载（推荐）
-tool_plugins, skill_descriptors = await loader.load_many(
+tool_plugins, skill_descriptors, hook_plugins = await loader.load_many(
     ["web_fetch", "web_search_ddg", "diary_writing"],
     profile_overrides={"web_fetch": {"timeout_s": 15.0}},
 )

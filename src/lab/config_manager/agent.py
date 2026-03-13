@@ -1,31 +1,23 @@
-"""运行 Streamlit 应用前将当前项目的根目录绝对路径写入配置文件
-因为 Streamlit 应用启动后，读取根目录绝对路径会默认变成 `.`, 无法访问 `packages`, 而 packages 存储了各自模块的 ui, 必须访问。
-所以这里将根目录绝对路径写入配置文件 `root.toml` 中。在 Streamlit 启动前运行，然后供它全局使用。
-"""
-
 from __future__ import annotations
 
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
-LLM_Provider = Literal["openai", "lingyi", "gemini", "oaipro", "cerebras", "memory_proxy"]
+LLM_Provider = Literal["openai", "lingyi", "gemini", "oaipro", "cerebras"]
 
 
-# Chat Model
 class ChatModelSetting(BaseModel):
     llm_provider: Annotated[LLM_Provider, Field("oaipro", title="LLM Provider for Chat Model")]
     llm_model_name: Annotated[str, Field("gpt-5.1-2025-11-13", title="Chat Model Name")]
     support_vision: Annotated[bool, Field(False, title="Whether the chat model supports vision input")]
 
 
-# Vision Model
 class VisionModelSetting(BaseModel):
     llm_provider: Annotated[LLM_Provider, Field("oaipro", title="LLM Provider for Vision Model")]
     llm_model_name: Annotated[str, Field("gpt-5.1-2025-11-13", title="Vision Model Name")]
 
 
-# LLM
 class LLMSettingBase(BaseModel):
     llm_api_key: Annotated[str, Field("", title="OpenAI API Key")]
     llm_base_url: Annotated[str, Field("", title="OpenAI API Base URL")]
@@ -41,7 +33,8 @@ class LingyiSetting(LLMSettingBase):
 
 class GeminiSetting(LLMSettingBase):
     llm_base_url: Annotated[
-        str, Field("https://generativelanguage.googleapis.com/v1beta/openai/", title="Gemini API Base URL")
+        str,
+        Field("https://generativelanguage.googleapis.com/v1beta/openai/", title="Gemini API Base URL"),
     ]
 
 
@@ -57,30 +50,16 @@ class CerebrasSetting(LLMSettingBase):
     llm_base_url: Annotated[str, Field("https://api.cerebras.ai/v1", title="Cerebras API Base URL")]
 
 
-class MemoryProxySetting(LLMSettingBase):
-    """memory_bench proxy_router — 透明记忆代理，对 chat_llm 完全透明。
-
-    联调时将 chat_model.llm_provider 切到 "memory_proxy"，
-    llm_base_url 指向本地 memory_bench chat_server 即可。
-    """
-
-    llm_base_url: Annotated[str, Field("http://localhost:12393/v1", title="Memory Proxy Base URL")]
-
-
 class LLMSettings(BaseModel):
     openai: Annotated[OpenAISetting, Field(OpenAISetting())]  # pyright: ignore[reportCallIssue]
     lingyi: Annotated[LingyiSetting, Field(LingyiSetting())]  # pyright: ignore[reportCallIssue]
     gemini: Annotated[GeminiSetting, Field(GeminiSetting())]  # pyright: ignore[reportCallIssue]
     oaipro: Annotated[OAIPROSetting, Field(OAIPROSetting())]  # pyright: ignore[reportCallIssue]
     cerebras: Annotated[CerebrasSetting, Field(CerebrasSetting())]  # pyright: ignore[reportCallIssue]
-    memory_proxy: Annotated[MemoryProxySetting, Field(MemoryProxySetting())]  # pyright: ignore[reportCallIssue]
 
 
 class EmbeddingModelSetting(BaseModel):
-    """全局 Embedding 模型配置。
-
-    供所有需要向量化的模块使用（memory_bench、未来的 RAG 等），统一在此配置，不重复定义。
-    """
+    """Shared embedding model configuration."""
 
     api_key: Annotated[str, Field("", title="Embedding API Key")]
     base_url: Annotated[str, Field("https://api.oaipro.com/v1", title="Embedding Base URL")]
@@ -88,27 +67,27 @@ class EmbeddingModelSetting(BaseModel):
 
 
 class PromptSettings(BaseModel):
-    """Agent 侧提示词配置所在的路径"""
+    """Paths to agent-side prompt files."""
 
     live2d_expression_prompt: Annotated[
         str,
-        Field("./prompts/live2d_expression_prompt.txt", title="Live2D 表情提示词"),
+        Field("./prompts/live2d_expression_prompt.txt", title="Live2D Expression Prompt"),
     ]
     think_tag_prompt: Annotated[
         str,
-        Field("./prompts/think_tag_prompt.txt", title="思考标签提示词"),
+        Field("./prompts/think_tag_prompt.txt", title="Think Tag Prompt"),
     ]
     character_prompt: Annotated[
         str,
-        Field("./prompts/characters/elaina.txt", title="角色系统提示词文件路径"),
+        Field("./prompts/characters/elaina.txt", title="Character Prompt"),
     ]
     vision_prompt: Annotated[
         str,
-        Field("./prompts/vision_prompt.txt", title="视觉提示词"),
+        Field("./prompts/vision_prompt.txt", title="Vision Prompt"),
     ]
     tool_prompt: Annotated[
         str,
-        Field("./prompts/tool_prompt.txt", title="工具提示词"),
+        Field("./prompts/tool_prompt.txt", title="Tool Prompt"),
     ]
 
 
@@ -117,34 +96,22 @@ class AgentSettings(BaseModel):
     vision_model: Annotated[VisionModelSetting, Field(VisionModelSetting())]  # pyright: ignore[reportCallIssue]
     embedding: Annotated[EmbeddingModelSetting, Field(EmbeddingModelSetting())]  # pyright: ignore[reportCallIssue]
     enable_tool: Annotated[bool, Field(True, title="Enable Tool Calling (BuiltinTool)")]
-    # enable_mcp 已重命名为 enable_tool，原字段废弃
-    # character_name 已迁移到 Profile 系统（profiles/*.toml），此字段废弃
     prompts: Annotated[PromptSettings, Field(PromptSettings())]  # pyright: ignore[reportCallIssue]
     llm: Annotated[LLMSettings, Field(LLMSettings())]  # pyright: ignore[reportCallIssue]
-    deeplx_api_key: Annotated[
-        str,
-        Field(
-            "",
-            title="DeepLX API Key, 用于跨语言对话时(user_lang != speaker lang)将大模型回复翻译成 speaker language 然后再合成语音",
-        ),
-    ]
-    user_lang: Annotated[
-        Literal["ZH", "EN", "JA"], Field("ZH", title="User Language, 用户使用的语言，也决定大模型回复的语言")
-    ]
-    speaker_lang: Annotated[
-        Literal["ZH", "EN", "JA"], Field("EN", title="Speaker Language, speaker 合成语音时使用的语言")
-    ]
-    speaker_model: Annotated[Literal["gpt_sovits"], Field("gpt_sovits", title="选择使用什么模型合成语音")]
-    faster_first_response: Annotated[bool, Field(False, title="更快的首句回复")]
+    deeplx_api_key: Annotated[str, Field("", title="DeepLX API Key")]
+    user_lang: Annotated[Literal["ZH", "EN", "JA"], Field("ZH", title="User Language")]
+    speaker_lang: Annotated[Literal["ZH", "EN", "JA"], Field("EN", title="Speaker Language")]
+    speaker_model: Annotated[Literal["gpt_sovits"], Field("gpt_sovits", title="Speaker Model")]
+    faster_first_response: Annotated[bool, Field(False, title="Faster First Response")]
     max_vision_concurrency: Annotated[
         int,
         Field(
             default=4,
-            ge=1,  # ✅ 关键：>=1，不然不会开启任何并发线程。而太高会 API 调用频率过快
-            title="一次最多并发多少个 vision model 进行推理，不应该设置太高但不应该低于 1，默认为 4",
+            ge=1,
+            title="Maximum concurrent vision requests",
         ),
     ]
-    require_detailed: Annotated[bool, Field(True, title="是否逐图分析每张图的细节，而不是一次分析所有图")]
+    require_detailed: Annotated[bool, Field(True, title="Require Detailed Vision Summary")]
     segment_method: Literal["regex", "pysbd"] = Field(
         "pysbd",
         title="Segment Method",
@@ -157,21 +124,15 @@ class AgentSettings(BaseModel):
     )
     memory_agent_profile: Annotated[
         str,
-        Field(
-            "profiles/vtuber.toml",
-            title="MemoryAgent 使用的 Profile 路径（相对于 workspace root），留空则走旧逻辑",
-        ),
+        Field("profiles/vtuber.toml", title="Profile path for MemoryAgent"),
     ]
     memory_chat_profile: Annotated[
         str,
-        Field(
-            "profiles/congyin.toml",
-            title="/memory/chat 端点使用的 Profile 路径（相对于 workspace root），留空则走旧逻辑",
-        ),
+        Field("profiles/congyin.toml", title="Profile path for /memory/chat"),
     ]
 
 
-def main():
+def main() -> None:
     from lab.config_manager.config import (
         XnneHangLabSettings,
         load_settings_file,
@@ -181,14 +142,14 @@ def main():
 
     agent_settings_path = search_for_settings_file("agent.toml")
     if agent_settings_path is not None and agent_settings_path.exists():
-        agent_settings_path.unlink()  # ensure load default
+        agent_settings_path.unlink()
     agent_settings = load_settings_file("agent.toml", AgentSettings)
     lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
     lab_settings.agent = agent_settings
     write_settings_file("lab.toml", lab_settings)
     agent_path = search_for_settings_file("agent.toml")
     if agent_path is not None and agent_path.exists():
-        agent_path.unlink()  # remove agent.toml
+        agent_path.unlink()
 
 
 if __name__ == "__main__":
