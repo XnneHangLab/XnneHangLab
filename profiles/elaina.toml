@@ -8,4 +8,10 @@ persona = "prompts/characters/elaina.md"
 format = "prompts/formats/emotion_bracket.md"
 
 [plugins]
-enabled = ["web_search_ddg", "web_fetch", "screen_shot", "diary"]
+enabled = ["web_search_ddg", "web_fetch", "screen_shot", "diary","memory"]
+
+[plugins.memory]
+user_id = "xnne"
+agent_id = "elaina"
+search_limit = 3
+# base_url 默认 http://localhost:12393，不填即可

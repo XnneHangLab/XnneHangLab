@@ -16,5 +16,5 @@ timeout_s = 15.0
 [plugins.memory]
 user_id = "xnne"
 agent_id = "congyin"
-search_limit = 10
+search_limit = 3
 # base_url 默认 http://localhost:12393，不填即可

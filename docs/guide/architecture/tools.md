@@ -253,7 +253,7 @@ async def on_register(self, ctx: AgentContext) -> bool:
 
 ## 在 Profile 中启用和配置
 
-工具插件是否启用，由 `profiles/*.toml` 决定。比如 `profiles/satone_aichat.toml`：
+工具插件是否启用，由 `profiles/*.toml` 决定。比如 `profiles/congyin.toml`：
 
 ```toml
 [plugins]
