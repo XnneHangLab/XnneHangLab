@@ -76,12 +76,19 @@ class ServiceContext:
         logger.debug(f"Loaded service context with cache: {character_config}")
 
     async def load_from_config(self, config: XnneHangLabSettings) -> None:
-        """
-        Load the ServiceContext with the config.
-        Reinitialize the instances if the config is different.
+        """从配置重新装载上下文，并输出关键初始化阶段的耗时日志。
 
-        Parameters:
-        - config (XnneHangLabSettings): The typed lab settings to load into the context.
+        当上下文内的缓存对象尚未建立时，会先补齐基础配置引用，再依次
+        初始化 Live2D 与 Agent。
+
+        Args:
+            config: 需要加载到当前上下文的完整配置对象。
+
+        Returns:
+            None.
+
+        Raises:
+            ValueError: Live2D 或 Agent 初始化阶段缺少必要前置状态时抛出。
         """
         self.lab_setting = config
 

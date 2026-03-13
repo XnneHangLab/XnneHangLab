@@ -44,6 +44,20 @@ class AvatarStaticFiles(StaticFiles):
 # 应用生命周期管理
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """管理 FastAPI 生命周期内的预加载与启动初始化流程。
+
+    启动阶段会根据 package 开关依次初始化 ASR、TTS、GPT-SoVITS、
+    memory_bench 与 `/memory/chat`，并为每个阶段输出开始和结束耗时日志。
+
+    Args:
+        app: 当前 FastAPI 应用实例。
+
+    Returns:
+        AsyncIterator[None]: 提供给 FastAPI 的生命周期上下文。
+
+    Raises:
+        ValueError: memory_bench 或 `/memory/chat` 缺少必需配置时抛出。
+    """
     if lab_settings.package.funasr:
         from lab.api.logic import load_funasr
 
