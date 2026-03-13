@@ -129,7 +129,7 @@ class AgentFactory:
             format_path=profile.prompt.format,
             skills=skill_descriptors,
             tool_manager=tool_manager,
-            profile_name=profile.profile.name.lower(),
+            agent_name=profile.profile.agent_name.lower(),
         )
 
         core = AgentCore(
