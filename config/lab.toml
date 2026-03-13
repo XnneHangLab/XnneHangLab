@@ -101,7 +101,7 @@ qwen_tts = false
 memory_bench = false
 
 [root]
-root_dir = ""
+root_dir = "D:\\tmp\\XnneHangLab"
 
 [server]
 host = "localhost"
@@ -125,7 +125,5 @@ ignore_asterisks = true
 ignore_angle_brackets = true
 
 [memory_bench]
-user_id = "xnne"
-agent_id = "congyin"
 search_limit = 10
 server_api_key = ""

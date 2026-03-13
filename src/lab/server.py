@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import time
 from contextlib import asynccontextmanager
+from importlib import import_module
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -10,11 +12,11 @@ from loguru import logger
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 
-from lab.api.routes.deeplx import router as deeplx_router
-from lab.api.routes.faster_qwen_tts import router as qwen_tts_router
-from lab.api.routes.vtuber import init_client_ws_route, router as vtuber_router
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.service_context import ServiceContext
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 lab_settings: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSettings)
 
@@ -39,6 +41,22 @@ class AvatarStaticFiles(StaticFiles):
         if not any(path.lower().endswith(ext) for ext in allowed_extensions):
             return Response("Forbidden file type", status_code=403)
         return await super().get_response(path, scope)
+
+
+def _include_router_with_log(name: str, include: Callable[[], None]) -> None:
+    """以统一格式记录路由初始化和注册耗时。
+
+    Args:
+        name: 日志中展示的路由或初始化项名称。
+        include: 实际执行路由注册的无参回调。
+
+    Returns:
+        None.
+    """
+    t = time.perf_counter()
+    logger.info("⏳ 初始化 {}...", name)
+    include()
+    logger.info("✅ {} 初始化完成 ({:.1f}s)", name, time.perf_counter() - t)
 
 
 # 应用生命周期管理
@@ -244,6 +262,14 @@ async def lifespan(app: FastAPI):
 
 class WebSocketServer:
     def __init__(self):
+        """创建并初始化 WebSocket Server 与已启用的路由。
+
+        可选功能对应的路由会根据 `package.*` 开关按需导入，避免在启动早期
+        为未启用能力加载重量级依赖。
+
+        Returns:
+            None.
+        """
         # def __init__(self):
         self.app = FastAPI(lifespan=lifespan)
 
@@ -263,33 +289,55 @@ class WebSocketServer:
         asyncio.run(default_context_cache.load_from_config(default_context_cache.lab_setting))
 
         # Include routes
-        self.app.include_router(
-            init_client_ws_route(default_context_cache=default_context_cache),
+        _include_router_with_log(
+            "/client-ws 端点",
+            lambda: self.app.include_router(
+                import_module("lab.api.routes.vtuber").init_client_ws_route(
+                    default_context_cache=default_context_cache
+                ),
+            ),
         )
-        self.app.include_router(vtuber_router)
-        self.app.include_router(deeplx_router)
+        _include_router_with_log(
+            "VTuber 基础端点",
+            lambda: self.app.include_router(import_module("lab.api.routes.vtuber").router),
+        )
+        _include_router_with_log(
+            "DeepLX 端点",
+            lambda: self.app.include_router(import_module("lab.api.routes.deeplx").router),
+        )
         if lab_settings.package.funasr or lab_settings.package.whisper:
-            from lab.api.routes.asr import router as asr_router
-
-            self.app.include_router(asr_router)
+            _include_router_with_log(
+                "ASR 端点",
+                lambda: self.app.include_router(import_module("lab.api.routes.asr").router),
+            )
         if lab_settings.package.qwen_tts:
-            self.app.include_router(qwen_tts_router)
+            _include_router_with_log(
+                "faster-qwen-tts 端点",
+                lambda: self.app.include_router(import_module("lab.api.routes.faster_qwen_tts").router),
+            )
         if lab_settings.package.gpt_sovits:
-            from lab.api.routes.gpt_sovits import router as gsv_router
-
-            self.app.include_router(gsv_router)
-            from lab.api.routes.gpt_sovits_v2 import router as gsv_v2_router
-
-            self.app.include_router(gsv_v2_router)
+            _include_router_with_log(
+                "GPT-SoVITS 端点",
+                lambda: self.app.include_router(import_module("lab.api.routes.gpt_sovits").router),
+            )
+            _include_router_with_log(
+                "GPT-SoVITS v2 端点",
+                lambda: self.app.include_router(import_module("lab.api.routes.gpt_sovits_v2").router),
+            )
         if lab_settings.package.memory_bench:
-            from memory_bench.server.router import router as memory_router  # type: ignore[reportMissingImports]
-
-            self.app.include_router(memory_router, prefix="/memory")
-
-            from lab.api.routes.chat import chat_router
-
-            self.app.include_router(
-                chat_router, prefix="/memory"
+            _include_router_with_log(
+                "memory_bench 路由",
+                lambda: self.app.include_router(
+                    import_module("memory_bench.server.router").router,
+                    prefix="/memory",
+                ),
+            )
+            _include_router_with_log(
+                "/memory/chat 路由",
+                lambda: self.app.include_router(
+                    import_module("lab.api.routes.chat").chat_router,
+                    prefix="/memory",
+                ),
             )  # /memory/chat  /memory/sessions  /memory/chat/health
         # Mount static files
         logger.info(f"Mounting static files from {ROOT_DIR}")
