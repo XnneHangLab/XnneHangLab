@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from memory_bench.server.chat_server import _build_parser  # noqa: E402
+from memory_bench.server.chat_server import build_parser  # noqa: E402
 from memory_bench.server.startup import resolve_memory_bench_config  # noqa: E402
 
 
@@ -51,7 +51,7 @@ def _set_base_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_chat_server_requires_agent_identity_args() -> None:
-    parser = _build_parser()
+    parser = build_parser()
     with pytest.raises(SystemExit):
         parser.parse_args([])
 

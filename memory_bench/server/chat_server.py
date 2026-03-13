@@ -108,7 +108,7 @@ app.include_router(proxy_router)  # /v1/chat/completions  /v1/models  /health（
 # ---------------------------------------------------------------------------
 
 
-def _build_parser() -> argparse.ArgumentParser:
+def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Memory Chat Server — OpenAI-compatible proxy with mem0")
 
     p.add_argument("--chat-api-key", default=None, help="API key for the chat LLM provider")
@@ -160,7 +160,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _parse_args() -> argparse.Namespace:
-    return _build_parser().parse_args()
+    return build_parser().parse_args()
 
 
 def main() -> None:
