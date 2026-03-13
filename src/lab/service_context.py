@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from typing import TYPE_CHECKING
 
 from loguru import logger
@@ -93,10 +94,16 @@ class ServiceContext:
         # update all sub-configs
 
         # init live2d from character config
+        t0 = time.perf_counter()
+        logger.info("⏳ 初始化 Live2D...")
         self.init_live2d(config.vtuber.character_config.live2d_model_name)
+        logger.info("✅ Live2D 初始化完成 ({:.1f}s)", time.perf_counter() - t0)
 
         # init agent from character config
+        t1 = time.perf_counter()
+        logger.info("⏳ 初始化 Agent（加载 plugins / LLM client）...")
         await self.init_agent(config)
+        logger.info("✅ Agent 初始化完成 ({:.1f}s)", time.perf_counter() - t1)
 
         # self.init_translate(config.vtuber.character_config.tts_preprocessor_config.translator_config) # 到时替换成自己的
         # store typed config references

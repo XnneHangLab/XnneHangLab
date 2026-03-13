@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
+import tomllib
 from pathlib import Path
+from typing import Any, cast
 
 import tomli
 import uvicorn
 from loguru import logger
 
-from lab.config_manager import XnneHangLabSettings, load_settings_file
+from lab.config_manager import LLMSetting, XnneHangLabSettings, load_settings_file
 
 os.environ["HF_HOME"] = str(Path(__file__).parent / "models")
 os.environ["MODELSCOPE_CACHE"] = str(Path(__file__).parent / "models")
@@ -27,12 +30,85 @@ def parse_args(lab_settings: XnneHangLabSettings):
     return parser.parse_args()
 
 
+def validate_config(settings: XnneHangLabSettings) -> None:
+    errors: list[str] = []
+
+    chat_provider = settings.agent.chat_model.llm_provider
+    llm_cfg = cast("LLMSetting | None", getattr(settings.agent.llm, chat_provider, None))
+    if llm_cfg is not None and not llm_cfg.llm_api_key:
+        errors.append(
+            f"  [agent.llm.{chat_provider}]\n"
+            "    llm_api_key 未配置\n"
+            f"    → 在 lab.toml 的 [agent.llm.{chat_provider}] 下设置 llm_api_key"
+        )
+
+    if not settings.agent.embedding.api_key:
+        errors.append(
+            "  [agent.embedding]\n"
+            "    api_key 未配置\n"
+            "    → 在 lab.toml 的 [agent.embedding] 下设置 api_key"
+        )
+
+    ws_root = Path(settings.root.root_dir)
+
+    memory_agent_profile = settings.agent.memory_agent_profile
+    if memory_agent_profile:
+        profile_path = Path(memory_agent_profile)
+        if not profile_path.is_absolute():
+            profile_path = ws_root / memory_agent_profile
+        if not profile_path.exists():
+            errors.append(
+                f"  [agent.memory_agent_profile]\n"
+                f"    文件不存在: {profile_path}\n"
+                "    → 检查路径是否正确"
+            )
+        else:
+            try:
+                with profile_path.open("rb") as f:
+                    profile_data: dict[str, Any] = tomllib.load(f)
+                enabled_plugins: list[str] = []
+                plugins = cast("dict[str, Any] | None", profile_data.get("plugins"))
+                if isinstance(plugins, dict):
+                    raw_enabled_plugins = plugins.get("enabled")
+                    if isinstance(raw_enabled_plugins, list):
+                        for plugin in cast("list[Any]", raw_enabled_plugins):
+                            if isinstance(plugin, str):
+                                enabled_plugins.append(plugin)
+                if "memory" in enabled_plugins and not settings.package.memory_bench:
+                    errors.append(
+                        "  [package]\n"
+                        f"    profile '{memory_agent_profile}' 启用了 memory 插件，但 memory_bench = false\n"
+                        "    → 在 lab.toml 的 [package] 下设置 memory_bench = true"
+                    )
+            except Exception:
+                pass
+
+    memory_chat_profile = settings.agent.memory_chat_profile
+    if memory_chat_profile:
+        chat_profile_path = Path(memory_chat_profile)
+        if not chat_profile_path.is_absolute():
+            chat_profile_path = ws_root / memory_chat_profile
+        if not chat_profile_path.exists():
+            errors.append(
+                f"  [agent.memory_chat_profile]\n"
+                f"    文件不存在: {chat_profile_path}\n"
+                "    → 检查路径是否正确"
+            )
+
+    if errors:
+        logger.error("❌ 配置校验失败，请修复以下问题后重启：\n\n{}", "\n\n".join(errors))
+        sys.exit(1)
+
+    logger.info("✅ 配置校验通过")
+
+
 @logger.catch
 def run(lab_settings: XnneHangLabSettings, args: argparse.Namespace):
     from lab.logger.logger_group import init_logger
     from lab.server import WebSocketServer
 
     init_logger()
+    validate_config(lab_settings)
     logger.info(f"XnneHangLab, version v{get_version()}")
 
     server_config = lab_settings.server

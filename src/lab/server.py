@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -47,19 +48,28 @@ async def lifespan(app: FastAPI):
         from lab.api.logic import load_funasr
 
         logger.info("预加载 FunASR 模型...")
+        t = time.perf_counter()
+        logger.info("⏳ 初始化 ASR（FunASR）后端...")
         load_funasr()
+        logger.info("✅ ASR（FunASR）后端初始化完成 ({:.1f}s)", time.perf_counter() - t)
 
     if lab_settings.package.whisper:
         from lab.api.logic import load_whisper
 
         logger.info("预加载 Whisper 模型...")
+        t = time.perf_counter()
+        logger.info("⏳ 初始化 ASR（Whisper）后端...")
         load_whisper()
+        logger.info("✅ ASR（Whisper）后端初始化完成 ({:.1f}s)", time.perf_counter() - t)
 
     if lab_settings.package.qwen_tts:
         from lab.api.logic.faster_qwen_tts import init_qwen_tts_model
 
         logger.bind(group="tts").info("预加载 faster-qwen-tts 模型...")
+        t = time.perf_counter()
+        logger.bind(group="tts").info("⏳ 初始化 TTS（faster-qwen-tts）后端...")
         init_qwen_tts_model()
+        logger.bind(group="tts").info("✅ TTS（faster-qwen-tts）后端初始化完成 ({:.1f}s)", time.perf_counter() - t)
 
     if lab_settings.package.gpt_sovits:
         # 应用启动时执行
@@ -71,6 +81,8 @@ async def lifespan(app: FastAPI):
         )
 
         logger.info("预加载 GPT-SoVITS 模型...")
+        t = time.perf_counter()
+        logger.info("⏳ 初始化 GPT-SoVITS 后端...")
         synthesizer_name = "gsv_fast"
         synthesizer_module = import_module(f"gsv.Synthesizers.{synthesizer_name}")
         TTS_Synthesizer = synthesizer_module.TTS_Synthesizer
@@ -81,6 +93,7 @@ async def lifespan(app: FastAPI):
         # 生成一句话充当测试，减少第一次请求的等待时间
         gen = tts_synthesizer.generate(tts_synthesizer.params_parser({"text": "筆者はすでにエッセイの序論"}))  # type: ignore[reportUnknownMemberType]
         next(gen)
+        logger.info("✅ GPT-SoVITS 后端初始化完成 ({:.1f}s)", time.perf_counter() - t)
 
     ctx = getattr(app.state, "default_context_cache", None)
     if ctx is not None and lab_settings.agent.enable_tool:
@@ -101,6 +114,8 @@ async def lifespan(app: FastAPI):
     # 配置优先级：lab.toml > memory_bench/.env.benchmark
     if lab_settings.package.memory_bench:
         try:
+            t = time.perf_counter()
+            logger.info("⏳ 初始化 memory_bench 后端...")
             from memory_bench.server.router import (  # type: ignore[reportMissingImports]
                 state as memory_state,
             )
@@ -146,6 +161,12 @@ async def lifespan(app: FastAPI):
             cfg = resolve_memory_bench_config(overrides=overrides)
             init_router_state(memory_state, cfg)
             logger.info(
+                "✅ memory_bench 后端初始化完成 ({:.1f}s, upstream={} / {})",
+                time.perf_counter() - t,
+                cfg["chat_base_url"],
+                cfg["chat_model"],
+            )
+            logger.info(
                 "✅ memory_bench backend initialized (upstream={} / {})",
                 cfg["chat_base_url"],
                 cfg["chat_model"],
@@ -154,6 +175,8 @@ async def lifespan(app: FastAPI):
             # --- Chat endpoint (src/lab) ---
             # AgentCore handles everything: LLM, tools, prompt, storage.
             try:
+                t = time.perf_counter()
+                logger.info("⏳ 初始化 /memory/chat 端点...")
                 from lab.agent.agent_factory import AgentFactory
                 from lab.agent.storage import ConversationStoreAdapter
                 from lab.api.routes.chat import chat_state
@@ -185,6 +208,11 @@ async def lifespan(app: FastAPI):
                     packages=lab_settings.package.to_dict(),
                 )
                 logger.info("✅ Chat endpoint initialized (AgentCore, profile={})", _chat_profile_path_str)
+                logger.info(
+                    "✅ /memory/chat 端点初始化完成 ({:.1f}s, profile={})",
+                    time.perf_counter() - t,
+                    _chat_profile_path_str,
+                )
             except ValueError:
                 raise
             except Exception as chat_exc:
