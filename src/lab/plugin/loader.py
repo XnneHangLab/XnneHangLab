@@ -22,6 +22,8 @@ class SkillDescriptor:
     description: str
     files: list[str]
     priority: int
+    inline: bool
+    requires: list[str]
     plugin_dir: Path
 
 
@@ -84,12 +86,16 @@ class PluginLoader:
             type_config = meta.get("type_config", {})
             files = type_config.get("files", ["skill.md"])
             priority = type_config.get("priority", 50)
+            inline = type_config.get("inline", False)
+            requires = type_config.get("requires", [])
             return SkillDescriptor(
                 id=plugin_id,
                 name=plugin_meta.get("name", plugin_id),
                 description=plugin_meta.get("description", ""),
                 files=files,
                 priority=priority,
+                inline=inline,
+                requires=requires,
                 plugin_dir=plugin_dir,
             )
 

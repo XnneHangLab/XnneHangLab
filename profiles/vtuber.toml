@@ -1,5 +1,5 @@
 [profile]
-name = "vtuber"
+name = "elaina"
 description = "VTuber 主链路 — 多工具，memory agent"
 
 [prompt]
@@ -7,7 +7,7 @@ persona = "prompts/characters/elaina.md"
 format = "prompts/formats/emotion_bracket.md"
 
 [plugins]
-enabled = ["web_search_ddg", "web_fetch", "screen_shot"]
+enabled = ["web_search_ddg", "web_fetch", "screen_shot", "diary"]
 
 [context]
 memory_search = true

@@ -20,6 +20,7 @@ class SystemPromptBuilder:
         format_path: str | None,
         skills: list[SkillDescriptor],
         tool_manager: ToolManager | None,
+        profile_name: str = "",
     ) -> str:
         parts: list[str] = []
 
@@ -33,9 +34,17 @@ class SystemPromptBuilder:
             if format_file.exists():
                 parts.append(format_file.read_text(encoding="utf-8").strip())
 
-        if skills:
+        inline_skills = [skill for skill in skills if skill.inline]
+        for skill in sorted(inline_skills, key=lambda item: item.priority):
+            for file_path in skill.files:
+                content = (skill.plugin_dir / file_path).read_text(encoding="utf-8").strip()
+                content = content.replace("{profile_name}", profile_name)
+                parts.append(content)
+
+        outline_skills = [skill for skill in skills if not skill.inline]
+        if outline_skills:
             lines = ["你有以下技能可按需调用："]
-            for skill in sorted(skills, key=lambda item: item.priority):
+            for skill in sorted(outline_skills, key=lambda item: item.priority):
                 files_str = ", ".join(str(skill.plugin_dir / file_path) for file_path in skill.files)
                 lines.append(f"- {skill.id}: {skill.description} -> {files_str}")
             lines.append("需要时读取对应文件获取详细指引。")

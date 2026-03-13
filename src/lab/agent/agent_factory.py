@@ -106,11 +106,30 @@ class AgentFactory:
             for builtin_tool in tool_plugin.get_tools():
                 tool_manager.register_builtin(builtin_tool)
 
+        registered_tool_names = {
+            name
+            for schema in tool_manager.list_tools_schema()
+            if (name := schema.get("function", {}).get("name"))
+        }
+        for skill in skill_descriptors:
+            missing = [
+                required_tool
+                for required_tool in skill.requires
+                if required_tool not in registered_tool_names
+            ]
+            if missing:
+                raise ValueError(
+                    f"Skill '{skill.id}' requires tools {missing}, "
+                    "but they are not registered. "
+                    "Add the required ToolPlugin to profile.plugins.enabled."
+                )
+
         chat_system_prompt = SystemPromptBuilder(ws_root).build(
             persona_path=profile.prompt.persona,
             format_path=profile.prompt.format,
             skills=skill_descriptors,
             tool_manager=tool_manager,
+            profile_name=profile.profile.name.lower(),
         )
 
         core = AgentCore(
