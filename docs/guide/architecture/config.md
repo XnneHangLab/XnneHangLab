@@ -99,22 +99,16 @@ config_manager/
 
 ## Agent 配置分层
 
-`AgentSettings` 现在已经不是一个平铺的大表，而是拆成了几组明确的子模型：
-
-- `chat_model`：聊天模型选择
-- `vision_model`：视觉模型选择
-- `embedding`：向量模型
-- `prompts`：Agent 侧提示词路径
-- `llm`：不同 provider 的连接配置
+`AgentSettings` 不是一个平铺的大表，而是按职责拆成了几组子模型。拆法的依据很简单：哪些配置属于同一个运行时职责，就归在一起——这样 `AgentFactory` 初始化时可以按模块取，不需要到处散拼字段：
 
 ```python
 class AgentSettings(BaseModel):
-    chat_model: ChatModelSetting
-    vision_model: VisionModelSetting
-    embedding: EmbeddingModelSetting
-    enable_tool: bool = True
-    prompts: PromptSettings
-    llm: LLMSettings
+    chat_model: ChatModelSetting      # 聊天模型选择（provider + model name）
+    vision_model: VisionModelSetting  # 视觉模型选择
+    embedding: EmbeddingModelSetting  # 向量模型（用于 memory 检索）
+    enable_tool: bool = True          # BuiltinTool 总开关
+    prompts: PromptSettings           # Agent 侧提示词路径
+    llm: LLMSettings                  # 各 provider 连接配置（api_key / base_url）
     deeplx_api_key: str = ""
     user_lang: Literal["ZH", "EN", "JA"] = "ZH"
     speaker_lang: Literal["ZH", "EN", "JA"] = "EN"
@@ -127,8 +121,6 @@ class AgentSettings(BaseModel):
     memory_agent_profile: str = "profiles/vtuber.toml"
     memory_chat_profile: str = "profiles/congyin.toml"
 ```
-
-这种拆法的好处是：配置结构和运行时职责是一一对应的，后面接 Profile、Plugin、ToolManager 也更自然。
 
 ---
 

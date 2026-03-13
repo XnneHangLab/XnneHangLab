@@ -213,7 +213,7 @@ timeout_s = 10.0
 
 通过自建 SearXNG 实例搜索网页，适合你已经有自己的搜索网关时使用。
 
-最关键的配置只有一个：`searxng_url`。如果为空，插件会自动跳过注册，不会报硬错误。
+最关键的配置只有一个：`searxng_url`。如果为空，插件会在注册阶段主动跳过，不会报硬错误——这样你可以安全地把它放进 `enabled` 列表，部署了就有，没部署也不会炸。
 
 ```python
 async def on_register(self, ctx: AgentContext) -> bool:
@@ -236,7 +236,7 @@ timeout_s = 10.0
 
 截取当前桌面并返回 `base64` 编码 JPEG。
 
-这个插件没有额外配置，但会在注册时检查运行环境；没有显示器、`ImageGrab` 不可用时，会自动跳过注册。
+这个插件没有额外配置，但不是每个环境都能跑。注册时它会先试着 import `PIL.ImageGrab`，没有显示器或者 PIL 没装，就直接跳过——跟 `web_search_searxng` 一样，不报错，静默退出：
 
 ```python
 async def on_register(self, ctx: AgentContext) -> bool:
@@ -246,6 +246,8 @@ async def on_register(self, ctx: AgentContext) -> bool:
         return False
     return True
 ```
+
+在服务器、容器、无头环境里可以放心把它加进 `enabled`，不会有负担。
 
 ---
 

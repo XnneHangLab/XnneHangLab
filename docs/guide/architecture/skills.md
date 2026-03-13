@@ -1,6 +1,6 @@
 # Skill 系统
 
-Skill 的职责不是“执行动作”，而是“告诉 Agent 该怎么做”。
+Skill 的职责不是"执行动作"，而是"告诉 Agent 该怎么做"。
 
 如果说 tool 是手，那 skill 更像操作手册。它会被注入到 system prompt，影响模型在特定任务里的工作方式。
 
@@ -28,7 +28,7 @@ class SkillDescriptor:
     plugin_dir: Path
 ```
 
-这样设计的动机很直接：把“流程知识”和“动作能力”分开。工具负责做事，技能负责告诉模型什么时候做、怎么做更稳。
+这样设计的动机很直接：把"流程知识"和"动作能力"分开。工具负责做事，技能负责告诉模型什么时候做、怎么做更稳。
 
 ---
 
@@ -53,7 +53,7 @@ for skill in sorted(inline_skills, key=lambda item: item.priority):
 
 ### `inline = false`
 
-不直接展开正文，只注入“你有这些技能可以按需读取”的目录说明。
+不直接展开正文，只注入"你有这些技能可以按需读取"的目录说明。
 
 ```python
 outline_skills = [skill for skill in skills if not skill.inline]
@@ -140,10 +140,6 @@ requires = ["read_file"]
 如果需要写入，优先保留已有内容，不要盲目覆盖。
 ```
 
-几个实践建议：
+几点经验：规则短而硬的用 `inline = true`，模型一开始就会记住；文档长、步骤多的用 `inline = false`，按需读取更省 token。`requires` 只填真正依赖的工具——它是启动时的校验，不是装饰字段，乱填会让 skill 在缺工具的 Profile 里报错。
 
-- 规则短而硬的，适合 `inline = true`
-- 文档长、步骤多的，适合 `inline = false`
-- `requires` 只写真正依赖的工具，不要为了“看起来完整”乱填
-
-Skill 写得好的关键不在于字多，而在于边界清楚。模型最怕的不是规则少，而是规则又长又互相打架。
+最后一点：skill 写得好，不在于字多，而在于边界清楚。规则太长、前后打架，模型反而不知道该听哪条。
