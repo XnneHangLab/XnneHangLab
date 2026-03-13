@@ -355,7 +355,9 @@ def _add_memory_sync(
         return []
     log = logger.bind(group="server")
     effective_user_id = user_id or state.user_id
-    effective_agent_id = agent_id or state.agent_id or state.metadata_character_id
+    effective_agent_id = agent_id or state.agent_id
+    assert effective_user_id, "user_id is required"
+    assert effective_agent_id, "agent_id is required"
     try:
         result = state.mem0.add(
             messages=[
@@ -413,7 +415,9 @@ def _graph_pipeline_sync(
 
     log = logger.bind(group="graph")
     effective_user_id = user_id or state.user_id
-    effective_agent_id = agent_id or state.agent_id or state.metadata_character_id
+    effective_agent_id = agent_id or state.agent_id
+    assert effective_user_id, "user_id is required"
+    assert effective_agent_id, "agent_id is required"
 
     # Lazy imports to avoid circular deps and keep startup fast
     from memory_bench.server.claim_extractor import extract_claims
