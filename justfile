@@ -185,6 +185,12 @@ install-qwen-tts:
   uv sync
   uv run modelscope download --model Qwen/Qwen3-TTS-12Hz-1.7B-Base --local_dir ./models/Qwen3-TTS-12Hz-1.7B-Base
 
+install-sherpa-model:
+  mkdir -p ./models
+  curl -L https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-paraformer-bilingual-zh-en.tar.bz2 -o ./models/sherpa-onnx-streaming-paraformer-bilingual-zh-en.tar.bz2
+  tar xf ./models/sherpa-onnx-streaming-paraformer-bilingual-zh-en.tar.bz2 -C ./models/
+  curl -L https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx -o ./models/silero_vad.onnx
+
 # Code Quality Check
 
 fmt: # 似乎不会检查被 .gitignore 忽略的文件
