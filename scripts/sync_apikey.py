@@ -31,7 +31,6 @@ EnvKeyNames = Literal[
     "EMBEDDING_API_KEY",
     "EMBEDDING_BASE_URL",
     "EMBEDDING_MODEL",
-    "MEMORY_BENCH_UPSTREAM_LLM_PROVIDER",
     "MEMORY_BENCH_SERVER_API_KEY",
     # Package switches
     "PKG_MEMORY_BENCH",
@@ -122,11 +121,6 @@ def main():
         settings.agent.embedding.model = v
 
     # Memory bench
-    if v := os.environ.get("MEMORY_BENCH_UPSTREAM_LLM_PROVIDER"):
-        if is_llm_provider(v):
-            settings.memory_bench.upstream_llm_provider = v  # type: ignore[assignment]
-        else:
-            logger.warning("Invalid MEMORY_BENCH_UPSTREAM_LLM_PROVIDER=%r, skipped", v)
     if v := os.environ.get("MEMORY_BENCH_SERVER_API_KEY"):
         settings.memory_bench.server_api_key = v
 
@@ -179,7 +173,6 @@ def main():
     logger.info("agent.embedding.base_url: {}", settings.agent.embedding.base_url)
     logger.info("agent.embedding.model: {}", settings.agent.embedding.model)
 
-    logger.info("memory_bench.upstream_llm_provider: {}", settings.memory_bench.upstream_llm_provider)
     logger.info("memory_bench.server_api_key: {}", mask_api_key(settings.memory_bench.server_api_key))
 
     logger.info("package.memory_bench: {}", settings.package.memory_bench)

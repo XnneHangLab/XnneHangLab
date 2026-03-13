@@ -95,9 +95,7 @@ class PluginLoader:
             return plugin
 
         if plugin_type == "hook":
-            from lab.plugin.hook import HookPlugin
-
-            hook: HookPlugin = self._instantiate_plugin(
+            hook = self._instantiate_plugin(
                 plugin_id=plugin_id,
                 plugin_dir=plugin_dir,
                 meta=meta,

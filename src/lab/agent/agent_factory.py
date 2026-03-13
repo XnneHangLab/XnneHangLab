@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from lab.agent.agents.agent_interface import AgentInterface
     from lab.agent.storage import ConversationStorage
     from lab.config_manager import XnneHangLabSettings
+    from lab.config_manager.package import Packages
     from lab.config_manager.vtuber import TTSPreprocessorConfig
     from lab.live2d_model import Live2dModel
 
@@ -49,7 +50,7 @@ class AgentFactory:
         storage: ConversationStorage,
         vision_system_prompt: str = "",
         workspace_root: Path | None = None,
-        packages: dict[str, bool] | None = None,
+        packages: Packages | None = None,
     ) -> AgentCore:
         chat_model = lab_setting.agent.chat_model
         vision_model = lab_setting.agent.vision_model
@@ -79,16 +80,10 @@ class AgentFactory:
                 tool_manager.register_builtin(builtin_tool)
 
         registered_tool_names = {
-            name
-            for schema in tool_manager.list_tools_schema()
-            if (name := schema.get("function", {}).get("name"))
+            name for schema in tool_manager.list_tools_schema() if (name := schema.get("function", {}).get("name"))
         }
         for skill in skill_descriptors:
-            missing = [
-                required_tool
-                for required_tool in skill.requires
-                if required_tool not in registered_tool_names
-            ]
+            missing = [required_tool for required_tool in skill.requires if required_tool not in registered_tool_names]
             if missing:
                 raise ValueError(
                     f"Skill '{skill.id}' requires tools {missing}, "

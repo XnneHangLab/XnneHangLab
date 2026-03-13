@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypedDict, cast
 
 import httpx
 
@@ -8,6 +8,10 @@ from lab.plugin.hook import HookPlugin
 
 if TYPE_CHECKING:
     from lab.tools.types import AgentContext
+
+
+class _MemorySearchItem(TypedDict, total=False):
+    memory: str
 
 
 class MemoryPlugin(HookPlugin):
@@ -38,15 +42,15 @@ class MemoryPlugin(HookPlugin):
                     },
                 )
                 resp.raise_for_status()
-                payload = resp.json()
-                memories = payload.get("results", []) if isinstance(payload, dict) else []
-                if not isinstance(memories, list) or not memories:
+                payload = cast("dict[str, Any]", resp.json())
+                raw_results = cast("list[Any]", payload.get("results", []))
+                if not raw_results:
                     return None
-                lines = [
-                    memory.get("memory", "")
-                    for memory in memories
-                    if isinstance(memory, dict) and memory.get("memory")
-                ]
+                memories: list[_MemorySearchItem] = []
+                for item in raw_results:
+                    if isinstance(item, dict):
+                        memories.append(cast("_MemorySearchItem", item))
+                lines = [memory.get("memory", "") for memory in memories if memory.get("memory")]
                 return "\n".join(lines) if lines else None
         except Exception:
             return None
