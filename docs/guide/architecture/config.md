@@ -118,7 +118,7 @@ class AgentSettings(BaseModel):
     require_detailed: bool = True
     segment_method: Literal["regex", "pysbd"] = "pysbd"
     interrupt_method: Literal["system", "user"] = "user"
-    memory_agent_profile: str = "profiles/vtuber.toml"
+    memory_agent_profile: str = "profiles/elaina.toml"
     memory_chat_profile: str = "profiles/congyin.toml"
 ```
 

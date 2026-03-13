@@ -124,7 +124,7 @@ class AgentSettings(BaseModel):
     )
     memory_agent_profile: Annotated[
         str,
-        Field("profiles/vtuber.toml", title="Profile path for MemoryAgent"),
+        Field("profiles/elaina.toml", title="Profile path for MemoryAgent"),
     ]
     memory_chat_profile: Annotated[
         str,
