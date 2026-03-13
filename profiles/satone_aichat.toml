@@ -15,4 +15,3 @@ timeout_s = 15.0
 
 [context]
 memory_search = true
-diary_summary = false

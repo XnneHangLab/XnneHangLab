@@ -18,7 +18,6 @@ class PromptBuilder:
         *,
         user_text: str,
         memory_context: ContextEntry | None = None,
-        diary_context: ContextEntry | None = None,
         vision_tool_summary: ContextEntry | None = None,
         vision_upload_summary: ContextEntry | None = None,
     ) -> UserPromptBlock:
@@ -27,7 +26,6 @@ class PromptBuilder:
         Args:
             user_text: 原始用户输入文本。
             memory_context: 记忆检索上下文。
-            diary_context: 日记摘要上下文。
             vision_tool_summary: 工具截图的视觉摘要。
             vision_upload_summary: 用户上传图片的视觉摘要。
 
@@ -37,7 +35,6 @@ class PromptBuilder:
         block = UserPromptBlock(
             user_text=user_text,
             memory_context=memory_context,
-            diary_context=diary_context,
             vision_tool_summary=vision_tool_summary,
             vision_upload_summary=vision_upload_summary,
         )

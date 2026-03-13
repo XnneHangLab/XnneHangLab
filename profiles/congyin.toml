@@ -8,8 +8,7 @@ persona = "prompts/characters/satone.md"
 format = "prompts/formats/emotion_pipe.md"
 
 [plugins]
-enabled = ["web_fetch"]
+enabled = ["web_fetch", "diary"]
 
 [context]
 memory_search = true
-diary_summary = false

@@ -162,7 +162,6 @@ class AgentCore:
         user_text: str,
         user_images: list[ImagePayload] | None = None,
         memory_context: str | None = None,
-        diary_context: str | None = None,
     ) -> AsyncIterator[str]:
         """运行一轮完整的 Agent 对话流程。
 
@@ -170,7 +169,6 @@ class AgentCore:
             user_text: 用户输入文本。
             user_images: 用户上传图片列表。
             memory_context: 外部检索到的记忆上下文，由调用方负责检索后传入。
-            diary_context: 外部读取的日记上下文，由调用方负责读取后传入。
 
         Returns:
             流式输出的回复 token。
@@ -181,7 +179,6 @@ class AgentCore:
 
         # —— 背景上下文 ContextEntry（brief 由调用方提供；暂无则为 None）——
         mem_entry = self.prompt.make_context_entry(memory_context, brief=None) if memory_context else None
-        diary_entry = self.prompt.make_context_entry(diary_context, brief=None) if diary_context else None
 
         # —— Vision summary ContextEntry ——
         vision_tool_entry: ContextEntry | None = None
@@ -237,7 +234,6 @@ class AgentCore:
         user_block = self.prompt.build(
             user_text=user_text,
             memory_context=mem_entry,
-            diary_context=diary_entry,
             vision_tool_summary=vision_tool_entry,
             vision_upload_summary=vision_upload_entry,
         )
