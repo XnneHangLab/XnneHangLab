@@ -29,6 +29,15 @@ if not ROOT_DIR.exists():
 
 class CustomStaticFiles(StaticFiles):
     async def get_response(self, path, scope):  # type: ignore[override]
+        """为 JavaScript 静态资源补充显式内容类型。
+
+        Args:
+            path: 请求的静态文件相对路径。
+            scope: Starlette 传入的请求作用域。
+
+        Returns:
+            Response: 处理后的静态文件响应对象。
+        """
         response = await super().get_response(path, scope)
         if path.endswith(".js"):
             response.headers["Content-Type"] = "application/javascript"
@@ -37,6 +46,15 @@ class CustomStaticFiles(StaticFiles):
 
 class AvatarStaticFiles(StaticFiles):
     async def get_response(self, path: str, scope):  # type: ignore[override]
+        """限制头像目录只允许访问图片资源。
+
+        Args:
+            path: 请求的静态文件相对路径。
+            scope: Starlette 传入的请求作用域。
+
+        Returns:
+            Response: 合法图片请求返回文件响应，否则返回 403。
+        """
         allowed_extensions = (".jpg", ".jpeg", ".png", ".gif", ".svg")
         if not any(path.lower().endswith(ext) for ext in allowed_extensions):
             return Response("Forbidden file type", status_code=403)
@@ -59,7 +77,6 @@ def _include_router_with_log(name: str, include: Callable[[], None]) -> None:
     logger.info("✅ {} 初始化完成 ({:.1f}s)", name, time.perf_counter() - t)
 
 
-# 应用生命周期管理
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """管理 FastAPI 生命周期内的预加载与启动初始化流程。
@@ -77,18 +94,16 @@ async def lifespan(app: FastAPI):
         ValueError: memory_bench 或 `/memory/chat` 缺少必需配置时抛出。
     """
     if lab_settings.package.funasr:
-        from lab.api.logic import load_funasr
+        from lab.api.logic.funasr import load_funasr
 
-        logger.info("预加载 FunASR 模型...")
         t = time.perf_counter()
         logger.info("⏳ 初始化 ASR（FunASR）后端...")
         load_funasr()
         logger.info("✅ ASR（FunASR）后端初始化完成 ({:.1f}s)", time.perf_counter() - t)
 
     if lab_settings.package.whisper:
-        from lab.api.logic import load_whisper
+        from lab.api.logic.whisper import load_whisper
 
-        logger.info("预加载 Whisper 模型...")
         t = time.perf_counter()
         logger.info("⏳ 初始化 ASR（Whisper）后端...")
         load_whisper()
@@ -97,53 +112,37 @@ async def lifespan(app: FastAPI):
     if lab_settings.package.qwen_tts:
         from lab.api.logic.faster_qwen_tts import init_qwen_tts_model
 
-        logger.bind(group="tts").info("预加载 faster-qwen-tts 模型...")
         t = time.perf_counter()
         logger.bind(group="tts").info("⏳ 初始化 TTS（faster-qwen-tts）后端...")
         init_qwen_tts_model()
         logger.bind(group="tts").info("✅ TTS（faster-qwen-tts）后端初始化完成 ({:.1f}s)", time.perf_counter() - t)
 
     if lab_settings.package.gpt_sovits:
-        # 应用启动时执行
-        # 动态导入合成器模块, 此处可写成 from gsv.Synthesizers.xxx import TTS_Synthesizer, TTS_Task
-        from importlib import import_module
-
         from gsv.gsv_state_manager import (
             gsv_tts_state_manager,  # type: ignore[reportMissingImports,reportUnknownVariableType]
         )
 
-        logger.info("预加载 GPT-SoVITS 模型...")
         t = time.perf_counter()
         logger.info("⏳ 初始化 GPT-SoVITS 后端...")
-        synthesizer_name = "gsv_fast"
-        synthesizer_module = import_module(f"gsv.Synthesizers.{synthesizer_name}")
-        TTS_Synthesizer = synthesizer_module.TTS_Synthesizer
-        # TTS_Task = synthesizer_module.TTS_Task
-        # 初始化合成器的类
-        tts_synthesizer = TTS_Synthesizer(debug_mode=True)
+        synthesizer_module = import_module("gsv.Synthesizers.gsv_fast")
+        tts_synthesizer = synthesizer_module.TTS_Synthesizer(debug_mode=True)
         gsv_tts_state_manager.set_state(tts_synthesizer)  # type: ignore[reportUnknownMemberType]
-        # 生成一句话充当测试，减少第一次请求的等待时间
         gen = tts_synthesizer.generate(tts_synthesizer.params_parser({"text": "筆者はすでにエッセイの序論"}))  # type: ignore[reportUnknownMemberType]
         next(gen)
         logger.info("✅ GPT-SoVITS 后端初始化完成 ({:.1f}s)", time.perf_counter() - t)
 
     ctx = getattr(app.state, "default_context_cache", None)
     if ctx is not None and lab_settings.agent.enable_tool:
-        # 尝试连接 MCP 服务器
         try:
             logger.info("Application startup: connecting to MCP servers...")
             await ctx.agent_engine.connect_mcp_servers()
             logger.info("MCP servers connected.")
         except Exception:
             logger.warning("Failed to connect to MCP servers on startup.")
-            logger.warning("你可能没开启 MCP Server，先运行 `just mcp-server` 启动 MCP Server。")
-            logger.warning(
-                "如果你不需要使用工具调用功能，可以忽略此警告。或者将 lab.toml 里的 enable_tool 设置为 false。"
-            )
-            logger.warning("继续启动应用，但本次运行工具调用功能将被禁用。")
+            logger.warning("You may not have started the MCP server yet. Run `just mcp-server` first.")
+            logger.warning("If you do not need tool calling, you can ignore this warning or disable `enable_tool`.")
+            logger.warning("Application startup will continue, but tool calling is disabled for this run.")
 
-    # Memory bench backend initialisation
-    # 配置优先级：lab.toml > memory_bench/.env.benchmark
     if lab_settings.package.memory_bench:
         try:
             t = time.perf_counter()
@@ -162,7 +161,6 @@ async def lifespan(app: FastAPI):
             embedding_cfg = lab_settings.agent.embedding
             chat_llm = getattr(lab_settings.agent.llm, chat_model_cfg.llm_provider)
 
-            # 必填校验：缺配置直接报错，不静默失败
             missing: list[str] = []
             if not chat_llm.llm_api_key:
                 missing.append(f"agent.llm.{chat_model_cfg.llm_provider}.llm_api_key")
@@ -172,19 +170,15 @@ async def lifespan(app: FastAPI):
                 raise ValueError(f"memory_bench startup is missing required config: {', '.join(missing)}")
 
             overrides: dict[str, object] = {
-                # proxy 上游转发目标
                 "chat_api_key": chat_llm.llm_api_key,
                 "chat_base_url": chat_llm.llm_base_url,
                 "chat_model": chat_model_cfg.llm_model_name,
-                # mem0 事实提取 LLM：直接复用 chat_model（无 fallback 链）
                 "llm_api_key": chat_llm.llm_api_key,
                 "llm_base_url": chat_llm.llm_base_url,
                 "llm_model": chat_model_cfg.llm_model_name,
-                # embedding：来自 agent.embedding
                 "embedding_api_key": embedding_cfg.api_key,
                 "embedding_base_url": embedding_cfg.base_url,
                 "embedding_model": embedding_cfg.model,
-                # 检索参数
                 "search_limit": memory_bench_cfg.search_limit,
                 "server_api_key": memory_bench_cfg.server_api_key or None,
             }
@@ -198,14 +192,7 @@ async def lifespan(app: FastAPI):
                 cfg["chat_base_url"],
                 cfg["chat_model"],
             )
-            logger.info(
-                "✅ memory_bench backend initialized (upstream={} / {})",
-                cfg["chat_base_url"],
-                cfg["chat_model"],
-            )
 
-            # --- Chat endpoint (src/lab) ---
-            # AgentCore handles everything: LLM, tools, prompt, storage.
             try:
                 t = time.perf_counter()
                 logger.info("⏳ 初始化 /memory/chat 端点...")
@@ -219,41 +206,40 @@ async def lifespan(app: FastAPI):
                 chat_state.workspace_root = str(ws_root)
                 chat_state.conversations_dir = str(ws_root / "data" / "conversations")
 
-                _chat_profile_path_str = lab_settings.agent.memory_chat_profile
-                if not _chat_profile_path_str:
+                chat_profile_path_str = lab_settings.agent.memory_chat_profile
+                if not chat_profile_path_str:
                     raise ValueError(
-                        "lab_settings.agent.memory_chat_profile 未配置，"
-                        '请在 lab.toml 的 [agent] 下设置 memory_chat_profile = "profiles/xxx.toml"'
+                        'lab_settings.agent.memory_chat_profile is not configured; set it under [agent], for example "profiles/xxx.toml"'
                     )
-                _chat_profile_path = Path(_chat_profile_path_str)
-                if not _chat_profile_path.is_absolute():
-                    _chat_profile_path = ws_root / _chat_profile_path_str
-                if not _chat_profile_path.exists():
-                    raise FileNotFoundError(f"memory_chat_profile not found: {_chat_profile_path}")
+
+                chat_profile_path = Path(chat_profile_path_str)
+                if not chat_profile_path.is_absolute():
+                    chat_profile_path = ws_root / chat_profile_path_str
+                if not chat_profile_path.exists():
+                    raise FileNotFoundError(f"memory_chat_profile not found: {chat_profile_path}")
 
                 chat_store = ConversationStore(base_dir=chat_state.conversations_dir)
                 chat_state.agent_core = await AgentFactory.create_core_with_profile(
                     lab_setting=lab_settings,
-                    profile_path=_chat_profile_path,
+                    profile_path=chat_profile_path,
                     storage=ConversationStoreAdapter(chat_store),
                     workspace_root=ws_root,
                     packages=lab_settings.package.to_dict(),
                 )
-                logger.info("✅ Chat endpoint initialized (AgentCore, profile={})", _chat_profile_path_str)
                 logger.info(
                     "✅ /memory/chat 端点初始化完成 ({:.1f}s, profile={})",
                     time.perf_counter() - t,
-                    _chat_profile_path_str,
+                    chat_profile_path_str,
                 )
             except ValueError:
                 raise
             except Exception as chat_exc:
-                logger.warning("⚠️ Chat endpoint init failed: %s", chat_exc)
+                logger.warning("Chat endpoint init failed: {}", chat_exc)
 
         except ValueError:
             raise
         except Exception as exc:
-            logger.warning("⚠️ memory_bench backend init failed: %s — backend routes will be unavailable", exc)
+            logger.warning("memory_bench backend init failed: {} ; backend routes will be unavailable", exc)
 
     yield
 
@@ -270,10 +256,8 @@ class WebSocketServer:
         Returns:
             None.
         """
-        # def __init__(self):
         self.app = FastAPI(lifespan=lifespan)
 
-        # Add CORS
         self.app.add_middleware(
             CORSMiddleware,
             allow_origins=["*"],
@@ -282,13 +266,11 @@ class WebSocketServer:
             allow_headers=["*"],
         )
 
-        # Load configurations and initialize the default context cache
         import asyncio
 
         default_context_cache = ServiceContext()
         asyncio.run(default_context_cache.load_from_config(default_context_cache.lab_setting))
 
-        # Include routes
         _include_router_with_log(
             "/client-ws 端点",
             lambda: self.app.include_router(
@@ -307,8 +289,18 @@ class WebSocketServer:
         )
         if lab_settings.package.funasr or lab_settings.package.whisper:
             _include_router_with_log(
-                "ASR 端点",
-                lambda: self.app.include_router(import_module("lab.api.routes.asr").router),
+                "ASR reload 端点",
+                lambda: self.app.include_router(import_module("lab.api.routes.asr_reload").router),
+            )
+        if lab_settings.package.funasr:
+            _include_router_with_log(
+                "FunASR 端点",
+                lambda: self.app.include_router(import_module("lab.api.routes.asr_funasr").router),
+            )
+        if lab_settings.package.whisper:
+            _include_router_with_log(
+                "Whisper 端点",
+                lambda: self.app.include_router(import_module("lab.api.routes.asr_whisper").router),
             )
         if lab_settings.package.qwen_tts:
             _include_router_with_log(
@@ -338,8 +330,8 @@ class WebSocketServer:
                     import_module("lab.api.routes.chat").chat_router,
                     prefix="/memory",
                 ),
-            )  # /memory/chat  /memory/sessions  /memory/chat/health
-        # Mount static files
+            )
+
         logger.info(f"Mounting static files from {ROOT_DIR}")
         self.app.mount(
             "/live2d-models",
@@ -356,7 +348,6 @@ class WebSocketServer:
             AvatarStaticFiles(directory=str(ROOT_DIR / "avatars")),
             name="avatars",
         )
-        # Mount web tool directory separately from frontend
         self.app.mount(
             "/web-tool",
             CustomStaticFiles(directory=str(ROOT_DIR / "web_tool"), html=True),
@@ -366,4 +357,9 @@ class WebSocketServer:
         self.app.state.default_context_cache = default_context_cache
 
     def run(self):
+        """预留的运行入口。
+
+        Returns:
+            None.
+        """
         pass
