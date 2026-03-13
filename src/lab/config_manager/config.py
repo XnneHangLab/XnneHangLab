@@ -22,7 +22,6 @@ from lab.config_manager.asr import (
     WhisperSettingsTitle,
 )
 from lab.config_manager.audio_recognize import AudioRecognizeSettings, AudioRecognizeSettingsTitle
-from lab.config_manager.mcp import MCPSettings
 from lab.config_manager.memory_bench import MemoryBenchSettings
 from lab.config_manager.package import PackagesSettings
 from lab.config_manager.server import ServerSettings
@@ -84,10 +83,6 @@ def load_settings_file(setting_name: str, setting: type[XnneHangLabSettings]) ->
 
 
 @overload
-def load_settings_file(setting_name: str, setting: type[MCPSettings]) -> MCPSettings: ...
-
-
-@overload
 def load_settings_file(setting_name: str, setting: type[ASRSettings]) -> ASRSettings: ...
 
 
@@ -96,11 +91,10 @@ def load_settings_file(setting_name: str, setting: type[ServerSettings]) -> Serv
 
 
 class XnneHangLabSettings(BaseModel):
-    conf_version: Annotated[str, Field("v1.5.0", title="配置版本")]
+    conf_version: Annotated[str, Field("v1.5.1", title="配置版本")]
     asr: Annotated[ASRSettings, Field(ASRSettings())]  # pyright: ignore[reportCallIssue]
     webui: Annotated[AudioRecognizeSettings, Field(AudioRecognizeSettings())]  # pyright: ignore[reportCallIssue]
     agent: Annotated[AgentSettings, Field(AgentSettings())]  # pyright: ignore[reportCallIssue]
-    mcp: Annotated[MCPSettings, Field(MCPSettings())]  # pyright: ignore[reportCallIssue]
     package: Annotated[PackagesSettings, Field(PackagesSettings())]  # pyright: ignore[reportCallIssue]
     root: Annotated[RootAbsDir, Field(RootAbsDir())]  # pyright: ignore[reportCallIssue]
     server: Annotated[ServerSettings, Field(ServerSettings())]  # pyright: ignore[reportCallIssue]
@@ -119,7 +113,6 @@ def load_settings_file(
             | AgentSettings
             | PackagesSettings
             | XnneHangLabSettings
-            | MCPSettings
             | ASRSettings
             | ServerSettings
             | VtuberSettings
@@ -133,7 +126,6 @@ def load_settings_file(
     | AgentSettings
     | PackagesSettings
     | XnneHangLabSettings
-    | MCPSettings
     | ASRSettings
     | ServerSettings
     | VtuberSettings
@@ -163,7 +155,6 @@ def write_settings_file(
     | AgentSettings
     | PackagesSettings
     | XnneHangLabSettings
-    | MCPSettings
     | ASRSettings
     | ServerSettings
     | VtuberSettings,
