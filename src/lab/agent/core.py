@@ -372,3 +372,5 @@ class AgentCore:
         # —— 写回存储 ——
         if self.write_back:
             self.storage.append_turn(user_block, complete_response)
+        if self._hook_manager is not None and self.agent_context is not None:
+            await self._hook_manager.after_turn(user_text, complete_response, self.agent_context)

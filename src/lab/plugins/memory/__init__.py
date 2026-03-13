@@ -54,3 +54,20 @@ class MemoryPlugin(HookPlugin):
                 return "\n".join(lines) if lines else None
         except Exception:
             return None
+
+    async def on_after_turn(self, user_text: str, assistant_text: str, ctx: AgentContext) -> None:
+        del ctx
+        try:
+            async with httpx.AsyncClient(timeout=10.0, trust_env=False) as client:
+                resp = await client.post(
+                    f"{self._base_url}/memory/add",
+                    json={
+                        "user_text": user_text,
+                        "assistant_text": assistant_text,
+                        "user_id": self._user_id,
+                        "agent_id": self._agent_id,
+                    },
+                )
+                resp.raise_for_status()
+        except Exception:
+            pass

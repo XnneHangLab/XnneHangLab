@@ -1,4 +1,4 @@
-"""Memory Chat Router — OpenAI-compatible endpoints with mem0 memory augmentation.
+"""Memory backend router for mem0 search/write-back and graph pipeline.
 
 This module contains only the FastAPI router and its dependencies (models, memory
 logic, state).  It is intentionally decoupled from server startup / CLI so that
@@ -17,8 +17,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-import time
-import uuid
 from functools import partial
 from typing import TYPE_CHECKING, Any, cast
 
@@ -49,55 +47,9 @@ if TYPE_CHECKING:
 
 _DEFAULT_SEARCH_LIMIT = 10
 
-_MEMORY_INJECTION_TEMPLATE = """## Recalled Memories
-The following memories were recalled from previous conversations and may be relevant:
-
-{memories}
-
----
-Use these memories naturally in your response when relevant. Do not mention that you "recalled" or "retrieved" them."""
-
-
 # ---------------------------------------------------------------------------
-# Pydantic models (OpenAI-compatible request / response)
+# Pydantic models
 # ---------------------------------------------------------------------------
-
-
-class ChatMessage(BaseModel):
-    role: str
-    content: str
-    name: str | None = None
-
-
-class ChatCompletionRequest(BaseModel):
-    model: str = ""
-    messages: list[ChatMessage]
-    temperature: float | None = None
-    max_tokens: int | None = None
-    top_p: float | None = None
-    stream: bool = False
-    model_config = {"extra": "allow"}
-
-
-class ChatCompletionChoice(BaseModel):
-    index: int = 0
-    message: ChatMessage
-    finish_reason: str = "stop"
-
-
-class UsageInfo(BaseModel):
-    prompt_tokens: int = 0
-    completion_tokens: int = 0
-    total_tokens: int = 0
-
-
-class ChatCompletionResponse(BaseModel):
-    id: str = Field(default_factory=lambda: f"chatcmpl-{uuid.uuid4().hex[:12]}")
-    object: str = "chat.completion"
-    created: int = Field(default_factory=lambda: int(time.time()))
-    model: str = ""
-    choices: list[ChatCompletionChoice]
-    usage: UsageInfo = Field(default_factory=UsageInfo)
 
 
 class MemorySearchRequest(BaseModel):
@@ -105,6 +57,13 @@ class MemorySearchRequest(BaseModel):
     user_id: str | None = None
     agent_id: str | None = None
     limit: int | None = Field(default=None, ge=1)
+
+
+class MemoryAddRequest(BaseModel):
+    user_text: str
+    assistant_text: str
+    user_id: str
+    agent_id: str
 
 
 # ---------------------------------------------------------------------------
@@ -289,7 +248,7 @@ def init_metadata_nodes() -> None:
         log.warning("⚠️  Failed to initialize metadata nodes: %s", err)
 
 
-def _determine_owner(mem0_item: dict[str, Any], memory_text: str) -> str:
+def _determine_owner(mem0_item: dict[str, Any], memory_text: str, *, user_id: str, agent_id: str) -> str:
     """Determine which character owns this memory.
 
     Strategy: Check memory text prefix to determine owner.
@@ -303,16 +262,16 @@ def _determine_owner(mem0_item: dict[str, Any], memory_text: str) -> str:
     # Check if memory has [User] or [Agent] prefix
     if memory_text.startswith("[User]"):
         # User's memory → return user's character ID
-        return state.user_id  # "xnne" → char:xnne
+        return user_id  # "xnne" → char:xnne
     elif memory_text.startswith("[Agent]"):
         # Agent's memory → return agent's character ID
-        return state.metadata_character_id  # "congyin" → char:congyin
+        return agent_id  # "congyin" → char:congyin
     else:
         # No prefix → fallback to Agent's character (consistent with offline pipeline)
-        return state.metadata_character_id
+        return agent_id
 
 
-def create_memory_item_node_v2(mem0_item: dict[str, Any], memory_text: str) -> None:
+def create_memory_item_node_v2(mem0_item: dict[str, Any], memory_text: str, *, user_id: str, agent_id: str) -> None:
     """Create MemoryItem node and link to Character (owner) + Scene + Conversation.
 
     Node properties and labels are aligned with the offline pipeline (mem0_to_graph.py).
@@ -325,7 +284,7 @@ def create_memory_item_node_v2(mem0_item: dict[str, Any], memory_text: str) -> N
     if not state.graph_pipeline_enabled:
         return
     assert state.metadata_agent_id, "metadata_agent_id is not configured - refusing to write graph"
-    assert state.metadata_character_id, "metadata_character_id is not configured - refusing to write graph"
+    assert agent_id, "agent_id is not configured - refusing to write graph"
 
     log = logger.bind(group="metadata")
 
@@ -339,7 +298,7 @@ def create_memory_item_node_v2(mem0_item: dict[str, Any], memory_text: str) -> N
     point_id = mem0_item.get("id", "")  # mem0 UUID
 
     # Determine owner character
-    owner_character_id = _determine_owner(mem0_item, memory_text)
+    owner_character_id = _determine_owner(mem0_item, memory_text, user_id=user_id, agent_id=agent_id)
     log.info("🎯 Memory owner: %s (for: %s)", owner_character_id, memory_text[:50])
 
     # Generate conversation ID from current date (e.g., "2026-02-27")
@@ -375,28 +334,18 @@ def create_memory_item_node_v2(mem0_item: dict[str, Any], memory_text: str) -> N
         log.warning("⚠️  Failed to create MemoryItem: %s", err)
 
 
-def _inject_memories(
-    messages: list[ChatMessage],
-    memories_text: str,
-) -> list[ChatMessage]:
-    if not memories_text:
-        return messages
-    injection = _MEMORY_INJECTION_TEMPLATE.format(memories=memories_text)
-    result = list(messages)
-    for i, msg in enumerate(result):
-        if msg.role == "system":
-            result[i] = ChatMessage(role="system", content=msg.content + "\n\n" + injection)
-            return result
-    result.insert(0, ChatMessage(role="system", content=injection))
-    return result
-
-
 # ---------------------------------------------------------------------------
 # Async memory write-back
 # ---------------------------------------------------------------------------
 
 
-def _add_memory_sync(user_msg: str, assistant_msg: str) -> list[dict[str, Any]]:
+def _add_memory_sync(
+    user_msg: str,
+    assistant_msg: str,
+    *,
+    user_id: str | None = None,
+    agent_id: str | None = None,
+) -> list[dict[str, Any]]:
     """Write user+assistant turn to mem0 (no system prompt).
 
     Returns the ``results`` list from ``mem0.add()`` so the graph pipeline
@@ -405,15 +354,17 @@ def _add_memory_sync(user_msg: str, assistant_msg: str) -> list[dict[str, Any]]:
     if state.mem0 is None:
         return []
     log = logger.bind(group="server")
+    effective_user_id = user_id or state.user_id
+    effective_agent_id = agent_id or state.agent_id or state.metadata_character_id
     try:
         result = state.mem0.add(
             messages=[
                 {"role": "user", "content": user_msg},
                 {"role": "assistant", "content": assistant_msg},
             ],
-            user_id=state.user_id,
-            agent_id=state.agent_id,
-            metadata={"scene_id": "chill_ai_chat", "character_id": state.agent_id},
+            user_id=effective_user_id,
+            agent_id=effective_agent_id,
+            metadata={"scene_id": "chill_ai_chat", "character_id": effective_agent_id},
         )
         # Log what mem0 actually stored
         results = cast("list[Any]", result.get("results", [])) if isinstance(result, dict) else []  # type: ignore[reportUnknownMemberType]
@@ -427,7 +378,12 @@ def _add_memory_sync(user_msg: str, assistant_msg: str) -> list[dict[str, Any]]:
                 log.info("\U0001f50d DEBUG mem0 item full: %s", json.dumps(item, indent=2)[:500])
                 # Create MemoryItem node for each new memory
                 if event == "ADD" and memory_text:
-                    create_memory_item_node_v2(item, memory_text)
+                    create_memory_item_node_v2(
+                        item,
+                        memory_text,
+                        user_id=effective_user_id,
+                        agent_id=effective_agent_id,
+                    )
         else:
             log.info("\U0001f4be mem0 returned no new memory items")
         return results
@@ -436,7 +392,12 @@ def _add_memory_sync(user_msg: str, assistant_msg: str) -> list[dict[str, Any]]:
         return []
 
 
-def _graph_pipeline_sync(mem0_results: list[dict[str, Any]]) -> None:
+def _graph_pipeline_sync(
+    mem0_results: list[dict[str, Any]],
+    *,
+    user_id: str | None = None,
+    agent_id: str | None = None,
+) -> None:
     """Extract claims from mem0 results and write to Neo4j.
 
     This runs the full graph pipeline:
@@ -451,6 +412,8 @@ def _graph_pipeline_sync(mem0_results: list[dict[str, Any]]) -> None:
         return
 
     log = logger.bind(group="graph")
+    effective_user_id = user_id or state.user_id
+    effective_agent_id = agent_id or state.agent_id or state.metadata_character_id
 
     # Lazy imports to avoid circular deps and keep startup fast
     from memory_bench.server.claim_extractor import extract_claims
@@ -462,10 +425,10 @@ def _graph_pipeline_sync(mem0_results: list[dict[str, Any]]) -> None:
             openai_client=state.claim_llm_client,  # type: ignore[reportUnknownMemberType]
             model=state.claim_llm_model,
             mem0_results=mem0_results,  # type: ignore[reportArgumentType]
-            character_id=state.metadata_character_id,
+            character_id=effective_agent_id,
             scene_id="chill_ai_chat",
-            agent_id=state.agent_id,
-            user_id=state.user_id,
+            agent_id=effective_agent_id,
+            user_id=effective_user_id,
         )
         if not records:
             log.info("\U0001f4ad No claims extracted from %d mem0 results", len(mem0_results))
@@ -476,7 +439,7 @@ def _graph_pipeline_sync(mem0_results: list[dict[str, Any]]) -> None:
         # Step 2: Write to Neo4j
         result = write_to_neo4j(
             claim_records=records,
-            user_id=state.user_id,
+            user_id=effective_user_id,
             container=state.neo4j_container,
             neo4j_user=state.neo4j_user,
             neo4j_password=state.neo4j_password,
@@ -495,7 +458,13 @@ def _graph_pipeline_sync(mem0_results: list[dict[str, Any]]) -> None:
         log.error("\u274c Graph pipeline failed: %s", exc)
 
 
-async def memory_and_graph_background(user_msg: str, assistant_msg: str) -> None:
+async def memory_and_graph_background(
+    user_msg: str,
+    assistant_msg: str,
+    *,
+    user_id: str | None = None,
+    agent_id: str | None = None,
+) -> None:
     """Background task: mem0 write-back (sync) → graph pipeline (async).
 
     mem0.add() is synchronous and must complete before graph pipeline starts
@@ -504,10 +473,27 @@ async def memory_and_graph_background(user_msg: str, assistant_msg: str) -> None
     """
     loop = asyncio.get_running_loop()
     # Step 1: mem0 write-back (synchronous, returns results)
-    mem0_results = await loop.run_in_executor(None, _add_memory_sync, user_msg, assistant_msg)
+    mem0_results = await loop.run_in_executor(
+        None,
+        partial(
+            _add_memory_sync,
+            user_msg,
+            assistant_msg,
+            user_id=user_id,
+            agent_id=agent_id,
+        ),
+    )
     # Step 2: graph pipeline (synchronous, uses mem0 results)
     if mem0_results and state.graph_pipeline_enabled:
-        await loop.run_in_executor(None, _graph_pipeline_sync, mem0_results)
+        await loop.run_in_executor(
+            None,
+            partial(
+                _graph_pipeline_sync,
+                mem0_results,
+                user_id=user_id,
+                agent_id=agent_id,
+            ),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -534,81 +520,20 @@ async def search_endpoint(request: MemorySearchRequest) -> JSONResponse:  # type
     return JSONResponse(content={"results": results, "count": len(results)})  # type: ignore[reportUnknownArgumentType]
 
 
-@router.post("/v1/chat/completions", dependencies=[Depends(verify_api_key)])  # type: ignore[reportUnknownMemberType,reportUntypedFunctionDecorator]
-async def chat_completions(request: ChatCompletionRequest) -> JSONResponse:  # type: ignore[reportUnknownParameterType]
-    """OpenAI-compatible chat completions with memory augmentation."""
-    if state.openai_client is None:  # type: ignore[reportUnknownMemberType]
+@router.post("/add", dependencies=[Depends(verify_api_key)])  # type: ignore[reportUnknownMemberType,reportUntypedFunctionDecorator]
+async def add_memory(request: MemoryAddRequest) -> JSONResponse:  # type: ignore[reportUnknownParameterType]
+    """接收对话内容，异步写入 mem0 + 触发 graph pipeline。"""
+    if state.mem0 is None:
         raise HTTPException(status_code=503, detail="Server not initialized")
-    if request.stream:
-        raise HTTPException(status_code=400, detail="Streaming is not supported yet")
-
-    log = logger.bind(group="server")
-
-    # 1. Latest user message
-    user_messages = [m for m in request.messages if m.role == "user"]
-    latest_user_msg = user_messages[-1].content if user_messages else ""
-
-    # 2. Memory search
-    memories = search_memories(latest_user_msg) if latest_user_msg else []
-    memories_text = format_memories(memories)
-    if memories:
-        log.info("\U0001f50d Found %d memories for user query", len(memories))
-        for rank, mem in enumerate(memories[:2], 1):
-            text = mem.get("memory", "") or mem.get("data", "") or str(mem)
-            score = mem.get("score", "")
-            score_str = f" (score: {score:.2f})" if isinstance(score, float) else ""
-            log.info("   top%d: %s%s", rank, text[:120], score_str)
-
-    # 3. Inject
-    augmented = _inject_memories(request.messages, memories_text)
-
-    # 4. Forward to LLM
-    model = request.model or state.chat_model
-    log.info("\U0001f4e4 Forwarding to LLM: %s (tokens: max=%d)", model, request.max_tokens or 2000)
-    try:
-        completion = state.openai_client.chat.completions.create(  # type: ignore[reportUnknownMemberType]
-            model=model,
-            messages=[{"role": m.role, "content": m.content} for m in augmented],  # type: ignore[reportArgumentType]
-            temperature=request.temperature if request.temperature is not None else 0.7,
-            max_completion_tokens=request.max_tokens or 2000,
+    asyncio.create_task(
+        memory_and_graph_background(
+            request.user_text,
+            request.assistant_text,
+            user_id=request.user_id,
+            agent_id=request.agent_id,
         )
-    except Exception as exc:
-        # Log full exception for debugging
-        import traceback
-
-        log.error("\u274c LLM provider error: %s", exc)
-        log.error("%s", traceback.format_exc())
-        raise HTTPException(status_code=502, detail=f"LLM provider error: {type(exc).__name__}: {exc}") from exc
-
-    assistant_content = completion.choices[0].message.content or ""  # type: ignore[reportUnknownMemberType,reportUnknownVariableType]
-
-    # 5. Async write-back + graph pipeline (user + assistant only, no system prompt)
-    if latest_user_msg and assistant_content:
-        log.info("\U0001f4be Queued memory write-back + graph pipeline (async)")
-        asyncio.create_task(memory_and_graph_background(latest_user_msg, assistant_content))  # type: ignore[reportUnknownArgumentType]
-
-    # 6. Response
-    resp = ChatCompletionResponse(
-        model=model,
-        choices=[ChatCompletionChoice(message=ChatMessage(role="assistant", content=assistant_content))],
-        usage=UsageInfo(
-            prompt_tokens=getattr(completion.usage, "prompt_tokens", 0) or 0,  # type: ignore[reportUnknownMemberType,reportUnknownArgumentType]
-            completion_tokens=getattr(completion.usage, "completion_tokens", 0) or 0,  # type: ignore[reportUnknownMemberType,reportUnknownArgumentType]
-            total_tokens=getattr(completion.usage, "total_tokens", 0) or 0,  # type: ignore[reportUnknownMemberType,reportUnknownArgumentType]
-        ),
     )
-    return JSONResponse(content=json.loads(resp.model_dump_json()))  # type: ignore[reportUnknownMemberType,reportUnknownArgumentType]
-
-
-@router.get("/v1/models")  # type: ignore[reportUnknownMemberType,reportUntypedFunctionDecorator]
-async def list_models() -> JSONResponse:  # type: ignore[reportUnknownParameterType,reportUnknownVariableType]
-    """Minimal /v1/models endpoint for compatibility."""
-    return JSONResponse(  # type: ignore[reportUnknownArgumentType]
-        content={
-            "object": "list",
-            "data": [{"id": state.chat_model, "object": "model", "owned_by": "memory-chat-server"}],
-        }
-    )
+    return JSONResponse(content={"status": "queued"})
 
 
 @router.get("/health")  # type: ignore[reportUnknownMemberType,reportUntypedFunctionDecorator]
