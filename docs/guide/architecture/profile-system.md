@@ -22,9 +22,9 @@ enabled = ["web_search_ddg", "web_fetch"]
 
 ```
 profiles/
-├── vtuber.toml        # VTuber 主链路（WebSocket + memory agent，多工具）
-├── congyin.toml       # 聪音聊天链路（/memory/chat，读写日记为主）
-└── satone_aichat.toml # さとね — AIChat 聊天模式
+├── elaina.toml        # VTuber 主链路（WebSocket + memory agent，多工具）
+└──  congyin.toml       # 聪音聊天链路（/memory/chat，读写日记为主）
+
 ```
 
 ---
