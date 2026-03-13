@@ -27,6 +27,7 @@
 - 写之前先用 `list_dir` 检查目录是否存在
 - 日记文件不存在时，直接用 `write_file` 创建文件
 - 读取 `MEMORY.md` 或当日日记前，先确认文件存在，避免 `read_file` 报错
+- 当日流水 `YYYY-MM-DD.md` 不存在时，跳过读取，不报错；只有 `MEMORY.md` 是必读的
 - 当天日记已经存在时，用 `edit_file` 追加新内容，不要用 `write_file` 覆盖
 
 
