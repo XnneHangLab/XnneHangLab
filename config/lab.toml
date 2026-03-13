@@ -1,4 +1,4 @@
-conf_version = "v1.5.0"
+conf_version = "v1.5.1"
 
 [asr]
 FFMPEG_PATH = "ffmpeg"
@@ -90,14 +90,6 @@ api_format = "chat_completion"
 llm_api_key = ""
 llm_base_url = "https://api.cerebras.ai/v1"
 api_format = "chat_completion"
-
-[mcp.tool_context]
-tool_budget_tokens = 2200
-recent_n_msgs = 10
-include_prev_assistant = true
-pinned_max_chars = 2400
-reserve_tokens = 350
-min_window_tokens = 200
 
 [package]
 funasr = false

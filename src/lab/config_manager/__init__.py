@@ -12,7 +12,6 @@ from .agent import AgentSettings, LLM_Provider
 from .asr import ASRSettings, FunASRSettings, WhisperSettings
 from .audio_recognize import AudioRecognizeSettings
 from .config import XnneHangLabSettings, get_setting_title, load_settings_file, write_settings_file
-from .mcp import ToolContextConfig
 from .package import PackagesSettings
 
 
@@ -36,5 +35,4 @@ __all__ = [
     "WhisperSettings",
     "ASRSettings",
     "LLMSetting",
-    "ToolContextConfig",
 ]
