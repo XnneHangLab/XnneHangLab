@@ -122,6 +122,10 @@ class LightProcessor:
 
         self._bpe_tokenizer: object | None = None
 
+    @property
+    def max_audio_ms(self) -> int:
+        return int(round(self._n_samples * 1000 / 16_000))
+
     def _get_bpe_tokenizer(self) -> object:
         if self._bpe_tokenizer is not None:
             return self._bpe_tokenizer

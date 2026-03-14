@@ -120,7 +120,11 @@ def _ms_to_sample_index(timestamp_ms: int, sample_rate: int = _TARGET_SAMPLE_RAT
     return int(round(timestamp_ms * sample_rate / 1000))
 
 
-def _expand_segments(segments: Iterable[tuple[int, int]], audio_duration_ms: int) -> list[tuple[int, int]]:
+def _split_segments(
+    segments: Iterable[tuple[int, int]],
+    audio_duration_ms: int,
+    max_chunk_ms: int,
+) -> list[tuple[int, int]]:
     expanded: list[tuple[int, int]] = []
 
     for start_ms, end_ms in segments:
@@ -131,15 +135,15 @@ def _expand_segments(segments: Iterable[tuple[int, int]], audio_duration_ms: int
 
         current_start = safe_start
         while current_start < safe_end:
-            current_end = min(safe_end, current_start + _MAX_CHUNK_MS)
+            current_end = min(safe_end, current_start + max_chunk_ms)
             expanded.append((current_start, current_end))
             current_start = current_end
 
     return expanded
 
 
-def _default_segments(audio_duration_ms: int) -> list[tuple[int, int]]:
-    return _expand_segments([(0, audio_duration_ms)], audio_duration_ms)
+def _default_segments(audio_duration_ms: int, max_chunk_ms: int) -> list[tuple[int, int]]:
+    return _split_segments([(0, audio_duration_ms)], audio_duration_ms, max_chunk_ms)
 
 
 def _merge_vad_segments(segments: list[tuple[int, int]], audio_duration_ms: int) -> list[tuple[int, int]]:
@@ -448,6 +452,7 @@ class QwenASREngine:
             cpu_config,
         )
         self._processor = LightProcessor(model_path)
+        self._max_chunk_ms = min(_MAX_CHUNK_MS, self._processor.max_audio_ms)
         self._use_split_decoder = (model_path / "decoder_prefill_kv_model.xml").exists() and (
             model_path / "decoder_kv_model.xml"
         ).exists()
@@ -626,9 +631,9 @@ class QwenASREngine:
 
         if segment_candidates:
             merged_segments = _merge_vad_segments(segment_candidates, audio_duration_ms)
-            segments = _expand_segments(merged_segments, audio_duration_ms)
+            segments = _split_segments(merged_segments, audio_duration_ms, self._max_chunk_ms)
         else:
-            segments = _default_segments(audio_duration_ms)
+            segments = _default_segments(audio_duration_ms, self._max_chunk_ms)
 
         if segments:
             preview = ", ".join(f"[{start},{end}]" for start, end in segments[:8])
