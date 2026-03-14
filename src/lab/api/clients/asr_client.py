@@ -105,9 +105,9 @@ class ASRClient(BaseClientInterface):
             model_name = self._resolve_qwen_route_model(request)
             return f"{self.base_url}/asr/qwen-asr/{model_name}/transcribe"
 
-        if not settings.package.asr:
+        if not settings.package.sherpa_asr:
             raise RuntimeError("Sherpa-ONNX is disabled in lab.toml")
-        return f"{self.base_url}/asr/funasr/transcribe"
+        return f"{self.base_url}/asr/sherpa/transcribe"
 
     def post(self, request: ASRRequest) -> list[Sentence] | None:  # type: ignore[override]
         """调用 ASR 接口并转换为句子列表。
@@ -169,11 +169,8 @@ class ASRClient(BaseClientInterface):
         Raises:
             None.
         """
-        self.async_session = await self.get_async_session()
-        if self.async_session is None:
-            self.last_error = "Failed to create async ASR session."
-            _asr_logger.error(self.last_error)
-            return None
+        session = await self.get_async_session()
+        self.async_session = session
         if not request.file_path.exists():
             self.last_error = f"File not found: {request.file_path}"
             _asr_logger.error(self.last_error)
@@ -184,7 +181,7 @@ class ASRClient(BaseClientInterface):
             with request.file_path.open("rb") as file:
                 form = aiohttp.FormData()
                 form.add_field("file", file, filename=request.file_path.name)
-                async with self.async_session.post(base_url, data=form) as response:
+                async with session.post(base_url, data=form) as response:
                     if response.status != 200:
                         self.last_error = f"Failed to get a valid response: {response.status}"
                         _asr_logger.error(self.last_error)
@@ -196,8 +193,7 @@ class ASRClient(BaseClientInterface):
             _asr_logger.error(self.last_error)
             return None
         finally:
-            if self.async_session is not None:
-                await self.async_session.close()
+            await session.close()
 
         try:
             return ASRResponseModel.model_validate(payload).to_dict()

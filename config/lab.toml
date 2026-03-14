@@ -2,7 +2,7 @@ conf_version = "v1.5.1"
 
 [asr]
 FFMPEG_PATH = "ffmpeg"
-device = "cuda"
+device = "cpu"
 custom_output_dir = false
 cache_dir = "./cache"
 output_dir = "./output"
@@ -21,10 +21,7 @@ num_threads = 2
 
 [asr.qwen_asr]
 model_dir = "./models"
-preload_models = [
-    "0.6b",
-    "1.7b",
-]
+preload_models = []
 model_0_6b_path = "./models/Qwen3-ASR-0.6B"
 model_1_7b_path = "./models/Qwen3-ASR-1.7B"
 forced_aligner_path = "./models/Qwen3-ForcedAligner-0.6B"
@@ -36,7 +33,7 @@ subtitle_speed = "normal"
 
 [agent]
 enable_tool = true
-deeplx_api_key = "A-ug3GVf7bnrNumy1OkqINfB35tRGyCtiTLI1uCDZgs"
+deeplx_api_key = ""
 user_lang = "ZH"
 speaker_lang = "EN"
 speaker_model = "gpt_sovits"
@@ -50,7 +47,7 @@ memory_chat_profile = "profiles/congyin.toml"
 
 [agent.chat_model]
 llm_provider = "oaipro"
-llm_model_name = "gpt-5.2"
+llm_model_name = "gpt-5.1-2025-11-13"
 support_vision = false
 
 [agent.vision_model]
@@ -58,7 +55,7 @@ llm_provider = "oaipro"
 llm_model_name = "gpt-5.1-2025-11-13"
 
 [agent.embedding]
-api_key = "sk-CqQD7Bia1TcdhzP7KkGFWPq7jAQQjMBQecjoGktrxTu5Bo4LZ9i3"
+api_key = ""
 base_url = "https://api.oaipro.com/v1"
 model = "text-embedding-3-small"
 
@@ -85,7 +82,7 @@ llm_base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
 api_format = "chat_completion"
 
 [agent.llm.oaipro]
-llm_api_key = "sk-CqQD7Bia1TcdhzP7KkGFWPq7jAQQjMBQecjoGktrxTu5Bo4LZ9i3"
+llm_api_key = ""
 llm_base_url = "https://api.oaipro.com/v1"
 api_format = "chat_completion"
 
@@ -95,16 +92,16 @@ llm_base_url = "https://api.cerebras.ai/v1"
 api_format = "chat_completion"
 
 [package]
-asr = true
-qwen_asr = true
+sherpa_asr = false
+qwen_asr = false
 to_do_list = true
 yutto_uiya = true
-gpt_sovits = false
+gpt_sovits = true
 qwen_tts = false
-memory_bench = true
+memory_bench = false
 
 [root]
-root_dir = "D:\\tmp\\XnneHangLab"
+root_dir = ""
 
 [server]
 host = "localhost"

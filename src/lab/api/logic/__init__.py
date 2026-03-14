@@ -5,15 +5,15 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from lab.api.logic.faster_qwen_tts import init_qwen_tts_model
-    from lab.api.logic.funasr import funasr_asr_audio, funasr_vad_audio, load_funasr, reload_funasr
     from lab.api.logic.qwen_asr import load_qwen_asr_engine, qwen_asr_transcribe, reload_qwen_asr_engine
+    from lab.api.logic.sherpa_asr import load_sherpa_asr, reload_sherpa_asr, sherpa_asr_audio, sherpa_vad_audio
 
 _EXPORT_MAP: dict[str, tuple[str, str]] = {
     "init_qwen_tts_model": ("lab.api.logic.faster_qwen_tts", "init_qwen_tts_model"),
-    "funasr_asr_audio": ("lab.api.logic.funasr", "funasr_asr_audio"),
-    "funasr_vad_audio": ("lab.api.logic.funasr", "funasr_vad_audio"),
-    "load_funasr": ("lab.api.logic.funasr", "load_funasr"),
-    "reload_funasr": ("lab.api.logic.funasr", "reload_funasr"),
+    "sherpa_asr_audio": ("lab.api.logic.sherpa_asr", "sherpa_asr_audio"),
+    "sherpa_vad_audio": ("lab.api.logic.sherpa_asr", "sherpa_vad_audio"),
+    "load_sherpa_asr": ("lab.api.logic.sherpa_asr", "load_sherpa_asr"),
+    "reload_sherpa_asr": ("lab.api.logic.sherpa_asr", "reload_sherpa_asr"),
     "load_qwen_asr_engine": ("lab.api.logic.qwen_asr", "load_qwen_asr_engine"),
     "reload_qwen_asr_engine": ("lab.api.logic.qwen_asr", "reload_qwen_asr_engine"),
     "qwen_asr_transcribe": ("lab.api.logic.qwen_asr", "qwen_asr_transcribe"),
@@ -21,12 +21,12 @@ _EXPORT_MAP: dict[str, tuple[str, str]] = {
 
 __all__ = [
     "init_qwen_tts_model",
-    "funasr_asr_audio",
-    "funasr_vad_audio",
+    "sherpa_asr_audio",
+    "sherpa_vad_audio",
     "qwen_asr_transcribe",
-    "load_funasr",
+    "load_sherpa_asr",
     "load_qwen_asr_engine",
-    "reload_funasr",
+    "reload_sherpa_asr",
     "reload_qwen_asr_engine",
 ]
 

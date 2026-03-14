@@ -37,7 +37,7 @@ EnvKeyNames = Literal[
     "PKG_MEMORY_BENCH",
     "PKG_QWEN_TTS",
     "PKG_GPT_SOVITS",
-    "PKG_ASR",
+    "PKG_SHERPA_ASR",
     "PKG_QWEN_ASR",
 ]
 
@@ -199,8 +199,8 @@ def main() -> None:
         settings.package.qwen_tts = value
     if (value := _parse_bool_env("PKG_GPT_SOVITS")) is not None:
         settings.package.gpt_sovits = value
-    if (value := _parse_bool_env("PKG_ASR")) is not None:
-        settings.package.asr = value
+    if (value := _parse_bool_env("PKG_SHERPA_ASR")) is not None:
+        settings.package.sherpa_asr = value
     if (value := _parse_bool_env("PKG_QWEN_ASR")) is not None:
         settings.package.qwen_asr = value
 
@@ -227,7 +227,7 @@ def main() -> None:
     logger.info("package.memory_bench: {}", settings.package.memory_bench)
     logger.info("package.qwen_tts: {}", settings.package.qwen_tts)
     logger.info("package.gpt_sovits: {}", settings.package.gpt_sovits)
-    logger.info("package.asr: {}", settings.package.asr)
+    logger.info("package.sherpa_asr: {}", settings.package.sherpa_asr)
     logger.info("package.qwen_asr: {}", settings.package.qwen_asr)
     logger.info("Sync API key done!")
 

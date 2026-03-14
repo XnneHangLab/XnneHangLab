@@ -87,4 +87,4 @@ class SubtitleSpeed(I18nEnum):
 
 class ASRModelProvider(I18nEnum):
     qwen = "Qwen3-ASR"
-    sherpa = "Sherpa-ONNX"
+    sherpa = "Sherpa-ONNX Paraformer"

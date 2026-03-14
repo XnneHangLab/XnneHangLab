@@ -21,14 +21,14 @@ async def reload_all_asr() -> dict[str, object]:
         None.
     """
     settings = load_settings_file("lab.toml", XnneHangLabSettings)
-    if not settings.package.asr and not settings.package.qwen_asr:
+    if not settings.package.sherpa_asr and not settings.package.qwen_asr:
         return {"code": 404, "message": "ASR services are disabled in lab.toml"}
 
     try:
-        if settings.package.asr:
-            from lab.api.logic.funasr import reload_funasr
+        if settings.package.sherpa_asr:
+            from lab.api.logic.sherpa_asr import reload_sherpa_asr
 
-            reload_funasr()
+            reload_sherpa_asr()
 
         if settings.package.qwen_asr:
             from lab.api.logic.qwen_asr import get_preload_qwen_models, reload_qwen_asr_engine
@@ -41,9 +41,9 @@ async def reload_all_asr() -> dict[str, object]:
     return {"code": 200, "message": "ASR model(s) reloaded successfully!"}
 
 
-@router.post("/funasr/reload", response_model=dict)
-async def reload_funasr_route() -> dict[str, object]:
-    """重新加载 sherpa-onnx 引擎。
+@router.post("/sherpa/reload", response_model=dict)
+async def reload_sherpa_route() -> dict[str, object]:
+    """重新加载 Sherpa-ONNX Paraformer 引擎。
 
     Args:
         None.
@@ -55,13 +55,13 @@ async def reload_funasr_route() -> dict[str, object]:
         None.
     """
     settings = load_settings_file("lab.toml", XnneHangLabSettings)
-    if not settings.package.asr:
+    if not settings.package.sherpa_asr:
         return {"code": 404, "message": "Sherpa-ONNX is disabled in lab.toml"}
 
     try:
-        from lab.api.logic.funasr import reload_funasr
+        from lab.api.logic.sherpa_asr import reload_sherpa_asr
 
-        reload_funasr()
+        reload_sherpa_asr()
     except Exception as exc:
         return {"code": 500, "message": f"Failed to reload ASR model: {exc}"}
 

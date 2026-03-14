@@ -7,18 +7,15 @@ from typing import Any
 from lab.asr.sherpa.engine import (
     get_sherpa_asr,
     get_sherpa_vad,
-    load_sherpa_asr,
+    load_sherpa_asr as load_sherpa_asr_engine,
     load_sherpa_vad,
     reset_sherpa_engines,
 )
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 
 
-def load_funasr() -> None:
-    """预加载 ASR 和 VAD 引擎（在 server lifespan 调用）。
-
-    读取 `lab_settings.asr.sherpa` 配置，初始化 `SherpaASREngine`
-    和 `SherpaVADEngine` 单例。
+def load_sherpa_asr() -> None:
+    """预加载 Sherpa-ONNX Paraformer ASR 与 VAD 引擎。
 
     Args:
         None.
@@ -32,15 +29,15 @@ def load_funasr() -> None:
     lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
     sherpa_settings = lab_settings.asr.sherpa
 
-    load_sherpa_asr(
+    load_sherpa_asr_engine(
         model_dir=Path(sherpa_settings.asr_model_dir),
         num_threads=sherpa_settings.num_threads,
     )
     load_sherpa_vad(vad_model_path=Path(sherpa_settings.vad_model_path))
 
 
-def funasr_asr_audio(input_path: Path) -> dict[str, Any]:
-    """执行 ASR 推理（sherpa-onnx）。
+def sherpa_asr_audio(input_path: Path) -> dict[str, Any]:
+    """执行 Sherpa-ONNX Paraformer ASR 推理。
 
     Args:
         input_path: 输入音频文件路径。
@@ -64,8 +61,8 @@ def funasr_asr_audio(input_path: Path) -> dict[str, Any]:
     }
 
 
-def funasr_vad_audio(input_path: Path) -> dict[str, Any]:
-    """执行 VAD 检测（sherpa-onnx）。
+def sherpa_vad_audio(input_path: Path) -> dict[str, Any]:
+    """执行 Sherpa-ONNX VAD 检测。
 
     Args:
         input_path: 输入音频文件路径。
@@ -89,8 +86,8 @@ def funasr_vad_audio(input_path: Path) -> dict[str, Any]:
     }
 
 
-def reload_funasr() -> None:
-    """重新加载 ASR 和 VAD 引擎。
+def reload_sherpa_asr() -> None:
+    """重新加载 Sherpa-ONNX Paraformer ASR 与 VAD 引擎。
 
     Args:
         None.
@@ -102,4 +99,4 @@ def reload_funasr() -> None:
         FileNotFoundError: sherpa-onnx 模型路径不存在时抛出。
     """
     reset_sherpa_engines()
-    load_funasr()
+    load_sherpa_asr()

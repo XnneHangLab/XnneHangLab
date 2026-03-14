@@ -98,12 +98,12 @@ async def lifespan(app: FastAPI):
     Raises:
         ValueError: memory_bench 或 `/memory/chat` 缺少关键配置时抛出。
     """
-    if lab_settings.package.asr:
-        from lab.api.logic.funasr import load_funasr
+    if lab_settings.package.sherpa_asr:
+        from lab.api.logic.sherpa_asr import load_sherpa_asr
 
         started = time.perf_counter()
         logger.info("⏳ 预加载 Sherpa-ONNX ASR/VAD 引擎...")
-        load_funasr()
+        load_sherpa_asr()
         logger.info("✅ Sherpa-ONNX ASR/VAD 预加载完成 ({:.1f}s)", time.perf_counter() - started)
 
     if lab_settings.package.qwen_asr:
@@ -305,14 +305,14 @@ class WebSocketServer:
             "DeepLX 端点",
             lambda: self.app.include_router(import_module("lab.api.routes.deeplx").router),
         )
-        if lab_settings.package.asr or lab_settings.package.qwen_asr:
+        if lab_settings.package.sherpa_asr or lab_settings.package.qwen_asr:
             _include_router_with_log(
                 "ASR reload 端点",
                 lambda: self.app.include_router(import_module("lab.api.routes.asr_reload").router),
             )
             _include_router_with_log(
                 "Sherpa-ONNX ASR 端点",
-                lambda: self.app.include_router(import_module("lab.api.routes.asr_funasr").router),
+                lambda: self.app.include_router(import_module("lab.api.routes.asr_sherpa").router),
             )
         if lab_settings.package.qwen_asr:
             _include_router_with_log(
