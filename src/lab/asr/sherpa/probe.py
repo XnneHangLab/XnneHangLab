@@ -213,10 +213,8 @@ def _build_asr_response(audio_path: Path, result: Any) -> ASRResponse:
     if len(tokens) != len(timestamp_pairs):
         pair_count = min(len(tokens), len(timestamp_pairs))
         logger.warning(
-            "asr token/timestamp mismatch before conversion token_count={} timestamp_count={} truncated_to={}",
-            len(tokens),
-            len(timestamp_pairs),
-            pair_count,
+            "asr token/timestamp mismatch before conversion "
+            f"token_count={len(tokens)} timestamp_count={len(timestamp_pairs)} truncated_to={pair_count}",
         )
         tokens = tokens[:pair_count]
         timestamp_pairs = timestamp_pairs[:pair_count]
@@ -278,19 +276,18 @@ def probe_asr(audio_path: Path, model_dir: Path) -> None:
 
     response = _build_asr_response(audio_path, result)
     logger.info(
-        "asr result text_len={} token_count={} timestamp_count={}",
-        len(response["text"]),
-        len(getattr(result, "tokens", [])),
-        len(response["timestamp"]),
+        "asr result "
+        f"text_len={len(response['text'])} token_count={len(getattr(result, 'tokens', []))} "
+        f"timestamp_count={len(response['timestamp'])}",
     )
-    logger.info("constructed ASRResponse: {}", response)
+    logger.info(f"constructed ASRResponse: {response}")
 
     compatibility = len(response["text"].split()) == len(response["timestamp"])
-    logger.info("asr token_timestamp_aligned={}", compatibility)
+    logger.info(f"asr token_timestamp_aligned={compatibility}")
 
     try:
         sentences = convert_asr_response_to_sentences(response)
-        logger.info("converted sentences: {}", sentences)
+        logger.info(f"converted sentences: {sentences}")
     except Exception as exc:
         logger.exception(f"convert_asr_response_to_sentences failed: {exc!r}")
 
@@ -375,14 +372,14 @@ def probe_vad(audio_path: Path, vad_model_path: Path) -> None:
 
     _log_timing("vad", import_elapsed, load_elapsed, inference_elapsed)
 
-    logger.info("vad segment_count={}", len(segments))
+    logger.info(f"vad segment_count={len(segments)}")
 
     response: VadResponse = {
         "key": audio_path.stem,
         "timestamp": timestamps,
         "audio_length": get_audio_duration(audio_path),
     }
-    logger.info("constructed VadResponse: {}", response)
+    logger.info(f"constructed VadResponse: {response}")
 
 
 if __name__ == "__main__":
