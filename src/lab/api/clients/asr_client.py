@@ -48,6 +48,33 @@ class ASRResponseModel(BaseResponse):
 
 
 class ASRClient(BaseClientInterface):
+    @staticmethod
+    def _format_qwen_route_model(model_name: str) -> str:
+        """将 Qwen 模型名格式化为路由要求的大小写。
+
+        Args:
+            model_name: 原始模型名。
+
+        Returns:
+            str: 路由使用的模型名。
+
+        Raises:
+            RuntimeError: 模型名不受支持时抛出。
+        """
+        normalized = model_name.strip().lower()
+        alias_map = {
+            "0.6b": "0.6B",
+            "0.6": "0.6B",
+            "qwen3-asr-0.6b": "0.6B",
+            "1.7b": "1.7B",
+            "1.7": "1.7B",
+            "qwen3-asr-1.7b": "1.7B",
+        }
+        resolved = alias_map.get(normalized)
+        if resolved is None:
+            raise RuntimeError(f"Unsupported Qwen3-ASR model: {model_name}")
+        return resolved
+
     def __init__(self) -> None:
         """初始化 ASR HTTP 客户端。
 
@@ -80,11 +107,11 @@ class ASRClient(BaseClientInterface):
             raise RuntimeError("Qwen3-ASR is disabled in lab.toml")
 
         if request.model_name:
-            return request.model_name
+            return self._format_qwen_route_model(request.model_name)
 
         preload_models = settings.asr.qwen_asr.preload_models
         if preload_models:
-            return preload_models[0]
+            return self._format_qwen_route_model(preload_models[0])
         return "0.6B"
 
     def _resolve_base_url(self, request: ASRRequest) -> str:

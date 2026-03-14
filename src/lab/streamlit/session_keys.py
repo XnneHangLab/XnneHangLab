@@ -27,6 +27,7 @@ class AudioSessionStateKeys(TypedDict):
     subtitle_speed: str
     max_sentence_length: str
     asr_model_provider: str
+    qwen_model_name: str
 
 
 class SettingSessionStateKeys(TypedDict):
@@ -76,6 +77,7 @@ audio_keys: AudioSessionStateKeys = {
     "subtitle_speed": "subtitle_speed",
     "max_sentence_length": "max_sentence_length",
     "asr_model_provider": "asr_model_provider",
+    "qwen_model_name": "qwen_model_name",
 }
 
 setting_keys: SettingSessionStateKeys = {

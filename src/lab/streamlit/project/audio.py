@@ -46,6 +46,10 @@ cut_line: int = st.session_state.get(audio_keys["cut_line"], asr_setting.cut_lin
 combine_line: int = st.session_state.get(audio_keys["combine_line"], asr_setting.combine_line)
 max_sentence_length: int = st.session_state.get(audio_keys["max_sentence_length"], asr_setting.max_sentence_length)
 asr_model_provider = st.session_state.get(audio_keys["asr_model_provider"], asr_setting.asr_model_provider)
+qwen_model_name = st.session_state.get(
+    audio_keys["qwen_model_name"],
+    (lab_settings.asr.qwen_asr.preload_models[0] if lab_settings.asr.qwen_asr.preload_models else "0.6b"),
+)
 
 
 # 用于音频上传
@@ -108,6 +112,13 @@ with setting_tab:
             asr_setting.get_labels("asr_model_provider"),
             index=asr_setting.get_index("asr_model_provider"),
         )
+        if asr_model_provider == "Qwen3-ASR":
+            qwen_model_name = st.selectbox(
+                "Qwen3-ASR 模型",
+                options=["0.6b", "1.7b"],
+                index=0 if qwen_model_name == "0.6b" else 1,
+                key=audio_keys["qwen_model_name"],
+            )
         st.caption("Qwen3-ASR is the default multilingual engine. Sherpa-ONNX stays as a lightweight fallback.")
     with AudioSave:
         col1, col2 = st.columns([0.75, 0.25])
@@ -218,6 +229,7 @@ with working_tab:
                 sentences = asr_client.post(
                     ASRRequest(
                         file_path=Path(cache_dir / st.session_state[audio_keys["audio_name"]]),
+                        model_name=qwen_model_name if asr_model_provider == "Qwen3-ASR" else None,
                     )
                 )
                 if not sentences:
