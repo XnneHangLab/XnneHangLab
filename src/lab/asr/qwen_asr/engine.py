@@ -365,6 +365,7 @@ class QwenASREngine:
         self._processor: LightProcessor | None = None
         self._use_split_decoder = False
         self._audio_encoder_input: str | int = 0
+        self._audio_encoder_rank = 3
         self._thinker_input: str | int = 0
         self._decoder_embedding_input: str | int = 0
         self._decoder_position_input: str | int = "position_ids"
@@ -427,6 +428,10 @@ class QwenASREngine:
             self._decoder_request = self._decoder_model.create_infer_request()
 
         self._audio_encoder_input = _resolve_input_key(self._audio_encoder_model, ("mel",), 0)
+        try:
+            self._audio_encoder_rank = len(self._audio_encoder_model.inputs[0].partial_shape)
+        except Exception:
+            self._audio_encoder_rank = 3
         self._thinker_input = _resolve_input_key(self._thinker_embeddings_model, ("input_ids",), 0)
         if self._use_split_decoder:
             self._decoder_prefill_embedding_input = _resolve_input_key(
@@ -457,10 +462,13 @@ class QwenASREngine:
 
         with self._lock:
             mel, input_ids = self._processor.prepare(audio)
+            mel_input = mel
+            if self._audio_encoder_rank == 2 and mel.ndim == 3:
+                mel_input = mel[0]
 
             audio_embeddings = _infer_compiled_model(
                 self._audio_encoder_model,
-                {self._audio_encoder_input: mel},
+                {self._audio_encoder_input: mel_input},
             )
             text_embeddings = _infer_compiled_model(
                 self._thinker_embeddings_model,
