@@ -76,7 +76,9 @@ def _import_qwen_asr() -> Any:
     try:
         from qwen_asr import Qwen3ASRModel  # pyright: ignore[reportAttributeAccessIssue]
     except ImportError as exc:
-        raise RuntimeError("Qwen3-ASR requires the `qwen-asr` package. Run `uv sync` after updating dependencies.") from exc
+        raise RuntimeError(
+            "Qwen3-ASR requires the `qwen-asr` package. Run `uv sync` after updating dependencies."
+        ) from exc
     return Qwen3ASRModel
 
 
@@ -545,7 +547,9 @@ class QwenASREngine:
         else:
             duration_value = getattr(result, "audio_duration", None) or getattr(result, "duration", None)
         if isinstance(duration_value, (int, float)):
-            audio_duration_ms = int(round(float(duration_value) * 1000 if float(duration_value) <= 1000 else float(duration_value)))
+            audio_duration_ms = int(
+                round(float(duration_value) * 1000 if float(duration_value) <= 1000 else float(duration_value))
+            )
 
         text, timestamps = _normalize_native_response(result, audio_duration_ms=audio_duration_ms)
         return {
@@ -611,7 +615,9 @@ def get_qwen_asr(model_path: str, device: str, forced_aligner_path: str | None =
     return engine
 
 
-def reset_qwen_asr_engine(model_path: str | None = None, device: str | None = None, forced_aligner_path: str | None = None) -> None:
+def reset_qwen_asr_engine(
+    model_path: str | None = None, device: str | None = None, forced_aligner_path: str | None = None
+) -> None:
     """重置 Qwen3-ASR 引擎缓存。
 
     Args:
