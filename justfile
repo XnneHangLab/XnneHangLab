@@ -74,11 +74,8 @@ test-proxy-stream:
 test-proxy-health:
   curl http://localhost:12393/health
 
-test-asr-no-punc:
-  curl -X POST "http://localhost:12393/asr/funasr/no_punc" -F "file=@./examples/example3.opus"
-
 test-asr:
-  curl -X POST "http://localhost:12393/asr/funasr/with_punc" -F "file=@./examples/example3.opus"
+  curl -X POST "http://localhost:12393/asr/funasr/transcribe" -F "file=@./examples/example3.opus"
 
 test-vad:
   curl -X POST "http://localhost:12393/asr/funasr/vad" -F "file=@./examples/example3.opus"
