@@ -3,6 +3,7 @@ from __future__ import annotations
 # pyright: reportMissingTypeArgument=false, reportUnknownArgumentType=false, reportUnknownMemberType=false, reportUnknownParameterType=false, reportUnknownVariableType=false
 import gc
 import re
+import subprocess
 import unicodedata
 from importlib import import_module
 from pathlib import Path
@@ -10,7 +11,6 @@ from threading import Lock
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
-import soundfile as sf
 from loguru import logger  # pyright: ignore[reportMissingImports,reportUnknownVariableType]
 
 from .processor import LightProcessor
@@ -28,6 +28,7 @@ _TARGET_SAMPLE_RATE = 16_000
 _MAX_CHUNK_MS = 30_000
 _VAD_MERGE_GAP_MS = 500
 _VAD_MIN_SEGMENT_MS = 1_500
+_VAD_ALIGN_PADDING_MS = 200
 _REQUIRED_MODEL_FILES = (
     "audio_encoder_model.xml",
     "thinker_embeddings_model.xml",
@@ -84,34 +85,52 @@ def _validate_model_dir(model_dir: Path) -> None:
         )
 
 
-def _resample_audio(audio: np.ndarray, source_rate: int, target_rate: int = _TARGET_SAMPLE_RATE) -> np.ndarray:
-    if source_rate <= 0:
-        raise RuntimeError(f"Invalid source sample rate: {source_rate}")
-    if len(audio) == 0:
-        return np.zeros(0, dtype=np.float32)
-    if source_rate == target_rate:
-        return np.asarray(audio, dtype=np.float32)
+def _get_ffmpeg_path() -> str:
+    from lab.config_manager import XnneHangLabSettings, load_settings_file
 
-    duration = len(audio) / float(source_rate)
-    target_length = max(1, int(round(duration * target_rate)))
-    source_positions = np.linspace(0.0, duration, num=len(audio), endpoint=False, dtype=np.float64)
-    target_positions = np.linspace(0.0, duration, num=target_length, endpoint=False, dtype=np.float64)
-    return np.interp(target_positions, source_positions, audio).astype(np.float32)
+    settings = load_settings_file("lab.toml", XnneHangLabSettings)
+    return settings.asr.FFMPEG_PATH or "ffmpeg"
+
+
+def _decode_audio_with_ffmpeg(audio_path: Path) -> np.ndarray:
+    ffmpeg_path = _get_ffmpeg_path()
+    command = [
+        ffmpeg_path,
+        "-v",
+        "error",
+        "-i",
+        str(audio_path),
+        "-f",
+        "f32le",
+        "-acodec",
+        "pcm_f32le",
+        "-ac",
+        "1",
+        "-ar",
+        str(_TARGET_SAMPLE_RATE),
+        "-",
+    ]
+
+    try:
+        result = subprocess.run(
+            command,
+            check=True,
+            capture_output=True,
+        )
+    except FileNotFoundError as exc:
+        raise RuntimeError(f"ffmpeg was not found: {ffmpeg_path}") from exc
+    except subprocess.CalledProcessError as exc:
+        stderr = exc.stderr.decode("utf-8", errors="replace").strip()
+        raise RuntimeError(f"ffmpeg failed to decode audio: {audio_path} ({stderr or 'unknown error'})") from exc
+
+    audio = np.frombuffer(result.stdout, dtype=np.float32)
+    if audio.size == 0:
+        raise RuntimeError(f"ffmpeg returned empty audio stream: {audio_path}")
+    return np.ascontiguousarray(audio, dtype=np.float32)
 
 
 def _load_audio(audio_path: Path) -> tuple[np.ndarray, int]:
-    try:
-        waveform, sample_rate = sf.read(str(audio_path), dtype="float32", always_2d=False)
-    except Exception as exc:
-        raise RuntimeError(f"Failed to decode audio before Qwen3-ASR inference: {audio_path}") from exc
-
-    audio = np.asarray(waveform, dtype=np.float32)
-    if audio.ndim == 2:
-        audio = audio.mean(axis=1)
-    elif audio.ndim != 1:
-        raise RuntimeError(f"Unsupported audio shape from soundfile: {audio.shape}")
-
-    audio = _resample_audio(audio, int(sample_rate), _TARGET_SAMPLE_RATE)
+    audio = _decode_audio_with_ffmpeg(audio_path)
     audio_duration_ms = int(round(len(audio) * 1000 / _TARGET_SAMPLE_RATE))
     return np.ascontiguousarray(audio, dtype=np.float32), audio_duration_ms
 
@@ -184,6 +203,37 @@ def _merge_vad_segments(segments: list[tuple[int, int]], audio_duration_ms: int)
         merged.pop()
 
     return [(start_ms, end_ms) for start_ms, end_ms in merged]
+
+
+def _pack_vad_guided_chunks(
+    segments: list[tuple[int, int]],
+    audio_duration_ms: int,
+    max_chunk_ms: int,
+) -> list[tuple[int, int]]:
+    if not segments:
+        return _default_segments(audio_duration_ms, max_chunk_ms)
+
+    merged_segments = _merge_vad_segments(segments, audio_duration_ms)
+    if not merged_segments:
+        return _default_segments(audio_duration_ms, max_chunk_ms)
+
+    packed: list[tuple[int, int]] = []
+    chunk_start = max(0, merged_segments[0][0] - _VAD_ALIGN_PADDING_MS)
+    chunk_end = min(audio_duration_ms, merged_segments[0][1] + _VAD_ALIGN_PADDING_MS)
+
+    for start_ms, end_ms in merged_segments[1:]:
+        padded_start = max(0, start_ms - _VAD_ALIGN_PADDING_MS)
+        padded_end = min(audio_duration_ms, end_ms + _VAD_ALIGN_PADDING_MS)
+        if padded_end - chunk_start <= max_chunk_ms:
+            chunk_end = padded_end
+            continue
+
+        packed.extend(_split_segments([(chunk_start, chunk_end)], audio_duration_ms, max_chunk_ms))
+        chunk_start = padded_start
+        chunk_end = padded_end
+
+    packed.extend(_split_segments([(chunk_start, chunk_end)], audio_duration_ms, max_chunk_ms))
+    return packed
 
 
 def _ensure_sherpa_vad_loaded() -> Any:
@@ -629,9 +679,10 @@ class QwenASREngine:
             except Exception:
                 logger.exception(f"Qwen3-ASR VAD pre-segmentation failed for {audio_path}")  # pyright: ignore[reportUnknownMemberType]
 
-        if segment_candidates:
-            merged_segments = _merge_vad_segments(segment_candidates, audio_duration_ms)
-            segments = _split_segments(merged_segments, audio_duration_ms, self._max_chunk_ms)
+        if audio_duration_ms <= self._max_chunk_ms:
+            segments = _default_segments(audio_duration_ms, self._max_chunk_ms)
+        elif segment_candidates:
+            segments = _pack_vad_guided_chunks(segment_candidates, audio_duration_ms, self._max_chunk_ms)
         else:
             segments = _default_segments(audio_duration_ms, self._max_chunk_ms)
 
@@ -640,13 +691,12 @@ class QwenASREngine:
             if len(segments) > 8:
                 preview = f"{preview}, ..."
             logger.info(  # pyright: ignore[reportUnknownMemberType]
-                f"Qwen3-ASR VAD segments for {audio_path.name}: count={len(segments)}, preview={preview}"
+                f"Qwen3-ASR chunks for {audio_path.name}: count={len(segments)}, preview={preview}"
             )
         else:
-            logger.info(f"Qwen3-ASR VAD segments for {audio_path.name}: count=0")  # pyright: ignore[reportUnknownMemberType]
+            logger.info(f"Qwen3-ASR chunks for {audio_path.name}: count=0")  # pyright: ignore[reportUnknownMemberType]
 
         tokens: list[str] = []
-        timestamps: list[list[int]] = []
 
         try:
             for start_ms, end_ms in segments:
@@ -663,7 +713,6 @@ class QwenASREngine:
                     continue
 
                 tokens.extend(chunk_tokens)
-                timestamps.extend(_distribute_token_timestamps(chunk_tokens, start_ms, end_ms))
         except Exception as exc:
             logger.exception(f"Qwen3-ASR OpenVINO transcribe failed for {audio_path}")  # pyright: ignore[reportUnknownMemberType]
             raise RuntimeError(f"Failed to transcribe audio with Qwen3-ASR OpenVINO: {audio_path}") from exc
@@ -672,7 +721,7 @@ class QwenASREngine:
         return {
             "key": audio_path.stem,
             "text": text,
-            "timestamp": timestamps,
+            "timestamp": [],
         }
 
 
