@@ -24,17 +24,11 @@ def _load_mel_filters(model_dir: Path | None = None) -> np.ndarray:
     global _MEL_FILTERS, _MEL_FILTERS_PATH
 
     if _MEL_FILTERS is not None and _MEL_FILTERS_PATH is not None:
-        if model_dir is None or _MEL_FILTERS_PATH.is_relative_to(model_dir):
-            return _MEL_FILTERS
+        return _MEL_FILTERS
 
     candidates: list[Path] = []
     if model_dir is not None:
-        candidates.extend(
-            [
-                model_dir / "mel_filters.npy",
-                model_dir.parent / "mel_filters.npy",
-            ]
-        )
+        candidates.extend([model_dir / "mel_filters.npy", model_dir.parent / "mel_filters.npy"])
 
     for candidate in candidates:
         if not candidate.exists():
@@ -56,7 +50,11 @@ def _load_mel_filters(model_dir: Path | None = None) -> np.ndarray:
 
 
 def _build_byte_decoder() -> dict[str, int]:
-    bs = list(range(ord("!"), ord("~") + 1)) + list(range(ord("¡"), ord("¬") + 1)) + list(range(ord("®"), ord("ÿ") + 1))
+    bs = (
+        list(range(ord("!"), ord("~") + 1))
+        + list(range(ord("\xa1"), ord("\xac") + 1))
+        + list(range(ord("\xae"), ord("\xff") + 1))
+    )
     cs = list(bs)
     n = 0
     for value in range(256):

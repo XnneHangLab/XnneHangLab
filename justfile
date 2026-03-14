@@ -184,8 +184,6 @@ install-qwen-tts:
 
 install-sherpa-model:
   mkdir -p ./models
-  curl -L https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-paraformer-zh-2023-09-14.tar.bz2 -o ./models/sherpa-onnx-paraformer-zh-2023-09-14.tar.bz2
-  tar xf ./models/sherpa-onnx-paraformer-zh-2023-09-14.tar.bz2 -C ./models/
   curl -L https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx -o ./models/silero_vad.onnx
 
 # Code Quality Check
