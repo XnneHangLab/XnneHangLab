@@ -474,12 +474,9 @@ class QwenASREngine:
         load_kwargs: dict[str, Any] = {}
         if self.forced_aligner_path:
             load_kwargs["forced_aligner"] = self.forced_aligner_path
-            load_kwargs["forced_aligner_kwargs"] = {
-                "device": self.device,
-            }
+            load_kwargs["forced_aligner_kwargs"] = {}
 
         load_attempts = [
-            {"device": self.device},
             {"device_map": self.device},
             {},
         ]
