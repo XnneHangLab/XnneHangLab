@@ -22,13 +22,16 @@ from __future__ import annotations
 import argparse
 import os
 import subprocess
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+from loguru import logger
 
 from lab.asr.funasr.converter import convert_asr_response_to_sentences
 from lab.config_manager import XnneHangLabSettings, load_settings_file
+from lab.logger.logger_group import init_logger
 from lab.utils.FFmpegHelper import get_audio_duration
 
 if TYPE_CHECKING:
@@ -52,6 +55,12 @@ def _import_sherpa_onnx() -> Any:
     import sherpa_onnx
 
     return sherpa_onnx
+
+
+def _log_timing(stage: str, import_s: float, model_load_s: float, inference_s: float) -> None:
+    logger.info(
+        f"{stage} timing import={import_s:.3f}s model_load={model_load_s:.3f}s inference={inference_s:.3f}s",
+    )
 
 
 def _get_ffmpeg_path() -> str:
@@ -105,8 +114,6 @@ def _decode_audio(audio_path: Path, sample_rate: int = 16000) -> tuple[np.ndarra
 
 
 def _decode_online_paraformer(samples: np.ndarray, sample_rate: int, model_dir: Path) -> Any:
-    sherpa_onnx = _import_sherpa_onnx()
-
     tokens = _find_first_existing(model_dir, ["tokens.txt"])
     encoder = _find_first_existing(model_dir, ["encoder.int8.onnx", "encoder.onnx"])
     decoder = _find_first_existing(model_dir, ["decoder.int8.onnx", "decoder.onnx"])
@@ -116,6 +123,11 @@ def _decode_online_paraformer(samples: np.ndarray, sample_rate: int, model_dir: 
             "streaming paraformer model files not found. Expected tokens.txt, encoder*.onnx, decoder*.onnx",
         )
 
+    import_started_at = time.perf_counter()
+    sherpa_onnx = _import_sherpa_onnx()
+    import_elapsed = time.perf_counter() - import_started_at
+
+    load_started_at = time.perf_counter()
     recognizer = sherpa_onnx.OnlineRecognizer.from_paraformer(
         tokens=str(tokens),
         encoder=str(encoder),
@@ -126,27 +138,35 @@ def _decode_online_paraformer(samples: np.ndarray, sample_rate: int, model_dir: 
         feature_dim=80,
         decoding_method="greedy_search",
     )
+    load_elapsed = time.perf_counter() - load_started_at
 
     stream = recognizer.create_stream()
     stream.accept_waveform(sample_rate, samples)
     stream.accept_waveform(sample_rate, np.zeros(int(0.66 * sample_rate), dtype=np.float32))
     stream.input_finished()
 
+    inference_started_at = time.perf_counter()
     while recognizer.is_ready(stream):
         recognizer.decode_stream(stream)
+    inference_elapsed = time.perf_counter() - inference_started_at
+
+    _log_timing("asr", import_elapsed, load_elapsed, inference_elapsed)
 
     return recognizer.get_result(stream)
 
 
 def _decode_offline_paraformer(samples: np.ndarray, sample_rate: int, model_dir: Path) -> Any:
-    sherpa_onnx = _import_sherpa_onnx()
-
     tokens = _find_first_existing(model_dir, ["tokens.txt"])
     paraformer = _find_first_existing(model_dir, ["model.int8.onnx", "model.onnx"])
 
     if tokens is None or paraformer is None:
         raise FileNotFoundError("offline paraformer model files not found. Expected tokens.txt and model*.onnx")
 
+    import_started_at = time.perf_counter()
+    sherpa_onnx = _import_sherpa_onnx()
+    import_elapsed = time.perf_counter() - import_started_at
+
+    load_started_at = time.perf_counter()
     recognizer = sherpa_onnx.OfflineRecognizer.from_paraformer(
         paraformer=str(paraformer),
         tokens=str(tokens),
@@ -156,15 +176,22 @@ def _decode_offline_paraformer(samples: np.ndarray, sample_rate: int, model_dir:
         decoding_method="greedy_search",
         debug=False,
     )
+    load_elapsed = time.perf_counter() - load_started_at
 
     stream = recognizer.create_stream()
     stream.accept_waveform(sample_rate, samples)
+
+    inference_started_at = time.perf_counter()
     recognizer.decode_stream(stream)
+    inference_elapsed = time.perf_counter() - inference_started_at
+
+    _log_timing("asr", import_elapsed, load_elapsed, inference_elapsed)
+
     return stream.result
 
 
-def _build_asr_response(audio_path: Path, result: Any, vad_end_ms: int | None = None) -> ASRResponse:
-    tokens: list[str] = list(getattr(result, "tokens", []))
+def _build_asr_response(audio_path: Path, result: Any) -> ASRResponse:
+    tokens: list[str] = [token for token in list(getattr(result, "tokens", [])) if token]
     timestamps: list[float] = list(getattr(result, "timestamps", []))
     timestamps_ms = [int(t * 1000) for t in timestamps]
     timestamp_pairs: list[list[int]] = []
@@ -172,12 +199,24 @@ def _build_asr_response(audio_path: Path, result: Any, vad_end_ms: int | None = 
     for i, start in enumerate(timestamps_ms):
         if i + 1 < len(timestamps_ms):
             end = timestamps_ms[i + 1]
-        elif vad_end_ms is not None:
-            end = vad_end_ms
         else:
             end = start + 240
-
         timestamp_pairs.append([start, end])
+
+    if not tokens:
+        raw_text = (getattr(result, "text", "") or "").strip()
+        tokens = [token for token in raw_text.split(" ") if token]
+
+    if len(tokens) != len(timestamp_pairs):
+        pair_count = min(len(tokens), len(timestamp_pairs))
+        logger.warning(
+            "asr token/timestamp mismatch before conversion token_count={} timestamp_count={} truncated_to={}",
+            len(tokens),
+            len(timestamp_pairs),
+            pair_count,
+        )
+        tokens = tokens[:pair_count]
+        timestamp_pairs = timestamp_pairs[:pair_count]
 
     response: ASRResponse = {
         "key": audio_path.stem,
@@ -187,7 +226,7 @@ def _build_asr_response(audio_path: Path, result: Any, vad_end_ms: int | None = 
     return response
 
 
-def probe_asr(audio_path: Path, model_dir: Path, vad_end_ms: int | None = None) -> None:
+def probe_asr(audio_path: Path, model_dir: Path) -> None:
     """探索 sherpa-onnx paraformer 的原始输出格式。
 
     打印原始输出，然后尝试构造 ASRResponse 并跑
@@ -206,7 +245,9 @@ def probe_asr(audio_path: Path, model_dir: Path, vad_end_ms: int | None = None) 
     """
 
     try:
+        import_started_at = time.perf_counter()
         _import_sherpa_onnx()
+        logger.info(f"asr import_check import={time.perf_counter() - import_started_at:.3f}s")
     except ImportError as exc:
         raise ImportError("sherpa-onnx is required. Install it with `uv add sherpa-onnx`.") from exc
 
@@ -221,7 +262,7 @@ def probe_asr(audio_path: Path, model_dir: Path, vad_end_ms: int | None = None) 
     )
 
     if is_streaming_model:
-        print(
+        logger.warning(
             "warning: streaming paraformer is designed for real-time chunked input; "
             "offline accuracy validation should use an offline paraformer model instead.",
         )
@@ -232,26 +273,26 @@ def probe_asr(audio_path: Path, model_dir: Path, vad_end_ms: int | None = None) 
         else _decode_offline_paraformer(samples, sample_rate, model_dir)
     )
 
-    print("raw output:", result)
-    print("result.tokens type:", type(getattr(result, "tokens", None)))
-    print("result.tokens length:", len(getattr(result, "tokens", [])))
-    print("result.timestamps type:", type(getattr(result, "timestamps", None)))
-    print("result.timestamps length:", len(getattr(result, "timestamps", [])))
-
-    response = _build_asr_response(audio_path, result, vad_end_ms=vad_end_ms)
-    print("constructed ASRResponse:", response)
+    response = _build_asr_response(audio_path, result)
+    logger.info(
+        "asr result text_len={} token_count={} timestamp_count={}",
+        len(response["text"]),
+        len(getattr(result, "tokens", [])),
+        len(response["timestamp"]),
+    )
+    logger.info("constructed ASRResponse: {}", response)
 
     compatibility = len(response["text"].split()) == len(response["timestamp"])
-    print("len(response['text'].split()) == len(response['timestamp']):", compatibility)
+    logger.info("asr token_timestamp_aligned={}", compatibility)
 
     try:
         sentences = convert_asr_response_to_sentences(response)
-        print("converted sentences:", sentences)
+        logger.info("converted sentences: {}", sentences)
     except Exception as exc:
-        print("convert_asr_response_to_sentences failed:", repr(exc))
+        logger.exception(f"convert_asr_response_to_sentences failed: {exc!r}")
 
 
-def probe_vad(audio_path: Path, vad_model_path: Path) -> VadResponse:
+def probe_vad(audio_path: Path, vad_model_path: Path) -> None:
     """探索 sherpa-onnx silero-vad 的原始输出格式。
 
     打印原始输出，然后尝试构造 VadResponse，验证兼容性。
@@ -269,7 +310,9 @@ def probe_vad(audio_path: Path, vad_model_path: Path) -> VadResponse:
     """
 
     try:
+        import_started_at = time.perf_counter()
         sherpa_onnx = _import_sherpa_onnx()
+        import_elapsed = time.perf_counter() - import_started_at
     except ImportError as exc:
         raise ImportError("sherpa-onnx is required. Install it with `uv add sherpa-onnx`.") from exc
 
@@ -287,12 +330,15 @@ def probe_vad(audio_path: Path, vad_model_path: Path) -> VadResponse:
     config.sample_rate = sample_rate
 
     window_size = config.silero_vad.window_size
+    load_started_at = time.perf_counter()
     vad = sherpa_onnx.VoiceActivityDetector(config, buffer_size_in_seconds=30)
+    load_elapsed = time.perf_counter() - load_started_at
 
     offset = 0
     segments: list[dict[str, int]] = []
     timestamps: list[list[int]] = []
 
+    inference_started_at = time.perf_counter()
     while offset + window_size <= len(samples):
         vad.accept_waveform(samples[offset : offset + window_size])
         offset += window_size
@@ -322,18 +368,22 @@ def probe_vad(audio_path: Path, vad_model_path: Path) -> VadResponse:
         timestamps.append([int(start_sample * 1000 / sample_rate), int(end_sample * 1000 / sample_rate)])
         vad.pop()
 
-    print("raw segments:", segments)
+    inference_elapsed = time.perf_counter() - inference_started_at
+
+    _log_timing("vad", import_elapsed, load_elapsed, inference_elapsed)
+
+    logger.info("vad segment_count={}", len(segments))
 
     response: VadResponse = {
         "key": audio_path.stem,
         "timestamp": timestamps,
         "audio_length": get_audio_duration(audio_path),
     }
-    print("constructed VadResponse:", response)
-    return response
+    logger.info("constructed VadResponse: {}", response)
 
 
 if __name__ == "__main__":
+    init_logger()
     parser = argparse.ArgumentParser(description="sherpa-onnx 兼容性探索")
     parser.add_argument("--audio", type=Path, required=True)
     parser.add_argument(
@@ -345,9 +395,6 @@ if __name__ == "__main__":
     parser.add_argument("--skip-vad", action="store_true")
     args = parser.parse_args()
 
-    vad_response: VadResponse | None = None
+    probe_asr(args.audio, args.model_dir)
     if not args.skip_vad:
-        vad_response = probe_vad(args.audio, args.vad_model)
-
-    vad_end_ms = vad_response["timestamp"][-1][1] if vad_response and vad_response["timestamp"] else None
-    probe_asr(args.audio, args.model_dir, vad_end_ms=vad_end_ms)
+        probe_vad(args.audio, args.vad_model)
