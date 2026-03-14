@@ -1,20 +1,26 @@
 from __future__ import annotations
 
-from pathlib import Path  # noqa: TC003
+from typing import TYPE_CHECKING, Any, cast
+
+import aiohttp  # pyright: ignore[reportMissingImports]
 
 from lab.api.clients.base_client_interface import BaseClientInterface, BaseRequest, BaseResponse
 from lab.asr.converter import convert_asr_response_to_sentences
-from lab.asr.types import ASRResponse, Sentence, WhisperResponse, WhisperSegment
-from lab.asr.whisper.converter import convert_whisper_response_to_sentences
+from lab.asr.types import ASRResponse, Sentence
 from lab.config_manager import XnneHangLabSettings, load_settings_file
-from lab.logger.logger_group import logger
+from lab.logger.logger_group import logger  # pyright: ignore[reportAttributeAccessIssue,reportUnknownVariableType]
 
-_asr_logger = logger.bind(group="asr")
+if TYPE_CHECKING:
+    from pathlib import Path
+
+logger = cast("Any", logger)
+_asr_logger: Any = logger.bind(group="asr")
 
 
 class ASRRequest(BaseRequest):
     file_path: Path
     only_text: bool = False
+    model_name: str | None = None
 
 
 class ASRResponseModel(BaseResponse):
@@ -23,13 +29,13 @@ class ASRResponseModel(BaseResponse):
     timestamp: list[list[int]]
 
     def to_dict(self) -> ASRResponse:
-        """将响应模型转换为 ASRResponse。
+        """将响应模型转换为标准 ASRResponse。
 
         Args:
             None.
 
         Returns:
-            ASRResponse: 标准化的 ASR 响应字典。
+            ASRResponse: 标准化后的 ASR 响应。
 
         Raises:
             None.
@@ -41,29 +47,34 @@ class ASRResponseModel(BaseResponse):
         )
 
 
-class WhisperASRResponseModel(BaseResponse):
-    segments: list[WhisperSegment]
-    text: str
-
-    def to_dict(self) -> WhisperResponse:
-        """将响应模型转换为 WhisperResponse。
+class ASRClient(BaseClientInterface):
+    @staticmethod
+    def _format_qwen_route_model(model_name: str) -> str:
+        """将 Qwen 模型名格式化为路由要求的大小写。
 
         Args:
-            None.
+            model_name: 原始模型名。
 
         Returns:
-            WhisperResponse: 标准化的 Whisper 响应字典。
+            str: 路由使用的模型名。
 
         Raises:
-            None.
+            RuntimeError: 模型名不受支持时抛出。
         """
-        return WhisperResponse(
-            text=self.text,
-            segments=self.segments,
-        )
+        normalized = model_name.strip().lower()
+        alias_map = {
+            "0.6b": "0.6B",
+            "0.6": "0.6B",
+            "qwen3-asr-0.6b": "0.6B",
+            "1.7b": "1.7B",
+            "1.7": "1.7B",
+            "qwen3-asr-1.7b": "1.7B",
+        }
+        resolved = alias_map.get(normalized)
+        if resolved is None:
+            raise RuntimeError(f"Unsupported Qwen3-ASR model: {model_name}")
+        return resolved
 
-
-class ASRClient(BaseClientInterface):
     def __init__(self) -> None:
         """初始化 ASR HTTP 客户端。
 
@@ -76,13 +87,53 @@ class ASRClient(BaseClientInterface):
         Raises:
             None.
         """
-        lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
-        self.config = lab_settings.asr
+        self.base_url = self.base_url
         self.last_error: str | None = None
-        if lab_settings.asr.asr_model_provider == "sherpa":
-            self.base_url = self.base_url + "/asr/funasr/transcribe"
-        else:
-            self.base_url = self.base_url + "/asr/whisper"
+
+    def _resolve_qwen_route_model(self, request: ASRRequest) -> str:
+        """解析 Qwen3-ASR 调用使用的端点模型名。
+
+        Args:
+            request: 当前请求对象。
+
+        Returns:
+            str: 路由使用的模型名。
+
+        Raises:
+            RuntimeError: Qwen3-ASR 服务未启用时抛出。
+        """
+        settings = load_settings_file("lab.toml", XnneHangLabSettings)
+        if not settings.package.qwen_asr:
+            raise RuntimeError("Qwen3-ASR is disabled in lab.toml")
+
+        if request.model_name:
+            return self._format_qwen_route_model(request.model_name)
+
+        preload_models = settings.asr.qwen_asr.preload_models
+        if preload_models:
+            return self._format_qwen_route_model(preload_models[0])
+        return "0.6B"
+
+    def _resolve_base_url(self, request: ASRRequest) -> str:
+        """根据当前配置解析 ASR 请求地址。
+
+        Args:
+            request: 当前请求对象。
+
+        Returns:
+            str: 目标接口地址。
+
+        Raises:
+            RuntimeError: 目标服务未启用时抛出。
+        """
+        settings = load_settings_file("lab.toml", XnneHangLabSettings)
+        if settings.asr.asr_model_provider == "qwen":
+            model_name = self._resolve_qwen_route_model(request)
+            return f"{self.base_url}/asr/qwen-asr/{model_name}/transcribe"
+
+        if not settings.package.sherpa_asr:
+            raise RuntimeError("Sherpa-ONNX is disabled in lab.toml")
+        return f"{self.base_url}/asr/sherpa/transcribe"
 
     def post(self, request: ASRRequest) -> list[Sentence] | None:  # type: ignore[override]
         """调用 ASR 接口并转换为句子列表。
@@ -104,8 +155,9 @@ class ASRClient(BaseClientInterface):
         self.last_error = None
 
         try:
+            base_url = self._resolve_base_url(request)
             with request.file_path.open("rb") as file:
-                response = self.session.post(self.base_url, files={"file": file})
+                response = self.session.post(base_url, files={"file": file})
                 response.raise_for_status()
                 payload = response.json()
         except Exception as exc:
@@ -119,33 +171,20 @@ class ASRClient(BaseClientInterface):
             return None
 
         try:
-            if self.config.asr_model_provider == "sherpa":
-                asr_response: ASRResponse = ASRResponseModel.model_validate(payload).to_dict()
-                sentences = convert_asr_response_to_sentences(asr_response)
-                if not sentences:
-                    self.last_error = "ASR returned no sentences."
-                    _asr_logger.error(f"ASR returned no sentences: {payload}")
-                    return None
-                return sentences
-            if self.config.asr_model_provider == "whisper":
-                whisper_response: WhisperResponse = WhisperASRResponseModel.model_validate(payload).to_dict()
-                sentences = convert_whisper_response_to_sentences(whisper_response)
-                if not sentences:
-                    self.last_error = "Whisper returned no sentences."
-                    _asr_logger.error(f"Whisper returned no sentences: {payload}")
-                    return None
-                return sentences
-
-            self.last_error = f"Unknown ASR model provider: {self.config.asr_model_provider}"
-            _asr_logger.error(self.last_error)
-            return None
+            asr_response: ASRResponse = ASRResponseModel.model_validate(payload).to_dict()
+            sentences = convert_asr_response_to_sentences(asr_response)
+            if not sentences:
+                self.last_error = "ASR returned no sentences."
+                _asr_logger.error(f"ASR returned no sentences: {payload}")
+                return None
+            return sentences
         except Exception as exc:
             self.last_error = f"Failed to parse ASR response: {exc}"
             _asr_logger.error(f"Failed to parse ASR response: {exc}, {payload}")
             return None
 
     async def asyncpost(self, request: ASRRequest) -> ASRResponse | None:  # type: ignore[override]
-        """异步调用 sherpa-onnx ASR 接口。
+        """异步调用 ASR 接口。
 
         Args:
             request: 包含待识别音频路径的请求对象。
@@ -156,22 +195,35 @@ class ASRClient(BaseClientInterface):
         Raises:
             None.
         """
-        self.async_session = await self.get_async_session()
+        session = cast("Any", await self.get_async_session())  # pyright: ignore[reportUnknownMemberType]
+        self.async_session = session
         if not request.file_path.exists():
-            _asr_logger.error(f"File not found: {request.file_path}")
+            self.last_error = f"File not found: {request.file_path}"
+            _asr_logger.error(self.last_error)
             return None
 
-        with request.file_path.open("rb") as file:
-            async with self.async_session.post(self.base_url, data={"file": file}) as response:
-                if response.status != 200:
-                    _asr_logger.error(f"Failed to get a valid response: {response.status}")
-                    return None
+        try:
+            base_url = self._resolve_base_url(request)
+            with request.file_path.open("rb") as file:
+                form = cast("Any", aiohttp.FormData())  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
+                form.add_field("file", file, filename=request.file_path.name)
+                async with session.post(base_url, data=form) as response:
+                    if response.status != 200:
+                        self.last_error = f"Failed to get a valid response: {response.status}"
+                        _asr_logger.error(self.last_error)
+                        return None
 
-                response_data = await response.json()
-                try:
-                    return ASRResponseModel.model_validate(response_data).to_dict()
-                except Exception as exc:
-                    _asr_logger.error(f"Failed to parse ASR response: {exc}, {response_data}")
-                    return None
-                finally:
-                    await self.async_session.close()
+                    payload = await response.json()
+        except Exception as exc:
+            self.last_error = f"ASR request failed: {exc}"
+            _asr_logger.error(self.last_error)
+            return None
+        finally:
+            await session.close()
+
+        try:
+            return ASRResponseModel.model_validate(payload).to_dict()
+        except Exception as exc:
+            self.last_error = f"Failed to parse ASR response: {exc}"
+            _asr_logger.error(f"Failed to parse ASR response: {exc}, {payload}")
+            return None

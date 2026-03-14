@@ -1,10 +1,3 @@
-"""Streamlit session_state key 常量。
-
-用法：
-    from lab.streamlit.session_keys import audio_keys, setting_keys, home_keys, session_keys
-    st.session_state[audio_keys["audio_file"]]
-"""
-
 from __future__ import annotations
 
 from typing import TypedDict
@@ -34,7 +27,7 @@ class AudioSessionStateKeys(TypedDict):
     subtitle_speed: str
     max_sentence_length: str
     asr_model_provider: str
-    whisper_model_size: str
+    qwen_model_name: str
 
 
 class SettingSessionStateKeys(TypedDict):
@@ -47,8 +40,12 @@ class SettingSessionStateKeys(TypedDict):
     output_dir: str
     ffmpeg_path: str
     initial_settings: str
-    whisper_models_base_dir: str
-    whisper_model_size: str
+    qwen_model_dir: str
+    qwen_preload_models: str
+    qwen_model_0_6b_path: str
+    qwen_model_1_7b_path: str
+    qwen_forced_aligner_path: str
+    qwen_device: str
     asr_model_provider: str
 
 
@@ -80,7 +77,7 @@ audio_keys: AudioSessionStateKeys = {
     "subtitle_speed": "subtitle_speed",
     "max_sentence_length": "max_sentence_length",
     "asr_model_provider": "asr_model_provider",
-    "whisper_model_size": "whisper_model_size",
+    "qwen_model_name": "qwen_model_name",
 }
 
 setting_keys: SettingSessionStateKeys = {
@@ -93,8 +90,12 @@ setting_keys: SettingSessionStateKeys = {
     "output_dir": "output_dir",
     "ffmpeg_path": "ffmpeg_path",
     "initial_settings": "initial_settings",
-    "whisper_models_base_dir": "whisper_models_base_dir",
-    "whisper_model_size": "whisper_model_size",
+    "qwen_model_dir": "qwen_model_dir",
+    "qwen_preload_models": "qwen_preload_models",
+    "qwen_model_0_6b_path": "qwen_model_0_6b_path",
+    "qwen_model_1_7b_path": "qwen_model_1_7b_path",
+    "qwen_forced_aligner_path": "qwen_forced_aligner_path",
+    "qwen_device": "qwen_device",
     "asr_model_provider": "asr_model_provider",
 }
 

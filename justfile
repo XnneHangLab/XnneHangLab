@@ -75,13 +75,22 @@ test-proxy-health:
   curl http://localhost:12393/health
 
 test-asr:
-  curl -X POST "http://localhost:12393/asr/funasr/transcribe" -F "file=@./examples/example1.wav"
+  curl -X POST "http://localhost:12393/asr/sherpa/transcribe" -F "file=@./examples/example1.wav"
+
+test-sherpa-asr:
+  curl -X POST "http://localhost:12393/asr/sherpa/transcribe" -F "file=@./examples/example1.wav"
+
+test-qwen-asr-0-6b:
+  curl -X POST "http://localhost:12393/asr/qwen-asr/0.6B/transcribe" -F "file=@./examples/test.m4a"
+
+test-qwen-asr-1-7b:
+  curl -X POST "http://localhost:12393/asr/qwen-asr/1.7B/transcribe" -F "file=@./examples/example1.wav"
   
 test-vad:
-  curl -X POST "http://localhost:12393/asr/funasr/vad" -F "file=@./examples/example3.opus"
+  curl -X POST "http://localhost:12393/asr/sherpa/vad" -F "file=@./examples/example3.opus"
 
-test-whisper:
-  curl -X POST "http://localhost:12393/asr/whisper" -F "file=@./examples/example3.opus"
+test-sherpa-vad:
+  curl -X POST "http://localhost:12393/asr/sherpa/vad" -F "file=@./examples/example3.opus"
 
 test-sherpa audio='./examples/example3.opus' model_dir='./models/sherpa-onnx-paraformer-zh-2023-09-14' vad_model='./models/silero_vad.onnx' skip_vad='':
   uv run --group sherpa-onnx src/lab/asr/sherpa/probe.py --audio {{ audio }} --model-dir {{ model_dir }} --vad-model {{ vad_model }} {{ if skip_vad != '' { '--skip-vad' } else { '' } }}
@@ -133,7 +142,7 @@ install-model:
   uv sync
   just install-nltk
 
-  just install-whisper
+  just install-qwen-asr
   just install-sensevoice
   just install-bert-model
   just install-gsv-model
@@ -142,13 +151,12 @@ install-model:
 install-nltk:
   uv run python -c "import nltk; nltk.download('averaged_perceptron_tagger_eng')"
 
-install-whisper:
+install-qwen-asr model_dir='./models':
   uv lock
   uv sync
-  # tiny.pt
-  uv run scripts/download.py --url https://openaipublic.azureedge.net/main/whisper/models/65147644a518d12f04e32d6f3b26facc3f8dd46e5390956a9424a650c0ce22b9/tiny.pt --filename tiny.pt --output-dir ./models/whisper
-  # large-v3-turbo.pt
-  uv run scripts/download.py --url https://www.modelscope.cn/models/iic/Whisper-large-v3-turbo/resolve/master/large-v3-turbo.pt --filename large-v3-turbo.pt --output-dir ./models/whisper
+  uv run modelscope download --model Qwen/Qwen3-ASR-1.7B --local_dir {{ model_dir }}/Qwen3-ASR-1.7B
+  uv run modelscope download --model Qwen/Qwen3-ASR-0.6B --local_dir {{ model_dir }}/Qwen3-ASR-0.6B
+  uv run modelscope download --model Qwen/Qwen3-ForcedAligner-0.6B --local_dir {{ model_dir }}/Qwen3-ForcedAligner-0.6B
 
 install-sensevoice:
   uv lock

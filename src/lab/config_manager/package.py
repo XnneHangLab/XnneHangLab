@@ -6,7 +6,8 @@ from pydantic import BaseModel, Field
 
 
 class Packages(TypedDict):
-    asr: bool
+    sherpa_asr: bool
+    qwen_asr: bool
     to_do_list: bool
     yutto_uiya: bool
     gpt_sovits: bool
@@ -15,8 +16,8 @@ class Packages(TypedDict):
 
 
 class PackagesSettings(BaseModel):
-    asr: Annotated[bool, Field(False, title="是否启用 sherpa-onnx ASR 服务")]
-    whisper: Annotated[bool, Field(False, title="是否启用 whisper")]
+    sherpa_asr: Annotated[bool, Field(False, title="是否启用 sherpa-onnx paraformer ASR 服务")]
+    qwen_asr: Annotated[bool, Field(False, title="是否启用 Qwen3-ASR 服务")]
     to_do_list: Annotated[bool, Field(True, title="是否启用 todo_list")]
     yutto_uiya: Annotated[bool, Field(True, title="是否启用 yutto-uiya")]
     gpt_sovits: Annotated[bool, Field(True, title="是否启用 gpt-sovits")]
@@ -28,18 +29,17 @@ class PackagesSettings(BaseModel):
 
     def to_dict(self) -> Packages:
         """将配置模型转换为 Packages 字典。
-
         Args:
             None.
 
         Returns:
             Packages: 当前启用状态的字典表示。
-
         Raises:
             None.
         """
         return {
-            "asr": self.asr,
+            "sherpa_asr": self.sherpa_asr,
+            "qwen_asr": self.qwen_asr,
             "to_do_list": self.to_do_list,
             "yutto_uiya": self.yutto_uiya,
             "gpt_sovits": self.gpt_sovits,
@@ -50,7 +50,6 @@ class PackagesSettings(BaseModel):
 
 def main() -> None:
     """重置 package 配置并写回到 lab.toml。
-
     Args:
         None.
 

@@ -6,7 +6,7 @@ device = "cuda"
 custom_output_dir = false
 cache_dir = "./cache"
 output_dir = "./output"
-asr_model_provider = "sherpa"
+asr_model_provider = "qwen"
 punctuation_list = "，。；、？！,.;?!"
 cut = false
 cut_line = 400
@@ -19,9 +19,15 @@ asr_model_dir = "./models/sherpa-onnx-paraformer-zh-2023-09-14"
 vad_model_path = "./models/silero_vad.onnx"
 num_threads = 2
 
-[asr.whisper]
-whisper_models_base_dir = "./models/whisper/"
-whisper_model_size = "turbo"
+[asr.qwen_asr]
+model_dir = "./models"
+preload_models = [
+    "0.6b",
+]
+model_0_6b_path = "./models/Qwen3-ASR-0.6B"
+model_1_7b_path = "./models/Qwen3-ASR-1.7B"
+forced_aligner_path = "./models/Qwen3-ForcedAligner-0.6B"
+device = "cuda"
 
 [webui]
 guide = "open"
@@ -88,8 +94,8 @@ llm_base_url = "https://api.cerebras.ai/v1"
 api_format = "chat_completion"
 
 [package]
-asr = true
-whisper = false
+sherpa_asr = true
+qwen_asr = true
 to_do_list = true
 yutto_uiya = true
 gpt_sovits = false

@@ -86,6 +86,9 @@ bfg-*.jar
 model_list.json
 models/*.tar.bz2
 models/sherpa-onnx-paraformer-zh-2023-09-14/
+models/Qwen3-ASR-0.6B/
+models/Qwen3-ASR-1.7B/
+models/Qwen3-ForcedAligner-0.6B/
 
 # memory bench local env
 memory_bench/.env.benchmark

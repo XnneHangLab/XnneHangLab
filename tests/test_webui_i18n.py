@@ -1,24 +1,13 @@
-"""tests/test_webui_i18n.py — streamlit/i18n.py 与 config_manager/webui_i18n_model.py 的单元测试。"""
-
 from __future__ import annotations
 
 import pytest
 
 from lab.config_manager.asr import ASRSettings
 from lab.config_manager.audio_recognize import AudioRecognizeSettings
-from lab.streamlit.i18n import (
-    ASRModelProvider,
-    Device,
-    Guide,
-    I18nEnum,
-    SubtitleSpeed,
-    WhisperModelSize,
-)
-
-# ── I18nEnum 基类 ─────────────────────────────────────────────────────────────
+from lab.streamlit.i18n import ASRModelProvider, Device, Guide, I18nEnum, SubtitleSpeed
 
 
-def test_labels_returns_chinese_values() -> None:
+def test_labels_returns_display_values() -> None:
     assert Device.labels() == ["cpu", "gpu"]
 
 
@@ -47,11 +36,8 @@ def test_get_index_three_members() -> None:
     assert SubtitleSpeed.fast.get_index() == 2
 
 
-# ── 各枚举成员正确性 ───────────────────────────────────────────────────────────
-
-
 @pytest.mark.parametrize(
-    "member, expected_name, expected_label",
+    ("member", "expected_name", "expected_label"),
     [
         (Device.cpu, "cpu", "cpu"),
         (Device.cuda, "cuda", "gpu"),
@@ -60,10 +46,8 @@ def test_get_index_three_members() -> None:
         (SubtitleSpeed.slow, "slow", "慢"),
         (SubtitleSpeed.normal, "normal", "正常"),
         (SubtitleSpeed.fast, "fast", "快"),
-        (ASRModelProvider.sherpa, "sherpa", "Sherpa-ONNX"),
-        (ASRModelProvider.whisper, "whisper", "Whisper"),
-        (WhisperModelSize.tiny, "tiny", "tiny"),
-        (WhisperModelSize.turbo, "turbo", "turbo"),
+        (ASRModelProvider.qwen, "qwen", "Qwen3-ASR"),
+        (ASRModelProvider.sherpa, "sherpa", "Sherpa-ONNX Paraformer"),
     ],
 )
 def test_enum_name_and_label(member: I18nEnum, expected_name: str, expected_label: str) -> None:
@@ -71,25 +55,24 @@ def test_enum_name_and_label(member: I18nEnum, expected_name: str, expected_labe
     assert member.value == expected_label
 
 
-# ── WebUIi18nSettings 集成 ────────────────────────────────────────────────────
-
-
 def test_get_labels_returns_correct_options() -> None:
     settings = ASRSettings()  # pyright: ignore[reportCallIssue]
     assert settings.get_labels("device") == ["cpu", "gpu"]
-    assert settings.get_labels("asr_model_provider") == ["Sherpa-ONNX", "Whisper"]
+    assert settings.get_labels("asr_model_provider") == ["Qwen3-ASR", "Sherpa-ONNX Paraformer"]
 
 
 def test_get_index_reflects_current_value() -> None:
     settings = ASRSettings()  # pyright: ignore[reportCallIssue]
-    # 默认 device="cpu" → index 0
     assert settings.get_index("device") == 0
+    assert settings.get_index("asr_model_provider") == 0
 
 
 def test_set_by_label_updates_field() -> None:
     settings = ASRSettings()  # pyright: ignore[reportCallIssue]
     settings.set_by_label("device", "gpu")
     assert settings.device == "cuda"
+    settings.set_by_label("asr_model_provider", "Sherpa-ONNX Paraformer")
+    assert settings.asr_model_provider == "sherpa"
 
 
 def test_set_by_label_unknown_label_raises() -> None:
@@ -107,7 +90,7 @@ def test_get_index_unregistered_field_raises() -> None:
 def test_audio_recognize_settings_i18n() -> None:
     settings = AudioRecognizeSettings()  # pyright: ignore[reportCallIssue]
     assert settings.get_labels("guide") == ["开启", "关闭"]
-    assert settings.get_index("guide") == 0  # 默认 "open"
+    assert settings.get_index("guide") == 0
     settings.set_by_label("guide", "关闭")
     assert settings.guide == "close"
     assert settings.get_index("guide") == 1

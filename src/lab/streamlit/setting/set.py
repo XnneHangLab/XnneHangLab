@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict, cast
 
 import streamlit as st
 
 from lab.api.clients import ReloadClient
 from lab.config_manager import (
     ASRSettings,
+    QwenASRSettings,
     SherpaASRSettings,
-    WhisperSettings,
     XnneHangLabSettings,
     get_setting_title,
     load_settings_file,
@@ -17,6 +17,9 @@ from lab.config_manager import (
 )
 from lab.streamlit.session_keys import setting_keys
 from lab.streamlit.style import style
+
+if TYPE_CHECKING:
+    from lab.config_manager.qwen_asr import QwenASRModelName
 
 style()
 
@@ -26,8 +29,8 @@ def message_box(title: str, message: str) -> None:
     """显示简单消息弹窗。
 
     Args:
-        title: 弹窗标题。
-        message: 弹窗正文。
+        title: 标题。
+        message: 正文。
 
     Returns:
         None.
@@ -36,30 +39,30 @@ def message_box(title: str, message: str) -> None:
         None.
     """
     st.markdown("")
-    st.markdown(f"### {title} \n {message}")
+    st.markdown(f"### {title}\n{message}")
 
 
 def check_device_is_available(device: str) -> bool:
     """检查设备配置是否可用。
 
     Args:
-        device: 待检查的设备名称。
+        device: 待检查设备名。
 
     Returns:
-        bool: 当前始终返回 True，作为占位实现。
+        bool: 当前始终返回 True。
 
     Raises:
         None.
     """
     if device == "cuda":
-        pass
+        return True
     return True
 
 
 lab_settings = load_settings_file("lab.toml", setting=XnneHangLabSettings)
 asr_settings: ASRSettings = lab_settings.asr
 sherpa_settings: SherpaASRSettings = asr_settings.sherpa
-whisper_settings: WhisperSettings = asr_settings.whisper
+qwen_settings: QwenASRSettings = asr_settings.qwen_asr
 
 
 class BasicSettingsDict(TypedDict):
@@ -77,37 +80,45 @@ class SherpaSettingsDict(TypedDict):
     num_threads: int
 
 
-class WhisperSettingsDict(TypedDict):
-    whisper_models_base_dir: str
-    whisper_model_size: str
+class QwenSettingsDict(TypedDict):
+    model_dir: str
+    preload_models: list[QwenASRModelName]
+    model_0_6b_path: str
+    model_1_7b_path: str
+    forced_aligner_path: str
+    device: str
 
 
 class GlobalSettings(TypedDict):
     basic: BasicSettingsDict
     sherpa: SherpaSettingsDict
-    whisper: WhisperSettingsDict
+    qwen_asr: QwenSettingsDict
 
 
 if setting_keys["initial_settings"] not in st.session_state:
-    st.session_state.initial_settings = GlobalSettings(
-        basic=BasicSettingsDict(
-            device=asr_settings.device,
-            custom_output_dir=asr_settings.custom_output_dir,
-            cache_dir=asr_settings.cache_dir,
-            output_dir=asr_settings.output_dir,
-            ffmpeg_path=asr_settings.FFMPEG_PATH,
-            asr_model_provider=asr_settings.asr_model_provider,
-        ),
-        sherpa=SherpaSettingsDict(
-            asr_model_dir=sherpa_settings.asr_model_dir,
-            vad_model_path=sherpa_settings.vad_model_path,
-            num_threads=sherpa_settings.num_threads,
-        ),
-        whisper=WhisperSettingsDict(
-            whisper_models_base_dir=whisper_settings.whisper_models_base_dir,
-            whisper_model_size=whisper_settings.whisper_model_size,
-        ),
-    )
+    st.session_state[setting_keys["initial_settings"]] = {
+        "basic": {
+            "device": asr_settings.device,
+            "custom_output_dir": asr_settings.custom_output_dir,
+            "cache_dir": asr_settings.cache_dir,
+            "output_dir": asr_settings.output_dir,
+            "ffmpeg_path": asr_settings.FFMPEG_PATH,
+            "asr_model_provider": asr_settings.asr_model_provider,
+        },
+        "sherpa": {
+            "asr_model_dir": sherpa_settings.asr_model_dir,
+            "vad_model_path": sherpa_settings.vad_model_path,
+            "num_threads": sherpa_settings.num_threads,
+        },
+        "qwen_asr": {
+            "model_dir": qwen_settings.model_dir,
+            "preload_models": list(qwen_settings.preload_models),
+            "model_0_6b_path": qwen_settings.model_0_6b_path,
+            "model_1_7b_path": qwen_settings.model_1_7b_path,
+            "forced_aligner_path": qwen_settings.forced_aligner_path,
+            "device": qwen_settings.device,
+        },
+    }
 
 
 device = st.session_state.get(setting_keys["device"], asr_settings.device)
@@ -121,14 +132,23 @@ asr_model_dir = st.session_state.get(setting_keys["asr_model_dir"], sherpa_setti
 vad_model_path = st.session_state.get(setting_keys["vad_model_path"], sherpa_settings.vad_model_path)
 num_threads = st.session_state.get(setting_keys["num_threads"], sherpa_settings.num_threads)
 
-whisper_models_base_dir = st.session_state.get(
-    setting_keys["whisper_models_base_dir"], whisper_settings.whisper_models_base_dir
+qwen_model_dir = st.session_state.get(setting_keys["qwen_model_dir"], qwen_settings.model_dir)
+qwen_preload_models = cast(
+    "list[QwenASRModelName]",
+    st.session_state.get(setting_keys["qwen_preload_models"], list(qwen_settings.preload_models)),
 )
-whisper_model_size = st.session_state.get(setting_keys["whisper_model_size"], whisper_settings.whisper_model_size)
+qwen_model_0_6b_path = st.session_state.get(setting_keys["qwen_model_0_6b_path"], qwen_settings.model_0_6b_path)
+qwen_model_1_7b_path = st.session_state.get(setting_keys["qwen_model_1_7b_path"], qwen_settings.model_1_7b_path)
+qwen_forced_aligner_path = st.session_state.get(
+    setting_keys["qwen_forced_aligner_path"],
+    qwen_settings.forced_aligner_path,
+)
+qwen_device = st.session_state.get(setting_keys["qwen_device"], qwen_settings.device)
 
-BOTSave = st.container()
-BOTSetting = st.container(border=True)
-with BOTSetting:
+save_container = st.container()
+setting_container = st.container(border=True)
+
+with setting_container:
     st.markdown("")
     st.markdown("###### 基础配置")
     st.markdown("")
@@ -149,7 +169,7 @@ with BOTSetting:
         asr_settings.get_labels("asr_model_provider"),
         index=asr_settings.get_index("asr_model_provider"),
     )
-    st.caption("Sherpa-ONNX 更适合中文字级时间戳，Whisper 更适合多语种识别。")
+    st.caption("Qwen3-ASR 现在通过独立端点按模型调用，Sherpa-ONNX 保留为轻量 fallback。")
     if st.toggle("自定义输出目录", custom_output_dir, key="custom_output_dir"):
         output_dir = st.text_input(
             get_setting_title("output_dir", ASRSettings),
@@ -167,7 +187,7 @@ with BOTSetting:
     st.markdown("")
 
     st.markdown("###### Sherpa-ONNX 配置")
-    st.caption("所有路径均相对于当前工作目录。")
+    st.caption("Sherpa 代码保留，用于 fallback 与 VAD。")
     asr_model_dir = st.text_input(
         get_setting_title("asr_model_dir", SherpaASRSettings),
         value=asr_model_dir,
@@ -187,91 +207,130 @@ with BOTSetting:
         step=1,
         key="num_threads",
     )
-
-    st.markdown("###### Whisper 配置")
-    whisper_models_base_dir = st.text_input(
-        get_setting_title("whisper_models_base_dir", WhisperSettings),
-        value=whisper_models_base_dir,
-        placeholder="Whisper Models Base Directory",
-        key="whisper_models_base_dir",
-    )
-    whisper_model_size = st.selectbox(
-        get_setting_title("whisper_model_size", WhisperSettings),
-        whisper_settings.get_labels("whisper_model_size"),
-        index=whisper_settings.get_index("whisper_model_size"),
-        key="whisper_model_size",
-    )
-    st.caption("请确保 Whisper 模型目录下存在与所选规格对应的模型文件夹，例如 `whisper_models_base_dir/turbo`。")
     st.markdown("")
 
-with BOTSave:
+    st.markdown("###### Qwen3-ASR 配置")
+    st.caption(
+        "模型通过 `just install-qwen-asr` 下载到本地 `./models/`，显式端点按模型懒加载；`preload_models` 只控制启动预热。"
+    )
+    qwen_model_dir = st.text_input(
+        get_setting_title("model_dir", QwenASRSettings),
+        value=qwen_model_dir,
+        placeholder="./models",
+        key="qwen_model_dir",
+    )
+    qwen_preload_models = cast(
+        "list[QwenASRModelName]",
+        st.multiselect(
+            get_setting_title("preload_models", QwenASRSettings),
+            options=["0.6b", "1.7b"],
+            default=qwen_preload_models,
+            key="qwen_preload_models",
+        ),
+    )
+    qwen_model_0_6b_path = st.text_input(
+        get_setting_title("model_0_6b_path", QwenASRSettings),
+        value=qwen_model_0_6b_path,
+        placeholder="./models/Qwen3-ASR-0.6B",
+        key="qwen_model_0_6b_path",
+    )
+    qwen_model_1_7b_path = st.text_input(
+        get_setting_title("model_1_7b_path", QwenASRSettings),
+        value=qwen_model_1_7b_path,
+        placeholder="./models/Qwen3-ASR-1.7B",
+        key="qwen_model_1_7b_path",
+    )
+    qwen_forced_aligner_path = st.text_input(
+        get_setting_title("forced_aligner_path", QwenASRSettings),
+        value=qwen_forced_aligner_path,
+        placeholder="./models/Qwen3-ForcedAligner-0.6B",
+        key="qwen_forced_aligner_path",
+    )
+    qwen_device = st.selectbox(
+        get_setting_title("device", QwenASRSettings),
+        options=["cpu", "cuda"],
+        index=0 if qwen_device == "cpu" else 1,
+        key="qwen_device",
+    )
+    if lab_settings.package.qwen_asr and not qwen_preload_models:
+        st.warning("当前已启用 Qwen3-ASR 服务，但没有选择任何预加载模型。服务仍可按模型端点懒加载。")
+    st.markdown("")
+
+with save_container:
     col1, col2 = st.columns([0.75, 0.25])
     with col2:
         st.markdown("")
         st.markdown("")
         if st.button("**保存更改**", type="primary", use_container_width=True):
             initial_settings: GlobalSettings = st.session_state[setting_keys["initial_settings"]]
-            current_settings: GlobalSettings = GlobalSettings(
-                basic=BasicSettingsDict(
-                    device=device,
-                    custom_output_dir=custom_output_dir,
-                    ffmpeg_path=ffmpeg_path or initial_settings["basic"]["ffmpeg_path"],
-                    cache_dir=cache_dir or initial_settings["basic"]["cache_dir"],
-                    output_dir=output_dir or initial_settings["basic"]["output_dir"],
-                    asr_model_provider=asr_model_provider,
-                ),
-                sherpa=SherpaSettingsDict(
-                    asr_model_dir=asr_model_dir or initial_settings["sherpa"]["asr_model_dir"],
-                    vad_model_path=vad_model_path or initial_settings["sherpa"]["vad_model_path"],
-                    num_threads=num_threads,
-                ),
-                whisper=WhisperSettingsDict(
-                    whisper_models_base_dir=whisper_models_base_dir
-                    or initial_settings["whisper"]["whisper_models_base_dir"],
-                    whisper_model_size=whisper_model_size,
-                ),
-            )
+            current_settings: GlobalSettings = {
+                "basic": {
+                    "device": device,
+                    "custom_output_dir": custom_output_dir,
+                    "ffmpeg_path": ffmpeg_path or initial_settings["basic"]["ffmpeg_path"],
+                    "cache_dir": cache_dir or initial_settings["basic"]["cache_dir"],
+                    "output_dir": output_dir or initial_settings["basic"]["output_dir"],
+                    "asr_model_provider": asr_model_provider,
+                },
+                "sherpa": {
+                    "asr_model_dir": asr_model_dir or initial_settings["sherpa"]["asr_model_dir"],
+                    "vad_model_path": vad_model_path or initial_settings["sherpa"]["vad_model_path"],
+                    "num_threads": int(num_threads),
+                },
+                "qwen_asr": {
+                    "model_dir": qwen_model_dir or initial_settings["qwen_asr"]["model_dir"],
+                    "preload_models": list(qwen_preload_models),
+                    "model_0_6b_path": qwen_model_0_6b_path or initial_settings["qwen_asr"]["model_0_6b_path"],
+                    "model_1_7b_path": qwen_model_1_7b_path or initial_settings["qwen_asr"]["model_1_7b_path"],
+                    "forced_aligner_path": (
+                        qwen_forced_aligner_path or initial_settings["qwen_asr"]["forced_aligner_path"]
+                    ),
+                    "device": qwen_device,
+                },
+            }
 
             if current_settings != initial_settings:
+                if not check_device_is_available(current_settings["basic"]["device"]):
+                    message_box("保存失败", "当前设备不可用，请检查配置。")
+                    st.stop()
+
                 asr_settings.set_by_label("device", device)
-                asr_settings.custom_output_dir = custom_output_dir or initial_settings["basic"]["custom_output_dir"]
-                asr_settings.FFMPEG_PATH = ffmpeg_path or initial_settings["basic"]["ffmpeg_path"]
-                asr_settings.cache_dir = cache_dir or initial_settings["basic"]["cache_dir"]
-                asr_settings.output_dir = output_dir or initial_settings["basic"]["output_dir"]
-                asr_settings.set_by_label("asr_model_provider", asr_model_provider)
+                asr_settings.custom_output_dir = current_settings["basic"]["custom_output_dir"]
+                asr_settings.FFMPEG_PATH = current_settings["basic"]["ffmpeg_path"]
+                asr_settings.cache_dir = current_settings["basic"]["cache_dir"]
+                asr_settings.output_dir = current_settings["basic"]["output_dir"]
+                asr_settings.set_by_label("asr_model_provider", current_settings["basic"]["asr_model_provider"])
 
-                sherpa_settings.asr_model_dir = asr_model_dir or initial_settings["sherpa"]["asr_model_dir"]
-                sherpa_settings.vad_model_path = vad_model_path or initial_settings["sherpa"]["vad_model_path"]
-                sherpa_settings.num_threads = num_threads
+                sherpa_settings.asr_model_dir = current_settings["sherpa"]["asr_model_dir"]
+                sherpa_settings.vad_model_path = current_settings["sherpa"]["vad_model_path"]
+                sherpa_settings.num_threads = current_settings["sherpa"]["num_threads"]
 
-                whisper_settings.whisper_models_base_dir = (
-                    whisper_models_base_dir or initial_settings["whisper"]["whisper_models_base_dir"]
-                )
-                whisper_settings.whisper_model_size = (
-                    whisper_model_size or initial_settings["whisper"]["whisper_model_size"]
-                )
+                qwen_settings.model_dir = current_settings["qwen_asr"]["model_dir"]
+                qwen_settings.preload_models = current_settings["qwen_asr"]["preload_models"]
+                qwen_settings.model_0_6b_path = current_settings["qwen_asr"]["model_0_6b_path"]
+                qwen_settings.model_1_7b_path = current_settings["qwen_asr"]["model_1_7b_path"]
+                qwen_settings.forced_aligner_path = current_settings["qwen_asr"]["forced_aligner_path"]
+                qwen_settings.device = current_settings["qwen_asr"]["device"]
 
                 asr_settings.sherpa = sherpa_settings
-                asr_settings.whisper = whisper_settings
+                asr_settings.qwen_asr = qwen_settings
                 lab_settings.asr = asr_settings
 
                 write_settings_file(settings_name="lab.toml", settings=lab_settings)
+
                 if (
                     current_settings["basic"]["device"] != initial_settings["basic"]["device"]
                     or current_settings["basic"]["asr_model_provider"]
                     != initial_settings["basic"]["asr_model_provider"]
-                    or current_settings["sherpa"]["asr_model_dir"] != initial_settings["sherpa"]["asr_model_dir"]
-                    or current_settings["sherpa"]["vad_model_path"] != initial_settings["sherpa"]["vad_model_path"]
-                    or current_settings["sherpa"]["num_threads"] != initial_settings["sherpa"]["num_threads"]
-                    or current_settings["whisper"]["whisper_model_size"]
-                    != initial_settings["whisper"]["whisper_model_size"]
+                    or current_settings["sherpa"] != initial_settings["sherpa"]
+                    or current_settings["qwen_asr"] != initial_settings["qwen_asr"]
                 ):
                     reload_client = ReloadClient("asr")
-                    st.toast("正在重新加载模型，请稍候...")
+                    st.toast("正在重新加载 ASR 引擎，请稍候...")
                     reload_client.post()
 
                 st.session_state[setting_keys["initial_settings"]] = current_settings
-                message_box("保存成功", "你也可以直接修改 `config/lab.toml` 来调整配置。")
+                message_box("保存成功", "也可以直接修改 `config/lab.toml` 调整配置。")
             else:
                 message_box("未检测到更改", "配置未发生变化，无需保存。")
 
@@ -279,12 +338,13 @@ with BOTSave:
             asr_setting_path = Path("config") / "asr.toml"
             if asr_setting_path.exists():
                 asr_setting_path.unlink()
-            asr_settings = load_settings_file("asr.toml", ASRSettings)
-            lab_settings.asr = asr_settings
-            asr_setting_path.unlink()
+            reset_asr_settings = load_settings_file("asr.toml", ASRSettings)
+            lab_settings.asr = reset_asr_settings
+            if asr_setting_path.exists():
+                asr_setting_path.unlink()
             write_settings_file("lab.toml", lab_settings)
             reload_client = ReloadClient("asr")
-            st.toast("正在重新加载模型，请稍候...")
+            st.toast("正在重新加载 ASR 引擎，请稍候...")
             reload_client.post()
             message_box("恢复成功", "配置已恢复为默认设置，刷新页面即可查看更改。")
 

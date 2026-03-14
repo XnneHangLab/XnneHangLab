@@ -16,3 +16,6 @@
 [submodule "frontend"]
 	path = frontend
 	url = https://github.com/XnneHangLab/Open-LLM-VTuber-Web.git
+[submodule "packages/Qwen3-ASR"]
+	path = packages/Qwen3-ASR
+	url = https://github.com/XnneHangLab/Qwen3-ASR.git
