@@ -77,10 +77,10 @@ test-proxy-health:
 test-asr:
   curl -X POST "http://localhost:12393/asr/funasr/transcribe" -F "file=@./examples/example1.wav"
 
-test-qwen-asr-0.6B:
+test-qwen-asr-0-6b:
   curl -X POST "http://localhost:12393/asr/qwen-asr/0.6B/transcribe" -F "file=@./examples/example1.wav"
 
-test-qwen-asr-1.7B:
+test-qwen-asr-1-7b:
   curl -X POST "http://localhost:12393/asr/qwen-asr/1.7B/transcribe" -F "file=@./examples/example1.wav"
   
 test-vad:
