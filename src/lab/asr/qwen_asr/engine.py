@@ -335,15 +335,15 @@ def _infer_request(request: Any, inputs: dict[str | int, np.ndarray]) -> np.ndar
     return _first_output(request.infer(inputs))
 
 
-def _infer_outputs(compiled_model: Any, inputs: dict[str | int, np.ndarray]) -> list[np.ndarray]:
-    outputs = compiled_model(inputs)
+def _infer_request_outputs(request: Any, inputs: dict[str | int, np.ndarray]) -> list[Any]:
+    outputs = request.infer(inputs)
     if isinstance(outputs, dict):
         values = outputs.values()
     elif hasattr(outputs, "values"):
         values = outputs.values()
     else:
         raise RuntimeError(f"Unexpected OpenVINO output container: {type(outputs)!r}")
-    return [np.asarray(value) for value in values]
+    return list(values)
 
 
 class QwenASREngine:
@@ -362,6 +362,8 @@ class QwenASREngine:
         self._decoder_prefill_model: Any = None
         self._decoder_kv_model: Any = None
         self._decoder_request: Any = None
+        self._decoder_prefill_request: Any = None
+        self._decoder_kv_request: Any = None
         self._processor: LightProcessor | None = None
         self._use_split_decoder = False
         self._audio_encoder_input: str | int = 0
@@ -419,6 +421,8 @@ class QwenASREngine:
                 self.device,
                 cpu_config,
             )
+            self._decoder_prefill_request = self._decoder_prefill_model.create_infer_request()
+            self._decoder_kv_request = self._decoder_kv_model.create_infer_request()
         else:
             self._decoder_model = self._core.compile_model(
                 str(model_path / "decoder_model.xml"),
@@ -490,11 +494,11 @@ class QwenASREngine:
             generated_ids: list[int] = []
 
             if self._use_split_decoder:
-                if self._decoder_prefill_model is None or self._decoder_kv_model is None:
+                if self._decoder_prefill_request is None or self._decoder_kv_request is None:
                     raise RuntimeError("Qwen3-ASR split decoder models are not initialized.")
 
-                prefill_outputs = _infer_outputs(
-                    self._decoder_prefill_model,
+                prefill_outputs = _infer_request_outputs(
+                    self._decoder_prefill_request,
                     {
                         self._decoder_prefill_embedding_input: combined_embeddings,
                         self._decoder_prefill_position_input: position_ids,
@@ -514,8 +518,8 @@ class QwenASREngine:
                             self._thinker_input: np.array([[next_token_id]], dtype=np.int64),
                         },
                     )
-                    decode_outputs = _infer_outputs(
-                        self._decoder_kv_model,
+                    decode_outputs = _infer_request_outputs(
+                        self._decoder_kv_request,
                         {
                             self._decoder_kv_embedding_input: next_embedding,
                             self._decoder_kv_position_input: np.array([[current_position]], dtype=np.int64),
@@ -581,6 +585,16 @@ class QwenASREngine:
             segments = _expand_segments(segment_candidates, audio_duration_ms)
         else:
             segments = _default_segments(audio_duration_ms)
+
+        if segments:
+            preview = ", ".join(f"[{start},{end}]" for start, end in segments[:8])
+            if len(segments) > 8:
+                preview = f"{preview}, ..."
+            logger.info(  # pyright: ignore[reportUnknownMemberType]
+                f"Qwen3-ASR VAD segments for {audio_path.name}: count={len(segments)}, preview={preview}"
+            )
+        else:
+            logger.info(f"Qwen3-ASR VAD segments for {audio_path.name}: count=0")  # pyright: ignore[reportUnknownMemberType]
 
         tokens: list[str] = []
         timestamps: list[list[int]] = []
