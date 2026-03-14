@@ -56,11 +56,7 @@ def _load_mel_filters(model_dir: Path | None = None) -> np.ndarray:
 
 
 def _build_byte_decoder() -> dict[str, int]:
-    bs = (
-        list(range(ord("!"), ord("~") + 1))
-        + list(range(ord("¡"), ord("¬") + 1))
-        + list(range(ord("®"), ord("ÿ") + 1))
-    )
+    bs = list(range(ord("!"), ord("~") + 1)) + list(range(ord("¡"), ord("¬") + 1)) + list(range(ord("®"), ord("ÿ") + 1))
     cs = list(bs)
     n = 0
     for value in range(256):

@@ -160,10 +160,7 @@ def _extract_asr_text(raw_output: str) -> str:
 def _is_cjk_char(char: str) -> bool:
     code = ord(char)
     return (
-        0x3400 <= code <= 0x4DBF
-        or 0x4E00 <= code <= 0x9FFF
-        or 0xF900 <= code <= 0xFAFF
-        or 0x20000 <= code <= 0x2CEAF
+        0x3400 <= code <= 0x4DBF or 0x4E00 <= code <= 0x9FFF or 0xF900 <= code <= 0xFAFF or 0x20000 <= code <= 0x2CEAF
     )
 
 
@@ -467,11 +464,7 @@ class QwenASREngine:
         try:
             vad_result = self._vad_engine.detect(audio_path)
             vad_timestamps = cast("list[list[int]]", vad_result.get("timestamp", []))
-            segment_candidates = [
-                (int(segment[0]), int(segment[1]))
-                for segment in vad_timestamps
-                if len(segment) >= 2
-            ]
+            segment_candidates = [(int(segment[0]), int(segment[1])) for segment in vad_timestamps if len(segment) >= 2]
         except Exception:
             logger.exception(f"Qwen3-ASR VAD pre-segmentation failed for {audio_path}")  # pyright: ignore[reportUnknownMemberType]
 
