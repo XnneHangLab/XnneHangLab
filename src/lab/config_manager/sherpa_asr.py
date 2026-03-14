@@ -13,7 +13,7 @@ class SherpaASRSettings(BaseModel):
     asr_model_dir: Annotated[
         str,
         Field(
-            "./models/sherpa-onnx-paraformer-zh-2024-03-09",
+        "./models/sherpa-onnx-paraformer-zh-2023-09-14",
             title="paraformer 模型目录",
         ),
     ]

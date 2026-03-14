@@ -234,7 +234,9 @@ with working_tab:
                     )
                 )
                 if not sentences:
-                    error_message = asr_client.last_error or "识别失败，请检查音频文件格式是否正确，或尝试使用其他音频文件。"
+                    error_message = (
+                        asr_client.last_error or "识别失败，请检查音频文件格式是否正确，或尝试使用其他音频文件。"
+                    )
                     _asr_logger.error(f"Streamlit ASR failed: {error_message}")
                     st.error(error_message, icon=":material/error:")
                 else:
