@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 class Packages(TypedDict):
     asr: bool
+    qwen_asr: bool
     to_do_list: bool
     yutto_uiya: bool
     gpt_sovits: bool
@@ -16,7 +17,7 @@ class Packages(TypedDict):
 
 class PackagesSettings(BaseModel):
     asr: Annotated[bool, Field(False, title="是否启用 sherpa-onnx ASR 服务")]
-    whisper: Annotated[bool, Field(False, title="是否启用 whisper")]
+    qwen_asr: Annotated[bool, Field(False, title="是否启用 Qwen3-ASR 服务")]
     to_do_list: Annotated[bool, Field(True, title="是否启用 todo_list")]
     yutto_uiya: Annotated[bool, Field(True, title="是否启用 yutto-uiya")]
     gpt_sovits: Annotated[bool, Field(True, title="是否启用 gpt-sovits")]
@@ -40,6 +41,7 @@ class PackagesSettings(BaseModel):
         """
         return {
             "asr": self.asr,
+            "qwen_asr": self.qwen_asr,
             "to_do_list": self.to_do_list,
             "yutto_uiya": self.yutto_uiya,
             "gpt_sovits": self.gpt_sovits,

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from lab.api.logic.faster_qwen_tts import init_qwen_tts_model
     from lab.api.logic.funasr import funasr_asr_audio, funasr_vad_audio, load_funasr, reload_funasr
-    from lab.api.logic.whisper import load_whisper, reload_whisper, whisper_asr_audio
+    from lab.api.logic.qwen_asr import load_qwen_asr_engine, qwen_asr_transcribe, reload_qwen_asr_engine
 
 _EXPORT_MAP: dict[str, tuple[str, str]] = {
     "init_qwen_tts_model": ("lab.api.logic.faster_qwen_tts", "init_qwen_tts_model"),
@@ -14,37 +14,34 @@ _EXPORT_MAP: dict[str, tuple[str, str]] = {
     "funasr_vad_audio": ("lab.api.logic.funasr", "funasr_vad_audio"),
     "load_funasr": ("lab.api.logic.funasr", "load_funasr"),
     "reload_funasr": ("lab.api.logic.funasr", "reload_funasr"),
-    "load_whisper": ("lab.api.logic.whisper", "load_whisper"),
-    "reload_whisper": ("lab.api.logic.whisper", "reload_whisper"),
-    "whisper_asr_audio": ("lab.api.logic.whisper", "whisper_asr_audio"),
+    "load_qwen_asr_engine": ("lab.api.logic.qwen_asr", "load_qwen_asr_engine"),
+    "reload_qwen_asr_engine": ("lab.api.logic.qwen_asr", "reload_qwen_asr_engine"),
+    "qwen_asr_transcribe": ("lab.api.logic.qwen_asr", "qwen_asr_transcribe"),
 }
 
 __all__ = [
     "init_qwen_tts_model",
     "funasr_asr_audio",
     "funasr_vad_audio",
-    "whisper_asr_audio",
+    "qwen_asr_transcribe",
     "load_funasr",
-    "load_whisper",
+    "load_qwen_asr_engine",
     "reload_funasr",
-    "reload_whisper",
+    "reload_qwen_asr_engine",
 ]
 
 
 def __getattr__(name: str) -> Any:
     """按需导入 `lab.api.logic` 对外暴露的符号。
 
-    这样可以保留原有 `from lab.api.logic import ...` 的使用方式，同时避免
-    仅为访问单个逻辑模块就把其他重量级依赖一并加载进来。
-
     Args:
-        name: 被访问的导出符号名称。
+        name: 待访问的导出名。
 
     Returns:
-        Any: 目标模块中的实际对象。
+        Any: 实际导出的函数或对象。
 
     Raises:
-        AttributeError: 访问的符号不在导出映射中时抛出。
+        AttributeError: 访问未知导出名时抛出。
     """
     if name not in _EXPORT_MAP:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

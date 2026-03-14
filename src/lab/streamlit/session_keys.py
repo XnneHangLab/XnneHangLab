@@ -1,10 +1,3 @@
-"""Streamlit session_state key 常量。
-
-用法：
-    from lab.streamlit.session_keys import audio_keys, setting_keys, home_keys, session_keys
-    st.session_state[audio_keys["audio_file"]]
-"""
-
 from __future__ import annotations
 
 from typing import TypedDict
@@ -34,7 +27,6 @@ class AudioSessionStateKeys(TypedDict):
     subtitle_speed: str
     max_sentence_length: str
     asr_model_provider: str
-    whisper_model_size: str
 
 
 class SettingSessionStateKeys(TypedDict):
@@ -47,8 +39,8 @@ class SettingSessionStateKeys(TypedDict):
     output_dir: str
     ffmpeg_path: str
     initial_settings: str
-    whisper_models_base_dir: str
-    whisper_model_size: str
+    qwen_model_id: str
+    qwen_device: str
     asr_model_provider: str
 
 
@@ -80,7 +72,6 @@ audio_keys: AudioSessionStateKeys = {
     "subtitle_speed": "subtitle_speed",
     "max_sentence_length": "max_sentence_length",
     "asr_model_provider": "asr_model_provider",
-    "whisper_model_size": "whisper_model_size",
 }
 
 setting_keys: SettingSessionStateKeys = {
@@ -93,8 +84,8 @@ setting_keys: SettingSessionStateKeys = {
     "output_dir": "output_dir",
     "ffmpeg_path": "ffmpeg_path",
     "initial_settings": "initial_settings",
-    "whisper_models_base_dir": "whisper_models_base_dir",
-    "whisper_model_size": "whisper_model_size",
+    "qwen_model_id": "qwen_model_id",
+    "qwen_device": "qwen_device",
     "asr_model_provider": "asr_model_provider",
 }
 

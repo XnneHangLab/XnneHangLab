@@ -22,21 +22,23 @@ lab_settings: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSe
 
 ROOT_DIR = Path(lab_settings.root.root_dir) / "static"
 
-
 if not ROOT_DIR.exists():
     raise FileNotFoundError(f"Static root directory {ROOT_DIR} does not exist.")
 
 
 class CustomStaticFiles(StaticFiles):
     async def get_response(self, path, scope):  # type: ignore[override]
-        """为 JavaScript 静态资源补充显式内容类型。
+        """为 JavaScript 静态资源补充内容类型。
 
         Args:
-            path: 请求的静态文件相对路径。
-            scope: Starlette 传入的请求作用域。
+            path: 请求的相对路径。
+            scope: Starlette 请求作用域。
 
         Returns:
-            Response: 处理后的静态文件响应对象。
+            Response: 处理后的响应对象。
+
+        Raises:
+            None.
         """
         response = await super().get_response(path, scope)
         if path.endswith(".js"):
@@ -49,11 +51,14 @@ class AvatarStaticFiles(StaticFiles):
         """限制头像目录只允许访问图片资源。
 
         Args:
-            path: 请求的静态文件相对路径。
-            scope: Starlette 传入的请求作用域。
+            path: 请求的相对路径。
+            scope: Starlette 请求作用域。
 
         Returns:
-            Response: 合法图片请求返回文件响应，否则返回 403。
+            Response: 合法图片返回文件响应，否则返回 403。
+
+        Raises:
+            None.
         """
         allowed_extensions = (".jpg", ".jpeg", ".png", ".gif", ".svg")
         if not any(path.lower().endswith(ext) for ext in allowed_extensions):
@@ -62,74 +67,79 @@ class AvatarStaticFiles(StaticFiles):
 
 
 def _include_router_with_log(name: str, include: Callable[[], None]) -> None:
-    """以统一格式记录路由初始化和注册耗时。
+    """统一记录路由注册耗时。
 
     Args:
-        name: 日志中展示的路由或初始化项名称。
-        include: 实际执行路由注册的无参回调。
+        name: 路由或初始化阶段名称。
+        include: 实际执行注册的回调。
 
     Returns:
         None.
+
+    Raises:
+        None.
     """
-    t = time.perf_counter()
+    started = time.perf_counter()
     logger.info("⏳ 初始化 {}...", name)
     include()
-    logger.info("✅ {} 初始化完成 ({:.1f}s)", name, time.perf_counter() - t)
+    logger.info("✅ {} 初始化完成 ({:.1f}s)", name, time.perf_counter() - started)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """管理 FastAPI 生命周期内的预加载与启动初始化流程。
-
-    启动阶段会根据 package 开关依次初始化 ASR、TTS、GPT-SoVITS、
-    memory_bench 与 `/memory/chat`，并为每个阶段输出开始和结束耗时日志。
+    """管理 FastAPI 生命周期中的预加载逻辑。
 
     Args:
-        app: 当前 FastAPI 应用实例。
+        app: FastAPI 应用实例。
 
     Returns:
-        AsyncIterator[None]: 提供给 FastAPI 的生命周期上下文。
+        None.
 
     Raises:
-        ValueError: memory_bench 或 `/memory/chat` 缺少必需配置时抛出。
+        ValueError: memory_bench 或 `/memory/chat` 缺少关键配置时抛出。
     """
     if lab_settings.package.asr:
         from lab.api.logic.funasr import load_funasr
 
-        t = time.perf_counter()
-        logger.info("⏳ 预加载 ASR 引擎（paraformer + silero-vad）...")
+        started = time.perf_counter()
+        logger.info("⏳ 预加载 Sherpa-ONNX ASR/VAD 引擎...")
         load_funasr()
-        logger.info("✅ ASR 引擎预加载完成 ({:.1f}s)", time.perf_counter() - t)
+        logger.info("✅ Sherpa-ONNX ASR/VAD 预加载完成 ({:.1f}s)", time.perf_counter() - started)
 
-    if lab_settings.package.whisper:
-        from lab.api.logic.whisper import load_whisper
+    if lab_settings.package.qwen_asr:
+        from lab.api.logic.qwen_asr import load_qwen_asr_engine
 
-        t = time.perf_counter()
-        logger.info("⏳ 初始化 ASR（Whisper）后端...")
-        load_whisper()
-        logger.info("✅ ASR（Whisper）后端初始化完成 ({:.1f}s)", time.perf_counter() - t)
+        started = time.perf_counter()
+        logger.info("⏳ 预加载 Qwen3-ASR 引擎...")
+        load_qwen_asr_engine()
+        logger.info("✅ Qwen3-ASR 引擎预加载完成 ({:.1f}s)", time.perf_counter() - started)
 
     if lab_settings.package.qwen_tts:
         from lab.api.logic.faster_qwen_tts import init_qwen_tts_model
 
-        t = time.perf_counter()
-        logger.bind(group="tts").info("⏳ 初始化 TTS（faster-qwen-tts）后端...")
+        started = time.perf_counter()
+        logger.bind(group="tts").info("⏳ 初始化 faster-qwen-tts 后端...")
         init_qwen_tts_model()
-        logger.bind(group="tts").info("✅ TTS（faster-qwen-tts）后端初始化完成 ({:.1f}s)", time.perf_counter() - t)
-
-    if lab_settings.package.gpt_sovits:
-        from gsv.gsv_state_manager import (
-            gsv_tts_state_manager,  # type: ignore[reportMissingImports,reportUnknownVariableType]
+        logger.bind(group="tts").info(
+            "✅ faster-qwen-tts 后端初始化完成 ({:.1f}s)",
+            time.perf_counter() - started,
         )
 
-        t = time.perf_counter()
+    if lab_settings.package.gpt_sovits:
+        from gsv.gsv_state_manager import (  # type: ignore[reportMissingImports,reportUnknownVariableType]
+            gsv_tts_state_manager,
+        )
+
+        started = time.perf_counter()
         logger.info("⏳ 初始化 GPT-SoVITS 后端...")
         synthesizer_module = import_module("gsv.Synthesizers.gsv_fast")
         tts_synthesizer = synthesizer_module.TTS_Synthesizer(debug_mode=True)
         gsv_tts_state_manager.set_state(tts_synthesizer)  # type: ignore[reportUnknownMemberType]
-        gen = tts_synthesizer.generate(tts_synthesizer.params_parser({"text": "筆者はすでにエッセイの序論"}))  # type: ignore[reportUnknownMemberType]
-        next(gen)
-        logger.info("✅ GPT-SoVITS 后端初始化完成 ({:.1f}s)", time.perf_counter() - t)
+        generator = tts_synthesizer.generate(
+            tts_synthesizer.params_parser({"text": "签名者ですでにエッセイの序説"})  # type: ignore[reportUnknownMemberType]
+        )
+        next(generator)
+        logger.info("✅ GPT-SoVITS 后端初始化完成 ({:.1f}s)", time.perf_counter() - started)
 
     ctx = getattr(app.state, "default_context_cache", None)
     if ctx is not None and lab_settings.agent.enable_tool:
@@ -145,15 +155,13 @@ async def lifespan(app: FastAPI):
 
     if lab_settings.package.memory_bench:
         try:
-            t = time.perf_counter()
+            started = time.perf_counter()
             logger.info("⏳ 初始化 memory_bench 后端...")
-            from memory_bench.server.router import (  # type: ignore[reportMissingImports]
-                state as memory_state,
-            )
-            from memory_bench.server.startup import (
-                init_router_state,  # type: ignore[reportMissingImports]
-                load_memory_bench_env,  # type: ignore[reportMissingImports]
-                resolve_memory_bench_config,  # type: ignore[reportMissingImports]
+            from memory_bench.server.router import state as memory_state  # type: ignore[reportMissingImports]
+            from memory_bench.server.startup import (  # type: ignore[reportMissingImports]
+                init_router_state,
+                load_memory_bench_env,
+                resolve_memory_bench_config,
             )
 
             memory_bench_cfg = lab_settings.memory_bench
@@ -188,13 +196,13 @@ async def lifespan(app: FastAPI):
             init_router_state(memory_state, cfg)
             logger.info(
                 "✅ memory_bench 后端初始化完成 ({:.1f}s, upstream={} / {})",
-                time.perf_counter() - t,
+                time.perf_counter() - started,
                 cfg["chat_base_url"],
                 cfg["chat_model"],
             )
 
             try:
-                t = time.perf_counter()
+                chat_started = time.perf_counter()
                 logger.info("⏳ 初始化 /memory/chat 端点...")
                 from lab.agent.agent_factory import AgentFactory
                 from lab.agent.storage import ConversationStoreAdapter
@@ -228,7 +236,7 @@ async def lifespan(app: FastAPI):
                 )
                 logger.info(
                     "✅ /memory/chat 端点初始化完成 ({:.1f}s, profile={})",
-                    time.perf_counter() - t,
+                    time.perf_counter() - chat_started,
                     chat_profile_path_str,
                 )
             except ValueError:
@@ -247,13 +255,16 @@ async def lifespan(app: FastAPI):
 
 
 class WebSocketServer:
-    def __init__(self):
-        """创建并初始化 WebSocket Server 与已启用的路由。
+    def __init__(self) -> None:
+        """创建并初始化 WebSocket/FastAPI 服务。
 
-        可选功能对应的路由会根据 `package.*` 开关按需导入，避免在启动早期
-        为未启用能力加载重量级依赖。
+        Args:
+            None.
 
         Returns:
+            None.
+
+        Raises:
             None.
         """
         self.app = FastAPI(lifespan=lifespan)
@@ -287,20 +298,14 @@ class WebSocketServer:
             "DeepLX 端点",
             lambda: self.app.include_router(import_module("lab.api.routes.deeplx").router),
         )
-        if lab_settings.package.asr or lab_settings.package.whisper:
+        if lab_settings.package.asr or lab_settings.package.qwen_asr:
             _include_router_with_log(
                 "ASR reload 端点",
                 lambda: self.app.include_router(import_module("lab.api.routes.asr_reload").router),
             )
-        if lab_settings.package.asr:
             _include_router_with_log(
-                "ASR 端点（Sherpa-ONNX）",
+                "ASR 端点（Qwen3-ASR / Sherpa-ONNX）",
                 lambda: self.app.include_router(import_module("lab.api.routes.asr_funasr").router),
-            )
-        if lab_settings.package.whisper:
-            _include_router_with_log(
-                "Whisper 端点",
-                lambda: self.app.include_router(import_module("lab.api.routes.asr_whisper").router),
             )
         if lab_settings.package.qwen_tts:
             _include_router_with_log(
@@ -332,7 +337,7 @@ class WebSocketServer:
                 ),
             )
 
-        logger.info(f"Mounting static files from {ROOT_DIR}")
+        logger.info("Mounting static files from {}", ROOT_DIR)
         self.app.mount(
             "/live2d-models",
             StaticFiles(directory=(ROOT_DIR / "live2d-models")),
@@ -356,10 +361,16 @@ class WebSocketServer:
 
         self.app.state.default_context_cache = default_context_cache
 
-    def run(self):
-        """预留的运行入口。
+    def run(self) -> None:
+        """预留运行入口。
+
+        Args:
+            None.
 
         Returns:
+            None.
+
+        Raises:
             None.
         """
         pass

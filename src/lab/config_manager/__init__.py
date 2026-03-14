@@ -1,4 +1,3 @@
-# 这里是本项目自己的配置管理器， 而下面的子项目比如 vtuber, 则是 open-llm-vtuber 的。
 from __future__ import annotations
 
 from typing import Annotated
@@ -9,10 +8,11 @@ from lab.streamlit.i18n import Device
 
 from .abs_root import RootAbsDir
 from .agent import AgentSettings, LLM_Provider
-from .asr import ASRSettings, WhisperSettings
+from .asr import ASRSettings
 from .audio_recognize import AudioRecognizeSettings
 from .config import XnneHangLabSettings, get_setting_title, load_settings_file, write_settings_file
 from .package import PackagesSettings
+from .qwen_asr import QwenASRSettings
 from .sherpa_asr import SherpaASRSettings
 
 
@@ -25,6 +25,7 @@ __all__ = [
     "RootAbsDir",
     "AudioRecognizeSettings",
     "SherpaASRSettings",
+    "QwenASRSettings",
     "load_settings_file",
     "write_settings_file",
     "get_setting_title",
@@ -33,7 +34,6 @@ __all__ = [
     "LLM_Provider",
     "PackagesSettings",
     "XnneHangLabSettings",
-    "WhisperSettings",
     "ASRSettings",
     "LLMSetting",
 ]

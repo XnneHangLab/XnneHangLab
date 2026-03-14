@@ -1,13 +1,16 @@
 from __future__ import annotations
 
-from pathlib import Path  # noqa: TC003
+from typing import TYPE_CHECKING
+
+import aiohttp
 
 from lab.api.clients.base_client_interface import BaseClientInterface, BaseRequest, BaseResponse
 from lab.asr.converter import convert_asr_response_to_sentences
-from lab.asr.types import ASRResponse, Sentence, WhisperResponse, WhisperSegment
-from lab.asr.whisper.converter import convert_whisper_response_to_sentences
-from lab.config_manager import XnneHangLabSettings, load_settings_file
+from lab.asr.types import ASRResponse, Sentence
 from lab.logger.logger_group import logger
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 _asr_logger = logger.bind(group="asr")
 
@@ -23,13 +26,13 @@ class ASRResponseModel(BaseResponse):
     timestamp: list[list[int]]
 
     def to_dict(self) -> ASRResponse:
-        """将响应模型转换为 ASRResponse。
+        """将响应模型转换为标准 ASRResponse。
 
         Args:
             None.
 
         Returns:
-            ASRResponse: 标准化的 ASR 响应字典。
+            ASRResponse: 标准化后的 ASR 响应。
 
         Raises:
             None.
@@ -38,28 +41,6 @@ class ASRResponseModel(BaseResponse):
             key=self.key,
             text=self.text,
             timestamp=self.timestamp,
-        )
-
-
-class WhisperASRResponseModel(BaseResponse):
-    segments: list[WhisperSegment]
-    text: str
-
-    def to_dict(self) -> WhisperResponse:
-        """将响应模型转换为 WhisperResponse。
-
-        Args:
-            None.
-
-        Returns:
-            WhisperResponse: 标准化的 Whisper 响应字典。
-
-        Raises:
-            None.
-        """
-        return WhisperResponse(
-            text=self.text,
-            segments=self.segments,
         )
 
 
@@ -76,16 +57,11 @@ class ASRClient(BaseClientInterface):
         Raises:
             None.
         """
-        lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
-        self.config = lab_settings.asr
+        self.base_url = self.base_url + "/asr/funasr/transcribe"
         self.last_error: str | None = None
-        if lab_settings.asr.asr_model_provider == "sherpa":
-            self.base_url = self.base_url + "/asr/funasr/transcribe"
-        else:
-            self.base_url = self.base_url + "/asr/whisper"
 
     def post(self, request: ASRRequest) -> list[Sentence] | None:  # type: ignore[override]
-        """调用 ASR 接口并转换为句子列表。
+        """调用统一 ASR 接口并转换为句子列表。
 
         Args:
             request: 包含待识别音频路径的请求对象。
@@ -119,33 +95,20 @@ class ASRClient(BaseClientInterface):
             return None
 
         try:
-            if self.config.asr_model_provider == "sherpa":
-                asr_response: ASRResponse = ASRResponseModel.model_validate(payload).to_dict()
-                sentences = convert_asr_response_to_sentences(asr_response)
-                if not sentences:
-                    self.last_error = "ASR returned no sentences."
-                    _asr_logger.error(f"ASR returned no sentences: {payload}")
-                    return None
-                return sentences
-            if self.config.asr_model_provider == "whisper":
-                whisper_response: WhisperResponse = WhisperASRResponseModel.model_validate(payload).to_dict()
-                sentences = convert_whisper_response_to_sentences(whisper_response)
-                if not sentences:
-                    self.last_error = "Whisper returned no sentences."
-                    _asr_logger.error(f"Whisper returned no sentences: {payload}")
-                    return None
-                return sentences
-
-            self.last_error = f"Unknown ASR model provider: {self.config.asr_model_provider}"
-            _asr_logger.error(self.last_error)
-            return None
+            asr_response: ASRResponse = ASRResponseModel.model_validate(payload).to_dict()
+            sentences = convert_asr_response_to_sentences(asr_response)
+            if not sentences:
+                self.last_error = "ASR returned no sentences."
+                _asr_logger.error(f"ASR returned no sentences: {payload}")
+                return None
+            return sentences
         except Exception as exc:
             self.last_error = f"Failed to parse ASR response: {exc}"
             _asr_logger.error(f"Failed to parse ASR response: {exc}, {payload}")
             return None
 
     async def asyncpost(self, request: ASRRequest) -> ASRResponse | None:  # type: ignore[override]
-        """异步调用 sherpa-onnx ASR 接口。
+        """异步调用统一 ASR 接口。
 
         Args:
             request: 包含待识别音频路径的请求对象。
@@ -158,20 +121,31 @@ class ASRClient(BaseClientInterface):
         """
         self.async_session = await self.get_async_session()
         if not request.file_path.exists():
-            _asr_logger.error(f"File not found: {request.file_path}")
+            self.last_error = f"File not found: {request.file_path}"
+            _asr_logger.error(self.last_error)
             return None
 
-        with request.file_path.open("rb") as file:
-            async with self.async_session.post(self.base_url, data={"file": file}) as response:
-                if response.status != 200:
-                    _asr_logger.error(f"Failed to get a valid response: {response.status}")
-                    return None
+        try:
+            with request.file_path.open("rb") as file:
+                form = aiohttp.FormData()
+                form.add_field("file", file, filename=request.file_path.name)
+                async with self.async_session.post(self.base_url, data=form) as response:
+                    if response.status != 200:
+                        self.last_error = f"Failed to get a valid response: {response.status}"
+                        _asr_logger.error(self.last_error)
+                        return None
 
-                response_data = await response.json()
-                try:
-                    return ASRResponseModel.model_validate(response_data).to_dict()
-                except Exception as exc:
-                    _asr_logger.error(f"Failed to parse ASR response: {exc}, {response_data}")
-                    return None
-                finally:
-                    await self.async_session.close()
+                    payload = await response.json()
+        except Exception as exc:
+            self.last_error = f"ASR request failed: {exc}"
+            _asr_logger.error(self.last_error)
+            return None
+        finally:
+            await self.async_session.close()
+
+        try:
+            return ASRResponseModel.model_validate(payload).to_dict()
+        except Exception as exc:
+            self.last_error = f"Failed to parse ASR response: {exc}"
+            _asr_logger.error(f"Failed to parse ASR response: {exc}, {payload}")
+            return None

@@ -12,7 +12,6 @@ from lab.asr.cutter import cut_sentences
 from lab.config_manager import (
     ASRSettings,
     AudioRecognizeSettings,
-    WhisperSettings,
     XnneHangLabSettings,
     get_setting_title,
     load_settings_file,
@@ -36,7 +35,6 @@ style()
 lab_settings: XnneHangLabSettings = load_settings_file("lab.toml", setting=XnneHangLabSettings)
 asr_setting: ASRSettings = lab_settings.asr
 webui_setting: AudioRecognizeSettings = lab_settings.webui
-whisper_setting: WhisperSettings = lab_settings.asr.whisper
 
 # ============== 1.初始化持久化参数
 
@@ -48,7 +46,6 @@ cut_line: int = st.session_state.get(audio_keys["cut_line"], asr_setting.cut_lin
 combine_line: int = st.session_state.get(audio_keys["combine_line"], asr_setting.combine_line)
 max_sentence_length: int = st.session_state.get(audio_keys["max_sentence_length"], asr_setting.max_sentence_length)
 asr_model_provider = st.session_state.get(audio_keys["asr_model_provider"], asr_setting.asr_model_provider)
-whisper_model_size = st.session_state.get(audio_keys["whisper_model_size"], whisper_setting.whisper_model_size)
 
 
 # 用于音频上传
@@ -111,14 +108,7 @@ with setting_tab:
             asr_setting.get_labels("asr_model_provider"),
             index=asr_setting.get_index("asr_model_provider"),
         )
-        st.caption("Sherpa-ONNX 更适合中文字级时间戳场景，Whisper 更适合多语种识别。")
-        if asr_model_provider == "Whisper":
-            whisper_model_size = st.selectbox(
-                get_setting_title("whisper_model_size", WhisperSettings),
-                whisper_setting.get_labels("whisper_model_size"),
-                index=whisper_setting.get_index("whisper_model_size"),
-            )
-            st.caption("tiny < base < turbo < large. 模型越大, 精度越高, 但速度越慢")
+        st.caption("Qwen3-ASR is the default multilingual engine. Sherpa-ONNX stays as a lightweight fallback.")
     with AudioSave:
         col1, col2 = st.columns([0.75, 0.25])
         st.markdown("")
@@ -128,9 +118,6 @@ with setting_tab:
             if st.button("**保存更改**", use_container_width=True, type="primary"):
                 webui_setting.set_by_label("guide", guide)
                 asr_setting.set_by_label("asr_model_provider", asr_model_provider)
-                if asr_model_provider == "Whisper":
-                    whisper_setting.set_by_label("whisper_model_size", whisper_model_size)
-                    asr_setting.whisper = whisper_setting
                 lab_settings.asr = asr_setting
                 lab_settings.webui = webui_setting
                 write_settings_file("lab.toml", lab_settings)

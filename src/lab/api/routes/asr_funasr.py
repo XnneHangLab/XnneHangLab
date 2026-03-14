@@ -5,27 +5,37 @@ from typing import Any
 from fastapi import APIRouter, UploadFile
 
 from lab.api.logic.funasr import funasr_asr_audio, funasr_vad_audio
+from lab.api.logic.qwen_asr import qwen_asr_transcribe
 from lab.api.routes.asr_shared import file_default, save_upload_to_temp
+from lab.config_manager import XnneHangLabSettings, load_settings_file
 
 router = APIRouter(prefix="/asr/funasr", tags=["asr", "funasr"])
 
 
 @router.post("/transcribe", response_model=dict)
 async def funasr_transcribe(file: UploadFile = file_default) -> dict[str, Any]:
-    """使用 sherpa-onnx 对上传音频执行 ASR 推理。
+    """使用当前配置的 ASR 引擎处理上传音频。
 
     Args:
-        file: 待识别的音频文件。
+        file: 待识别音频文件。
 
     Returns:
-        dict[str, Any]: ASR 结果（key、text、timestamp、process_time）以及状态码。
+        dict[str, Any]: 统一的 ASR 结果与状态字段。
 
     Raises:
         None.
     """
     temp_audio_path = save_upload_to_temp(file)
     try:
-        result = funasr_asr_audio(input_path=temp_audio_path)
+        lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+        if lab_settings.asr.asr_model_provider == "qwen":
+            if not lab_settings.package.qwen_asr:
+                raise RuntimeError("Qwen3-ASR is disabled in lab.toml")
+            result = qwen_asr_transcribe(input_path=temp_audio_path)
+        else:
+            if not lab_settings.package.asr:
+                raise RuntimeError("Sherpa-ONNX is disabled in lab.toml")
+            result = funasr_asr_audio(input_path=temp_audio_path)
     except Exception as exc:
         temp_audio_path.unlink(missing_ok=True)
         return {"code": "500", "message": f"ASR processing failed: {exc}"}
@@ -38,19 +48,22 @@ async def funasr_transcribe(file: UploadFile = file_default) -> dict[str, Any]:
 
 @router.post("/vad", response_model=dict)
 async def funasr_vad_audio_activity(file: UploadFile = file_default) -> dict[str, Any]:
-    """使用 sherpa-onnx 对上传音频执行 VAD 检测。
+    """使用 sherpa-onnx 执行 VAD 检测。
 
     Args:
-        file: 待检测的音频文件。
+        file: 待检测音频文件。
 
     Returns:
-        dict[str, Any]: VAD 结果（key、timestamp、audio_length、process_time）以及状态码。
+        dict[str, Any]: VAD 结果与状态字段。
 
     Raises:
         None.
     """
     temp_audio_path = save_upload_to_temp(file)
     try:
+        lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+        if not lab_settings.package.asr:
+            raise RuntimeError("Sherpa-ONNX is disabled in lab.toml")
         result = funasr_vad_audio(input_path=temp_audio_path)
     except Exception as exc:
         temp_audio_path.unlink(missing_ok=True)
