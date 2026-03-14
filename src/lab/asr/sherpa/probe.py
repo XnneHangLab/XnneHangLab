@@ -163,20 +163,31 @@ def _decode_offline_paraformer(samples: np.ndarray, sample_rate: int, model_dir:
     return stream.result
 
 
-def _build_asr_response(audio_path: Path, result: Any) -> ASRResponse:
+def _build_asr_response(audio_path: Path, result: Any, vad_end_ms: int | None = None) -> ASRResponse:
     tokens: list[str] = list(getattr(result, "tokens", []))
     timestamps: list[float] = list(getattr(result, "timestamps", []))
-    text = getattr(result, "text", "") or "".join(tokens)
+    timestamps_ms = [int(t * 1000) for t in timestamps]
+    timestamp_pairs: list[list[int]] = []
+
+    for i, start in enumerate(timestamps_ms):
+        if i + 1 < len(timestamps_ms):
+            end = timestamps_ms[i + 1]
+        elif vad_end_ms is not None:
+            end = vad_end_ms
+        else:
+            end = start + 240
+
+        timestamp_pairs.append([start, end])
 
     response: ASRResponse = {
         "key": audio_path.stem,
-        "text": text,
-        "timestamp": [[int(t * 1000), int(t * 1000) + 240] for t in timestamps],
+        "text": " ".join(tokens),
+        "timestamp": timestamp_pairs,
     }
     return response
 
 
-def probe_asr(audio_path: Path, model_dir: Path) -> None:
+def probe_asr(audio_path: Path, model_dir: Path, vad_end_ms: int | None = None) -> None:
     """探索 sherpa-onnx paraformer 的原始输出格式。
 
     打印原始输出，然后尝试构造 ASRResponse 并跑
@@ -227,7 +238,7 @@ def probe_asr(audio_path: Path, model_dir: Path) -> None:
     print("result.timestamps type:", type(getattr(result, "timestamps", None)))
     print("result.timestamps length:", len(getattr(result, "timestamps", [])))
 
-    response = _build_asr_response(audio_path, result)
+    response = _build_asr_response(audio_path, result, vad_end_ms=vad_end_ms)
     print("constructed ASRResponse:", response)
 
     compatibility = len(response["text"].split()) == len(response["timestamp"])
@@ -240,7 +251,7 @@ def probe_asr(audio_path: Path, model_dir: Path) -> None:
         print("convert_asr_response_to_sentences failed:", repr(exc))
 
 
-def probe_vad(audio_path: Path, vad_model_path: Path) -> None:
+def probe_vad(audio_path: Path, vad_model_path: Path) -> VadResponse:
     """探索 sherpa-onnx silero-vad 的原始输出格式。
 
     打印原始输出，然后尝试构造 VadResponse，验证兼容性。
@@ -319,6 +330,7 @@ def probe_vad(audio_path: Path, vad_model_path: Path) -> None:
         "audio_length": get_audio_duration(audio_path),
     }
     print("constructed VadResponse:", response)
+    return response
 
 
 if __name__ == "__main__":
@@ -333,6 +345,9 @@ if __name__ == "__main__":
     parser.add_argument("--skip-vad", action="store_true")
     args = parser.parse_args()
 
-    probe_asr(args.audio, args.model_dir)
+    vad_response: VadResponse | None = None
     if not args.skip_vad:
-        probe_vad(args.audio, args.vad_model)
+        vad_response = probe_vad(args.audio, args.vad_model)
+
+    vad_end_ms = vad_response["timestamp"][-1][1] if vad_response and vad_response["timestamp"] else None
+    probe_asr(args.audio, args.model_dir, vad_end_ms=vad_end_ms)
