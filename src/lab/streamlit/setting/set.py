@@ -85,8 +85,8 @@ class QwenSettingsDict(TypedDict):
     preload_models: list[QwenASRModelName]
     model_0_6b_path: str
     model_1_7b_path: str
-    forced_aligner_path: str
     device: str
+    cpu_threads: int
 
 
 class GlobalSettings(TypedDict):
@@ -115,8 +115,8 @@ if setting_keys["initial_settings"] not in st.session_state:
             "preload_models": list(qwen_settings.preload_models),
             "model_0_6b_path": qwen_settings.model_0_6b_path,
             "model_1_7b_path": qwen_settings.model_1_7b_path,
-            "forced_aligner_path": qwen_settings.forced_aligner_path,
             "device": qwen_settings.device,
+            "cpu_threads": qwen_settings.cpu_threads,
         },
     }
 
@@ -139,11 +139,10 @@ qwen_preload_models = cast(
 )
 qwen_model_0_6b_path = st.session_state.get(setting_keys["qwen_model_0_6b_path"], qwen_settings.model_0_6b_path)
 qwen_model_1_7b_path = st.session_state.get(setting_keys["qwen_model_1_7b_path"], qwen_settings.model_1_7b_path)
-qwen_forced_aligner_path = st.session_state.get(
-    setting_keys["qwen_forced_aligner_path"],
-    qwen_settings.forced_aligner_path,
-)
-qwen_device = st.session_state.get(setting_keys["qwen_device"], qwen_settings.device)
+qwen_device = str(st.session_state.get(setting_keys["qwen_device"], qwen_settings.device)).upper()
+if qwen_device != "CPU":
+    qwen_device = "CPU"
+qwen_cpu_threads = st.session_state.get(setting_keys["qwen_cpu_threads"], qwen_settings.cpu_threads)
 
 save_container = st.container()
 setting_container = st.container(border=True)
@@ -231,26 +230,27 @@ with setting_container:
     qwen_model_0_6b_path = st.text_input(
         get_setting_title("model_0_6b_path", QwenASRSettings),
         value=qwen_model_0_6b_path,
-        placeholder="./models/Qwen3-ASR-0.6B",
+        placeholder="./models/Qwen3-ASR-0.6B-INT8-OpenVINO",
         key="qwen_model_0_6b_path",
     )
     qwen_model_1_7b_path = st.text_input(
         get_setting_title("model_1_7b_path", QwenASRSettings),
         value=qwen_model_1_7b_path,
-        placeholder="./models/Qwen3-ASR-1.7B",
+        placeholder="./models/Qwen3-ASR-1.7B-INT8-OpenVINO",
         key="qwen_model_1_7b_path",
-    )
-    qwen_forced_aligner_path = st.text_input(
-        get_setting_title("forced_aligner_path", QwenASRSettings),
-        value=qwen_forced_aligner_path,
-        placeholder="./models/Qwen3-ForcedAligner-0.6B",
-        key="qwen_forced_aligner_path",
     )
     qwen_device = st.selectbox(
         get_setting_title("device", QwenASRSettings),
-        options=["cpu", "cuda"],
-        index=0 if qwen_device == "cpu" else 1,
+        options=["CPU"],
+        index=0,
         key="qwen_device",
+    )
+    qwen_cpu_threads = st.number_input(
+        get_setting_title("cpu_threads", QwenASRSettings),
+        value=int(qwen_cpu_threads),
+        min_value=0,
+        step=1,
+        key="qwen_cpu_threads",
     )
     if lab_settings.package.qwen_asr and not qwen_preload_models:
         st.warning("当前已启用 Qwen3-ASR 服务，但没有选择任何预加载模型。服务仍可按模型端点懒加载。")
@@ -282,10 +282,8 @@ with save_container:
                     "preload_models": list(qwen_preload_models),
                     "model_0_6b_path": qwen_model_0_6b_path or initial_settings["qwen_asr"]["model_0_6b_path"],
                     "model_1_7b_path": qwen_model_1_7b_path or initial_settings["qwen_asr"]["model_1_7b_path"],
-                    "forced_aligner_path": (
-                        qwen_forced_aligner_path or initial_settings["qwen_asr"]["forced_aligner_path"]
-                    ),
                     "device": qwen_device,
+                    "cpu_threads": int(qwen_cpu_threads),
                 },
             }
 
@@ -309,8 +307,8 @@ with save_container:
                 qwen_settings.preload_models = current_settings["qwen_asr"]["preload_models"]
                 qwen_settings.model_0_6b_path = current_settings["qwen_asr"]["model_0_6b_path"]
                 qwen_settings.model_1_7b_path = current_settings["qwen_asr"]["model_1_7b_path"]
-                qwen_settings.forced_aligner_path = current_settings["qwen_asr"]["forced_aligner_path"]
                 qwen_settings.device = current_settings["qwen_asr"]["device"]
+                qwen_settings.cpu_threads = current_settings["qwen_asr"]["cpu_threads"]
 
                 asr_settings.sherpa = sherpa_settings
                 asr_settings.qwen_asr = qwen_settings

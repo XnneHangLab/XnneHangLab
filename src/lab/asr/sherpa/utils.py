@@ -203,9 +203,18 @@ def create_vad_config(sherpa_onnx: Any, vad_model_path: Path, sample_rate: int) 
     config = sherpa_onnx.VadModelConfig()
     config.silero_vad.model = str(vad_model_path)
     config.silero_vad.threshold = 0.5
-    config.silero_vad.min_silence_duration = 0.25
-    config.silero_vad.min_speech_duration = 0.25
-    config.silero_vad.max_speech_duration = 8
+
+    try:
+        settings = load_settings_file("lab.toml", XnneHangLabSettings)
+        sherpa_settings = settings.asr.sherpa
+        config.silero_vad.min_silence_duration = sherpa_settings.vad_min_silence_duration
+        config.silero_vad.min_speech_duration = sherpa_settings.vad_min_speech_duration
+        config.silero_vad.max_speech_duration = sherpa_settings.vad_max_speech_duration
+    except Exception:
+        config.silero_vad.min_silence_duration = 0.25
+        config.silero_vad.min_speech_duration = 0.25
+        config.silero_vad.max_speech_duration = 8.0
+
     config.sample_rate = sample_rate
     return config
 

@@ -18,16 +18,19 @@ max_sentence_length = 20
 asr_model_dir = "./models/sherpa-onnx-paraformer-zh-2023-09-14"
 vad_model_path = "./models/silero_vad.onnx"
 num_threads = 2
+vad_min_silence_duration = 0.25
+vad_min_speech_duration = 0.25
+vad_max_speech_duration = 8.0
 
 [asr.qwen_asr]
 model_dir = "./models"
 preload_models = [
     "0.6b",
 ]
-model_0_6b_path = "./models/Qwen3-ASR-0.6B"
-model_1_7b_path = "./models/Qwen3-ASR-1.7B"
-forced_aligner_path = "./models/Qwen3-ForcedAligner-0.6B"
-device = "cuda"
+model_0_6b_path = "./models/Qwen3-ASR-0.6B-INT8-OpenVINO"
+model_1_7b_path = "./models/Qwen3-ASR-1.7B-INT8-OpenVINO"
+device = "CPU"
+cpu_threads = 0
 
 [webui]
 guide = "open"

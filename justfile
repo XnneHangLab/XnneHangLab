@@ -154,9 +154,8 @@ install-nltk:
 install-qwen-asr model_dir='./models':
   uv lock
   uv sync
-  uv run modelscope download --model Qwen/Qwen3-ASR-1.7B --local_dir {{ model_dir }}/Qwen3-ASR-1.7B
-  uv run modelscope download --model Qwen/Qwen3-ASR-0.6B --local_dir {{ model_dir }}/Qwen3-ASR-0.6B
-  uv run modelscope download --model Qwen/Qwen3-ForcedAligner-0.6B --local_dir {{ model_dir }}/Qwen3-ForcedAligner-0.6B
+  uv run modelscope download --model xnnehang/Qwen3-ASR-1.7B-INT8_OpenVINO --local_dir {{ model_dir }}/Qwen3-ASR-1.7B-INT8-OpenVINO
+  uv run modelscope download --model xnnehang/Qwen3-ASR-0.6B-INT8-OpenVINO --local_dir {{ model_dir }}/Qwen3-ASR-0.6B-INT8-OpenVINO
 
 install-sensevoice:
   uv lock
