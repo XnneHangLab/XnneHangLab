@@ -83,6 +83,60 @@ def _import_qwen_asr() -> Any:
     return qwen_asr_module.Qwen3ASRModel  # pyright: ignore[reportUnknownVariableType,reportAttributeAccessIssue]
 
 
+def _import_torchaudio() -> Any:
+    """延迟导入 torchaudio。
+
+    Args:
+        None.
+
+    Returns:
+        Any: torchaudio 模块对象。
+
+    Raises:
+        RuntimeError: torchaudio 未安装时抛出。
+    """
+    try:
+        torchaudio_module = import_module("torchaudio")
+    except ImportError as exc:
+        raise RuntimeError("Qwen3-ASR requires torchaudio to be installed.") from exc
+    return torchaudio_module  # pyright: ignore[reportUnknownVariableType]
+
+
+def _prepare_audio_input(audio_path: Path) -> tuple[Any, int]:
+    """在进入 qwen-asr 前先解码本地音频，绕开其内部 librosa 路径加载。
+
+    Args:
+        audio_path: 输入音频路径。
+
+    Returns:
+        tuple[Any, int]: `(waveform_np, 16000)`。
+
+    Raises:
+        RuntimeError: 音频解码失败时抛出。
+    """
+    torch = _import_torch()
+    torchaudio = _import_torchaudio()
+
+    try:
+        waveform, sample_rate = torchaudio.load(str(audio_path))
+    except Exception as exc:
+        raise RuntimeError(f"Failed to decode audio before Qwen3-ASR inference: {audio_path}") from exc
+
+    if getattr(waveform, "ndim", 0) == 1:
+        waveform = waveform.unsqueeze(0)
+    elif getattr(waveform, "ndim", 0) != 2:
+        raise RuntimeError(f"Unsupported audio tensor shape from torchaudio: {getattr(waveform, 'shape', '?')}")
+
+    if int(waveform.shape[0]) > 1:
+        waveform = waveform.mean(dim=0, keepdim=True)
+
+    if int(sample_rate) != 16000:
+        waveform = torchaudio.functional.resample(waveform, int(sample_rate), 16000)
+
+    waveform = waveform.squeeze(0).to(dtype=torch.float32).contiguous()
+    return waveform.cpu().numpy(), 16000
+
+
 def _resolve_model_path(model_path: str) -> str:
     """解析并校验本地模型路径。
 
@@ -491,14 +545,19 @@ class QwenASREngine:
         qwen_asr_model_cls = _import_qwen_asr()
 
         load_kwargs: dict[str, Any] = {}
+        load_attempts: list[dict[str, Any]]
         if self.forced_aligner_path:
             load_kwargs["forced_aligner"] = self.forced_aligner_path
-            load_kwargs["forced_aligner_kwargs"] = {}
-
-        load_attempts = [
-            {"device_map": self.device},
-            {},
-        ]
+            load_attempts = [
+                {"device_map": self.device, "forced_aligner_kwargs": {"device_map": self.device}},
+                {"device_map": self.device, "forced_aligner_kwargs": {}},
+                {"forced_aligner_kwargs": {}},
+            ]
+        else:
+            load_attempts = [
+                {"device_map": self.device},
+                {},
+            ]
 
         last_exc: Exception | None = None
         for extra_kwargs in load_attempts:
@@ -535,10 +594,12 @@ class QwenASREngine:
         if not audio_path.exists():
             raise FileNotFoundError(f"Audio file not found: {audio_path}")
 
+        audio_input = _prepare_audio_input(audio_path)
+
         with self._lock:
             try:
                 results = self._model.transcribe(
-                    audio=str(audio_path),
+                    audio=audio_input,
                     return_time_stamps=bool(self.forced_aligner_path),
                 )
             except TypeError as exc:
@@ -546,7 +607,7 @@ class QwenASREngine:
                     raise
                 try:
                     results = self._model.transcribe(
-                        str(audio_path),
+                        audio_input,
                         return_time_stamps=bool(self.forced_aligner_path),
                     )
                 except Exception as exc:
