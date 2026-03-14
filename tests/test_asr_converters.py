@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from lab.asr.funasr.converter import (
+from lab.asr.converter import (
     convert_asr_response_to_sentences,
     rewrite_sentence_text_by_words,
 )

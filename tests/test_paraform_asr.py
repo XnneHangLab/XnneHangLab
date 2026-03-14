@@ -26,8 +26,8 @@ class TestLabComponents:
     #     """测试获取设置标题"""
     # TODO 改用 i18n 实现。
     #     assert get_setting_title("subtitle_speed", AudioRecognizeSettings) == "字幕速度"
-    #     assert get_setting_title("device", FunASRSettings) == "设备选择"
-    #     assert get_setting_title("base_model", FunASRSettings) == "base 模型"
+    #     assert get_setting_title("device", SherpaASRSettings) == "设备选择"
+    #     assert get_setting_title("asr_model_dir", SherpaASRSettings) == "paraformer 模型目录"
 
 
 if __name__ == "__main__":

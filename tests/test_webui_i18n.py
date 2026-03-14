@@ -60,7 +60,7 @@ def test_get_index_three_members() -> None:
         (SubtitleSpeed.slow, "slow", "慢"),
         (SubtitleSpeed.normal, "normal", "正常"),
         (SubtitleSpeed.fast, "fast", "快"),
-        (ASRModelProvider.funasr, "funasr", "FunASR"),
+        (ASRModelProvider.sherpa, "sherpa", "Sherpa-ONNX"),
         (ASRModelProvider.whisper, "whisper", "Whisper"),
         (WhisperModelSize.tiny, "tiny", "tiny"),
         (WhisperModelSize.turbo, "turbo", "turbo"),
@@ -77,7 +77,7 @@ def test_enum_name_and_label(member: I18nEnum, expected_name: str, expected_labe
 def test_get_labels_returns_correct_options() -> None:
     settings = ASRSettings()  # pyright: ignore[reportCallIssue]
     assert settings.get_labels("device") == ["cpu", "gpu"]
-    assert settings.get_labels("asr_model_provider") == ["FunASR", "Whisper"]
+    assert settings.get_labels("asr_model_provider") == ["Sherpa-ONNX", "Whisper"]
 
 
 def test_get_index_reflects_current_value() -> None:

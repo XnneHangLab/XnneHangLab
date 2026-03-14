@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from lab.asr.funasr.converter import rewrite_sentence_text_by_words
+from lab.asr.converter import rewrite_sentence_text_by_words
 
 if TYPE_CHECKING:
     from lab.asr.types import CutPoint, Sentence, Word

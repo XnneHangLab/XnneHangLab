@@ -9,7 +9,7 @@ from typing_extensions import TypedDict
 
 
 class ASRResponse(TypedDict):
-    """response from funasr models
+    """response from character-level asr models
        Example:
     {'key': 'bug_0_30',
     'text': '嗯 嗯  well come to the hollywood reporter actress round',

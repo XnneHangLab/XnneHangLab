@@ -12,7 +12,6 @@ from lab.asr.cutter import cut_sentences
 from lab.config_manager import (
     ASRSettings,
     AudioRecognizeSettings,
-    FunASRSettings,
     WhisperSettings,
     XnneHangLabSettings,
     get_setting_title,
@@ -35,7 +34,6 @@ style()
 lab_settings: XnneHangLabSettings = load_settings_file("lab.toml", setting=XnneHangLabSettings)
 asr_setting: ASRSettings = lab_settings.asr
 webui_setting: AudioRecognizeSettings = lab_settings.webui
-funasr_setting: FunASRSettings = lab_settings.asr.funasr
 whisper_setting: WhisperSettings = lab_settings.asr.whisper
 
 # ============== 1.初始化持久化参数
@@ -111,7 +109,7 @@ with setting_tab:
             asr_setting.get_labels("asr_model_provider"),
             index=asr_setting.get_index("asr_model_provider"),
         )
-        st.caption("FunASR 仅支持中英文,Whisper 支持多语言, 中文任务 FunASR 精度高")
+        st.caption("Sherpa-ONNX 更适合中文字级时间戳场景，Whisper 更适合多语种识别。")
         if asr_model_provider == "Whisper":
             whisper_model_size = st.selectbox(
                 get_setting_title("whisper_model_size", WhisperSettings),
@@ -281,7 +279,7 @@ with working_tab:
                         st.session_state[audio_keys["preview_srt_file"]],
                     )
                     print("\033[1;34m🎉 字幕生成成功！\033[0m")
-                print("\033[1;34m🎉 FunASR 识别成功！\033[0m")
+                print("\033[1;34m🎉 ASR 识别成功！\033[0m")
                 msg_whs.toast("音频内容识别完成", icon=":material/colorize:")
                 print("\033[1;34m🎉 任务成功结束！\033[0m")
                 print("\n" + "=" * 50 + "\n")

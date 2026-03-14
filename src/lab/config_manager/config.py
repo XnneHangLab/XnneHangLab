@@ -6,7 +6,7 @@ import platform
 # if sys.version_info >= (3, 11):
 import tomllib  # Python 3.11+ 自带
 from pathlib import Path
-from typing import Annotated, Any, overload
+from typing import TYPE_CHECKING, Annotated, Any, overload
 
 import tomli_w as tomlw  # 安装 tomli_w 用于写入
 from pydantic import BaseModel, Field
@@ -16,8 +16,6 @@ from lab.config_manager.agent import AgentSettings
 from lab.config_manager.asr import (
     ASRSettings,
     ASRSettingsTitle,
-    FunASRSettings,
-    FunASRSettingsTitle,
     WhisperSettings,
     WhisperSettingsTitle,
 )
@@ -29,6 +27,8 @@ from lab.config_manager.vtuber import VtuberSettings
 
 toml_loads = tomllib.loads
 toml_dumps = tomlw.dumps  # 使用 tomlw.dumps
+if TYPE_CHECKING:
+    from lab.config_manager.sherpa_asr import SherpaASRSettings, SherpaASRSettingsTitle
 
 
 def xdg_config_home() -> Path:
@@ -55,7 +55,7 @@ def load_settings_file(setting_name: str, setting: type[VtuberSettings]) -> Vtub
 
 
 @overload
-def load_settings_file(setting_name: str, setting: type[FunASRSettings]) -> FunASRSettings: ...
+def load_settings_file(setting_name: str, setting: type[SherpaASRSettings]) -> SherpaASRSettings: ...
 
 
 @overload
@@ -106,7 +106,7 @@ def load_settings_file(
     setting_name: str,
     setting: (
         type[
-            FunASRSettings
+            SherpaASRSettings
             | WhisperSettings
             | AudioRecognizeSettings
             | RootAbsDir
@@ -119,7 +119,7 @@ def load_settings_file(
         ]
     ),
 ) -> (
-    FunASRSettings
+    SherpaASRSettings
     | WhisperSettings
     | AudioRecognizeSettings
     | RootAbsDir
@@ -148,7 +148,7 @@ def load_settings_file(
 
 def write_settings_file(
     settings_name: str,
-    settings: FunASRSettings
+    settings: SherpaASRSettings
     | WhisperSettings
     | AudioRecognizeSettings
     | RootAbsDir
@@ -174,8 +174,8 @@ def write_settings_file(
 
 @overload
 def get_setting_title(
-    name: FunASRSettingsTitle,
-    setting: type[FunASRSettings],
+    name: SherpaASRSettingsTitle,
+    setting: type[SherpaASRSettings],
 ) -> str:
     return str(setting.model_fields[name].field_info.title)  # type: ignore
 
@@ -205,8 +205,8 @@ def get_setting_title(
 
 
 def get_setting_title(
-    name: FunASRSettingsTitle | AudioRecognizeSettingsTitle | WhisperSettingsTitle | ASRSettingsTitle,
-    setting: type[FunASRSettings | AudioRecognizeSettings | WhisperSettings | ASRSettings],
+    name: SherpaASRSettingsTitle | AudioRecognizeSettingsTitle | WhisperSettingsTitle | ASRSettingsTitle,
+    setting: type[SherpaASRSettings | AudioRecognizeSettings | WhisperSettings | ASRSettings],
 ) -> str:
     """获取配置项(英文)的标题。（中文）
 

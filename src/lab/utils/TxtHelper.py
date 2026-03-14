@@ -8,108 +8,193 @@ from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.utils.console.logger import Logger
 
 
-def split_text_into_sentences_by_punctuation_list(text: str) -> list[str]:
-    """
-    测试移除文本中的指定标点符号(参见 config)
+def _get_punctuation_list() -> str:
+    """读取当前 ASR 配置中的标点符号列表。
+
+    Args:
+        None.
+
+    Returns:
+        str: `lab.toml` 中配置的标点字符集合。
+
+    Raises:
+        None.
     """
     lab_settings: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSettings)
-    return re.split(f"([{lab_settings.asr.funasr.punctuation_list}])", text)
-    # 如果后续碰到 list out of index,可以打印一下看一下文本中出现了什么没有见过的符号然后加入 pop_list。
+    return lab_settings.asr.punctuation_list
 
 
-# 写入行到文件
-def write_lines_to_file(file_path: Path, lines: list[str]):
+def split_text_into_sentences_by_punctuation_list(text: str) -> list[str]:
+    """按配置中的标点列表切分文本。
+
+    Args:
+        text: 待切分的原始文本。
+
+    Returns:
+        list[str]: 文本片段与标点交替组成的列表。
+
+    Raises:
+        None.
+    """
+    punctuation_list = _get_punctuation_list()
+    return re.split(f"([{punctuation_list}])", text)
+
+
+def write_lines_to_file(file_path: Path, lines: list[str]) -> None:
+    """将多行文本写入文件。
+
+    Args:
+        file_path: 目标文件路径。
+        lines: 待写入的多行文本。
+
+    Returns:
+        None.
+
+    Raises:
+        OSError: 文件写入失败时抛出。
+    """
     with file_path.open("w", encoding="utf-8") as file:
         file.writelines(lines)
 
 
-# 写入长文本到文件,保存时不主动分行。传入什么样，保存时就是什么样。
-def write_txt_to_file(file_path: Path, text: str):
+def write_txt_to_file(file_path: Path, text: str) -> None:
+    """将完整文本写入文件。
+
+    Args:
+        file_path: 目标文件路径。
+        text: 待写入的文本内容。
+
+    Returns:
+        None.
+
+    Raises:
+        OSError: 文件写入失败时抛出。
+    """
     with file_path.open("w", encoding="utf-8") as file:
         file.write(text)
-        Logger.info(f"已写入文件: {file_path}.")
+        Logger.info(f"已写入文件 {file_path}.")
 
 
-# 读取文件
 def read_file(file_path: Path) -> str:
+    """读取整个文本文件。
+
+    Args:
+        file_path: 待读取的文件路径。
+
+    Returns:
+        str: 文件全部内容。
+
+    Raises:
+        OSError: 文件读取失败时抛出。
+    """
     with file_path.open(encoding="utf-8") as file:
         return file.read()
 
 
-# 读取文件并按行返回
 def read_file_by_lines(file_path: Path) -> list[str]:
+    """按行读取文本文件。
+
+    Args:
+        file_path: 待读取的文件路径。
+
+    Returns:
+        list[str]: 文件的逐行内容。
+
+    Raises:
+        OSError: 文件读取失败时抛出。
+    """
     with file_path.open(encoding="utf-8") as file:
         return file.readlines()
 
 
 def split_into_words_no_punct(text: str) -> list[str]:
-    """
-    将输入字符串分割成单词列表。规则如下：
-    1. 每个中文字符算作一个独立的“单词”。
-    2. 连续的英文字母序列（包括带撇号的缩写，如 "He's", "don't"）算作一个单词。
-    3. 忽略所有标点符号和空格。
+    """将文本切分为中英文字词并忽略标点。
 
-    示例:
-    split_into_words_no_punct("哦，有意思有意思。") -> ['哦', '有', '意', '思', '有', '意', '思']
-    split_into_words_no_punct("F特.") -> ['F', '特']
-    split_into_words_no_punct("OK来到这儿了。") -> ['OK', '来', '到', '这', '儿', '了']
-    split_into_words_no_punct("He's 我见过的。") -> ["He's", '我', '见', '过', '的'] # 正确处理英文缩写
-    split_into_words_no_punct("嗯，。") -> ['嗯']
-    split_into_words_no_punct("It's a test.") -> ['It's', 'a', 'test']
-    split_into_words_no_punct("don't stop") -> ["don't", 'stop']
+    Args:
+        text: 待分词的原始文本。
+
+    Returns:
+        list[str]: 去除标点后的字词列表。
+
+    Raises:
+        None.
     """
     pattern = re.compile(r"[a-zA-Z]+(?:'[a-zA-Z]+)?|[\u4e00-\u9fa5]")
-    words = pattern.findall(text)
-    return words
+    return pattern.findall(text)
 
 
 def split_into_words(text: str) -> list[str]:
-    """
-    将句子分割成单个汉字和单词，保留标点符号
-    Example:
-    split_into_words("晚安纳尼南尼nony!") -> ['晚', '安', '纳', '尼', '南', '尼', 'nony', '!']
-    split_into_words("就的真的妈a等等?") -> ['就', '的', '真', '的', '妈', 'a', '等', '等', '?']
-    split_into_words("多喜天dustin birthday.") -> ['多', '喜', '天', 'dustin', 'birthday', '.']
-    split_into_words("He's 我见过的。") -> ["He's", '我', '见', '过', '的', '。']
-    """
+    """将文本切分为中英文字词并保留标点。
 
+    Args:
+        text: 待分词的原始文本。
+
+    Returns:
+        list[str]: 包含中英文字词与标点的列表。
+
+    Raises:
+        None.
+    """
     pattern = re.compile(r"[a-zA-Z]+(?:'[a-zA-Z]+)?|[\u4e00-\u9fa5]|[^\u4e00-\u9fa5a-zA-Z\s]")
-
-    # 使用 findall 方法找到所有匹配的部分
-    words = pattern.findall(text)
-
-    return words
+    return pattern.findall(text)
 
 
 def calculate_words_length(segmented_text: str) -> int:
+    """计算文本中非标点字词的数量。
+
+    Args:
+        segmented_text: 待统计的文本。
+
+    Returns:
+        int: 去除标点后的字词数量。
+
+    Raises:
+        None.
     """
-    计算分割后单词和汉字的长度
-    """
-    lab_settings: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSettings)
-    words = split_into_words(segmented_text)
+    punctuation_list = _get_punctuation_list()
     length = 0
-    for word in words:
-        if word not in lab_settings.asr.funasr.punctuation_list:
+    for word in split_into_words(segmented_text):
+        if word not in punctuation_list:
             length += 1
     return length
 
 
 def read_prompt_from_text_file(prompt_path: str) -> str:
+    """读取提示词文件内容。
+
+    Args:
+        prompt_path: 提示词文件路径。
+
+    Returns:
+        str: 文件中的完整提示词文本。
+
+    Raises:
+        ValueError: 文件不存在时抛出。
+    """
     prompt_text_path = Path(prompt_path)
     if not prompt_text_path.exists():
         raise ValueError(f"prompt file {prompt_text_path} not exists")
-    with prompt_text_path.open("r", encoding="utf-8") as f:
-        prompt_text = f.read()
-    return prompt_text
+    with prompt_text_path.open("r", encoding="utf-8") as file:
+        return file.read()
 
 
 ToolNameList = Literal["core_memory_writer", "core_memory_reader", "knowledge_base_reader", "long_term_memory_reader"]
 
 
 def read_tool_prompt_from_text_file(tool_name: ToolNameList) -> str:
+    """读取工具专用提示词文件内容。
+
+    Args:
+        tool_name: 工具名称。
+
+    Returns:
+        str: 工具提示词文本。
+
+    Raises:
+        ValueError: 提示词文件不存在时抛出。
+    """
     prompt_text_path = Path("prompts") / "tools" / f"{tool_name}.txt"
     if not prompt_text_path.exists():
         raise ValueError(f"prompt file {prompt_text_path} not exists")
-    with prompt_text_path.open("r", encoding="utf-8") as f:
-        prompt_text = f.read()
-    return prompt_text
+    with prompt_text_path.open("r", encoding="utf-8") as file:
+        return file.read()

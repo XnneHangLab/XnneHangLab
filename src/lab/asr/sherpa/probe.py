@@ -30,7 +30,7 @@ import numpy as np
 import numpy.typing as npt
 from loguru import logger
 
-from lab.asr.funasr.converter import convert_asr_response_to_sentences
+from lab.asr.converter import convert_asr_response_to_sentences
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.logger.logger_group import init_logger
 from lab.utils.FFmpegHelper import get_audio_duration
