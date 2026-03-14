@@ -106,10 +106,18 @@ class ASRClient(BaseClientInterface):
         try:
             if self.config.asr_model_provider == "sherpa":
                 asr_response: ASRResponse = ASRResponseModel.model_validate(payload).to_dict()
-                return convert_asr_response_to_sentences(asr_response)
+                sentences = convert_asr_response_to_sentences(asr_response)
+                if not sentences:
+                    logger.error(f"ASR returned no sentences: {payload}")
+                    return None
+                return sentences
             if self.config.asr_model_provider == "whisper":
                 whisper_response: WhisperResponse = WhisperASRResponseModel.model_validate(payload).to_dict()
-                return convert_whisper_response_to_sentences(whisper_response)
+                sentences = convert_whisper_response_to_sentences(whisper_response)
+                if not sentences:
+                    logger.error(f"Whisper returned no sentences: {payload}")
+                    return None
+                return sentences
 
             logger.error(f"Unknown ASR model provider: {self.config.asr_model_provider}")
             return None
