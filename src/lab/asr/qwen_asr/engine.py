@@ -405,6 +405,8 @@ def _normalize_native_response(result: Any, audio_duration_ms: int) -> tuple[str
     raw_timestamps = getattr(result, "time_stamps", None)
     if raw_timestamps is None and isinstance(result, dict):
         raw_timestamps = result.get("time_stamps") or result.get("timestamps")
+    if raw_timestamps is not None and hasattr(raw_timestamps, "items"):
+        raw_timestamps = list(raw_timestamps.items)
 
     if not isinstance(raw_timestamps, list) or not raw_timestamps:
         return _build_fallback_response(text, audio_duration_ms)
@@ -518,19 +520,19 @@ class QwenASREngine:
             try:
                 results = self._model.transcribe(
                     audio=str(audio_path),
-                    return_timestamps=bool(self.forced_aligner_path),
                     return_time_stamps=bool(self.forced_aligner_path),
                 )
             except TypeError:
                 try:
                     results = self._model.transcribe(
                         str(audio_path),
-                        return_timestamps=bool(self.forced_aligner_path),
                         return_time_stamps=bool(self.forced_aligner_path),
                     )
                 except Exception as exc:
+                    logger.exception("Qwen3-ASR transcribe failed for {}", audio_path)
                     raise RuntimeError(f"Failed to transcribe audio with Qwen3-ASR: {audio_path}") from exc
             except Exception as exc:
+                logger.exception("Qwen3-ASR transcribe failed for {}", audio_path)
                 raise RuntimeError(f"Failed to transcribe audio with Qwen3-ASR: {audio_path}") from exc
 
         if not isinstance(results, list) or not results:

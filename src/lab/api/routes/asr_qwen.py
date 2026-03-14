@@ -1,8 +1,11 @@
+# pyright: reportMissingImports=false, reportUnknownVariableType=false, reportUnknownMemberType=false
+
 from __future__ import annotations
 
 from typing import Any
 
 from fastapi import APIRouter, UploadFile
+from loguru import logger
 
 from lab.api.logic.qwen_asr import normalize_qwen_model_name, qwen_asr_transcribe
 from lab.api.routes.asr_shared import file_default, save_upload_to_temp
@@ -34,6 +37,7 @@ async def _transcribe_qwen_model(file: UploadFile, model_name: str) -> dict[str,
             model_name=normalize_qwen_model_name(model_name),
         )
     except Exception as exc:
+        logger.exception("Qwen3-ASR route failed for model {}", model_name)
         temp_audio_path.unlink(missing_ok=True)
         return {"code": "500", "message": f"Qwen3-ASR processing failed: {exc}"}
 
