@@ -26,6 +26,8 @@ _qwen_asr_engines: dict[tuple[str, str, int], QwenASREngine] = {}
 _TIMESTAMP_PATTERN = re.compile(r"<\|(\d+(?:\.\d+)?)\|>")
 _TARGET_SAMPLE_RATE = 16_000
 _MAX_CHUNK_MS = 30_000
+_VAD_MERGE_GAP_MS = 500
+_VAD_MIN_SEGMENT_MS = 1_500
 _REQUIRED_MODEL_FILES = (
     "audio_encoder_model.xml",
     "thinker_embeddings_model.xml",
@@ -138,6 +140,46 @@ def _expand_segments(segments: Iterable[tuple[int, int]], audio_duration_ms: int
 
 def _default_segments(audio_duration_ms: int) -> list[tuple[int, int]]:
     return _expand_segments([(0, audio_duration_ms)], audio_duration_ms)
+
+
+def _merge_vad_segments(segments: list[tuple[int, int]], audio_duration_ms: int) -> list[tuple[int, int]]:
+    if not segments:
+        return []
+
+    ordered = sorted(
+        (
+            (max(0, int(start_ms)), min(audio_duration_ms, max(int(start_ms), int(end_ms))))
+            for start_ms, end_ms in segments
+        ),
+        key=lambda item: item[0],
+    )
+    merged: list[list[int]] = []
+
+    for start_ms, end_ms in ordered:
+        if end_ms <= start_ms:
+            continue
+
+        if not merged:
+            merged.append([start_ms, end_ms])
+            continue
+
+        previous = merged[-1]
+        gap_ms = start_ms - previous[1]
+        if gap_ms <= _VAD_MERGE_GAP_MS:
+            previous[1] = max(previous[1], end_ms)
+            continue
+
+        if previous[1] - previous[0] < _VAD_MIN_SEGMENT_MS:
+            previous[1] = max(previous[1], end_ms)
+            continue
+
+        merged.append([start_ms, end_ms])
+
+    if len(merged) >= 2 and merged[-1][1] - merged[-1][0] < _VAD_MIN_SEGMENT_MS:
+        merged[-2][1] = merged[-1][1]
+        merged.pop()
+
+    return [(start_ms, end_ms) for start_ms, end_ms in merged]
 
 
 def _ensure_sherpa_vad_loaded() -> Any:
@@ -574,15 +616,17 @@ class QwenASREngine:
         audio, audio_duration_ms = _load_audio(audio_path)
         segment_candidates: list[tuple[int, int]] = []
 
-        try:
-            vad_result = self._vad_engine.detect(audio_path)
-            vad_timestamps = cast("list[list[int]]", vad_result.get("timestamp", []))
-            segment_candidates = [(int(segment[0]), int(segment[1])) for segment in vad_timestamps if len(segment) >= 2]
-        except Exception:
-            logger.exception(f"Qwen3-ASR VAD pre-segmentation failed for {audio_path}")  # pyright: ignore[reportUnknownMemberType]
+        if audio_duration_ms > self._max_chunk_ms:
+            try:
+                vad_result = self._vad_engine.detect(audio_path)
+                vad_timestamps = cast("list[list[int]]", vad_result.get("timestamp", []))
+                segment_candidates = [(int(segment[0]), int(segment[1])) for segment in vad_timestamps if len(segment) >= 2]
+            except Exception:
+                logger.exception(f"Qwen3-ASR VAD pre-segmentation failed for {audio_path}")  # pyright: ignore[reportUnknownMemberType]
 
         if segment_candidates:
-            segments = _expand_segments(segment_candidates, audio_duration_ms)
+            merged_segments = _merge_vad_segments(segment_candidates, audio_duration_ms)
+            segments = _expand_segments(merged_segments, audio_duration_ms)
         else:
             segments = _default_segments(audio_duration_ms)
 
