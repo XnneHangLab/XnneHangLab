@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path  # noqa: TC003
 
-from loguru import logger
-
 from lab.api.clients.base_client_interface import BaseClientInterface, BaseRequest, BaseResponse
 from lab.asr.converter import convert_asr_response_to_sentences
 from lab.asr.types import ASRResponse, Sentence, WhisperResponse, WhisperSegment
 from lab.asr.whisper.converter import convert_whisper_response_to_sentences
 from lab.config_manager import XnneHangLabSettings, load_settings_file
+from lab.logger.logger_group import logger
+
+_asr_logger = logger.bind(group="asr")
 
 
 class ASRRequest(BaseRequest):
@@ -77,6 +78,7 @@ class ASRClient(BaseClientInterface):
         """
         lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
         self.config = lab_settings.asr
+        self.last_error: str | None = None
         if lab_settings.asr.asr_model_provider == "sherpa":
             self.base_url = self.base_url + "/asr/funasr/transcribe"
         else:
@@ -95,34 +97,51 @@ class ASRClient(BaseClientInterface):
             None.
         """
         if not request.file_path.exists():
-            logger.error(f"File not found: {request.file_path}")
+            self.last_error = f"File not found: {request.file_path}"
+            _asr_logger.error(self.last_error)
             return None
 
-        with request.file_path.open("rb") as file:
-            response = self.session.post(self.base_url, files={"file": file})
-            response.raise_for_status()
-            payload = response.json()
+        self.last_error = None
+
+        try:
+            with request.file_path.open("rb") as file:
+                response = self.session.post(self.base_url, files={"file": file})
+                response.raise_for_status()
+                payload = response.json()
+        except Exception as exc:
+            self.last_error = f"ASR request failed: {exc}"
+            _asr_logger.error(self.last_error)
+            return None
+
+        if payload.get("code") not in (None, 200, "200"):
+            self.last_error = str(payload.get("message", "ASR request failed"))
+            _asr_logger.error(f"ASR server returned error payload: {payload}")
+            return None
 
         try:
             if self.config.asr_model_provider == "sherpa":
                 asr_response: ASRResponse = ASRResponseModel.model_validate(payload).to_dict()
                 sentences = convert_asr_response_to_sentences(asr_response)
                 if not sentences:
-                    logger.error(f"ASR returned no sentences: {payload}")
+                    self.last_error = "ASR returned no sentences."
+                    _asr_logger.error(f"ASR returned no sentences: {payload}")
                     return None
                 return sentences
             if self.config.asr_model_provider == "whisper":
                 whisper_response: WhisperResponse = WhisperASRResponseModel.model_validate(payload).to_dict()
                 sentences = convert_whisper_response_to_sentences(whisper_response)
                 if not sentences:
-                    logger.error(f"Whisper returned no sentences: {payload}")
+                    self.last_error = "Whisper returned no sentences."
+                    _asr_logger.error(f"Whisper returned no sentences: {payload}")
                     return None
                 return sentences
 
-            logger.error(f"Unknown ASR model provider: {self.config.asr_model_provider}")
+            self.last_error = f"Unknown ASR model provider: {self.config.asr_model_provider}"
+            _asr_logger.error(self.last_error)
             return None
         except Exception as exc:
-            logger.error(f"Failed to parse ASR response: {exc}, {payload}")
+            self.last_error = f"Failed to parse ASR response: {exc}"
+            _asr_logger.error(f"Failed to parse ASR response: {exc}, {payload}")
             return None
 
     async def asyncpost(self, request: ASRRequest) -> ASRResponse | None:  # type: ignore[override]
@@ -139,20 +158,20 @@ class ASRClient(BaseClientInterface):
         """
         self.async_session = await self.get_async_session()
         if not request.file_path.exists():
-            logger.error(f"File not found: {request.file_path}")
+            _asr_logger.error(f"File not found: {request.file_path}")
             return None
 
         with request.file_path.open("rb") as file:
             async with self.async_session.post(self.base_url, data={"file": file}) as response:
                 if response.status != 200:
-                    logger.error(f"Failed to get a valid response: {response.status}")
+                    _asr_logger.error(f"Failed to get a valid response: {response.status}")
                     return None
 
                 response_data = await response.json()
                 try:
                     return ASRResponseModel.model_validate(response_data).to_dict()
                 except Exception as exc:
-                    logger.error(f"Failed to parse ASR response: {exc}, {response_data}")
+                    _asr_logger.error(f"Failed to parse ASR response: {exc}, {response_data}")
                     return None
                 finally:
                     await self.async_session.close()

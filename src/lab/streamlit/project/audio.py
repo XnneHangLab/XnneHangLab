@@ -18,6 +18,7 @@ from lab.config_manager import (
     load_settings_file,
     write_settings_file,
 )
+from lab.logger.logger_group import logger
 from lab.streamlit.dialogs.audio import AudioReadme, upload_audio
 from lab.streamlit.session_keys import audio_keys
 from lab.streamlit.style import style
@@ -26,6 +27,8 @@ from lab.utils.public import (
     parse_srt_file,
 )
 from lab.utils.SrtHelper import write_srt_from_sentences
+
+_asr_logger = logger.bind(group="asr")
 
 # TODO 以 sys.argv 的方式调用 basic_runner, 这里不再写入基础函数.
 # ============== 0.加载配置，配置字体
@@ -265,7 +268,9 @@ with working_tab:
                     )
                 )
                 if not sentences:
-                    st.error("识别失败，请检查音频文件格式是否正确，或尝试使用其他音频文件。", icon=":material/error:")
+                    error_message = asr_client.last_error or "识别失败，请检查音频文件格式是否正确，或尝试使用其他音频文件。"
+                    _asr_logger.error(f"Streamlit ASR failed: {error_message}")
+                    st.error(error_message, icon=":material/error:")
                 else:
                     # 保存 response 到 json 文件
                     st.session_state[audio_keys["sentences"]] = sentences
