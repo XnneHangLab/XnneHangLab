@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     from lab.asr.types import ASRResponse, VadResponse
 
 DEFAULT_OFFLINE_MODEL_DIR = Path("./models/sherpa-onnx-paraformer-zh-2023-09-14")
+logger = logger.bind(group="asr")
 
 
 def _import_sherpa_onnx() -> Any:
