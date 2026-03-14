@@ -102,6 +102,15 @@ def _import_torchaudio() -> Any:
     return torchaudio_module  # pyright: ignore[reportUnknownVariableType]
 
 
+def _import_qwen_audio_utils() -> Any:
+    """延迟导入 qwen-asr 的音频预处理工具。"""
+    try:
+        qwen_audio_utils = import_module("qwen_asr.inference.utils")
+    except ImportError as exc:
+        raise RuntimeError("Qwen3-ASR audio utils are unavailable.") from exc
+    return qwen_audio_utils  # pyright: ignore[reportUnknownVariableType]
+
+
 def _prepare_audio_input(audio_path: Path) -> tuple[Any, int]:
     """在进入 qwen-asr 前先解码本地音频，绕开其内部 librosa 路径加载。
 
@@ -119,8 +128,14 @@ def _prepare_audio_input(audio_path: Path) -> tuple[Any, int]:
 
     try:
         waveform, sample_rate = torchaudio.load(str(audio_path))
-    except Exception as exc:
-        raise RuntimeError(f"Failed to decode audio before Qwen3-ASR inference: {audio_path}") from exc
+    except Exception:
+        logger.warning(f"torchaudio failed to decode {audio_path}; fallback to qwen-asr audio utils.")  # pyright: ignore[reportUnknownMemberType]
+        qwen_audio_utils = _import_qwen_audio_utils()
+        try:
+            waveform_np = qwen_audio_utils.normalize_audio_input(str(audio_path))
+        except Exception as exc:
+            raise RuntimeError(f"Failed to decode audio before Qwen3-ASR inference: {audio_path}") from exc
+        return waveform_np, 16000
 
     if getattr(waveform, "ndim", 0) == 1:
         waveform = waveform.unsqueeze(0)
