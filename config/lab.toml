@@ -15,7 +15,7 @@ combine_line = 400
 max_sentence_length = 20
 
 [asr.sherpa]
-asr_model_dir = "./models/sherpa-onnx-paraformer-zh-2023-09-14"
+asr_model_dir = "./models/sherpa-onnx-paraformer-zh-2024-03-09"
 vad_model_path = "./models/silero_vad.onnx"
 num_threads = 2
 

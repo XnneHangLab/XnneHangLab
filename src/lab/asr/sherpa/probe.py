@@ -44,7 +44,7 @@ from lab.utils.FFmpegHelper import get_audio_duration
 if TYPE_CHECKING:
     from lab.asr.types import VadResponse
 
-DEFAULT_OFFLINE_MODEL_DIR = Path("./models/sherpa-onnx-paraformer-zh-2023-09-14")
+DEFAULT_OFFLINE_MODEL_DIR = Path("./models/sherpa-onnx-paraformer-zh-2024-03-09")
 logger = logger.bind(group="asr")
 Float32Array = npt.NDArray[np.float32]
 

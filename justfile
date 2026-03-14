@@ -75,15 +75,15 @@ test-proxy-health:
   curl http://localhost:12393/health
 
 test-asr:
-  curl -X POST "http://localhost:12393/asr/funasr/transcribe" -F "file=@./downloads/Audacity｜如何把切开的音频片段重新连接/Audacity｜如何把切开的音频片段重新连接.m4a"
-
+  curl -X POST "http://localhost:12393/asr/funasr/transcribe" -F "file=@./examples/example1.wav"
+  
 test-vad:
   curl -X POST "http://localhost:12393/asr/funasr/vad" -F "file=@./examples/example3.opus"
 
 test-whisper:
   curl -X POST "http://localhost:12393/asr/whisper" -F "file=@./examples/example3.opus"
 
-test-sherpa audio='./examples/example3.opus' model_dir='./models/sherpa-onnx-paraformer-zh-2023-09-14' vad_model='./models/silero_vad.onnx' skip_vad='':
+test-sherpa audio='./examples/example3.opus' model_dir='./models/sherpa-onnx-paraformer-zh-2024-03-09' vad_model='./models/silero_vad.onnx' skip_vad='':
   uv run --group sherpa-onnx src/lab/asr/sherpa/probe.py --audio {{ audio }} --model-dir {{ model_dir }} --vad-model {{ vad_model }} {{ if skip_vad != '' { '--skip-vad' } else { '' } }}
 
 test-gsv:
@@ -177,8 +177,8 @@ install-qwen-tts:
 
 install-sherpa-model:
   mkdir -p ./models
-  curl -L https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-paraformer-zh-2023-09-14.tar.bz2 -o ./models/sherpa-onnx-paraformer-zh-2023-09-14.tar.bz2
-  tar xf ./models/sherpa-onnx-paraformer-zh-2023-09-14.tar.bz2 -C ./models/
+  curl -L https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-paraformer-zh-2024-03-09.tar.bz2 -o ./models/sherpa-onnx-paraformer-zh-2024-03-09.tar.bz2
+  tar xf ./models/sherpa-onnx-paraformer-zh-2024-03-09.tar.bz2 -C ./models/
   curl -L https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx -o ./models/silero_vad.onnx
 
 # Code Quality Check
