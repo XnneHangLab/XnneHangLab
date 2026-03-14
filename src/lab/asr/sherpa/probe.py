@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import numpy.typing as npt
 from loguru import logger
 
 from lab.asr.funasr.converter import convert_asr_response_to_sentences
@@ -39,6 +40,7 @@ if TYPE_CHECKING:
 
 DEFAULT_OFFLINE_MODEL_DIR = Path("./models/sherpa-onnx-paraformer-zh-2023-09-14")
 logger = logger.bind(group="asr")
+Float32Array = npt.NDArray[np.float32]
 
 
 def _import_sherpa_onnx() -> Any:
@@ -85,7 +87,7 @@ def _find_first_existing(model_dir: Path, filenames: list[str]) -> Path | None:
     return None
 
 
-def _decode_audio(audio_path: Path, sample_rate: int = 16000) -> tuple[np.ndarray, int]:
+def _decode_audio(audio_path: Path, sample_rate: int = 16000) -> tuple[Float32Array, int]:
     command = [
         _get_ffmpeg_path(),
         "-hide_banner",
@@ -114,7 +116,7 @@ def _decode_audio(audio_path: Path, sample_rate: int = 16000) -> tuple[np.ndarra
     return np.ascontiguousarray(samples), sample_rate
 
 
-def _decode_online_paraformer(samples: np.ndarray, sample_rate: int, model_dir: Path) -> Any:
+def _decode_online_paraformer(samples: Float32Array, sample_rate: int, model_dir: Path) -> Any:
     tokens = _find_first_existing(model_dir, ["tokens.txt"])
     encoder = _find_first_existing(model_dir, ["encoder.int8.onnx", "encoder.onnx"])
     decoder = _find_first_existing(model_dir, ["decoder.int8.onnx", "decoder.onnx"])
@@ -156,7 +158,7 @@ def _decode_online_paraformer(samples: np.ndarray, sample_rate: int, model_dir: 
     return recognizer.get_result(stream)
 
 
-def _decode_offline_paraformer(samples: np.ndarray, sample_rate: int, model_dir: Path) -> Any:
+def _decode_offline_paraformer(samples: Float32Array, sample_rate: int, model_dir: Path) -> Any:
     tokens = _find_first_existing(model_dir, ["tokens.txt"])
     paraformer = _find_first_existing(model_dir, ["model.int8.onnx", "model.onnx"])
 
