@@ -29,7 +29,7 @@ class QwenASRSettings(BaseModel):
     """
 
     model_dir: Annotated[str, Field("./models", title="Qwen3-ASR 模型目录")]
-    preload_models: Annotated[list[QwenASRModelName], Field(default_factory=list, title="启动时预加载的模型列表")]
+    preload_models: Annotated[list[QwenASRModelName], Field(["0.6b"], title="启动时预加载的模型列表")]
     model_0_6b_path: Annotated[str, Field("./models/Qwen3-ASR-0.6B", title="Qwen3-ASR 0.6B 模型路径")]
     model_1_7b_path: Annotated[str, Field("./models/Qwen3-ASR-1.7B", title="Qwen3-ASR 1.7B 模型路径")]
     forced_aligner_path: Annotated[

@@ -21,7 +21,9 @@ num_threads = 2
 
 [asr.qwen_asr]
 model_dir = "./models"
-preload_models = []
+preload_models = [
+    "0.6b",
+]
 model_0_6b_path = "./models/Qwen3-ASR-0.6B"
 model_1_7b_path = "./models/Qwen3-ASR-1.7B"
 forced_aligner_path = "./models/Qwen3-ForcedAligner-0.6B"
