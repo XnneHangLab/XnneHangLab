@@ -75,7 +75,7 @@ test-proxy-health:
   curl http://localhost:12393/health
 
 test-asr:
-  curl -X POST "http://localhost:12393/asr/funasr/transcribe" -F "file=@./examples/example3.opus"
+  curl -X POST "http://localhost:12393/asr/funasr/transcribe" -F "file=@./downloads/Audacity｜如何把切开的音频片段重新连接/Audacity｜如何把切开的音频片段重新连接.m4a"
 
 test-vad:
   curl -X POST "http://localhost:12393/asr/funasr/vad" -F "file=@./examples/example3.opus"

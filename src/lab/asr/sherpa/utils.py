@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from lab.asr.types import ASRResponse
 
 Float32Array = npt.NDArray[np.float32]
+DEFAULT_TOKEN_DURATION_MS = 240
 
 
 def import_sherpa_onnx() -> Any:
@@ -162,7 +163,11 @@ def build_asr_response(audio_path: Path, result: Any) -> ASRResponse:
     timestamp_pairs: list[list[int]] = []
 
     for index, start in enumerate(timestamps_ms):
-        end = timestamps_ms[index + 1] if index + 1 < len(timestamps_ms) else start + 240
+        inferred_end = start + DEFAULT_TOKEN_DURATION_MS
+        if index + 1 < len(timestamps_ms):
+            end = min(inferred_end, timestamps_ms[index + 1])
+        else:
+            end = inferred_end
         timestamp_pairs.append([start, end])
 
     if not tokens:

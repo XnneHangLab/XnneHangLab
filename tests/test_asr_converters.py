@@ -45,7 +45,7 @@ def test_funasr_converter_raises_on_mismatched_text_and_timestamps() -> None:
         "timestamp": [[0, 1]],
     }
 
-    with pytest.raises(AssertionError):  # type: ignore
+    with pytest.raises(AssertionError):
         convert_asr_response_to_sentences(input_data)  # type: ignore[arg-type]
 
 

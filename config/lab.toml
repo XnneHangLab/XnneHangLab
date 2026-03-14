@@ -2,7 +2,7 @@ conf_version = "v1.5.1"
 
 [asr]
 FFMPEG_PATH = "ffmpeg"
-device = "cpu"
+device = "cuda"
 custom_output_dir = false
 cache_dir = "./cache"
 output_dir = "./output"
