@@ -28,7 +28,6 @@ _TARGET_SAMPLE_RATE = 16_000
 _MAX_CHUNK_MS = 30_000
 _REQUIRED_MODEL_FILES = (
     "audio_encoder_model.xml",
-    "decoder_model.xml",
     "thinker_embeddings_model.xml",
     "vocab.json",
     "merges.txt",
@@ -73,6 +72,14 @@ def _validate_model_dir(model_dir: Path) -> None:
     if missing:
         missing_list = ", ".join(missing)
         raise RuntimeError(f"Qwen3-ASR OpenVINO model directory is incomplete: {model_dir} (missing: {missing_list})")
+
+    has_single_decoder = (model_dir / "decoder_model.xml").exists()
+    has_split_decoder = (model_dir / "decoder_prefill_kv_model.xml").exists() and (model_dir / "decoder_kv_model.xml").exists()
+    if not has_single_decoder and not has_split_decoder:
+        raise RuntimeError(
+            "Qwen3-ASR OpenVINO model directory is incomplete: "
+            f"{model_dir} (missing decoder_model.xml or decoder_prefill_kv_model.xml + decoder_kv_model.xml)"
+        )
 
 
 def _resample_audio(audio: np.ndarray, source_rate: int, target_rate: int = _TARGET_SAMPLE_RATE) -> np.ndarray:
@@ -328,6 +335,17 @@ def _infer_request(request: Any, inputs: dict[str | int, np.ndarray]) -> np.ndar
     return _first_output(request.infer(inputs))
 
 
+def _infer_outputs(compiled_model: Any, inputs: dict[str | int, np.ndarray]) -> list[np.ndarray]:
+    outputs = compiled_model(inputs)
+    if isinstance(outputs, dict):
+        values = outputs.values()
+    elif hasattr(outputs, "values"):
+        values = outputs.values()
+    else:
+        raise RuntimeError(f"Unexpected OpenVINO output container: {type(outputs)!r}")
+    return [np.asarray(value) for value in values]
+
+
 class QwenASREngine:
     def __init__(self, model_dir: str, device: str = "CPU", cpu_threads: int = 0) -> None:
         self.model_dir = _resolve_model_path(model_dir)
@@ -341,12 +359,21 @@ class QwenASREngine:
         self._audio_encoder_model: Any = None
         self._thinker_embeddings_model: Any = None
         self._decoder_model: Any = None
+        self._decoder_prefill_model: Any = None
+        self._decoder_kv_model: Any = None
         self._decoder_request: Any = None
         self._processor: LightProcessor | None = None
+        self._use_split_decoder = False
         self._audio_encoder_input: str | int = 0
         self._thinker_input: str | int = 0
         self._decoder_embedding_input: str | int = 0
         self._decoder_position_input: str | int = "position_ids"
+        self._decoder_prefill_embedding_input: str | int = 0
+        self._decoder_prefill_position_input: str | int = 1
+        self._decoder_kv_embedding_input: str | int = 0
+        self._decoder_kv_position_input: str | int = 1
+        self._decoder_kv_past_keys_input: str | int = 2
+        self._decoder_kv_past_values_input: str | int = 3
 
         self._vad_engine = _ensure_sherpa_vad_loaded()
         self.load()
@@ -375,25 +402,57 @@ class QwenASREngine:
             self.device,
             cpu_config,
         )
-        self._decoder_model = self._core.compile_model(
-            str(model_path / "decoder_model.xml"),
-            self.device,
-            cpu_config,
-        )
-        self._decoder_request = self._decoder_model.create_infer_request()
         self._processor = LightProcessor(model_path)
+        self._use_split_decoder = (model_path / "decoder_prefill_kv_model.xml").exists() and (
+            model_path / "decoder_kv_model.xml"
+        ).exists()
+
+        if self._use_split_decoder:
+            self._decoder_prefill_model = self._core.compile_model(
+                str(model_path / "decoder_prefill_kv_model.xml"),
+                self.device,
+                cpu_config,
+            )
+            self._decoder_kv_model = self._core.compile_model(
+                str(model_path / "decoder_kv_model.xml"),
+                self.device,
+                cpu_config,
+            )
+        else:
+            self._decoder_model = self._core.compile_model(
+                str(model_path / "decoder_model.xml"),
+                self.device,
+                cpu_config,
+            )
+            self._decoder_request = self._decoder_model.create_infer_request()
 
         self._audio_encoder_input = _resolve_input_key(self._audio_encoder_model, ("mel",), 0)
         self._thinker_input = _resolve_input_key(self._thinker_embeddings_model, ("input_ids",), 0)
-        self._decoder_embedding_input = _resolve_input_key(
-            self._decoder_model,
-            ("inputs_embeds", "input_embeds", "hidden_states"),
-            0,
-        )
-        self._decoder_position_input = _resolve_input_key(self._decoder_model, ("position_ids",), 1)
+        if self._use_split_decoder:
+            self._decoder_prefill_embedding_input = _resolve_input_key(
+                self._decoder_prefill_model,
+                ("inputs_embeds", "input_embeds", "hidden_states", "new_embed"),
+                0,
+            )
+            self._decoder_prefill_position_input = _resolve_input_key(self._decoder_prefill_model, ("position_ids",), 1)
+            self._decoder_kv_embedding_input = _resolve_input_key(
+                self._decoder_kv_model,
+                ("new_embed", "inputs_embeds", "input_embeds", "hidden_states"),
+                0,
+            )
+            self._decoder_kv_position_input = _resolve_input_key(self._decoder_kv_model, ("new_pos", "position_ids"), 1)
+            self._decoder_kv_past_keys_input = _resolve_input_key(self._decoder_kv_model, ("past_keys",), 2)
+            self._decoder_kv_past_values_input = _resolve_input_key(self._decoder_kv_model, ("past_values",), 3)
+        else:
+            self._decoder_embedding_input = _resolve_input_key(
+                self._decoder_model,
+                ("inputs_embeds", "input_embeds", "hidden_states"),
+                0,
+            )
+            self._decoder_position_input = _resolve_input_key(self._decoder_model, ("position_ids",), 1)
 
     def _transcribe_chunk(self, audio: np.ndarray) -> str:
-        if self._processor is None or self._decoder_request is None:
+        if self._processor is None:
             raise RuntimeError("Qwen3-ASR engine is not initialized.")
 
         with self._lock:
@@ -418,39 +477,81 @@ class QwenASREngine:
 
             prompt_length = int(combined_embeddings.shape[1])
             position_ids = np.arange(prompt_length, dtype=np.int64)[np.newaxis, :]
-
-            self._decoder_request.reset_state()
-            logits = _infer_request(
-                self._decoder_request,
-                {
-                    self._decoder_embedding_input: combined_embeddings,
-                    self._decoder_position_input: position_ids,
-                },
-            )
-
             eos_id = self._processor.eos_id
             eot_id = self._processor.eot_id
             generated_ids: list[int] = []
-            next_token_id = int(np.argmax(logits[0, -1, :]))
-            current_position = prompt_length
 
-            while next_token_id not in {eos_id, eot_id} and len(generated_ids) < self._max_tokens:
-                generated_ids.append(next_token_id)
-                next_embedding = _infer_compiled_model(
-                    self._thinker_embeddings_model,
+            if self._use_split_decoder:
+                if self._decoder_prefill_model is None or self._decoder_kv_model is None:
+                    raise RuntimeError("Qwen3-ASR split decoder models are not initialized.")
+
+                prefill_outputs = _infer_outputs(
+                    self._decoder_prefill_model,
                     {
-                        self._thinker_input: np.array([[next_token_id]], dtype=np.int64),
+                        self._decoder_prefill_embedding_input: combined_embeddings,
+                        self._decoder_prefill_position_input: position_ids,
                     },
                 )
+                logits = prefill_outputs[0]
+                past_keys = prefill_outputs[1]
+                past_values = prefill_outputs[2]
+                next_token_id = int(np.argmax(logits[0, -1, :]))
+                current_position = prompt_length
+
+                while next_token_id not in {eos_id, eot_id} and len(generated_ids) < self._max_tokens:
+                    generated_ids.append(next_token_id)
+                    next_embedding = _infer_compiled_model(
+                        self._thinker_embeddings_model,
+                        {
+                            self._thinker_input: np.array([[next_token_id]], dtype=np.int64),
+                        },
+                    )
+                    decode_outputs = _infer_outputs(
+                        self._decoder_kv_model,
+                        {
+                            self._decoder_kv_embedding_input: next_embedding,
+                            self._decoder_kv_position_input: np.array([[current_position]], dtype=np.int64),
+                            self._decoder_kv_past_keys_input: past_keys,
+                            self._decoder_kv_past_values_input: past_values,
+                        },
+                    )
+                    logits = decode_outputs[0]
+                    past_keys = decode_outputs[1]
+                    past_values = decode_outputs[2]
+                    next_token_id = int(np.argmax(logits[0, -1, :]))
+                    current_position += 1
+            else:
+                if self._decoder_request is None:
+                    raise RuntimeError("Qwen3-ASR decoder request is not initialized.")
+
+                self._decoder_request.reset_state()
                 logits = _infer_request(
                     self._decoder_request,
                     {
-                        self._decoder_embedding_input: next_embedding,
-                        self._decoder_position_input: np.array([[current_position]], dtype=np.int64),
+                        self._decoder_embedding_input: combined_embeddings,
+                        self._decoder_position_input: position_ids,
                     },
                 )
                 next_token_id = int(np.argmax(logits[0, -1, :]))
-                current_position += 1
+                current_position = prompt_length
+
+                while next_token_id not in {eos_id, eot_id} and len(generated_ids) < self._max_tokens:
+                    generated_ids.append(next_token_id)
+                    next_embedding = _infer_compiled_model(
+                        self._thinker_embeddings_model,
+                        {
+                            self._thinker_input: np.array([[next_token_id]], dtype=np.int64),
+                        },
+                    )
+                    logits = _infer_request(
+                        self._decoder_request,
+                        {
+                            self._decoder_embedding_input: next_embedding,
+                            self._decoder_position_input: np.array([[current_position]], dtype=np.int64),
+                        },
+                    )
+                    next_token_id = int(np.argmax(logits[0, -1, :]))
+                    current_position += 1
 
             return self._processor.decode(generated_ids)
 

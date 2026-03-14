@@ -81,7 +81,7 @@ test-sherpa-asr:
   curl -X POST "http://localhost:12393/asr/sherpa/transcribe" -F "file=@./examples/example1.wav"
 
 test-qwen-asr-0-6b:
-  curl -X POST "http://localhost:12393/asr/qwen-asr/0.6B/transcribe" -F "file=@./examples/test.m4a"
+  curl -X POST "http://localhost:12393/asr/qwen-asr/0.6B/transcribe" -F "file=@./examples/congyin.wav"
 
 test-qwen-asr-1-7b:
   curl -X POST "http://localhost:12393/asr/qwen-asr/1.7B/transcribe" -F "file=@./examples/example1.wav"
