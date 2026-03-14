@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 QwenASRModelName = Literal["0.6b", "1.7b"]
 QwenASRSettingsTitle = Literal[
     "model_dir",
-    "active_model",
+    "preload_models",
     "model_0_6b_path",
     "model_1_7b_path",
     "forced_aligner_path",
@@ -29,7 +29,7 @@ class QwenASRSettings(BaseModel):
     """
 
     model_dir: Annotated[str, Field("./models", title="Qwen3-ASR 模型目录")]
-    active_model: Annotated[QwenASRModelName, Field("0.6b", title="当前启用的 Qwen3-ASR 模型")]
+    preload_models: Annotated[list[QwenASRModelName], Field(default_factory=list, title="启动时预加载的模型列表")]
     model_0_6b_path: Annotated[str, Field("./models/Qwen3-ASR-0.6B", title="Qwen3-ASR 0.6B 模型路径")]
     model_1_7b_path: Annotated[str, Field("./models/Qwen3-ASR-1.7B", title="Qwen3-ASR 1.7B 模型路径")]
     forced_aligner_path: Annotated[

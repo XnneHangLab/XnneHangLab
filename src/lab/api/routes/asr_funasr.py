@@ -5,7 +5,6 @@ from typing import Any
 from fastapi import APIRouter, UploadFile
 
 from lab.api.logic.funasr import funasr_asr_audio, funasr_vad_audio
-from lab.api.logic.qwen_asr import qwen_asr_transcribe
 from lab.api.routes.asr_shared import file_default, save_upload_to_temp
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 
@@ -14,7 +13,7 @@ router = APIRouter(prefix="/asr/funasr", tags=["asr", "funasr"])
 
 @router.post("/transcribe", response_model=dict)
 async def funasr_transcribe(file: UploadFile = file_default) -> dict[str, Any]:
-    """使用当前配置的 ASR 引擎处理上传音频。
+    """使用 sherpa-onnx 处理上传音频。
 
     Args:
         file: 待识别音频文件。
@@ -28,14 +27,9 @@ async def funasr_transcribe(file: UploadFile = file_default) -> dict[str, Any]:
     temp_audio_path = save_upload_to_temp(file)
     try:
         lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
-        if lab_settings.asr.asr_model_provider == "qwen":
-            if not lab_settings.package.qwen_asr_0_6b and not lab_settings.package.qwen_asr_1_7b:
-                raise RuntimeError("Qwen3-ASR is disabled in lab.toml")
-            result = qwen_asr_transcribe(input_path=temp_audio_path)
-        else:
-            if not lab_settings.package.asr:
-                raise RuntimeError("Sherpa-ONNX is disabled in lab.toml")
-            result = funasr_asr_audio(input_path=temp_audio_path)
+        if not lab_settings.package.asr:
+            raise RuntimeError("Sherpa-ONNX is disabled in lab.toml")
+        result = funasr_asr_audio(input_path=temp_audio_path)
     except Exception as exc:
         temp_audio_path.unlink(missing_ok=True)
         return {"code": "500", "message": f"ASR processing failed: {exc}"}

@@ -40,7 +40,7 @@ class SettingSessionStateKeys(TypedDict):
     ffmpeg_path: str
     initial_settings: str
     qwen_model_dir: str
-    qwen_active_model: str
+    qwen_preload_models: str
     qwen_model_0_6b_path: str
     qwen_model_1_7b_path: str
     qwen_forced_aligner_path: str
@@ -89,7 +89,7 @@ setting_keys: SettingSessionStateKeys = {
     "ffmpeg_path": "ffmpeg_path",
     "initial_settings": "initial_settings",
     "qwen_model_dir": "qwen_model_dir",
-    "qwen_active_model": "qwen_active_model",
+    "qwen_preload_models": "qwen_preload_models",
     "qwen_model_0_6b_path": "qwen_model_0_6b_path",
     "qwen_model_1_7b_path": "qwen_model_1_7b_path",
     "qwen_forced_aligner_path": "qwen_forced_aligner_path",

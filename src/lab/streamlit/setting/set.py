@@ -82,7 +82,7 @@ class SherpaSettingsDict(TypedDict):
 
 class QwenSettingsDict(TypedDict):
     model_dir: str
-    active_model: QwenASRModelName
+    preload_models: list[QwenASRModelName]
     model_0_6b_path: str
     model_1_7b_path: str
     forced_aligner_path: str
@@ -112,7 +112,7 @@ if setting_keys["initial_settings"] not in st.session_state:
         },
         "qwen_asr": {
             "model_dir": qwen_settings.model_dir,
-            "active_model": qwen_settings.active_model,
+            "preload_models": list(qwen_settings.preload_models),
             "model_0_6b_path": qwen_settings.model_0_6b_path,
             "model_1_7b_path": qwen_settings.model_1_7b_path,
             "forced_aligner_path": qwen_settings.forced_aligner_path,
@@ -133,9 +133,9 @@ vad_model_path = st.session_state.get(setting_keys["vad_model_path"], sherpa_set
 num_threads = st.session_state.get(setting_keys["num_threads"], sherpa_settings.num_threads)
 
 qwen_model_dir = st.session_state.get(setting_keys["qwen_model_dir"], qwen_settings.model_dir)
-qwen_active_model = cast(
-    "QwenASRModelName",
-    st.session_state.get(setting_keys["qwen_active_model"], qwen_settings.active_model),
+qwen_preload_models = cast(
+    "list[QwenASRModelName]",
+    st.session_state.get(setting_keys["qwen_preload_models"], list(qwen_settings.preload_models)),
 )
 qwen_model_0_6b_path = st.session_state.get(setting_keys["qwen_model_0_6b_path"], qwen_settings.model_0_6b_path)
 qwen_model_1_7b_path = st.session_state.get(setting_keys["qwen_model_1_7b_path"], qwen_settings.model_1_7b_path)
@@ -169,7 +169,7 @@ with setting_container:
         asr_settings.get_labels("asr_model_provider"),
         index=asr_settings.get_index("asr_model_provider"),
     )
-    st.caption("Qwen3-ASR 用于统一多语言识别，Sherpa-ONNX 保留为轻量 fallback。")
+    st.caption("Qwen3-ASR 现在通过独立端点按模型调用，Sherpa-ONNX 保留为轻量 fallback。")
     if st.toggle("自定义输出目录", custom_output_dir, key="custom_output_dir"):
         output_dir = st.text_input(
             get_setting_title("output_dir", ASRSettings),
@@ -210,20 +210,22 @@ with setting_container:
     st.markdown("")
 
     st.markdown("###### Qwen3-ASR 配置")
-    st.caption("模型通过 `just install-qwen-asr` 下载到本地 `./models/`，代码只从配置路径加载。")
+    st.caption(
+        "模型通过 `just install-qwen-asr` 下载到本地 `./models/`，显式端点按模型懒加载；`preload_models` 只控制启动预热。"
+    )
     qwen_model_dir = st.text_input(
         get_setting_title("model_dir", QwenASRSettings),
         value=qwen_model_dir,
         placeholder="./models",
         key="qwen_model_dir",
     )
-    qwen_active_model = cast(
-        "QwenASRModelName",
-        st.selectbox(
-            get_setting_title("active_model", QwenASRSettings),
+    qwen_preload_models = cast(
+        "list[QwenASRModelName]",
+        st.multiselect(
+            get_setting_title("preload_models", QwenASRSettings),
             options=["0.6b", "1.7b"],
-            index=0 if qwen_active_model == "0.6b" else 1,
-            key="qwen_active_model",
+            default=qwen_preload_models,
+            key="qwen_preload_models",
         ),
     )
     qwen_model_0_6b_path = st.text_input(
@@ -250,12 +252,8 @@ with setting_container:
         index=0 if qwen_device == "cpu" else 1,
         key="qwen_device",
     )
-    if not lab_settings.package.qwen_asr_0_6b and not lab_settings.package.qwen_asr_1_7b:
-        st.warning("当前未启用任何 Qwen3-ASR 模型预加载。若 provider 选择 Qwen，将无法推理。")
-    elif qwen_active_model == "0.6b" and not lab_settings.package.qwen_asr_0_6b:
-        st.warning("当前 active model 为 0.6B，但 `package.qwen_asr_0_6b = false`。")
-    elif qwen_active_model == "1.7b" and not lab_settings.package.qwen_asr_1_7b:
-        st.warning("当前 active model 为 1.7B，但 `package.qwen_asr_1_7b = false`。")
+    if lab_settings.package.qwen_asr and not qwen_preload_models:
+        st.warning("当前已启用 Qwen3-ASR 服务，但没有选择任何预加载模型。服务仍可按模型端点懒加载。")
     st.markdown("")
 
 with save_container:
@@ -281,7 +279,7 @@ with save_container:
                 },
                 "qwen_asr": {
                     "model_dir": qwen_model_dir or initial_settings["qwen_asr"]["model_dir"],
-                    "active_model": qwen_active_model,
+                    "preload_models": list(qwen_preload_models),
                     "model_0_6b_path": qwen_model_0_6b_path or initial_settings["qwen_asr"]["model_0_6b_path"],
                     "model_1_7b_path": qwen_model_1_7b_path or initial_settings["qwen_asr"]["model_1_7b_path"],
                     "forced_aligner_path": (
@@ -308,7 +306,7 @@ with save_container:
                 sherpa_settings.num_threads = current_settings["sherpa"]["num_threads"]
 
                 qwen_settings.model_dir = current_settings["qwen_asr"]["model_dir"]
-                qwen_settings.active_model = current_settings["qwen_asr"]["active_model"]
+                qwen_settings.preload_models = current_settings["qwen_asr"]["preload_models"]
                 qwen_settings.model_0_6b_path = current_settings["qwen_asr"]["model_0_6b_path"]
                 qwen_settings.model_1_7b_path = current_settings["qwen_asr"]["model_1_7b_path"]
                 qwen_settings.forced_aligner_path = current_settings["qwen_asr"]["forced_aligner_path"]
