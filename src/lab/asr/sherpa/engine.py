@@ -3,12 +3,14 @@ from __future__ import annotations
 from threading import Lock
 from typing import TYPE_CHECKING, Any
 
-from lab.asr.sherpa.probe import (
-    _assert_file_exists,  # pyright: ignore[reportPrivateUsage]
-    _build_asr_response,  # pyright: ignore[reportPrivateUsage]
-    _decode_audio,  # pyright: ignore[reportPrivateUsage]
-    _find_first_existing,  # pyright: ignore[reportPrivateUsage]
-    _import_sherpa_onnx,  # pyright: ignore[reportPrivateUsage]
+from lab.asr.sherpa.utils import (
+    assert_file_exists,
+    build_asr_response,
+    collect_vad_timestamps,
+    create_vad_config,
+    decode_audio,
+    find_first_existing,
+    import_sherpa_onnx,
 )
 from lab.utils.FFmpegHelper import get_audio_duration
 
@@ -39,12 +41,12 @@ class SherpaASREngine:
         self.sample_rate = 16000
         self._lock = Lock()
 
-        _assert_file_exists(self.model_dir, "model directory")
+        assert_file_exists(self.model_dir, "model directory")
 
-        self._sherpa_onnx = _import_sherpa_onnx()
+        self._sherpa_onnx = import_sherpa_onnx()
         self._is_streaming_model = (
-            _find_first_existing(self.model_dir, ["encoder.int8.onnx", "encoder.onnx"]) is not None
-            and _find_first_existing(self.model_dir, ["decoder.int8.onnx", "decoder.onnx"]) is not None
+            find_first_existing(self.model_dir, ["encoder.int8.onnx", "encoder.onnx"]) is not None
+            and find_first_existing(self.model_dir, ["decoder.int8.onnx", "decoder.onnx"]) is not None
         )
         self._recognizer = self._create_recognizer()
 
@@ -60,13 +62,13 @@ class SherpaASREngine:
         Raises:
             FileNotFoundError: 模型目录缺少必要文件时抛出。
         """
-        tokens = _find_first_existing(self.model_dir, ["tokens.txt"])
+        tokens = find_first_existing(self.model_dir, ["tokens.txt"])
         if tokens is None:
             raise FileNotFoundError(f"tokens.txt not found in model directory: {self.model_dir}")
 
         if self._is_streaming_model:
-            encoder = _find_first_existing(self.model_dir, ["encoder.int8.onnx", "encoder.onnx"])
-            decoder = _find_first_existing(self.model_dir, ["decoder.int8.onnx", "decoder.onnx"])
+            encoder = find_first_existing(self.model_dir, ["encoder.int8.onnx", "encoder.onnx"])
+            decoder = find_first_existing(self.model_dir, ["decoder.int8.onnx", "decoder.onnx"])
             if encoder is None or decoder is None:
                 raise FileNotFoundError(
                     "streaming paraformer model files not found. Expected encoder*.onnx and decoder*.onnx"
@@ -83,7 +85,7 @@ class SherpaASREngine:
                 decoding_method="greedy_search",
             )
 
-        paraformer = _find_first_existing(self.model_dir, ["model.int8.onnx", "model.onnx"])
+        paraformer = find_first_existing(self.model_dir, ["model.int8.onnx", "model.onnx"])
         if paraformer is None:
             raise FileNotFoundError("offline paraformer model files not found. Expected model*.onnx")
 
@@ -113,12 +115,12 @@ class SherpaASREngine:
             FileNotFoundError: 音频文件不存在时抛出。
             RuntimeError: 推理失败时抛出。
         """
-        _assert_file_exists(audio_path, "audio file")
+        assert_file_exists(audio_path, "audio file")
 
         try:
-            samples, sample_rate = _decode_audio(audio_path, sample_rate=self.sample_rate)
+            samples, sample_rate = decode_audio(audio_path, sample_rate=self.sample_rate)
             result = self._transcribe_samples(samples, sample_rate)
-            return _build_asr_response(audio_path, result)
+            return build_asr_response(audio_path, result)
         except FileNotFoundError:
             raise
         except Exception as exc:
@@ -167,12 +169,11 @@ class SherpaVADEngine:
         self.sample_rate = sample_rate
         self._lock = Lock()
 
-        _assert_file_exists(self.vad_model_path, "vad model")
+        assert_file_exists(self.vad_model_path, "vad model")
 
-        self._sherpa_onnx = _import_sherpa_onnx()
+        self._sherpa_onnx = import_sherpa_onnx()
         self._config = self._create_config()
         self._window_size = self._config.silero_vad.window_size
-        self._detector = self._sherpa_onnx.VoiceActivityDetector(self._config, buffer_size_in_seconds=30)
 
     def _create_config(self) -> Any:
         """创建 silero-vad 配置对象。
@@ -186,14 +187,7 @@ class SherpaVADEngine:
         Raises:
             None.
         """
-        config = self._sherpa_onnx.VadModelConfig()
-        config.silero_vad.model = str(self.vad_model_path)
-        config.silero_vad.threshold = 0.5
-        config.silero_vad.min_silence_duration = 0.25
-        config.silero_vad.min_speech_duration = 0.25
-        config.silero_vad.max_speech_duration = 8
-        config.sample_rate = self.sample_rate
-        return config
+        return create_vad_config(self._sherpa_onnx, self.vad_model_path, self.sample_rate)
 
     def detect(self, audio_path: Path) -> VadResponse:
         """对音频执行 VAD 检测，返回语音活动时间段。
@@ -208,9 +202,9 @@ class SherpaVADEngine:
         Raises:
             FileNotFoundError: 音频文件不存在时抛出。
         """
-        _assert_file_exists(audio_path, "audio file")
+        assert_file_exists(audio_path, "audio file")
 
-        samples, sample_rate = _decode_audio(audio_path, sample_rate=self.sample_rate)
+        samples, sample_rate = decode_audio(audio_path, sample_rate=self.sample_rate)
         timestamps = self._detect_timestamps(samples, sample_rate)
 
         response: VadResponse = {
@@ -234,49 +228,8 @@ class SherpaVADEngine:
             None.
         """
         with self._lock:
-            self._detector.reset()
-            offset = 0
-            timestamps: list[list[int]] = []
-
-            while offset + self._window_size <= len(samples):
-                self._detector.accept_waveform(samples[offset : offset + self._window_size])
-                offset += self._window_size
-                timestamps.extend(self._pop_segments(sample_rate))
-
-            if offset < len(samples):
-                self._detector.accept_waveform(samples[offset:])
-
-            self._detector.flush()
-            timestamps.extend(self._pop_segments(sample_rate))
-            return timestamps
-
-    def _pop_segments(self, sample_rate: int) -> list[list[int]]:
-        """从 detector 队列中提取已完成的语音段。
-
-        Args:
-            sample_rate: 音频采样率。
-
-        Returns:
-            list[list[int]]: 以毫秒表示的语音段列表。
-
-        Raises:
-            None.
-        """
-        timestamps: list[list[int]] = []
-
-        while not self._detector.empty():
-            segment = self._detector.front
-            start_sample = int(segment.start)
-            end_sample = start_sample + len(segment.samples)
-            timestamps.append(
-                [
-                    int(start_sample * 1000 / sample_rate),
-                    int(end_sample * 1000 / sample_rate),
-                ]
-            )
-            self._detector.pop()
-
-        return timestamps
+            detector = self._sherpa_onnx.VoiceActivityDetector(self._config, buffer_size_in_seconds=30)
+            return collect_vad_timestamps(detector, samples, sample_rate, self._window_size)
 
 
 def load_sherpa_asr(model_dir: Path, num_threads: int = 2) -> SherpaASREngine:

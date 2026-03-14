@@ -38,13 +38,11 @@ class AudioSessionStateKeys(TypedDict):
 
 
 class SettingSessionStateKeys(TypedDict):
-    batch_size_s: str
+    num_threads: str
     device: str
     custom_output_dir: str
-    base_model: str
-    punc_model: str
-    vad_model: str
-    hot_words_path: str
+    asr_model_dir: str
+    vad_model_path: str
     cache_dir: str
     output_dir: str
     ffmpeg_path: str
@@ -86,13 +84,11 @@ audio_keys: AudioSessionStateKeys = {
 }
 
 setting_keys: SettingSessionStateKeys = {
-    "batch_size_s": "batch_size_s",
+    "num_threads": "num_threads",
     "device": "device",
     "custom_output_dir": "custom_output_dir",
-    "base_model": "base_model",
-    "punc_model": "punc_model",
-    "vad_model": "vad_model",
-    "hot_words_path": "hot_words_path",
+    "asr_model_dir": "asr_model_dir",
+    "vad_model_path": "vad_model_path",
     "cache_dir": "cache_dir",
     "output_dir": "output_dir",
     "ffmpeg_path": "ffmpeg_path",

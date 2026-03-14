@@ -117,9 +117,9 @@ custom_output_dir = st.session_state.get(setting_keys["custom_output_dir"], asr_
 output_dir = st.session_state.get(setting_keys["output_dir"], asr_settings.output_dir)
 asr_model_provider = st.session_state.get(setting_keys["asr_model_provider"], asr_settings.asr_model_provider)
 
-asr_model_dir = st.session_state.get(setting_keys["base_model"], sherpa_settings.asr_model_dir)
-vad_model_path = st.session_state.get(setting_keys["vad_model"], sherpa_settings.vad_model_path)
-num_threads = st.session_state.get(setting_keys["batch_size_s"], sherpa_settings.num_threads)
+asr_model_dir = st.session_state.get(setting_keys["asr_model_dir"], sherpa_settings.asr_model_dir)
+vad_model_path = st.session_state.get(setting_keys["vad_model_path"], sherpa_settings.vad_model_path)
+num_threads = st.session_state.get(setting_keys["num_threads"], sherpa_settings.num_threads)
 
 whisper_models_base_dir = st.session_state.get(
     setting_keys["whisper_models_base_dir"], whisper_settings.whisper_models_base_dir
@@ -172,20 +172,20 @@ with BOTSetting:
         get_setting_title("asr_model_dir", SherpaASRSettings),
         value=asr_model_dir,
         placeholder="ASR Model Directory",
-        key="base_model",
+        key="asr_model_dir",
     )
     vad_model_path = st.text_input(
         get_setting_title("vad_model_path", SherpaASRSettings),
         value=vad_model_path,
         placeholder="VAD Model Path",
-        key="vad_model",
+        key="vad_model_path",
     )
     num_threads = st.number_input(
         get_setting_title("num_threads", SherpaASRSettings),
         value=num_threads,
         min_value=1,
         step=1,
-        key="batch_size_s",
+        key="num_threads",
     )
 
     st.markdown("###### Whisper 配置")
