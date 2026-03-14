@@ -65,7 +65,7 @@ sherpa-onnx = [
 ]
 
 qwen-asr = [
-  "qwen-asr>=0.1.0",
+  "qwen-asr",
   "modelscope>=1.25.0",
   "transformers>=4.51.0",
   "torch>=2.0.0",
@@ -163,6 +163,7 @@ url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
 [tool.uv.sources]
+qwen-asr = { path = "./packages/Qwen3-ASR", editable = true }
 torch = [
   { index = "pytorch-cu118", marker = "sys_platform == 'win32'" }, # sys_platform : 'win32' , 'linux' , 'Darwin'
   { index = "pytorch-cpu", marker = "sys_platform != 'win32'"}
