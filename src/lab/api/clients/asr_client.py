@@ -8,7 +8,7 @@ from lab.api.clients.base_client_interface import BaseClientInterface, BaseReque
 from lab.asr.converter import convert_asr_response_to_sentences
 from lab.asr.types import ASRResponse, Sentence
 from lab.config_manager import XnneHangLabSettings, load_settings_file
-from lab.logger.logger_group import logger  # pyright: ignore[reportAttributeAccessIssue]
+from lab.logger.logger_group import logger  # pyright: ignore[reportAttributeAccessIssue,reportUnknownVariableType]
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -178,7 +178,7 @@ class ASRClient(BaseClientInterface):
         try:
             base_url = self._resolve_base_url(request)
             with request.file_path.open("rb") as file:
-                form = cast("Any", aiohttp.FormData())
+                form = cast("Any", aiohttp.FormData())  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
                 form.add_field("file", file, filename=request.file_path.name)
                 async with session.post(base_url, data=form) as response:
                     if response.status != 200:

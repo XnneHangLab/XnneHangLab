@@ -3,11 +3,12 @@ from __future__ import annotations
 import gc
 import re
 import unicodedata
+from importlib import import_module
 from pathlib import Path
 from threading import Lock
 from typing import TYPE_CHECKING, Any, cast
 
-from loguru import logger  # pyright: ignore[reportMissingImports]
+from loguru import logger  # pyright: ignore[reportMissingImports,reportUnknownVariableType]
 
 if TYPE_CHECKING:
     from lab.asr.types import ASRResponse
@@ -55,10 +56,10 @@ def _import_torch() -> Any:
         RuntimeError: torch 未安装时抛出。
     """
     try:
-        import torch
+        torch_module = import_module("torch")
     except ImportError as exc:
         raise RuntimeError("Qwen3-ASR requires torch to be installed.") from exc
-    return torch  # pyright: ignore[reportUnknownVariableType]
+    return torch_module  # pyright: ignore[reportUnknownVariableType]
 
 
 def _import_qwen_asr() -> Any:
@@ -74,12 +75,12 @@ def _import_qwen_asr() -> Any:
         RuntimeError: qwen-asr 未安装时抛出。
     """
     try:
-        from qwen_asr import Qwen3ASRModel  # pyright: ignore[reportAttributeAccessIssue]
+        qwen_asr_module = import_module("qwen_asr")
     except ImportError as exc:
         raise RuntimeError(
             "Qwen3-ASR requires the `qwen-asr` package. Run `uv sync` after updating dependencies."
         ) from exc
-    return Qwen3ASRModel  # pyright: ignore[reportUnknownVariableType]
+    return qwen_asr_module.Qwen3ASRModel  # pyright: ignore[reportUnknownVariableType,reportAttributeAccessIssue]
 
 
 def _resolve_model_path(model_path: str) -> str:
@@ -261,7 +262,7 @@ def _build_fallback_response(text: str, audio_duration_ms: int) -> tuple[str, li
         return "", []
 
     timestamps = _distribute_token_timestamps(tokens, 0, max(0, audio_duration_ms))
-    logger.warning("Qwen3-ASR output has no native timestamps; fallback token timestamps were generated.")
+    logger.warning("Qwen3-ASR output has no native timestamps; fallback token timestamps were generated.")  # pyright: ignore[reportUnknownMemberType]
     return " ".join(tokens), timestamps
 
 
@@ -335,9 +336,10 @@ def _normalize_result_text(result: Any) -> str:
         value = getattr(result, key, None)
         if isinstance(value, str) and value.strip():
             return value.strip()
-    if isinstance(result, dict):
+    result_dict = cast("dict[str, Any] | None", result if isinstance(result, dict) else None)
+    if result_dict is not None:
         for key in ("text", "transcript", "prediction"):
-            value = result.get(key)
+            value = result_dict.get(key)
             if isinstance(value, str) and value.strip():
                 return value.strip()
     return ""
@@ -358,14 +360,24 @@ def _extract_timestamp_span(item: Any) -> tuple[int, int] | None:
     start: Any = None
     end: Any = None
 
-    if isinstance(item, dict):
-        start = item.get("start") or item.get("start_time") or item.get("begin")
-        end = item.get("end") or item.get("end_time") or item.get("finish")
-    elif isinstance(item, (list, tuple)) and len(item) >= 2:
-        start, end = item[0], item[1]
+    item_dict = cast("dict[str, Any] | None", item if isinstance(item, dict) else None)
+    if item_dict is not None:
+        start = item_dict.get("start") or item_dict.get("start_time") or item_dict.get("begin")
+        end = item_dict.get("end") or item_dict.get("end_time") or item_dict.get("finish")
+    elif isinstance(item, list):
+        item_sequence = cast("list[Any]", item)
+        if len(item_sequence) < 2:
+            return None
+        start, end = item_sequence[0], item_sequence[1]
+    elif isinstance(item, tuple):
+        item_sequence = cast("tuple[Any, ...]", item)
+        if len(item_sequence) < 2:
+            return None
+        start, end = item_sequence[0], item_sequence[1]
     else:
-        start = getattr(item, "start", None) or getattr(item, "start_time", None)
-        end = getattr(item, "end", None) or getattr(item, "end_time", None)
+        item_obj = cast("Any", item)
+        start = getattr(item_obj, "start", None) or getattr(item_obj, "start_time", None)
+        end = getattr(item_obj, "end", None) or getattr(item_obj, "end_time", None)
 
     if start is None or end is None:
         return None
@@ -404,26 +416,29 @@ def _normalize_native_response(result: Any, audio_duration_ms: int) -> tuple[str
     if not text:
         return "", []
 
-    raw_timestamps = getattr(result, "time_stamps", None)
-    if raw_timestamps is None and isinstance(result, dict):
-        raw_timestamps = result.get("time_stamps") or result.get("timestamps")
+    raw_timestamps: Any = getattr(result, "time_stamps", None)
+    result_dict = cast("dict[str, Any] | None", result if isinstance(result, dict) else None)
+    if raw_timestamps is None and result_dict is not None:
+        raw_timestamps = result_dict.get("time_stamps") or result_dict.get("timestamps")
     if raw_timestamps is not None and hasattr(raw_timestamps, "items"):
         raw_timestamps = list(raw_timestamps.items)
 
     if not isinstance(raw_timestamps, list) or not raw_timestamps:
         return _build_fallback_response(text, audio_duration_ms)
+    raw_timestamp_items = cast("list[Any]", raw_timestamps)
 
     tokens: list[str] = []
     timestamps: list[list[int]] = []
     whole_text_tokens = _tokenize_asr_segment(text)
 
-    for item in raw_timestamps:
+    for item in raw_timestamp_items:
         span = _extract_timestamp_span(item)
         item_text = ""
-        if isinstance(item, dict):
-            item_text = str(item.get("text", "")).strip()
+        item_dict = cast("dict[str, Any] | None", item if isinstance(item, dict) else None)
+        if item_dict is not None:
+            item_text = str(item_dict.get("text", "")).strip()
         else:
-            item_text = str(getattr(item, "text", "")).strip()
+            item_text = str(getattr(cast("Any", item), "text", "")).strip()
 
         if span is None:
             continue
@@ -535,21 +550,23 @@ class QwenASREngine:
                         return_time_stamps=bool(self.forced_aligner_path),
                     )
                 except Exception as exc:
-                    logger.exception(f"Qwen3-ASR transcribe failed for {audio_path}")
+                    logger.exception(f"Qwen3-ASR transcribe failed for {audio_path}")  # pyright: ignore[reportUnknownMemberType]
                     raise RuntimeError(f"Failed to transcribe audio with Qwen3-ASR: {audio_path}") from exc
             except Exception as exc:
-                logger.exception(f"Qwen3-ASR transcribe failed for {audio_path}")
+                logger.exception(f"Qwen3-ASR transcribe failed for {audio_path}")  # pyright: ignore[reportUnknownMemberType]
                 raise RuntimeError(f"Failed to transcribe audio with Qwen3-ASR: {audio_path}") from exc
 
         if not isinstance(results, list) or not results:
             raise RuntimeError(f"Qwen3-ASR returned an empty response for: {audio_path}")
 
-        result = results[0]
+        result = cast("Any", results[0])
         audio_duration_ms = 0
-        if isinstance(result, dict):
-            duration_value = result.get("audio_duration") or result.get("duration")
+        result_dict = cast("dict[str, Any] | None", result if isinstance(result, dict) else None)
+        if result_dict is not None:
+            duration_value = result_dict.get("audio_duration") or result_dict.get("duration")
         else:
-            duration_value = getattr(result, "audio_duration", None) or getattr(result, "duration", None)
+            result_obj = cast("Any", result)
+            duration_value = getattr(result_obj, "audio_duration", None) or getattr(result_obj, "duration", None)
         if isinstance(duration_value, (int, float)):
             audio_duration_ms = int(
                 round(float(duration_value) * 1000 if float(duration_value) <= 1000 else float(duration_value))
