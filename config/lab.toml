@@ -20,7 +20,11 @@ vad_model_path = "./models/silero_vad.onnx"
 num_threads = 2
 
 [asr.qwen_asr]
-model_id = "Qwen/Qwen3-ASR-0.6B"
+model_dir = "./models"
+active_model = "0.6b"
+model_0_6b_path = "./models/Qwen3-ASR-0.6B"
+model_1_7b_path = "./models/Qwen3-ASR-1.7B"
+forced_aligner_path = "./models/Qwen3-ForcedAligner-0.6B"
 device = "cpu"
 
 [webui]
@@ -89,7 +93,8 @@ api_format = "chat_completion"
 
 [package]
 asr = false
-qwen_asr = false
+qwen_asr_0_6b = false
+qwen_asr_1_7b = false
 to_do_list = true
 yutto_uiya = true
 gpt_sovits = false

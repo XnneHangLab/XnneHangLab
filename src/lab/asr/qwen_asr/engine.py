@@ -1,4 +1,4 @@
-# pyright: reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportMissingTypeArgument=false
+# pyright: reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportMissingTypeArgument=false, reportMissingImports=false
 
 from __future__ import annotations
 
@@ -15,21 +15,21 @@ from loguru import logger
 if TYPE_CHECKING:
     from lab.asr.types import ASRResponse
 
-_qwen_asr_engine: QwenASREngine | None = None
+_qwen_asr_engines: dict[tuple[str, str], QwenASREngine] = {}
 _TIMESTAMP_PATTERN = re.compile(r"<\|(\d+(?:\.\d+)?)\|>")
 
 
 def _normalize_device(device: str) -> str:
-    """规范化设备名称。
+    """规范化推理设备名称。
 
     Args:
-        device: 原始设备字符串。
+        device: 原始设备名称。
 
     Returns:
-        str: 规范化后的设备字符串。
+        str: 规范化后的设备名称。
 
     Raises:
-        RuntimeError: 请求 CUDA 但当前环境不可用时抛出。
+        RuntimeError: 设备名非法或 CUDA 不可用时抛出。
     """
     normalized = device.strip().lower() or "cpu"
     if normalized not in {"cpu", "cuda"}:
@@ -62,41 +62,36 @@ def _import_torch() -> Any:
     return torch
 
 
-def _resolve_model_path(model_id: str) -> str:
-    """将模型 ID 解析为本地目录。
+def _resolve_model_path(model_path: str) -> str:
+    """解析并校验本地模型路径。
 
     Args:
-        model_id: ModelScope 模型 ID 或本地目录。
+        model_path: 本地模型目录路径。
 
     Returns:
-        str: 可供 transformers 加载的本地路径。
+        str: 规范化后的本地模型目录。
 
     Raises:
-        RuntimeError: ModelScope 不可用或下载失败时抛出。
+        RuntimeError: 模型目录不存在时抛出。
     """
-    if Path(model_id).exists():
-        return str(Path(model_id))
-
-    try:
-        from modelscope import snapshot_download
-    except ImportError as exc:
-        raise RuntimeError("Qwen3-ASR requires modelscope to be installed.") from exc
-
-    try:
-        return str(snapshot_download(model_id=model_id))
-    except Exception as exc:
-        raise RuntimeError(f"Failed to download Qwen3-ASR model from ModelScope: {model_id}") from exc
+    resolved = Path(model_path).expanduser().resolve()
+    if not resolved.exists():
+        raise RuntimeError(
+            f"Qwen3-ASR model path does not exist: {resolved}. "
+            "Run `just install-qwen-asr` first or update config/lab.toml."
+        )
+    return str(resolved)
 
 
 def _load_audio(audio_path: Path, target_sample_rate: int) -> np.ndarray:
-    """读取并重采样音频为单声道 16k waveform。
+    """读取并重采样音频为单声道 waveform。
 
     Args:
-        audio_path: 输入音频路径。
+        audio_path: 输入音频文件路径。
         target_sample_rate: 目标采样率。
 
     Returns:
-        np.ndarray: 单声道 float32 音频数组。
+        np.ndarray: float32 单声道音频数组。
 
     Raises:
         RuntimeError: 音频读取失败时抛出。
@@ -135,13 +130,13 @@ def _load_audio(audio_path: Path, target_sample_rate: int) -> np.ndarray:
 
 
 def _extract_asr_text(raw_output: str) -> str:
-    """从模型原始输出中提取 ASR 文本主体。
+    """提取模型输出中的 ASR 文本主体。
 
     Args:
-        raw_output: 模型解码后的原始字符串。
+        raw_output: 模型原始输出。
 
     Returns:
-        str: 去掉元信息后的文本主体。
+        str: 去掉元信息后的识别文本。
 
     Raises:
         None.
@@ -165,7 +160,7 @@ def _is_cjk_char(char: str) -> bool:
         char: 待判断字符。
 
     Returns:
-        bool: 是否为中日韩表意文字。
+        bool: 是否属于中日韩表意文字。
 
     Raises:
         None.
@@ -177,10 +172,10 @@ def _is_cjk_char(char: str) -> bool:
 
 
 def _tokenize_asr_segment(segment: str) -> list[str]:
-    """将文本片段切成与项目 ASRResponse 兼容的 token 列表。
+    """将文本切成与 ASRResponse 兼容的 token 列表。
 
     Args:
-        segment: 一段不含时间戳标签的识别文本。
+        segment: 不含时间戳标签的文本片段。
 
     Returns:
         list[str]: 归一化后的 token 列表。
@@ -224,15 +219,15 @@ def _tokenize_asr_segment(segment: str) -> list[str]:
 
 
 def _distribute_token_timestamps(tokens: list[str], start_ms: int, end_ms: int) -> list[list[int]]:
-    """在一个时间区间内为 token 均分时间戳。
+    """在时间区间内为 token 分配时间戳。
 
     Args:
         tokens: token 列表。
-        start_ms: 区间起始时间，单位毫秒。
-        end_ms: 区间结束时间，单位毫秒。
+        start_ms: 起始时间，单位毫秒。
+        end_ms: 结束时间，单位毫秒。
 
     Returns:
-        list[list[int]]: 与 token 等长的毫秒时间戳列表。
+        list[list[int]]: `[[start, end], ...]` 时间戳列表。
 
     Raises:
         None.
@@ -258,14 +253,14 @@ def _distribute_token_timestamps(tokens: list[str], start_ms: int, end_ms: int) 
 
 
 def _build_fallback_response(text: str, audio_duration_ms: int) -> tuple[str, list[list[int]]]:
-    """在缺少原生时间戳时构造保底 token 与时间戳。
+    """在缺少原生时间戳时构造保底结果。
 
     Args:
-        text: 纯文本识别结果。
+        text: 识别文本。
         audio_duration_ms: 音频总时长，单位毫秒。
 
     Returns:
-        tuple[str, list[list[int]]]: 空格分隔文本与对应时间戳。
+        tuple[str, list[list[int]]]: 空格分隔文本和毫秒级时间戳。
 
     Raises:
         None.
@@ -280,14 +275,14 @@ def _build_fallback_response(text: str, audio_duration_ms: int) -> tuple[str, li
 
 
 def parse_qwen_asr_output(raw_output: str, audio_duration_ms: int) -> tuple[str, list[list[int]]]:
-    """解析 Qwen3-ASR 输出为项目标准 ASRResponse 字段。
+    """解析 Qwen3-ASR 输出为项目标准字段。
 
     Args:
         raw_output: 模型原始输出文本。
         audio_duration_ms: 音频总时长，单位毫秒。
 
     Returns:
-        tuple[str, list[list[int]]]: 空格分隔文本与毫秒级时间戳。
+        tuple[str, list[list[int]]]: 空格分隔文本和毫秒级时间戳。
 
     Raises:
         None.
@@ -334,20 +329,18 @@ def parse_qwen_asr_output(raw_output: str, audio_duration_ms: int) -> tuple[str,
 
 
 class QwenASREngine:
-    """Qwen3-ASR 推理引擎（全局单例）。
-
-    使用 ModelScope 下载模型，再用 transformers 加载并执行多语言 ASR。
+    """Qwen3-ASR 推理引擎。
 
     Args:
-        model_id: ModelScope 模型 ID，默认 `Qwen/Qwen3-ASR-0.6B`。
+        model_path: 本地模型目录路径。
         device: 推理设备，支持 `cpu` 或 `cuda`。
     """
 
-    def __init__(self, model_id: str = "Qwen/Qwen3-ASR-0.6B", device: str = "cpu") -> None:
+    def __init__(self, model_path: str, device: str = "cpu") -> None:
         """初始化 Qwen3-ASR 推理引擎。
 
         Args:
-            model_id: ModelScope 模型 ID 或本地模型目录。
+            model_path: 本地模型目录路径。
             device: 推理设备。
 
         Returns:
@@ -356,14 +349,12 @@ class QwenASREngine:
         Raises:
             RuntimeError: 模型或依赖加载失败时抛出。
         """
-        self.model_id = model_id
+        self.model_path = _resolve_model_path(model_path)
         self.device = _normalize_device(device)
         self.sample_rate = 16000
         self.max_new_tokens = 1024
         self._lock = Lock()
         self._torch = _import_torch()
-
-        model_path = _resolve_model_path(model_id)
 
         try:
             from transformers import AutoModel, AutoProcessor
@@ -372,19 +363,19 @@ class QwenASREngine:
 
         try:
             self._processor = AutoProcessor.from_pretrained(
-                model_path,
+                self.model_path,
                 trust_remote_code=True,
                 fix_mistral_regex=True,
             )
         except TypeError:
-            self._processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
+            self._processor = AutoProcessor.from_pretrained(self.model_path, trust_remote_code=True)
 
         torch_dtype = self._torch.float32
         if self.device == "cuda":
             torch_dtype = self._torch.bfloat16 if self._torch.cuda.is_bf16_supported() else self._torch.float16
 
         self._model = AutoModel.from_pretrained(
-            model_path,
+            self.model_path,
             trust_remote_code=True,
             torch_dtype=torch_dtype,
             low_cpu_mem_usage=True,
@@ -404,7 +395,7 @@ class QwenASREngine:
             str: 供 processor 编码的文本提示。
 
         Raises:
-            RuntimeError: processor 不支持 chat template 时抛出。
+            RuntimeError: chat template 构造失败时抛出。
         """
         messages = [
             {"role": "system", "content": ""},
@@ -417,16 +408,16 @@ class QwenASREngine:
             raise RuntimeError("Failed to build Qwen3-ASR prompt with chat template.") from exc
 
     def _generate(self, waveform: np.ndarray) -> str:
-        """执行一次模型生成并返回原始文本。
+        """执行一次模型生成。
 
         Args:
             waveform: 单声道 16k float32 音频数组。
 
         Returns:
-            str: 模型解码后的原始文本。
+            str: 模型解码后的文本。
 
         Raises:
-            RuntimeError: 模型推理失败时抛出。
+            RuntimeError: 推理失败时抛出。
         """
         prompt = self._build_prompt()
 
@@ -456,12 +447,10 @@ class QwenASREngine:
         """对音频执行 ASR 推理。
 
         Args:
-            audio_path: 输入音频文件路径，支持 wav、opus、mp3 等格式。
+            audio_path: 输入音频文件路径。
 
         Returns:
-            ASRResponse: 包含 key、text、timestamp 的识别结果。
-                `text` 为与 sherpa 兼容的空格分隔 token。
-                `timestamp` 为毫秒级 `[[start, end], ...]`。
+            ASRResponse: 包含 `key`、`text`、`timestamp` 的识别结果。
 
         Raises:
             FileNotFoundError: 音频文件不存在时抛出。
@@ -486,11 +475,11 @@ class QwenASREngine:
             raise RuntimeError(f"Failed to transcribe audio with Qwen3-ASR: {audio_path}") from exc
 
 
-def load_qwen_asr(model_id: str, device: str) -> QwenASREngine:
-    """加载或返回已缓存的 Qwen3-ASR 引擎单例。
+def load_qwen_asr(model_path: str, device: str) -> QwenASREngine:
+    """加载或返回缓存的 Qwen3-ASR 引擎。
 
     Args:
-        model_id: ModelScope 模型 ID 或本地目录。
+        model_path: 本地模型目录路径。
         device: 推理设备。
 
     Returns:
@@ -499,34 +488,46 @@ def load_qwen_asr(model_id: str, device: str) -> QwenASREngine:
     Raises:
         RuntimeError: 引擎初始化失败时抛出。
     """
-    global _qwen_asr_engine
-    if _qwen_asr_engine is None:
-        _qwen_asr_engine = QwenASREngine(model_id=model_id, device=device)
-    return _qwen_asr_engine
+    resolved_model_path = _resolve_model_path(model_path)
+    normalized_device = _normalize_device(device)
+    cache_key = (resolved_model_path, normalized_device)
+    engine = _qwen_asr_engines.get(cache_key)
+    if engine is None:
+        engine = QwenASREngine(model_path=resolved_model_path, device=normalized_device)
+        _qwen_asr_engines[cache_key] = engine
+    return engine
 
 
-def get_qwen_asr() -> QwenASREngine:
+def get_qwen_asr(model_path: str, device: str) -> QwenASREngine:
     """获取已加载的 Qwen3-ASR 引擎。
 
     Args:
-        None.
+        model_path: 本地模型目录路径。
+        device: 推理设备。
 
     Returns:
         QwenASREngine: 已初始化的引擎实例。
 
     Raises:
-        RuntimeError: 引擎尚未加载时抛出。
+        RuntimeError: 指定引擎尚未加载时抛出。
     """
-    if _qwen_asr_engine is None:
-        raise RuntimeError("Qwen3-ASR engine is not loaded. Call load_qwen_asr() first.")
-    return _qwen_asr_engine
+    resolved_model_path = _resolve_model_path(model_path)
+    normalized_device = _normalize_device(device)
+    cache_key = (resolved_model_path, normalized_device)
+    engine = _qwen_asr_engines.get(cache_key)
+    if engine is None:
+        raise RuntimeError(
+            f"Qwen3-ASR engine is not loaded: model_path={resolved_model_path}, device={normalized_device}."
+        )
+    return engine
 
 
-def reset_qwen_asr_engine() -> None:
-    """重置 Qwen3-ASR 引擎单例并释放缓存。
+def reset_qwen_asr_engine(model_path: str | None = None, device: str | None = None) -> None:
+    """重置 Qwen3-ASR 引擎缓存。
 
     Args:
-        None.
+        model_path: 指定模型路径；为 `None` 时清空全部缓存。
+        device: 指定设备；仅在 `model_path` 也提供时生效。
 
     Returns:
         None.
@@ -534,8 +535,13 @@ def reset_qwen_asr_engine() -> None:
     Raises:
         None.
     """
-    global _qwen_asr_engine
-    _qwen_asr_engine = None
+    if model_path is None:
+        _qwen_asr_engines.clear()
+    else:
+        resolved_model_path = _resolve_model_path(model_path)
+        normalized_device = _normalize_device(device or "cpu")
+        _qwen_asr_engines.pop((resolved_model_path, normalized_device), None)
+
     gc.collect()
 
     try:

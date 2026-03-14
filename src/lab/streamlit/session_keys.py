@@ -39,7 +39,11 @@ class SettingSessionStateKeys(TypedDict):
     output_dir: str
     ffmpeg_path: str
     initial_settings: str
-    qwen_model_id: str
+    qwen_model_dir: str
+    qwen_active_model: str
+    qwen_model_0_6b_path: str
+    qwen_model_1_7b_path: str
+    qwen_forced_aligner_path: str
     qwen_device: str
     asr_model_provider: str
 
@@ -84,7 +88,11 @@ setting_keys: SettingSessionStateKeys = {
     "output_dir": "output_dir",
     "ffmpeg_path": "ffmpeg_path",
     "initial_settings": "initial_settings",
-    "qwen_model_id": "qwen_model_id",
+    "qwen_model_dir": "qwen_model_dir",
+    "qwen_active_model": "qwen_active_model",
+    "qwen_model_0_6b_path": "qwen_model_0_6b_path",
+    "qwen_model_1_7b_path": "qwen_model_1_7b_path",
+    "qwen_forced_aligner_path": "qwen_forced_aligner_path",
     "qwen_device": "qwen_device",
     "asr_model_provider": "asr_model_provider",
 }

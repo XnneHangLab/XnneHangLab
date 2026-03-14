@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict, cast
 
 import streamlit as st
 
@@ -18,6 +18,9 @@ from lab.config_manager import (
 from lab.streamlit.session_keys import setting_keys
 from lab.streamlit.style import style
 
+if TYPE_CHECKING:
+    from lab.config_manager.qwen_asr import QwenASRModelName
+
 style()
 
 
@@ -26,8 +29,8 @@ def message_box(title: str, message: str) -> None:
     """显示简单消息弹窗。
 
     Args:
-        title: 弹窗标题。
-        message: 弹窗正文。
+        title: 标题。
+        message: 正文。
 
     Returns:
         None.
@@ -43,10 +46,10 @@ def check_device_is_available(device: str) -> bool:
     """检查设备配置是否可用。
 
     Args:
-        device: 待检查的设备名称。
+        device: 待检查设备名。
 
     Returns:
-        bool: 当前始终返回 True，作为占位实现。
+        bool: 当前始终返回 True。
 
     Raises:
         None.
@@ -78,7 +81,11 @@ class SherpaSettingsDict(TypedDict):
 
 
 class QwenSettingsDict(TypedDict):
-    model_id: str
+    model_dir: str
+    active_model: QwenASRModelName
+    model_0_6b_path: str
+    model_1_7b_path: str
+    forced_aligner_path: str
     device: str
 
 
@@ -104,7 +111,11 @@ if setting_keys["initial_settings"] not in st.session_state:
             "num_threads": sherpa_settings.num_threads,
         },
         "qwen_asr": {
-            "model_id": qwen_settings.model_id,
+            "model_dir": qwen_settings.model_dir,
+            "active_model": qwen_settings.active_model,
+            "model_0_6b_path": qwen_settings.model_0_6b_path,
+            "model_1_7b_path": qwen_settings.model_1_7b_path,
+            "forced_aligner_path": qwen_settings.forced_aligner_path,
             "device": qwen_settings.device,
         },
     }
@@ -121,7 +132,17 @@ asr_model_dir = st.session_state.get(setting_keys["asr_model_dir"], sherpa_setti
 vad_model_path = st.session_state.get(setting_keys["vad_model_path"], sherpa_settings.vad_model_path)
 num_threads = st.session_state.get(setting_keys["num_threads"], sherpa_settings.num_threads)
 
-qwen_model_id = st.session_state.get(setting_keys["qwen_model_id"], qwen_settings.model_id)
+qwen_model_dir = st.session_state.get(setting_keys["qwen_model_dir"], qwen_settings.model_dir)
+qwen_active_model = cast(
+    "QwenASRModelName",
+    st.session_state.get(setting_keys["qwen_active_model"], qwen_settings.active_model),
+)
+qwen_model_0_6b_path = st.session_state.get(setting_keys["qwen_model_0_6b_path"], qwen_settings.model_0_6b_path)
+qwen_model_1_7b_path = st.session_state.get(setting_keys["qwen_model_1_7b_path"], qwen_settings.model_1_7b_path)
+qwen_forced_aligner_path = st.session_state.get(
+    setting_keys["qwen_forced_aligner_path"],
+    qwen_settings.forced_aligner_path,
+)
 qwen_device = st.session_state.get(setting_keys["qwen_device"], qwen_settings.device)
 
 save_container = st.container()
@@ -148,7 +169,7 @@ with setting_container:
         asr_settings.get_labels("asr_model_provider"),
         index=asr_settings.get_index("asr_model_provider"),
     )
-    st.caption("Qwen3-ASR 用于统一多语种识别，Sherpa-ONNX 保留为轻量 fallback。")
+    st.caption("Qwen3-ASR 用于统一多语言识别，Sherpa-ONNX 保留为轻量 fallback。")
     if st.toggle("自定义输出目录", custom_output_dir, key="custom_output_dir"):
         output_dir = st.text_input(
             get_setting_title("output_dir", ASRSettings),
@@ -189,11 +210,39 @@ with setting_container:
     st.markdown("")
 
     st.markdown("###### Qwen3-ASR 配置")
-    qwen_model_id = st.text_input(
-        get_setting_title("model_id", QwenASRSettings),
-        value=qwen_model_id,
-        placeholder="Qwen/Qwen3-ASR-0.6B",
-        key="qwen_model_id",
+    st.caption("模型通过 `just install-qwen-asr` 下载到本地 `./models/`，代码只从配置路径加载。")
+    qwen_model_dir = st.text_input(
+        get_setting_title("model_dir", QwenASRSettings),
+        value=qwen_model_dir,
+        placeholder="./models",
+        key="qwen_model_dir",
+    )
+    qwen_active_model = cast(
+        "QwenASRModelName",
+        st.selectbox(
+            get_setting_title("active_model", QwenASRSettings),
+            options=["0.6b", "1.7b"],
+            index=0 if qwen_active_model == "0.6b" else 1,
+            key="qwen_active_model",
+        ),
+    )
+    qwen_model_0_6b_path = st.text_input(
+        get_setting_title("model_0_6b_path", QwenASRSettings),
+        value=qwen_model_0_6b_path,
+        placeholder="./models/Qwen3-ASR-0.6B",
+        key="qwen_model_0_6b_path",
+    )
+    qwen_model_1_7b_path = st.text_input(
+        get_setting_title("model_1_7b_path", QwenASRSettings),
+        value=qwen_model_1_7b_path,
+        placeholder="./models/Qwen3-ASR-1.7B",
+        key="qwen_model_1_7b_path",
+    )
+    qwen_forced_aligner_path = st.text_input(
+        get_setting_title("forced_aligner_path", QwenASRSettings),
+        value=qwen_forced_aligner_path,
+        placeholder="./models/Qwen3-ForcedAligner-0.6B",
+        key="qwen_forced_aligner_path",
     )
     qwen_device = st.selectbox(
         get_setting_title("device", QwenASRSettings),
@@ -201,7 +250,12 @@ with setting_container:
         index=0 if qwen_device == "cpu" else 1,
         key="qwen_device",
     )
-    st.caption("Qwen3-ASR 通过 ModelScope 下载权重，并使用 transformers 执行推理。")
+    if not lab_settings.package.qwen_asr_0_6b and not lab_settings.package.qwen_asr_1_7b:
+        st.warning("当前未启用任何 Qwen3-ASR 模型预加载。若 provider 选择 Qwen，将无法推理。")
+    elif qwen_active_model == "0.6b" and not lab_settings.package.qwen_asr_0_6b:
+        st.warning("当前 active model 为 0.6B，但 `package.qwen_asr_0_6b = false`。")
+    elif qwen_active_model == "1.7b" and not lab_settings.package.qwen_asr_1_7b:
+        st.warning("当前 active model 为 1.7B，但 `package.qwen_asr_1_7b = false`。")
     st.markdown("")
 
 with save_container:
@@ -226,7 +280,13 @@ with save_container:
                     "num_threads": int(num_threads),
                 },
                 "qwen_asr": {
-                    "model_id": qwen_model_id or initial_settings["qwen_asr"]["model_id"],
+                    "model_dir": qwen_model_dir or initial_settings["qwen_asr"]["model_dir"],
+                    "active_model": qwen_active_model,
+                    "model_0_6b_path": qwen_model_0_6b_path or initial_settings["qwen_asr"]["model_0_6b_path"],
+                    "model_1_7b_path": qwen_model_1_7b_path or initial_settings["qwen_asr"]["model_1_7b_path"],
+                    "forced_aligner_path": (
+                        qwen_forced_aligner_path or initial_settings["qwen_asr"]["forced_aligner_path"]
+                    ),
                     "device": qwen_device,
                 },
             }
@@ -247,7 +307,11 @@ with save_container:
                 sherpa_settings.vad_model_path = current_settings["sherpa"]["vad_model_path"]
                 sherpa_settings.num_threads = current_settings["sherpa"]["num_threads"]
 
-                qwen_settings.model_id = current_settings["qwen_asr"]["model_id"]
+                qwen_settings.model_dir = current_settings["qwen_asr"]["model_dir"]
+                qwen_settings.active_model = current_settings["qwen_asr"]["active_model"]
+                qwen_settings.model_0_6b_path = current_settings["qwen_asr"]["model_0_6b_path"]
+                qwen_settings.model_1_7b_path = current_settings["qwen_asr"]["model_1_7b_path"]
+                qwen_settings.forced_aligner_path = current_settings["qwen_asr"]["forced_aligner_path"]
                 qwen_settings.device = current_settings["qwen_asr"]["device"]
 
                 asr_settings.sherpa = sherpa_settings
@@ -268,7 +332,7 @@ with save_container:
                     reload_client.post()
 
                 st.session_state[setting_keys["initial_settings"]] = current_settings
-                message_box("保存成功", "你也可以直接修改 `config/lab.toml` 来调整配置。")
+                message_box("保存成功", "也可以直接修改 `config/lab.toml` 调整配置。")
             else:
                 message_box("未检测到更改", "配置未发生变化，无需保存。")
 

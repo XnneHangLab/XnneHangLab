@@ -29,7 +29,7 @@ async def funasr_transcribe(file: UploadFile = file_default) -> dict[str, Any]:
     try:
         lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
         if lab_settings.asr.asr_model_provider == "qwen":
-            if not lab_settings.package.qwen_asr:
+            if not lab_settings.package.qwen_asr_0_6b and not lab_settings.package.qwen_asr_1_7b:
                 raise RuntimeError("Qwen3-ASR is disabled in lab.toml")
             result = qwen_asr_transcribe(input_path=temp_audio_path)
         else:

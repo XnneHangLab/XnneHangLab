@@ -106,13 +106,21 @@ async def lifespan(app: FastAPI):
         load_funasr()
         logger.info("✅ Sherpa-ONNX ASR/VAD 预加载完成 ({:.1f}s)", time.perf_counter() - started)
 
-    if lab_settings.package.qwen_asr:
-        from lab.api.logic.qwen_asr import load_qwen_asr_engine
+    if lab_settings.package.qwen_asr_0_6b or lab_settings.package.qwen_asr_1_7b:
+        from lab.api.logic.qwen_asr import preload_enabled_qwen_asr_engines
 
         started = time.perf_counter()
         logger.info("⏳ 预加载 Qwen3-ASR 引擎...")
-        load_qwen_asr_engine()
-        logger.info("✅ Qwen3-ASR 引擎预加载完成 ({:.1f}s)", time.perf_counter() - started)
+        loaded_models = preload_enabled_qwen_asr_engines()
+        logger.info(
+            "✅ Qwen3-ASR 引擎预加载完成 ({:.1f}s, models={})",
+            time.perf_counter() - started,
+            ",".join(loaded_models),
+        )
+    elif lab_settings.asr.asr_model_provider == "qwen":
+        logger.warning(
+            "Qwen3-ASR is selected as the active provider, but neither qwen_asr_0_6b nor qwen_asr_1_7b is enabled."
+        )
 
     if lab_settings.package.qwen_tts:
         from lab.api.logic.faster_qwen_tts import init_qwen_tts_model
@@ -298,7 +306,7 @@ class WebSocketServer:
             "DeepLX 端点",
             lambda: self.app.include_router(import_module("lab.api.routes.deeplx").router),
         )
-        if lab_settings.package.asr or lab_settings.package.qwen_asr:
+        if lab_settings.package.asr or lab_settings.package.qwen_asr_0_6b or lab_settings.package.qwen_asr_1_7b:
             _include_router_with_log(
                 "ASR reload 端点",
                 lambda: self.app.include_router(import_module("lab.api.routes.asr_reload").router),
