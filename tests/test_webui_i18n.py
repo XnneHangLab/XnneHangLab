@@ -47,7 +47,7 @@ def test_get_index_three_members() -> None:
         (SubtitleSpeed.normal, "normal", "正常"),
         (SubtitleSpeed.fast, "fast", "快"),
         (ASRModelProvider.qwen, "qwen", "Qwen3-ASR"),
-        (ASRModelProvider.sherpa, "sherpa", "Sherpa-ONNX"),
+        (ASRModelProvider.sherpa, "sherpa", "Sherpa-ONNX Paraformer"),
     ],
 )
 def test_enum_name_and_label(member: I18nEnum, expected_name: str, expected_label: str) -> None:
@@ -58,7 +58,7 @@ def test_enum_name_and_label(member: I18nEnum, expected_name: str, expected_labe
 def test_get_labels_returns_correct_options() -> None:
     settings = ASRSettings()  # pyright: ignore[reportCallIssue]
     assert settings.get_labels("device") == ["cpu", "gpu"]
-    assert settings.get_labels("asr_model_provider") == ["Qwen3-ASR", "Sherpa-ONNX"]
+    assert settings.get_labels("asr_model_provider") == ["Qwen3-ASR", "Sherpa-ONNX Paraformer"]
 
 
 def test_get_index_reflects_current_value() -> None:
@@ -71,7 +71,7 @@ def test_set_by_label_updates_field() -> None:
     settings = ASRSettings()  # pyright: ignore[reportCallIssue]
     settings.set_by_label("device", "gpu")
     assert settings.device == "cuda"
-    settings.set_by_label("asr_model_provider", "Sherpa-ONNX")
+    settings.set_by_label("asr_model_provider", "Sherpa-ONNX Paraformer")
     assert settings.asr_model_provider == "sherpa"
 
 
