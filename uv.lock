@@ -3286,6 +3286,22 @@ wheels = [
 ]
 
 [[package]]
+name = "sherpa-onnx"
+version = "1.12.29"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fd/d3/f708e40632c4230b45917c8757faf82786fcae3107f3e51a1ea92ff51344/sherpa_onnx-1.12.29.tar.gz", hash = "sha256:6f7dac085a1eecf18bb9a0771d8be15ea1fa66dd5e039e54073e252bf0dbaabf", size = 787286 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b6/ea/b971d6453b875a371f2f78bb54932bc5d73b4a9e7166f10c3184f0b63f4f/sherpa_onnx-1.12.29-cp311-cp311-linux_armv7l.whl", hash = "sha256:f07c74548bd8bf2a6c3815bf356c628baf656eb0d89bec181fcf52b9e9556f0d", size = 11151692 },
+    { url = "https://files.pythonhosted.org/packages/d1/aa/9b43c5a387ee73f3273800575b90dbbd74fda8ba5a4b73d9594ae7be33c3/sherpa_onnx-1.12.29-cp311-cp311-macosx_10_15_universal2.whl", hash = "sha256:b131ac7df22b3dcaf649dd80b0a1e72f236ef00c37290c6bbd75c5b1569788f3", size = 4270589 },
+    { url = "https://files.pythonhosted.org/packages/b3/05/b9c44a1ffcd05315943437f6dbd366a2b1bb1704b9ab26bb42eb2540ba21/sherpa_onnx-1.12.29-cp311-cp311-macosx_10_15_x86_64.whl", hash = "sha256:00deacd1e206f6346a7333de52b0f85706b5680687865a6046788172c34fa585", size = 2263861 },
+    { url = "https://files.pythonhosted.org/packages/f6/85/397ddd843ac3861e6262db0f7a12719e5bdd9f910fded6e5d473d884614f/sherpa_onnx-1.12.29-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:b2f1e9aefce030d2860eb157cf2b122010effca6f46c4c68a808f02d35ae36ad", size = 2040247 },
+    { url = "https://files.pythonhosted.org/packages/cd/71/3fa362a0e62e6ab481669ae9f9a6533dfec0a0f10a998e3fbfea1496a131/sherpa_onnx-1.12.29-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:fabaeaa2b05b4ec6d75c7950720b1ae1f966c849925452c28cba9f2d132a967d", size = 4087771 },
+    { url = "https://files.pythonhosted.org/packages/a0/0e/52da2d8878b0b06b846bdd90c84bc77d27d2df9a8dfb8c65bab895190625/sherpa_onnx-1.12.29-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:b08fcd0de5c34feaa51479f9b5f7f4ef7d04f0724d016f6c9e9bf1458ea3ad33", size = 4301440 },
+    { url = "https://files.pythonhosted.org/packages/b8/42/d7cd423f53a0f6b7995ac8da6f1c8fe0eab4c821e3e9656ff289d70f3407/sherpa_onnx-1.12.29-cp311-cp311-win32.whl", hash = "sha256:9b3b0cb5475ffc496f75fef05977be83d437a0c9135b7b9d3636e5911998780c", size = 1730453 },
+    { url = "https://files.pythonhosted.org/packages/12/11/e463b5a605aa3242b7849c7bbf1c494350025c6fcbf7d8e6468f8ebdf2b5/sherpa_onnx-1.12.29-cp311-cp311-win_amd64.whl", hash = "sha256:303a8fb0407b146add3baf3ffcc08b1c2920d74016b0df304d6a01b7ac061090", size = 2047472 },
+]
+
+[[package]]
 name = "six"
 version = "1.17.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3743,8 +3759,8 @@ dependencies = [
     { name = "torch", version = "2.6.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
 ]
 wheels = [
-    { url = "https://download.pytorch.org/whl/cpu/torchaudio-2.6.0-cp311-cp311-linux_aarch64.whl", hash = "sha256:0f0db5c997d031c34066d8be1c0ce7d2a1f2b6c016a92885b20b00bfeb17b753" },
-    { url = "https://download.pytorch.org/whl/cpu/torchaudio-2.6.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:c12fc41241b8dfce3ccc1917f1c81a0f92f532d9917706600046f1eb21d2d765" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torchaudio-2.6.0-cp311-cp311-linux_aarch64.whl", hash = "sha256:0f0db5c997d031c34066d8be1c0ce7d2a1f2b6c016a92885b20b00bfeb17b753" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torchaudio-2.6.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:c12fc41241b8dfce3ccc1917f1c81a0f92f532d9917706600046f1eb21d2d765" },
 ]
 
 [[package]]
@@ -3758,7 +3774,7 @@ dependencies = [
     { name = "torch", version = "2.6.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')" },
 ]
 wheels = [
-    { url = "https://download.pytorch.org/whl/cpu/torchaudio-2.6.0%2Bcpu-cp311-cp311-linux_x86_64.whl", hash = "sha256:242e6655d54daf66e090726e5ae6e51955888480de36fc89cd4588c10eca6280" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torchaudio-2.6.0%2Bcpu-cp311-cp311-linux_x86_64.whl", hash = "sha256:242e6655d54daf66e090726e5ae6e51955888480de36fc89cd4588c10eca6280" },
 ]
 
 [[package]]
@@ -3772,7 +3788,7 @@ dependencies = [
     { name = "torch", version = "2.6.0+cu118", source = { registry = "https://download.pytorch.org/whl/cu118" }, marker = "sys_platform == 'win32'" },
 ]
 wheels = [
-    { url = "https://download.pytorch.org/whl/cu118/torchaudio-2.6.0%2Bcu118-cp311-cp311-win_amd64.whl", hash = "sha256:065ea2e015ef6d02ec289e0a5ecc4c8e7acd4b30a8612879637395e7e16217e4" },
+    { url = "https://download-r2.pytorch.org/whl/cu118/torchaudio-2.6.0%2Bcu118-cp311-cp311-win_amd64.whl", hash = "sha256:065ea2e015ef6d02ec289e0a5ecc4c8e7acd4b30a8612879637395e7e16217e4" },
 ]
 
 [[package]]
@@ -4235,6 +4251,9 @@ qwen-tts = [
     { name = "sounddevice" },
     { name = "soxr" },
 ]
+sherpa-onnx = [
+    { name = "sherpa-onnx" },
+]
 tts-base = [
     { name = "cn2an" },
     { name = "g2p-en" },
@@ -4331,6 +4350,7 @@ qwen-tts = [
     { name = "sounddevice", specifier = ">=0.5.2" },
     { name = "soxr", specifier = ">=1.0.0" },
 ]
+sherpa-onnx = [{ name = "sherpa-onnx", specifier = ">=1.12.29" }]
 tts-base = [
     { name = "cn2an", specifier = ">=0.5.23" },
     { name = "g2p-en", specifier = ">=2.1.0" },

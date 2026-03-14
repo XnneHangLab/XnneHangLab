@@ -69,6 +69,10 @@ whisper = [
   "openai-whisper>=20250625",
 ]
 
+sherpa-onnx = [
+  "sherpa-onnx>=1.12.29",
+]
+
 dev = [
   "pyright>=1.1.391",
   "ruff>=0.9.3",
@@ -143,7 +147,7 @@ qwen-tts = [
 ]
 
 [tool.uv]
-default-groups = ["base","funasr","whisper","dev", "yutto-uiya", "tts_base", "gpt_sovits", "qwen-tts", "vtuber", "memory_bench"]
+default-groups = ["base","funasr","whisper","dev", "yutto-uiya", "tts_base", "gpt_sovits", "qwen-tts", "vtuber", "memory_bench", "sherpa-onnx"]
 
 [tool.uv.workspace]
 members = ["packages/yutto-uiya","packages/todo/","packages/gpt_sovits"]

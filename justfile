@@ -86,6 +86,9 @@ test-vad:
 test-whisper:
   curl -X POST "http://localhost:12393/asr/whisper" -F "file=@./examples/example3.opus"
 
+test-sherpa audio='./examples/example3.opus' model_dir='./models/sherpa-onnx-paraformer-zh-2023-09-14' vad_model='./models/silero_vad.onnx' skip_vad='':
+  uv run --group sherpa-onnx src/lab/asr/sherpa/probe.py --audio {{ audio }} --model-dir {{ model_dir }} --vad-model {{ vad_model }} {{ if skip_vad != '' { '--skip-vad' } else { '' } }}
+
 test-gsv:
 	curl -X POST "http://127.0.0.1:12393/tts/gptsovits" \
 	-H "Content-Type: application/json" \
@@ -185,15 +188,21 @@ install-qwen-tts:
   uv sync
   uv run modelscope download --model Qwen/Qwen3-TTS-12Hz-1.7B-Base --local_dir ./models/Qwen3-TTS-12Hz-1.7B-Base
 
+install-sherpa-model:
+  mkdir -p ./models
+  curl -L https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-paraformer-zh-2023-09-14.tar.bz2 -o ./models/sherpa-onnx-paraformer-zh-2023-09-14.tar.bz2
+  tar xf ./models/sherpa-onnx-paraformer-zh-2023-09-14.tar.bz2 -C ./models/
+  curl -L https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx -o ./models/silero_vad.onnx
+
 # Code Quality Check
 
 fmt: # 似乎不会检查被 .gitignore 忽略的文件
-  uv run ruff check --fix --select I . --exclude packages --exclude .git --exclude justfile
-  uv run ruff format . --exclude packages --exclude .git --exclude justfile
+  uv run ruff check --fix --select I . --exclude packages --exclude .git --exclude justfile --exclude models
+  uv run ruff format . --exclude packages --exclude .git --exclude justfile --exclude models
 
 lint:
   uv run pyright src/lab tests memory_bench scripts
-  uv run ruff check . --exclude packages --exclude .git --exclude justfile
+  uv run ruff check . --exclude packages --exclude .git --exclude justfile --exclude models
 
 fmt-docs:
   prettier --ignore-path .prettierignore --write '**/*.md'

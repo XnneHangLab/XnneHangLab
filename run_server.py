@@ -58,11 +58,7 @@ def validate_config(settings: XnneHangLabSettings) -> None:
         )
 
     if not settings.agent.embedding.api_key:
-        errors.append(
-            "  [agent.embedding]\n"
-            "    api_key 未配置\n"
-            "    → 在 lab.toml 的 [agent.embedding] 下设置 api_key"
-        )
+        errors.append("  [agent.embedding]\n    api_key 未配置\n    → 在 lab.toml 的 [agent.embedding] 下设置 api_key")
 
     ws_root = Path(settings.root.root_dir)
 
@@ -72,11 +68,7 @@ def validate_config(settings: XnneHangLabSettings) -> None:
         if not profile_path.is_absolute():
             profile_path = ws_root / memory_agent_profile
         if not profile_path.exists():
-            errors.append(
-                f"  [agent.memory_agent_profile]\n"
-                f"    文件不存在: {profile_path}\n"
-                "    → 检查路径是否正确"
-            )
+            errors.append(f"  [agent.memory_agent_profile]\n    文件不存在: {profile_path}\n    → 检查路径是否正确")
         else:
             try:
                 with profile_path.open("rb") as f:
@@ -104,11 +96,7 @@ def validate_config(settings: XnneHangLabSettings) -> None:
         if not chat_profile_path.is_absolute():
             chat_profile_path = ws_root / memory_chat_profile
         if not chat_profile_path.exists():
-            errors.append(
-                f"  [agent.memory_chat_profile]\n"
-                f"    文件不存在: {chat_profile_path}\n"
-                "    → 检查路径是否正确"
-            )
+            errors.append(f"  [agent.memory_chat_profile]\n    文件不存在: {chat_profile_path}\n    → 检查路径是否正确")
 
     if errors:
         logger.error("❌ 配置校验失败，请修复以下问题后重启：\n\n{}", "\n\n".join(errors))

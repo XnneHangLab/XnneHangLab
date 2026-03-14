@@ -257,7 +257,9 @@ def main() -> None:
     base_url = args.base_url or _get_env("CHAT_CLI_BASE_URL", _DEFAULT_BASE_URL) or _DEFAULT_BASE_URL
     endpoint_name = args.endpoint or _get_env("CHAT_CLI_ENDPOINT", _DEFAULT_ENDPOINT) or _DEFAULT_ENDPOINT
     api_key = args.api_key or _get_env("CHAT_SERVER_API_KEY")
-    assistant_prompt = args.agent_id or _get_env("CHAT_AGENT_ID", _DEFAULT_ASSISTANT_PROMPT) or _DEFAULT_ASSISTANT_PROMPT
+    assistant_prompt = (
+        args.agent_id or _get_env("CHAT_AGENT_ID", _DEFAULT_ASSISTANT_PROMPT) or _DEFAULT_ASSISTANT_PROMPT
+    )
 
     # Map endpoint name to actual path
     endpoint = _ENDPOINT_MAP.get(endpoint_name, endpoint_name)
