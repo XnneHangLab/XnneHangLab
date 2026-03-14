@@ -86,7 +86,7 @@ test-vad:
 test-whisper:
   curl -X POST "http://localhost:12393/asr/whisper" -F "file=@./examples/example3.opus"
 
-test-sherpa audio='./examples/example3.opus' model_dir='./models/sherpa-onnx-streaming-paraformer-bilingual-zh-en' vad_model='./models/silero_vad.onnx' skip_vad='':
+test-sherpa audio='./examples/example3.opus' model_dir='./models/sherpa-onnx-paraformer-zh-int8-2025-10-07' vad_model='./models/silero_vad.onnx' skip_vad='':
   uv run --group sherpa-onnx src/lab/asr/sherpa/probe.py --audio {{ audio }} --model-dir {{ model_dir }} --vad-model {{ vad_model }} {{ if skip_vad != '' { '--skip-vad' } else { '' } }}
 
 test-gsv:
@@ -190,8 +190,8 @@ install-qwen-tts:
 
 install-sherpa-model:
   mkdir -p ./models
-  curl -L https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-paraformer-bilingual-zh-en.tar.bz2 -o ./models/sherpa-onnx-streaming-paraformer-bilingual-zh-en.tar.bz2
-  tar xf ./models/sherpa-onnx-streaming-paraformer-bilingual-zh-en.tar.bz2 -C ./models/
+  curl -L https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-paraformer-zh-int8-2025-10-07.tar.bz2 -o ./models/sherpa-onnx-paraformer-zh-int8-2025-10-07.tar.bz2
+  tar xf ./models/sherpa-onnx-paraformer-zh-int8-2025-10-07.tar.bz2 -C ./models/
   curl -L https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx -o ./models/silero_vad.onnx
 
 # Code Quality Check

@@ -20,6 +20,7 @@ wget https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_v
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -32,6 +33,25 @@ from lab.utils.FFmpegHelper import get_audio_duration
 
 if TYPE_CHECKING:
     from lab.asr.types import ASRResponse, VadResponse
+
+DEFAULT_OFFLINE_MODEL_DIR = Path("./models/sherpa-onnx-paraformer-zh-int8-2025-10-07")
+
+
+def _import_sherpa_onnx() -> Any:
+    if os.name == "nt":
+        try:
+            import onnxruntime as ort
+        except ImportError:
+            ort = None
+
+        if ort is not None:
+            capi_dir = Path(ort.__file__).resolve().parent / "capi"
+            if capi_dir.exists():
+                os.add_dll_directory(str(capi_dir))
+
+    import sherpa_onnx
+
+    return sherpa_onnx
 
 
 def _get_ffmpeg_path() -> str:
@@ -85,7 +105,7 @@ def _decode_audio(audio_path: Path, sample_rate: int = 16000) -> tuple[np.ndarra
 
 
 def _decode_online_paraformer(samples: np.ndarray, sample_rate: int, model_dir: Path) -> Any:
-    import sherpa_onnx
+    sherpa_onnx = _import_sherpa_onnx()
 
     tokens = _find_first_existing(model_dir, ["tokens.txt"])
     encoder = _find_first_existing(model_dir, ["encoder.int8.onnx", "encoder.onnx"])
@@ -119,7 +139,7 @@ def _decode_online_paraformer(samples: np.ndarray, sample_rate: int, model_dir: 
 
 
 def _decode_offline_paraformer(samples: np.ndarray, sample_rate: int, model_dir: Path) -> Any:
-    import sherpa_onnx
+    sherpa_onnx = _import_sherpa_onnx()
 
     tokens = _find_first_existing(model_dir, ["tokens.txt"])
     paraformer = _find_first_existing(model_dir, ["model.int8.onnx", "model.onnx"])
@@ -175,7 +195,7 @@ def probe_asr(audio_path: Path, model_dir: Path) -> None:
     """
 
     try:
-        import sherpa_onnx
+        _import_sherpa_onnx()
     except ImportError as exc:
         raise ImportError("sherpa-onnx is required. Install it with `uv add sherpa-onnx`.") from exc
 
@@ -188,6 +208,12 @@ def probe_asr(audio_path: Path, model_dir: Path) -> None:
         _find_first_existing(model_dir, ["encoder.int8.onnx", "encoder.onnx"]) is not None
         and _find_first_existing(model_dir, ["decoder.int8.onnx", "decoder.onnx"]) is not None
     )
+
+    if is_streaming_model:
+        print(
+            "warning: streaming paraformer is designed for real-time chunked input; "
+            "offline accuracy validation should use an offline paraformer model instead.",
+        )
 
     result = (
         _decode_online_paraformer(samples, sample_rate, model_dir)
@@ -232,7 +258,7 @@ def probe_vad(audio_path: Path, vad_model_path: Path) -> None:
     """
 
     try:
-        import sherpa_onnx
+        sherpa_onnx = _import_sherpa_onnx()
     except ImportError as exc:
         raise ImportError("sherpa-onnx is required. Install it with `uv add sherpa-onnx`.") from exc
 
@@ -301,7 +327,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model-dir",
         type=Path,
-        default=Path("./models/sherpa-onnx-streaming-paraformer-bilingual-zh-en"),
+        default=DEFAULT_OFFLINE_MODEL_DIR,
     )
     parser.add_argument("--vad-model", type=Path, default=Path("./models/silero_vad.onnx"))
     parser.add_argument("--skip-vad", action="store_true")
