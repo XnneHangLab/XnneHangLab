@@ -1,5 +1,5 @@
 as_package = false
-SESS_DATA = ""
+SESS_DATA = "6babd7b4%2C1789026385%2Ca35e3%2A32CjA86Hr6qu-y4n982LA3BS4qGNQH2mGGRpF0BIlX1AnpxgT4xJbaqe-gimwPUHe3h0YSVjBsVE84SUxrYzh1RnV4QkV1T0FSYmZxRWo2Q1FNc2VISFBKbnFRTXFXeXN1Wk9MOGZZcFY3UFViaVdZRm9RRHJESHVXeWNsV09SR0FWN2Vya2tLU1JnIIEC"
 download_dir = "./downloads"
 login_strict = "close"
 vip_strict = "close"

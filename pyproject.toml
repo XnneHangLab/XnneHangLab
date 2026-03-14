@@ -24,6 +24,7 @@ dependencies = [
     "python-dotenv>=1.1.1",
     "bs4>=0.0.2",
     "grpcio==1.78.0",
+    "modelscope>=1.23.1",
 ]
 authors = [{ name = "MrXnneHang", email = "XnneHang@gmail.com" }]
 keywords = []
@@ -57,11 +58,6 @@ base = [
   "torch==2.6",
   "torchaudio==2.6",
   "transformers>=4.57",
-]
-
-funasr = [
-  "funasr>=1.3.1",
-  "modelscope>=1.23.1",
 ]
 
 whisper = [
@@ -146,7 +142,7 @@ qwen-tts = [
 ]
 
 [tool.uv]
-default-groups = ["base","funasr","whisper","dev", "yutto-uiya", "tts_base", "gpt_sovits", "qwen-tts", "vtuber", "memory_bench", "sherpa-onnx"]
+default-groups = ["base","whisper","dev", "yutto-uiya", "tts_base", "gpt_sovits", "qwen-tts", "vtuber", "memory_bench", "sherpa-onnx"]
 
 [tool.uv.workspace]
 members = ["packages/yutto-uiya","packages/todo/","packages/gpt_sovits"]

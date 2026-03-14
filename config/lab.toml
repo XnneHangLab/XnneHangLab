@@ -2,26 +2,22 @@ conf_version = "v1.5.1"
 
 [asr]
 FFMPEG_PATH = "ffmpeg"
-device = "cpu"
+device = "cuda"
 custom_output_dir = false
 cache_dir = "./cache"
 output_dir = "./output"
-asr_model_provider = "funasr"
+asr_model_provider = "sherpa"
+punctuation_list = "，。；、？！,.;?!"
 cut = false
 cut_line = 400
 combine = false
 combine_line = 400
 max_sentence_length = 20
 
-[asr.funasr]
-batch_size_s = 300
-punctuation_list = "，。；、？！,.;?!"
-hot_words_path = "./hot_words.txt"
-base_model = "./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch"
-vad_model = "./models/speech_fsmn_vad_zh-cn-16k-common-pytorch"
-punc_model = "./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch"
-sense_voice_model = "./models/SenseVoiceSmall"
-need_punc = false
+[asr.sherpa]
+asr_model_dir = "./models/sherpa-onnx-paraformer-zh-2023-09-14"
+vad_model_path = "./models/silero_vad.onnx"
+num_threads = 2
 
 [asr.whisper]
 whisper_models_base_dir = "./models/whisper/"
@@ -33,7 +29,7 @@ subtitle_speed = "normal"
 
 [agent]
 enable_tool = true
-deeplx_api_key = ""
+deeplx_api_key = "A-ug3GVf7bnrNumy1OkqINfB35tRGyCtiTLI1uCDZgs"
 user_lang = "ZH"
 speaker_lang = "EN"
 speaker_model = "gpt_sovits"
@@ -47,7 +43,7 @@ memory_chat_profile = "profiles/congyin.toml"
 
 [agent.chat_model]
 llm_provider = "oaipro"
-llm_model_name = "gpt-5.1-2025-11-13"
+llm_model_name = "gpt-5.2"
 support_vision = false
 
 [agent.vision_model]
@@ -55,7 +51,7 @@ llm_provider = "oaipro"
 llm_model_name = "gpt-5.1-2025-11-13"
 
 [agent.embedding]
-api_key = ""
+api_key = "sk-CqQD7Bia1TcdhzP7KkGFWPq7jAQQjMBQecjoGktrxTu5Bo4LZ9i3"
 base_url = "https://api.oaipro.com/v1"
 model = "text-embedding-3-small"
 
@@ -82,7 +78,7 @@ llm_base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
 api_format = "chat_completion"
 
 [agent.llm.oaipro]
-llm_api_key = ""
+llm_api_key = "sk-CqQD7Bia1TcdhzP7KkGFWPq7jAQQjMBQecjoGktrxTu5Bo4LZ9i3"
 llm_base_url = "https://api.oaipro.com/v1"
 api_format = "chat_completion"
 
@@ -92,13 +88,13 @@ llm_base_url = "https://api.cerebras.ai/v1"
 api_format = "chat_completion"
 
 [package]
-funasr = false
+asr = true
 whisper = false
 to_do_list = true
 yutto_uiya = true
-gpt_sovits = true
+gpt_sovits = false
 qwen_tts = false
-memory_bench = false
+memory_bench = true
 
 [root]
 root_dir = "D:\\tmp\\XnneHangLab"

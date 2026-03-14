@@ -93,13 +93,13 @@ async def lifespan(app: FastAPI):
     Raises:
         ValueError: memory_bench 或 `/memory/chat` 缺少必需配置时抛出。
     """
-    if lab_settings.package.funasr:
+    if lab_settings.package.asr:
         from lab.api.logic.funasr import load_funasr
 
         t = time.perf_counter()
-        logger.info("⏳ 初始化 ASR（FunASR）后端...")
+        logger.info("⏳ 预加载 ASR 引擎（paraformer + silero-vad）...")
         load_funasr()
-        logger.info("✅ ASR（FunASR）后端初始化完成 ({:.1f}s)", time.perf_counter() - t)
+        logger.info("✅ ASR 引擎预加载完成 ({:.1f}s)", time.perf_counter() - t)
 
     if lab_settings.package.whisper:
         from lab.api.logic.whisper import load_whisper
@@ -287,14 +287,14 @@ class WebSocketServer:
             "DeepLX 端点",
             lambda: self.app.include_router(import_module("lab.api.routes.deeplx").router),
         )
-        if lab_settings.package.funasr or lab_settings.package.whisper:
+        if lab_settings.package.asr or lab_settings.package.whisper:
             _include_router_with_log(
                 "ASR reload 端点",
                 lambda: self.app.include_router(import_module("lab.api.routes.asr_reload").router),
             )
-        if lab_settings.package.funasr:
+        if lab_settings.package.asr:
             _include_router_with_log(
-                "FunASR 端点（首次 import 可能需要约 20s，请耐心等待）",
+                "ASR 端点（Sherpa-ONNX）",
                 lambda: self.app.include_router(import_module("lab.api.routes.asr_funasr").router),
             )
         if lab_settings.package.whisper:

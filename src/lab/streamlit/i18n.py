@@ -63,7 +63,7 @@ class SubtitleSpeed(I18nEnum):
 
 
 class ASRModelProvider(I18nEnum):
-    funasr = "FunASR"
+    sherpa = "Sherpa-ONNX"
     whisper = "Whisper"
 
 

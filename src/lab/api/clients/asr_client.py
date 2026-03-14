@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-# ASRRequest` is not fully defined; you should define `Path`, then call `ASRRequest.model_rebuild()`.
 from pathlib import Path  # noqa: TC003
 
-from loguru import logger
-
 from lab.api.clients.base_client_interface import BaseClientInterface, BaseRequest, BaseResponse
-from lab.asr.funasr.converter import convert_asr_response_to_sentences
+from lab.asr.converter import convert_asr_response_to_sentences
 from lab.asr.types import ASRResponse, Sentence, WhisperResponse, WhisperSegment
 from lab.asr.whisper.converter import convert_whisper_response_to_sentences
 from lab.config_manager import XnneHangLabSettings, load_settings_file
+from lab.logger.logger_group import logger
+
+_asr_logger = logger.bind(group="asr")
 
 
 class ASRRequest(BaseRequest):
@@ -23,6 +23,17 @@ class ASRResponseModel(BaseResponse):
     timestamp: list[list[int]]
 
     def to_dict(self) -> ASRResponse:
+        """将响应模型转换为 ASRResponse。
+
+        Args:
+            None.
+
+        Returns:
+            ASRResponse: 标准化的 ASR 响应字典。
+
+        Raises:
+            None.
+        """
         return ASRResponse(
             key=self.key,
             text=self.text,
@@ -35,68 +46,132 @@ class WhisperASRResponseModel(BaseResponse):
     text: str
 
     def to_dict(self) -> WhisperResponse:
+        """将响应模型转换为 WhisperResponse。
+
+        Args:
+            None.
+
+        Returns:
+            WhisperResponse: 标准化的 Whisper 响应字典。
+
+        Raises:
+            None.
+        """
         return WhisperResponse(
             text=self.text,
             segments=self.segments,
         )
 
 
-# TODO 考虑封装为 ASRClient , VADClient ,然后以一个 interface 定义一个通用的模板。以 post 作为通用的接口。
 class ASRClient(BaseClientInterface):
-    def __init__(self):
+    def __init__(self) -> None:
+        """初始化 ASR HTTP 客户端。
+
+        Args:
+            None.
+
+        Returns:
+            None.
+
+        Raises:
+            None.
+        """
         lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
         self.config = lab_settings.asr
-        if lab_settings.asr.asr_model_provider == "funasr":
-            self.base_url = self.base_url + "/asr/funasr/no_punc"
-
+        self.last_error: str | None = None
+        if lab_settings.asr.asr_model_provider == "sherpa":
+            self.base_url = self.base_url + "/asr/funasr/transcribe"
         else:
             self.base_url = self.base_url + "/asr/whisper"
 
     def post(self, request: ASRRequest) -> list[Sentence] | None:  # type: ignore[override]
-        """封装语音识别接口"""
+        """调用 ASR 接口并转换为句子列表。
+
+        Args:
+            request: 包含待识别音频路径的请求对象。
+
+        Returns:
+            list[Sentence] | None: 成功时返回句子列表，失败时返回 None。
+
+        Raises:
+            None.
+        """
         if not request.file_path.exists():
-            logger.error(f"File not found: {request.file_path}")
+            self.last_error = f"File not found: {request.file_path}"
+            _asr_logger.error(self.last_error)
             return None
-        with request.file_path.open("rb") as f:
-            response = self.session.post(self.base_url, files={"file": f})
-            response.raise_for_status()
-            response = response.json()
-            try:
-                if self.config.asr_model_provider == "funasr":
-                    funasr_response: ASRResponse = ASRResponseModel.model_validate(response).to_dict()
-                    return convert_asr_response_to_sentences(funasr_response)
-                elif self.config.asr_model_provider == "whisper":
-                    whisper_response: WhisperResponse = WhisperASRResponseModel.model_validate(
-                        response
-                    ).to_dict()  # 转换为 Pydantic 模型
-                    return convert_whisper_response_to_sentences(whisper_response)
-                else:
-                    logger.error(f"Unknown ASR model provider: {self.config.asr_model_provider}")
+
+        self.last_error = None
+
+        try:
+            with request.file_path.open("rb") as file:
+                response = self.session.post(self.base_url, files={"file": file})
+                response.raise_for_status()
+                payload = response.json()
+        except Exception as exc:
+            self.last_error = f"ASR request failed: {exc}"
+            _asr_logger.error(self.last_error)
+            return None
+
+        if payload.get("code") not in (None, 200, "200"):
+            self.last_error = str(payload.get("message", "ASR request failed"))
+            _asr_logger.error(f"ASR server returned error payload: {payload}")
+            return None
+
+        try:
+            if self.config.asr_model_provider == "sherpa":
+                asr_response: ASRResponse = ASRResponseModel.model_validate(payload).to_dict()
+                sentences = convert_asr_response_to_sentences(asr_response)
+                if not sentences:
+                    self.last_error = "ASR returned no sentences."
+                    _asr_logger.error(f"ASR returned no sentences: {payload}")
                     return None
-            except Exception as e:
-                logger.error(f"Failed to parse ASR response: {e}, {response}")
-                return None
+                return sentences
+            if self.config.asr_model_provider == "whisper":
+                whisper_response: WhisperResponse = WhisperASRResponseModel.model_validate(payload).to_dict()
+                sentences = convert_whisper_response_to_sentences(whisper_response)
+                if not sentences:
+                    self.last_error = "Whisper returned no sentences."
+                    _asr_logger.error(f"Whisper returned no sentences: {payload}")
+                    return None
+                return sentences
+
+            self.last_error = f"Unknown ASR model provider: {self.config.asr_model_provider}"
+            _asr_logger.error(self.last_error)
+            return None
+        except Exception as exc:
+            self.last_error = f"Failed to parse ASR response: {exc}"
+            _asr_logger.error(f"Failed to parse ASR response: {exc}, {payload}")
+            return None
 
     async def asyncpost(self, request: ASRRequest) -> ASRResponse | None:  # type: ignore[override]
-        """封装语音识别接口的异步版本"""
+        """异步调用 sherpa-onnx ASR 接口。
+
+        Args:
+            request: 包含待识别音频路径的请求对象。
+
+        Returns:
+            ASRResponse | None: 成功时返回标准 ASR 响应，失败时返回 None。
+
+        Raises:
+            None.
+        """
         self.async_session = await self.get_async_session()
         if not request.file_path.exists():
-            logger.error(f"File not found: {request.file_path}")
+            _asr_logger.error(f"File not found: {request.file_path}")
             return None
-        with request.file_path.open("rb") as f:
-            async with self.async_session.post(self.base_url, data={"file": f}) as response:
+
+        with request.file_path.open("rb") as file:
+            async with self.async_session.post(self.base_url, data={"file": file}) as response:
                 if response.status != 200:
-                    logger.error(f"Failed to get a valid response: {response.status}")
+                    _asr_logger.error(f"Failed to get a valid response: {response.status}")
                     return None
+
                 response_data = await response.json()
                 try:
-                    return ASRResponseModel.model_validate(response_data).to_dict()  # 转换为 Pydantic 模型
-                except Exception as e:
-                    logger.error(f"Failed to parse ASR response: {e}, {response_data}")
+                    return ASRResponseModel.model_validate(response_data).to_dict()
+                except Exception as exc:
+                    _asr_logger.error(f"Failed to parse ASR response: {exc}, {response_data}")
                     return None
                 finally:
                     await self.async_session.close()
-
-
-# asr_client = ASRClient()
-# result = asr_client.post(ASRRequest(file_path=Path("examples/example1.wav")))

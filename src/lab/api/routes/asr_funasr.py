@@ -10,42 +10,22 @@ from lab.api.routes.asr_shared import file_default, save_upload_to_temp
 router = APIRouter(prefix="/asr/funasr", tags=["asr", "funasr"])
 
 
-@router.post("/with_punc", response_model=dict)
-async def funasr_with_punc(file: UploadFile = file_default) -> dict[str, Any]:
-    """使用 FunASR 对上传音频执行带标点识别。
+@router.post("/transcribe", response_model=dict)
+async def funasr_transcribe(file: UploadFile = file_default) -> dict[str, Any]:
+    """使用 sherpa-onnx 对上传音频执行 ASR 推理。
 
     Args:
         file: 待识别的音频文件。
 
     Returns:
-        dict[str, Any]: ASR 结果以及统一的成功或失败消息。
+        dict[str, Any]: ASR 结果（key、text、timestamp、process_time）以及状态码。
+
+    Raises:
+        None.
     """
     temp_audio_path = save_upload_to_temp(file)
     try:
-        result = funasr_asr_audio(input_path=temp_audio_path, need_punc=True)
-    except Exception as exc:
-        temp_audio_path.unlink(missing_ok=True)
-        return {"code": "500", "message": f"ASR processing failed: {exc}"}
-
-    result["code"] = "200"
-    result["message"] = "ASR processed successfully"
-    temp_audio_path.unlink(missing_ok=True)
-    return result
-
-
-@router.post("/no_punc", response_model=dict)
-async def funasr_no_punc(file: UploadFile = file_default) -> dict[str, Any]:
-    """使用 FunASR 对上传音频执行不带标点识别。
-
-    Args:
-        file: 待识别的音频文件。
-
-    Returns:
-        dict[str, Any]: ASR 结果以及统一的成功或失败消息。
-    """
-    temp_audio_path = save_upload_to_temp(file)
-    try:
-        result = funasr_asr_audio(input_path=temp_audio_path, need_punc=False)
+        result = funasr_asr_audio(input_path=temp_audio_path)
     except Exception as exc:
         temp_audio_path.unlink(missing_ok=True)
         return {"code": "500", "message": f"ASR processing failed: {exc}"}
@@ -58,13 +38,16 @@ async def funasr_no_punc(file: UploadFile = file_default) -> dict[str, Any]:
 
 @router.post("/vad", response_model=dict)
 async def funasr_vad_audio_activity(file: UploadFile = file_default) -> dict[str, Any]:
-    """使用 FunASR 对上传音频执行 VAD 检测。
+    """使用 sherpa-onnx 对上传音频执行 VAD 检测。
 
     Args:
         file: 待检测的音频文件。
 
     Returns:
-        dict[str, Any]: VAD 结果以及统一的成功或失败消息。
+        dict[str, Any]: VAD 结果（key、timestamp、audio_length、process_time）以及状态码。
+
+    Raises:
+        None.
     """
     temp_audio_path = save_upload_to_temp(file)
     try:

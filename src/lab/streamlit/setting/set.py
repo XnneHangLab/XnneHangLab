@@ -8,7 +8,7 @@ import streamlit as st
 from lab.api.clients import ReloadClient
 from lab.config_manager import (
     ASRSettings,
-    FunASRSettings,
+    SherpaASRSettings,
     WhisperSettings,
     XnneHangLabSettings,
     get_setting_title,
@@ -18,27 +18,47 @@ from lab.config_manager import (
 from lab.streamlit.session_keys import setting_keys
 from lab.streamlit.style import style
 
-# 我也很想用 st.write , 但是它存在类型未知 (> _ <)
-
 style()
 
 
 @st.dialog("消息")
-def message_box(title: str, message: str):
+def message_box(title: str, message: str) -> None:
+    """显示简单消息弹窗。
+
+    Args:
+        title: 弹窗标题。
+        message: 弹窗正文。
+
+    Returns:
+        None.
+
+    Raises:
+        None.
+    """
     st.markdown("")
     st.markdown(f"### {title} \n {message}")
 
 
-def check_device_is_available(device: str):
+def check_device_is_available(device: str) -> bool:
+    """检查设备配置是否可用。
+
+    Args:
+        device: 待检查的设备名称。
+
+    Returns:
+        bool: 当前始终返回 True，作为占位实现。
+
+    Raises:
+        None.
+    """
     if device == "cuda":
         pass
-    # todo. 检查cuda是否可用
-    return True  # Assume device is available for now, replace with actual check
+    return True
 
 
 lab_settings = load_settings_file("lab.toml", setting=XnneHangLabSettings)
 asr_settings: ASRSettings = lab_settings.asr
-funasr_settings: FunASRSettings = asr_settings.funasr
+sherpa_settings: SherpaASRSettings = asr_settings.sherpa
 whisper_settings: WhisperSettings = asr_settings.whisper
 
 
@@ -51,12 +71,10 @@ class BasicSettingsDict(TypedDict):
     asr_model_provider: str
 
 
-class FunASRSettingsDict(TypedDict):
-    base_model: str
-    punc_model: str
-    vad_model: str
-    hot_words_path: str
-    batch_size_s: int
+class SherpaSettingsDict(TypedDict):
+    asr_model_dir: str
+    vad_model_path: str
+    num_threads: int
 
 
 class WhisperSettingsDict(TypedDict):
@@ -66,11 +84,10 @@ class WhisperSettingsDict(TypedDict):
 
 class GlobalSettings(TypedDict):
     basic: BasicSettingsDict
-    funasr: FunASRSettingsDict
+    sherpa: SherpaSettingsDict
     whisper: WhisperSettingsDict
 
 
-# Store initial settings in session state if not already present
 if setting_keys["initial_settings"] not in st.session_state:
     st.session_state.initial_settings = GlobalSettings(
         basic=BasicSettingsDict(
@@ -81,12 +98,10 @@ if setting_keys["initial_settings"] not in st.session_state:
             ffmpeg_path=asr_settings.FFMPEG_PATH,
             asr_model_provider=asr_settings.asr_model_provider,
         ),
-        funasr=FunASRSettingsDict(
-            base_model=funasr_settings.base_model,
-            punc_model=funasr_settings.punc_model,
-            vad_model=funasr_settings.vad_model,
-            hot_words_path=funasr_settings.hot_words_path,
-            batch_size_s=funasr_settings.batch_size_s,
+        sherpa=SherpaSettingsDict(
+            asr_model_dir=sherpa_settings.asr_model_dir,
+            vad_model_path=sherpa_settings.vad_model_path,
+            num_threads=sherpa_settings.num_threads,
         ),
         whisper=WhisperSettingsDict(
             whisper_models_base_dir=whisper_settings.whisper_models_base_dir,
@@ -94,7 +109,7 @@ if setting_keys["initial_settings"] not in st.session_state:
         ),
     )
 
-# Initialize current values from settings or session state if available after rerun
+
 device = st.session_state.get(setting_keys["device"], asr_settings.device)
 ffmpeg_path = st.session_state.get(setting_keys["ffmpeg_path"], asr_settings.FFMPEG_PATH)
 cache_dir = st.session_state.get(setting_keys["cache_dir"], asr_settings.cache_dir)
@@ -102,18 +117,14 @@ custom_output_dir = st.session_state.get(setting_keys["custom_output_dir"], asr_
 output_dir = st.session_state.get(setting_keys["output_dir"], asr_settings.output_dir)
 asr_model_provider = st.session_state.get(setting_keys["asr_model_provider"], asr_settings.asr_model_provider)
 
-batch_size_s = st.session_state.get(setting_keys["batch_size_s"], funasr_settings.batch_size_s)
-base_model = st.session_state.get(setting_keys["base_model"], funasr_settings.base_model)
-punc_model = st.session_state.get(setting_keys["punc_model"], funasr_settings.punc_model)
-vad_model = st.session_state.get(setting_keys["vad_model"], funasr_settings.vad_model)
-hot_words_path = st.session_state.get(setting_keys["hot_words_path"], funasr_settings.hot_words_path)
+asr_model_dir = st.session_state.get(setting_keys["asr_model_dir"], sherpa_settings.asr_model_dir)
+vad_model_path = st.session_state.get(setting_keys["vad_model_path"], sherpa_settings.vad_model_path)
+num_threads = st.session_state.get(setting_keys["num_threads"], sherpa_settings.num_threads)
 
 whisper_models_base_dir = st.session_state.get(
     setting_keys["whisper_models_base_dir"], whisper_settings.whisper_models_base_dir
 )
 whisper_model_size = st.session_state.get(setting_keys["whisper_model_size"], whisper_settings.whisper_model_size)
-# 之所以大费周章是为了防止用户打错单词前后不一致导致 session_keys 未定义
-
 
 BOTSave = st.container()
 BOTSetting = st.container(border=True)
@@ -122,21 +133,23 @@ with BOTSetting:
     st.markdown("###### 基础配置")
     st.markdown("")
     device = st.selectbox(
-        "设备选择", asr_settings.get_labels("device"), index=asr_settings.get_index("device"), key="device"
-    )  # Add key
+        "设备选择",
+        asr_settings.get_labels("device"),
+        index=asr_settings.get_index("device"),
+        key="device",
+    )
     ffmpeg_path = st.text_input(
         get_setting_title("FFMPEG_PATH", ASRSettings),
         value=ffmpeg_path,
         placeholder="FFMPEG Path",
         key="ffmpeg_path",
-    )  # Add key
-    # ASR 模型系列
+    )
     asr_model_provider = st.selectbox(
         get_setting_title("asr_model_provider", ASRSettings),
         asr_settings.get_labels("asr_model_provider"),
         index=asr_settings.get_index("asr_model_provider"),
     )
-    st.caption("FunASR 仅支持中英文(但支持单词级的时间戳调整), Whisper 支持多语言。")
+    st.caption("Sherpa-ONNX 更适合中文字级时间戳，Whisper 更适合多语种识别。")
     if st.toggle("自定义输出目录", custom_output_dir, key="custom_output_dir"):
         output_dir = st.text_input(
             get_setting_title("output_dir", ASRSettings),
@@ -150,57 +163,45 @@ with BOTSetting:
             placeholder="Cache Directory",
             key="cache_dir",
         )
-    st.caption("默认输出目录和输入文件相同，自定义后将会输出到指定目录的`audio/`和`video/`下方。")
+    st.caption("默认输出目录与输入文件相邻；启用后会写入指定目录下的 `audio/` 与 `video/`。")
     st.markdown("")
-    st.markdown("###### FunASR 配置")
-    st.caption("所有路径都与你的运行程序的工作目录相对应")
-    batch_size_s = st.number_input(
-        get_setting_title("batch_size_s", FunASRSettings),
-        value=batch_size_s,
-        placeholder="Batch Size",
-        key="batch_size_s",
-    )  # Add key
-    hot_words_path = st.text_input(
-        get_setting_title("hot_words_path", FunASRSettings),
-        value=hot_words_path,
-        placeholder="Hot Words Path",
-        key="hot_words_path",
-    )  # Add key
-    base_model = st.text_input(
-        get_setting_title("base_model", FunASRSettings),
-        value=base_model,
-        placeholder="Base Model Path",
-        key="base_model",
-    )  # Add key
-    vad_model = st.text_input(
-        get_setting_title("vad_model", FunASRSettings),
-        value=vad_model,
+
+    st.markdown("###### Sherpa-ONNX 配置")
+    st.caption("所有路径均相对于当前工作目录。")
+    asr_model_dir = st.text_input(
+        get_setting_title("asr_model_dir", SherpaASRSettings),
+        value=asr_model_dir,
+        placeholder="ASR Model Directory",
+        key="asr_model_dir",
+    )
+    vad_model_path = st.text_input(
+        get_setting_title("vad_model_path", SherpaASRSettings),
+        value=vad_model_path,
         placeholder="VAD Model Path",
-        key="vad_model",
-    )  # Add key
-    punc_model = st.text_input(
-        get_setting_title("punc_model", FunASRSettings),
-        value=punc_model,
-        placeholder="Punctuation Model Path",
-        key="punc_model",
-    )  # Add key
+        key="vad_model_path",
+    )
+    num_threads = st.number_input(
+        get_setting_title("num_threads", SherpaASRSettings),
+        value=num_threads,
+        min_value=1,
+        step=1,
+        key="num_threads",
+    )
+
     st.markdown("###### Whisper 配置")
     whisper_models_base_dir = st.text_input(
         get_setting_title("whisper_models_base_dir", WhisperSettings),
         value=whisper_models_base_dir,
         placeholder="Whisper Models Base Directory",
         key="whisper_models_base_dir",
-    )  # Add key
+    )
     whisper_model_size = st.selectbox(
         get_setting_title("whisper_model_size", WhisperSettings),
         whisper_settings.get_labels("whisper_model_size"),
         index=whisper_settings.get_index("whisper_model_size"),
         key="whisper_model_size",
-    )  # Add key
-    st.caption(
-        "请确保下载的模型文件夹存放于 whisper_models_base_dir 下方且命名与所选规格一致，如 whisper_models_base_dir/large_v3_turbo"
     )
-
+    st.caption("请确保 Whisper 模型目录下存在与所选规格对应的模型文件夹，例如 `whisper_models_base_dir/turbo`。")
     st.markdown("")
 
 with BOTSave:
@@ -212,19 +213,17 @@ with BOTSave:
             initial_settings: GlobalSettings = st.session_state[setting_keys["initial_settings"]]
             current_settings: GlobalSettings = GlobalSettings(
                 basic=BasicSettingsDict(
-                    device=device,  # type: ignore
+                    device=device,
                     custom_output_dir=custom_output_dir,
                     ffmpeg_path=ffmpeg_path or initial_settings["basic"]["ffmpeg_path"],
                     cache_dir=cache_dir or initial_settings["basic"]["cache_dir"],
                     output_dir=output_dir or initial_settings["basic"]["output_dir"],
                     asr_model_provider=asr_model_provider,
                 ),
-                funasr=FunASRSettingsDict(
-                    base_model=base_model or initial_settings["funasr"]["base_model"],
-                    punc_model=punc_model or initial_settings["funasr"]["punc_model"],
-                    vad_model=vad_model or initial_settings["funasr"]["vad_model"],
-                    hot_words_path=hot_words_path or initial_settings["funasr"]["hot_words_path"],
-                    batch_size_s=batch_size_s,
+                sherpa=SherpaSettingsDict(
+                    asr_model_dir=asr_model_dir or initial_settings["sherpa"]["asr_model_dir"],
+                    vad_model_path=vad_model_path or initial_settings["sherpa"]["vad_model_path"],
+                    num_threads=num_threads,
                 ),
                 whisper=WhisperSettingsDict(
                     whisper_models_base_dir=whisper_models_base_dir
@@ -233,19 +232,17 @@ with BOTSave:
                 ),
             )
 
-            if current_settings != initial_settings:  # Compare dictionaries
+            if current_settings != initial_settings:
                 asr_settings.set_by_label("device", device)
                 asr_settings.custom_output_dir = custom_output_dir or initial_settings["basic"]["custom_output_dir"]
                 asr_settings.FFMPEG_PATH = ffmpeg_path or initial_settings["basic"]["ffmpeg_path"]
                 asr_settings.cache_dir = cache_dir or initial_settings["basic"]["cache_dir"]
                 asr_settings.output_dir = output_dir or initial_settings["basic"]["output_dir"]
-                asr_settings.set_by_label("asr_model_provider", asr_model_provider)  # type: ignore
+                asr_settings.set_by_label("asr_model_provider", asr_model_provider)
 
-                funasr_settings.batch_size_s = batch_size_s
-                funasr_settings.base_model = base_model or initial_settings["funasr"]["base_model"]
-                funasr_settings.punc_model = punc_model or initial_settings["funasr"]["punc_model"]
-                funasr_settings.vad_model = vad_model or initial_settings["funasr"]["vad_model"]
-                funasr_settings.hot_words_path = hot_words_path or initial_settings["funasr"]["hot_words_path"]
+                sherpa_settings.asr_model_dir = asr_model_dir or initial_settings["sherpa"]["asr_model_dir"]
+                sherpa_settings.vad_model_path = vad_model_path or initial_settings["sherpa"]["vad_model_path"]
+                sherpa_settings.num_threads = num_threads
 
                 whisper_settings.whisper_models_base_dir = (
                     whisper_models_base_dir or initial_settings["whisper"]["whisper_models_base_dir"]
@@ -254,29 +251,29 @@ with BOTSave:
                     whisper_model_size or initial_settings["whisper"]["whisper_model_size"]
                 )
 
+                asr_settings.sherpa = sherpa_settings
                 asr_settings.whisper = whisper_settings
-                asr_settings.funasr = funasr_settings
                 lab_settings.asr = asr_settings
 
                 write_settings_file(settings_name="lab.toml", settings=lab_settings)
                 if (
                     current_settings["basic"]["device"] != initial_settings["basic"]["device"]
-                    or current_settings["funasr"]["base_model"] != initial_settings["funasr"]["base_model"]
-                    or current_settings["funasr"]["punc_model"] != initial_settings["funasr"]["punc_model"]
-                    or current_settings["funasr"]["vad_model"] != initial_settings["funasr"]["vad_model"]
+                    or current_settings["basic"]["asr_model_provider"]
+                    != initial_settings["basic"]["asr_model_provider"]
+                    or current_settings["sherpa"]["asr_model_dir"] != initial_settings["sherpa"]["asr_model_dir"]
+                    or current_settings["sherpa"]["vad_model_path"] != initial_settings["sherpa"]["vad_model_path"]
+                    or current_settings["sherpa"]["num_threads"] != initial_settings["sherpa"]["num_threads"]
                     or current_settings["whisper"]["whisper_model_size"]
                     != initial_settings["whisper"]["whisper_model_size"]
                 ):
-                    # 需要重新加载模型
                     reload_client = ReloadClient("asr")
                     st.toast("正在重新加载模型，请稍候...")
                     reload_client.post()
-                st.session_state[setting_keys["initial_settings"]] = (
-                    current_settings  # Update initial settings after save
-                )
-                message_box("保存成功！", "你也可以通过手动配置 `funasr.toml` 来修改配置。")
+
+                st.session_state[setting_keys["initial_settings"]] = current_settings
+                message_box("保存成功", "你也可以直接修改 `config/lab.toml` 来调整配置。")
             else:
-                message_box("未检测到更改", "配置未发生任何变化，无需保存。")
+                message_box("未检测到更改", "配置未发生变化，无需保存。")
 
         if st.button("**恢复默认设置**", type="secondary", use_container_width=True):
             asr_setting_path = Path("config") / "asr.toml"
@@ -289,7 +286,7 @@ with BOTSave:
             reload_client = ReloadClient("asr")
             st.toast("正在重新加载模型，请稍候...")
             reload_client.post()
-            message_box("恢复成功！", "配置已恢复为默认设置。刷新页面即可查看更改。")
+            message_box("恢复成功", "配置已恢复为默认设置，刷新页面即可查看更改。")
 
     with col1:
         st.markdown("")

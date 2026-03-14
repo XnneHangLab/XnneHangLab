@@ -12,21 +12,22 @@ from lab.asr.cutter import cut_sentences
 from lab.config_manager import (
     ASRSettings,
     AudioRecognizeSettings,
-    FunASRSettings,
     WhisperSettings,
     XnneHangLabSettings,
     get_setting_title,
     load_settings_file,
     write_settings_file,
 )
+from lab.logger.logger_group import logger
 from lab.streamlit.dialogs.audio import AudioReadme, upload_audio
 from lab.streamlit.session_keys import audio_keys
 from lab.streamlit.style import style
-from lab.utils.FFmpegHelper import file_to_wav
 from lab.utils.public import (
     parse_srt_file,
 )
 from lab.utils.SrtHelper import write_srt_from_sentences
+
+_asr_logger = logger.bind(group="asr")
 
 # TODO 以 sys.argv 的方式调用 basic_runner, 这里不再写入基础函数.
 # ============== 0.加载配置，配置字体
@@ -35,7 +36,6 @@ style()
 lab_settings: XnneHangLabSettings = load_settings_file("lab.toml", setting=XnneHangLabSettings)
 asr_setting: ASRSettings = lab_settings.asr
 webui_setting: AudioRecognizeSettings = lab_settings.webui
-funasr_setting: FunASRSettings = lab_settings.asr.funasr
 whisper_setting: WhisperSettings = lab_settings.asr.whisper
 
 # ============== 1.初始化持久化参数
@@ -111,7 +111,7 @@ with setting_tab:
             asr_setting.get_labels("asr_model_provider"),
             index=asr_setting.get_index("asr_model_provider"),
         )
-        st.caption("FunASR 仅支持中英文,Whisper 支持多语言, 中文任务 FunASR 精度高")
+        st.caption("Sherpa-ONNX 更适合中文字级时间戳场景，Whisper 更适合多语种识别。")
         if asr_model_provider == "Whisper":
             whisper_model_size = st.selectbox(
                 get_setting_title("whisper_model_size", WhisperSettings),
@@ -181,29 +181,17 @@ with working_tab:
                 # 方式一: 使用上传的音频文件
                 if st.session_state[audio_keys["use_upload"]]:
                     audio_first_name = audio_file.name.split(".")[0]
-                    audio_last_name = audio_file.name.split(".")[-1]
                     st.session_state[audio_keys["audio_name"]] = audio_file.name
                     cache_dir = Path(asr_setting.cache_dir) / audio_first_name / current_time
                     cache_dir.mkdir(parents=True, exist_ok=True)
                     # TODO 这里只是复制到了 cache_Dir ,实际上， 我们需要把它处理成 wav.
                     with (cache_dir / st.session_state[audio_keys["audio_name"]]).open("wb") as file:
                         file.write(audio_file.getbuffer())
-                    if audio_last_name != "wav":
-                        msg_ved.toast("转转换音频为 wav 格式", icon=":material/graphic_eq:")
-                        print("\n\033转换音频为 wav 格式\033[0m")
-                        # 转换成接受的 wav
-                        file_to_wav(
-                            input_path=cache_dir / st.session_state[audio_keys["audio_name"]],
-                            output_wav_path=cache_dir / (audio_first_name + ".wav"),
-                        )
-                        # 更正使用的文件名
-                        st.session_state[audio_keys["audio_name"]] = audio_first_name + ".wav"
 
                 # 方式二: 使用示例音频文件
                 elif st.session_state[audio_keys["use_example"]]:
                     if st.session_state[audio_keys["audio_name"]]:
                         audio_first_name = st.session_state[audio_keys["audio_name"]].split(".")[0]
-                        audio_last_name = st.session_state[audio_keys["audio_name"]].split(".")[-1]
                     else:
                         st.toast("请先选择示例文件", icon=":material/error:")
                         st.stop()
@@ -213,22 +201,11 @@ with working_tab:
                         Path(f"examples/{st.session_state[audio_keys['audio_name']]}"),
                         cache_dir / st.session_state[audio_keys["audio_name"]],
                     )
-                    if audio_last_name != "wav":
-                        msg_ved.toast("转换音频为 wav 格式", icon=":material/graphic_eq:")
-                        print("\n\033转换音频为 wav 格式\033[0m")
-                        # 转换成接受的 wav
-                        file_to_wav(
-                            input_path=cache_dir / st.session_state[audio_keys["audio_name"]],
-                            output_wav_path=cache_dir / (audio_first_name + ".wav"),
-                        )
-                        # 更正使用的文件名
-                        st.session_state[audio_keys["audio_name"]] = audio_first_name + ".wav"
 
                 # 方式三: 使用 b站视频下载模块
                 elif st.session_state[audio_keys["use_bilibili"]]:
                     if st.session_state[audio_keys["audio_name"]]:
                         audio_first_name = st.session_state[audio_keys["audio_name"]].split(".")[0]
-                        audio_last_name = st.session_state[audio_keys["audio_name"]].split(".")[-1]
                     else:
                         st.toast("请先选择音频文件", icon=":material/error:")
                         st.stop()
@@ -239,16 +216,6 @@ with working_tab:
                         Path(st.session_state[audio_keys["audio_file"]]),
                         cache_dir / st.session_state[audio_keys["audio_name"]],
                     )
-                    if audio_last_name != "wav":
-                        msg_ved.toast("转换音频为 wav 格式", icon=":material/graphic_eq:")
-                        print("\n\033转换音频为 wav 格式\033[0m")
-                        # 转换成接受的 wav
-                        file_to_wav(
-                            input_path=cache_dir / st.session_state[audio_keys["audio_name"]],
-                            output_wav_path=cache_dir / (audio_first_name + ".wav"),
-                        )
-                        # 更正使用的文件名
-                        st.session_state[audio_keys["audio_name"]] = audio_first_name + ".wav"
                 else:
                     st.toast("请先选择要处理的音频文件", icon=":material/error:")
                     st.stop()
@@ -266,8 +233,12 @@ with working_tab:
                         file_path=Path(cache_dir / st.session_state[audio_keys["audio_name"]]),
                     )
                 )
-                if sentences is None:
-                    st.error("识别失败，请检查音频文件格式是否正确，或尝试使用其他音频文件。", icon=":material/error:")
+                if not sentences:
+                    error_message = (
+                        asr_client.last_error or "识别失败，请检查音频文件格式是否正确，或尝试使用其他音频文件。"
+                    )
+                    _asr_logger.error(f"Streamlit ASR failed: {error_message}")
+                    st.error(error_message, icon=":material/error:")
                 else:
                     # 保存 response 到 json 文件
                     st.session_state[audio_keys["sentences"]] = sentences
@@ -281,9 +252,9 @@ with working_tab:
                         st.session_state[audio_keys["preview_srt_file"]],
                     )
                     print("\033[1;34m🎉 字幕生成成功！\033[0m")
-                print("\033[1;34m🎉 FunASR 识别成功！\033[0m")
-                msg_whs.toast("音频内容识别完成", icon=":material/colorize:")
-                print("\033[1;34m🎉 任务成功结束！\033[0m")
+                    print("\033[1;34m🎉 ASR 识别成功！\033[0m")
+                    msg_whs.toast("音频内容识别完成", icon=":material/colorize:")
+                    print("\033[1;34m🎉 任务成功结束！\033[0m")
                 print("\n" + "=" * 50 + "\n")
             else:
                 st.toast("请先在工具栏中上传音频文件！", icon=":material/release_alert:")
