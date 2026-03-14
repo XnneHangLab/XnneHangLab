@@ -22,7 +22,6 @@ from lab.logger.logger_group import logger
 from lab.streamlit.dialogs.audio import AudioReadme, upload_audio
 from lab.streamlit.session_keys import audio_keys
 from lab.streamlit.style import style
-from lab.utils.FFmpegHelper import file_to_wav
 from lab.utils.public import (
     parse_srt_file,
 )
@@ -182,29 +181,17 @@ with working_tab:
                 # 方式一: 使用上传的音频文件
                 if st.session_state[audio_keys["use_upload"]]:
                     audio_first_name = audio_file.name.split(".")[0]
-                    audio_last_name = audio_file.name.split(".")[-1]
                     st.session_state[audio_keys["audio_name"]] = audio_file.name
                     cache_dir = Path(asr_setting.cache_dir) / audio_first_name / current_time
                     cache_dir.mkdir(parents=True, exist_ok=True)
                     # TODO 这里只是复制到了 cache_Dir ,实际上， 我们需要把它处理成 wav.
                     with (cache_dir / st.session_state[audio_keys["audio_name"]]).open("wb") as file:
                         file.write(audio_file.getbuffer())
-                    if audio_last_name != "wav":
-                        msg_ved.toast("转转换音频为 wav 格式", icon=":material/graphic_eq:")
-                        print("\n\033转换音频为 wav 格式\033[0m")
-                        # 转换成接受的 wav
-                        file_to_wav(
-                            input_path=cache_dir / st.session_state[audio_keys["audio_name"]],
-                            output_wav_path=cache_dir / (audio_first_name + ".wav"),
-                        )
-                        # 更正使用的文件名
-                        st.session_state[audio_keys["audio_name"]] = audio_first_name + ".wav"
 
                 # 方式二: 使用示例音频文件
                 elif st.session_state[audio_keys["use_example"]]:
                     if st.session_state[audio_keys["audio_name"]]:
                         audio_first_name = st.session_state[audio_keys["audio_name"]].split(".")[0]
-                        audio_last_name = st.session_state[audio_keys["audio_name"]].split(".")[-1]
                     else:
                         st.toast("请先选择示例文件", icon=":material/error:")
                         st.stop()
@@ -214,22 +201,11 @@ with working_tab:
                         Path(f"examples/{st.session_state[audio_keys['audio_name']]}"),
                         cache_dir / st.session_state[audio_keys["audio_name"]],
                     )
-                    if audio_last_name != "wav":
-                        msg_ved.toast("转换音频为 wav 格式", icon=":material/graphic_eq:")
-                        print("\n\033转换音频为 wav 格式\033[0m")
-                        # 转换成接受的 wav
-                        file_to_wav(
-                            input_path=cache_dir / st.session_state[audio_keys["audio_name"]],
-                            output_wav_path=cache_dir / (audio_first_name + ".wav"),
-                        )
-                        # 更正使用的文件名
-                        st.session_state[audio_keys["audio_name"]] = audio_first_name + ".wav"
 
                 # 方式三: 使用 b站视频下载模块
                 elif st.session_state[audio_keys["use_bilibili"]]:
                     if st.session_state[audio_keys["audio_name"]]:
                         audio_first_name = st.session_state[audio_keys["audio_name"]].split(".")[0]
-                        audio_last_name = st.session_state[audio_keys["audio_name"]].split(".")[-1]
                     else:
                         st.toast("请先选择音频文件", icon=":material/error:")
                         st.stop()
@@ -240,16 +216,6 @@ with working_tab:
                         Path(st.session_state[audio_keys["audio_file"]]),
                         cache_dir / st.session_state[audio_keys["audio_name"]],
                     )
-                    if audio_last_name != "wav":
-                        msg_ved.toast("转换音频为 wav 格式", icon=":material/graphic_eq:")
-                        print("\n\033转换音频为 wav 格式\033[0m")
-                        # 转换成接受的 wav
-                        file_to_wav(
-                            input_path=cache_dir / st.session_state[audio_keys["audio_name"]],
-                            output_wav_path=cache_dir / (audio_first_name + ".wav"),
-                        )
-                        # 更正使用的文件名
-                        st.session_state[audio_keys["audio_name"]] = audio_first_name + ".wav"
                 else:
                     st.toast("请先选择要处理的音频文件", icon=":material/error:")
                     st.stop()
@@ -284,9 +250,9 @@ with working_tab:
                         st.session_state[audio_keys["preview_srt_file"]],
                     )
                     print("\033[1;34m🎉 字幕生成成功！\033[0m")
-                print("\033[1;34m🎉 ASR 识别成功！\033[0m")
-                msg_whs.toast("音频内容识别完成", icon=":material/colorize:")
-                print("\033[1;34m🎉 任务成功结束！\033[0m")
+                    print("\033[1;34m🎉 ASR 识别成功！\033[0m")
+                    msg_whs.toast("音频内容识别完成", icon=":material/colorize:")
+                    print("\033[1;34m🎉 任务成功结束！\033[0m")
                 print("\n" + "=" * 50 + "\n")
             else:
                 st.toast("请先在工具栏中上传音频文件！", icon=":material/release_alert:")
