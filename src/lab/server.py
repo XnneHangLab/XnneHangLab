@@ -310,6 +310,7 @@ class WebSocketServer:
                 "ASR reload 端点",
                 lambda: self.app.include_router(import_module("lab.api.routes.asr_reload").router),
             )
+        if lab_settings.package.sherpa_asr:
             _include_router_with_log(
                 "Sherpa-ONNX ASR 端点",
                 lambda: self.app.include_router(import_module("lab.api.routes.asr_sherpa").router),

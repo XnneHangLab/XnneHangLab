@@ -1,10 +1,8 @@
-# pyright: reportMissingImports=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportMissingTypeArgument=false
-
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
-import aiohttp
+import aiohttp  # pyright: ignore[reportMissingImports]
 
 from lab.api.clients.base_client_interface import BaseClientInterface, BaseRequest, BaseResponse
 from lab.asr.converter import convert_asr_response_to_sentences
@@ -15,7 +13,8 @@ from lab.logger.logger_group import logger  # pyright: ignore[reportAttributeAcc
 if TYPE_CHECKING:
     from pathlib import Path
 
-_asr_logger = logger.bind(group="asr")
+logger = cast("Any", logger)
+_asr_logger: Any = logger.bind(group="asr")
 
 
 class ASRRequest(BaseRequest):
@@ -169,7 +168,7 @@ class ASRClient(BaseClientInterface):
         Raises:
             None.
         """
-        session = await self.get_async_session()
+        session = cast("Any", await self.get_async_session())  # pyright: ignore[reportUnknownMemberType]
         self.async_session = session
         if not request.file_path.exists():
             self.last_error = f"File not found: {request.file_path}"
@@ -179,7 +178,7 @@ class ASRClient(BaseClientInterface):
         try:
             base_url = self._resolve_base_url(request)
             with request.file_path.open("rb") as file:
-                form = aiohttp.FormData()
+                form = cast("Any", aiohttp.FormData())
                 form.add_field("file", file, filename=request.file_path.name)
                 async with session.post(base_url, data=form) as response:
                     if response.status != 200:

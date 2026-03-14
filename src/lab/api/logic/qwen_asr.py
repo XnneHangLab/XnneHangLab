@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING, Any, cast
 
-from lab.asr.qwen_asr.engine import get_qwen_asr, load_qwen_asr, reset_qwen_asr_engine
+from lab.asr.qwen_asr.engine import load_qwen_asr, reset_qwen_asr_engine
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 
 if TYPE_CHECKING:
@@ -155,23 +155,11 @@ def qwen_asr_transcribe(input_path: Path, model_name: QwenASRModelName) -> dict[
     qwen_settings = settings.asr.qwen_asr
     model_path = get_qwen_model_path(model_name, settings)
 
-    try:
-        engine = get_qwen_asr(
-            model_path=model_path,
-            device=qwen_settings.device,
-            forced_aligner_path=qwen_settings.forced_aligner_path,
-        )
-    except RuntimeError:
-        load_qwen_asr(
-            model_path=model_path,
-            device=qwen_settings.device,
-            forced_aligner_path=qwen_settings.forced_aligner_path,
-        )
-        engine = get_qwen_asr(
-            model_path=model_path,
-            device=qwen_settings.device,
-            forced_aligner_path=qwen_settings.forced_aligner_path,
-        )
+    engine = load_qwen_asr(
+        model_path=model_path,
+        device=qwen_settings.device,
+        forced_aligner_path=qwen_settings.forced_aligner_path,
+    )
 
     response = engine.transcribe(input_path)
     process_time = time.perf_counter() - start

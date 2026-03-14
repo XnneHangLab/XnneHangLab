@@ -1,5 +1,3 @@
-# pyright: reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportMissingTypeArgument=false, reportMissingImports=false
-
 from __future__ import annotations
 
 import gc
@@ -7,12 +5,14 @@ import re
 import unicodedata
 from pathlib import Path
 from threading import Lock
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
-from loguru import logger
+from loguru import logger  # pyright: ignore[reportMissingImports]
 
 if TYPE_CHECKING:
     from lab.asr.types import ASRResponse
+
+logger = cast("Any", logger)
 
 _qwen_asr_engines: dict[tuple[str, str, str], QwenASREngine] = {}
 _TIMESTAMP_PATTERN = re.compile(r"<\|(\d+(?:\.\d+)?)\|>")
@@ -58,7 +58,7 @@ def _import_torch() -> Any:
         import torch
     except ImportError as exc:
         raise RuntimeError("Qwen3-ASR requires torch to be installed.") from exc
-    return torch
+    return torch  # pyright: ignore[reportUnknownVariableType]
 
 
 def _import_qwen_asr() -> Any:
@@ -79,7 +79,7 @@ def _import_qwen_asr() -> Any:
         raise RuntimeError(
             "Qwen3-ASR requires the `qwen-asr` package. Run `uv sync` after updating dependencies."
         ) from exc
-    return Qwen3ASRModel
+    return Qwen3ASRModel  # pyright: ignore[reportUnknownVariableType]
 
 
 def _resolve_model_path(model_path: str) -> str:
@@ -495,6 +495,8 @@ class QwenASREngine:
                 )
                 break
             except TypeError as exc:
+                if "device_map" not in str(exc):
+                    raise
                 last_exc = exc
                 continue
             except Exception as exc:
@@ -524,17 +526,19 @@ class QwenASREngine:
                     audio=str(audio_path),
                     return_time_stamps=bool(self.forced_aligner_path),
                 )
-            except TypeError:
+            except TypeError as exc:
+                if "audio" not in str(exc):
+                    raise
                 try:
                     results = self._model.transcribe(
                         str(audio_path),
                         return_time_stamps=bool(self.forced_aligner_path),
                     )
                 except Exception as exc:
-                    logger.exception("Qwen3-ASR transcribe failed for {}", audio_path)
+                    logger.exception(f"Qwen3-ASR transcribe failed for {audio_path}")
                     raise RuntimeError(f"Failed to transcribe audio with Qwen3-ASR: {audio_path}") from exc
             except Exception as exc:
-                logger.exception("Qwen3-ASR transcribe failed for {}", audio_path)
+                logger.exception(f"Qwen3-ASR transcribe failed for {audio_path}")
                 raise RuntimeError(f"Failed to transcribe audio with Qwen3-ASR: {audio_path}") from exc
 
         if not isinstance(results, list) or not results:
