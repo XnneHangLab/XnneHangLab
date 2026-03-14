@@ -65,6 +65,7 @@ sherpa-onnx = [
 ]
 
 qwen-asr = [
+  "qwen-asr>=0.1.0",
   "modelscope>=1.25.0",
   "transformers>=4.51.0",
   "torch>=2.0.0",

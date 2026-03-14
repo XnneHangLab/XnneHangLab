@@ -9,13 +9,12 @@ from pathlib import Path
 from threading import Lock
 from typing import TYPE_CHECKING, Any
 
-import numpy as np
 from loguru import logger
 
 if TYPE_CHECKING:
     from lab.asr.types import ASRResponse
 
-_qwen_asr_engines: dict[tuple[str, str], QwenASREngine] = {}
+_qwen_asr_engines: dict[tuple[str, str, str], QwenASREngine] = {}
 _TIMESTAMP_PATTERN = re.compile(r"<\|(\d+(?:\.\d+)?)\|>")
 
 
@@ -62,6 +61,25 @@ def _import_torch() -> Any:
     return torch
 
 
+def _import_qwen_asr() -> Any:
+    """延迟导入 qwen_asr 官方推理包。
+
+    Args:
+        None.
+
+    Returns:
+        Any: `qwen_asr.Qwen3ASRModel` 类。
+
+    Raises:
+        RuntimeError: qwen-asr 未安装时抛出。
+    """
+    try:
+        from qwen_asr import Qwen3ASRModel  # pyright: ignore[reportAttributeAccessIssue]
+    except ImportError as exc:
+        raise RuntimeError("Qwen3-ASR requires the `qwen-asr` package. Run `uv sync` after updating dependencies.") from exc
+    return Qwen3ASRModel
+
+
 def _resolve_model_path(model_path: str) -> str:
     """解析并校验本地模型路径。
 
@@ -83,50 +101,21 @@ def _resolve_model_path(model_path: str) -> str:
     return str(resolved)
 
 
-def _load_audio(audio_path: Path, target_sample_rate: int) -> np.ndarray:
-    """读取并重采样音频为单声道 waveform。
+def _resolve_optional_path(path_value: str | None) -> str:
+    """解析可选路径；空值时返回空字符串。
 
     Args:
-        audio_path: 输入音频文件路径。
-        target_sample_rate: 目标采样率。
+        path_value: 可选路径值。
 
     Returns:
-        np.ndarray: float32 单声道音频数组。
+        str: 规范化路径，或空字符串。
 
     Raises:
-        RuntimeError: 音频读取失败时抛出。
+        RuntimeError: 路径非空但不存在时抛出。
     """
-    try:
-        import torchaudio
-
-        waveform, sample_rate = torchaudio.load(str(audio_path))
-        if waveform.ndim > 1:
-            waveform = waveform.mean(dim=0, keepdim=True)
-        waveform = waveform.squeeze(0)
-        if sample_rate != target_sample_rate:
-            waveform = torchaudio.functional.resample(waveform, sample_rate, target_sample_rate)
-        audio = waveform.detach().cpu().numpy().astype(np.float32, copy=False)
-    except Exception:
-        try:
-            import librosa
-
-            audio, sample_rate = librosa.load(str(audio_path), sr=None, mono=False)
-            audio = np.asarray(audio, dtype=np.float32)
-            if audio.ndim > 1:
-                audio = np.mean(audio, axis=0, dtype=np.float32)
-            if sample_rate != target_sample_rate:
-                audio = librosa.resample(audio, orig_sr=sample_rate, target_sr=target_sample_rate).astype(np.float32)
-        except Exception as exc:
-            raise RuntimeError(f"Failed to load audio file: {audio_path}") from exc
-
-    if audio.ndim != 1:
-        audio = np.reshape(audio, (-1,)).astype(np.float32, copy=False)
-
-    peak = float(np.max(np.abs(audio))) if audio.size else 0.0
-    if peak > 1.0:
-        audio = audio / peak
-
-    return audio.astype(np.float32, copy=False)
+    if not path_value or not path_value.strip():
+        return ""
+    return _resolve_model_path(path_value)
 
 
 def _extract_asr_text(raw_output: str) -> str:
@@ -275,7 +264,7 @@ def _build_fallback_response(text: str, audio_duration_ms: int) -> tuple[str, li
 
 
 def parse_qwen_asr_output(raw_output: str, audio_duration_ms: int) -> tuple[str, list[list[int]]]:
-    """解析 Qwen3-ASR 输出为项目标准字段。
+    """解析带 `<|0.00|>` 标签的 Qwen3-ASR 文本输出。
 
     Args:
         raw_output: 模型原始输出文本。
@@ -328,20 +317,146 @@ def parse_qwen_asr_output(raw_output: str, audio_duration_ms: int) -> tuple[str,
     return " ".join(tokens), timestamps
 
 
+def _normalize_result_text(result: Any) -> str:
+    """从官方结果对象中提取文本。
+
+    Args:
+        result: `qwen-asr` 返回的单条结果对象。
+
+    Returns:
+        str: 识别文本。
+
+    Raises:
+        None.
+    """
+    for key in ("text", "transcript", "prediction"):
+        value = getattr(result, key, None)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    if isinstance(result, dict):
+        for key in ("text", "transcript", "prediction"):
+            value = result.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    return ""
+
+
+def _extract_timestamp_span(item: Any) -> tuple[int, int] | None:
+    """从官方时间戳条目中提取起止毫秒。
+
+    Args:
+        item: 时间戳条目。
+
+    Returns:
+        tuple[int, int] | None: 起止毫秒；无法解析时返回 None。
+
+    Raises:
+        None.
+    """
+    start: Any = None
+    end: Any = None
+
+    if isinstance(item, dict):
+        start = item.get("start") or item.get("start_time") or item.get("begin")
+        end = item.get("end") or item.get("end_time") or item.get("finish")
+    elif isinstance(item, (list, tuple)) and len(item) >= 2:
+        start, end = item[0], item[1]
+    else:
+        start = getattr(item, "start", None) or getattr(item, "start_time", None)
+        end = getattr(item, "end", None) or getattr(item, "end_time", None)
+
+    if start is None or end is None:
+        return None
+
+    try:
+        start_value = float(start)
+        end_value = float(end)
+    except (TypeError, ValueError):
+        return None
+
+    # Official outputs are in seconds; tolerate ms-like integers just in case.
+    if start_value > 1000 or end_value > 1000:
+        start_ms = int(round(start_value))
+        end_ms = int(round(end_value))
+    else:
+        start_ms = int(round(start_value * 1000))
+        end_ms = int(round(end_value * 1000))
+
+    return start_ms, max(start_ms, end_ms)
+
+
+def _normalize_native_response(result: Any, audio_duration_ms: int) -> tuple[str, list[list[int]]]:
+    """将官方 `qwen-asr` 结果转换为项目标准输出。
+
+    Args:
+        result: 官方推理结果对象。
+        audio_duration_ms: 音频总时长，单位毫秒。
+
+    Returns:
+        tuple[str, list[list[int]]]: 空格分隔文本和毫秒级时间戳。
+
+    Raises:
+        None.
+    """
+    text = _normalize_result_text(result)
+    if not text:
+        return "", []
+
+    raw_timestamps = getattr(result, "time_stamps", None)
+    if raw_timestamps is None and isinstance(result, dict):
+        raw_timestamps = result.get("time_stamps") or result.get("timestamps")
+
+    if not isinstance(raw_timestamps, list) or not raw_timestamps:
+        return _build_fallback_response(text, audio_duration_ms)
+
+    tokens: list[str] = []
+    timestamps: list[list[int]] = []
+    whole_text_tokens = _tokenize_asr_segment(text)
+
+    for item in raw_timestamps:
+        span = _extract_timestamp_span(item)
+        item_text = ""
+        if isinstance(item, dict):
+            item_text = str(item.get("text", "")).strip()
+        else:
+            item_text = str(getattr(item, "text", "")).strip()
+
+        if span is None:
+            continue
+
+        start_ms, end_ms = span
+        item_tokens = _tokenize_asr_segment(item_text) if item_text else []
+        if not item_tokens:
+            continue
+
+        tokens.extend(item_tokens)
+        timestamps.extend(_distribute_token_timestamps(item_tokens, start_ms, end_ms))
+
+    if tokens and len(tokens) == len(timestamps):
+        return " ".join(tokens), timestamps
+
+    if whole_text_tokens:
+        return _build_fallback_response(text, audio_duration_ms)
+
+    return "", []
+
+
 class QwenASREngine:
     """Qwen3-ASR 推理引擎。
 
     Args:
         model_path: 本地模型目录路径。
         device: 推理设备，支持 `cpu` 或 `cuda`。
+        forced_aligner_path: 可选的 Forced Aligner 模型路径。
     """
 
-    def __init__(self, model_path: str, device: str = "cpu") -> None:
+    def __init__(self, model_path: str, device: str = "cpu", forced_aligner_path: str | None = None) -> None:
         """初始化 Qwen3-ASR 推理引擎。
 
         Args:
             model_path: 本地模型目录路径。
             device: 推理设备。
+            forced_aligner_path: 可选的 Forced Aligner 模型路径。
 
         Returns:
             None.
@@ -351,97 +466,40 @@ class QwenASREngine:
         """
         self.model_path = _resolve_model_path(model_path)
         self.device = _normalize_device(device)
-        self.sample_rate = 16000
-        self.max_new_tokens = 1024
+        self.forced_aligner_path = _resolve_optional_path(forced_aligner_path)
         self._lock = Lock()
         self._torch = _import_torch()
+        qwen_asr_model_cls = _import_qwen_asr()
 
-        try:
-            from transformers import AutoModel, AutoProcessor
-        except ImportError as exc:
-            raise RuntimeError("Qwen3-ASR requires transformers to be installed.") from exc
+        load_kwargs: dict[str, Any] = {}
+        if self.forced_aligner_path:
+            load_kwargs["forced_aligner"] = self.forced_aligner_path
+            load_kwargs["forced_aligner_kwargs"] = {
+                "device": self.device,
+            }
 
-        try:
-            self._processor = AutoProcessor.from_pretrained(
-                self.model_path,
-                trust_remote_code=True,
-                fix_mistral_regex=True,
-            )
-        except TypeError:
-            self._processor = AutoProcessor.from_pretrained(self.model_path, trust_remote_code=True)
-
-        torch_dtype = self._torch.float32
-        if self.device == "cuda":
-            torch_dtype = self._torch.bfloat16 if self._torch.cuda.is_bf16_supported() else self._torch.float16
-
-        self._model = AutoModel.from_pretrained(
-            self.model_path,
-            trust_remote_code=True,
-            torch_dtype=torch_dtype,
-            low_cpu_mem_usage=True,
-        )
-        self._model = self._model.to(self.device)
-        self._model.eval()
-        self._model_device = next(self._model.parameters()).device
-        self._model_dtype = next(self._model.parameters()).dtype
-
-    def _build_prompt(self) -> str:
-        """构造单条音频请求的 chat template。
-
-        Args:
-            None.
-
-        Returns:
-            str: 供 processor 编码的文本提示。
-
-        Raises:
-            RuntimeError: chat template 构造失败时抛出。
-        """
-        messages = [
-            {"role": "system", "content": ""},
-            {"role": "user", "content": [{"type": "audio", "audio": ""}]},
+        load_attempts = [
+            {"device": self.device},
+            {"device_map": self.device},
+            {},
         ]
 
-        try:
-            return str(self._processor.apply_chat_template(messages, add_generation_prompt=True, tokenize=False))
-        except Exception as exc:
-            raise RuntimeError("Failed to build Qwen3-ASR prompt with chat template.") from exc
-
-    def _generate(self, waveform: np.ndarray) -> str:
-        """执行一次模型生成。
-
-        Args:
-            waveform: 单声道 16k float32 音频数组。
-
-        Returns:
-            str: 模型解码后的文本。
-
-        Raises:
-            RuntimeError: 推理失败时抛出。
-        """
-        prompt = self._build_prompt()
-
-        with self._lock:
+        last_exc: Exception | None = None
+        for extra_kwargs in load_attempts:
             try:
-                inputs = self._processor(
-                    text=[prompt],
-                    audio=[waveform],
-                    return_tensors="pt",
-                    padding=True,
+                self._model = qwen_asr_model_cls.from_pretrained(
+                    self.model_path,
+                    **load_kwargs,
+                    **extra_kwargs,
                 )
-                inputs = inputs.to(self._model_device).to(self._model_dtype)
-                generated = self._model.generate(**inputs, max_new_tokens=self.max_new_tokens)
-                sequences = generated.sequences if hasattr(generated, "sequences") else generated
-                prompt_length = int(inputs["input_ids"].shape[1])
-                decoded = self._processor.batch_decode(
-                    sequences[:, prompt_length:],
-                    skip_special_tokens=True,
-                    clean_up_tokenization_spaces=False,
-                )
+                break
+            except TypeError as exc:
+                last_exc = exc
+                continue
             except Exception as exc:
-                raise RuntimeError("Qwen3-ASR generation failed.") from exc
-
-        return str(decoded[0]).strip() if decoded else ""
+                raise RuntimeError(f"Failed to load Qwen3-ASR model from {self.model_path}") from exc
+        else:
+            raise RuntimeError("Failed to initialize Qwen3-ASR with the available loader signatures.") from last_exc
 
     def transcribe(self, audio_path: Path) -> ASRResponse:
         """对音频执行 ASR 推理。
@@ -459,28 +517,52 @@ class QwenASREngine:
         if not audio_path.exists():
             raise FileNotFoundError(f"Audio file not found: {audio_path}")
 
-        try:
-            waveform = _load_audio(audio_path, self.sample_rate)
-            audio_duration_ms = int(round(len(waveform) / self.sample_rate * 1000))
-            raw_output = self._generate(waveform)
-            text, timestamps = parse_qwen_asr_output(raw_output, audio_duration_ms=audio_duration_ms)
-            return {
-                "key": audio_path.stem,
-                "text": text,
-                "timestamp": timestamps,
-            }
-        except FileNotFoundError:
-            raise
-        except Exception as exc:
-            raise RuntimeError(f"Failed to transcribe audio with Qwen3-ASR: {audio_path}") from exc
+        with self._lock:
+            try:
+                results = self._model.transcribe(
+                    audio=str(audio_path),
+                    return_timestamps=bool(self.forced_aligner_path),
+                    return_time_stamps=bool(self.forced_aligner_path),
+                )
+            except TypeError:
+                try:
+                    results = self._model.transcribe(
+                        str(audio_path),
+                        return_timestamps=bool(self.forced_aligner_path),
+                        return_time_stamps=bool(self.forced_aligner_path),
+                    )
+                except Exception as exc:
+                    raise RuntimeError(f"Failed to transcribe audio with Qwen3-ASR: {audio_path}") from exc
+            except Exception as exc:
+                raise RuntimeError(f"Failed to transcribe audio with Qwen3-ASR: {audio_path}") from exc
+
+        if not isinstance(results, list) or not results:
+            raise RuntimeError(f"Qwen3-ASR returned an empty response for: {audio_path}")
+
+        result = results[0]
+        audio_duration_ms = 0
+        if isinstance(result, dict):
+            duration_value = result.get("audio_duration") or result.get("duration")
+        else:
+            duration_value = getattr(result, "audio_duration", None) or getattr(result, "duration", None)
+        if isinstance(duration_value, (int, float)):
+            audio_duration_ms = int(round(float(duration_value) * 1000 if float(duration_value) <= 1000 else float(duration_value)))
+
+        text, timestamps = _normalize_native_response(result, audio_duration_ms=audio_duration_ms)
+        return {
+            "key": audio_path.stem,
+            "text": text,
+            "timestamp": timestamps,
+        }
 
 
-def load_qwen_asr(model_path: str, device: str) -> QwenASREngine:
+def load_qwen_asr(model_path: str, device: str, forced_aligner_path: str | None = None) -> QwenASREngine:
     """加载或返回缓存的 Qwen3-ASR 引擎。
 
     Args:
         model_path: 本地模型目录路径。
         device: 推理设备。
+        forced_aligner_path: 可选的 Forced Aligner 模型路径。
 
     Returns:
         QwenASREngine: 已初始化的引擎实例。
@@ -489,21 +571,27 @@ def load_qwen_asr(model_path: str, device: str) -> QwenASREngine:
         RuntimeError: 引擎初始化失败时抛出。
     """
     resolved_model_path = _resolve_model_path(model_path)
+    resolved_aligner_path = _resolve_optional_path(forced_aligner_path)
     normalized_device = _normalize_device(device)
-    cache_key = (resolved_model_path, normalized_device)
+    cache_key = (resolved_model_path, resolved_aligner_path, normalized_device)
     engine = _qwen_asr_engines.get(cache_key)
     if engine is None:
-        engine = QwenASREngine(model_path=resolved_model_path, device=normalized_device)
+        engine = QwenASREngine(
+            model_path=resolved_model_path,
+            device=normalized_device,
+            forced_aligner_path=resolved_aligner_path or None,
+        )
         _qwen_asr_engines[cache_key] = engine
     return engine
 
 
-def get_qwen_asr(model_path: str, device: str) -> QwenASREngine:
+def get_qwen_asr(model_path: str, device: str, forced_aligner_path: str | None = None) -> QwenASREngine:
     """获取已加载的 Qwen3-ASR 引擎。
 
     Args:
         model_path: 本地模型目录路径。
         device: 推理设备。
+        forced_aligner_path: 可选的 Forced Aligner 模型路径。
 
     Returns:
         QwenASREngine: 已初始化的引擎实例。
@@ -512,22 +600,25 @@ def get_qwen_asr(model_path: str, device: str) -> QwenASREngine:
         RuntimeError: 指定引擎尚未加载时抛出。
     """
     resolved_model_path = _resolve_model_path(model_path)
+    resolved_aligner_path = _resolve_optional_path(forced_aligner_path)
     normalized_device = _normalize_device(device)
-    cache_key = (resolved_model_path, normalized_device)
+    cache_key = (resolved_model_path, resolved_aligner_path, normalized_device)
     engine = _qwen_asr_engines.get(cache_key)
     if engine is None:
         raise RuntimeError(
-            f"Qwen3-ASR engine is not loaded: model_path={resolved_model_path}, device={normalized_device}."
+            "Qwen3-ASR engine is not loaded: "
+            f"model_path={resolved_model_path}, forced_aligner_path={resolved_aligner_path or 'None'}, device={normalized_device}."
         )
     return engine
 
 
-def reset_qwen_asr_engine(model_path: str | None = None, device: str | None = None) -> None:
+def reset_qwen_asr_engine(model_path: str | None = None, device: str | None = None, forced_aligner_path: str | None = None) -> None:
     """重置 Qwen3-ASR 引擎缓存。
 
     Args:
         model_path: 指定模型路径；为 `None` 时清空全部缓存。
         device: 指定设备；仅在 `model_path` 也提供时生效。
+        forced_aligner_path: 指定 Forced Aligner 路径。
 
     Returns:
         None.
@@ -539,8 +630,9 @@ def reset_qwen_asr_engine(model_path: str | None = None, device: str | None = No
         _qwen_asr_engines.clear()
     else:
         resolved_model_path = _resolve_model_path(model_path)
+        resolved_aligner_path = _resolve_optional_path(forced_aligner_path)
         normalized_device = _normalize_device(device or "cpu")
-        _qwen_asr_engines.pop((resolved_model_path, normalized_device), None)
+        _qwen_asr_engines.pop((resolved_model_path, resolved_aligner_path, normalized_device), None)
 
     gc.collect()
 

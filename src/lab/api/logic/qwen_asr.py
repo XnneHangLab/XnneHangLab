@@ -110,7 +110,11 @@ def load_qwen_asr_engine(model_name: QwenASRModelName) -> None:
     settings = _get_qwen_settings()
     qwen_settings = settings.asr.qwen_asr
     model_path = get_qwen_model_path(model_name, settings)
-    load_qwen_asr(model_path=model_path, device=qwen_settings.device)
+    load_qwen_asr(
+        model_path=model_path,
+        device=qwen_settings.device,
+        forced_aligner_path=qwen_settings.forced_aligner_path,
+    )
 
 
 def preload_configured_qwen_asr_engines() -> list[QwenASRModelName]:
@@ -152,10 +156,22 @@ def qwen_asr_transcribe(input_path: Path, model_name: QwenASRModelName) -> dict[
     model_path = get_qwen_model_path(model_name, settings)
 
     try:
-        engine = get_qwen_asr(model_path=model_path, device=qwen_settings.device)
+        engine = get_qwen_asr(
+            model_path=model_path,
+            device=qwen_settings.device,
+            forced_aligner_path=qwen_settings.forced_aligner_path,
+        )
     except RuntimeError:
-        load_qwen_asr(model_path=model_path, device=qwen_settings.device)
-        engine = get_qwen_asr(model_path=model_path, device=qwen_settings.device)
+        load_qwen_asr(
+            model_path=model_path,
+            device=qwen_settings.device,
+            forced_aligner_path=qwen_settings.forced_aligner_path,
+        )
+        engine = get_qwen_asr(
+            model_path=model_path,
+            device=qwen_settings.device,
+            forced_aligner_path=qwen_settings.forced_aligner_path,
+        )
 
     response = engine.transcribe(input_path)
     process_time = time.perf_counter() - start
@@ -183,5 +199,13 @@ def reload_qwen_asr_engine(model_name: QwenASRModelName) -> None:
     settings = _get_qwen_settings()
     qwen_settings = settings.asr.qwen_asr
     model_path = get_qwen_model_path(model_name, settings)
-    reset_qwen_asr_engine(model_path=model_path, device=qwen_settings.device)
-    load_qwen_asr(model_path=model_path, device=qwen_settings.device)
+    reset_qwen_asr_engine(
+        model_path=model_path,
+        device=qwen_settings.device,
+        forced_aligner_path=qwen_settings.forced_aligner_path,
+    )
+    load_qwen_asr(
+        model_path=model_path,
+        device=qwen_settings.device,
+        forced_aligner_path=qwen_settings.forced_aligner_path,
+    )
