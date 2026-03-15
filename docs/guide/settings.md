@@ -2,7 +2,7 @@
 
 `lab.toml` 是 **XnneHangLab** 的主配置文件。ASR、WebUI、Agent、服务端口、角色配置，以及各模块开关都会从这里读取。
 
-> 当前配置版本：`v1.5.1`
+> 当前配置版本：`v1.5.2`
 >
 > 配置加载规则：程序会优先在项目 `config/` 下查找配置；找不到会尝试从系统配置目录读取；再找不到会初始化默认配置并写回，保证字段结构完整。
 
@@ -12,29 +12,34 @@
 
 ```text
 lab.toml
-├── conf_version = "v1.5.1"
+├── conf_version = "v1.5.2"
 ├── [asr]
 │   ├── FFMPEG_PATH
 │   ├── device
 │   ├── custom_output_dir
 │   ├── cache_dir
 │   ├── output_dir
+│   ├── vad_model_path
 │   ├── asr_model_provider
+│   ├── punctuation_list
 │   ├── cut / cut_line
 │   ├── combine / combine_line
 │   ├── max_sentence_length
-│   ├── [asr.funasr]
-│   │   ├── batch_size_s
-│   │   ├── punctuation_list
-│   │   ├── hot_words_path
-│   │   ├── base_model
-│   │   ├── vad_model
-│   │   ├── punc_model
-│   │   ├── sense_voice_model
-│   │   └── need_punc
-│   └── [asr.whisper]
-│       ├── whisper_models_base_dir
-│       └── whisper_model_size
+│   ├── [asr.sherpa]
+│   │   ├── asr_model_dir
+│   │   ├── num_threads
+│   │   ├── vad_min_silence_duration
+│   │   ├── vad_min_speech_duration
+│   │   └── vad_max_speech_duration
+│   └── [asr.qwen_asr]
+│       ├── model_dir
+│       ├── preload_models
+│       ├── model_0_6b_path
+│       ├── model_1_7b_path
+│       ├── device
+│       ├── cpu_threads
+│       ├── forced_aligner_path
+│       └── forced_aligner_device
 ├── [webui]
 │   ├── guide
 │   └── subtitle_speed
@@ -152,20 +157,22 @@ root_dir = "D:\\tmp\\XnneHangLab"
 
 | 配置项 | 默认 | 说明 |
 |---|---:|---|
-| funasr | true/false | 是否包含 FunASR 相关能力 |
-| whisper | true/false | 是否包含 Whisper 相关能力 |
+| sherpa_asr | false | 是否启用 Sherpa-ONNX Paraformer ASR 服务 |
+| qwen_asr | false | 是否启用 Qwen3-ASR OpenVINO 服务 |
 | to_do_list | true | 是否包含 to-do-list 模块 |
 | yutto_uiya | true | 是否包含 yutto-uiya 相关 UI/能力 |
 | gpt_sovits | true | 是否包含 GPT-SoVITS 能力 |
-| qwen_tts | true/false | 是否包含 Qwen-TTS 能力 |
-| memory_bench | true/false | 是否包含 memory_bench 服务相关能力 |
+| qwen_tts | false | 是否包含 Qwen-TTS 能力 |
+| memory_bench | false | 是否包含 memory_bench 服务相关能力 |
+
+`sherpa_asr` 和 `qwen_asr` 可以同时开启，服务器会分别注册各自的路由。
 
 示例：
 
 ```toml
 [package]
-funasr = true
-whisper = false
+sherpa_asr = true
+qwen_asr = false
 to_do_list = true
 yutto_uiya = true
 gpt_sovits = true
@@ -177,7 +184,7 @@ memory_bench = false
 
 ## 🎤 [asr] 语音识别总配置
 
-`[asr]` 是 ASR 的入口，`asr_model_provider` 决定实际使用 **FunASR** 还是 **Whisper**。
+`[asr]` 是 ASR 的入口，`asr_model_provider` 决定实际使用的引擎（`sherpa` 或 `qwen_asr`）。具体的引擎参数在 `[asr.sherpa]` 和 `[asr.qwen_asr]` 子段中配置。
 
 ### 关键字段
 
@@ -190,7 +197,7 @@ memory_bench = false
 
 #### device
 
-- 作用：选择推理设备
+- 作用：全局推理设备（Sherpa-ONNX 使用）
 - 可选值：`"cpu"` / `"cuda"`
 
 #### cache_dir / output_dir
@@ -198,10 +205,15 @@ memory_bench = false
 - `cache_dir`：中间缓存目录
 - `output_dir`：输出目录
 
+#### vad_model_path
+
+- 作用：Silero VAD 模型路径（供 Sherpa-ONNX 使用）
+- 示例：`"./models/silero_vad.onnx"`
+
 #### asr_model_provider
 
-- 作用：选择 ASR 提供者
-- 可选值：`"funasr"` / `"whisper"`
+- 作用：选择 VTuber 主路径使用的 ASR 引擎
+- 可选值：`"sherpa"` / `"qwen_asr"`
 
 #### cut / cut_line
 
@@ -219,49 +231,61 @@ memory_bench = false
 
 ---
 
-### 🧩 [asr.funasr] FunASR 子配置
+### 🦴 [asr.sherpa] Sherpa-ONNX 子配置
 
-| 配置项 | 作用 |
+基于 [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)，使用 Paraformer 模型，速度极快（RTF ≈ 0.007）。
+
+| 配置项 | 说明 |
 |---|---|
-| batch_size_s | 批处理大小 |
-| punctuation_list | 标点列表 |
-| hot_words_path | 热词文件路径 |
-| base_model | base 模型路径 |
-| vad_model | VAD 模型路径 |
-| punc_model | 标点恢复模型路径 |
-| sense_voice_model | SenseVoice 模型路径 |
-| need_punc | 是否启用标点恢复 |
+| asr_model_dir | Paraformer 模型目录 |
+| num_threads | 推理线程数 |
+| vad_min_silence_duration | VAD 最小静音时长（秒） |
+| vad_min_speech_duration | VAD 最小语音时长（秒） |
+| vad_max_speech_duration | VAD 最大语音段时长（秒） |
 
 示例：
 
 ```toml
-[asr.funasr]
-batch_size_s = 300
-punctuation_list = "，。；、？,.;?!"
-hot_words_path = "./hot_words.txt"
-base_model = "./models/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch"
-vad_model = "./models/speech_fsmn_vad_zh-cn-16k-common-pytorch"
-punc_model = "./models/punc_ct-transformer_zh-cn-common-vocab272727-pytorch"
-sense_voice_model = "./models/SenseVoiceSmall"
-need_punc = false
+[asr.sherpa]
+asr_model_dir = "./models/sherpa-onnx-paraformer-zh-2023-09-14"
+num_threads = 2
+vad_min_silence_duration = 0.25
+vad_min_speech_duration = 0.25
+vad_max_speech_duration = 8.0
 ```
 
 ---
 
-### 🐋 [asr.whisper] Whisper 子配置
+### 🤖 [asr.qwen_asr] Qwen3-ASR 子配置
 
-| 配置项 | 作用 |
+基于 Qwen3-ASR OpenVINO INT8 量化，支持 0.6B 和 1.7B 两种模型。
+
+| 配置项 | 说明 |
 |---|---|
-| whisper_models_base_dir | Whisper 模型目录 |
-| whisper_model_size | 模型规格 |
+| model_dir | 模型根目录 |
+| preload_models | 启动时预加载的模型列表（`"0.6b"` / `"1.7b"`） |
+| model_0_6b_path | Qwen3-ASR 0.6B OpenVINO 模型路径 |
+| model_1_7b_path | Qwen3-ASR 1.7B OpenVINO 模型路径 |
+| device | OpenVINO 推理设备（`"CPU"` / `"GPU"`） |
+| cpu_threads | OpenVINO CPU 线程数（0 = 自动） |
+| forced_aligner_path | ForcedAligner 模型路径（空字符串 = 禁用） |
+| forced_aligner_device | ForcedAligner 推理设备 |
 
 示例：
 
 ```toml
-[asr.whisper]
-whisper_models_base_dir = "./models/whisper/"
-whisper_model_size = "turbo"
+[asr.qwen_asr]
+model_dir = "./models"
+preload_models = ["0.6b"]
+model_0_6b_path = "./models/Qwen3-ASR-0.6B-INT8-OpenVINO"
+model_1_7b_path = "./models/Qwen3-ASR-1.7B-INT8-OpenVINO"
+device = "CPU"
+cpu_threads = 0
+forced_aligner_path = ""
+forced_aligner_device = "cpu"
 ```
+
+> **说明**：`preload_models` 控制启动时哪些模型加载进内存，未在列表中的模型首次请求时才加载（会有延迟）。
 
 ---
 
