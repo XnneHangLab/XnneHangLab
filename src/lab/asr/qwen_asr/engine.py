@@ -457,20 +457,13 @@ def _infer_compiled_model(compiled_model: Any, inputs: dict[str | int, np.ndarra
 def _infer_request(request: Any, inputs: dict[str | int, np.ndarray]) -> np.ndarray:
     request.start_async(inputs)
     request.wait()
-    return _first_output(request.get_output_tensor(0).data)
+    return np.asarray(request.get_output_tensor(0).data)
 
 
 def _infer_request_outputs(request: Any, inputs: dict[str | int, np.ndarray]) -> list[Any]:
     request.start_async(inputs)
     request.wait()
-    outputs = {i: request.get_output_tensor(i).data for i in range(len(request.model_outputs))}
-    if isinstance(outputs, dict):
-        values = outputs.values()
-    elif hasattr(outputs, "values"):
-        values = outputs.values()
-    else:
-        raise RuntimeError(f"Unexpected OpenVINO output container: {type(outputs)!r}")
-    return list(values)
+    return [np.asarray(request.get_output_tensor(i).data) for i in range(len(request.model_outputs))]
 
 
 def _aligner_token_timestamps(
