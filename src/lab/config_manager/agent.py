@@ -102,7 +102,7 @@ class AgentSettings(BaseModel):
     llm_translate_model_path: Annotated[
         str,
         Field(
-            "",
+            "./models/qwen2.5-0.5b-instruct-q8_0.gguf",
             title="LLM Translate Model Path",
             description="Local GGUF model path, for example ./models/qwen2.5-0.5b-instruct-q8_0.gguf",
         ),

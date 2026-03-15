@@ -41,6 +41,8 @@ subtitle_speed = "normal"
 [agent]
 enable_tool = true
 deeplx_api_key = ""
+llm_translate_model_path = "./models/qwen2.5-0.5b-instruct-q8_0.gguf"
+llm_translate_n_gpu_layers = 0
 user_lang = "ZH"
 speaker_lang = "EN"
 speaker_model = "gpt_sovits"
@@ -101,6 +103,7 @@ api_format = "chat_completion"
 [package]
 sherpa_asr = false
 qwen_asr = false
+llm_translate = false
 to_do_list = true
 yutto_uiya = true
 gpt_sovits = true
