@@ -323,10 +323,7 @@ class ForcedAlignerEngine:
 
         waveform, sample_rate = _ensure_audio_tuple(audio)
         if sample_rate != _TARGET_SAMPLE_RATE:
-            raise RuntimeError(
-                "Qwen3-ForcedAligner expects 16kHz audio chunks. "
-                f"Got sample_rate={sample_rate}."
-            )
+            raise RuntimeError(f"Qwen3-ForcedAligner expects 16kHz audio chunks. Got sample_rate={sample_rate}.")
 
         with self._lock, self._torch.inference_mode():
             word_list, input_text = self._aligner_processor.encode_timestamp(text, language)
@@ -376,7 +373,9 @@ def get_forced_aligner(model_path: str, device: str = "cpu") -> ForcedAlignerEng
     cache_key = (resolved_model_path, normalized_device)
     engine = _forced_aligners.get(cache_key)
     if engine is None:
-        raise RuntimeError(f"Qwen3-ForcedAligner is not loaded: model_path={resolved_model_path}, device={normalized_device}")
+        raise RuntimeError(
+            f"Qwen3-ForcedAligner is not loaded: model_path={resolved_model_path}, device={normalized_device}"
+        )
     return engine
 
 

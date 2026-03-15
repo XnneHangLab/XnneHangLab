@@ -79,7 +79,9 @@ def _validate_model_dir(model_dir: Path) -> None:
         raise RuntimeError(f"Qwen3-ASR OpenVINO model directory is incomplete: {model_dir} (missing: {missing_list})")
 
     has_single_decoder = (model_dir / "decoder_model.xml").exists()
-    has_split_decoder = (model_dir / "decoder_prefill_kv_model.xml").exists() and (model_dir / "decoder_kv_model.xml").exists()
+    has_split_decoder = (model_dir / "decoder_prefill_kv_model.xml").exists() and (
+        model_dir / "decoder_kv_model.xml"
+    ).exists()
     if not has_single_decoder and not has_split_decoder:
         raise RuntimeError(
             "Qwen3-ASR OpenVINO model directory is incomplete: "
@@ -737,7 +739,9 @@ class QwenASREngine:
             try:
                 vad_result = self._vad_engine.detect(audio_path)
                 vad_timestamps = cast("list[list[int]]", vad_result.get("timestamp", []))
-                segment_candidates = [(int(segment[0]), int(segment[1])) for segment in vad_timestamps if len(segment) >= 2]
+                segment_candidates = [
+                    (int(segment[0]), int(segment[1])) for segment in vad_timestamps if len(segment) >= 2
+                ]
             except Exception:
                 logger.exception(f"Qwen3-ASR VAD pre-segmentation failed for {audio_path}")  # pyright: ignore[reportUnknownMemberType]
             finally:
