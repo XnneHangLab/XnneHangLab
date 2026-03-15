@@ -118,7 +118,7 @@ class LLMTranslateEngine:
                 },
                 {"role": "user", "content": text},
             ],
-            temperature=0.3,
+            temperature=0,
             max_tokens=512,
         )
         translated_text = self._extract_content(response).strip()

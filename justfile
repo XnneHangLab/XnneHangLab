@@ -466,13 +466,13 @@ test-llm-translate server='http://127.0.0.1:12393':
   curl -X POST "{{ server }}/translate/llm" \
     -H "Content-Type: application/json" \
     -d '{ \
-      "text": "\u4eca\u5929\u4e0b\u5348\u7684\u4f1a\u8bae\u6bd4\u9884\u671f\u66f4\u987a\u5229\uff0c\u6211\u4eec\u4e0d\u4ec5\u786e\u8ba4\u4e86\u53d1\u5e03\u65f6\u95f4\uff0c\u8fd8\u628a\u540e\u7eed\u4e24\u5468\u7684\u5206\u5de5\u4e5f\u4e00\u8d77\u6572\u5b9a\u4e86\u3002", \
+      "text": "今天下午的会议比预期更顺利，我们不仅确认了发布时间，还把后续两周的分工也一起敲定了。", \
       "target_language": "EN" \
     }'
   curl -X POST "{{ server }}/translate/llm" \
     -H "Content-Type: application/json" \
     -d '{ \
-      "text": "\u685c\u306e\u5b63\u7bc0\u306b\u306a\u308b\u3068\u3001\u3053\u306e\u9759\u304b\u306a\u753a\u306b\u3082\u5c11\u3057\u3060\u3051\u89b3\u5149\u5ba2\u304c\u5897\u3048\u3066\u3001\u99c5\u524d\u306e\u5c0f\u3055\u306a\u55ab\u8336\u5e97\u307e\u3067\u306b\u304e\u3084\u304b\u306b\u306a\u308a\u307e\u3059\u3002", \
+      "text": "それでは問題です。澄み渡った青空をゆく、そこに人がいたのなら間違いなく誰もが振り返り、ため息をこぼしてしまうほどの美貌の魔女は、いったい誰でしょう？", \
       "target_language": "ZH" \
     }'
   curl -X POST "{{ server }}/translate/llm" \
