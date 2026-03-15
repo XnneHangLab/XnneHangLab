@@ -533,13 +533,12 @@ class QwenASREngine:
 
     def load(self) -> None:
         ov = _import_openvino()
-        import openvino.properties as props
 
         model_path = Path(self.model_dir)
         _validate_model_dir(model_path)
 
         self._core = ov.Core()
-        self._core.set_property({props.cache_dir: str(model_path / ".ov_cache")})
+        self._core.set_property({"CACHE_DIR": str(model_path / ".ov_cache")})
 
         cpu_config: dict[str, str] = {}
         if self.device == "CPU":
