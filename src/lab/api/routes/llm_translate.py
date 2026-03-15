@@ -61,9 +61,8 @@ async def llm_translate(request: Request) -> dict[str, object]:
         return {"code": 500, "message": f"LLM translate model not found: {resolved_model_path}"}
 
     logger.info(
-        "[LLMTranslate] Translation request: '{}'... {} -> {}",
+        "[LLMTranslate] Translation request: '{}'... -> {}",
         llm_request.text[:30],
-        llm_request.source_language,
         llm_request.target_language,
     )
 
@@ -82,7 +81,6 @@ async def llm_translate(request: Request) -> dict[str, object]:
             None,
             engine.translate,
             llm_request.text,
-            llm_request.source_language,
             llm_request.target_language,
         )
     except Exception as exc:

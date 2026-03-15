@@ -9,7 +9,6 @@ from lab.api.types import LLMTranslateResponse
 
 class LLMTranslateRequest(BaseRequest):
     text: str
-    source_language: str = Field(default="EN")
     target_language: str = Field(default="ZH")
 
 

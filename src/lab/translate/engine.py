@@ -80,7 +80,7 @@ class LLMTranslateEngine:
         self.model_path = str(model_file)
         self.n_gpu_layers = n_gpu_layers
         self.n_ctx = n_ctx
-        self._model: Llama | None = None
+        self._llm: Llama | None = None
 
         logger.info(
             "[LLMTranslate] Loading model from {} (n_gpu_layers={}, n_ctx={})",
@@ -88,7 +88,7 @@ class LLMTranslateEngine:
             self.n_gpu_layers,
             self.n_ctx,
         )
-        self._model = Llama(
+        self._llm = Llama(
             model_path=self.model_path,
             n_gpu_layers=self.n_gpu_layers,
             n_ctx=self.n_ctx,
@@ -96,36 +96,27 @@ class LLMTranslateEngine:
         )
         logger.info("[LLMTranslate] Model loaded successfully")
 
-    def translate(self, text: str, source_language: str, target_language: str) -> str:
-        """Translate text between language codes."""
-        if self._model is None:
+    def translate(self, text: str, target_language: str = "ZH") -> str:
+        """Translate text into the target language."""
+        if self._llm is None:
             raise RuntimeError("LLM translate model is not loaded")
 
-        normalized_source = source_language.strip().upper()
         normalized_target = target_language.strip().upper()
-        source_language_name = self._language_map.get(normalized_source, normalized_source)
         target_language_name = self._language_map.get(normalized_target, normalized_target)
 
         logger.info(
-            "[LLMTranslate] Translating text ({} -> {}, chars={})",
-            normalized_source,
+            "[LLMTranslate] Translating text (target={}, chars={})",
             normalized_target,
             len(text),
         )
 
-        response: Any = self._model.create_chat_completion(
+        response: Any = self._llm.create_chat_completion(
             messages=[
                 {
                     "role": "system",
-                    "content": (
-                        "You are a professional translator. "
-                        "Output the translation only, no explanation, no original text."
-                    ),
+                    "content": f"Translate to {target_language_name}. Output translation only.",
                 },
-                {
-                    "role": "user",
-                    "content": f"Translate the following {source_language_name} text to {target_language_name}:\n\n{text}",
-                },
+                {"role": "user", "content": text},
             ],
             temperature=0.3,
             max_tokens=512,
@@ -138,8 +129,8 @@ class LLMTranslateEngine:
         """Unload the model and release memory."""
         with type(self)._lock:
             logger.info("[LLMTranslate] Unloading model from {}", self.model_path)
-            model = self._model
-            self._model = None
+            model = self._llm
+            self._llm = None
 
             close = getattr(model, "close", None)
             if callable(close):
@@ -159,17 +150,6 @@ class LLMTranslateEngine:
 
         message = choices[0].get("message", {})
         content = message.get("content", "")
-
-        if isinstance(content, str):
-            return content
-
-        if isinstance(content, list):
-            text_segments: list[str] = []
-            for item in content:
-                if isinstance(item, dict):
-                    text_segments.append(str(item.get("text", "")))
-                else:
-                    text_segments.append(str(item))
-            return "".join(text_segments)
-
-        return str(content)
+        if not isinstance(content, str):
+            raise TypeError("Expected string content from llama-cpp chat completion response")
+        return content
