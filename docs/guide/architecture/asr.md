@@ -18,7 +18,7 @@ asr/
 └── qwen_asr/
     ├── engine.py        # Qwen3-ASR OpenVINO 推理引擎（支持 0.6B / 1.7B）
     ├── processor.py     # 音频预处理（特征提取）
-    └── forced_aligner.py # ForcedAligner（词级时间戳对齐，可选）
+    └── forced_aligner.py # ForcedAligner（词级时间戳对齐，**必须配置**）
 ```
 
 ## 核心概念
@@ -43,7 +43,7 @@ asr/
 
 - 模型：Qwen3-ASR 0.6B / 1.7B，OpenVINO INT8 量化
 - 后端：OpenVINO Runtime，CPU 推理（RTF ≈ 0.03–0.33）
-- 可选 ForcedAligner：提供词级时间戳对齐能力
+- ForcedAligner：**必须配置**，提供词级时间戳对齐能力；未配置或路径不存在时启动即报错
 - 配置：`[asr.qwen_asr]`
 
 两个引擎可通过 `[package]` 开关独立启用，互不干扰，各自注册不同的 API 路由。
