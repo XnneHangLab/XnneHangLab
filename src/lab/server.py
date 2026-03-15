@@ -132,6 +132,16 @@ async def lifespan(app: FastAPI):
             time.perf_counter() - started,
         )
 
+    if lab_settings.package.llm_translate:
+        from lab.api.logic.llm_translate import preload_configured_llm_translate_engine
+
+        started = time.perf_counter()
+        logger.info("⏳ 初始化 LLM Translate 后端...")
+        if preload_configured_llm_translate_engine():
+            logger.info("✅ LLM Translate 后端初始化完成 ({:.1f}s)", time.perf_counter() - started)
+        else:
+            logger.warning("LLM Translate service is enabled, but `agent.llm_translate_model_path` is empty.")
+
     if lab_settings.package.gpt_sovits:
         from gsv.gsv_state_manager import (  # type: ignore[reportMissingImports,reportUnknownVariableType]
             gsv_tts_state_manager,
@@ -257,6 +267,14 @@ async def lifespan(app: FastAPI):
             logger.warning("memory_bench backend init failed: {} ; backend routes will be unavailable", exc)
 
     yield
+
+    if lab_settings.package.llm_translate:
+        from lab.api.logic.llm_translate import unload_llm_translate_engine
+
+        try:
+            unload_llm_translate_engine()
+        except Exception as exc:
+            logger.warning("LLM Translate cleanup failed: {}", exc)
 
     logger.info("Application shutdown: lifespan cleanup completed.")
 
