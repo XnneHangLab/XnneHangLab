@@ -140,7 +140,7 @@ async def lifespan(app: FastAPI):
         if preload_configured_llm_translate_engine():
             logger.info("✅ LLM Translate 后端初始化完成 ({:.1f}s)", time.perf_counter() - started)
         else:
-            logger.warning("LLM Translate service is enabled, but `agent.llm_translate_model_path` is empty.")
+            logger.warning("LLM Translate service is enabled, but `agent.translate.llm.model_path` is empty.")
 
     if lab_settings.package.gpt_sovits:
         from gsv.gsv_state_manager import (  # type: ignore[reportMissingImports,reportUnknownVariableType]

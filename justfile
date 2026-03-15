@@ -9,6 +9,9 @@ reload-lab-setting:  # 重新生成 config/lab.toml（升级默认值 / 重置�
   uv run get_root
   uv run scripts/reload_lab_setting.py
 
+lab-reload-setting:
+  just reload-lab-setting
+
 # Docs
 
 docs-dev:

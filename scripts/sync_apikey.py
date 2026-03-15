@@ -176,7 +176,7 @@ def main() -> None:
     settings.agent.llm.oaipro.api_format = validate_api_format("OAIPRO_API_FORMAT")
     settings.agent.llm.cerebras.llm_api_key = os.environ.get("CEREBRAS_API_KEY", "")
     settings.agent.llm.cerebras.api_format = validate_api_format("CEREBRAS_API_FORMAT")
-    settings.agent.deeplx_api_key = os.environ.get("DEEPLX_API_KEY", "")
+    settings.agent.translate.deeplx.api_key = os.environ.get("DEEPLX_API_KEY", "")
     settings.agent.chat_model.llm_provider = validate_llm_provider("CHAT_MODEL_PROVIDER")
     settings.agent.chat_model.llm_model_name = os.environ.get("CHAT_MODEL_NAME", "")
     settings.agent.chat_model.support_vision = os.environ.get("CHAT_MODEL_SUPPORT_VISION", "false").lower() == "true"
@@ -214,7 +214,10 @@ def main() -> None:
     logger.info("llm.oaipro.api_format: {}", settings.agent.llm.oaipro.api_format)
     logger.info("llm.cerebras.llm_api_key: {}", mask_api_key(settings.agent.llm.cerebras.llm_api_key))
     logger.info("llm.cerebras.api_format: {}", settings.agent.llm.cerebras.api_format)
-    logger.info("agent.deeplx_api_key: {}", mask_api_key(settings.agent.deeplx_api_key))
+    logger.info(
+        "agent.translate.deeplx.api_key: {}",
+        mask_api_key(settings.agent.translate.deeplx.api_key),
+    )
     logger.info("agent.chat_model.llm_provider: {}", settings.agent.chat_model.llm_provider)
     logger.info("agent.chat_model.llm_model_name: {}", settings.agent.chat_model.llm_model_name)
     logger.info("agent.chat_model.support_vision: {}", settings.agent.chat_model.support_vision)

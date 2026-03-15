@@ -13,7 +13,7 @@ def _get_llm_translate_settings() -> XnneHangLabSettings:
 
 
 def resolve_llm_translate_model_path(settings: XnneHangLabSettings | None = None) -> Path | None:
-    configured_model_path = (settings or _get_llm_translate_settings()).agent.llm_translate_model_path.strip()
+    configured_model_path = (settings or _get_llm_translate_settings()).agent.translate.llm.model_path.strip()
     if not configured_model_path:
         return None
 
@@ -31,14 +31,14 @@ def load_llm_translate_engine(settings: XnneHangLabSettings | None = None) -> LL
     resolved_settings = settings or _get_llm_translate_settings()
     model_path = resolve_llm_translate_model_path(resolved_settings)
     if model_path is None:
-        raise RuntimeError("llm_translate_model_path is not set in lab.toml")
+        raise RuntimeError("[agent.translate.llm].model_path is not set in lab.toml")
     if not model_path.exists():
         raise FileNotFoundError(f"LLM translate model not found: {model_path}")
 
     logger.info("[LLMTranslate] Loading engine from {}", model_path)
     return LLMTranslateEngine.get_instance(
         model_path=model_path,
-        n_gpu_layers=resolved_settings.agent.llm_translate_n_gpu_layers,
+        n_gpu_layers=resolved_settings.agent.translate.llm.n_gpu_layers,
     )
 
 
@@ -50,7 +50,7 @@ def preload_configured_llm_translate_engine() -> bool:
     settings = _get_llm_translate_settings()
     model_path = resolve_llm_translate_model_path(settings)
     if model_path is None:
-        logger.warning("[LLMTranslate] preload skipped: llm_translate_model_path is not set")
+        logger.warning("[LLMTranslate] preload skipped: [agent.translate.llm].model_path is not set")
         return False
 
     load_llm_translate_engine(settings)

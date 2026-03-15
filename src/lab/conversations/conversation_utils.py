@@ -11,13 +11,14 @@ import soundfile as sf
 from loguru import logger
 
 from lab.agent.input_types import BatchInput, ImageData, ImageSource, TextData, TextSource
-from lab.api.clients import ASRClient, ASRRequest, DeepLXClient, DeepLXRequest
-from lab.config_manager import XnneHangLabSettings, load_settings_file
+from lab.api.clients import ASRClient, ASRRequest
 from lab.conversations.tts_manager import has_audible_tts_text
 from lab.message_handler import message_handler
 
 if TYPE_CHECKING:
     from lab.agent.output_types import SentenceOutput
+    from lab.api.logic.translate import TranslateEngineRouter
+    from lab.config_manager import XnneHangLabSettings
     from lab.conversations.tts_manager import TTSTaskManager
     from lab.conversations.types import BroadcastContext, WebSocketSend
     from lab.live2d_model import Live2dModel
@@ -47,12 +48,13 @@ def create_batch_input(
 
 async def process_agent_output(
     output: SentenceOutput,  # 我们不使用 human ai ，所以仅有 SentenceOutput, voice 通过 tts 生成
+    lab_settings: XnneHangLabSettings,
     character_config: Any,
     live2d_model: Live2dModel,
     # tts_engine: TTSInterface,
     websocket_send: WebSocketSend,
     tts_manager: TTSTaskManager,
-    # translate_engine: Optional[Any] = None,
+    translate_engine: TranslateEngineRouter | None = None,
 ) -> str:
     """Process agent output with character information and optional translation"""
     output.display_text.name = character_config.character_name
@@ -64,11 +66,12 @@ async def process_agent_output(
         logger.debug("SentenceOutput Detect")
         full_response = await handle_sentence_output(
             output,
+            lab_settings,
             live2d_model,
             # tts_engine,
             websocket_send,
             tts_manager,
-            # translate_engine,
+            translate_engine,
         )
     except Exception as e:
         logger.error(f"Error processing agent output: {e}")
@@ -79,15 +82,15 @@ async def process_agent_output(
 
 async def handle_sentence_output(
     output: SentenceOutput,
+    lab_settings: XnneHangLabSettings,
     live2d_model: Live2dModel,
     # tts_engine: TTSInterface,
     websocket_send: WebSocketSend,
     tts_manager: TTSTaskManager,
-    # translate_engine: Optional[Any] = None,
+    translate_engine: TranslateEngineRouter | None = None,
 ) -> str:
     """Handle sentence output type with optional translation support"""
     full_response = ""
-    lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
     async for display_text, tts_text, actions in output:
         tts_text = tts_text.replace("*", "")
         display_text.text = display_text.text.replace("*", "")
@@ -95,18 +98,18 @@ async def handle_sentence_output(
         if lab_settings.agent.speaker_lang != lab_settings.agent.user_lang and has_audible_tts_text(tts_text):
             logger.debug(f"🏃 Processing output: '''{tts_text}'''...")
             logger.debug(f"🏃 Translating text to {lab_settings.agent.speaker_lang}...")
-            deeplx_client = DeepLXClient()
-            response = await deeplx_client.asyncpost(
-                DeepLXRequest(
-                    text=tts_text,
-                    source_language=lab_settings.agent.user_lang,
-                    target_language=lab_settings.agent.speaker_lang,
-                )
-            )
-            tts_text = (
-                response["target_text"] if response else tts_text
-            )  # 我打算用 MCP 实现表情播放，看看能不能简化一下复杂度？
-            logger.debug(f"🏃 Text after translation: '''{tts_text}'''...")
+            if translate_engine is None:
+                logger.warning("translate_engine is None, skipping translation")
+            else:
+                try:
+                    tts_text = await translate_engine.translate(
+                        text=tts_text,
+                        source_language=lab_settings.agent.user_lang,
+                        target_language=lab_settings.agent.speaker_lang,
+                    )
+                    logger.debug(f"🏃 Text after translation: '''{tts_text}'''...")
+                except Exception as exc:
+                    logger.warning("Translation failed, using original text: {}", exc)
         full_response += display_text.text
         await tts_manager.speak(
             tts_text=tts_text,  # 直接使用大模型回復作為 TTS Text

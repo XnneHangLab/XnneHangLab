@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, Field
 
 LLM_Provider = Literal["openai", "lingyi", "gemini", "oaipro", "cerebras"]
+TranslateProvider = Literal["llm", "deeplx"]
 
 
 class ChatModelSetting(BaseModel):
@@ -91,15 +92,12 @@ class PromptSettings(BaseModel):
     ]
 
 
-class AgentSettings(BaseModel):
-    chat_model: Annotated[ChatModelSetting, Field(ChatModelSetting())]  # pyright: ignore[reportCallIssue]
-    vision_model: Annotated[VisionModelSetting, Field(VisionModelSetting())]  # pyright: ignore[reportCallIssue]
-    embedding: Annotated[EmbeddingModelSetting, Field(EmbeddingModelSetting())]  # pyright: ignore[reportCallIssue]
-    enable_tool: Annotated[bool, Field(True, title="Enable Tool Calling (BuiltinTool)")]
-    prompts: Annotated[PromptSettings, Field(PromptSettings())]  # pyright: ignore[reportCallIssue]
-    llm: Annotated[LLMSettings, Field(LLMSettings())]  # pyright: ignore[reportCallIssue]
-    deeplx_api_key: Annotated[str, Field("", title="DeepLX API Key")]
-    llm_translate_model_path: Annotated[
+class DeepLXTranslateSetting(BaseModel):
+    api_key: Annotated[str, Field("", title="DeepLX API Key")]
+
+
+class LLMTranslateSetting(BaseModel):
+    model_path: Annotated[
         str,
         Field(
             "./models/qwen2.5-0.5b-instruct-q8_0.gguf",
@@ -107,7 +105,7 @@ class AgentSettings(BaseModel):
             description="Local GGUF model path, for example ./models/qwen2.5-0.5b-instruct-q8_0.gguf",
         ),
     ]
-    llm_translate_n_gpu_layers: Annotated[
+    n_gpu_layers: Annotated[
         int,
         Field(
             0,
@@ -115,6 +113,22 @@ class AgentSettings(BaseModel):
             description="GPU acceleration layer count, 0 for CPU only and -1 for full GPU",
         ),
     ]
+
+
+class TranslateSettings(BaseModel):
+    deeplx: Annotated[DeepLXTranslateSetting, Field(DeepLXTranslateSetting())]  # pyright: ignore[reportCallIssue]
+    llm: Annotated[LLMTranslateSetting, Field(LLMTranslateSetting())]  # pyright: ignore[reportCallIssue]
+
+
+class AgentSettings(BaseModel):
+    chat_model: Annotated[ChatModelSetting, Field(ChatModelSetting())]  # pyright: ignore[reportCallIssue]
+    vision_model: Annotated[VisionModelSetting, Field(VisionModelSetting())]  # pyright: ignore[reportCallIssue]
+    embedding: Annotated[EmbeddingModelSetting, Field(EmbeddingModelSetting())]  # pyright: ignore[reportCallIssue]
+    enable_tool: Annotated[bool, Field(True, title="Enable Tool Calling (BuiltinTool)")]
+    prompts: Annotated[PromptSettings, Field(PromptSettings())]  # pyright: ignore[reportCallIssue]
+    llm: Annotated[LLMSettings, Field(LLMSettings())]  # pyright: ignore[reportCallIssue]
+    translate_provider: Annotated[TranslateProvider, Field("llm", title="Translation Provider")]
+    translate: Annotated[TranslateSettings, Field(TranslateSettings())]  # pyright: ignore[reportCallIssue]
     user_lang: Annotated[Literal["ZH", "EN", "JA"], Field("ZH", title="User Language")]
     speaker_lang: Annotated[Literal["ZH", "EN", "JA"], Field("EN", title="Speaker Language")]
     speaker_model: Annotated[Literal["gpt_sovits"], Field("gpt_sovits", title="Speaker Model")]

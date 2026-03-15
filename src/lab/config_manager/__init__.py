@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from lab.streamlit.i18n import Device
 
 from .abs_root import RootAbsDir
-from .agent import AgentSettings, LLM_Provider
+from .agent import AgentSettings, LLM_Provider, TranslateProvider
 from .asr import ASRSettings
 from .audio_recognize import AudioRecognizeSettings
 from .config import XnneHangLabSettings, get_setting_title, load_settings_file, write_settings_file
@@ -32,6 +32,7 @@ __all__ = [
     "Device",
     "AgentSettings",
     "LLM_Provider",
+    "TranslateProvider",
     "PackagesSettings",
     "XnneHangLabSettings",
     "ASRSettings",

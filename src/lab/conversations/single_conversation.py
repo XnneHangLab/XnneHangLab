@@ -137,12 +137,13 @@ async def process_agent_response(
                 raise ValueError("live2d_model cannot be None")
             response_part = await process_agent_output(
                 output=output,  # type: ignore
+                lab_settings=context.lab_setting,
                 character_config=context.character_config,
                 live2d_model=context.live2d_model,
                 # tts_engine=context.tts_engine,
                 websocket_send=websocket_send,
                 tts_manager=tts_manager,
-                # translate_engine=context.translate_engine,
+                translate_engine=context.translate_engine,
             )
             full_response += response_part
 

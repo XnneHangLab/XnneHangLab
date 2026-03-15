@@ -21,7 +21,7 @@ async def health() -> JSONResponse:
     """
     logger.debug("[DeepLX] GET /translate/deeplx/health — 收到心跳探测")
     agent_settings = load_settings_file("lab.toml", XnneHangLabSettings)
-    deeplx_api_key = agent_settings.agent.deeplx_api_key
+    deeplx_api_key = agent_settings.agent.translate.deeplx.api_key
     if not deeplx_api_key:
         logger.warning("[DeepLX] /health → 503: deeplx_api_key 未配置")
         return JSONResponse(
@@ -37,10 +37,10 @@ async def sentence_translate(request: Request) -> dict[str, object]:
     """
     将翻译请求转发到 DeepLX API。
     对外路径：POST /translate/deeplx
-    配置 deeplx_api_key：在 lab.toml 中写入 [agent] deeplx_api_key = "XXXXX"
+    配置 deeplx_api_key：在 lab.toml 中写入 [agent.translate.deeplx] api_key = "XXXXX"
     """
     agent_settings = load_settings_file("lab.toml", XnneHangLabSettings)
-    deeplx_api_key = agent_settings.agent.deeplx_api_key
+    deeplx_api_key = agent_settings.agent.translate.deeplx.api_key
 
     try:
         _request = DeepLXRequest.model_validate(await request.json())
@@ -50,7 +50,7 @@ async def sentence_translate(request: Request) -> dict[str, object]:
 
     if not deeplx_api_key:
         logger.warning("[DeepLX] deeplx_api_key 未配置，拒绝翻译请求")
-        return {"code": 500, "message": "deeplx_api_key is not set in lab.toml"}
+        return {"code": 500, "message": "agent.translate.deeplx.api_key is not set in lab.toml"}
 
     logger.info(f"[DeepLX] 翻译请求: '{_request.text[:30]}...' {_request.source_language} → {_request.target_language}")
 
