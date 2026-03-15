@@ -2,11 +2,11 @@ from __future__ import annotations
 
 # pyright: reportMissingTypeArgument=false, reportUnknownArgumentType=false, reportUnknownMemberType=false, reportUnknownParameterType=false, reportUnknownVariableType=false
 import subprocess
+import time
 import unicodedata
 from importlib import import_module
 from pathlib import Path
 from threading import Lock
-import time
 from typing import Any, cast
 
 import numpy as np
