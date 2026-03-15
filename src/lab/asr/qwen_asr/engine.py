@@ -278,6 +278,15 @@ def _extract_asr_language(raw_output: str) -> str:
     return language[:1].upper() + language[1:].lower()
 
 
+def _preview_text(text: str, max_length: int = 24) -> str:
+    normalized = " ".join(text.split())
+    if len(normalized) <= max_length:
+        return normalized
+    if max_length <= 3:
+        return normalized[:max_length]
+    return f"{normalized[: max_length - 3]}..."
+
+
 def _is_cjk_char(char: str) -> bool:
     code = ord(char)
     return (
@@ -788,7 +797,8 @@ class QwenASREngine:
                 chunk = np.ascontiguousarray(audio[start_index:end_index], dtype=np.float32)
                 asr_start = time.perf_counter()
                 raw_output = self._transcribe_chunk(chunk)
-                asr_sec += time.perf_counter() - asr_start
+                chunk_asr_sec = time.perf_counter() - asr_start
+                asr_sec += chunk_asr_sec
                 chunk_text = _extract_asr_text(raw_output)
                 chunk_language = _extract_asr_language(raw_output)
                 if not chunk_text.strip():
@@ -815,7 +825,8 @@ class QwenASREngine:
                         f"Qwen3-ForcedAligner failed for {audio_path.name} chunk {start_ms}-{end_ms}"
                     ) from exc
                 finally:
-                    aligner_sec += time.perf_counter() - aligner_start
+                    chunk_align_sec = time.perf_counter() - aligner_start
+                    aligner_sec += chunk_align_sec
 
                 aligned_tokens, aligned_timestamps = _aligner_token_timestamps(aligned_items, start_ms)
                 if not aligned_tokens or len(aligned_tokens) != len(aligned_timestamps):
@@ -824,13 +835,24 @@ class QwenASREngine:
                         f"for {audio_path.name} chunk {start_ms}-{end_ms}"
                     )
 
+                align_stats = cast(
+                    "dict[str, float | int | str]",
+                    getattr(self._forced_aligner, "last_timing", {}),
+                )
                 logger.info(  # pyright: ignore[reportUnknownMemberType]
-                    f"Qwen3-ASR aligned chunk for {audio_path.name}: "
-                    f"range=[{start_ms},{end_ms}] "
-                    f"duration_ms={chunk_duration_ms} "
-                    f"language={chunk_language} "
-                    f"text_len={len(chunk_text.strip())} "
-                    f"token_count={len(aligned_tokens)}"
+                    f"Qwen3-ASR chunk {audio_path.name} "
+                    f"[{start_ms},{end_ms}] "
+                    f"dur={chunk_duration_ms}ms "
+                    f"lang={chunk_language} "
+                    f"text={len(chunk_text.strip())} "
+                    f"tok={len(aligned_tokens)} "
+                    f'preview="{_preview_text(chunk_text)}" '
+                    f"asr={chunk_asr_sec:.3f}s "
+                    f"align={chunk_align_sec:.3f}s "
+                    f"wait={float(align_stats.get('lock_wait_sec', 0.0)):.3f}s "
+                    f"prep={float(align_stats.get('preprocess_sec', 0.0)):.3f}s "
+                    f"model={float(align_stats.get('model_sec', 0.0)):.3f}s "
+                    f"post={float(align_stats.get('postprocess_sec', 0.0)):.3f}s"
                 )
                 tokens.extend(aligned_tokens)
                 timestamps.extend(aligned_timestamps)

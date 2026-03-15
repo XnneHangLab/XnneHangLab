@@ -266,6 +266,7 @@ class ForcedAlignerEngine:
         self._timestamp_token_id = 0
         self._timestamp_segment_time = 0.0
         self._supported_languages = set(_DEFAULT_SUPPORTED_LANGUAGES)
+        self.last_timing: dict[str, float | int | str] = {}
         self.load()
 
     def load(self) -> None:
@@ -365,18 +366,17 @@ class ForcedAlignerEngine:
                     "end_time": round(float(item["end_time"]) / 1000.0, 3),
                 }
             )
-        logger.info(  # pyright: ignore[reportUnknownMemberType]
-            "Qwen3-ForcedAligner timing: "
-            f"language={language} "
-            f"audio_ms={audio_duration_ms} "
-            f"text_len={len(text.strip())} "
-            f"word_count={len(output)} "
-            f"lock_wait={wait_sec:.3f}s "
-            f"preprocess={preprocess_sec:.3f}s "
-            f"model={model_sec:.3f}s "
-            f"postprocess={postprocess_sec:.3f}s "
-            f"total={total_sec:.3f}s"
-        )
+        self.last_timing = {
+            "language": language,
+            "audio_ms": audio_duration_ms,
+            "text_len": len(text.strip()),
+            "word_count": len(output),
+            "lock_wait_sec": wait_sec,
+            "preprocess_sec": preprocess_sec,
+            "model_sec": model_sec,
+            "postprocess_sec": postprocess_sec,
+            "total_sec": total_sec,
+        }
         return output
 
 
