@@ -71,12 +71,12 @@ class BasicSettingsDict(TypedDict):
     cache_dir: str
     output_dir: str
     ffmpeg_path: str
+    vad_model_path: str
     asr_model_provider: str
 
 
 class SherpaSettingsDict(TypedDict):
     asr_model_dir: str
-    vad_model_path: str
     num_threads: int
 
 
@@ -103,11 +103,11 @@ if setting_keys["initial_settings"] not in st.session_state:
             "cache_dir": asr_settings.cache_dir,
             "output_dir": asr_settings.output_dir,
             "ffmpeg_path": asr_settings.FFMPEG_PATH,
+            "vad_model_path": asr_settings.vad_model_path,
             "asr_model_provider": asr_settings.asr_model_provider,
         },
         "sherpa": {
             "asr_model_dir": sherpa_settings.asr_model_dir,
-            "vad_model_path": sherpa_settings.vad_model_path,
             "num_threads": sherpa_settings.num_threads,
         },
         "qwen_asr": {
@@ -127,9 +127,9 @@ cache_dir = st.session_state.get(setting_keys["cache_dir"], asr_settings.cache_d
 custom_output_dir = st.session_state.get(setting_keys["custom_output_dir"], asr_settings.custom_output_dir)
 output_dir = st.session_state.get(setting_keys["output_dir"], asr_settings.output_dir)
 asr_model_provider = st.session_state.get(setting_keys["asr_model_provider"], asr_settings.asr_model_provider)
+vad_model_path = st.session_state.get(setting_keys["vad_model_path"], asr_settings.vad_model_path)
 
 asr_model_dir = st.session_state.get(setting_keys["asr_model_dir"], sherpa_settings.asr_model_dir)
-vad_model_path = st.session_state.get(setting_keys["vad_model_path"], sherpa_settings.vad_model_path)
 num_threads = st.session_state.get(setting_keys["num_threads"], sherpa_settings.num_threads)
 
 qwen_model_dir = st.session_state.get(setting_keys["qwen_model_dir"], qwen_settings.model_dir)
@@ -194,7 +194,7 @@ with setting_container:
         key="asr_model_dir",
     )
     vad_model_path = st.text_input(
-        get_setting_title("vad_model_path", SherpaASRSettings),
+        get_setting_title("vad_model_path", ASRSettings),
         value=vad_model_path,
         placeholder="VAD Model Path",
         key="vad_model_path",
@@ -270,11 +270,11 @@ with save_container:
                     "ffmpeg_path": ffmpeg_path or initial_settings["basic"]["ffmpeg_path"],
                     "cache_dir": cache_dir or initial_settings["basic"]["cache_dir"],
                     "output_dir": output_dir or initial_settings["basic"]["output_dir"],
+                    "vad_model_path": vad_model_path or initial_settings["basic"]["vad_model_path"],
                     "asr_model_provider": asr_model_provider,
                 },
                 "sherpa": {
                     "asr_model_dir": asr_model_dir or initial_settings["sherpa"]["asr_model_dir"],
-                    "vad_model_path": vad_model_path or initial_settings["sherpa"]["vad_model_path"],
                     "num_threads": int(num_threads),
                 },
                 "qwen_asr": {
@@ -297,10 +297,10 @@ with save_container:
                 asr_settings.FFMPEG_PATH = current_settings["basic"]["ffmpeg_path"]
                 asr_settings.cache_dir = current_settings["basic"]["cache_dir"]
                 asr_settings.output_dir = current_settings["basic"]["output_dir"]
+                asr_settings.vad_model_path = current_settings["basic"]["vad_model_path"]
                 asr_settings.set_by_label("asr_model_provider", current_settings["basic"]["asr_model_provider"])
 
                 sherpa_settings.asr_model_dir = current_settings["sherpa"]["asr_model_dir"]
-                sherpa_settings.vad_model_path = current_settings["sherpa"]["vad_model_path"]
                 sherpa_settings.num_threads = current_settings["sherpa"]["num_threads"]
 
                 qwen_settings.model_dir = current_settings["qwen_asr"]["model_dir"]

@@ -246,7 +246,7 @@ def _ensure_sherpa_vad_loaded() -> Any:
         return get_sherpa_vad()
     except RuntimeError:
         settings = load_settings_file("lab.toml", XnneHangLabSettings)
-        return load_sherpa_vad(Path(settings.asr.sherpa.vad_model_path))
+        return load_sherpa_vad(Path(settings.asr.vad_model_path))
 
 
 def _extract_asr_text(raw_output: str) -> str:

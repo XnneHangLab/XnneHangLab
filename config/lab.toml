@@ -6,6 +6,7 @@ device = "cpu"
 custom_output_dir = false
 cache_dir = "./cache"
 output_dir = "./output"
+vad_model_path = "./models/silero_vad.onnx"
 asr_model_provider = "qwen"
 punctuation_list = "，。；、？！,.;?!"
 cut = false
@@ -16,7 +17,6 @@ max_sentence_length = 20
 
 [asr.sherpa]
 asr_model_dir = "./models/sherpa-onnx-paraformer-zh-2023-09-14"
-vad_model_path = "./models/silero_vad.onnx"
 num_threads = 2
 vad_min_silence_duration = 0.25
 vad_min_speech_duration = 0.25

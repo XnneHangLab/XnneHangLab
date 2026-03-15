@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field
 
 SherpaASRSettingsTitle = Literal[
     "asr_model_dir",
-    "vad_model_path",
     "num_threads",
     "vad_min_silence_duration",
     "vad_min_speech_duration",
@@ -20,13 +19,6 @@ class SherpaASRSettings(BaseModel):
         Field(
             "./models/sherpa-onnx-paraformer-zh-2023-09-14",
             title="Paraformer model directory",
-        ),
-    ]
-    vad_model_path: Annotated[
-        str,
-        Field(
-            "./models/silero_vad.onnx",
-            title="Silero VAD model path",
         ),
     ]
     num_threads: Annotated[int, Field(2, ge=1, title="Inference threads")]
