@@ -120,7 +120,7 @@ test-deeplx:
 	-H "Content-Type: application/json" \
 	-d '{ \
 		"text": "それでは問題です。澄み渡った青空をゆく、そこに人がいたのなら間違いなく誰もが振り返り、ため息をこぼしてしまうほどの美貌の魔女は、いったい誰でしょう？", \
-		"source_language": "Auto", \
+		"source_language": "auto", \
 		"target_language": "ZH" \
 	}' \
 
@@ -478,6 +478,6 @@ test-llm-translate server='http://127.0.0.1:12393':
   curl -X POST "{{ server }}/translate/llm" \
     -H "Content-Type: application/json" \
     -d '{ \
-      "text": "La bibliotheque du quartier ferme un peu plus tot le vendredi, mais j'aime encore y passer en fin d'apres-midi pour choisir un roman et lire pres de la fenetre.", \
+      "text": "La bibliotheque du quartier ferme un peu plus tot le vendredi, mais je passe encore en fin d apres-midi pour choisir un roman et lire pres de la fenetre.", \
       "target_language": "ZH" \
     }'

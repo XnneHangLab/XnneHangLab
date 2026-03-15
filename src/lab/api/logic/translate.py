@@ -22,11 +22,10 @@ class TranslateEngineRouter:
         self.provider: TranslateProvider = settings.agent.translate_provider
         logger.info("Translation provider set to {}", self.provider)
 
-    async def translate(self, text: str, source_language: str, target_language: str) -> str:
+    async def translate(self, text: str, target_language: str) -> str:
         logger.debug(
-            "[TranslateRouter] provider={} {} -> {}",
+            "[TranslateRouter] provider={} -> {}",
             self.provider,
-            source_language,
             target_language,
         )
 
@@ -36,7 +35,7 @@ class TranslateEngineRouter:
             response = await self._deeplx_client.asyncpost(
                 DeepLXRequest(
                     text=text,
-                    source_language=source_language,
+                    source_language="auto",
                     target_language=target_language,
                 )
             )

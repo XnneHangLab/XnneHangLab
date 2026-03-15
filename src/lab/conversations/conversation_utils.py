@@ -104,7 +104,6 @@ async def handle_sentence_output(
                 try:
                     tts_text = await translate_engine.translate(
                         text=tts_text,
-                        source_language=lab_settings.agent.user_lang,
                         target_language=lab_settings.agent.speaker_lang,
                     )
                     logger.debug(f"🏃 Text after translation: '''{tts_text}'''...")

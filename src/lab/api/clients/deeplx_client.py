@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Literal
 
 from loguru import logger
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from lab.api.clients.base_client_interface import BaseClientInterface, BaseRequest, BaseResponse
 from lab.api.types import DeepLXResponse
@@ -11,8 +11,21 @@ from lab.api.types import DeepLXResponse
 
 class DeepLXRequest(BaseRequest):
     text: str  # 必须传入
-    source_language: Literal["EN", "ZH", "JA"] = Field(default="JA")  # 默认日语
+    source_language: Literal["auto", "EN", "ZH", "JA"] = Field(default="auto")  # 默认自动检测
     target_language: Literal["EN", "ZH", "JA"] = Field(default="ZH")  # 默认中文
+
+    @field_validator("source_language", mode="before")
+    @classmethod
+    def normalize_source_language(cls, value: str) -> str:
+        normalized = value.strip()
+        if normalized.lower() == "auto":
+            return "auto"
+        return normalized.upper()
+
+    @field_validator("target_language", mode="before")
+    @classmethod
+    def normalize_target_language(cls, value: str) -> str:
+        return value.strip().upper()
 
 
 class DeepLXResponseModel(BaseResponse):
