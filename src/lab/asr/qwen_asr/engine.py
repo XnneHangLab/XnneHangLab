@@ -607,14 +607,20 @@ class QwenASREngine:
 
         self._forced_aligner = None
         aligner_path = self.forced_aligner_path.strip()
-        if aligner_path:
-            resolved_aligner_path = Path(aligner_path).expanduser().resolve()
-            if resolved_aligner_path.exists():
-                self._forced_aligner = load_forced_aligner(str(resolved_aligner_path), self.forced_aligner_device)
-            else:
-                logger.warning(  # pyright: ignore[reportUnknownMemberType]
-                    f"Qwen3-ForcedAligner path does not exist, fallback timestamps will be used: {resolved_aligner_path}"
-                )
+        if not aligner_path:
+            raise RuntimeError(
+                "Qwen3-ASR subtitle pipeline requires ForcedAligner. "
+                "Configure [asr.qwen_asr].forced_aligner_path in config/lab.toml."
+            )
+
+        resolved_aligner_path = Path(aligner_path).expanduser().resolve()
+        if not resolved_aligner_path.exists():
+            raise RuntimeError(
+                "Qwen3-ASR subtitle pipeline requires a valid ForcedAligner path. "
+                f"Configured path does not exist: {resolved_aligner_path}"
+            )
+
+        self._forced_aligner = load_forced_aligner(str(resolved_aligner_path), self.forced_aligner_device)
 
     def _transcribe_chunk(self, audio: np.ndarray) -> str:
         if self._processor is None:
@@ -785,35 +791,41 @@ class QwenASREngine:
                 asr_sec += time.perf_counter() - asr_start
                 chunk_text = _extract_asr_text(raw_output)
                 chunk_language = _extract_asr_language(raw_output)
-                chunk_tokens = _tokenize_asr_segment(chunk_text)
-                if not chunk_tokens:
+                if not chunk_text.strip():
                     continue
 
-                if self._forced_aligner is not None and self._forced_aligner.supports_language(chunk_language):
-                    aligner_start = time.perf_counter()
-                    try:
-                        aligned_items = self._forced_aligner.align(
-                            (chunk, _TARGET_SAMPLE_RATE),
-                            chunk_text,
-                            chunk_language,
-                        )
-                    except Exception:
-                        logger.exception(
-                            f"Qwen3-ForcedAligner failed for {audio_path.name} chunk {start_ms}-{end_ms}; using fallback timestamps."
-                        )  # pyright: ignore[reportUnknownMemberType]
-                        aligned_items = []
-                    finally:
-                        aligner_sec += time.perf_counter() - aligner_start
+                if self._forced_aligner is None:
+                    raise RuntimeError("Qwen3-ForcedAligner is not loaded.")
+                if not self._forced_aligner.supports_language(chunk_language):
+                    raise RuntimeError(
+                        "Qwen3-ForcedAligner does not support the detected language "
+                        f"for {audio_path.name} chunk {start_ms}-{end_ms}: {chunk_language}"
+                    )
 
-                    if aligned_items:
-                        aligned_tokens, aligned_timestamps = _aligner_token_timestamps(aligned_items, start_ms)
-                        if aligned_tokens and len(aligned_tokens) == len(aligned_timestamps):
-                            tokens.extend(aligned_tokens)
-                            timestamps.extend(aligned_timestamps)
-                            aligned_chunk_count += 1
-                            continue
+                aligner_start = time.perf_counter()
+                try:
+                    aligned_items = self._forced_aligner.align(
+                        (chunk, _TARGET_SAMPLE_RATE),
+                        chunk_text,
+                        chunk_language,
+                    )
+                except Exception as exc:
+                    raise RuntimeError(
+                        f"Qwen3-ForcedAligner failed for {audio_path.name} chunk {start_ms}-{end_ms}"
+                    ) from exc
+                finally:
+                    aligner_sec += time.perf_counter() - aligner_start
 
-                tokens.extend(chunk_tokens)
+                aligned_tokens, aligned_timestamps = _aligner_token_timestamps(aligned_items, start_ms)
+                if not aligned_tokens or len(aligned_tokens) != len(aligned_timestamps):
+                    raise RuntimeError(
+                        "Qwen3-ForcedAligner returned invalid timestamps "
+                        f"for {audio_path.name} chunk {start_ms}-{end_ms}"
+                    )
+
+                tokens.extend(aligned_tokens)
+                timestamps.extend(aligned_timestamps)
+                aligned_chunk_count += 1
         except Exception as exc:
             logger.exception(f"Qwen3-ASR OpenVINO transcribe failed for {audio_path}")  # pyright: ignore[reportUnknownMemberType]
             raise RuntimeError(f"Failed to transcribe audio with Qwen3-ASR OpenVINO: {audio_path}") from exc
