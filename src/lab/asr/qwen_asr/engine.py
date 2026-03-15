@@ -794,6 +794,7 @@ class QwenASREngine:
                 if not chunk_text.strip():
                     continue
 
+                chunk_duration_ms = end_ms - start_ms
                 if self._forced_aligner is None:
                     raise RuntimeError("Qwen3-ForcedAligner is not loaded.")
                 if not self._forced_aligner.supports_language(chunk_language):
@@ -823,6 +824,14 @@ class QwenASREngine:
                         f"for {audio_path.name} chunk {start_ms}-{end_ms}"
                     )
 
+                logger.info(  # pyright: ignore[reportUnknownMemberType]
+                    f"Qwen3-ASR aligned chunk for {audio_path.name}: "
+                    f"range=[{start_ms},{end_ms}] "
+                    f"duration_ms={chunk_duration_ms} "
+                    f"language={chunk_language} "
+                    f"text_len={len(chunk_text.strip())} "
+                    f"token_count={len(aligned_tokens)}"
+                )
                 tokens.extend(aligned_tokens)
                 timestamps.extend(aligned_timestamps)
                 aligned_chunk_count += 1

@@ -6,6 +6,7 @@ import unicodedata
 from importlib import import_module
 from pathlib import Path
 from threading import Lock
+import time
 from typing import Any, cast
 
 import numpy as np
@@ -325,24 +326,35 @@ class ForcedAlignerEngine:
         if sample_rate != _TARGET_SAMPLE_RATE:
             raise RuntimeError(f"Qwen3-ForcedAligner expects 16kHz audio chunks. Got sample_rate={sample_rate}.")
 
-        with self._lock, self._torch.inference_mode():
-            word_list, input_text = self._aligner_processor.encode_timestamp(text, language)
-            if not word_list:
-                return []
+        audio_duration_ms = int(round(len(waveform) * 1000 / sample_rate))
+        wait_start = time.perf_counter()
+        with self._lock:
+            wait_sec = time.perf_counter() - wait_start
+            infer_start = time.perf_counter()
+            with self._torch.inference_mode():
+                word_list, input_text = self._aligner_processor.encode_timestamp(text, language)
+                if not word_list:
+                    return []
 
-            inputs = self._processor(
-                text=input_text,
-                audio=waveform,
-                return_tensors="pt",
-            )
-            inputs = inputs.to(self._model.device).to(self._model.dtype)
+                inputs = self._processor(
+                    text=input_text,
+                    audio=waveform,
+                    return_tensors="pt",
+                )
+                preprocess_sec = time.perf_counter() - infer_start
+                model_start = time.perf_counter()
+                inputs = inputs.to(self._model.device).to(self._model.dtype)
 
-            logits = self._model.thinker(**inputs).logits
-            output_ids = logits.argmax(dim=-1)
-            input_ids = inputs["input_ids"][0]
-            masked_output_ids = output_ids[0][input_ids == self._timestamp_token_id]
-            timestamp_ms = (masked_output_ids * self._timestamp_segment_time).to("cpu").numpy()
-            timestamp_output = self._aligner_processor.parse_timestamp(word_list, timestamp_ms)
+                logits = self._model.thinker(**inputs).logits
+                output_ids = logits.argmax(dim=-1)
+                input_ids = inputs["input_ids"][0]
+                masked_output_ids = output_ids[0][input_ids == self._timestamp_token_id]
+                timestamp_ms = (masked_output_ids * self._timestamp_segment_time).to("cpu").numpy()
+                model_sec = time.perf_counter() - model_start
+                postprocess_start = time.perf_counter()
+                timestamp_output = self._aligner_processor.parse_timestamp(word_list, timestamp_ms)
+                postprocess_sec = time.perf_counter() - postprocess_start
+            total_sec = time.perf_counter() - infer_start
 
         output: list[dict[str, float | str]] = []
         for item in timestamp_output:
@@ -353,6 +365,18 @@ class ForcedAlignerEngine:
                     "end_time": round(float(item["end_time"]) / 1000.0, 3),
                 }
             )
+        logger.info(  # pyright: ignore[reportUnknownMemberType]
+            "Qwen3-ForcedAligner timing: "
+            f"language={language} "
+            f"audio_ms={audio_duration_ms} "
+            f"text_len={len(text.strip())} "
+            f"word_count={len(output)} "
+            f"lock_wait={wait_sec:.3f}s "
+            f"preprocess={preprocess_sec:.3f}s "
+            f"model={model_sec:.3f}s "
+            f"postprocess={postprocess_sec:.3f}s "
+            f"total={total_sec:.3f}s"
+        )
         return output
 
 
