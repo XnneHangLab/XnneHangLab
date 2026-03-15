@@ -101,9 +101,10 @@ def validate_config(settings: XnneHangLabSettings) -> None:
     from lab.api.logic.llm_translate import resolve_llm_translate_model_path
 
     deeplx_api_key = settings.agent.deeplx_api_key.strip()
+    llm_translate_enabled = settings.package.llm_translate
     llm_translate_model_path = resolve_llm_translate_model_path(settings)
     llm_translate_model_exists = llm_translate_model_path is not None and llm_translate_model_path.exists()
-    if not deeplx_api_key and not llm_translate_model_exists:
+    if not deeplx_api_key and (not llm_translate_enabled or not llm_translate_model_exists):
         configured_model_text = (
             str(llm_translate_model_path)
             if llm_translate_model_path is not None
@@ -112,9 +113,12 @@ def validate_config(settings: XnneHangLabSettings) -> None:
         errors.append(
             "  [translate]\n"
             "    没有可用的翻译模型\n"
-            "    deeplx_api_key 为空，且本地 GGUF 模型不存在\n"
+            f"    package.llm_translate = {llm_translate_enabled}\n"
+            "    deeplx_api_key 为空\n"
             f"    当前 llm_translate_model_path: {configured_model_text}\n"
-            "    → 请配置 [agent].deeplx_api_key，或设置有效的 [agent].llm_translate_model_path，"
+            f"    本地 GGUF 是否存在: {llm_translate_model_exists}\n"
+            "    → 请将 [package].llm_translate 设为 true，并设置有效的 [agent].llm_translate_model_path，"
+            "或配置 [agent].deeplx_api_key，"
             "或运行 `just install-llm-translate`"
         )
 
