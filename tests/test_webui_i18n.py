@@ -64,7 +64,7 @@ def test_get_labels_returns_correct_options() -> None:
 def test_get_index_reflects_current_value() -> None:
     settings = ASRSettings()  # pyright: ignore[reportCallIssue]
     assert settings.get_index("device") == 0
-    assert settings.get_index("asr_model_provider") == 0
+    assert settings.get_index("asr_model_provider") == 1
 
 
 def test_set_by_label_updates_field() -> None:
