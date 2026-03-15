@@ -65,12 +65,12 @@ sherpa-onnx = [
 ]
 
 qwen-asr = [
-  "qwen-asr",
   "modelscope>=1.25.0",
-  "transformers>=4.57",
-  "torch>=2.0.0",
-  "torchaudio>=2.0.0",
-  "accelerate>=0.26.0",
+  "openvino>=2024.0",
+  "qwen-asr",
+  "nagisa>=0.2.11",
+  "soundfile>=0.13.1",
+  "tokenizers>=0.13",
 ]
 
 dev = [
@@ -150,7 +150,7 @@ qwen-tts = [
 default-groups = ["base", "qwen-asr", "dev", "yutto-uiya", "tts_base", "gpt_sovits", "qwen-tts", "vtuber", "memory_bench", "sherpa-onnx"]
 
 [tool.uv.workspace]
-members = ["packages/yutto-uiya","packages/todo/","packages/gpt_sovits"]
+members = ["packages/yutto-uiya","packages/todo/","packages/gpt_sovits","packages/Qwen3-ASR"]
 
 [[tool.uv.index]]
 name = "pytorch-cu118"
@@ -163,7 +163,6 @@ url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
 [tool.uv.sources]
-qwen-asr = { path = "./packages/Qwen3-ASR", editable = true }
 torch = [
   { index = "pytorch-cu118", marker = "sys_platform == 'win32'" }, # sys_platform : 'win32' , 'linux' , 'Darwin'
   { index = "pytorch-cpu", marker = "sys_platform != 'win32'"}
@@ -173,6 +172,7 @@ torchaudio = [
   { index = "pytorch-cpu", marker = "sys_platform != 'win32'"}
 ]
 langsegment = { path = "./dist/LangSegment-0.3.5-py3-none-any.whl"}
+qwen-asr = {  workspace = true }
 
 # 这个源要与 yutto-uiya 保持一致, 要改, 得同时改
 # yutto = { git = "https://github.com/MrXnneHang/yutto.git", rev = "parse" }

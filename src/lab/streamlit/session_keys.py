@@ -44,8 +44,8 @@ class SettingSessionStateKeys(TypedDict):
     qwen_preload_models: str
     qwen_model_0_6b_path: str
     qwen_model_1_7b_path: str
-    qwen_forced_aligner_path: str
     qwen_device: str
+    qwen_cpu_threads: str
     asr_model_provider: str
 
 
@@ -94,8 +94,8 @@ setting_keys: SettingSessionStateKeys = {
     "qwen_preload_models": "qwen_preload_models",
     "qwen_model_0_6b_path": "qwen_model_0_6b_path",
     "qwen_model_1_7b_path": "qwen_model_1_7b_path",
-    "qwen_forced_aligner_path": "qwen_forced_aligner_path",
     "qwen_device": "qwen_device",
+    "qwen_cpu_threads": "qwen_cpu_threads",
     "asr_model_provider": "asr_model_provider",
 }
 

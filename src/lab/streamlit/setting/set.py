@@ -71,12 +71,12 @@ class BasicSettingsDict(TypedDict):
     cache_dir: str
     output_dir: str
     ffmpeg_path: str
+    vad_model_path: str
     asr_model_provider: str
 
 
 class SherpaSettingsDict(TypedDict):
     asr_model_dir: str
-    vad_model_path: str
     num_threads: int
 
 
@@ -85,8 +85,8 @@ class QwenSettingsDict(TypedDict):
     preload_models: list[QwenASRModelName]
     model_0_6b_path: str
     model_1_7b_path: str
-    forced_aligner_path: str
     device: str
+    cpu_threads: int
 
 
 class GlobalSettings(TypedDict):
@@ -103,11 +103,11 @@ if setting_keys["initial_settings"] not in st.session_state:
             "cache_dir": asr_settings.cache_dir,
             "output_dir": asr_settings.output_dir,
             "ffmpeg_path": asr_settings.FFMPEG_PATH,
+            "vad_model_path": asr_settings.vad_model_path,
             "asr_model_provider": asr_settings.asr_model_provider,
         },
         "sherpa": {
             "asr_model_dir": sherpa_settings.asr_model_dir,
-            "vad_model_path": sherpa_settings.vad_model_path,
             "num_threads": sherpa_settings.num_threads,
         },
         "qwen_asr": {
@@ -115,8 +115,8 @@ if setting_keys["initial_settings"] not in st.session_state:
             "preload_models": list(qwen_settings.preload_models),
             "model_0_6b_path": qwen_settings.model_0_6b_path,
             "model_1_7b_path": qwen_settings.model_1_7b_path,
-            "forced_aligner_path": qwen_settings.forced_aligner_path,
             "device": qwen_settings.device,
+            "cpu_threads": qwen_settings.cpu_threads,
         },
     }
 
@@ -127,9 +127,9 @@ cache_dir = st.session_state.get(setting_keys["cache_dir"], asr_settings.cache_d
 custom_output_dir = st.session_state.get(setting_keys["custom_output_dir"], asr_settings.custom_output_dir)
 output_dir = st.session_state.get(setting_keys["output_dir"], asr_settings.output_dir)
 asr_model_provider = st.session_state.get(setting_keys["asr_model_provider"], asr_settings.asr_model_provider)
+vad_model_path = st.session_state.get(setting_keys["vad_model_path"], asr_settings.vad_model_path)
 
 asr_model_dir = st.session_state.get(setting_keys["asr_model_dir"], sherpa_settings.asr_model_dir)
-vad_model_path = st.session_state.get(setting_keys["vad_model_path"], sherpa_settings.vad_model_path)
 num_threads = st.session_state.get(setting_keys["num_threads"], sherpa_settings.num_threads)
 
 qwen_model_dir = st.session_state.get(setting_keys["qwen_model_dir"], qwen_settings.model_dir)
@@ -139,11 +139,10 @@ qwen_preload_models = cast(
 )
 qwen_model_0_6b_path = st.session_state.get(setting_keys["qwen_model_0_6b_path"], qwen_settings.model_0_6b_path)
 qwen_model_1_7b_path = st.session_state.get(setting_keys["qwen_model_1_7b_path"], qwen_settings.model_1_7b_path)
-qwen_forced_aligner_path = st.session_state.get(
-    setting_keys["qwen_forced_aligner_path"],
-    qwen_settings.forced_aligner_path,
-)
-qwen_device = st.session_state.get(setting_keys["qwen_device"], qwen_settings.device)
+qwen_device = str(st.session_state.get(setting_keys["qwen_device"], qwen_settings.device)).upper()
+if qwen_device != "CPU":
+    qwen_device = "CPU"
+qwen_cpu_threads = st.session_state.get(setting_keys["qwen_cpu_threads"], qwen_settings.cpu_threads)
 
 save_container = st.container()
 setting_container = st.container(border=True)
@@ -195,7 +194,7 @@ with setting_container:
         key="asr_model_dir",
     )
     vad_model_path = st.text_input(
-        get_setting_title("vad_model_path", SherpaASRSettings),
+        get_setting_title("vad_model_path", ASRSettings),
         value=vad_model_path,
         placeholder="VAD Model Path",
         key="vad_model_path",
@@ -231,26 +230,27 @@ with setting_container:
     qwen_model_0_6b_path = st.text_input(
         get_setting_title("model_0_6b_path", QwenASRSettings),
         value=qwen_model_0_6b_path,
-        placeholder="./models/Qwen3-ASR-0.6B",
+        placeholder="./models/Qwen3-ASR-0.6B-INT8-OpenVINO",
         key="qwen_model_0_6b_path",
     )
     qwen_model_1_7b_path = st.text_input(
         get_setting_title("model_1_7b_path", QwenASRSettings),
         value=qwen_model_1_7b_path,
-        placeholder="./models/Qwen3-ASR-1.7B",
+        placeholder="./models/Qwen3-ASR-1.7B-INT8-OpenVINO",
         key="qwen_model_1_7b_path",
-    )
-    qwen_forced_aligner_path = st.text_input(
-        get_setting_title("forced_aligner_path", QwenASRSettings),
-        value=qwen_forced_aligner_path,
-        placeholder="./models/Qwen3-ForcedAligner-0.6B",
-        key="qwen_forced_aligner_path",
     )
     qwen_device = st.selectbox(
         get_setting_title("device", QwenASRSettings),
-        options=["cpu", "cuda"],
-        index=0 if qwen_device == "cpu" else 1,
+        options=["CPU"],
+        index=0,
         key="qwen_device",
+    )
+    qwen_cpu_threads = st.number_input(
+        get_setting_title("cpu_threads", QwenASRSettings),
+        value=int(qwen_cpu_threads),
+        min_value=0,
+        step=1,
+        key="qwen_cpu_threads",
     )
     if lab_settings.package.qwen_asr and not qwen_preload_models:
         st.warning("当前已启用 Qwen3-ASR 服务，但没有选择任何预加载模型。服务仍可按模型端点懒加载。")
@@ -270,11 +270,11 @@ with save_container:
                     "ffmpeg_path": ffmpeg_path or initial_settings["basic"]["ffmpeg_path"],
                     "cache_dir": cache_dir or initial_settings["basic"]["cache_dir"],
                     "output_dir": output_dir or initial_settings["basic"]["output_dir"],
+                    "vad_model_path": vad_model_path or initial_settings["basic"]["vad_model_path"],
                     "asr_model_provider": asr_model_provider,
                 },
                 "sherpa": {
                     "asr_model_dir": asr_model_dir or initial_settings["sherpa"]["asr_model_dir"],
-                    "vad_model_path": vad_model_path or initial_settings["sherpa"]["vad_model_path"],
                     "num_threads": int(num_threads),
                 },
                 "qwen_asr": {
@@ -282,10 +282,8 @@ with save_container:
                     "preload_models": list(qwen_preload_models),
                     "model_0_6b_path": qwen_model_0_6b_path or initial_settings["qwen_asr"]["model_0_6b_path"],
                     "model_1_7b_path": qwen_model_1_7b_path or initial_settings["qwen_asr"]["model_1_7b_path"],
-                    "forced_aligner_path": (
-                        qwen_forced_aligner_path or initial_settings["qwen_asr"]["forced_aligner_path"]
-                    ),
                     "device": qwen_device,
+                    "cpu_threads": int(qwen_cpu_threads),
                 },
             }
 
@@ -299,18 +297,18 @@ with save_container:
                 asr_settings.FFMPEG_PATH = current_settings["basic"]["ffmpeg_path"]
                 asr_settings.cache_dir = current_settings["basic"]["cache_dir"]
                 asr_settings.output_dir = current_settings["basic"]["output_dir"]
+                asr_settings.vad_model_path = current_settings["basic"]["vad_model_path"]
                 asr_settings.set_by_label("asr_model_provider", current_settings["basic"]["asr_model_provider"])
 
                 sherpa_settings.asr_model_dir = current_settings["sherpa"]["asr_model_dir"]
-                sherpa_settings.vad_model_path = current_settings["sherpa"]["vad_model_path"]
                 sherpa_settings.num_threads = current_settings["sherpa"]["num_threads"]
 
                 qwen_settings.model_dir = current_settings["qwen_asr"]["model_dir"]
                 qwen_settings.preload_models = current_settings["qwen_asr"]["preload_models"]
                 qwen_settings.model_0_6b_path = current_settings["qwen_asr"]["model_0_6b_path"]
                 qwen_settings.model_1_7b_path = current_settings["qwen_asr"]["model_1_7b_path"]
-                qwen_settings.forced_aligner_path = current_settings["qwen_asr"]["forced_aligner_path"]
                 qwen_settings.device = current_settings["qwen_asr"]["device"]
+                qwen_settings.cpu_threads = current_settings["qwen_asr"]["cpu_threads"]
 
                 asr_settings.sherpa = sherpa_settings
                 asr_settings.qwen_asr = qwen_settings

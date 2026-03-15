@@ -81,10 +81,10 @@ test-sherpa-asr:
   curl -X POST "http://localhost:12393/asr/sherpa/transcribe" -F "file=@./examples/example1.wav"
 
 test-qwen-asr-0-6b:
-  curl -X POST "http://localhost:12393/asr/qwen-asr/0.6B/transcribe" -F "file=@./examples/test.m4a"
+  curl -X POST "http://localhost:12393/asr/qwen-asr/0.6B/transcribe" -F "file=@./examples/example1.wav"
 
 test-qwen-asr-1-7b:
-  curl -X POST "http://localhost:12393/asr/qwen-asr/1.7B/transcribe" -F "file=@./examples/example1.wav"
+  curl -X POST "http://localhost:12393/asr/qwen-asr/1.7B/transcribe" -F "file=@./examples/congyin.wav"
   
 test-vad:
   curl -X POST "http://localhost:12393/asr/sherpa/vad" -F "file=@./examples/example3.opus"
@@ -154,9 +154,8 @@ install-nltk:
 install-qwen-asr model_dir='./models':
   uv lock
   uv sync
-  uv run modelscope download --model Qwen/Qwen3-ASR-1.7B --local_dir {{ model_dir }}/Qwen3-ASR-1.7B
-  uv run modelscope download --model Qwen/Qwen3-ASR-0.6B --local_dir {{ model_dir }}/Qwen3-ASR-0.6B
-  uv run modelscope download --model Qwen/Qwen3-ForcedAligner-0.6B --local_dir {{ model_dir }}/Qwen3-ForcedAligner-0.6B
+  uv run modelscope download --model xnnehang/Qwen3-ASR-1.7B-INT8_OpenVINO --local_dir {{ model_dir }}/Qwen3-ASR-1.7B-INT8-OpenVINO
+  uv run modelscope download --model xnnehang/Qwen3-ASR-0.6B-INT8-OpenVINO --local_dir {{ model_dir }}/Qwen3-ASR-0.6B-INT8-OpenVINO
 
 install-sensevoice:
   uv lock

@@ -1,169 +1,68 @@
 from __future__ import annotations
 
+# pyright: reportMissingTypeArgument=false, reportUnknownArgumentType=false, reportUnknownMemberType=false, reportUnknownParameterType=false, reportUnknownVariableType=false
 import gc
 import re
+import subprocess
+import time
 import unicodedata
 from importlib import import_module
 from pathlib import Path
 from threading import Lock
 from typing import TYPE_CHECKING, Any, cast
 
+import numpy as np
 from loguru import logger  # pyright: ignore[reportMissingImports,reportUnknownVariableType]
 
+from .forced_aligner import ForcedAlignerEngine, load_forced_aligner
+from .processor import LightProcessor
+
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from lab.asr.types import ASRResponse
 
 logger = cast("Any", logger)
 
-_qwen_asr_engines: dict[tuple[str, str, str], QwenASREngine] = {}
+_qwen_asr_engines: dict[tuple[str, str, int, str, str], QwenASREngine] = {}
 _TIMESTAMP_PATTERN = re.compile(r"<\|(\d+(?:\.\d+)?)\|>")
+_TARGET_SAMPLE_RATE = 16_000
+_MAX_CHUNK_MS = 30_000
+_VAD_MERGE_GAP_MS = 500
+_VAD_MIN_SEGMENT_MS = 1_500
+_VAD_ALIGN_PADDING_MS = 200
+_REQUIRED_MODEL_FILES = (
+    "audio_encoder_model.xml",
+    "thinker_embeddings_model.xml",
+    "vocab.json",
+    "merges.txt",
+    "tokenizer_config.json",
+    "prompt_template.json",
+    "mel_filters.npy",
+)
+
+
+def _import_openvino() -> Any:
+    try:
+        return import_module("openvino")
+    except ImportError as exc:
+        raise RuntimeError(
+            "Qwen3-ASR OpenVINO engine requires `openvino` to be installed. Run `uv sync` after updating dependencies."
+        ) from exc
 
 
 def _normalize_device(device: str) -> str:
-    """规范化推理设备名称。
-
-    Args:
-        device: 原始设备名称。
-
-    Returns:
-        str: 规范化后的设备名称。
-
-    Raises:
-        RuntimeError: 设备名非法或 CUDA 不可用时抛出。
-    """
-    normalized = device.strip().lower() or "cpu"
-    if normalized not in {"cpu", "cuda"}:
-        raise RuntimeError(f"Unsupported Qwen3-ASR device: {device}")
-
-    if normalized == "cuda":
-        torch = _import_torch()
-        if not torch.cuda.is_available():
-            raise RuntimeError("Qwen3-ASR device is set to cuda, but CUDA is not available.")
-
+    normalized = device.strip().upper() or "CPU"
     return normalized
 
 
-def _import_torch() -> Any:
-    """延迟导入 torch。
-
-    Args:
-        None.
-
-    Returns:
-        Any: torch 模块对象。
-
-    Raises:
-        RuntimeError: torch 未安装时抛出。
-    """
-    try:
-        torch_module = import_module("torch")
-    except ImportError as exc:
-        raise RuntimeError("Qwen3-ASR requires torch to be installed.") from exc
-    return torch_module  # pyright: ignore[reportUnknownVariableType]
-
-
-def _import_qwen_asr() -> Any:
-    """延迟导入 qwen_asr 官方推理包。
-
-    Args:
-        None.
-
-    Returns:
-        Any: `qwen_asr.Qwen3ASRModel` 类。
-
-    Raises:
-        RuntimeError: qwen-asr 未安装时抛出。
-    """
-    try:
-        qwen_asr_module = import_module("qwen_asr")
-    except ImportError as exc:
-        raise RuntimeError(
-            "Qwen3-ASR requires the `qwen-asr` package. Run `uv sync` after updating dependencies."
-        ) from exc
-    return qwen_asr_module.Qwen3ASRModel  # pyright: ignore[reportUnknownVariableType,reportAttributeAccessIssue]
-
-
-def _import_torchaudio() -> Any:
-    """延迟导入 torchaudio。
-
-    Args:
-        None.
-
-    Returns:
-        Any: torchaudio 模块对象。
-
-    Raises:
-        RuntimeError: torchaudio 未安装时抛出。
-    """
-    try:
-        torchaudio_module = import_module("torchaudio")
-    except ImportError as exc:
-        raise RuntimeError("Qwen3-ASR requires torchaudio to be installed.") from exc
-    return torchaudio_module  # pyright: ignore[reportUnknownVariableType]
-
-
-def _import_qwen_audio_utils() -> Any:
-    """延迟导入 qwen-asr 的音频预处理工具。"""
-    try:
-        qwen_audio_utils = import_module("qwen_asr.inference.utils")
-    except ImportError as exc:
-        raise RuntimeError("Qwen3-ASR audio utils are unavailable.") from exc
-    return qwen_audio_utils  # pyright: ignore[reportUnknownVariableType]
-
-
-def _prepare_audio_input(audio_path: Path) -> tuple[Any, int]:
-    """在进入 qwen-asr 前先解码本地音频，绕开其内部 librosa 路径加载。
-
-    Args:
-        audio_path: 输入音频路径。
-
-    Returns:
-        tuple[Any, int]: `(waveform_np, 16000)`。
-
-    Raises:
-        RuntimeError: 音频解码失败时抛出。
-    """
-    torch = _import_torch()
-    torchaudio = _import_torchaudio()
-
-    try:
-        waveform, sample_rate = torchaudio.load(str(audio_path))
-    except Exception:
-        logger.warning(f"torchaudio failed to decode {audio_path}; fallback to qwen-asr audio utils.")  # pyright: ignore[reportUnknownMemberType]
-        qwen_audio_utils = _import_qwen_audio_utils()
-        try:
-            waveform_np = qwen_audio_utils.normalize_audio_input(str(audio_path))
-        except Exception as exc:
-            raise RuntimeError(f"Failed to decode audio before Qwen3-ASR inference: {audio_path}") from exc
-        return waveform_np, 16000
-
-    if getattr(waveform, "ndim", 0) == 1:
-        waveform = waveform.unsqueeze(0)
-    elif getattr(waveform, "ndim", 0) != 2:
-        raise RuntimeError(f"Unsupported audio tensor shape from torchaudio: {getattr(waveform, 'shape', '?')}")
-
-    if int(waveform.shape[0]) > 1:
-        waveform = waveform.mean(dim=0, keepdim=True)
-
-    if int(sample_rate) != 16000:
-        waveform = torchaudio.functional.resample(waveform, int(sample_rate), 16000)
-
-    waveform = waveform.squeeze(0).to(dtype=torch.float32).contiguous()
-    return waveform.cpu().numpy(), 16000
+def _normalize_cpu_threads(cpu_threads: int) -> int:
+    if cpu_threads < 0:
+        raise RuntimeError("Qwen3-ASR cpu_threads must be greater than or equal to 0.")
+    return cpu_threads
 
 
 def _resolve_model_path(model_path: str) -> str:
-    """解析并校验本地模型路径。
-
-    Args:
-        model_path: 本地模型目录路径。
-
-    Returns:
-        str: 规范化后的本地模型目录。
-
-    Raises:
-        RuntimeError: 模型目录不存在时抛出。
-    """
     resolved = Path(model_path).expanduser().resolve()
     if not resolved.exists():
         raise RuntimeError(
@@ -173,35 +72,186 @@ def _resolve_model_path(model_path: str) -> str:
     return str(resolved)
 
 
-def _resolve_optional_path(path_value: str | None) -> str:
-    """解析可选路径；空值时返回空字符串。
+def _validate_model_dir(model_dir: Path) -> None:
+    missing = [name for name in _REQUIRED_MODEL_FILES if not (model_dir / name).exists()]
+    if missing:
+        missing_list = ", ".join(missing)
+        raise RuntimeError(f"Qwen3-ASR OpenVINO model directory is incomplete: {model_dir} (missing: {missing_list})")
 
-    Args:
-        path_value: 可选路径值。
+    has_single_decoder = (model_dir / "decoder_model.xml").exists()
+    has_split_decoder = (model_dir / "decoder_prefill_kv_model.xml").exists() and (
+        model_dir / "decoder_kv_model.xml"
+    ).exists()
+    if not has_single_decoder and not has_split_decoder:
+        raise RuntimeError(
+            "Qwen3-ASR OpenVINO model directory is incomplete: "
+            f"{model_dir} (missing decoder_model.xml or decoder_prefill_kv_model.xml + decoder_kv_model.xml)"
+        )
 
-    Returns:
-        str: 规范化路径，或空字符串。
 
-    Raises:
-        RuntimeError: 路径非空但不存在时抛出。
-    """
-    if not path_value or not path_value.strip():
-        return ""
-    return _resolve_model_path(path_value)
+def _get_ffmpeg_path() -> str:
+    from lab.config_manager import XnneHangLabSettings, load_settings_file
+
+    settings = load_settings_file("lab.toml", XnneHangLabSettings)
+    return settings.asr.FFMPEG_PATH or "ffmpeg"
+
+
+def _decode_audio_with_ffmpeg(audio_path: Path) -> np.ndarray:
+    ffmpeg_path = _get_ffmpeg_path()
+    command = [
+        ffmpeg_path,
+        "-v",
+        "error",
+        "-i",
+        str(audio_path),
+        "-f",
+        "f32le",
+        "-acodec",
+        "pcm_f32le",
+        "-ac",
+        "1",
+        "-ar",
+        str(_TARGET_SAMPLE_RATE),
+        "-",
+    ]
+
+    try:
+        result = subprocess.run(
+            command,
+            check=True,
+            capture_output=True,
+        )
+    except FileNotFoundError as exc:
+        raise RuntimeError(f"ffmpeg was not found: {ffmpeg_path}") from exc
+    except subprocess.CalledProcessError as exc:
+        stderr = exc.stderr.decode("utf-8", errors="replace").strip()
+        raise RuntimeError(f"ffmpeg failed to decode audio: {audio_path} ({stderr or 'unknown error'})") from exc
+
+    audio = np.frombuffer(result.stdout, dtype=np.float32)
+    if audio.size == 0:
+        raise RuntimeError(f"ffmpeg returned empty audio stream: {audio_path}")
+    return np.ascontiguousarray(audio, dtype=np.float32)
+
+
+def _load_audio(audio_path: Path) -> tuple[np.ndarray, int]:
+    audio = _decode_audio_with_ffmpeg(audio_path)
+    audio_duration_ms = int(round(len(audio) * 1000 / _TARGET_SAMPLE_RATE))
+    return np.ascontiguousarray(audio, dtype=np.float32), audio_duration_ms
+
+
+def _ms_to_sample_index(timestamp_ms: int, sample_rate: int = _TARGET_SAMPLE_RATE) -> int:
+    return int(round(timestamp_ms * sample_rate / 1000))
+
+
+def _split_segments(
+    segments: Iterable[tuple[int, int]],
+    audio_duration_ms: int,
+    max_chunk_ms: int,
+) -> list[tuple[int, int]]:
+    expanded: list[tuple[int, int]] = []
+
+    for start_ms, end_ms in segments:
+        safe_start = max(0, int(start_ms))
+        safe_end = min(max(safe_start, int(end_ms)), audio_duration_ms)
+        if safe_end <= safe_start:
+            continue
+
+        current_start = safe_start
+        while current_start < safe_end:
+            current_end = min(safe_end, current_start + max_chunk_ms)
+            expanded.append((current_start, current_end))
+            current_start = current_end
+
+    return expanded
+
+
+def _default_segments(audio_duration_ms: int, max_chunk_ms: int) -> list[tuple[int, int]]:
+    return _split_segments([(0, audio_duration_ms)], audio_duration_ms, max_chunk_ms)
+
+
+def _merge_vad_segments(segments: list[tuple[int, int]], audio_duration_ms: int) -> list[tuple[int, int]]:
+    if not segments:
+        return []
+
+    ordered = sorted(
+        (
+            (max(0, int(start_ms)), min(audio_duration_ms, max(int(start_ms), int(end_ms))))
+            for start_ms, end_ms in segments
+        ),
+        key=lambda item: item[0],
+    )
+    merged: list[list[int]] = []
+
+    for start_ms, end_ms in ordered:
+        if end_ms <= start_ms:
+            continue
+
+        if not merged:
+            merged.append([start_ms, end_ms])
+            continue
+
+        previous = merged[-1]
+        gap_ms = start_ms - previous[1]
+        if gap_ms <= _VAD_MERGE_GAP_MS:
+            previous[1] = max(previous[1], end_ms)
+            continue
+
+        if previous[1] - previous[0] < _VAD_MIN_SEGMENT_MS:
+            previous[1] = max(previous[1], end_ms)
+            continue
+
+        merged.append([start_ms, end_ms])
+
+    if len(merged) >= 2 and merged[-1][1] - merged[-1][0] < _VAD_MIN_SEGMENT_MS:
+        merged[-2][1] = merged[-1][1]
+        merged.pop()
+
+    return [(start_ms, end_ms) for start_ms, end_ms in merged]
+
+
+def _pack_vad_guided_chunks(
+    segments: list[tuple[int, int]],
+    audio_duration_ms: int,
+    max_chunk_ms: int,
+) -> list[tuple[int, int]]:
+    if not segments:
+        return _default_segments(audio_duration_ms, max_chunk_ms)
+
+    merged_segments = _merge_vad_segments(segments, audio_duration_ms)
+    if not merged_segments:
+        return _default_segments(audio_duration_ms, max_chunk_ms)
+
+    packed: list[tuple[int, int]] = []
+    chunk_start = max(0, merged_segments[0][0] - _VAD_ALIGN_PADDING_MS)
+    chunk_end = min(audio_duration_ms, merged_segments[0][1] + _VAD_ALIGN_PADDING_MS)
+
+    for start_ms, end_ms in merged_segments[1:]:
+        padded_start = max(0, start_ms - _VAD_ALIGN_PADDING_MS)
+        padded_end = min(audio_duration_ms, end_ms + _VAD_ALIGN_PADDING_MS)
+        if padded_end - chunk_start <= max_chunk_ms:
+            chunk_end = padded_end
+            continue
+
+        packed.extend(_split_segments([(chunk_start, chunk_end)], audio_duration_ms, max_chunk_ms))
+        chunk_start = padded_start
+        chunk_end = padded_end
+
+    packed.extend(_split_segments([(chunk_start, chunk_end)], audio_duration_ms, max_chunk_ms))
+    return packed
+
+
+def _ensure_sherpa_vad_loaded() -> Any:
+    from lab.asr.sherpa.engine import get_sherpa_vad, load_sherpa_vad
+    from lab.config_manager import XnneHangLabSettings, load_settings_file
+
+    try:
+        return get_sherpa_vad()
+    except RuntimeError:
+        settings = load_settings_file("lab.toml", XnneHangLabSettings)
+        return load_sherpa_vad(Path(settings.asr.vad_model_path))
 
 
 def _extract_asr_text(raw_output: str) -> str:
-    """提取模型输出中的 ASR 文本主体。
-
-    Args:
-        raw_output: 模型原始输出。
-
-    Returns:
-        str: 去掉元信息后的识别文本。
-
-    Raises:
-        None.
-    """
     cleaned = raw_output.strip()
     if not cleaned:
         return ""
@@ -214,18 +264,21 @@ def _extract_asr_text(raw_output: str) -> str:
     return cleaned.strip()
 
 
+def _extract_asr_language(raw_output: str) -> str:
+    cleaned = raw_output.strip()
+    if "<asr_text>" not in cleaned:
+        return "Chinese"
+
+    meta_part = cleaned.split("<asr_text>", 1)[0]
+    match = re.search(r"language\s+([A-Za-z]+)", meta_part, flags=re.IGNORECASE)
+    if not match:
+        return "Chinese"
+
+    language = match.group(1).strip()
+    return language[:1].upper() + language[1:].lower()
+
+
 def _is_cjk_char(char: str) -> bool:
-    """判断字符是否属于中日韩表意文字。
-
-    Args:
-        char: 待判断字符。
-
-    Returns:
-        bool: 是否属于中日韩表意文字。
-
-    Raises:
-        None.
-    """
     code = ord(char)
     return (
         0x3400 <= code <= 0x4DBF or 0x4E00 <= code <= 0x9FFF or 0xF900 <= code <= 0xFAFF or 0x20000 <= code <= 0x2CEAF
@@ -233,26 +286,16 @@ def _is_cjk_char(char: str) -> bool:
 
 
 def _tokenize_asr_segment(segment: str) -> list[str]:
-    """将文本切成与 ASRResponse 兼容的 token 列表。
-
-    Args:
-        segment: 不含时间戳标签的文本片段。
-
-    Returns:
-        list[str]: 归一化后的 token 列表。
-
-    Raises:
-        None.
-    """
     tokens: list[str] = []
     buffer: list[str] = []
 
     def flush_buffer() -> None:
-        if buffer:
-            token = "".join(buffer).strip()
-            if token:
-                tokens.append(token)
-            buffer.clear()
+        if not buffer:
+            return
+        token = "".join(buffer).strip()
+        if token:
+            tokens.append(token)
+        buffer.clear()
 
     for char in segment:
         if char.isspace():
@@ -280,19 +323,6 @@ def _tokenize_asr_segment(segment: str) -> list[str]:
 
 
 def _distribute_token_timestamps(tokens: list[str], start_ms: int, end_ms: int) -> list[list[int]]:
-    """在时间区间内为 token 分配时间戳。
-
-    Args:
-        tokens: token 列表。
-        start_ms: 起始时间，单位毫秒。
-        end_ms: 结束时间，单位毫秒。
-
-    Returns:
-        list[list[int]]: `[[start, end], ...]` 时间戳列表。
-
-    Raises:
-        None.
-    """
     if not tokens:
         return []
 
@@ -314,18 +344,6 @@ def _distribute_token_timestamps(tokens: list[str], start_ms: int, end_ms: int) 
 
 
 def _build_fallback_response(text: str, audio_duration_ms: int) -> tuple[str, list[list[int]]]:
-    """在缺少原生时间戳时构造保底结果。
-
-    Args:
-        text: 识别文本。
-        audio_duration_ms: 音频总时长，单位毫秒。
-
-    Returns:
-        tuple[str, list[list[int]]]: 空格分隔文本和毫秒级时间戳。
-
-    Raises:
-        None.
-    """
     tokens = _tokenize_asr_segment(text)
     if not tokens:
         return "", []
@@ -336,18 +354,6 @@ def _build_fallback_response(text: str, audio_duration_ms: int) -> tuple[str, li
 
 
 def parse_qwen_asr_output(raw_output: str, audio_duration_ms: int) -> tuple[str, list[list[int]]]:
-    """解析带 `<|0.00|>` 标签的 Qwen3-ASR 文本输出。
-
-    Args:
-        raw_output: 模型原始输出文本。
-        audio_duration_ms: 音频总时长，单位毫秒。
-
-    Returns:
-        tuple[str, list[list[int]]]: 空格分隔文本和毫秒级时间戳。
-
-    Raises:
-        None.
-    """
     text_body = _extract_asr_text(raw_output)
     if not text_body:
         return "", []
@@ -389,266 +395,444 @@ def parse_qwen_asr_output(raw_output: str, audio_duration_ms: int) -> tuple[str,
     return " ".join(tokens), timestamps
 
 
-def _normalize_result_text(result: Any) -> str:
-    """从官方结果对象中提取文本。
-
-    Args:
-        result: `qwen-asr` 返回的单条结果对象。
-
-    Returns:
-        str: 识别文本。
-
-    Raises:
-        None.
-    """
-    for key in ("text", "transcript", "prediction"):
-        value = getattr(result, key, None)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    result_dict = cast("dict[str, Any] | None", result if isinstance(result, dict) else None)
-    if result_dict is not None:
-        for key in ("text", "transcript", "prediction"):
-            value = result_dict.get(key)
-            if isinstance(value, str) and value.strip():
-                return value.strip()
-    return ""
-
-
-def _extract_timestamp_span(item: Any) -> tuple[int, int] | None:
-    """从官方时间戳条目中提取起止毫秒。
-
-    Args:
-        item: 时间戳条目。
-
-    Returns:
-        tuple[int, int] | None: 起止毫秒；无法解析时返回 None。
-
-    Raises:
-        None.
-    """
-    start: Any = None
-    end: Any = None
-
-    item_dict = cast("dict[str, Any] | None", item if isinstance(item, dict) else None)
-    if item_dict is not None:
-        start = item_dict.get("start") or item_dict.get("start_time") or item_dict.get("begin")
-        end = item_dict.get("end") or item_dict.get("end_time") or item_dict.get("finish")
-    elif isinstance(item, list):
-        item_sequence = cast("list[Any]", item)
-        if len(item_sequence) < 2:
-            return None
-        start, end = item_sequence[0], item_sequence[1]
-    elif isinstance(item, tuple):
-        item_sequence = cast("tuple[Any, ...]", item)
-        if len(item_sequence) < 2:
-            return None
-        start, end = item_sequence[0], item_sequence[1]
-    else:
-        item_obj = cast("Any", item)
-        start = getattr(item_obj, "start", None) or getattr(item_obj, "start_time", None)
-        end = getattr(item_obj, "end", None) or getattr(item_obj, "end_time", None)
-
-    if start is None or end is None:
-        return None
-
+def _candidate_names(port: Any) -> set[str]:
+    names: set[str] = set()
     try:
-        start_value = float(start)
-        end_value = float(end)
-    except (TypeError, ValueError):
-        return None
+        names.update(str(name) for name in port.get_names())
+    except Exception:
+        pass
+    try:
+        names.add(str(port.get_any_name()))
+    except Exception:
+        pass
+    return {name for name in names if name}
 
-    # Official outputs are in seconds; tolerate ms-like integers just in case.
-    if start_value > 1000 or end_value > 1000:
-        start_ms = int(round(start_value))
-        end_ms = int(round(end_value))
+
+def _resolve_input_key(compiled_model: Any, preferred_names: Iterable[str], fallback_index: int) -> str | int:
+    preferred = set(preferred_names)
+    inputs = list(getattr(compiled_model, "inputs", []))
+
+    for port in inputs:
+        names = _candidate_names(port)
+        match = next((name for name in names if name in preferred), None)
+        if match is not None:
+            return match
+
+    if 0 <= fallback_index < len(inputs):
+        try:
+            return str(inputs[fallback_index].get_any_name())
+        except Exception:
+            return fallback_index
+
+    return fallback_index
+
+
+def _first_output(outputs: Any) -> np.ndarray:
+    if isinstance(outputs, dict):
+        values = outputs.values()
+    elif hasattr(outputs, "values"):
+        values = outputs.values()
     else:
-        start_ms = int(round(start_value * 1000))
-        end_ms = int(round(end_value * 1000))
+        raise RuntimeError(f"Unexpected OpenVINO output container: {type(outputs)!r}")
 
-    return start_ms, max(start_ms, end_ms)
+    first = next(iter(values), None)
+    if first is None:
+        raise RuntimeError("OpenVINO inference returned no outputs.")
+    return np.asarray(first)
 
 
-def _normalize_native_response(result: Any, audio_duration_ms: int) -> tuple[str, list[list[int]]]:
-    """将官方 `qwen-asr` 结果转换为项目标准输出。
+def _infer_compiled_model(compiled_model: Any, inputs: dict[str | int, np.ndarray]) -> np.ndarray:
+    return _first_output(compiled_model(inputs))
 
-    Args:
-        result: 官方推理结果对象。
-        audio_duration_ms: 音频总时长，单位毫秒。
 
-    Returns:
-        tuple[str, list[list[int]]]: 空格分隔文本和毫秒级时间戳。
+def _infer_request(request: Any, inputs: dict[str | int, np.ndarray]) -> np.ndarray:
+    return _first_output(request.infer(inputs))
 
-    Raises:
-        None.
-    """
-    text = _normalize_result_text(result)
-    if not text:
-        return "", []
 
-    raw_timestamps: Any = getattr(result, "time_stamps", None)
-    result_dict = cast("dict[str, Any] | None", result if isinstance(result, dict) else None)
-    if raw_timestamps is None and result_dict is not None:
-        raw_timestamps = result_dict.get("time_stamps") or result_dict.get("timestamps")
-    if raw_timestamps is not None and hasattr(raw_timestamps, "items"):
-        raw_timestamps = list(raw_timestamps.items)
+def _infer_request_outputs(request: Any, inputs: dict[str | int, np.ndarray]) -> list[Any]:
+    outputs = request.infer(inputs)
+    if isinstance(outputs, dict):
+        values = outputs.values()
+    elif hasattr(outputs, "values"):
+        values = outputs.values()
+    else:
+        raise RuntimeError(f"Unexpected OpenVINO output container: {type(outputs)!r}")
+    return list(values)
 
-    if not isinstance(raw_timestamps, list) or not raw_timestamps:
-        return _build_fallback_response(text, audio_duration_ms)
-    raw_timestamp_items = cast("list[Any]", raw_timestamps)
 
+def _aligner_token_timestamps(
+    aligned_items: list[dict[str, float | str]],
+    start_ms: int,
+) -> tuple[list[str], list[list[int]]]:
     tokens: list[str] = []
     timestamps: list[list[int]] = []
-    whole_text_tokens = _tokenize_asr_segment(text)
 
-    for item in raw_timestamp_items:
-        span = _extract_timestamp_span(item)
-        item_text = ""
-        item_dict = cast("dict[str, Any] | None", item if isinstance(item, dict) else None)
-        if item_dict is not None:
-            item_text = str(item_dict.get("text", "")).strip()
-        else:
-            item_text = str(getattr(cast("Any", item), "text", "")).strip()
-
-        if span is None:
+    for item in aligned_items:
+        token = str(item["text"]).strip()
+        if not token:
             continue
 
-        start_ms, end_ms = span
-        item_tokens = _tokenize_asr_segment(item_text) if item_text else []
-        if not item_tokens:
-            continue
+        token_start = start_ms + int(round(float(item["start_time"]) * 1000))
+        token_end = start_ms + int(round(float(item["end_time"]) * 1000))
+        tokens.append(token)
+        timestamps.append([token_start, max(token_start, token_end)])
 
-        tokens.extend(item_tokens)
-        timestamps.extend(_distribute_token_timestamps(item_tokens, start_ms, end_ms))
-
-    if tokens and len(tokens) == len(timestamps):
-        return " ".join(tokens), timestamps
-
-    if whole_text_tokens:
-        return _build_fallback_response(text, audio_duration_ms)
-
-    return "", []
+    return tokens, timestamps
 
 
 class QwenASREngine:
-    """Qwen3-ASR 推理引擎。
-
-    Args:
-        model_path: 本地模型目录路径。
-        device: 推理设备，支持 `cpu` 或 `cuda`。
-        forced_aligner_path: 可选的 Forced Aligner 模型路径。
-    """
-
-    def __init__(self, model_path: str, device: str = "cpu", forced_aligner_path: str | None = None) -> None:
-        """初始化 Qwen3-ASR 推理引擎。
-
-        Args:
-            model_path: 本地模型目录路径。
-            device: 推理设备。
-            forced_aligner_path: 可选的 Forced Aligner 模型路径。
-
-        Returns:
-            None.
-
-        Raises:
-            RuntimeError: 模型或依赖加载失败时抛出。
-        """
-        self.model_path = _resolve_model_path(model_path)
+    def __init__(
+        self,
+        model_dir: str,
+        device: str = "CPU",
+        cpu_threads: int = 0,
+        forced_aligner_path: str | None = None,
+        forced_aligner_device: str = "cpu",
+    ) -> None:
+        self.model_dir = _resolve_model_path(model_dir)
         self.device = _normalize_device(device)
-        self.forced_aligner_path = _resolve_optional_path(forced_aligner_path)
+        self.cpu_threads = _normalize_cpu_threads(cpu_threads)
+        self.forced_aligner_path = forced_aligner_path or ""
+        self.forced_aligner_device = forced_aligner_device.strip() or "cpu"
         self._lock = Lock()
-        self._torch = _import_torch()
-        qwen_asr_model_cls = _import_qwen_asr()
+        self._max_tokens = 300
+        self._max_chunk_ms = _MAX_CHUNK_MS
 
-        load_kwargs: dict[str, Any] = {}
-        load_attempts: list[dict[str, Any]]
-        if self.forced_aligner_path:
-            load_kwargs["forced_aligner"] = self.forced_aligner_path
-            load_attempts = [
-                {"device_map": self.device, "forced_aligner_kwargs": {"device_map": self.device}},
-                {"device_map": self.device, "forced_aligner_kwargs": {}},
-                {"forced_aligner_kwargs": {}},
-            ]
+        self._core: Any = None
+        self._audio_encoder_model: Any = None
+        self._thinker_embeddings_model: Any = None
+        self._decoder_model: Any = None
+        self._decoder_prefill_model: Any = None
+        self._decoder_kv_model: Any = None
+        self._decoder_request: Any = None
+        self._decoder_prefill_request: Any = None
+        self._decoder_kv_request: Any = None
+        self._processor: LightProcessor | None = None
+        self._use_split_decoder = False
+        self._audio_encoder_input: str | int = 0
+        self._audio_encoder_rank = 3
+        self._thinker_input: str | int = 0
+        self._decoder_embedding_input: str | int = 0
+        self._decoder_position_input: str | int = "position_ids"
+        self._decoder_prefill_embedding_input: str | int = 0
+        self._decoder_prefill_position_input: str | int = 1
+        self._decoder_kv_embedding_input: str | int = 0
+        self._decoder_kv_position_input: str | int = 1
+        self._decoder_kv_past_keys_input: str | int = 2
+        self._decoder_kv_past_values_input: str | int = 3
+        self._forced_aligner: ForcedAlignerEngine | None = None
+
+        self._vad_engine = _ensure_sherpa_vad_loaded()
+        self.load()
+
+    def load(self) -> None:
+        ov = _import_openvino()
+
+        model_path = Path(self.model_dir)
+        _validate_model_dir(model_path)
+
+        cpu_config: dict[str, str] = {}
+        if self.device == "CPU":
+            cpu_config["PERFORMANCE_HINT"] = "LATENCY"
+            cpu_config["ENABLE_HYPER_THREADING"] = "YES"
+            if self.cpu_threads > 0:
+                cpu_config["INFERENCE_NUM_THREADS"] = str(self.cpu_threads)
+
+        self._core = ov.Core()
+        self._audio_encoder_model = self._core.compile_model(
+            str(model_path / "audio_encoder_model.xml"),
+            self.device,
+            cpu_config,
+        )
+        self._thinker_embeddings_model = self._core.compile_model(
+            str(model_path / "thinker_embeddings_model.xml"),
+            self.device,
+            cpu_config,
+        )
+        self._processor = LightProcessor(model_path)
+        self._max_chunk_ms = min(_MAX_CHUNK_MS, self._processor.max_audio_ms)
+        self._use_split_decoder = (model_path / "decoder_prefill_kv_model.xml").exists() and (
+            model_path / "decoder_kv_model.xml"
+        ).exists()
+
+        if self._use_split_decoder:
+            self._decoder_prefill_model = self._core.compile_model(
+                str(model_path / "decoder_prefill_kv_model.xml"),
+                self.device,
+                cpu_config,
+            )
+            self._decoder_kv_model = self._core.compile_model(
+                str(model_path / "decoder_kv_model.xml"),
+                self.device,
+                cpu_config,
+            )
+            self._decoder_prefill_request = self._decoder_prefill_model.create_infer_request()
+            self._decoder_kv_request = self._decoder_kv_model.create_infer_request()
         else:
-            load_attempts = [
-                {"device_map": self.device},
-                {},
-            ]
+            self._decoder_model = self._core.compile_model(
+                str(model_path / "decoder_model.xml"),
+                self.device,
+                cpu_config,
+            )
+            self._decoder_request = self._decoder_model.create_infer_request()
 
-        last_exc: Exception | None = None
-        for extra_kwargs in load_attempts:
-            try:
-                self._model = qwen_asr_model_cls.from_pretrained(
-                    self.model_path,
-                    **load_kwargs,
-                    **extra_kwargs,
+        self._audio_encoder_input = _resolve_input_key(self._audio_encoder_model, ("mel",), 0)
+        try:
+            self._audio_encoder_rank = len(self._audio_encoder_model.inputs[0].partial_shape)
+        except Exception:
+            self._audio_encoder_rank = 3
+        self._thinker_input = _resolve_input_key(self._thinker_embeddings_model, ("input_ids",), 0)
+        if self._use_split_decoder:
+            self._decoder_prefill_embedding_input = _resolve_input_key(
+                self._decoder_prefill_model,
+                ("inputs_embeds", "input_embeds", "hidden_states", "new_embed"),
+                0,
+            )
+            self._decoder_prefill_position_input = _resolve_input_key(self._decoder_prefill_model, ("position_ids",), 1)
+            self._decoder_kv_embedding_input = _resolve_input_key(
+                self._decoder_kv_model,
+                ("new_embed", "inputs_embeds", "input_embeds", "hidden_states"),
+                0,
+            )
+            self._decoder_kv_position_input = _resolve_input_key(self._decoder_kv_model, ("new_pos", "position_ids"), 1)
+            self._decoder_kv_past_keys_input = _resolve_input_key(self._decoder_kv_model, ("past_keys",), 2)
+            self._decoder_kv_past_values_input = _resolve_input_key(self._decoder_kv_model, ("past_values",), 3)
+        else:
+            self._decoder_embedding_input = _resolve_input_key(
+                self._decoder_model,
+                ("inputs_embeds", "input_embeds", "hidden_states"),
+                0,
+            )
+            self._decoder_position_input = _resolve_input_key(self._decoder_model, ("position_ids",), 1)
+
+        self._forced_aligner = None
+        aligner_path = self.forced_aligner_path.strip()
+        if aligner_path:
+            resolved_aligner_path = Path(aligner_path).expanduser().resolve()
+            if resolved_aligner_path.exists():
+                self._forced_aligner = load_forced_aligner(str(resolved_aligner_path), self.forced_aligner_device)
+            else:
+                logger.warning(  # pyright: ignore[reportUnknownMemberType]
+                    f"Qwen3-ForcedAligner path does not exist, fallback timestamps will be used: {resolved_aligner_path}"
                 )
-                break
-            except TypeError as exc:
-                if "device_map" not in str(exc):
-                    raise
-                last_exc = exc
-                continue
-            except Exception as exc:
-                raise RuntimeError(f"Failed to load Qwen3-ASR model from {self.model_path}") from exc
-        else:
-            raise RuntimeError("Failed to initialize Qwen3-ASR with the available loader signatures.") from last_exc
+
+    def _transcribe_chunk(self, audio: np.ndarray) -> str:
+        if self._processor is None:
+            raise RuntimeError("Qwen3-ASR engine is not initialized.")
+
+        with self._lock:
+            mel, input_ids = self._processor.prepare(audio)
+            mel_input = mel
+            if self._audio_encoder_rank == 2 and mel.ndim == 3:
+                mel_input = mel[0]
+
+            audio_embeddings = _infer_compiled_model(
+                self._audio_encoder_model,
+                {self._audio_encoder_input: mel_input},
+            )
+            text_embeddings = _infer_compiled_model(
+                self._thinker_embeddings_model,
+                {self._thinker_input: input_ids},
+            )
+
+            combined_embeddings = np.array(text_embeddings, copy=True)
+            audio_pad_mask = input_ids[0] == self._processor.pad_id
+            audio_pad_indices = np.flatnonzero(audio_pad_mask)
+            audio_token_count = int(audio_embeddings.shape[1])
+            fill_count = min(len(audio_pad_indices), audio_token_count)
+            if fill_count > 0:
+                combined_embeddings[0, audio_pad_indices[:fill_count], :] = audio_embeddings[0, :fill_count, :]
+
+            prompt_length = int(combined_embeddings.shape[1])
+            position_ids = np.arange(prompt_length, dtype=np.int64)[np.newaxis, :]
+            eos_id = self._processor.eos_id
+            eot_id = self._processor.eot_id
+            generated_ids: list[int] = []
+
+            if self._use_split_decoder:
+                if self._decoder_prefill_request is None or self._decoder_kv_request is None:
+                    raise RuntimeError("Qwen3-ASR split decoder models are not initialized.")
+
+                prefill_outputs = _infer_request_outputs(
+                    self._decoder_prefill_request,
+                    {
+                        self._decoder_prefill_embedding_input: combined_embeddings,
+                        self._decoder_prefill_position_input: position_ids,
+                    },
+                )
+                logits = prefill_outputs[0]
+                past_keys = prefill_outputs[1]
+                past_values = prefill_outputs[2]
+                next_token_id = int(np.argmax(logits[0, -1, :]))
+                current_position = prompt_length
+
+                while next_token_id not in {eos_id, eot_id} and len(generated_ids) < self._max_tokens:
+                    generated_ids.append(next_token_id)
+                    next_embedding = _infer_compiled_model(
+                        self._thinker_embeddings_model,
+                        {
+                            self._thinker_input: np.array([[next_token_id]], dtype=np.int64),
+                        },
+                    )
+                    decode_outputs = _infer_request_outputs(
+                        self._decoder_kv_request,
+                        {
+                            self._decoder_kv_embedding_input: next_embedding,
+                            self._decoder_kv_position_input: np.array([[current_position]], dtype=np.int64),
+                            self._decoder_kv_past_keys_input: past_keys,
+                            self._decoder_kv_past_values_input: past_values,
+                        },
+                    )
+                    logits = decode_outputs[0]
+                    past_keys = decode_outputs[1]
+                    past_values = decode_outputs[2]
+                    next_token_id = int(np.argmax(logits[0, -1, :]))
+                    current_position += 1
+            else:
+                if self._decoder_request is None:
+                    raise RuntimeError("Qwen3-ASR decoder request is not initialized.")
+
+                self._decoder_request.reset_state()
+                logits = _infer_request(
+                    self._decoder_request,
+                    {
+                        self._decoder_embedding_input: combined_embeddings,
+                        self._decoder_position_input: position_ids,
+                    },
+                )
+                next_token_id = int(np.argmax(logits[0, -1, :]))
+                current_position = prompt_length
+
+                while next_token_id not in {eos_id, eot_id} and len(generated_ids) < self._max_tokens:
+                    generated_ids.append(next_token_id)
+                    next_embedding = _infer_compiled_model(
+                        self._thinker_embeddings_model,
+                        {
+                            self._thinker_input: np.array([[next_token_id]], dtype=np.int64),
+                        },
+                    )
+                    logits = _infer_request(
+                        self._decoder_request,
+                        {
+                            self._decoder_embedding_input: next_embedding,
+                            self._decoder_position_input: np.array([[current_position]], dtype=np.int64),
+                        },
+                    )
+                    next_token_id = int(np.argmax(logits[0, -1, :]))
+                    current_position += 1
+
+            return self._processor.decode(generated_ids)
 
     def transcribe(self, audio_path: Path) -> ASRResponse:
-        """对音频执行 ASR 推理。
-
-        Args:
-            audio_path: 输入音频文件路径。
-
-        Returns:
-            ASRResponse: 包含 `key`、`text`、`timestamp` 的识别结果。
-
-        Raises:
-            FileNotFoundError: 音频文件不存在时抛出。
-            RuntimeError: 推理失败时抛出。
-        """
         if not audio_path.exists():
             raise FileNotFoundError(f"Audio file not found: {audio_path}")
 
-        audio_input = _prepare_audio_input(audio_path)
+        total_start = time.perf_counter()
+        decode_audio_start = time.perf_counter()
+        audio, audio_duration_ms = _load_audio(audio_path)
+        decode_audio_sec = time.perf_counter() - decode_audio_start
+        segment_candidates: list[tuple[int, int]] = []
+        vad_sec = 0.0
 
-        with self._lock:
+        if audio_duration_ms > self._max_chunk_ms:
+            vad_start = time.perf_counter()
             try:
-                results = self._model.transcribe(
-                    audio=audio_input,
-                    return_time_stamps=bool(self.forced_aligner_path),
-                )
-            except TypeError as exc:
-                if "audio" not in str(exc):
-                    raise
-                try:
-                    results = self._model.transcribe(
-                        audio_input,
-                        return_time_stamps=bool(self.forced_aligner_path),
-                    )
-                except Exception as exc:
-                    logger.exception(f"Qwen3-ASR transcribe failed for {audio_path}")  # pyright: ignore[reportUnknownMemberType]
-                    raise RuntimeError(f"Failed to transcribe audio with Qwen3-ASR: {audio_path}") from exc
-            except Exception as exc:
-                logger.exception(f"Qwen3-ASR transcribe failed for {audio_path}")  # pyright: ignore[reportUnknownMemberType]
-                raise RuntimeError(f"Failed to transcribe audio with Qwen3-ASR: {audio_path}") from exc
+                vad_result = self._vad_engine.detect(audio_path)
+                vad_timestamps = cast("list[list[int]]", vad_result.get("timestamp", []))
+                segment_candidates = [
+                    (int(segment[0]), int(segment[1])) for segment in vad_timestamps if len(segment) >= 2
+                ]
+            except Exception:
+                logger.exception(f"Qwen3-ASR VAD pre-segmentation failed for {audio_path}")  # pyright: ignore[reportUnknownMemberType]
+            finally:
+                vad_sec = time.perf_counter() - vad_start
 
-        if not isinstance(results, list) or not results:
-            raise RuntimeError(f"Qwen3-ASR returned an empty response for: {audio_path}")
-
-        result = cast("Any", results[0])
-        audio_duration_ms = 0
-        result_dict = cast("dict[str, Any] | None", result if isinstance(result, dict) else None)
-        if result_dict is not None:
-            duration_value = result_dict.get("audio_duration") or result_dict.get("duration")
+        chunking_start = time.perf_counter()
+        if audio_duration_ms <= self._max_chunk_ms:
+            segments = _default_segments(audio_duration_ms, self._max_chunk_ms)
+        elif segment_candidates:
+            segments = _pack_vad_guided_chunks(segment_candidates, audio_duration_ms, self._max_chunk_ms)
         else:
-            result_obj = cast("Any", result)
-            duration_value = getattr(result_obj, "audio_duration", None) or getattr(result_obj, "duration", None)
-        if isinstance(duration_value, (int, float)):
-            audio_duration_ms = int(
-                round(float(duration_value) * 1000 if float(duration_value) <= 1000 else float(duration_value))
-            )
+            segments = _default_segments(audio_duration_ms, self._max_chunk_ms)
+        chunking_sec = time.perf_counter() - chunking_start
 
-        text, timestamps = _normalize_native_response(result, audio_duration_ms=audio_duration_ms)
+        if segments:
+            preview = ", ".join(f"[{start},{end}]" for start, end in segments[:8])
+            if len(segments) > 8:
+                preview = f"{preview}, ..."
+            logger.info(  # pyright: ignore[reportUnknownMemberType]
+                f"Qwen3-ASR chunks for {audio_path.name}: count={len(segments)}, preview={preview}"
+            )
+        else:
+            logger.info(f"Qwen3-ASR chunks for {audio_path.name}: count=0")  # pyright: ignore[reportUnknownMemberType]
+
+        tokens: list[str] = []
+        timestamps: list[list[int]] = []
+        asr_sec = 0.0
+        aligner_sec = 0.0
+        aligned_chunk_count = 0
+
+        try:
+            for start_ms, end_ms in segments:
+                start_index = _ms_to_sample_index(start_ms)
+                end_index = min(len(audio), _ms_to_sample_index(end_ms))
+                if end_index <= start_index:
+                    continue
+
+                chunk = np.ascontiguousarray(audio[start_index:end_index], dtype=np.float32)
+                asr_start = time.perf_counter()
+                raw_output = self._transcribe_chunk(chunk)
+                asr_sec += time.perf_counter() - asr_start
+                chunk_text = _extract_asr_text(raw_output)
+                chunk_language = _extract_asr_language(raw_output)
+                chunk_tokens = _tokenize_asr_segment(chunk_text)
+                if not chunk_tokens:
+                    continue
+
+                if self._forced_aligner is not None and self._forced_aligner.supports_language(chunk_language):
+                    aligner_start = time.perf_counter()
+                    try:
+                        aligned_items = self._forced_aligner.align(
+                            (chunk, _TARGET_SAMPLE_RATE),
+                            chunk_text,
+                            chunk_language,
+                        )
+                    except Exception:
+                        logger.exception(
+                            f"Qwen3-ForcedAligner failed for {audio_path.name} chunk {start_ms}-{end_ms}; using fallback timestamps."
+                        )  # pyright: ignore[reportUnknownMemberType]
+                        aligned_items = []
+                    finally:
+                        aligner_sec += time.perf_counter() - aligner_start
+
+                    if aligned_items:
+                        aligned_tokens, aligned_timestamps = _aligner_token_timestamps(aligned_items, start_ms)
+                        if aligned_tokens and len(aligned_tokens) == len(aligned_timestamps):
+                            tokens.extend(aligned_tokens)
+                            timestamps.extend(aligned_timestamps)
+                            aligned_chunk_count += 1
+                            continue
+
+                tokens.extend(chunk_tokens)
+        except Exception as exc:
+            logger.exception(f"Qwen3-ASR OpenVINO transcribe failed for {audio_path}")  # pyright: ignore[reportUnknownMemberType]
+            raise RuntimeError(f"Failed to transcribe audio with Qwen3-ASR OpenVINO: {audio_path}") from exc
+
+        text = " ".join(tokens)
+        total_sec = time.perf_counter() - total_start
+        logger.info(  # pyright: ignore[reportUnknownMemberType]
+            f"Qwen3-ASR timing for {audio_path.name}: "
+            f"decode_audio={decode_audio_sec:.3f}s "
+            f"vad={vad_sec:.3f}s "
+            f"chunking={chunking_sec:.3f}s "
+            f"asr={asr_sec:.3f}s "
+            f"aligner={aligner_sec:.3f}s "
+            f"total={total_sec:.3f}s "
+            f"chunks={len(segments)} "
+            f"aligned_chunks={aligned_chunk_count} "
+            f"tokens={len(tokens)} "
+            f"timestamps={len(timestamps)}"
+        )
         return {
             "key": audio_path.stem,
             "text": text,
@@ -656,92 +840,91 @@ class QwenASREngine:
         }
 
 
-def load_qwen_asr(model_path: str, device: str, forced_aligner_path: str | None = None) -> QwenASREngine:
-    """加载或返回缓存的 Qwen3-ASR 引擎。
-
-    Args:
-        model_path: 本地模型目录路径。
-        device: 推理设备。
-        forced_aligner_path: 可选的 Forced Aligner 模型路径。
-
-    Returns:
-        QwenASREngine: 已初始化的引擎实例。
-
-    Raises:
-        RuntimeError: 引擎初始化失败时抛出。
-    """
+def load_qwen_asr(
+    model_path: str,
+    device: str,
+    cpu_threads: int = 0,
+    forced_aligner_path: str | None = None,
+    forced_aligner_device: str = "cpu",
+) -> QwenASREngine:
     resolved_model_path = _resolve_model_path(model_path)
-    resolved_aligner_path = _resolve_optional_path(forced_aligner_path)
     normalized_device = _normalize_device(device)
-    cache_key = (resolved_model_path, resolved_aligner_path, normalized_device)
+    normalized_cpu_threads = _normalize_cpu_threads(cpu_threads)
+    normalized_aligner_path = str(Path(forced_aligner_path).expanduser().resolve()) if forced_aligner_path else ""
+    normalized_aligner_device = forced_aligner_device.strip().lower() or "cpu"
+    cache_key = (
+        resolved_model_path,
+        normalized_device,
+        normalized_cpu_threads,
+        normalized_aligner_path,
+        normalized_aligner_device,
+    )
     engine = _qwen_asr_engines.get(cache_key)
     if engine is None:
         engine = QwenASREngine(
-            model_path=resolved_model_path,
+            model_dir=resolved_model_path,
             device=normalized_device,
-            forced_aligner_path=resolved_aligner_path or None,
+            cpu_threads=normalized_cpu_threads,
+            forced_aligner_path=normalized_aligner_path or None,
+            forced_aligner_device=normalized_aligner_device,
         )
         _qwen_asr_engines[cache_key] = engine
     return engine
 
 
-def get_qwen_asr(model_path: str, device: str, forced_aligner_path: str | None = None) -> QwenASREngine:
-    """获取已加载的 Qwen3-ASR 引擎。
-
-    Args:
-        model_path: 本地模型目录路径。
-        device: 推理设备。
-        forced_aligner_path: 可选的 Forced Aligner 模型路径。
-
-    Returns:
-        QwenASREngine: 已初始化的引擎实例。
-
-    Raises:
-        RuntimeError: 指定引擎尚未加载时抛出。
-    """
+def get_qwen_asr(
+    model_path: str,
+    device: str,
+    cpu_threads: int = 0,
+    forced_aligner_path: str | None = None,
+    forced_aligner_device: str = "cpu",
+) -> QwenASREngine:
     resolved_model_path = _resolve_model_path(model_path)
-    resolved_aligner_path = _resolve_optional_path(forced_aligner_path)
     normalized_device = _normalize_device(device)
-    cache_key = (resolved_model_path, resolved_aligner_path, normalized_device)
+    normalized_cpu_threads = _normalize_cpu_threads(cpu_threads)
+    normalized_aligner_path = str(Path(forced_aligner_path).expanduser().resolve()) if forced_aligner_path else ""
+    normalized_aligner_device = forced_aligner_device.strip().lower() or "cpu"
+    cache_key = (
+        resolved_model_path,
+        normalized_device,
+        normalized_cpu_threads,
+        normalized_aligner_path,
+        normalized_aligner_device,
+    )
     engine = _qwen_asr_engines.get(cache_key)
     if engine is None:
         raise RuntimeError(
             "Qwen3-ASR engine is not loaded: "
-            f"model_path={resolved_model_path}, forced_aligner_path={resolved_aligner_path or 'None'}, device={normalized_device}."
+            f"model_path={resolved_model_path}, device={normalized_device}, cpu_threads={normalized_cpu_threads}, "
+            f"forced_aligner_path={normalized_aligner_path}, forced_aligner_device={normalized_aligner_device}."
         )
     return engine
 
 
 def reset_qwen_asr_engine(
-    model_path: str | None = None, device: str | None = None, forced_aligner_path: str | None = None
+    model_path: str | None = None,
+    device: str | None = None,
+    cpu_threads: int = 0,
+    forced_aligner_path: str | None = None,
+    forced_aligner_device: str = "cpu",
 ) -> None:
-    """重置 Qwen3-ASR 引擎缓存。
-
-    Args:
-        model_path: 指定模型路径；为 `None` 时清空全部缓存。
-        device: 指定设备；仅在 `model_path` 也提供时生效。
-        forced_aligner_path: 指定 Forced Aligner 路径。
-
-    Returns:
-        None.
-
-    Raises:
-        None.
-    """
     if model_path is None:
         _qwen_asr_engines.clear()
     else:
         resolved_model_path = _resolve_model_path(model_path)
-        resolved_aligner_path = _resolve_optional_path(forced_aligner_path)
-        normalized_device = _normalize_device(device or "cpu")
-        _qwen_asr_engines.pop((resolved_model_path, resolved_aligner_path, normalized_device), None)
+        normalized_device = _normalize_device(device or "CPU")
+        normalized_cpu_threads = _normalize_cpu_threads(cpu_threads)
+        normalized_aligner_path = str(Path(forced_aligner_path).expanduser().resolve()) if forced_aligner_path else ""
+        normalized_aligner_device = forced_aligner_device.strip().lower() or "cpu"
+        _qwen_asr_engines.pop(
+            (
+                resolved_model_path,
+                normalized_device,
+                normalized_cpu_threads,
+                normalized_aligner_path,
+                normalized_aligner_device,
+            ),
+            None,
+        )
 
     gc.collect()
-
-    try:
-        torch = _import_torch()
-    except RuntimeError:
-        return
-
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()

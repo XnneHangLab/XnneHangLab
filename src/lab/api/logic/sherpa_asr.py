@@ -33,7 +33,7 @@ def load_sherpa_asr() -> None:
         model_dir=Path(sherpa_settings.asr_model_dir),
         num_threads=sherpa_settings.num_threads,
     )
-    load_sherpa_vad(vad_model_path=Path(sherpa_settings.vad_model_path))
+    load_sherpa_vad(vad_model_path=Path(lab_settings.asr.vad_model_path))
 
 
 def sherpa_asr_audio(input_path: Path) -> dict[str, Any]:

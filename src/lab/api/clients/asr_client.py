@@ -49,6 +49,11 @@ class ASRResponseModel(BaseResponse):
 
 class ASRClient(BaseClientInterface):
     @staticmethod
+    def _can_convert_to_sentences(asr_response: ASRResponse) -> bool:
+        words = [word for word in asr_response["text"].split(" ") if word]
+        return bool(words) and len(words) == len(asr_response["timestamp"])
+
+    @staticmethod
     def _format_qwen_route_model(model_name: str) -> str:
         """将 Qwen 模型名格式化为路由要求的大小写。
 
@@ -172,6 +177,13 @@ class ASRClient(BaseClientInterface):
 
         try:
             asr_response: ASRResponse = ASRResponseModel.model_validate(payload).to_dict()
+            if not self._can_convert_to_sentences(asr_response):
+                self.last_error = (
+                    "ASR response does not contain sentence-convertible timestamps. "
+                    "Qwen-ASR OpenVINO requires ForcedAligner to generate subtitles."
+                )
+                _asr_logger.error(f"{self.last_error}: {payload}")
+                return None
             sentences = convert_asr_response_to_sentences(asr_response)
             if not sentences:
                 self.last_error = "ASR returned no sentences."
