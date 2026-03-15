@@ -98,6 +98,26 @@ def validate_config(settings: XnneHangLabSettings) -> None:
         if not chat_profile_path.exists():
             errors.append(f"  [agent.memory_chat_profile]\n    文件不存在: {chat_profile_path}\n    → 检查路径是否正确")
 
+    from lab.api.logic.llm_translate import resolve_llm_translate_model_path
+
+    deeplx_api_key = settings.agent.deeplx_api_key.strip()
+    llm_translate_model_path = resolve_llm_translate_model_path(settings)
+    llm_translate_model_exists = llm_translate_model_path is not None and llm_translate_model_path.exists()
+    if not deeplx_api_key and not llm_translate_model_exists:
+        configured_model_text = (
+            str(llm_translate_model_path)
+            if llm_translate_model_path is not None
+            else "<agent.llm_translate_model_path is empty>"
+        )
+        errors.append(
+            "  [translate]\n"
+            "    没有可用的翻译模型\n"
+            "    deeplx_api_key 为空，且本地 GGUF 模型不存在\n"
+            f"    当前 llm_translate_model_path: {configured_model_text}\n"
+            "    → 请配置 [agent].deeplx_api_key，或设置有效的 [agent].llm_translate_model_path，"
+            "或运行 `just install-llm-translate`"
+        )
+
     if errors:
         logger.error("❌ 配置校验失败，请修复以下问题后重启：\n\n{}", "\n\n".join(errors))
         sys.exit(1)

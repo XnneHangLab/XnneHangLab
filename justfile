@@ -449,7 +449,7 @@ mem0-run-real-time:
 
 # -- Local LLM translation ----------------------------------------------------
 
-download-llm-translate:
+install-llm-translate:
   uv run modelscope download --model Qwen/Qwen2.5-0.5B-Instruct-GGUF qwen2.5-0.5b-instruct-q8_0.gguf --local_dir ./models
 
 test-llm-translate server='http://127.0.0.1:12393':
