@@ -1,4 +1,4 @@
-conf_version = "v1.5.2"
+conf_version = "v1.5.3"
 
 [asr]
 FFMPEG_PATH = "ffmpeg"
