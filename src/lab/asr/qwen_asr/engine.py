@@ -545,16 +545,25 @@ class QwenASREngine:
         model_path = Path(self.model_dir)
         _validate_model_dir(model_path)
 
+        self._core = ov.Core()
+        self._core.set_property({props.cache_dir: str(model_path / ".ov_cache")})
+
         cpu_config: dict[str, str] = {}
         if self.device == "CPU":
+            supported_cpu_properties = self._core.get_property(self.device, "SUPPORTED_PROPERTIES")
+            if hasattr(supported_cpu_properties, "keys"):
+                supported_cpu_property_names = set(supported_cpu_properties.keys())
+            else:
+                supported_cpu_property_names = set(supported_cpu_properties)
             cpu_config["PERFORMANCE_HINT"] = "LATENCY"
             cpu_config["ENABLE_HYPER_THREADING"] = "YES"
-            cpu_config["CPU_BIND_THREAD"] = "YES"
+            if "CPU_BIND_THREAD" in supported_cpu_property_names:
+                cpu_config["CPU_BIND_THREAD"] = "YES"
+            elif "ENABLE_CPU_PINNING" in supported_cpu_property_names:
+                cpu_config["ENABLE_CPU_PINNING"] = "YES"
             if self.cpu_threads > 0:
                 cpu_config["INFERENCE_NUM_THREADS"] = str(self.cpu_threads)
 
-        self._core = ov.Core()
-        self._core.set_property({props.cache_dir: str(model_path / ".ov_cache")})
         self._audio_encoder_model = self._core.compile_model(
             str(model_path / "audio_encoder_model.xml"),
             self.device,
