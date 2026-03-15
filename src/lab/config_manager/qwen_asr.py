@@ -35,6 +35,6 @@ class QwenASRSettings(BaseModel):
     cpu_threads: Annotated[int, Field(0, ge=0, title="OpenVINO CPU threads")]
     forced_aligner_path: Annotated[
         str,
-        Field("", title="Qwen3-ForcedAligner model path (empty = disabled)"),
+        Field("./models/Qwen3-ForcedAligner-0.6B", title="Qwen3-ForcedAligner model path (empty = disabled)"),
     ]
     forced_aligner_device: Annotated[str, Field("cpu", title="ForcedAligner device")]
