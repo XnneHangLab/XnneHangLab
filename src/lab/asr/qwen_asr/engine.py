@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, cast
 import numpy as np
 from loguru import logger  # pyright: ignore[reportMissingImports,reportUnknownVariableType]
 
+from .forced_aligner import ForcedAlignerEngine, load_forced_aligner
 from .processor import LightProcessor
 
 if TYPE_CHECKING:
@@ -22,7 +23,7 @@ if TYPE_CHECKING:
 
 logger = cast("Any", logger)
 
-_qwen_asr_engines: dict[tuple[str, str, int], QwenASREngine] = {}
+_qwen_asr_engines: dict[tuple[str, str, int, str, str], QwenASREngine] = {}
 _TIMESTAMP_PATTERN = re.compile(r"<\|(\d+(?:\.\d+)?)\|>")
 _TARGET_SAMPLE_RATE = 16_000
 _MAX_CHUNK_MS = 30_000
@@ -260,6 +261,20 @@ def _extract_asr_text(raw_output: str) -> str:
     return cleaned.strip()
 
 
+def _extract_asr_language(raw_output: str) -> str:
+    cleaned = raw_output.strip()
+    if "<asr_text>" not in cleaned:
+        return "Chinese"
+
+    meta_part = cleaned.split("<asr_text>", 1)[0]
+    match = re.search(r"language\s+([A-Za-z]+)", meta_part, flags=re.IGNORECASE)
+    if not match:
+        return "Chinese"
+
+    language = match.group(1).strip()
+    return language[:1].upper() + language[1:].lower()
+
+
 def _is_cjk_char(char: str) -> bool:
     code = ord(char)
     return (
@@ -442,11 +457,40 @@ def _infer_request_outputs(request: Any, inputs: dict[str | int, np.ndarray]) ->
     return list(values)
 
 
+def _aligner_token_timestamps(
+    aligned_items: list[dict[str, float | str]],
+    start_ms: int,
+) -> tuple[list[str], list[list[int]]]:
+    tokens: list[str] = []
+    timestamps: list[list[int]] = []
+
+    for item in aligned_items:
+        token = str(item["text"]).strip()
+        if not token:
+            continue
+
+        token_start = start_ms + int(round(float(item["start_time"]) * 1000))
+        token_end = start_ms + int(round(float(item["end_time"]) * 1000))
+        tokens.append(token)
+        timestamps.append([token_start, max(token_start, token_end)])
+
+    return tokens, timestamps
+
+
 class QwenASREngine:
-    def __init__(self, model_dir: str, device: str = "CPU", cpu_threads: int = 0) -> None:
+    def __init__(
+        self,
+        model_dir: str,
+        device: str = "CPU",
+        cpu_threads: int = 0,
+        forced_aligner_path: str | None = None,
+        forced_aligner_device: str = "cpu",
+    ) -> None:
         self.model_dir = _resolve_model_path(model_dir)
         self.device = _normalize_device(device)
         self.cpu_threads = _normalize_cpu_threads(cpu_threads)
+        self.forced_aligner_path = forced_aligner_path or ""
+        self.forced_aligner_device = forced_aligner_device.strip() or "cpu"
         self._lock = Lock()
         self._max_tokens = 300
         self._max_chunk_ms = _MAX_CHUNK_MS
@@ -473,6 +517,7 @@ class QwenASREngine:
         self._decoder_kv_position_input: str | int = 1
         self._decoder_kv_past_keys_input: str | int = 2
         self._decoder_kv_past_values_input: str | int = 3
+        self._forced_aligner: ForcedAlignerEngine | None = None
 
         self._vad_engine = _ensure_sherpa_vad_loaded()
         self.load()
@@ -556,6 +601,17 @@ class QwenASREngine:
                 0,
             )
             self._decoder_position_input = _resolve_input_key(self._decoder_model, ("position_ids",), 1)
+
+        self._forced_aligner = None
+        aligner_path = self.forced_aligner_path.strip()
+        if aligner_path:
+            resolved_aligner_path = Path(aligner_path).expanduser().resolve()
+            if resolved_aligner_path.exists():
+                self._forced_aligner = load_forced_aligner(str(resolved_aligner_path), self.forced_aligner_device)
+            else:
+                logger.warning(  # pyright: ignore[reportUnknownMemberType]
+                    f"Qwen3-ForcedAligner path does not exist, fallback timestamps will be used: {resolved_aligner_path}"
+                )
 
     def _transcribe_chunk(self, audio: np.ndarray) -> str:
         if self._processor is None:
@@ -697,6 +753,7 @@ class QwenASREngine:
             logger.info(f"Qwen3-ASR chunks for {audio_path.name}: count=0")  # pyright: ignore[reportUnknownMemberType]
 
         tokens: list[str] = []
+        timestamps: list[list[int]] = []
 
         try:
             for start_ms, end_ms in segments:
@@ -708,11 +765,33 @@ class QwenASREngine:
                 chunk = np.ascontiguousarray(audio[start_index:end_index], dtype=np.float32)
                 raw_output = self._transcribe_chunk(chunk)
                 chunk_text = _extract_asr_text(raw_output)
+                chunk_language = _extract_asr_language(raw_output)
                 chunk_tokens = _tokenize_asr_segment(chunk_text)
                 if not chunk_tokens:
                     continue
 
+                if self._forced_aligner is not None and self._forced_aligner.supports_language(chunk_language):
+                    try:
+                        aligned_items = self._forced_aligner.align(
+                            (chunk, _TARGET_SAMPLE_RATE),
+                            chunk_text,
+                            chunk_language,
+                        )
+                    except Exception:
+                        logger.exception(
+                            f"Qwen3-ForcedAligner failed for {audio_path.name} chunk {start_ms}-{end_ms}; using fallback timestamps."
+                        )  # pyright: ignore[reportUnknownMemberType]
+                        aligned_items = []
+
+                    if aligned_items:
+                        aligned_tokens, aligned_timestamps = _aligner_token_timestamps(aligned_items, start_ms)
+                        if aligned_tokens and len(aligned_tokens) == len(aligned_timestamps):
+                            tokens.extend(aligned_tokens)
+                            timestamps.extend(aligned_timestamps)
+                            continue
+
                 tokens.extend(chunk_tokens)
+                timestamps.extend(_distribute_token_timestamps(chunk_tokens, start_ms, end_ms))
         except Exception as exc:
             logger.exception(f"Qwen3-ASR OpenVINO transcribe failed for {audio_path}")  # pyright: ignore[reportUnknownMemberType]
             raise RuntimeError(f"Failed to transcribe audio with Qwen3-ASR OpenVINO: {audio_path}") from exc
@@ -721,47 +800,95 @@ class QwenASREngine:
         return {
             "key": audio_path.stem,
             "text": text,
-            "timestamp": [],
+            "timestamp": timestamps,
         }
 
 
-def load_qwen_asr(model_path: str, device: str, cpu_threads: int = 0) -> QwenASREngine:
+def load_qwen_asr(
+    model_path: str,
+    device: str,
+    cpu_threads: int = 0,
+    forced_aligner_path: str | None = None,
+    forced_aligner_device: str = "cpu",
+) -> QwenASREngine:
     resolved_model_path = _resolve_model_path(model_path)
     normalized_device = _normalize_device(device)
     normalized_cpu_threads = _normalize_cpu_threads(cpu_threads)
-    cache_key = (resolved_model_path, normalized_device, normalized_cpu_threads)
+    normalized_aligner_path = str(Path(forced_aligner_path).expanduser().resolve()) if forced_aligner_path else ""
+    normalized_aligner_device = forced_aligner_device.strip().lower() or "cpu"
+    cache_key = (
+        resolved_model_path,
+        normalized_device,
+        normalized_cpu_threads,
+        normalized_aligner_path,
+        normalized_aligner_device,
+    )
     engine = _qwen_asr_engines.get(cache_key)
     if engine is None:
         engine = QwenASREngine(
             model_dir=resolved_model_path,
             device=normalized_device,
             cpu_threads=normalized_cpu_threads,
+            forced_aligner_path=normalized_aligner_path or None,
+            forced_aligner_device=normalized_aligner_device,
         )
         _qwen_asr_engines[cache_key] = engine
     return engine
 
 
-def get_qwen_asr(model_path: str, device: str, cpu_threads: int = 0) -> QwenASREngine:
+def get_qwen_asr(
+    model_path: str,
+    device: str,
+    cpu_threads: int = 0,
+    forced_aligner_path: str | None = None,
+    forced_aligner_device: str = "cpu",
+) -> QwenASREngine:
     resolved_model_path = _resolve_model_path(model_path)
     normalized_device = _normalize_device(device)
     normalized_cpu_threads = _normalize_cpu_threads(cpu_threads)
-    cache_key = (resolved_model_path, normalized_device, normalized_cpu_threads)
+    normalized_aligner_path = str(Path(forced_aligner_path).expanduser().resolve()) if forced_aligner_path else ""
+    normalized_aligner_device = forced_aligner_device.strip().lower() or "cpu"
+    cache_key = (
+        resolved_model_path,
+        normalized_device,
+        normalized_cpu_threads,
+        normalized_aligner_path,
+        normalized_aligner_device,
+    )
     engine = _qwen_asr_engines.get(cache_key)
     if engine is None:
         raise RuntimeError(
             "Qwen3-ASR engine is not loaded: "
-            f"model_path={resolved_model_path}, device={normalized_device}, cpu_threads={normalized_cpu_threads}."
+            f"model_path={resolved_model_path}, device={normalized_device}, cpu_threads={normalized_cpu_threads}, "
+            f"forced_aligner_path={normalized_aligner_path}, forced_aligner_device={normalized_aligner_device}."
         )
     return engine
 
 
-def reset_qwen_asr_engine(model_path: str | None = None, device: str | None = None, cpu_threads: int = 0) -> None:
+def reset_qwen_asr_engine(
+    model_path: str | None = None,
+    device: str | None = None,
+    cpu_threads: int = 0,
+    forced_aligner_path: str | None = None,
+    forced_aligner_device: str = "cpu",
+) -> None:
     if model_path is None:
         _qwen_asr_engines.clear()
     else:
         resolved_model_path = _resolve_model_path(model_path)
         normalized_device = _normalize_device(device or "CPU")
         normalized_cpu_threads = _normalize_cpu_threads(cpu_threads)
-        _qwen_asr_engines.pop((resolved_model_path, normalized_device, normalized_cpu_threads), None)
+        normalized_aligner_path = str(Path(forced_aligner_path).expanduser().resolve()) if forced_aligner_path else ""
+        normalized_aligner_device = forced_aligner_device.strip().lower() or "cpu"
+        _qwen_asr_engines.pop(
+            (
+                resolved_model_path,
+                normalized_device,
+                normalized_cpu_threads,
+                normalized_aligner_path,
+                normalized_aligner_device,
+            ),
+            None,
+        )
 
     gc.collect()

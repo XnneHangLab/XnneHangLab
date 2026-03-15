@@ -67,6 +67,8 @@ sherpa-onnx = [
 qwen-asr = [
   "modelscope>=1.25.0",
   "openvino>=2024.0",
+  "qwen-asr",
+  "nagisa>=0.2.11",
   "soundfile>=0.13.1",
   "tokenizers>=0.13",
 ]

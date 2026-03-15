@@ -114,6 +114,8 @@ def load_qwen_asr_engine(model_name: QwenASRModelName) -> None:
         model_path=model_path,
         device=qwen_settings.device,
         cpu_threads=qwen_settings.cpu_threads,
+        forced_aligner_path=qwen_settings.forced_aligner_path,
+        forced_aligner_device=qwen_settings.forced_aligner_device,
     )
 
 
@@ -159,6 +161,8 @@ def qwen_asr_transcribe(input_path: Path, model_name: QwenASRModelName) -> dict[
         model_path=model_path,
         device=qwen_settings.device,
         cpu_threads=qwen_settings.cpu_threads,
+        forced_aligner_path=qwen_settings.forced_aligner_path,
+        forced_aligner_device=qwen_settings.forced_aligner_device,
     )
 
     response = engine.transcribe(input_path)
@@ -191,9 +195,13 @@ def reload_qwen_asr_engine(model_name: QwenASRModelName) -> None:
         model_path=model_path,
         device=qwen_settings.device,
         cpu_threads=qwen_settings.cpu_threads,
+        forced_aligner_path=qwen_settings.forced_aligner_path,
+        forced_aligner_device=qwen_settings.forced_aligner_device,
     )
     load_qwen_asr(
         model_path=model_path,
         device=qwen_settings.device,
         cpu_threads=qwen_settings.cpu_threads,
+        forced_aligner_path=qwen_settings.forced_aligner_path,
+        forced_aligner_device=qwen_settings.forced_aligner_device,
     )
