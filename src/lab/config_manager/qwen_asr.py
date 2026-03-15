@@ -37,4 +37,4 @@ class QwenASRSettings(BaseModel):
         str,
         Field("./models/Qwen3-ForcedAligner-0.6B", title="Qwen3-ForcedAligner model path (empty = disabled)"),
     ]
-    forced_aligner_device: Annotated[str, Field("cpu", title="ForcedAligner device")]
+    forced_aligner_device: Annotated[str, Field("cuda", title="ForcedAligner device")]

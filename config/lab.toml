@@ -32,7 +32,7 @@ model_1_7b_path = "./models/Qwen3-ASR-1.7B-INT8-OpenVINO"
 device = "CPU"
 cpu_threads = 0
 forced_aligner_path = "./models/Qwen3-ForcedAligner-0.6B"
-forced_aligner_device = "cpu"
+forced_aligner_device = "cuda"
 
 [webui]
 guide = "open"

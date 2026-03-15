@@ -455,18 +455,15 @@ def _infer_compiled_model(compiled_model: Any, inputs: dict[str | int, np.ndarra
 
 
 def _infer_request(request: Any, inputs: dict[str | int, np.ndarray]) -> np.ndarray:
-    return _first_output(request.infer(inputs))
+    request.start_async(inputs)
+    request.wait()
+    return np.asarray(request.get_output_tensor(0).data)
 
 
 def _infer_request_outputs(request: Any, inputs: dict[str | int, np.ndarray]) -> list[Any]:
-    outputs = request.infer(inputs)
-    if isinstance(outputs, dict):
-        values = outputs.values()
-    elif hasattr(outputs, "values"):
-        values = outputs.values()
-    else:
-        raise RuntimeError(f"Unexpected OpenVINO output container: {type(outputs)!r}")
-    return list(values)
+    request.start_async(inputs)
+    request.wait()
+    return [np.asarray(request.get_output_tensor(i).data) for i in range(len(request.model_outputs))]
 
 
 def _aligner_token_timestamps(
@@ -540,14 +537,25 @@ class QwenASREngine:
         model_path = Path(self.model_dir)
         _validate_model_dir(model_path)
 
+        self._core = ov.Core()
+        self._core.set_property({"CACHE_DIR": str(model_path / ".ov_cache")})
+
         cpu_config: dict[str, str] = {}
         if self.device == "CPU":
+            supported_cpu_properties = self._core.get_property(self.device, "SUPPORTED_PROPERTIES")
+            if hasattr(supported_cpu_properties, "keys"):
+                supported_cpu_property_names = set(supported_cpu_properties.keys())
+            else:
+                supported_cpu_property_names = set(supported_cpu_properties)
             cpu_config["PERFORMANCE_HINT"] = "LATENCY"
             cpu_config["ENABLE_HYPER_THREADING"] = "YES"
+            if "CPU_BIND_THREAD" in supported_cpu_property_names:
+                cpu_config["CPU_BIND_THREAD"] = "YES"
+            elif "ENABLE_CPU_PINNING" in supported_cpu_property_names:
+                cpu_config["ENABLE_CPU_PINNING"] = "YES"
             if self.cpu_threads > 0:
                 cpu_config["INFERENCE_NUM_THREADS"] = str(self.cpu_threads)
 
-        self._core = ov.Core()
         self._audio_encoder_model = self._core.compile_model(
             str(model_path / "audio_encoder_model.xml"),
             self.device,
