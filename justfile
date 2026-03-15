@@ -446,3 +446,17 @@ mem0-run-real-time:
   # 实时管线：清理 + 启动 server
   just clean-realtime
   just memory-chat-server
+
+# -- Local LLM translation ----------------------------------------------------
+
+install-qwen-0-5B:
+  uv run modelscope download --model Qwen/Qwen2.5-0.5B-Instruct-GGUF qwen2.5-0.5b-instruct-q8_0.gguf --local_dir ./models
+
+test-llm-translate:
+  uv run python -c "\
+  from lab.translate.engine import LLMTranslateEngine; \
+  engine = LLMTranslateEngine('./models/qwen2.5-0.5b-instruct-q8_0.gguf'); \
+  print(engine.translate('Hello, how are you?', 'EN', 'ZH')); \
+  print(engine.translate('\u4eca\u5929\u5929\u6c14\u771f\u597d', 'ZH', 'EN')); \
+  print(engine.translate('\u685c\u306e\u82b1\u304c\u6e80\u958b\u3067\u3059', 'JA', 'ZH')); \
+  "

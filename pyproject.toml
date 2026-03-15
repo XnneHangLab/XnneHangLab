@@ -24,6 +24,7 @@ dependencies = [
     "python-dotenv>=1.1.1",
     "bs4>=0.0.2",
     "grpcio==1.78.0",
+    "llama-cpp-python>=0.3.0",
     "modelscope>=1.23.1",
 ]
 authors = [{ name = "MrXnneHang", email = "XnneHang@gmail.com" }]

@@ -99,6 +99,22 @@ class AgentSettings(BaseModel):
     prompts: Annotated[PromptSettings, Field(PromptSettings())]  # pyright: ignore[reportCallIssue]
     llm: Annotated[LLMSettings, Field(LLMSettings())]  # pyright: ignore[reportCallIssue]
     deeplx_api_key: Annotated[str, Field("", title="DeepLX API Key")]
+    llm_translate_model_path: Annotated[
+        str,
+        Field(
+            "",
+            title="LLM Translate Model Path",
+            description="Local GGUF model path, for example ./models/qwen2.5-0.5b-instruct-q8_0.gguf",
+        ),
+    ]
+    llm_translate_n_gpu_layers: Annotated[
+        int,
+        Field(
+            0,
+            title="LLM Translate GPU Layers",
+            description="GPU acceleration layer count, 0 for CPU only and -1 for full GPU",
+        ),
+    ]
     user_lang: Annotated[Literal["ZH", "EN", "JA"], Field("ZH", title="User Language")]
     speaker_lang: Annotated[Literal["ZH", "EN", "JA"], Field("EN", title="Speaker Language")]
     speaker_model: Annotated[Literal["gpt_sovits"], Field("gpt_sovits", title="Speaker Model")]
