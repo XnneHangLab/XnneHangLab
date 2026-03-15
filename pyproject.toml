@@ -150,7 +150,7 @@ qwen-tts = [
 default-groups = ["base", "qwen-asr", "dev", "yutto-uiya", "tts_base", "gpt_sovits", "qwen-tts", "vtuber", "memory_bench", "sherpa-onnx"]
 
 [tool.uv.workspace]
-members = ["packages/yutto-uiya","packages/todo/","packages/gpt_sovits"]
+members = ["packages/yutto-uiya","packages/todo/","packages/gpt_sovits","packages/Qwen3-ASR"]
 
 [[tool.uv.index]]
 name = "pytorch-cu118"
@@ -172,6 +172,7 @@ torchaudio = [
   { index = "pytorch-cpu", marker = "sys_platform != 'win32'"}
 ]
 langsegment = { path = "./dist/LangSegment-0.3.5-py3-none-any.whl"}
+qwen-asr = {  workspace = true }
 
 # 这个源要与 yutto-uiya 保持一致, 要改, 得同时改
 # yutto = { git = "https://github.com/MrXnneHang/yutto.git", rev = "parse" }

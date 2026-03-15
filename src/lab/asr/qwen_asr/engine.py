@@ -4,6 +4,7 @@ from __future__ import annotations
 import gc
 import re
 import subprocess
+import time
 import unicodedata
 from importlib import import_module
 from pathlib import Path
@@ -724,23 +725,32 @@ class QwenASREngine:
         if not audio_path.exists():
             raise FileNotFoundError(f"Audio file not found: {audio_path}")
 
+        total_start = time.perf_counter()
+        decode_audio_start = time.perf_counter()
         audio, audio_duration_ms = _load_audio(audio_path)
+        decode_audio_sec = time.perf_counter() - decode_audio_start
         segment_candidates: list[tuple[int, int]] = []
+        vad_sec = 0.0
 
         if audio_duration_ms > self._max_chunk_ms:
+            vad_start = time.perf_counter()
             try:
                 vad_result = self._vad_engine.detect(audio_path)
                 vad_timestamps = cast("list[list[int]]", vad_result.get("timestamp", []))
                 segment_candidates = [(int(segment[0]), int(segment[1])) for segment in vad_timestamps if len(segment) >= 2]
             except Exception:
                 logger.exception(f"Qwen3-ASR VAD pre-segmentation failed for {audio_path}")  # pyright: ignore[reportUnknownMemberType]
+            finally:
+                vad_sec = time.perf_counter() - vad_start
 
+        chunking_start = time.perf_counter()
         if audio_duration_ms <= self._max_chunk_ms:
             segments = _default_segments(audio_duration_ms, self._max_chunk_ms)
         elif segment_candidates:
             segments = _pack_vad_guided_chunks(segment_candidates, audio_duration_ms, self._max_chunk_ms)
         else:
             segments = _default_segments(audio_duration_ms, self._max_chunk_ms)
+        chunking_sec = time.perf_counter() - chunking_start
 
         if segments:
             preview = ", ".join(f"[{start},{end}]" for start, end in segments[:8])
@@ -754,6 +764,9 @@ class QwenASREngine:
 
         tokens: list[str] = []
         timestamps: list[list[int]] = []
+        asr_sec = 0.0
+        aligner_sec = 0.0
+        aligned_chunk_count = 0
 
         try:
             for start_ms, end_ms in segments:
@@ -763,7 +776,9 @@ class QwenASREngine:
                     continue
 
                 chunk = np.ascontiguousarray(audio[start_index:end_index], dtype=np.float32)
+                asr_start = time.perf_counter()
                 raw_output = self._transcribe_chunk(chunk)
+                asr_sec += time.perf_counter() - asr_start
                 chunk_text = _extract_asr_text(raw_output)
                 chunk_language = _extract_asr_language(raw_output)
                 chunk_tokens = _tokenize_asr_segment(chunk_text)
@@ -771,6 +786,7 @@ class QwenASREngine:
                     continue
 
                 if self._forced_aligner is not None and self._forced_aligner.supports_language(chunk_language):
+                    aligner_start = time.perf_counter()
                     try:
                         aligned_items = self._forced_aligner.align(
                             (chunk, _TARGET_SAMPLE_RATE),
@@ -782,21 +798,37 @@ class QwenASREngine:
                             f"Qwen3-ForcedAligner failed for {audio_path.name} chunk {start_ms}-{end_ms}; using fallback timestamps."
                         )  # pyright: ignore[reportUnknownMemberType]
                         aligned_items = []
+                    finally:
+                        aligner_sec += time.perf_counter() - aligner_start
 
                     if aligned_items:
                         aligned_tokens, aligned_timestamps = _aligner_token_timestamps(aligned_items, start_ms)
                         if aligned_tokens and len(aligned_tokens) == len(aligned_timestamps):
                             tokens.extend(aligned_tokens)
                             timestamps.extend(aligned_timestamps)
+                            aligned_chunk_count += 1
                             continue
 
                 tokens.extend(chunk_tokens)
-                timestamps.extend(_distribute_token_timestamps(chunk_tokens, start_ms, end_ms))
         except Exception as exc:
             logger.exception(f"Qwen3-ASR OpenVINO transcribe failed for {audio_path}")  # pyright: ignore[reportUnknownMemberType]
             raise RuntimeError(f"Failed to transcribe audio with Qwen3-ASR OpenVINO: {audio_path}") from exc
 
         text = " ".join(tokens)
+        total_sec = time.perf_counter() - total_start
+        logger.info(  # pyright: ignore[reportUnknownMemberType]
+            f"Qwen3-ASR timing for {audio_path.name}: "
+            f"decode_audio={decode_audio_sec:.3f}s "
+            f"vad={vad_sec:.3f}s "
+            f"chunking={chunking_sec:.3f}s "
+            f"asr={asr_sec:.3f}s "
+            f"aligner={aligner_sec:.3f}s "
+            f"total={total_sec:.3f}s "
+            f"chunks={len(segments)} "
+            f"aligned_chunks={aligned_chunk_count} "
+            f"tokens={len(tokens)} "
+            f"timestamps={len(timestamps)}"
+        )
         return {
             "key": audio_path.stem,
             "text": text,
