@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 class Packages(TypedDict):
     sherpa_asr: bool
     qwen_asr: bool
+    llm_translate: bool
     to_do_list: bool
     yutto_uiya: bool
     gpt_sovits: bool
@@ -16,30 +17,26 @@ class Packages(TypedDict):
 
 
 class PackagesSettings(BaseModel):
-    sherpa_asr: Annotated[bool, Field(False, title="是否启用 sherpa-onnx paraformer ASR 服务")]
-    qwen_asr: Annotated[bool, Field(False, title="是否启用 Qwen3-ASR 服务")]
-    to_do_list: Annotated[bool, Field(True, title="是否启用 todo_list")]
-    yutto_uiya: Annotated[bool, Field(True, title="是否启用 yutto-uiya")]
-    gpt_sovits: Annotated[bool, Field(True, title="是否启用 gpt-sovits")]
-    qwen_tts: Annotated[bool, Field(False, title="是否启用 faster-qwen-tts")]
+    sherpa_asr: Annotated[bool, Field(False, title="Whether to enable sherpa-onnx paraformer ASR service")]
+    qwen_asr: Annotated[bool, Field(False, title="Whether to enable Qwen3-ASR service")]
+    llm_translate: Annotated[
+        bool,
+        Field(False, title="LLM Translate", description="启用本地 LLM 翻译引擎"),
+    ]
+    to_do_list: Annotated[bool, Field(True, title="Whether to enable todo_list")]
+    yutto_uiya: Annotated[bool, Field(True, title="Whether to enable yutto-uiya")]
+    gpt_sovits: Annotated[bool, Field(True, title="Whether to enable gpt-sovits")]
+    qwen_tts: Annotated[bool, Field(False, title="Whether to enable faster-qwen-tts")]
     memory_bench: Annotated[
         bool,
-        Field(False, title="是否挂载 memory_bench 记忆服务 (路由前缀: /memory)"),
+        Field(False, title="Whether to mount memory_bench service (route prefix: /memory)"),
     ]
 
     def to_dict(self) -> Packages:
-        """将配置模型转换为 Packages 字典。
-        Args:
-            None.
-
-        Returns:
-            Packages: 当前启用状态的字典表示。
-        Raises:
-            None.
-        """
         return {
             "sherpa_asr": self.sherpa_asr,
             "qwen_asr": self.qwen_asr,
+            "llm_translate": self.llm_translate,
             "to_do_list": self.to_do_list,
             "yutto_uiya": self.yutto_uiya,
             "gpt_sovits": self.gpt_sovits,
@@ -49,16 +46,6 @@ class PackagesSettings(BaseModel):
 
 
 def main() -> None:
-    """重置 package 配置并写回到 lab.toml。
-    Args:
-        None.
-
-    Returns:
-        None.
-
-    Raises:
-        None.
-    """
     from lab.config_manager.config import (
         XnneHangLabSettings,
         load_settings_file,

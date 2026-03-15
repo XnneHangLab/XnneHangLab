@@ -305,10 +305,11 @@ class WebSocketServer:
             "DeepLX 端点",
             lambda: self.app.include_router(import_module("lab.api.routes.deeplx").router),
         )
-        _include_router_with_log(
-            "LLM Translate 绔偣",
-            lambda: self.app.include_router(import_module("lab.api.routes.llm_translate").router),
-        )
+        if lab_settings.package.llm_translate:
+            _include_router_with_log(
+                "LLM Translate 端点",
+                lambda: self.app.include_router(import_module("lab.api.routes.llm_translate").router),
+            )
         if lab_settings.package.sherpa_asr or lab_settings.package.qwen_asr:
             _include_router_with_log(
                 "ASR reload 端点",
