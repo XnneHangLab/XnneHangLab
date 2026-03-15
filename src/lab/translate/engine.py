@@ -33,6 +33,10 @@ class LLMTranslateEngine:
     }
 
     @classmethod
+    def is_loaded(cls) -> bool:
+        return cls._instance is not None
+
+    @classmethod
     def get_instance(
         cls,
         model_path: str | Path | None = None,
@@ -141,6 +145,15 @@ class LLMTranslateEngine:
 
         gc.collect()
         logger.info("[LLMTranslate] Model unloaded")
+
+    @classmethod
+    def unload_instance(cls) -> None:
+        engine = cls._instance
+        if engine is None:
+            logger.debug("[LLMTranslate] unload skipped: engine is not loaded")
+            return
+
+        engine.unload()
 
     @classmethod
     def _extract_content(cls, response: dict[str, Any]) -> str:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from loguru import logger
 
@@ -22,7 +22,7 @@ class TranslateEngineRouter:
         self.provider: TranslateProvider = settings.agent.translate_provider
         logger.info("Translation provider set to {}", self.provider)
 
-    async def translate(self, text: str, target_language: str) -> str:
+    async def translate(self, text: str, target_language: Literal["EN", "ZH", "JA"]) -> str:
         logger.debug(
             "[TranslateRouter] provider={} -> {}",
             self.provider,

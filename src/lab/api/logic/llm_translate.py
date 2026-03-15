@@ -24,7 +24,7 @@ def resolve_llm_translate_model_path(settings: XnneHangLabSettings | None = None
 
 
 def is_llm_translate_engine_loaded() -> bool:
-    return LLMTranslateEngine._instance is not None
+    return LLMTranslateEngine.is_loaded()
 
 
 def load_llm_translate_engine(settings: XnneHangLabSettings | None = None) -> LLMTranslateEngine:
@@ -58,9 +58,4 @@ def preload_configured_llm_translate_engine() -> bool:
 
 
 def unload_llm_translate_engine() -> None:
-    engine = LLMTranslateEngine._instance
-    if engine is None:
-        logger.debug("[LLMTranslate] unload skipped: engine is not loaded")
-        return
-
-    engine.unload()
+    LLMTranslateEngine.unload_instance()
