@@ -268,7 +268,7 @@ vad_max_speech_duration = 8.0
 | model_1_7b_path | Qwen3-ASR 1.7B OpenVINO 模型路径 |
 | device | OpenVINO 推理设备（`"CPU"` / `"GPU"`） |
 | cpu_threads | OpenVINO CPU 线程数（0 = 自动） |
-| forced_aligner_path | ForcedAligner 模型路径（空字符串 = 禁用） |
+| forced_aligner_path | ForcedAligner 模型路径（**必填**，空路径将在启动时报错） |
 | forced_aligner_device | ForcedAligner 推理设备 |
 
 示例：
@@ -281,11 +281,13 @@ model_0_6b_path = "./models/Qwen3-ASR-0.6B-INT8-OpenVINO"
 model_1_7b_path = "./models/Qwen3-ASR-1.7B-INT8-OpenVINO"
 device = "CPU"
 cpu_threads = 0
-forced_aligner_path = ""
+forced_aligner_path = "./models/Qwen3-ForcedAligner-0.6B"
 forced_aligner_device = "cpu"
 ```
 
 > **说明**：`preload_models` 控制启动时哪些模型加载进内存，未在列表中的模型首次请求时才加载（会有延迟）。
+>
+> **注意**：`forced_aligner_path` 为必填项，Qwen3-ASR 依赖 ForcedAligner 生成词级时间戳。可通过 `just install-qwen-asr` 自动下载 `Qwen3-ForcedAligner-0.6B`。
 
 ---
 
