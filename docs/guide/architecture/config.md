@@ -53,7 +53,7 @@ def load_settings_file(setting_name: str, setting: type[XnneHangLabSettings]) ->
     return validated_settings
 ```
 
-这么设计的原因，是让“缺字段”变成可恢复状态，而不是把运行期异常甩给用户。
+这么设计的原因，是让"缺字段"变成可恢复状态，而不是把运行期异常甩给用户。
 
 ---
 
@@ -63,7 +63,7 @@ def load_settings_file(setting_name: str, setting: type[XnneHangLabSettings]) ->
 
 ```python
 class XnneHangLabSettings(BaseModel):
-    conf_version: str = "v1.5.1"
+    conf_version: str = "v1.5.2"
     asr: ASRSettings
     webui: AudioRecognizeSettings
     agent: AgentSettings
@@ -74,7 +74,7 @@ class XnneHangLabSettings(BaseModel):
     memory_bench: MemoryBenchSettings
 ```
 
-这里的重点不是“字段多”，而是每个子模块都拥有自己的独立模型。这样 UI、服务端、Agent 初始化都能按模块读取，不需要到处手写键名。
+这里的重点不是"字段多"，而是每个子模块都拥有自己的独立模型。这样 UI、服务端、Agent 初始化都能按模块读取，不需要到处手写键名。
 
 ---
 
@@ -85,7 +85,9 @@ config_manager/
 ├── __init__.py           # 导出 XnneHangLabSettings 和 load_settings_file
 ├── config.py             # 主配置类 + 加载/写回逻辑
 ├── agent.py              # AgentSettings 及其子模型
-├── asr.py                # ASRSettings / FunASRSettings / WhisperSettings
+├── asr.py                # ASRSettings（含 SherpaASRSettings / QwenASRSettings）
+├── sherpa_asr.py         # SherpaASRSettings
+├── qwen_asr.py           # QwenASRSettings
 ├── server.py             # ServerSettings
 ├── vtuber.py             # VtuberSettings / CharacterSettings / TTSPreprocessorConfig
 ├── package.py            # PackagesSettings
@@ -99,7 +101,7 @@ config_manager/
 
 ## Agent 配置分层
 
-`AgentSettings` 不是一个平铺的大表，而是按职责拆成了几组子模型。拆法的依据很简单：哪些配置属于同一个运行时职责，就归在一起——这样 `AgentFactory` 初始化时可以按模块取，不需要到处散拼字段：
+`AgentSettings` 不是一个平铺的大表，而是按职责拆成了几组子模型。拆法的依据很简单：哪些配置属于同一个运行时职责，就归在一起--这样 `AgentFactory` 初始化时可以按模块取，不需要到处散拼字段：
 
 ```python
 class AgentSettings(BaseModel):
@@ -130,8 +132,8 @@ class AgentSettings(BaseModel):
 
 ```toml
 [package]
-funasr = false
-whisper = false
+sherpa_asr = false
+qwen_asr = false
 gpt_sovits = true
 qwen_tts = false
 memory_bench = false
@@ -139,7 +141,7 @@ to_do_list = true
 yutto_uiya = true
 ```
 
-这层设计不是为了做“大而全”的配置中心，而是为了把运行依赖前移到启动阶段。不开的模块，路由和相关服务就不要硬加载。
+`sherpa_asr` 和 `qwen_asr` 可同时开启，各自注册独立路由，互不干扰。这层设计不是为了做"大而全"的配置中心，而是为了把运行依赖前移到启动阶段。不开的模块，路由和相关服务就不要硬加载。
 
 ---
 
