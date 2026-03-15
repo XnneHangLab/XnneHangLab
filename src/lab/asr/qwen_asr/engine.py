@@ -455,11 +455,15 @@ def _infer_compiled_model(compiled_model: Any, inputs: dict[str | int, np.ndarra
 
 
 def _infer_request(request: Any, inputs: dict[str | int, np.ndarray]) -> np.ndarray:
-    return _first_output(request.infer(inputs))
+    request.start_async(inputs)
+    request.wait()
+    return _first_output(request.get_output_tensor(0).data)
 
 
 def _infer_request_outputs(request: Any, inputs: dict[str | int, np.ndarray]) -> list[Any]:
-    outputs = request.infer(inputs)
+    request.start_async(inputs)
+    request.wait()
+    outputs = {i: request.get_output_tensor(i).data for i in range(len(request.model_outputs))}
     if isinstance(outputs, dict):
         values = outputs.values()
     elif hasattr(outputs, "values"):
@@ -536,6 +540,7 @@ class QwenASREngine:
 
     def load(self) -> None:
         ov = _import_openvino()
+        import openvino.properties as props
 
         model_path = Path(self.model_dir)
         _validate_model_dir(model_path)
@@ -544,10 +549,12 @@ class QwenASREngine:
         if self.device == "CPU":
             cpu_config["PERFORMANCE_HINT"] = "LATENCY"
             cpu_config["ENABLE_HYPER_THREADING"] = "YES"
+            cpu_config["CPU_BIND_THREAD"] = "YES"
             if self.cpu_threads > 0:
                 cpu_config["INFERENCE_NUM_THREADS"] = str(self.cpu_threads)
 
         self._core = ov.Core()
+        self._core.set_property({props.cache_dir: str(model_path / ".ov_cache")})
         self._audio_encoder_model = self._core.compile_model(
             str(model_path / "audio_encoder_model.xml"),
             self.device,
