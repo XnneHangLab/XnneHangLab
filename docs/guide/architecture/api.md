@@ -1,22 +1,25 @@
 # API 模块
 
-`src/lab/api/` — HTTP 路由、外部服务客户端、模型加载。
+`src/lab/api/` — HTTP 路由、外部服务客户端、业务逻辑封装。
 
 ## 目录结构
 
 ```
 api/
-├── types.py             # 内部类型（FunASRModels / GlobalModelContainer）
-├── routes/              # FastAPI 路由
-│   ├── asr.py           # /asr — 语音识别（FunASR / Whisper）
+├── types.py             # 内部类型定义
+├── routes/              # FastAPI 路由（协议层）
+│   ├── asr_sherpa.py    # /asr/sherpa — Sherpa-ONNX Paraformer 识别 + VAD
+│   ├── asr_qwen.py      # /asr/qwen-asr — Qwen3-ASR OpenVINO 识别
+│   ├── asr_reload.py    # /asr/reload、/asr/sherpa/reload — ASR 热重载
+│   ├── asr_shared.py    # 共享工具（文件上传暂存、路径处理）
 │   ├── deeplx.py        # /translate — DeepLX 翻译代理
 │   ├── faster_qwen_tts.py  # /tts/qwen-tts — Qwen-TTS 合成
-│   ├── gpt_sovits.py    # GPT-SoVITS v1 路由
-│   ├── gpt_sovits_v2.py # GPT-SoVITS v2 路由
-│   └── vtuber.py        # VTuber WebSocket 入口
+│   ├── gpt_sovits.py    # /tts/gptsovits — GPT-SoVITS v1
+│   ├── gpt_sovits_v2.py # /tts/gptsovitsv2 — GPT-SoVITS v2
+│   └── vtuber.py        # /client-ws — VTuber WebSocket 入口
 ├── logic/               # 业务逻辑与模型封装
-│   ├── funasr.py        # FunASRModel + 单例管理（load / reload / 推理封装）
-│   ├── whisper.py       # WhisperModel + 单例管理（load / reload / 推理封装）
+│   ├── sherpa_asr.py    # Sherpa-ONNX 引擎单例管理（加载 / 热重载 / 推理封装）
+│   ├── qwen_asr.py      # Qwen3-ASR 引擎单例管理（加载 / 热重载 / 推理封装）
 │   └── faster_qwen_tts.py  # Qwen-TTS 合成逻辑（单次 / 流式）
 └── clients/             # 外部服务客户端
     ├── base_client_interface.py  # BaseRequest / BaseResponse / BaseClientInterface
@@ -35,7 +38,10 @@ api/
 
 | 路由 | 前缀 | 功能 |
 |------|------|------|
-| `asr.py` | `/asr` | FunASR / Whisper 语音识别（带标点 / 不带标点 / VAD / 模型热重载） |
+| `asr_sherpa.py` | `/asr/sherpa` | Sherpa-ONNX Paraformer 语音识别（transcribe + VAD） |
+| `asr_qwen.py` | `/asr/qwen-asr` | Qwen3-ASR OpenVINO 识别（0.6B / 1.7B 各自一个端点） |
+| `asr_reload.py` | `/asr` | ASR 热重载（`/reload` 全量 + `/sherpa/reload` 单独） |
+| `asr_shared.py` | — | 上传文件暂存到缓存目录，`file_default` 依赖注入 |
 | `deeplx.py` | `/translate/deeplx` | DeepLX 翻译代理（调用外部服务） |
 | `faster_qwen_tts.py` | `/tts/qwen-tts` | Qwen-TTS 语音合成（非流式 + SSE 流式） |
 | `gpt_sovits.py` | `/tts/gptsovits` | GPT-SoVITS v1 TTS（JSON → base64 音频） |
@@ -44,15 +50,15 @@ api/
 
 ### Logic — 模型封装
 
-每个文件对应一个模型，同时包含模型类定义和单例管理函数，职责内聚：
+每个文件对应一套引擎，同时包含单例管理和推理封装，职责内聚：
 
 | 文件 | 内容 |
 |------|------|
-| `logic/funasr.py` | `FunASRModel`（asr / vad / asr_no_punc 三种子模型）+ `load_funasr` / `reload_funasr` / `funasr_asr_audio` / `funasr_vad_audio` |
-| `logic/whisper.py` | `WhisperModel` + `load_whisper` / `reload_whisper` / `whisper_asr_audio` |
+| `logic/sherpa_asr.py` | `load_sherpa_asr` / `reload_sherpa_asr` / `sherpa_asr_audio` / `sherpa_vad_audio`。启动时预加载 Paraformer + Silero VAD，热重载先 reset 再重新加载。 |
+| `logic/qwen_asr.py` | `load_qwen_asr_engine` / `reload_qwen_asr_engine` / `qwen_asr_transcribe` / `preload_configured_qwen_asr_engines`。支持多模型并发（0.6B / 1.7B 各自独立单例）。`normalize_qwen_model_name` 处理路由层传入的各种别名。 |
 | `logic/faster_qwen_tts.py` | Qwen-TTS 合成逻辑（单次 / 流式） |
 
-FunASR 与 Whisper 完全解耦，`server.py` 启动时各自按 `[package]` flag 独立预加载，互不干扰。
+Sherpa-ONNX 与 Qwen3-ASR 完全解耦，`server.py` 启动时各自按 `[package]` flag 独立预加载，互不干扰。
 
 ### Clients — 外部服务封装
 
@@ -60,6 +66,6 @@ FunASR 与 Whisper 完全解耦，`server.py` 启动时各自按 `[package]` fla
 
 ## 与其他模块的关系
 
-- **server.py** 挂载路由：`deeplx_router`、`qwen_tts_router`、`vtuber_router`
+- **server.py** 按 `[package]` 开关挂载路由：`sherpa_router`、`qwen_asr_router`、`asr_reload_router`、`deeplx_router`、`qwen_tts_router`、`vtuber_router`
 - **conversations/** 通过 Clients 调用 TTS / 翻译
 - **agent/** 不直接依赖 api/，而是通过 conversations 层间接使用
