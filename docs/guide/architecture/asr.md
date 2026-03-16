@@ -100,6 +100,28 @@ ForcedAligner CPU 推理延迟与 ASR 本身相当，严重拖慢整体速度。
 
 建议：有独显的机器一律把 ForcedAligner 放 GPU。
 
+#### 关于 OpenVINO Intel GPU 推理（device = "GPU"）
+
+OpenVINO 支持将推理调度到 Intel GPU（iGPU 核显或 Arc 独显），但**对 Qwen3-ASR 场景实测性能反而更差**，不建议使用。
+
+**原因：**
+
+Qwen3-ASR decoder 是逐 token autoregressive 推理，每次 decode 只处理 1 个 token，单次计算量极小。GPU 的优势在大 batch 和大矩阵，但此场景下：
+
+- 每次推理数据量极小，CPU → GPU 显存的调度开销远大于计算收益
+- iGPU（核显）EU 数量有限，并行度优势无法发挥
+- 实测同一硬件（i7-12th Gen）CPU RTF ≈ **0.3**，GPU RTF ≈ **1.0**（勉强实时）
+
+**结论：**
+
+| 推理设备 | 场景 | 建议 |
+|----------|------|------|
+| `device = "CPU"` | Qwen3-ASR decoder（autoregressive） | ✅ 推荐，默认值 |
+| `device = "GPU"` | Qwen3-ASR decoder | ❌ 实测更慢，不建议 |
+| `forced_aligner_device = "cuda"` | ForcedAligner（PyTorch） | ✅ 强烈推荐，收益显著 |
+
+如果想压榨 GPU 利用率，正确姿势是把 **ForcedAligner 放到 CUDA GPU**，而不是把 OpenVINO 推理切到 Intel GPU。
+
 ### 句子后处理
 
 ASR 输出的原始句子需要经过后处理才能用于字幕显示：
