@@ -111,7 +111,8 @@ class AgentSettings(BaseModel):
     enable_tool: bool = True          # BuiltinTool 总开关
     prompts: PromptSettings           # Agent 侧提示词路径
     llm: LLMSettings                  # 各 provider 连接配置（api_key / base_url）
-    deeplx_api_key: str = ""
+    translate_provider: TranslateProvider = "llm"  # "llm" | "deeplx"
+    translate: TranslateSettings              # DeepLX + 本地 LLM 翻译配置
     user_lang: Literal["ZH", "EN", "JA"] = "ZH"
     speaker_lang: Literal["ZH", "EN", "JA"] = "EN"
     speaker_model: Literal["gpt_sovits"] = "gpt_sovits"
@@ -134,6 +135,7 @@ class AgentSettings(BaseModel):
 [package]
 sherpa_asr = false
 qwen_asr = false
+llm_translate = false
 gpt_sovits = true
 qwen_tts = false
 memory_bench = false
