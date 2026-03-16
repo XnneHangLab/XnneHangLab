@@ -12,6 +12,7 @@ QwenASRSettingsTitle = Literal[
     "model_1_7b_path",
     "device",
     "cpu_threads",
+    "gpu_cache_dir",
     "forced_aligner_path",
     "forced_aligner_device",
 ]
@@ -33,6 +34,13 @@ class QwenASRSettings(BaseModel):
     ]
     device: Annotated[str, Field("CPU", title="OpenVINO device")]
     cpu_threads: Annotated[int, Field(0, ge=0, title="OpenVINO CPU threads")]
+    gpu_cache_dir: Annotated[
+        str,
+        Field(
+            "",
+            title="OpenVINO GPU model cache directory (empty = {model_dir}/.ov_cache_gpu, only used when device contains GPU)",
+        ),
+    ]
     forced_aligner_path: Annotated[
         str,
         Field("./models/Qwen3-ForcedAligner-0.6B", title="Qwen3-ForcedAligner model path (empty = disabled)"),

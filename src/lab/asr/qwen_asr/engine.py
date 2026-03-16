@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 logger = cast("Any", logger)
 
-_qwen_asr_engines: dict[tuple[str, str, int, str, str], QwenASREngine] = {}
+_qwen_asr_engines: dict[tuple[str, str, int, str, str, str], QwenASREngine] = {}
 _TIMESTAMP_PATTERN = re.compile(r"<\|(\d+(?:\.\d+)?)\|>")
 _TARGET_SAMPLE_RATE = 16_000
 _MAX_CHUNK_MS = 30_000
@@ -51,8 +51,61 @@ def _import_openvino() -> Any:
         ) from exc
 
 
-def _normalize_device(device: str) -> str:
+def check_intel_gpu_available() -> bool:
+    """Check if Intel GPU is available via OpenVINO.
+
+    Returns True if OpenVINO reports a GPU device, False otherwise.
+    Does NOT raise; safe to call any time.
+    """
+    try:
+        ov = _import_openvino()
+        core = ov.Core()
+        return "GPU" in core.available_devices
+    except Exception:
+        return False
+
+
+def _validate_intel_gpu(device: str) -> None:
+    """Validate that Intel GPU is available for the given device string.
+
+    Raises RuntimeError with a friendly message if GPU is not detected.
+    Supported since Intel 6th Gen Core (HD/UHD Graphics) and Intel Arc series.
+    """
+    try:
+        ov = _import_openvino()
+        core = ov.Core()
+        available = core.available_devices
+    except Exception as exc:
+        raise RuntimeError(
+            f"Qwen3-ASR: failed to query OpenVINO devices when validating GPU device '{device}'."
+        ) from exc
+
+    if not any(str(available_device).startswith("GPU") for available_device in available):
+        import sys
+
+        if sys.platform == "win32":
+            driver_hint = (
+                "On Windows: Intel GPU driver is usually pre-installed. "
+                "Check Device Manager -> Display Adapters to verify your Intel GPU is listed."
+            )
+        else:
+            driver_hint = (
+                "On Linux: install the OpenCL runtime with: "
+                "`sudo apt install intel-opencl-icd` (Ubuntu/Debian) "
+                "or equivalent for your distro."
+            )
+        raise RuntimeError(
+            f"Qwen3-ASR: OpenVINO device '{device}' requested, but no Intel GPU was detected.\n"
+            "Supported hardware: Intel HD/UHD Graphics (6th Gen Core+), Intel Iris Xe, Intel Arc series.\n"
+            f"{driver_hint}\n"
+            f"Available OpenVINO devices: {available}"
+        )
+
+
+def _normalize_device(device: str, check_gpu: bool = True) -> str:
     normalized = device.strip().upper() or "CPU"
+    if check_gpu and "GPU" in normalized:
+        _validate_intel_gpu(normalized)
     return normalized
 
 
@@ -492,12 +545,14 @@ class QwenASREngine:
         model_dir: str,
         device: str = "CPU",
         cpu_threads: int = 0,
+        gpu_cache_dir: str = "",
         forced_aligner_path: str | None = None,
         forced_aligner_device: str = "cpu",
     ) -> None:
         self.model_dir = _resolve_model_path(model_dir)
         self.device = _normalize_device(device)
         self.cpu_threads = _normalize_cpu_threads(cpu_threads)
+        self.gpu_cache_dir = gpu_cache_dir.strip()
         self.forced_aligner_path = forced_aligner_path or ""
         self.forced_aligner_device = forced_aligner_device.strip() or "cpu"
         self._lock = Lock()
@@ -538,7 +593,14 @@ class QwenASREngine:
         _validate_model_dir(model_path)
 
         self._core = ov.Core()
-        self._core.set_property({"CACHE_DIR": str(model_path / ".ov_cache")})
+        if "GPU" in self.device:
+            _cache_path = (
+                Path(self.gpu_cache_dir).expanduser().resolve() if self.gpu_cache_dir else model_path / ".ov_cache_gpu"
+            )
+        else:
+            _cache_path = model_path / ".ov_cache"
+        _cache_path.mkdir(parents=True, exist_ok=True)
+        self._core.set_property({"CACHE_DIR": str(_cache_path)})
 
         cpu_config: dict[str, str] = {}
         if self.device == "CPU":
@@ -556,15 +618,21 @@ class QwenASREngine:
             if self.cpu_threads > 0:
                 cpu_config["INFERENCE_NUM_THREADS"] = str(self.cpu_threads)
 
+        gpu_config: dict[str, str] = {}
+        if "GPU" in self.device:
+            gpu_config["PERFORMANCE_HINT"] = "LATENCY"
+
+        _compile_config = gpu_config if "GPU" in self.device else cpu_config
+
         self._audio_encoder_model = self._core.compile_model(
             str(model_path / "audio_encoder_model.xml"),
             self.device,
-            cpu_config,
+            _compile_config,
         )
         self._thinker_embeddings_model = self._core.compile_model(
             str(model_path / "thinker_embeddings_model.xml"),
             self.device,
-            cpu_config,
+            _compile_config,
         )
         self._processor = LightProcessor(model_path)
         self._max_chunk_ms = min(_MAX_CHUNK_MS, self._processor.max_audio_ms)
@@ -576,12 +644,12 @@ class QwenASREngine:
             self._decoder_prefill_model = self._core.compile_model(
                 str(model_path / "decoder_prefill_kv_model.xml"),
                 self.device,
-                cpu_config,
+                _compile_config,
             )
             self._decoder_kv_model = self._core.compile_model(
                 str(model_path / "decoder_kv_model.xml"),
                 self.device,
-                cpu_config,
+                _compile_config,
             )
             self._decoder_prefill_request = self._decoder_prefill_model.create_infer_request()
             self._decoder_kv_request = self._decoder_kv_model.create_infer_request()
@@ -589,7 +657,7 @@ class QwenASREngine:
             self._decoder_model = self._core.compile_model(
                 str(model_path / "decoder_model.xml"),
                 self.device,
-                cpu_config,
+                _compile_config,
             )
             self._decoder_request = self._decoder_model.create_infer_request()
 
@@ -895,18 +963,21 @@ def load_qwen_asr(
     model_path: str,
     device: str,
     cpu_threads: int = 0,
+    gpu_cache_dir: str = "",
     forced_aligner_path: str | None = None,
     forced_aligner_device: str = "cpu",
 ) -> QwenASREngine:
     resolved_model_path = _resolve_model_path(model_path)
     normalized_device = _normalize_device(device)
     normalized_cpu_threads = _normalize_cpu_threads(cpu_threads)
+    normalized_gpu_cache_dir = str(Path(gpu_cache_dir).expanduser().resolve()) if gpu_cache_dir else ""
     normalized_aligner_path = str(Path(forced_aligner_path).expanduser().resolve()) if forced_aligner_path else ""
     normalized_aligner_device = forced_aligner_device.strip().lower() or "cpu"
     cache_key = (
         resolved_model_path,
         normalized_device,
         normalized_cpu_threads,
+        normalized_gpu_cache_dir,
         normalized_aligner_path,
         normalized_aligner_device,
     )
@@ -916,6 +987,7 @@ def load_qwen_asr(
             model_dir=resolved_model_path,
             device=normalized_device,
             cpu_threads=normalized_cpu_threads,
+            gpu_cache_dir=normalized_gpu_cache_dir,
             forced_aligner_path=normalized_aligner_path or None,
             forced_aligner_device=normalized_aligner_device,
         )
@@ -927,18 +999,21 @@ def get_qwen_asr(
     model_path: str,
     device: str,
     cpu_threads: int = 0,
+    gpu_cache_dir: str = "",
     forced_aligner_path: str | None = None,
     forced_aligner_device: str = "cpu",
 ) -> QwenASREngine:
     resolved_model_path = _resolve_model_path(model_path)
     normalized_device = _normalize_device(device)
     normalized_cpu_threads = _normalize_cpu_threads(cpu_threads)
+    normalized_gpu_cache_dir = str(Path(gpu_cache_dir).expanduser().resolve()) if gpu_cache_dir else ""
     normalized_aligner_path = str(Path(forced_aligner_path).expanduser().resolve()) if forced_aligner_path else ""
     normalized_aligner_device = forced_aligner_device.strip().lower() or "cpu"
     cache_key = (
         resolved_model_path,
         normalized_device,
         normalized_cpu_threads,
+        normalized_gpu_cache_dir,
         normalized_aligner_path,
         normalized_aligner_device,
     )
@@ -947,7 +1022,8 @@ def get_qwen_asr(
         raise RuntimeError(
             "Qwen3-ASR engine is not loaded: "
             f"model_path={resolved_model_path}, device={normalized_device}, cpu_threads={normalized_cpu_threads}, "
-            f"forced_aligner_path={normalized_aligner_path}, forced_aligner_device={normalized_aligner_device}."
+            f"gpu_cache_dir={normalized_gpu_cache_dir}, forced_aligner_path={normalized_aligner_path}, "
+            f"forced_aligner_device={normalized_aligner_device}."
         )
     return engine
 
@@ -956,6 +1032,7 @@ def reset_qwen_asr_engine(
     model_path: str | None = None,
     device: str | None = None,
     cpu_threads: int = 0,
+    gpu_cache_dir: str = "",
     forced_aligner_path: str | None = None,
     forced_aligner_device: str = "cpu",
 ) -> None:
@@ -965,6 +1042,7 @@ def reset_qwen_asr_engine(
         resolved_model_path = _resolve_model_path(model_path)
         normalized_device = _normalize_device(device or "CPU")
         normalized_cpu_threads = _normalize_cpu_threads(cpu_threads)
+        normalized_gpu_cache_dir = str(Path(gpu_cache_dir).expanduser().resolve()) if gpu_cache_dir else ""
         normalized_aligner_path = str(Path(forced_aligner_path).expanduser().resolve()) if forced_aligner_path else ""
         normalized_aligner_device = forced_aligner_device.strip().lower() or "cpu"
         _qwen_asr_engines.pop(
@@ -972,6 +1050,7 @@ def reset_qwen_asr_engine(
                 resolved_model_path,
                 normalized_device,
                 normalized_cpu_threads,
+                normalized_gpu_cache_dir,
                 normalized_aligner_path,
                 normalized_aligner_device,
             ),
