@@ -132,6 +132,16 @@ async def lifespan(app: FastAPI):
             time.perf_counter() - started,
         )
 
+    if lab_settings.package.llm_translate:
+        from lab.api.logic.llm_translate import preload_configured_llm_translate_engine
+
+        started = time.perf_counter()
+        logger.info("⏳ 初始化 LLM Translate 后端...")
+        if preload_configured_llm_translate_engine():
+            logger.info("✅ LLM Translate 后端初始化完成 ({:.1f}s)", time.perf_counter() - started)
+        else:
+            logger.warning("LLM Translate service is enabled, but `agent.translate.llm.model_path` is empty.")
+
     if lab_settings.package.gpt_sovits:
         from gsv.gsv_state_manager import (  # type: ignore[reportMissingImports,reportUnknownVariableType]
             gsv_tts_state_manager,
@@ -258,6 +268,14 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    if lab_settings.package.llm_translate:
+        from lab.api.logic.llm_translate import unload_llm_translate_engine
+
+        try:
+            unload_llm_translate_engine()
+        except Exception as exc:
+            logger.warning("LLM Translate cleanup failed: {}", exc)
+
     logger.info("Application shutdown: lifespan cleanup completed.")
 
 
@@ -305,6 +323,11 @@ class WebSocketServer:
             "DeepLX 端点",
             lambda: self.app.include_router(import_module("lab.api.routes.deeplx").router),
         )
+        if lab_settings.package.llm_translate:
+            _include_router_with_log(
+                "LLM Translate 端点",
+                lambda: self.app.include_router(import_module("lab.api.routes.llm_translate").router),
+            )
         if lab_settings.package.sherpa_asr or lab_settings.package.qwen_asr:
             _include_router_with_log(
                 "ASR reload 端点",

@@ -98,6 +98,38 @@ def validate_config(settings: XnneHangLabSettings) -> None:
         if not chat_profile_path.exists():
             errors.append(f"  [agent.memory_chat_profile]\n    文件不存在: {chat_profile_path}\n    → 检查路径是否正确")
 
+    from lab.api.logic.llm_translate import resolve_llm_translate_model_path
+
+    translate_provider = settings.agent.translate_provider
+    deeplx_api_key = settings.agent.translate.deeplx.api_key.strip()
+    llm_translate_enabled = settings.package.llm_translate
+    llm_translate_model_path = resolve_llm_translate_model_path(settings)
+    llm_translate_model_exists = llm_translate_model_path is not None and llm_translate_model_path.exists()
+
+    if translate_provider == "deeplx" and not deeplx_api_key:
+        errors.append(
+            "  [translate]\n"
+            "    当前翻译 provider 为 deeplx，但 api_key 为空\n"
+            '    → 请配置 [agent.translate.deeplx].api_key，或将 [agent].translate_provider 改为 "llm"'
+        )
+
+    if translate_provider == "llm" and (not llm_translate_enabled or not llm_translate_model_exists):
+        configured_model_text = (
+            str(llm_translate_model_path)
+            if llm_translate_model_path is not None
+            else "<agent.translate.llm.model_path is empty>"
+        )
+        errors.append(
+            "  [translate]\n"
+            "    当前翻译 provider 为 llm，但本地翻译后端不可用\n"
+            f"    package.llm_translate = {llm_translate_enabled}\n"
+            f"    当前 llm model path: {configured_model_text}\n"
+            f"    本地 GGUF 是否存在: {llm_translate_model_exists}\n"
+            "    → 请将 [package].llm_translate 设为 true，并设置有效的 [agent.translate.llm].model_path，"
+            "或运行 `just install-llm-translate`，"
+            '或将 [agent].translate_provider 改为 "deeplx" 并配置 key'
+        )
+
     if errors:
         logger.error("❌ 配置校验失败，请修复以下问题后重启：\n\n{}", "\n\n".join(errors))
         sys.exit(1)

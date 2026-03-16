@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from loguru import logger
 
 from lab.agent.agent_factory import AgentFactory
+from lab.api.logic.translate import TranslateEngineRouter
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.live2d_model import Live2dModel
 
@@ -32,6 +33,7 @@ class ServiceContext:
 
         self.live2d_model: Live2dModel | None = None
         self.agent_engine: AgentInterface | None = None
+        self.translate_engine: TranslateEngineRouter | None = None
 
         # the system prompt is a combination of the persona prompt and live2d expression prompt
         self.chat_system_prompt: str | None = None
@@ -73,6 +75,7 @@ class ServiceContext:
         self.character_config = character_config
         self.live2d_model = live2d_model
         self.agent_engine = agent_engine
+        self.init_translate(lab_setting)
         logger.debug(f"Loaded service context with cache: {character_config}")
 
     async def load_from_config(self, config: XnneHangLabSettings) -> None:
@@ -112,7 +115,7 @@ class ServiceContext:
         await self.init_agent(config)
         logger.info("✅ Agent 初始化完成 ({:.1f}s)", time.perf_counter() - t1)
 
-        # self.init_translate(config.vtuber.character_config.tts_preprocessor_config.translator_config) # 到时替换成自己的
+        self.init_translate(config)
         # store typed config references
         self.server_config = config.server
         self.character_config = config.vtuber.character_config
@@ -155,9 +158,13 @@ class ServiceContext:
                 await self.agent_engine.connect_mcp_servers()
             self._mcp_connected = True
 
-    def init_translate(self) -> None:
+    def init_translate(self, lab_settings: XnneHangLabSettings) -> None:
         """Initialize or update the translation engine based on the configuration."""
-        logger.info("Translation already initialized with the same config.")
+        if self.translate_engine is None:
+            self.translate_engine = TranslateEngineRouter(lab_settings)
+            return
+
+        self.translate_engine.update_settings(lab_settings)
 
     async def handle_config_switch(
         self,

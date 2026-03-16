@@ -12,3 +12,8 @@ class GPTSoVITSResponse(TypedDict):
 class DeepLXResponse(TypedDict):
     source_text: str
     target_text: str
+
+
+class LLMTranslateResponse(TypedDict):
+    source_text: str
+    target_text: str

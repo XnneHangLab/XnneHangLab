@@ -24,6 +24,7 @@ dependencies = [
     "python-dotenv>=1.1.1",
     "bs4>=0.0.2",
     "grpcio==1.78.0",
+    "llama-cpp-python>=0.3.0",
     "modelscope>=1.23.1",
 ]
 authors = [{ name = "MrXnneHang", email = "XnneHang@gmail.com" }]
@@ -162,6 +163,12 @@ name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
+[[tool.uv.index]]
+name = "llama-cpp-cpu"
+url = "https://abetlen.github.io/llama-cpp-python/whl/cpu"
+format = "flat"
+explicit = true
+
 [tool.uv.sources]
 torch = [
   { index = "pytorch-cu118", marker = "sys_platform == 'win32'" }, # sys_platform : 'win32' , 'linux' , 'Darwin'
@@ -171,6 +178,7 @@ torchaudio = [
   { index = "pytorch-cu118", marker = "sys_platform == 'win32'" },
   { index = "pytorch-cpu", marker = "sys_platform != 'win32'"}
 ]
+llama-cpp-python = { index = "llama-cpp-cpu" }
 langsegment = { path = "./dist/LangSegment-0.3.5-py3-none-any.whl"}
 qwen-asr = {  workspace = true }
 

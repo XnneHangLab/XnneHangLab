@@ -1,4 +1,4 @@
-conf_version = "v1.5.3"
+conf_version = "v1.5.4"
 
 [asr]
 FFMPEG_PATH = "ffmpeg"
@@ -40,7 +40,7 @@ subtitle_speed = "normal"
 
 [agent]
 enable_tool = true
-deeplx_api_key = ""
+translate_provider = "llm"
 user_lang = "ZH"
 speaker_lang = "EN"
 speaker_model = "gpt_sovits"
@@ -98,9 +98,17 @@ llm_api_key = ""
 llm_base_url = "https://api.cerebras.ai/v1"
 api_format = "chat_completion"
 
+[agent.translate.deeplx]
+api_key = ""
+
+[agent.translate.llm]
+model_path = "./models/qwen2.5-0.5b-instruct-q8_0.gguf"
+n_gpu_layers = 0
+
 [package]
 sherpa_asr = false
 qwen_asr = false
+llm_translate = false
 to_do_list = true
 yutto_uiya = true
 gpt_sovits = true

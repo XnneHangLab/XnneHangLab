@@ -7,6 +7,7 @@ if TYPE_CHECKING:
     from lab.api.logic.faster_qwen_tts import init_qwen_tts_model
     from lab.api.logic.qwen_asr import load_qwen_asr_engine, qwen_asr_transcribe, reload_qwen_asr_engine
     from lab.api.logic.sherpa_asr import load_sherpa_asr, reload_sherpa_asr, sherpa_asr_audio, sherpa_vad_audio
+    from lab.api.logic.translate import TranslateEngineRouter
 
 _EXPORT_MAP: dict[str, tuple[str, str]] = {
     "init_qwen_tts_model": ("lab.api.logic.faster_qwen_tts", "init_qwen_tts_model"),
@@ -17,6 +18,7 @@ _EXPORT_MAP: dict[str, tuple[str, str]] = {
     "load_qwen_asr_engine": ("lab.api.logic.qwen_asr", "load_qwen_asr_engine"),
     "reload_qwen_asr_engine": ("lab.api.logic.qwen_asr", "reload_qwen_asr_engine"),
     "qwen_asr_transcribe": ("lab.api.logic.qwen_asr", "qwen_asr_transcribe"),
+    "TranslateEngineRouter": ("lab.api.logic.translate", "TranslateEngineRouter"),
 }
 
 __all__ = [
@@ -28,6 +30,7 @@ __all__ = [
     "load_qwen_asr_engine",
     "reload_sherpa_asr",
     "reload_qwen_asr_engine",
+    "TranslateEngineRouter",
 ]
 
 

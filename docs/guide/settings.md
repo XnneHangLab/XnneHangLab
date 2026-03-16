@@ -45,7 +45,7 @@ lab.toml
 │   └── subtitle_speed
 ├── [agent]
 │   ├── enable_tool
-│   ├── deeplx_api_key
+│   ├── translate_provider          # "llm" | "deeplx"
 │   ├── user_lang
 │   ├── speaker_lang
 │   ├── speaker_model
@@ -73,12 +73,18 @@ lab.toml
 │   │   ├── character_prompt
 │   │   ├── vision_prompt
 │   │   └── tool_prompt
-│   └── [agent.llm]
-│       ├── [agent.llm.openai]
-│       ├── [agent.llm.lingyi]
-│       ├── [agent.llm.gemini]
-│       ├── [agent.llm.oaipro]
-│       └── [agent.llm.cerebras]
+│   ├── [agent.llm]
+│   │   ├── [agent.llm.openai]
+│   │   ├── [agent.llm.lingyi]
+│   │   ├── [agent.llm.gemini]
+│   │   ├── [agent.llm.oaipro]
+│   │   └── [agent.llm.cerebras]
+│   └── [agent.translate]
+│       ├── [agent.translate.deeplx]
+│       │   └── api_key
+│       └── [agent.translate.llm]
+│           ├── model_path
+│           └── n_gpu_layers
 ├── [package]
 │   ├── funasr
 │   ├── whisper
@@ -163,6 +169,7 @@ root_dir = "D:\\tmp\\XnneHangLab"
 | yutto_uiya | true | 是否包含 yutto-uiya 相关 UI/能力 |
 | gpt_sovits | true | 是否包含 GPT-SoVITS 能力 |
 | qwen_tts | false | 是否包含 Qwen-TTS 能力 |
+| llm_translate | false | 是否启用本地 LLM 翻译引擎（Qwen2.5-0.5B），启用后注册 `/translate/llm` 路由 |
 | memory_bench | false | 是否包含 memory_bench 服务相关能力 |
 
 `sherpa_asr` 和 `qwen_asr` 可以同时开启，服务器会分别注册各自的路由。
@@ -322,7 +329,8 @@ subtitle_speed = "normal"
 | 字段 | 说明 |
 |---|---|
 | enable_tool | 是否启用 `BuiltinTool` 工具调用 |
-| deeplx_api_key | 跨语种翻译时使用的 DeepLX key |
+| translate_provider | 翻译引擎：`"llm"`（本地离线）/ `"deeplx"`（DeepLX API） |
+| translate | 翻译引擎子配置，见 [agent.translate] |
 | user_lang | 用户输入语言 |
 | speaker_lang | 语音输出语言 |
 | speaker_model | 当前语音模型，默认 `gpt_sovits` |
@@ -339,7 +347,7 @@ subtitle_speed = "normal"
 ```toml
 [agent]
 enable_tool = true
-deeplx_api_key = ""
+translate_provider = "llm"  # "llm" | "deeplx"
 user_lang = "ZH"
 speaker_lang = "EN"
 speaker_model = "gpt_sovits"
@@ -445,6 +453,50 @@ llm_api_key = ""
 llm_base_url = "https://api.oaipro.com/v1"
 api_format = "chat_completion"
 ```
+
+---
+
+### 🌍 [agent.translate] 翻译引擎配置
+
+`translate_provider` 决定使用哪个翻译引擎，子段分别配置两个引擎的参数。
+
+#### translate_provider
+
+- 可选值：`"llm"` / `"deeplx"`
+- 默认：`"llm"`
+- `"llm"`：使用本地 Qwen2.5-0.5B GGUF 模型，完全离线，无需 API Key
+- `"deeplx"`：使用 DeepLX 在线 API，需填写 `api_key`
+
+#### [agent.translate.deeplx]
+
+| 字段 | 说明 |
+|---|---|
+| api_key | DeepLX API Key，留空则无法使用 deeplx provider |
+
+```toml
+[agent.translate.deeplx]
+api_key = ""
+```
+
+#### [agent.translate.llm]
+
+| 字段 | 说明 |
+|---|---|
+| model_path | 本地 GGUF 模型路径，默认 `./models/qwen2.5-0.5b-instruct-q8_0.gguf` |
+| n_gpu_layers | GPU 卸载层数，`0` = 纯 CPU，`-1` = 全 GPU（需 CUDA） |
+
+```toml
+[agent.translate.llm]
+model_path = "./models/qwen2.5-0.5b-instruct-q8_0.gguf"
+n_gpu_layers = 0
+```
+
+> **下载模型：**
+> ```bash
+> just download-llm-translate
+> ```
+> 文件约 676 MB，下载到 `./models/` 目录。
+
 
 ---
 
