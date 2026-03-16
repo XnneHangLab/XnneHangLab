@@ -1,4 +1,4 @@
-conf_version = "v1.5.4"
+conf_version = "v1.5.5"
 
 [asr]
 FFMPEG_PATH = "ffmpeg"
@@ -29,8 +29,9 @@ preload_models = [
 ]
 model_0_6b_path = "./models/Qwen3-ASR-0.6B-INT8-OpenVINO"
 model_1_7b_path = "./models/Qwen3-ASR-1.7B-INT8-OpenVINO"
-device = "CPU"
+device = "GPU"
 cpu_threads = 0
+gpu_cache_dir = ""
 forced_aligner_path = "./models/Qwen3-ForcedAligner-0.6B"
 forced_aligner_device = "cuda"
 
