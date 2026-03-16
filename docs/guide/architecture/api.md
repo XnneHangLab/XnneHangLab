@@ -43,6 +43,7 @@ api/
 | `asr_reload.py` | `/asr` | ASR 热重载（`/reload` 全量 + `/sherpa/reload` 单独） |
 | `asr_shared.py` | — | 上传文件暂存到缓存目录，`file_default` 依赖注入 |
 | `deeplx.py` | `/translate/deeplx` | DeepLX 翻译代理（调用外部服务） |
+| `llm_translate.py` | `/translate/llm` | 本地 LLM 翻译（Qwen2.5-0.5B Q8 GGUF，llama-cpp-python） |
 | `faster_qwen_tts.py` | `/tts/qwen-tts` | Qwen-TTS 语音合成（非流式 + SSE 流式） |
 | `gpt_sovits.py` | `/tts/gptsovits` | GPT-SoVITS v1 TTS（JSON → base64 音频） |
 | `gpt_sovits_v2.py` | `/tts/gptsovitsv2` | GPT-SoVITS v2 TTS（GET/POST → 音频文件，支持流式） |
@@ -57,6 +58,8 @@ api/
 | `logic/sherpa_asr.py` | `load_sherpa_asr` / `reload_sherpa_asr` / `sherpa_asr_audio` / `sherpa_vad_audio`。启动时预加载 Paraformer + Silero VAD，热重载先 reset 再重新加载。 |
 | `logic/qwen_asr.py` | `load_qwen_asr_engine` / `reload_qwen_asr_engine` / `qwen_asr_transcribe` / `preload_configured_qwen_asr_engines`。支持多模型并发（0.6B / 1.7B 各自独立单例）。`normalize_qwen_model_name` 处理路由层传入的各种别名。 |
 | `logic/faster_qwen_tts.py` | Qwen-TTS 合成逻辑（单次 / 流式） |
+| `logic/llm_translate.py` | LLMTranslateEngine 加载/卸载/路径解析 |
+| `logic/translate.py` | `TranslateEngineRouter`：按 `translate_provider` 路由到 DeepLX 或本地 LLM |
 
 Sherpa-ONNX 与 Qwen3-ASR 完全解耦，`server.py` 启动时各自按 `[package]` flag 独立预加载，互不干扰。
 
@@ -66,6 +69,6 @@ Sherpa-ONNX 与 Qwen3-ASR 完全解耦，`server.py` 启动时各自按 `[packag
 
 ## 与其他模块的关系
 
-- **server.py** 按 `[package]` 开关挂载路由：`sherpa_router`、`qwen_asr_router`、`asr_reload_router`、`deeplx_router`、`qwen_tts_router`、`vtuber_router`
+- **server.py** 按 `[package]` 开关挂载路由：`sherpa_router`、`qwen_asr_router`、`asr_reload_router`、`deeplx_router`、`llm_translate_router`（`llm_translate=true`）、`qwen_tts_router`、`vtuber_router`
 - **conversations/** 通过 Clients 调用 TTS / 翻译
 - **agent/** 不直接依赖 api/，而是通过 conversations 层间接使用
