@@ -593,6 +593,7 @@ class QwenASREngine:
         _validate_model_dir(model_path)
 
         self._core = ov.Core()
+        available_devices = list(getattr(self._core, "available_devices", []))
         if "GPU" in self.device:
             _cache_path = (
                 Path(self.gpu_cache_dir).expanduser().resolve() if self.gpu_cache_dir else model_path / ".ov_cache_gpu"
@@ -601,6 +602,10 @@ class QwenASREngine:
             _cache_path = model_path / ".ov_cache"
         _cache_path.mkdir(parents=True, exist_ok=True)
         self._core.set_property({"CACHE_DIR": str(_cache_path)})
+        logger.info(  # pyright: ignore[reportUnknownMemberType]
+            f"Qwen3-ASR load start: model_dir={model_path}, device={self.device}, "
+            f"cache_dir={_cache_path}, available_devices={available_devices}"
+        )
 
         cpu_config: dict[str, str] = {}
         if self.device == "CPU":
@@ -624,16 +629,20 @@ class QwenASREngine:
 
         _compile_config = gpu_config if "GPU" in self.device else cpu_config
 
+        logger.info("Qwen3-ASR compiling audio encoder...")  # pyright: ignore[reportUnknownMemberType]
         self._audio_encoder_model = self._core.compile_model(
             str(model_path / "audio_encoder_model.xml"),
             self.device,
             _compile_config,
         )
+        logger.info("Qwen3-ASR audio encoder ready.")  # pyright: ignore[reportUnknownMemberType]
+        logger.info("Qwen3-ASR compiling thinker embeddings...")  # pyright: ignore[reportUnknownMemberType]
         self._thinker_embeddings_model = self._core.compile_model(
             str(model_path / "thinker_embeddings_model.xml"),
             self.device,
             _compile_config,
         )
+        logger.info("Qwen3-ASR thinker embeddings ready.")  # pyright: ignore[reportUnknownMemberType]
         self._processor = LightProcessor(model_path)
         self._max_chunk_ms = min(_MAX_CHUNK_MS, self._processor.max_audio_ms)
         self._use_split_decoder = (model_path / "decoder_prefill_kv_model.xml").exists() and (
@@ -641,24 +650,30 @@ class QwenASREngine:
         ).exists()
 
         if self._use_split_decoder:
+            logger.info("Qwen3-ASR compiling split decoder prefill...")  # pyright: ignore[reportUnknownMemberType]
             self._decoder_prefill_model = self._core.compile_model(
                 str(model_path / "decoder_prefill_kv_model.xml"),
                 self.device,
                 _compile_config,
             )
+            logger.info("Qwen3-ASR split decoder prefill ready.")  # pyright: ignore[reportUnknownMemberType]
+            logger.info("Qwen3-ASR compiling split decoder kv...")  # pyright: ignore[reportUnknownMemberType]
             self._decoder_kv_model = self._core.compile_model(
                 str(model_path / "decoder_kv_model.xml"),
                 self.device,
                 _compile_config,
             )
+            logger.info("Qwen3-ASR split decoder kv ready.")  # pyright: ignore[reportUnknownMemberType]
             self._decoder_prefill_request = self._decoder_prefill_model.create_infer_request()
             self._decoder_kv_request = self._decoder_kv_model.create_infer_request()
         else:
+            logger.info("Qwen3-ASR compiling decoder...")  # pyright: ignore[reportUnknownMemberType]
             self._decoder_model = self._core.compile_model(
                 str(model_path / "decoder_model.xml"),
                 self.device,
                 _compile_config,
             )
+            logger.info("Qwen3-ASR decoder ready.")  # pyright: ignore[reportUnknownMemberType]
             self._decoder_request = self._decoder_model.create_infer_request()
 
         self._audio_encoder_input = _resolve_input_key(self._audio_encoder_model, ("mel",), 0)
@@ -705,7 +720,11 @@ class QwenASREngine:
                 f"Configured path does not exist: {resolved_aligner_path}"
             )
 
+        logger.info(  # pyright: ignore[reportUnknownMemberType]
+            f"Qwen3-ASR loading ForcedAligner: path={resolved_aligner_path}, device={self.forced_aligner_device}"
+        )
         self._forced_aligner = load_forced_aligner(str(resolved_aligner_path), self.forced_aligner_device)
+        logger.info(f"Qwen3-ASR load complete: model_dir={model_path}, device={self.device}")  # pyright: ignore[reportUnknownMemberType]
 
     def _transcribe_chunk(self, audio: np.ndarray) -> str:
         if self._processor is None:
