@@ -7,7 +7,15 @@ from pydantic import BaseModel, Field
 
 
 class TTSPreprocessorConfig(BaseModel):
-    """Internal TTS text preprocessing settings used by VTuber flows."""
+    """VTuber 链路内部使用的 TTS 文本预处理配置。
+
+    Attributes:
+        remove_special_char: 是否移除特殊字符。
+        ignore_brackets: 是否忽略中括号内容。
+        ignore_parentheses: 是否忽略圆括号内容。
+        ignore_asterisks: 是否忽略星号包裹内容。
+        ignore_angle_brackets: 是否忽略尖括号内容。
+    """
 
     remove_special_char: Annotated[bool, Field(True)]
     ignore_brackets: Annotated[bool, Field(True)]
@@ -17,7 +25,20 @@ class TTSPreprocessorConfig(BaseModel):
 
 
 class CharacterSettings(BaseModel):
-    """Internal character identity used after profile loading."""
+    """运行时使用的角色配置。
+
+    该模型是内部数据结构，用于承接 profile 中的 `[character]`
+    配置，供 websocket、显示层与 TTS 链路复用。
+
+    Attributes:
+        conf_name: 前端角色配置名。
+        conf_uid: 角色唯一标识。
+        live2d_model_name: Live2D 模型名。
+        character_name: 展示用角色名。
+        avatar: 展示用头像。
+        human_name: 人类一侧展示名称。
+        tts_preprocessor_config: TTS 文本预处理配置。
+    """
 
     conf_name: Annotated[str, Field("elaina-local")]
     conf_uid: Annotated[str, Field("elaina-local-001")]
@@ -29,12 +50,19 @@ class CharacterSettings(BaseModel):
 
 
 class VtuberSettings(BaseModel):
-    """Legacy placeholder kept for module compatibility."""
+    """兼容旧模块导入的占位配置。
+
+    现在角色配置已经迁移到 profile 文件中，这里保留空模型，
+    仅用于避免旧的导入路径失效。
+    """
 
 
 def scan_bg_directory() -> list[str]:
-    """Scan the available background directory and return image file names."""
+    """扫描背景图目录并返回可用文件名列表。
 
+    Returns:
+        `static/backgrounds` 下的图片文件名列表。
+    """
     bg_files: list[str] = []
     bg_dir = "static/backgrounds"
     for _, _, files in os.walk(bg_dir):

@@ -26,7 +26,11 @@ if TYPE_CHECKING:
 
 
 def xdg_config_home() -> Path:
-    """Return the platform-specific configuration directory."""
+    """返回当前平台的配置目录。
+
+    Returns:
+        平台对应的配置根目录路径。
+    """
     if (env := os.environ.get("XDG_CONFIG_HOME")) and (path := Path(env)).is_absolute():
         return path
 
@@ -37,7 +41,16 @@ def xdg_config_home() -> Path:
 
 
 def search_for_settings_file(setting_name: str) -> Path | None:
-    """Find a configuration file in the workspace or user config directory."""
+    """搜索配置文件路径。
+
+    搜索顺序为工作区 `config/`，其次是用户配置目录。
+
+    Args:
+        setting_name: 配置文件名。
+
+    Returns:
+        命中的配置文件路径；若未找到则返回 `None`。
+    """
     config_dir = Path("config")
     settings_file = config_dir / setting_name
     if not settings_file.exists():
@@ -84,6 +97,20 @@ def load_settings_file(setting_name: str, setting: type[ServerSettings]) -> Serv
 
 
 class XnneHangLabSettings(BaseModel):
+    """XnneHangLab 主配置模型。
+
+    Attributes:
+        conf_version: 配置版本号。
+        asr: ASR 相关配置。
+        webui: WebUI 与音频识别配置。
+        agent: Agent 相关配置。
+        local_embedding: 本地向量模型配置。
+        package: 可选后端服务开关。
+        root: 工作区根目录配置。
+        server: 服务器配置。
+        memory_bench: memory_bench 后端配置。
+    """
+
     conf_version: Annotated[str, Field("v1.6.0", title="配置版本")]
     asr: Annotated[ASRSettings, Field(ASRSettings())]  # pyright: ignore[reportCallIssue]
     webui: Annotated[AudioRecognizeSettings, Field(AudioRecognizeSettings())]  # pyright: ignore[reportCallIssue]
@@ -119,7 +146,18 @@ def load_settings_file(
     | ASRSettings
     | ServerSettings
 ):
-    """Load a configuration file, creating it from defaults when needed."""
+    """加载并校验配置文件。
+
+    若目标文件不存在，会先在工作区 `config/` 下创建空文件，
+    再使用对应模型默认值完成补全并回写。
+
+    Args:
+        setting_name: 配置文件名。
+        setting: 对应的 Pydantic 配置模型。
+
+    Returns:
+        经过校验后的配置对象。
+    """
     settings_file = search_for_settings_file(setting_name=setting_name)
     if settings_file is None:
         config_dir = Path("config")
@@ -147,7 +185,12 @@ def write_settings_file(
     | ASRSettings
     | ServerSettings,
 ) -> None:
-    """Write a validated configuration object back to TOML."""
+    """将配置对象写回 TOML 文件。
+
+    Args:
+        settings_name: 配置文件名。
+        settings: 已校验的配置对象。
+    """
     settings_file = search_for_settings_file(setting_name=settings_name)
     if settings_file is None:
         settings_file = Path("config") / settings_name
@@ -177,5 +220,13 @@ def get_setting_title(
     name: SherpaASRSettingsTitle | QwenASRSettingsTitle | AudioRecognizeSettingsTitle | ASRSettingsTitle,
     setting: type[SherpaASRSettings | QwenASRSettings | AudioRecognizeSettings | ASRSettings],
 ) -> str:
-    """Return the display title for a configuration field."""
+    """读取配置字段的展示标题。
+
+    Args:
+        name: 字段名。
+        setting: 配置模型类型。
+
+    Returns:
+        字段在 UI 中展示的标题。
+    """
     return str(setting.model_fields[name].title)
