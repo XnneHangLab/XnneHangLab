@@ -181,8 +181,8 @@ class AgentFactory:
         agent = MemoryAgent(
             lab_settings=lab_setting,
             core=core,
-            live2d_model=live2d_model,  # type: ignore[arg-type]
-            tts_preprocessor_config=tts_preprocessor_config,  # type: ignore[arg-type]
+            live2d_model=live2d_model,
+            tts_preprocessor_config=tts_preprocessor_config,
             faster_first_response=lab_setting.agent.faster_first_response,
             segment_method=lab_setting.agent.segment_method,
             interrupt_method=lab_setting.agent.interrupt_method,

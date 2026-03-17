@@ -193,9 +193,21 @@ class WebSocketHandler:
             json.dumps(
                 {
                     "type": "set-model-and-conf",
-                    "model_info": session_service_context.live2d_model.model_info,  # type: ignore
-                    "conf_name": session_service_context.character_config.conf_name,  # type: ignore
-                    "conf_uid": session_service_context.character_config.conf_uid,  # type: ignore
+                    "model_info": (
+                        session_service_context.live2d_model.model_info
+                        if session_service_context.live2d_model is not None
+                        else None
+                    ),
+                    "conf_name": (
+                        session_service_context.character_config.conf_name
+                        if session_service_context.character_config is not None
+                        else ""
+                    ),
+                    "conf_uid": (
+                        session_service_context.character_config.conf_uid
+                        if session_service_context.character_config is not None
+                        else ""
+                    ),
                     "client_uid": client_uid,
                 }
             )
@@ -213,8 +225,12 @@ class WebSocketHandler:
         session_service_context.load_cache(
             lab_setting=self.default_context_cache.lab_setting.model_copy(deep=True),  # type: ignore
             server_config=self.default_context_cache.server_config.model_copy(deep=True),  # type: ignore
-            character_config=self.default_context_cache.character_config.model_copy(deep=True),  # type: ignore
-            live2d_model=self.default_context_cache.live2d_model,  # type: ignore
+            character_config=(
+                self.default_context_cache.character_config.model_copy(deep=True)
+                if self.default_context_cache.character_config is not None
+                else None
+            ),
+            live2d_model=self.default_context_cache.live2d_model,
             agent_engine=self.default_context_cache.agent_engine,  # type: ignore
         )
         return session_service_context

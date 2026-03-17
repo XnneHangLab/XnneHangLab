@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 
 class TTSPreprocessorConfig(BaseModel):
-    """TTS 文本预处理配置。"""
+    """Internal TTS text preprocessing settings used by VTuber flows."""
 
     remove_special_char: Annotated[bool, Field(True)]
     ignore_brackets: Annotated[bool, Field(True)]
@@ -17,10 +17,7 @@ class TTSPreprocessorConfig(BaseModel):
 
 
 class CharacterSettings(BaseModel):
-    """VTuber 角色配置。
-
-    包含角色身份标识、Live2D 模型名、显示名称与头像，以及 TTS 文本预处理策略。
-    """
+    """Internal character identity used after profile loading."""
 
     conf_name: Annotated[str, Field("elaina-local")]
     conf_uid: Annotated[str, Field("elaina-local-001")]
@@ -32,13 +29,11 @@ class CharacterSettings(BaseModel):
 
 
 class VtuberSettings(BaseModel):
-    """VTuber 模块配置入口。"""
-
-    character_config: Annotated[CharacterSettings, Field(CharacterSettings())]  # pyright: ignore[reportCallIssue]
+    """Legacy placeholder kept for module compatibility."""
 
 
 def scan_bg_directory() -> list[str]:
-    """扫描可用背景图目录并返回图片文件名列表。"""
+    """Scan the available background directory and return image file names."""
 
     bg_files: list[str] = []
     bg_dir = "static/backgrounds"

@@ -196,6 +196,13 @@ def _check_profiles(settings: XnneHangLabSettings) -> list[str]:
             try:
                 with profile_path.open("rb") as f:
                     profile_data: dict[str, object] = tomllib.load(f)
+                character_obj = profile_data.get("character")
+                if not isinstance(character_obj, dict):
+                    errors.append(
+                        " [agent.memory_agent_profile]\n"
+                        f" profile '{memory_agent_profile}' 缺少 [character] 配置\n"
+                        " -> VTuber 主链路的 memory_agent_profile 必须在 profile 中声明 [character]"
+                    )
                 plugins_obj: object = profile_data.get("plugins")
                 if isinstance(plugins_obj, dict):
                     plugins_dict = cast("dict[str, object]", plugins_obj)

@@ -56,7 +56,7 @@ def sentence_divider(
     return decorator
 
 
-def actions_extractor(live2d_model: Live2dModel):
+def actions_extractor(live2d_model: Live2dModel | None):
     """
     Decorator that extracts actions from sentences
     """
@@ -76,9 +76,10 @@ def actions_extractor(live2d_model: Live2dModel):
                     if not any(tag.name in SILENT_TAGS for tag in chunk.tags) and not any(
                         tag.state in [TagState.START, TagState.END] for tag in chunk.tags
                     ):
-                        expressions = live2d_model.extract_emotion(chunk.text)
-                        if expressions:
-                            actions.expressions = expressions
+                        if live2d_model is not None:
+                            expressions = live2d_model.extract_emotion(chunk.text)
+                            if expressions:
+                                actions.expressions = expressions
                     yield chunk, actions
 
         return wrapper
@@ -127,7 +128,7 @@ def display_processor():
 
 
 def tts_filter(
-    tts_preprocessor_config: TTSPreprocessorConfig = None,
+    tts_preprocessor_config: TTSPreprocessorConfig | None = None,
 ):
     """
     Decorator that filters text for TTS.
