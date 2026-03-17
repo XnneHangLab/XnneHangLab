@@ -79,7 +79,8 @@ lab.toml
 │   │   ├── [agent.llm.lingyi]
 │   │   ├── [agent.llm.gemini]
 │   │   ├── [agent.llm.oaipro]
-│   │   └── [agent.llm.cerebras]
+│   │   ├── [agent.llm.cerebras]
+│   │   └── [agent.llm.qwen-code-plan]
 │   └── [agent.translate]
 │       ├── [agent.translate.deeplx]
 │       │   └── api_key
@@ -373,7 +374,7 @@ memory_chat_profile = "profiles/congyin.toml"
 
 | 字段 | 说明 |
 |---|---|
-| llm_provider | 选用哪个 provider |
+| llm_provider | 选用哪个 provider，可选：`openai` / `lingyi` / `gemini` / `oaipro` / `cerebras` / `qwen-code-plan` |
 | llm_model_name | 聊天模型名 |
 | support_vision | 聊天模型是否支持视觉输入 |
 
@@ -390,7 +391,7 @@ support_vision = false
 
 | 字段 | 说明 |
 |---|---|
-| llm_provider | 选用哪个 provider |
+| llm_provider | 选用哪个 provider，可选：`openai` / `lingyi` / `gemini` / `oaipro` / `cerebras` / `qwen-code-plan` |
 | llm_model_name | 视觉模型名 |
 
 ```toml
@@ -449,6 +450,9 @@ tool_prompt = "./prompts/tool_prompt.txt"
 
 你只需要给正在使用的 provider 填好参数即可。
 
+当前内置 provider：`openai`、`lingyi`、`gemini`、`oaipro`、`cerebras`、`qwen-code-plan`。
+其中 `qwen-code-plan` 默认使用阿里云百炼 Coding 套餐专属 OpenAI 兼容 Base URL：`https://coding.dashscope.aliyuncs.com/v1`。
+
 ```toml
 [agent.llm.openai]
 llm_api_key = ""
@@ -458,6 +462,11 @@ api_format = "chat_completion"
 [agent.llm.oaipro]
 llm_api_key = ""
 llm_base_url = "https://api.oaipro.com/v1"
+api_format = "chat_completion"
+
+[agent.llm.qwen-code-plan]
+llm_api_key = ""
+llm_base_url = "https://coding.dashscope.aliyuncs.com/v1"
 api_format = "chat_completion"
 ```
 

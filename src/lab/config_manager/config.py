@@ -203,7 +203,7 @@ def write_settings_file(
         settings_file.touch()
 
     with settings_file.open("w", encoding="utf-8") as file:
-        file.write(toml_dumps(settings.model_dump(exclude_none=True)))  # type: ignore[arg-type]
+        file.write(toml_dumps(settings.model_dump(exclude_none=True, by_alias=True)))  # type: ignore[arg-type]
 
 
 @overload

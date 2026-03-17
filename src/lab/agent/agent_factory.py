@@ -104,8 +104,8 @@ class AgentFactory:
         for hook in hook_plugins:
             hook_manager.register(hook)
 
-        chat_llm = getattr(lab_setting.agent.llm, chat_model.llm_provider)
-        vision_llm = getattr(lab_setting.agent.llm, vision_model.llm_provider)
+        chat_llm = lab_setting.agent.llm.get_provider_config(chat_model.llm_provider)
+        vision_llm = lab_setting.agent.llm.get_provider_config(vision_model.llm_provider)
 
         chat_llm_interface = LLMFactory.create_llm(
             model=chat_model.llm_model_name,

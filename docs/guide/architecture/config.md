@@ -125,6 +125,9 @@ class AgentSettings(BaseModel):
     memory_chat_profile: str = "profiles/congyin.toml"
 ```
 
+`LLMSettings` 当前内置的 provider 包括 `openai`、`lingyi`、`gemini`、`oaipro`、`cerebras` 和 `qwen-code-plan`。
+其中 `qwen-code-plan` 在 Python 模型里使用字段名 `qwen_code_plan`，写回 `lab.toml` 时会序列化成 `[agent.llm.qwen-code-plan]`，这样配置名可以保持和实际 provider 名一致。
+
 ---
 
 ## Package 开关

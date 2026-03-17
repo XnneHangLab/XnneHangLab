@@ -184,7 +184,7 @@ async def lifespan(app: FastAPI):
             memory_bench_cfg = lab_settings.memory_bench
             chat_model_cfg = lab_settings.agent.chat_model
             embedding_cfg = lab_settings.agent.embedding
-            chat_llm = getattr(lab_settings.agent.llm, chat_model_cfg.llm_provider)
+            chat_llm = lab_settings.agent.llm.get_provider_config(chat_model_cfg.llm_provider)
 
             missing: list[str] = []
             if not chat_llm.llm_api_key:
