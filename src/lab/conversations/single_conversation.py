@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from loguru import logger
 
+from lab.agent.core import AgentCore
 from lab.conversations.conversation_utils import (
     EMOJI_LIST,
     cleanup_conversation,
@@ -129,8 +130,9 @@ async def process_agent_response(
         if context.agent_engine is None:
             logger.error("agent_engine is None, cannot process agent response")
             raise ValueError("agent_engine cannot be None")
-        if hasattr(context.agent_engine, "core") and context.agent_engine.core.agent_context is not None:
-            context.agent_engine.core.agent_context.extra["websocket_send"] = websocket_send
+        agent_core = getattr(context.agent_engine, "core", None)
+        if isinstance(agent_core, AgentCore) and agent_core.agent_context is not None:
+            agent_core.agent_context.extra["websocket_send"] = websocket_send
         agent_output = context.agent_engine.chat(batch_input)  # type: ignore
         async for output in agent_output:  # type: ignore
             logger.debug(output)  # type: ignore

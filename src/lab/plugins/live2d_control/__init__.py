@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from collections.abc import Awaitable, Callable
+from typing import Any, cast
 
 from lab.tools.base import BuiltinTool
 from lab.tools.plugin import PromptSegment, ToolPlugin
@@ -74,7 +75,8 @@ class _SetLive2DAppearanceTool(BuiltinTool):
 
         ws_send = ctx.extra.get("websocket_send")
         if callable(ws_send):
-            await ws_send(
+            websocket_send = cast(Callable[[str], Awaitable[None]], ws_send)
+            await websocket_send(
                 json.dumps(
                     {
                         "type": "set-live2d-appearance",
