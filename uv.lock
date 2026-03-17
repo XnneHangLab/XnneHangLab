@@ -4089,7 +4089,6 @@ dependencies = [
     { name = "fastapi", extra = ["standard"] },
     { name = "fastmcp" },
     { name = "grpcio" },
-    { name = "llama-cpp-python" },
     { name = "loguru" },
     { name = "modelscope" },
     { name = "pandas" },
@@ -4136,6 +4135,9 @@ gpt-sovits = [
     { name = "soundfile" },
     { name = "tqdm" },
     { name = "wordsegment" },
+]
+llama-cpp = [
+    { name = "llama-cpp-python" },
 ]
 memory-bench = [
     { name = "fastapi", extra = ["standard"] },
@@ -4193,7 +4195,6 @@ requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.115.8" },
     { name = "fastmcp", specifier = ">=2.10.4" },
     { name = "grpcio", specifier = "==1.78.0" },
-    { name = "llama-cpp-python", specifier = ">=0.3.0", index = "https://abetlen.github.io/llama-cpp-python/whl/cpu" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "modelscope", specifier = ">=1.23.1" },
     { name = "pandas", specifier = "==2.2.3" },
@@ -4239,6 +4240,7 @@ gpt-sovits = [
     { name = "tqdm", specifier = ">=4.67.1" },
     { name = "wordsegment", specifier = ">=1.3.1" },
 ]
+llama-cpp = [{ name = "llama-cpp-python", specifier = ">=0.3.0", index = "https://abetlen.github.io/llama-cpp-python/whl/cpu" }]
 memory-bench = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.115.8" },
     { name = "langchain-neo4j", specifier = ">=0.3.0" },

@@ -25,9 +25,9 @@ def clear_memory_chat_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "BENCHMARK_LLM_API_KEY",
         "BENCHMARK_LLM_BASE_URL",
         "BENCHMARK_LLM_MODEL",
-        "BENCHMARK_EMBEDDING_API_KEY",
-        "BENCHMARK_EMBEDDING_BASE_URL",
-        "BENCHMARK_EMBEDDING_MODEL",
+        "LOCAL_EMBEDDING_API_KEY",
+        "LOCAL_EMBEDDING_BASE_URL",
+        "LOCAL_EMBEDDING_MODEL",
         "CHAT_USER_ID",
         "CHAT_AGENT_ID",
         "METADATA_AGENT_ID",
@@ -45,9 +45,17 @@ def _set_base_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("BENCHMARK_LLM_API_KEY", "bench-key")
     monkeypatch.setenv("BENCHMARK_LLM_BASE_URL", "https://example.test/v1")
     monkeypatch.setenv("BENCHMARK_LLM_MODEL", "gpt-test")
-    monkeypatch.setenv("BENCHMARK_EMBEDDING_API_KEY", "embed-key")
-    monkeypatch.setenv("BENCHMARK_EMBEDDING_BASE_URL", "https://example.test/v1")
-    monkeypatch.setenv("BENCHMARK_EMBEDDING_MODEL", "text-embedding-test")
+
+
+def _set_identity_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CHAT_USER_ID", "user-a")
+    monkeypatch.setenv("CHAT_AGENT_ID", "agent-a")
+    monkeypatch.setenv("METADATA_USER_ID", "user-a")
+    monkeypatch.setenv("METADATA_USER_NAME", "User A")
+    monkeypatch.setenv("METADATA_AGENT_ID", "agent-a")
+    monkeypatch.setenv("METADATA_AGENT_NAME", "Agent A")
+    monkeypatch.setenv("METADATA_CHARACTER_ID", "char-a")
+    monkeypatch.setenv("METADATA_CHARACTER_NAME", "Character A")
 
 
 def test_chat_server_requires_agent_identity_args() -> None:
@@ -124,3 +132,14 @@ def test_resolve_memory_bench_config_requires_metadata_user_name(monkeypatch: py
 
     with pytest.raises(RuntimeError, match="METADATA_USER_NAME"):
         resolve_memory_bench_config()
+
+
+def test_resolve_memory_bench_config_uses_local_embedding_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    _set_base_env(monkeypatch)
+    _set_identity_env(monkeypatch)
+
+    cfg = resolve_memory_bench_config()
+
+    assert cfg["embedding_api_key"] == "no-key"
+    assert cfg["embedding_base_url"] == "http://localhost:12395/v1"
+    assert cfg["embedding_model"] == "bge-m3"

@@ -64,10 +64,6 @@ lab.toml
 │   ├── [agent.vision_model]
 │   │   ├── llm_provider
 │   │   └── llm_model_name
-│   ├── [agent.embedding]
-│   │   ├── api_key
-│   │   ├── base_url
-│   │   └── model
 │   ├── [agent.prompts]
 │   │   ├── live2d_expression_prompt
 │   │   ├── think_tag_prompt
@@ -95,6 +91,10 @@ lab.toml
 │   ├── gpt_sovits
 │   ├── qwen_tts
 │   └── memory_bench
+├── [local_embedding]
+│   ├── model_path
+│   ├── pooling_type
+│   └── n_gpu_layers
 ├── [root]
 │   └── root_dir
 ├── [server]
@@ -173,6 +173,7 @@ root_dir = "D:\\tmp\\XnneHangLab"
 | qwen_tts | false | 是否包含 Qwen-TTS 能力 |
 | llm_translate | false | 是否启用本地 LLM 翻译引擎（Qwen2.5-0.5B），启用后注册 `/translate/llm` 路由 |
 | memory_bench | false | 是否包含 memory_bench 服务相关能力 |
+| local_embedding | false | 是否启用本地 GGUF Embedding 服务（挂载 `/v1/embeddings` 端点） |
 
 `sherpa_asr` 和 `qwen_asr` 可以同时开启，服务器会分别注册各自的路由。
 
@@ -187,6 +188,7 @@ yutto_uiya = true
 gpt_sovits = true
 qwen_tts = false
 memory_bench = false
+local_embedding = false
 ```
 
 ---
@@ -402,23 +404,6 @@ llm_model_name = "gpt-5.1-2025-11-13"
 
 ---
 
-### 🔎 [agent.embedding] 向量模型配置
-
-| 字段 | 说明 |
-|---|---|
-| api_key | Embedding API Key |
-| base_url | Embedding 接口地址 |
-| model | Embedding 模型名 |
-
-```toml
-[agent.embedding]
-api_key = ""
-base_url = "https://api.oaipro.com/v1"
-model = "text-embedding-3-small"
-```
-
----
-
 ### 🧠 [agent.prompts] Agent 侧提示词文件
 
 | 字段 | 说明 |
@@ -513,6 +498,35 @@ n_gpu_layers = 0
 > ```
 > 文件约 676 MB，下载到 `./models/` 目录。
 
+
+---
+
+## 🧩 [local_embedding] 本地 Embedding 服务
+
+当 `package.local_embedding = true` 时，XnneHangLab 会使用 `llama-cpp-python` 加载 GGUF embedding 模型，在现有 FastAPI 服务上暴露 OpenAI 兼容的 `POST /v1/embeddings` 端点。
+
+| 字段 | 说明 |
+|---|---|
+| model_path | 本地 GGUF embedding 模型路径 |
+| pooling_type | 池化类型：`mean` / `cls` / `last` |
+| n_gpu_layers | GPU 卸载层数，`0` = 纯 CPU |
+
+```toml
+[local_embedding]
+model_path = "./models/bge-m3-q8_0.gguf"
+pooling_type = "mean"
+n_gpu_layers = 0
+```
+
+> **下载模型：**
+> ```bash
+> just download-local-embedding
+> ```
+> 文件约 1.1 GB，下载到 `./models/` 目录。
+
+> **说明：**
+> - `memory_bench` 启用时会自动使用本地 embedding 服务，无需额外配置远程 embedding API。
+> - 更换 embedding 模型后，旧的 Qdrant 向量数据不兼容，需要重建记忆数据库。
 
 ---
 

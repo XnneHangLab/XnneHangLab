@@ -62,11 +62,6 @@ support_vision = false
 llm_provider = "oaipro"
 llm_model_name = "gpt-5.1-2025-11-13"
 
-[agent.embedding]
-api_key = ""
-base_url = "https://api.oaipro.com/v1"
-model = "text-embedding-3-small"
-
 [agent.prompts]
 live2d_expression_prompt = "./prompts/live2d_expression_prompt.txt"
 think_tag_prompt = "./prompts/think_tag_prompt.txt"
@@ -111,10 +106,16 @@ api_key = ""
 model_path = "./models/qwen2.5-0.5b-instruct-q8_0.gguf"
 n_gpu_layers = 0
 
+[local_embedding]
+model_path = "./models/bge-m3-q8_0.gguf"
+pooling_type = "mean"
+n_gpu_layers = 0
+
 [package]
 sherpa_asr = false
 qwen_asr = false
 llm_translate = false
+local_embedding = false
 to_do_list = true
 yutto_uiya = true
 gpt_sovits = true

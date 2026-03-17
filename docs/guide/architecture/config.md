@@ -67,6 +67,7 @@ class XnneHangLabSettings(BaseModel):
     asr: ASRSettings
     webui: AudioRecognizeSettings
     agent: AgentSettings
+    local_embedding: LocalEmbeddingSetting
     package: PackagesSettings
     root: RootAbsDir
     server: ServerSettings
@@ -93,6 +94,7 @@ config_manager/
 ├── package.py            # PackagesSettings
 ├── abs_root.py           # RootAbsDir
 ├── audio_recognize.py    # AudioRecognizeSettings
+├── embedding.py          # LocalEmbeddingSetting
 ├── memory_bench.py       # MemoryBenchSettings
 └── webui_i18n_model.py   # WebUI i18n 基类
 ```
@@ -107,7 +109,6 @@ config_manager/
 class AgentSettings(BaseModel):
     chat_model: ChatModelSetting      # 聊天模型选择（provider + model name）
     vision_model: VisionModelSetting  # 视觉模型选择
-    embedding: EmbeddingModelSetting  # 向量模型（用于 memory 检索）
     enable_tool: bool = True          # BuiltinTool 总开关
     prompts: PromptSettings           # Agent 侧提示词路径
     llm: LLMSettings                  # 各 provider 连接配置（api_key / base_url）
@@ -139,6 +140,7 @@ class AgentSettings(BaseModel):
 sherpa_asr = false
 qwen_asr = false
 llm_translate = false
+local_embedding = false
 gpt_sovits = true
 qwen_tts = false
 memory_bench = false
@@ -167,3 +169,5 @@ yutto_uiya = true
 - `server.py` 会根据 `[package]` 开关决定加载哪些路由
 - `AgentFactory` 会读取 `[agent]`，再继续进入 Profile / Plugin / ToolManager 流程
 - `webui_i18n_model.py` 为 WebUI 配置项提供统一的枚举映射能力
+
+> **注：** 向量模型配置已从 `AgentSettings` 中移除。Embedding 现在通过 `LocalEmbeddingSetting` 管理，启用 `package.local_embedding` 后，服务端会在现有 FastAPI 服务上挂载 `/v1/embeddings` 端点，`memory_bench` 自动使用本地 embedding 服务。

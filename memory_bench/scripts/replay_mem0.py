@@ -109,6 +109,9 @@ DEFAULT_STATE_DIR = Path("memory_bench/state")
 DEFAULT_LOG_DIR = Path("memory_bench/logs/replay_mem0")
 _CHUNK_MAX_SIZE = 10
 _CHUNK_OVERLAP = 2
+_DEFAULT_LOCAL_EMBEDDING_API_KEY = "no-key"
+_DEFAULT_LOCAL_EMBEDDING_BASE_URL = "http://localhost:12395/v1"
+_DEFAULT_LOCAL_EMBEDDING_MODEL = "bge-m3"
 
 
 def load_benchmark_dotenv(repo_root: Path) -> None:
@@ -221,9 +224,9 @@ def prepare_mem0_env() -> ReplayConfig:
     llm_api_key = get_env("BENCHMARK_LLM_API_KEY")
     llm_base_url = get_env("BENCHMARK_LLM_BASE_URL")
     llm_model = get_env("BENCHMARK_LLM_MODEL")
-    embedding_api_key = get_env("BENCHMARK_EMBEDDING_API_KEY")
-    embedding_base_url = get_env("BENCHMARK_EMBEDDING_BASE_URL")
-    embedding_model = get_env("BENCHMARK_EMBEDDING_MODEL")
+    embedding_api_key = get_env("LOCAL_EMBEDDING_API_KEY", _DEFAULT_LOCAL_EMBEDDING_API_KEY)
+    embedding_base_url = get_env("LOCAL_EMBEDDING_BASE_URL", _DEFAULT_LOCAL_EMBEDDING_BASE_URL)
+    embedding_model = get_env("LOCAL_EMBEDDING_MODEL", _DEFAULT_LOCAL_EMBEDDING_MODEL)
 
     missing: list[str] = []
     if not llm_api_key:
@@ -232,13 +235,6 @@ def prepare_mem0_env() -> ReplayConfig:
         missing.append("BENCHMARK_LLM_BASE_URL")
     if not llm_model:
         missing.append("BENCHMARK_LLM_MODEL")
-    if not embedding_api_key:
-        missing.append("BENCHMARK_EMBEDDING_API_KEY")
-    if not embedding_base_url:
-        missing.append("BENCHMARK_EMBEDDING_BASE_URL")
-    if not embedding_model:
-        missing.append("BENCHMARK_EMBEDDING_MODEL")
-
     if missing:
         required = ", ".join(missing)
         raise ReplayMem0Error(

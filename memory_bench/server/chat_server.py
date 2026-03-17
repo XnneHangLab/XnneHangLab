@@ -62,7 +62,6 @@ async def lifespan(app: FastAPI):  # type: ignore[reportUnknownParameterType]
             "llm_api_key": args.mem0_llm_api_key,
             "llm_base_url": args.mem0_llm_base_url,
             "llm_model": args.mem0_llm_model,
-            "embedding_api_key": args.embedding_api_key,
             "embedding_base_url": args.embedding_base_url,
             "embedding_model": args.embedding_model,
             "user_id": args.user_id,
@@ -119,9 +118,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--mem0-llm-base-url", default=None, help="Base URL for mem0 LLM (default: same as chat)")
     p.add_argument("--mem0-llm-model", default=None, help="Model for mem0 LLM (default: same as chat)")
 
-    p.add_argument("--embedding-api-key", default=None, help="API key for embedding model")
-    p.add_argument("--embedding-base-url", default=None, help="Base URL for embedding model")
-    p.add_argument("--embedding-model", default=None, help="Embedding model name")
+    p.add_argument("--embedding-base-url", default=None, help="Base URL for the local embedding service")
+    p.add_argument("--embedding-model", default=None, help="Embedding model name exposed by the local service")
 
     p.add_argument("--user-id", required=True, help="User ID for mem0")
     p.add_argument("--agent-id", required=True, help="Agent ID for mem0 (e.g. congyin, elaina)")

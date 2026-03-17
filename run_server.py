@@ -31,21 +31,8 @@ def parse_args(lab_settings: XnneHangLabSettings):
 
 
 def validate_config(settings: XnneHangLabSettings) -> None:
-    """启动前静态校验配置项，发现问题一次性报出后退出。
+    """Validate critical runtime configuration before starting the server."""
 
-    检查范围包括当前 Chat LLM provider 的 `llm_api_key`、embedding
-    `api_key`、memory profile 文件存在性，以及 memory 插件和
-    `package.memory_bench` 的一致性。
-
-    Args:
-        settings: 从 `lab.toml` 加载的完整实验室配置对象。
-
-    Returns:
-        None.
-
-    Raises:
-        SystemExit: 发现任意配置问题时，记录所有错误并以退出码 1 终止启动。
-    """
     errors: list[str] = []
 
     chat_provider = settings.agent.chat_model.llm_provider
@@ -54,11 +41,8 @@ def validate_config(settings: XnneHangLabSettings) -> None:
         errors.append(
             f"  [agent.llm.{chat_provider}]\n"
             "    llm_api_key 未配置\n"
-            f"    → 在 lab.toml 的 [agent.llm.{chat_provider}] 下设置 llm_api_key"
+            f"    -> 在 lab.toml 的 [agent.llm.{chat_provider}] 下设置 llm_api_key"
         )
-
-    if not settings.agent.embedding.api_key:
-        errors.append("  [agent.embedding]\n    api_key 未配置\n    → 在 lab.toml 的 [agent.embedding] 下设置 api_key")
 
     ws_root = Path(settings.root.root_dir)
 
@@ -68,7 +52,7 @@ def validate_config(settings: XnneHangLabSettings) -> None:
         if not profile_path.is_absolute():
             profile_path = ws_root / memory_agent_profile
         if not profile_path.exists():
-            errors.append(f"  [agent.memory_agent_profile]\n    文件不存在: {profile_path}\n    → 检查路径是否正确")
+            errors.append(f"  [agent.memory_agent_profile]\n    文件不存在: {profile_path}\n    -> 检查路径是否正确")
         else:
             try:
                 with profile_path.open("rb") as f:
@@ -85,7 +69,7 @@ def validate_config(settings: XnneHangLabSettings) -> None:
                     errors.append(
                         "  [package]\n"
                         f"    profile '{memory_agent_profile}' 启用了 memory 插件，但 memory_bench = false\n"
-                        "    → 在 lab.toml 的 [package] 下设置 memory_bench = true"
+                        "    -> 在 lab.toml 的 [package] 下设置 memory_bench = true"
                     )
             except Exception:
                 pass
@@ -96,8 +80,11 @@ def validate_config(settings: XnneHangLabSettings) -> None:
         if not chat_profile_path.is_absolute():
             chat_profile_path = ws_root / memory_chat_profile
         if not chat_profile_path.exists():
-            errors.append(f"  [agent.memory_chat_profile]\n    文件不存在: {chat_profile_path}\n    → 检查路径是否正确")
+            errors.append(
+                f"  [agent.memory_chat_profile]\n    文件不存在: {chat_profile_path}\n    -> 检查路径是否正确"
+            )
 
+    from lab.api.logic.embedding import resolve_embedding_model_path
     from lab.api.logic.llm_translate import resolve_llm_translate_model_path
 
     translate_provider = settings.agent.translate_provider
@@ -110,7 +97,7 @@ def validate_config(settings: XnneHangLabSettings) -> None:
         errors.append(
             "  [translate]\n"
             "    当前翻译 provider 为 deeplx，但 api_key 为空\n"
-            '    → 请配置 [agent.translate.deeplx].api_key，或将 [agent].translate_provider 改为 "llm"'
+            '    -> 配置 [agent.translate.deeplx].api_key，或将 [agent].translate_provider 改为 "llm"'
         )
 
     if translate_provider == "llm" and (not llm_translate_enabled or not llm_translate_model_exists):
@@ -125,9 +112,40 @@ def validate_config(settings: XnneHangLabSettings) -> None:
             f"    package.llm_translate = {llm_translate_enabled}\n"
             f"    当前 llm model path: {configured_model_text}\n"
             f"    本地 GGUF 是否存在: {llm_translate_model_exists}\n"
-            "    → 请将 [package].llm_translate 设为 true，并设置有效的 [agent.translate.llm].model_path，"
+            "    -> 将 [package].llm_translate 设为 true，并设置有效的 [agent.translate.llm].model_path，"
             "或运行 `just install-llm-translate`，"
             '或将 [agent].translate_provider 改为 "deeplx" 并配置 key'
+        )
+
+    local_embedding_model_path = resolve_embedding_model_path(settings)
+    local_embedding_model_exists = local_embedding_model_path is not None and local_embedding_model_path.exists()
+    local_embedding_path_text = (
+        str(local_embedding_model_path)
+        if local_embedding_model_path is not None
+        else "<local_embedding.model_path is empty>"
+    )
+
+    if settings.package.local_embedding and not local_embedding_model_exists:
+        errors.append(
+            "  [local_embedding]\n"
+            "    本地 Embedding 服务已启用，但 GGUF 模型不可用\n"
+            f"    当前 model path: {local_embedding_path_text}\n"
+            f"    本地 GGUF 是否存在: {local_embedding_model_exists}\n"
+            "    -> 设置有效的 [local_embedding].model_path，或运行 `just download-local-embedding`"
+        )
+
+    if settings.package.memory_bench and not settings.package.local_embedding:
+        errors.append(
+            "  [package]\n"
+            "    memory_bench = true，但 local_embedding = false\n"
+            "    -> memory_bench 现在依赖本地 Embedding 服务，请在 [package] 下设置 local_embedding = true"
+        )
+    elif settings.package.memory_bench and not local_embedding_model_exists:
+        errors.append(
+            "  [memory_bench]\n"
+            "    memory_bench 依赖本地 Embedding 模型，但当前模型文件不存在\n"
+            f"    当前 model path: {local_embedding_path_text}\n"
+            "    -> 先下载模型，再启动 memory_bench"
         )
 
     if errors:
@@ -139,15 +157,9 @@ def validate_config(settings: XnneHangLabSettings) -> None:
 
 @logger.catch
 def run(lab_settings: XnneHangLabSettings, args: argparse.Namespace):
-    """初始化日志与配置后启动 WebSocket 服务。
+    """Initialize logging and start the FastAPI server."""
 
-    Args:
-        lab_settings: 已加载并校验结构的实验室配置对象。
-        args: 命令行参数解析结果。
-
-    Returns:
-        None.
-    """
+    import lab.server as lab_server_module
     from lab.logger.logger_group import init_logger
     from lab.server import WebSocketServer
 
@@ -158,8 +170,8 @@ def run(lab_settings: XnneHangLabSettings, args: argparse.Namespace):
     server_config = lab_settings.server
     if args.port is not None:
         server_config.port = args.port
+        lab_server_module.lab_settings.server.port = args.port
 
-    # Initialize and run the WebSocket server
     server = WebSocketServer()
 
     uvicorn.run(

@@ -13,6 +13,7 @@ from lab.config_manager.abs_root import RootAbsDir
 from lab.config_manager.agent import AgentSettings
 from lab.config_manager.asr import ASRSettings, ASRSettingsTitle
 from lab.config_manager.audio_recognize import AudioRecognizeSettings, AudioRecognizeSettingsTitle
+from lab.config_manager.embedding import LocalEmbeddingSetting
 from lab.config_manager.memory_bench import MemoryBenchSettings
 from lab.config_manager.package import PackagesSettings
 from lab.config_manager.server import ServerSettings
@@ -112,6 +113,7 @@ class XnneHangLabSettings(BaseModel):
     asr: Annotated[ASRSettings, Field(ASRSettings())]  # pyright: ignore[reportCallIssue]
     webui: Annotated[AudioRecognizeSettings, Field(AudioRecognizeSettings())]  # pyright: ignore[reportCallIssue]
     agent: Annotated[AgentSettings, Field(AgentSettings())]  # pyright: ignore[reportCallIssue]
+    local_embedding: Annotated[LocalEmbeddingSetting, Field(LocalEmbeddingSetting())]  # pyright: ignore[reportCallIssue]
     package: Annotated[PackagesSettings, Field(PackagesSettings())]  # pyright: ignore[reportCallIssue]
     root: Annotated[RootAbsDir, Field(RootAbsDir())]  # pyright: ignore[reportCallIssue]
     server: Annotated[ServerSettings, Field(ServerSettings())]  # pyright: ignore[reportCallIssue]

@@ -23,7 +23,8 @@ uv run memory_bench/scripts/replay_mem0.py export --infer-owner --owner-fallback
 需要同时配置 LLM 和 Embedding（共 6 项）：
 
 - `BENCHMARK_LLM_API_KEY` / `BENCHMARK_LLM_BASE_URL` / `BENCHMARK_LLM_MODEL`
-- `BENCHMARK_EMBEDDING_API_KEY` / `BENCHMARK_EMBEDDING_BASE_URL` / `BENCHMARK_EMBEDDING_MODEL`
+- `LOCAL_EMBEDDING_BASE_URL`（可选，默认 `http://localhost:12395/v1`）
+- `LOCAL_EMBEDDING_MODEL`（可选，默认 `bge-m3`）
 
 ## 子命令
 

@@ -186,6 +186,11 @@ install-qwen-tts:
   uv sync
   uv run modelscope download --model Qwen/Qwen3-TTS-12Hz-1.7B-Base --local_dir ./models/Qwen3-TTS-12Hz-1.7B-Base
 
+download-local-embedding model_dir='./models':
+  uv lock
+  uv sync
+  uv run modelscope download --model ggml-org/bge-m3-Q8_0-GGUF bge-m3-q8_0.gguf --local_dir {{ model_dir }}
+
 install-sherpa-model:
   mkdir -p ./models
   curl -L https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-paraformer-zh-2023-09-14.tar.bz2 -o ./models/sherpa-onnx-paraformer-zh-2023-09-14.tar.bz2
@@ -480,4 +485,12 @@ test-llm-translate server='http://127.0.0.1:12393':
     -d '{ \
       "text": "La bibliotheque du quartier ferme un peu plus tot le vendredi, mais je passe encore en fin d apres-midi pour choisir un roman et lire pres de la fenetre.", \
       "target_language": "ZH" \
+    }'
+
+test-embedding server='http://127.0.0.1:12393':
+  curl -X POST "{{ server }}/v1/embeddings" \
+    -H "Content-Type: application/json" \
+    -d '{ \
+      "model": "bge-m3", \
+      "input": ["hello world", "今天下午一起去散步吧"] \
     }'

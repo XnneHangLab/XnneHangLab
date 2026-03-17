@@ -148,10 +148,9 @@ MEM0_LLM_API_KEY=
 MEM0_LLM_BASE_URL=
 MEM0_LLM_MODEL=
 
-# Embedding
-BENCHMARK_EMBEDDING_API_KEY=sk-xxx
-BENCHMARK_EMBEDDING_BASE_URL=https://api.openai.com/v1
-BENCHMARK_EMBEDDING_MODEL=text-embedding-3-small
+# Local embedding
+LOCAL_EMBEDDING_BASE_URL=http://localhost:12395/v1
+LOCAL_EMBEDDING_MODEL=bge-m3
 
 # 认证（可选）
 CHAT_SERVER_API_KEY=your-secret-key
