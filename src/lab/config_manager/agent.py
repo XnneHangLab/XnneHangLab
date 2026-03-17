@@ -58,6 +58,14 @@ class QwenCodePlanSetting(LLMSettingBase):
     ]
 
 
+def _default_qwen_code_plan_setting() -> QwenCodePlanSetting:
+    return QwenCodePlanSetting(
+        llm_api_key="",
+        llm_base_url="https://coding.dashscope.aliyuncs.com/v1",
+        api_format="chat_completion",
+    )
+
+
 class LLMSettings(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -69,11 +77,11 @@ class LLMSettings(BaseModel):
     qwen_code_plan: Annotated[
         QwenCodePlanSetting,
         Field(
-            QwenCodePlanSetting(),
+            default_factory=_default_qwen_code_plan_setting,
             alias="qwen-code-plan",
             serialization_alias="qwen-code-plan",
         ),
-    ]  # pyright: ignore[reportCallIssue]
+    ]
 
     def get_provider_config(self, provider: LLM_Provider) -> LLMSettingBase:
         return cast(LLMSettingBase, getattr(self, provider.replace("-", "_")))
