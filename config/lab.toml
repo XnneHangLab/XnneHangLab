@@ -29,7 +29,7 @@ preload_models = [
 ]
 model_0_6b_path = "./models/Qwen3-ASR-0.6B-INT8-OpenVINO"
 model_1_7b_path = "./models/Qwen3-ASR-1.7B-INT8-OpenVINO"
-device = "GPU"
+device = "CPU"
 cpu_threads = 0
 gpu_cache_dir = ""
 forced_aligner_path = "./models/Qwen3-ForcedAligner-0.6B"
@@ -63,7 +63,7 @@ llm_provider = "oaipro"
 llm_model_name = "gpt-5.1-2025-11-13"
 
 [agent.embedding]
-api_key = "sk-CqQD7Bia1TcdhzP7KkGFWPq7jAQQjMBQecjoGktrxTu5Bo4LZ9i3"
+api_key = ""
 base_url = "https://api.oaipro.com/v1"
 model = "text-embedding-3-small"
 
@@ -90,7 +90,7 @@ llm_base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
 api_format = "chat_completion"
 
 [agent.llm.oaipro]
-llm_api_key = "sk-CqQD7Bia1TcdhzP7KkGFWPq7jAQQjMBQecjoGktrxTu5Bo4LZ9i3"
+llm_api_key = ""
 llm_base_url = "https://api.oaipro.com/v1"
 api_format = "chat_completion"
 
@@ -100,7 +100,7 @@ llm_base_url = "https://api.cerebras.ai/v1"
 api_format = "chat_completion"
 
 [agent.translate.deeplx]
-api_key = "ARAoW438WnGYgIxXqzTiNmIGrVTFH23IoLK8SxYXQi8"
+api_key = ""
 
 [agent.translate.llm]
 model_path = "./models/qwen2.5-0.5b-instruct-q8_0.gguf"
@@ -109,15 +109,15 @@ n_gpu_layers = 0
 [package]
 sherpa_asr = false
 qwen_asr = false
-llm_translate = true
+llm_translate = false
 to_do_list = true
 yutto_uiya = true
 gpt_sovits = true
 qwen_tts = false
-memory_bench = true
+memory_bench = false
 
 [root]
-root_dir = "D:\\tmp\\XnneHangLab"
+root_dir = ""
 
 [server]
 host = "localhost"
@@ -126,11 +126,11 @@ config_alts_dir = "characters"
 uvicorn_log_level = "warning"
 
 [vtuber.character_config]
-conf_name = "baoqiao-local"
-conf_uid = "baoqiao-local-001"
-live2d_model_name = "薄巧_完整版_调用版"
-character_name = "薄巧"
-avatar = "baoqiao.png"
+conf_name = "elaina-local"
+conf_uid = "elaina-local-001"
+live2d_model_name = "Elaina"
+character_name = "Elaina"
+avatar = "ico_lss.png"
 human_name = "Human"
 
 [vtuber.character_config.tts_preprocessor_config]
