@@ -142,6 +142,18 @@ async def lifespan(app: FastAPI):
         else:
             logger.warning("LLM Translate service is enabled, but `agent.translate.llm.model_path` is empty.")
 
+    if lab_settings.package.local_embedding:
+        from lab.api.logic.embedding import load_embedding_model
+
+        started = time.perf_counter()
+        logger.info("⏳ 预加载本地 Embedding 模型...")
+        load_embedding_model(
+            model_path=lab_settings.local_embedding.model_path,
+            pooling_type=lab_settings.local_embedding.pooling_type,
+            n_gpu_layers=lab_settings.local_embedding.n_gpu_layers,
+        )
+        logger.info("✅ 本地 Embedding 模型预加载完成 ({:.1f}s)", time.perf_counter() - started)
+
     if lab_settings.package.gpt_sovits:
         from gsv.gsv_state_manager import (  # type: ignore[reportMissingImports,reportUnknownVariableType]
             gsv_tts_state_manager,
@@ -183,14 +195,14 @@ async def lifespan(app: FastAPI):
 
             memory_bench_cfg = lab_settings.memory_bench
             chat_model_cfg = lab_settings.agent.chat_model
-            embedding_cfg = lab_settings.agent.embedding
             chat_llm = lab_settings.agent.llm.get_provider_config(chat_model_cfg.llm_provider)
+            embedding_base_url = f"http://localhost:{lab_settings.server.port}/v1"
 
             missing: list[str] = []
             if not chat_llm.llm_api_key:
                 missing.append(f"agent.llm.{chat_model_cfg.llm_provider}.llm_api_key")
-            if not embedding_cfg.api_key:
-                missing.append("agent.embedding.api_key")
+            if not lab_settings.package.local_embedding:
+                missing.append("package.local_embedding")
             if missing:
                 raise ValueError(f"memory_bench startup is missing required config: {', '.join(missing)}")
 
@@ -201,9 +213,9 @@ async def lifespan(app: FastAPI):
                 "llm_api_key": chat_llm.llm_api_key,
                 "llm_base_url": chat_llm.llm_base_url,
                 "llm_model": chat_model_cfg.llm_model_name,
-                "embedding_api_key": embedding_cfg.api_key,
-                "embedding_base_url": embedding_cfg.base_url,
-                "embedding_model": embedding_cfg.model,
+                "embedding_api_key": "no-key",
+                "embedding_base_url": embedding_base_url,
+                "embedding_model": "bge-m3",
                 "search_limit": memory_bench_cfg.search_limit,
                 "server_api_key": memory_bench_cfg.server_api_key or None,
             }
@@ -276,6 +288,14 @@ async def lifespan(app: FastAPI):
         except Exception as exc:
             logger.warning("LLM Translate cleanup failed: {}", exc)
 
+    if lab_settings.package.local_embedding:
+        from lab.api.logic.embedding import unload_embedding_model
+
+        try:
+            unload_embedding_model()
+        except Exception as exc:
+            logger.warning("Local embedding cleanup failed: {}", exc)
+
     logger.info("Application shutdown: lifespan cleanup completed.")
 
 
@@ -327,6 +347,11 @@ class WebSocketServer:
             _include_router_with_log(
                 "LLM Translate 端点",
                 lambda: self.app.include_router(import_module("lab.api.routes.llm_translate").router),
+            )
+        if lab_settings.package.local_embedding:
+            _include_router_with_log(
+                "本地 Embedding 端点",
+                lambda: self.app.include_router(import_module("lab.api.routes.embedding").router),
             )
         if lab_settings.package.sherpa_asr or lab_settings.package.qwen_asr:
             _include_router_with_log(

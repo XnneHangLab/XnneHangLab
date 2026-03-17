@@ -87,14 +87,6 @@ class LLMSettings(BaseModel):
         return cast("LLMSettingBase", getattr(self, provider.replace("-", "_")))
 
 
-class EmbeddingModelSetting(BaseModel):
-    """Shared embedding model configuration."""
-
-    api_key: Annotated[str, Field("", title="Embedding API Key")]
-    base_url: Annotated[str, Field("https://api.oaipro.com/v1", title="Embedding Base URL")]
-    model: Annotated[str, Field("text-embedding-3-small", title="Embedding Model Name")]
-
-
 class PromptSettings(BaseModel):
     """Paths to agent-side prompt files."""
 
@@ -151,7 +143,6 @@ class TranslateSettings(BaseModel):
 class AgentSettings(BaseModel):
     chat_model: Annotated[ChatModelSetting, Field(ChatModelSetting())]  # pyright: ignore[reportCallIssue]
     vision_model: Annotated[VisionModelSetting, Field(VisionModelSetting())]  # pyright: ignore[reportCallIssue]
-    embedding: Annotated[EmbeddingModelSetting, Field(EmbeddingModelSetting())]  # pyright: ignore[reportCallIssue]
     enable_tool: Annotated[bool, Field(True, title="Enable Tool Calling (BuiltinTool)")]
     prompts: Annotated[PromptSettings, Field(PromptSettings())]  # pyright: ignore[reportCallIssue]
     llm: Annotated[LLMSettings, Field(LLMSettings())]  # pyright: ignore[reportCallIssue]

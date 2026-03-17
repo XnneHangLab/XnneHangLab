@@ -58,6 +58,9 @@ _DOTENV_BENCHMARK_PATH = _REPO_ROOT / "memory_bench" / ".env.benchmark"
 # ---------------------------------------------------------------------------
 
 _DEFAULT_SEARCH_LIMIT = 10
+_DEFAULT_LOCAL_EMBEDDING_API_KEY = "no-key"
+_DEFAULT_LOCAL_EMBEDDING_BASE_URL = "http://localhost:12395/v1"
+_DEFAULT_LOCAL_EMBEDDING_MODEL = "bge-m3"
 
 # ---------------------------------------------------------------------------
 # Env loading
@@ -124,9 +127,21 @@ def resolve_memory_bench_config(overrides: dict[str, Any] | None = None) -> dict
     llm_base_url = resolve("llm_base_url", "MEM0_LLM_BASE_URL", chat_base_url)
     llm_model = resolve("llm_model", "MEM0_LLM_MODEL", chat_model)
 
-    embedding_api_key = resolve("embedding_api_key", "BENCHMARK_EMBEDDING_API_KEY")
-    embedding_base_url = resolve("embedding_base_url", "BENCHMARK_EMBEDDING_BASE_URL")
-    embedding_model = resolve("embedding_model", "BENCHMARK_EMBEDDING_MODEL")
+    embedding_api_key = (
+        overrides.get("embedding_api_key")
+        or _get_env("LOCAL_EMBEDDING_API_KEY")
+        or _DEFAULT_LOCAL_EMBEDDING_API_KEY
+    )
+    embedding_base_url = (
+        overrides.get("embedding_base_url")
+        or _get_env("LOCAL_EMBEDDING_BASE_URL")
+        or _DEFAULT_LOCAL_EMBEDDING_BASE_URL
+    )
+    embedding_model = (
+        overrides.get("embedding_model")
+        or _get_env("LOCAL_EMBEDDING_MODEL")
+        or _DEFAULT_LOCAL_EMBEDDING_MODEL
+    )
 
     # Claim LLM — falls back to mem0 LLM
     claim_api_key = overrides.get("claim_api_key") or _get_env("CLAIM_LLM_API_KEY") or llm_api_key

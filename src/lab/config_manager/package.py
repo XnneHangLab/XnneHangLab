@@ -9,6 +9,7 @@ class Packages(TypedDict):
     sherpa_asr: bool
     qwen_asr: bool
     llm_translate: bool
+    local_embedding: bool
     to_do_list: bool
     yutto_uiya: bool
     gpt_sovits: bool
@@ -22,6 +23,10 @@ class PackagesSettings(BaseModel):
     llm_translate: Annotated[
         bool,
         Field(False, title="LLM Translate", description="启用本地 LLM 翻译引擎"),
+    ]
+    local_embedding: Annotated[
+        bool,
+        Field(False, title="Whether to enable local GGUF embedding service"),
     ]
     to_do_list: Annotated[bool, Field(True, title="Whether to enable todo_list")]
     yutto_uiya: Annotated[bool, Field(True, title="Whether to enable yutto-uiya")]
@@ -37,6 +42,7 @@ class PackagesSettings(BaseModel):
             "sherpa_asr": self.sherpa_asr,
             "qwen_asr": self.qwen_asr,
             "llm_translate": self.llm_translate,
+            "local_embedding": self.local_embedding,
             "to_do_list": self.to_do_list,
             "yutto_uiya": self.yutto_uiya,
             "gpt_sovits": self.gpt_sovits,

@@ -24,7 +24,6 @@ dependencies = [
     "python-dotenv>=1.1.1",
     "bs4>=0.0.2",
     "grpcio==1.78.0",
-    "llama-cpp-python>=0.3.0",
     "modelscope>=1.23.1",
 ]
 authors = [{ name = "MrXnneHang", email = "XnneHang@gmail.com" }]
@@ -79,6 +78,10 @@ dev = [
   "ruff>=0.9.3",
   "pytest>=8.3.4",
   "pytest-rerunfailures>=15.0",
+]
+
+llama-cpp = [
+  "llama-cpp-python>=0.3.0",
 ]
 
 
@@ -148,7 +151,7 @@ qwen-tts = [
 ]
 
 [tool.uv]
-default-groups = ["base", "qwen-asr", "dev", "yutto-uiya", "tts_base", "gpt_sovits", "qwen-tts", "vtuber", "memory_bench", "sherpa-onnx"]
+default-groups = ["base", "qwen-asr", "dev", "llama-cpp", "yutto-uiya", "tts_base", "gpt_sovits", "qwen-tts", "vtuber", "memory_bench", "sherpa-onnx"]
 
 [tool.uv.workspace]
 members = ["packages/yutto-uiya","packages/todo/","packages/gpt_sovits","packages/Qwen3-ASR"]

@@ -125,9 +125,8 @@ LLM 和 Embedding 的 API Key / Base URL 独立配置，允许使用不同的服
 
 **Embedding（仅 `replay_mem0.py` 必需）：**
 
-- `BENCHMARK_EMBEDDING_API_KEY`
-- `BENCHMARK_EMBEDDING_BASE_URL`（OpenAI 兼容接口）
-- `BENCHMARK_EMBEDDING_MODEL`
+- `LOCAL_EMBEDDING_BASE_URL`（可选，默认 `http://localhost:12395/v1`）
+- `LOCAL_EMBEDDING_MODEL`（可选，默认 `bge-m3`）
 
 **可选：**
 

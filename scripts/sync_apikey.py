@@ -41,12 +41,13 @@ EnvKeyNames = Literal[
     "CHAT_MODEL_SUPPORT_VISION",
     "VISION_MODEL_PROVIDER",
     "VISION_MODEL_NAME",
-    "EMBEDDING_API_KEY",
-    "EMBEDDING_BASE_URL",
-    "EMBEDDING_MODEL",
+    "LOCAL_EMBEDDING_MODEL_PATH",
+    "LOCAL_EMBEDDING_POOLING_TYPE",
+    "LOCAL_EMBEDDING_N_GPU_LAYERS",
     "MEMORY_BENCH_SERVER_API_KEY",
     "PKG_MEMORY_BENCH",
     "PKG_LLM_TRANSLATE",
+    "PKG_LOCAL_EMBEDDING",
     "PKG_QWEN_TTS",
     "PKG_GPT_SOVITS",
     "PKG_SHERPA_ASR",
@@ -55,33 +56,10 @@ EnvKeyNames = Literal[
 
 
 def is_api_format(value: str) -> TypeGuard[ApiFormat]:
-    """判断环境变量中的 API 格式是否合法。
-
-    Args:
-        value: 待校验值。
-
-    Returns:
-        bool: 是否为合法 API 格式。
-
-    Raises:
-        None.
-    """
     return value in ALLOWED_API_FORMATS
 
 
 def validate_api_format(env_key_name: EnvKeyNames, default: ApiFormat = "chat_completion") -> ApiFormat:
-    """校验并读取 API 格式环境变量。
-
-    Args:
-        env_key_name: 环境变量名。
-        default: 默认值。
-
-    Returns:
-        ApiFormat: 合法格式值。
-
-    Raises:
-        None.
-    """
     value = os.getenv(env_key_name, default).strip().lower()
     if is_api_format(value):
         return value
@@ -90,33 +68,10 @@ def validate_api_format(env_key_name: EnvKeyNames, default: ApiFormat = "chat_co
 
 
 def is_llm_provider(value: str) -> TypeGuard[LLM_Provider]:
-    """判断环境变量中的 LLM provider 是否合法。
-
-    Args:
-        value: 待校验值。
-
-    Returns:
-        bool: 是否为合法 provider。
-
-    Raises:
-        None.
-    """
     return value in LLM_Provider.__args__
 
 
 def validate_llm_provider(env_key_name: EnvKeyNames, default: LLM_Provider = "cerebras") -> LLM_Provider:
-    """校验并读取 LLM provider 环境变量。
-
-    Args:
-        env_key_name: 环境变量名。
-        default: 默认值。
-
-    Returns:
-        LLM_Provider: 合法 provider。
-
-    Raises:
-        None.
-    """
     value = os.getenv(env_key_name, default).strip().lower()
     if is_llm_provider(value):
         return value
@@ -125,7 +80,6 @@ def validate_llm_provider(env_key_name: EnvKeyNames, default: LLM_Provider = "ce
 
 
 def is_translate_provider(value: str) -> TypeGuard[TranslateProvider]:
-    """判断环境变量中的翻译 provider 是否合法。"""
     return value in TranslateProvider.__args__
 
 
@@ -133,7 +87,6 @@ def validate_translate_provider(
     env_key_name: EnvKeyNames,
     default: TranslateProvider = "llm",
 ) -> TranslateProvider:
-    """校验并读取翻译 provider 环境变量。"""
     value = os.getenv(env_key_name, default).strip().lower()
     if is_translate_provider(value):
         return value
@@ -142,17 +95,6 @@ def validate_translate_provider(
 
 
 def mask_api_key(api_key: str) -> str:
-    """对 API 密钥做脱敏显示。
-
-    Args:
-        api_key: 原始密钥。
-
-    Returns:
-        str: 脱敏后的密钥文本。
-
-    Raises:
-        None.
-    """
     if not api_key:
         return "None"
     if len(api_key) <= 8:
@@ -161,17 +103,6 @@ def mask_api_key(api_key: str) -> str:
 
 
 def _parse_bool_env(key: EnvKeyNames) -> bool | None:
-    """解析布尔环境变量。
-
-    Args:
-        key: 环境变量名。
-
-    Returns:
-        bool | None: 解析后的布尔值；未设置时返回 None。
-
-    Raises:
-        None.
-    """
     value = os.environ.get(key, "").strip().lower()
     if value in {"true", "1", "yes"}:
         return True
@@ -181,7 +112,6 @@ def _parse_bool_env(key: EnvKeyNames) -> bool | None:
 
 
 def _parse_int_env(key: EnvKeyNames) -> int | None:
-    """解析整数环境变量。"""
     raw_value = os.environ.get(key)
     if raw_value is None or not raw_value.strip():
         return None
@@ -194,17 +124,6 @@ def _parse_int_env(key: EnvKeyNames) -> int | None:
 
 
 def main() -> None:
-    """从 `.env` 同步密钥和 package 开关到 `config/lab.toml`。
-
-    Args:
-        None.
-
-    Returns:
-        None.
-
-    Raises:
-        None.
-    """
     load_dotenv()
     settings = load_settings_file("lab.toml", XnneHangLabSettings)
 
@@ -220,24 +139,26 @@ def main() -> None:
     settings.agent.llm.cerebras.api_format = validate_api_format("CEREBRAS_API_FORMAT")
     settings.agent.llm.qwen_code_plan.llm_api_key = os.environ.get("QWEN_CODE_PLAN_API_KEY", "")
     settings.agent.llm.qwen_code_plan.api_format = validate_api_format("QWEN_CODE_PLAN_API_FORMAT")
+
     settings.agent.translate.deeplx.api_key = os.environ.get("DEEPLX_API_KEY", "")
     settings.agent.translate_provider = validate_translate_provider("TRANSLATE_PROVIDER")
     if "LLM_TRANSLATE_MODEL_PATH" in os.environ:
         settings.agent.translate.llm.model_path = os.environ.get("LLM_TRANSLATE_MODEL_PATH", "").strip()
     if (value := _parse_int_env("LLM_TRANSLATE_N_GPU_LAYERS")) is not None:
         settings.agent.translate.llm.n_gpu_layers = value
+
     settings.agent.chat_model.llm_provider = validate_llm_provider("CHAT_MODEL_PROVIDER")
     settings.agent.chat_model.llm_model_name = os.environ.get("CHAT_MODEL_NAME", "")
     settings.agent.chat_model.support_vision = os.environ.get("CHAT_MODEL_SUPPORT_VISION", "false").lower() == "true"
     settings.agent.vision_model.llm_provider = validate_llm_provider("VISION_MODEL_PROVIDER")
     settings.agent.vision_model.llm_model_name = os.environ.get("VISION_MODEL_NAME", "")
 
-    if value := os.environ.get("EMBEDDING_API_KEY"):
-        settings.agent.embedding.api_key = value
-    if value := os.environ.get("EMBEDDING_BASE_URL"):
-        settings.agent.embedding.base_url = value
-    if value := os.environ.get("EMBEDDING_MODEL"):
-        settings.agent.embedding.model = value
+    if "LOCAL_EMBEDDING_MODEL_PATH" in os.environ:
+        settings.local_embedding.model_path = os.environ.get("LOCAL_EMBEDDING_MODEL_PATH", "").strip()
+    if "LOCAL_EMBEDDING_POOLING_TYPE" in os.environ:
+        settings.local_embedding.pooling_type = os.environ.get("LOCAL_EMBEDDING_POOLING_TYPE", "mean").strip().lower()
+    if (value := _parse_int_env("LOCAL_EMBEDDING_N_GPU_LAYERS")) is not None:
+        settings.local_embedding.n_gpu_layers = value
 
     if value := os.environ.get("MEMORY_BENCH_SERVER_API_KEY"):
         settings.memory_bench.server_api_key = value
@@ -246,6 +167,8 @@ def main() -> None:
         settings.package.memory_bench = value
     if (value := _parse_bool_env("PKG_LLM_TRANSLATE")) is not None:
         settings.package.llm_translate = value
+    if (value := _parse_bool_env("PKG_LOCAL_EMBEDDING")) is not None:
+        settings.package.local_embedding = value
     if (value := _parse_bool_env("PKG_QWEN_TTS")) is not None:
         settings.package.qwen_tts = value
     if (value := _parse_bool_env("PKG_GPT_SOVITS")) is not None:
@@ -270,10 +193,7 @@ def main() -> None:
         mask_api_key(settings.agent.llm.qwen_code_plan.llm_api_key),
     )
     logger.info("llm.qwen-code-plan.api_format: {}", settings.agent.llm.qwen_code_plan.api_format)
-    logger.info(
-        "agent.translate.deeplx.api_key: {}",
-        mask_api_key(settings.agent.translate.deeplx.api_key),
-    )
+    logger.info("agent.translate.deeplx.api_key: {}", mask_api_key(settings.agent.translate.deeplx.api_key))
     logger.info("agent.translate_provider: {}", settings.agent.translate_provider)
     logger.info("agent.translate.llm.model_path: {}", settings.agent.translate.llm.model_path)
     logger.info("agent.translate.llm.n_gpu_layers: {}", settings.agent.translate.llm.n_gpu_layers)
@@ -282,12 +202,13 @@ def main() -> None:
     logger.info("agent.chat_model.support_vision: {}", settings.agent.chat_model.support_vision)
     logger.info("agent.vision_model.llm_provider: {}", settings.agent.vision_model.llm_provider)
     logger.info("agent.vision_model.llm_model_name: {}", settings.agent.vision_model.llm_model_name)
-    logger.info("agent.embedding.api_key: {}", mask_api_key(settings.agent.embedding.api_key))
-    logger.info("agent.embedding.base_url: {}", settings.agent.embedding.base_url)
-    logger.info("agent.embedding.model: {}", settings.agent.embedding.model)
+    logger.info("local_embedding.model_path: {}", settings.local_embedding.model_path)
+    logger.info("local_embedding.pooling_type: {}", settings.local_embedding.pooling_type)
+    logger.info("local_embedding.n_gpu_layers: {}", settings.local_embedding.n_gpu_layers)
     logger.info("memory_bench.server_api_key: {}", mask_api_key(settings.memory_bench.server_api_key))
     logger.info("package.memory_bench: {}", settings.package.memory_bench)
     logger.info("package.llm_translate: {}", settings.package.llm_translate)
+    logger.info("package.local_embedding: {}", settings.package.local_embedding)
     logger.info("package.qwen_tts: {}", settings.package.qwen_tts)
     logger.info("package.gpt_sovits: {}", settings.package.gpt_sovits)
     logger.info("package.sherpa_asr: {}", settings.package.sherpa_asr)
