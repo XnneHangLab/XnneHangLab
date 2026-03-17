@@ -63,7 +63,7 @@ llm_provider = "oaipro"
 llm_model_name = "gpt-5.1-2025-11-13"
 
 [agent.embedding]
-api_key = ""
+api_key = "sk-CqQD7Bia1TcdhzP7KkGFWPq7jAQQjMBQecjoGktrxTu5Bo4LZ9i3"
 base_url = "https://api.oaipro.com/v1"
 model = "text-embedding-3-small"
 
@@ -90,7 +90,7 @@ llm_base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
 api_format = "chat_completion"
 
 [agent.llm.oaipro]
-llm_api_key = ""
+llm_api_key = "sk-CqQD7Bia1TcdhzP7KkGFWPq7jAQQjMBQecjoGktrxTu5Bo4LZ9i3"
 llm_base_url = "https://api.oaipro.com/v1"
 api_format = "chat_completion"
 
@@ -100,7 +100,7 @@ llm_base_url = "https://api.cerebras.ai/v1"
 api_format = "chat_completion"
 
 [agent.translate.deeplx]
-api_key = ""
+api_key = "ARAoW438WnGYgIxXqzTiNmIGrVTFH23IoLK8SxYXQi8"
 
 [agent.translate.llm]
 model_path = "./models/qwen2.5-0.5b-instruct-q8_0.gguf"
@@ -109,15 +109,15 @@ n_gpu_layers = 0
 [package]
 sherpa_asr = false
 qwen_asr = false
-llm_translate = false
+llm_translate = true
 to_do_list = true
 yutto_uiya = true
 gpt_sovits = true
 qwen_tts = false
-memory_bench = false
+memory_bench = true
 
 [root]
-root_dir = ""
+root_dir = "D:\\tmp\\XnneHangLab"
 
 [server]
 host = "localhost"
