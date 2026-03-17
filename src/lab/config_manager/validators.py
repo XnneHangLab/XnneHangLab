@@ -115,11 +115,7 @@ def _check_nltk_data(settings: XnneHangLabSettings) -> str | None:
         nltk.data.find("taggers/averaged_perceptron_tagger_eng")
         return None
     except LookupError:
-        return (
-            " [gpt_sovits]\n"
-            " nltk averaged_perceptron_tagger_eng 数据未下载\n"
-            " -> 运行 `just install-nltk`"
-        )
+        return " [gpt_sovits]\n nltk averaged_perceptron_tagger_eng 数据未下载\n -> 运行 `just install-nltk`"
     except ImportError:
         return None
 
@@ -148,9 +144,7 @@ def _check_qwen_asr_preload_models(settings: XnneHangLabSettings) -> str | None:
     if missing:
         return (
             " [asr.qwen_asr]\n"
-            " preload_models 中指定的模型不存在:\n"
-            + "\n".join(missing)
-            + "\n"
+            " preload_models 中指定的模型不存在:\n" + "\n".join(missing) + "\n"
             " -> 运行 `just install-qwen-asr`"
         )
     return None
@@ -242,11 +236,7 @@ def _check_profiles(settings: XnneHangLabSettings) -> list[str]:
                 with profile_path.open("rb") as file:
                     profile_data: dict[str, object] = tomllib.load(file)
             except Exception as exc:
-                errors.append(
-                    f" [agent.memory_agent_profile]\n"
-                    f" profile 解析失败: {profile_path}\n"
-                    f" -> {exc}"
-                )
+                errors.append(f" [agent.memory_agent_profile]\n profile 解析失败: {profile_path}\n -> {exc}")
             else:
                 character_obj = profile_data.get("character")
                 if not isinstance(character_obj, dict):
@@ -407,20 +397,12 @@ def validate_packages(settings: XnneHangLabSettings) -> list[str]:
         for model in rule.models:
             path = model.path_getter(settings)
             if path is None:
-                errors.append(
-                    f" [{rule.package_name}]\n"
-                    f" {model.name} 路径未配置\n"
-                    f" -> 运行 `{model.install_hint}`"
-                )
+                errors.append(f" [{rule.package_name}]\n {model.name} 路径未配置\n -> 运行 `{model.install_hint}`")
                 continue
 
             path_exists = path.is_dir() if model.is_dir else path.is_file()
             if not path_exists:
-                errors.append(
-                    f" [{rule.package_name}]\n"
-                    f" {model.name} 不存在: {path}\n"
-                    f" -> 运行 `{model.install_hint}`"
-                )
+                errors.append(f" [{rule.package_name}]\n {model.name} 不存在: {path}\n -> 运行 `{model.install_hint}`")
 
         for check in rule.extra_checks:
             err = check(settings)

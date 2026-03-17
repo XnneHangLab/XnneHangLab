@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import chardet
 from loguru import logger
@@ -21,15 +22,15 @@ class Live2dModel:
     Attributes:
         model_dict_path (str): The path to the model dictionary file.
         live2d_model_name (str): The name of the Live2D model.
-        model_info (dict): The information of the Live2D model.
-        emo_map (dict): The emotion map of the Live2D model.
+        model_info (dict[str, Any]): The information of the Live2D model.
+        emo_map (dict[str, Any]): The emotion map of the Live2D model.
         emo_str (str): The string representation of the emotion map of the Live2D model.
     """
 
     model_dict_path: str
     live2d_model_name: str
-    model_info: dict
-    emo_map: dict
+    model_info: dict[str, Any]
+    emo_map: dict[str, Any]
     emo_str: str
 
     def __init__(self, live2d_model_name: str, model_dict_path: str = "static/model_dict.json"):
@@ -49,8 +50,8 @@ class Live2dModel:
             None
         """
 
-        self.model_info: dict = self._lookup_model_info(model_name)
-        self.emo_map: dict = {k.lower(): v for k, v in self.model_info["emotionMap"].items()}
+        self.model_info = self._lookup_model_info(model_name)
+        self.emo_map = {k.lower(): v for k, v in self.model_info["emotionMap"].items()}
         self.emo_key: list[str] = list(self.emo_map.keys())
         self.emo_str: str = " ".join([f"[{key}]," for key in self.emo_map.keys()])
         # emo_str is a string of the keys in the emoMap dictionary. The keys are enclosed in square brackets.
@@ -85,7 +86,7 @@ class Live2dModel:
 
         raise UnicodeError(f"Failed to decode {file_path} with any encoding")
 
-    def _lookup_model_info(self, model_name: str) -> dict:
+    def _lookup_model_info(self, model_name: str) -> dict[str, Any]:
         """
         Find the model information from the model dictionary and return the information about the matched model.
 

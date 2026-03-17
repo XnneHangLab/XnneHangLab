@@ -204,8 +204,8 @@ fmt: # 似乎不会检查被 .gitignore 忽略的文件
   uv run ruff format . --exclude packages --exclude .git --exclude justfile --exclude models
 
 lint:
-  uv run pyright src/lab tests memory_bench scripts
-  uv run ruff check . --exclude packages --exclude .git --exclude justfile --exclude models
+  ./.venv/Scripts/python.exe -m pyright src/lab tests memory_bench scripts
+  ./.venv/Scripts/python.exe -m ruff check . --exclude packages --exclude .git --exclude justfile --exclude models
 
 fmt-docs:
   prettier --ignore-path .prettierignore --write '**/*.md'
