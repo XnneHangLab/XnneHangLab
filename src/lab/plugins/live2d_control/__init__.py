@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Awaitable, Callable
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from lab.tools.base import BuiltinTool
 from lab.tools.plugin import PromptSegment, ToolPlugin
 from lab.tools.types import AgentContext, ToolResult
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 
 class _ListLive2DAppearancesTool(BuiltinTool):
@@ -75,7 +77,7 @@ class _SetLive2DAppearanceTool(BuiltinTool):
 
         ws_send = ctx.extra.get("websocket_send")
         if callable(ws_send):
-            websocket_send = cast(Callable[[str], Awaitable[None]], ws_send)
+            websocket_send = cast("Callable[[str], Awaitable[None]]", ws_send)
             await websocket_send(
                 json.dumps(
                     {
