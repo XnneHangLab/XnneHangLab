@@ -30,6 +30,8 @@ EnvKeyNames = Literal[
     "OAIPRO_API_FORMAT",
     "CEREBRAS_API_KEY",
     "CEREBRAS_API_FORMAT",
+    "QWEN_CODE_PLAN_API_KEY",
+    "QWEN_CODE_PLAN_API_FORMAT",
     "DEEPLX_API_KEY",
     "TRANSLATE_PROVIDER",
     "LLM_TRANSLATE_MODEL_PATH",
@@ -216,6 +218,8 @@ def main() -> None:
     settings.agent.llm.oaipro.api_format = validate_api_format("OAIPRO_API_FORMAT")
     settings.agent.llm.cerebras.llm_api_key = os.environ.get("CEREBRAS_API_KEY", "")
     settings.agent.llm.cerebras.api_format = validate_api_format("CEREBRAS_API_FORMAT")
+    settings.agent.llm.qwen_code_plan.llm_api_key = os.environ.get("QWEN_CODE_PLAN_API_KEY", "")
+    settings.agent.llm.qwen_code_plan.api_format = validate_api_format("QWEN_CODE_PLAN_API_FORMAT")
     settings.agent.translate.deeplx.api_key = os.environ.get("DEEPLX_API_KEY", "")
     settings.agent.translate_provider = validate_translate_provider("TRANSLATE_PROVIDER")
     if "LLM_TRANSLATE_MODEL_PATH" in os.environ:
@@ -261,6 +265,11 @@ def main() -> None:
     logger.info("llm.oaipro.api_format: {}", settings.agent.llm.oaipro.api_format)
     logger.info("llm.cerebras.llm_api_key: {}", mask_api_key(settings.agent.llm.cerebras.llm_api_key))
     logger.info("llm.cerebras.api_format: {}", settings.agent.llm.cerebras.api_format)
+    logger.info(
+        "llm.qwen-code-plan.llm_api_key: {}",
+        mask_api_key(settings.agent.llm.qwen_code_plan.llm_api_key),
+    )
+    logger.info("llm.qwen-code-plan.api_format: {}", settings.agent.llm.qwen_code_plan.api_format)
     logger.info(
         "agent.translate.deeplx.api_key: {}",
         mask_api_key(settings.agent.translate.deeplx.api_key),

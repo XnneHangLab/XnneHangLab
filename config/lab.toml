@@ -99,6 +99,11 @@ llm_api_key = ""
 llm_base_url = "https://api.cerebras.ai/v1"
 api_format = "chat_completion"
 
+[agent.llm.qwen-code-plan]
+llm_api_key = ""
+llm_base_url = "https://coding.dashscope.aliyuncs.com/v1"
+api_format = "chat_completion"
+
 [agent.translate.deeplx]
 api_key = ""
 
