@@ -52,11 +52,7 @@ def validate_config(settings: XnneHangLabSettings) -> None:
         if not profile_path.is_absolute():
             profile_path = ws_root / memory_agent_profile
         if not profile_path.exists():
-            errors.append(
-                f"  [agent.memory_agent_profile]\n"
-                f"    文件不存在: {profile_path}\n"
-                "    -> 检查路径是否正确"
-            )
+            errors.append(f"  [agent.memory_agent_profile]\n    文件不存在: {profile_path}\n    -> 检查路径是否正确")
         else:
             try:
                 with profile_path.open("rb") as f:
@@ -85,9 +81,7 @@ def validate_config(settings: XnneHangLabSettings) -> None:
             chat_profile_path = ws_root / memory_chat_profile
         if not chat_profile_path.exists():
             errors.append(
-                f"  [agent.memory_chat_profile]\n"
-                f"    文件不存在: {chat_profile_path}\n"
-                "    -> 检查路径是否正确"
+                f"  [agent.memory_chat_profile]\n    文件不存在: {chat_profile_path}\n    -> 检查路径是否正确"
             )
 
     from lab.api.logic.embedding import resolve_embedding_model_path
@@ -126,7 +120,9 @@ def validate_config(settings: XnneHangLabSettings) -> None:
     local_embedding_model_path = resolve_embedding_model_path(settings)
     local_embedding_model_exists = local_embedding_model_path is not None and local_embedding_model_path.exists()
     local_embedding_path_text = (
-        str(local_embedding_model_path) if local_embedding_model_path is not None else "<local_embedding.model_path is empty>"
+        str(local_embedding_model_path)
+        if local_embedding_model_path is not None
+        else "<local_embedding.model_path is empty>"
     )
 
     if settings.package.local_embedding and not local_embedding_model_exists:
@@ -163,8 +159,8 @@ def validate_config(settings: XnneHangLabSettings) -> None:
 def run(lab_settings: XnneHangLabSettings, args: argparse.Namespace):
     """Initialize logging and start the FastAPI server."""
 
-    from lab.logger.logger_group import init_logger
     import lab.server as lab_server_module
+    from lab.logger.logger_group import init_logger
     from lab.server import WebSocketServer
 
     init_logger()

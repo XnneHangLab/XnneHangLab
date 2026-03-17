@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import NamedTuple
 
 import requests
 from loguru import logger
@@ -16,6 +17,12 @@ class ModelItem(BaseModel):
 
 class ModelsResponse(BaseModel):
     data: list[ModelItem]
+
+
+class ProviderConfig(NamedTuple):
+    base_url: str
+    api_key: str
+    static_models: tuple[str, ...] = ()
 
 
 def fetch_model_list(base_url: str, api_key: str | None = None, timeout: float = 10.0) -> list[str]:
@@ -49,22 +56,46 @@ def main() -> None:
     root_setting: RootAbsDir = lab_settings.root
     s = lab_settings.agent.llm
 
-    providers: dict[str, tuple[str, str]] = {
-        "openai": (s.openai.llm_base_url, s.openai.llm_api_key),
-        "cerebras": (s.cerebras.llm_base_url, s.cerebras.llm_api_key),
-        "gemini": (s.gemini.llm_base_url, s.gemini.llm_api_key),
-        "lingyi": (s.lingyi.llm_base_url, s.lingyi.llm_api_key),
-        "oaipro": (s.oaipro.llm_base_url, s.oaipro.llm_api_key),
+    providers: dict[str, ProviderConfig] = {
+        "openai": ProviderConfig(s.openai.llm_base_url, s.openai.llm_api_key),
+        "cerebras": ProviderConfig(s.cerebras.llm_base_url, s.cerebras.llm_api_key),
+        "gemini": ProviderConfig(s.gemini.llm_base_url, s.gemini.llm_api_key),
+        "lingyi": ProviderConfig(s.lingyi.llm_base_url, s.lingyi.llm_api_key),
+        "oaipro": ProviderConfig(s.oaipro.llm_base_url, s.oaipro.llm_api_key),
+        # Coding Plan currently does not expose a standard OpenAI-compatible /models endpoint.
+        # Keep this list aligned with the official provider docs instead of failing on 404.
+        "qwen-code-plan": ProviderConfig(
+            s.qwen_code_plan.llm_base_url,
+            s.qwen_code_plan.llm_api_key,
+            (
+                "MiniMax-M2.5",
+                "glm-4.7",
+                "glm-5",
+                "kimi-k2.5",
+                "qwen3-coder-next",
+                "qwen3-coder-plus",
+                "qwen3-max-2026-01-23",
+                "qwen3.5-plus",
+            ),
+        ),
     }
 
     model_map: dict[str, list[str]] = {}
     errors: dict[str, str] = {}
 
-    for name, (base_url, api_key) in providers.items():
-        if not api_key:
+    for name, provider in providers.items():
+        if not provider.api_key:
             continue
         try:
-            model_map[name] = fetch_model_list(base_url, api_key=api_key)
+            if provider.static_models:
+                model_map[name] = sorted(set(provider.static_models))
+                logger.info(
+                    "provider '{}' uses a static model list because its base_url does not support /models",
+                    name,
+                )
+                continue
+
+            model_map[name] = fetch_model_list(provider.base_url, api_key=provider.api_key)
         except requests.exceptions.RequestException as e:
             logger.exception(f"Request error while fetching models for provider '{name}'")
             errors[name] = f"Request failed ({type(e).__name__}): {e}"

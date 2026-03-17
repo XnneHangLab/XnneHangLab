@@ -18,6 +18,8 @@ from lab.config_manager import (
 
 ALLOWED_API_FORMATS = "chat_completion"
 ApiFormat = Literal["chat_completion"]
+EmbeddingPoolingType = Literal["mean", "cls", "last"]
+ALLOWED_EMBEDDING_POOLING_TYPES: tuple[EmbeddingPoolingType, ...] = ("mean", "cls", "last")
 
 EnvKeyNames = Literal[
     "OPENAI_API_KEY",
@@ -94,6 +96,27 @@ def validate_translate_provider(
     return default
 
 
+def is_embedding_pooling_type(value: str) -> TypeGuard[EmbeddingPoolingType]:
+    return value in ALLOWED_EMBEDDING_POOLING_TYPES
+
+
+def validate_embedding_pooling_type(
+    env_key_name: EnvKeyNames,
+    default: EmbeddingPoolingType = "mean",
+) -> EmbeddingPoolingType:
+    value = os.getenv(env_key_name, default).strip().lower()
+    if is_embedding_pooling_type(value):
+        return value
+    logger.warning(
+        "Invalid %s=%r, allowed=%s, fallback=%r",
+        env_key_name,
+        value,
+        ALLOWED_EMBEDDING_POOLING_TYPES,
+        default,
+    )
+    return default
+
+
 def mask_api_key(api_key: str) -> str:
     if not api_key:
         return "None"
@@ -156,7 +179,7 @@ def main() -> None:
     if "LOCAL_EMBEDDING_MODEL_PATH" in os.environ:
         settings.local_embedding.model_path = os.environ.get("LOCAL_EMBEDDING_MODEL_PATH", "").strip()
     if "LOCAL_EMBEDDING_POOLING_TYPE" in os.environ:
-        settings.local_embedding.pooling_type = os.environ.get("LOCAL_EMBEDDING_POOLING_TYPE", "mean").strip().lower()
+        settings.local_embedding.pooling_type = validate_embedding_pooling_type("LOCAL_EMBEDDING_POOLING_TYPE")
     if (value := _parse_int_env("LOCAL_EMBEDDING_N_GPU_LAYERS")) is not None:
         settings.local_embedding.n_gpu_layers = value
 

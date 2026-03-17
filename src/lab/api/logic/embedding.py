@@ -3,27 +3,28 @@ from __future__ import annotations
 import gc
 from pathlib import Path
 from threading import RLock
-from typing import TYPE_CHECKING, Any
+from typing import Literal, Protocol, cast
 
 from loguru import logger
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 
-if TYPE_CHECKING:
-    from llama_cpp import Llama
+EmbeddingPoolingType = Literal["mean", "cls", "last"]
+
+
+class EmbeddingModel(Protocol):
+    def embed(self, texts: list[str], normalize: bool = True) -> list[float] | list[list[float]]: ...
 
 DEFAULT_EMBEDDING_MODEL_NAME = "bge-m3"
 
 try:
     import llama_cpp
-    from llama_cpp import Llama
 except ImportError:
     llama_cpp = None
-    Llama = Any  # type: ignore[assignment,misc]
 
-_embedding_model: Llama | None = None
+_embedding_model: EmbeddingModel | None = None
 _embedding_model_path: str | None = None
-_embedding_pooling_type: str | None = None
+_embedding_pooling_type: EmbeddingPoolingType | None = None
 _embedding_n_gpu_layers: int | None = None
 _embedding_lock = RLock()
 
@@ -50,19 +51,23 @@ def is_embedding_model_loaded() -> bool:
     return _embedding_model is not None
 
 
-def _resolve_pooling_type(pooling_type: str) -> int:
+def _normalize_pooling_type(pooling_type: str) -> EmbeddingPoolingType:
+    normalized = pooling_type.strip().lower()
+    if normalized not in {"mean", "cls", "last"}:
+        raise ValueError(f"Unsupported pooling_type: {pooling_type}")
+    return cast("EmbeddingPoolingType", normalized)
+
+
+def _resolve_pooling_type(pooling_type: EmbeddingPoolingType) -> int:
     if llama_cpp is None:
         raise RuntimeError("llama-cpp-python is not installed; install the llama-cpp dependency group first")
 
-    pooling_map = {
+    pooling_map: dict[EmbeddingPoolingType, int] = {
         "mean": llama_cpp.LLAMA_POOLING_TYPE_MEAN,
         "cls": llama_cpp.LLAMA_POOLING_TYPE_CLS,
         "last": llama_cpp.LLAMA_POOLING_TYPE_LAST,
     }
-    normalized = pooling_type.strip().lower()
-    if normalized not in pooling_map:
-        raise ValueError(f"Unsupported pooling_type: {pooling_type}")
-    return pooling_map[normalized]
+    return pooling_map[pooling_type]
 
 
 def load_embedding_model(
@@ -80,8 +85,11 @@ def load_embedding_model(
     if llama_cpp is None:
         raise RuntimeError("llama-cpp-python is not installed; install the llama-cpp dependency group first")
 
-    normalized_pooling_type = pooling_type.strip().lower()
+    normalized_pooling_type = _normalize_pooling_type(pooling_type)
     pooling_value = _resolve_pooling_type(normalized_pooling_type)
+    llama_ctor = getattr(llama_cpp, "Llama", None)
+    if llama_ctor is None:
+        raise RuntimeError("llama-cpp-python is missing the Llama loader")
 
     with _embedding_lock:
         if (
@@ -98,12 +106,15 @@ def load_embedding_model(
             normalized_pooling_type,
             n_gpu_layers,
         )
-        _embedding_model = Llama(
-            model_path=str(resolved_model_path),
-            embedding=True,
-            pooling_type=pooling_value,
-            n_gpu_layers=n_gpu_layers,
-            verbose=False,
+        _embedding_model = cast(
+            "EmbeddingModel",
+            llama_ctor(
+                model_path=str(resolved_model_path),
+                embedding=True,
+                pooling_type=pooling_value,
+                n_gpu_layers=n_gpu_layers,
+                verbose=False,
+            ),
         )
         _embedding_model_path = str(resolved_model_path)
         _embedding_pooling_type = normalized_pooling_type
@@ -111,7 +122,7 @@ def load_embedding_model(
         logger.info("[LocalEmbedding] Model loaded successfully")
 
 
-def get_embedding_model() -> Llama:
+def get_embedding_model() -> EmbeddingModel:
     if _embedding_model is None:
         raise RuntimeError("Local embedding model is not loaded")
     return _embedding_model
@@ -123,9 +134,15 @@ def embed(texts: list[str]) -> list[list[float]]:
 
     model = get_embedding_model()
     result = model.embed(texts, normalize=True)
-    if isinstance(result, list) and result and isinstance(result[0], float):
-        return [list(result)]
-    return [list(vector) for vector in result]
+    if not result:
+        return []
+
+    first_item = result[0]
+    if isinstance(first_item, float):
+        return [cast("list[float]", result)]
+
+    vectors = cast("list[list[float]]", result)
+    return [list(vector) for vector in vectors]
 
 
 def unload_embedding_model() -> None:

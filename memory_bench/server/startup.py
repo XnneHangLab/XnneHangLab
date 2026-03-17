@@ -128,19 +128,13 @@ def resolve_memory_bench_config(overrides: dict[str, Any] | None = None) -> dict
     llm_model = resolve("llm_model", "MEM0_LLM_MODEL", chat_model)
 
     embedding_api_key = (
-        overrides.get("embedding_api_key")
-        or _get_env("LOCAL_EMBEDDING_API_KEY")
-        or _DEFAULT_LOCAL_EMBEDDING_API_KEY
+        overrides.get("embedding_api_key") or _get_env("LOCAL_EMBEDDING_API_KEY") or _DEFAULT_LOCAL_EMBEDDING_API_KEY
     )
     embedding_base_url = (
-        overrides.get("embedding_base_url")
-        or _get_env("LOCAL_EMBEDDING_BASE_URL")
-        or _DEFAULT_LOCAL_EMBEDDING_BASE_URL
+        overrides.get("embedding_base_url") or _get_env("LOCAL_EMBEDDING_BASE_URL") or _DEFAULT_LOCAL_EMBEDDING_BASE_URL
     )
     embedding_model = (
-        overrides.get("embedding_model")
-        or _get_env("LOCAL_EMBEDDING_MODEL")
-        or _DEFAULT_LOCAL_EMBEDDING_MODEL
+        overrides.get("embedding_model") or _get_env("LOCAL_EMBEDDING_MODEL") or _DEFAULT_LOCAL_EMBEDDING_MODEL
     )
 
     # Claim LLM — falls back to mem0 LLM
