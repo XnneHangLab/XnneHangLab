@@ -84,7 +84,7 @@ class LLMSettings(BaseModel):
     ]
 
     def get_provider_config(self, provider: LLM_Provider) -> LLMSettingBase:
-        return cast(LLMSettingBase, getattr(self, provider.replace("-", "_")))
+        return cast("LLMSettingBase", getattr(self, provider.replace("-", "_")))
 
 
 class EmbeddingModelSetting(BaseModel):
