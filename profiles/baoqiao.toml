@@ -23,10 +23,13 @@ persona = "prompts/characters/elaina.md"
 format = "prompts/formats/emotion_bracket.md"
 
 [plugins]
-enabled = ["web_search_ddg", "web_fetch", "screen_shot", "diary", "memory"]
+enabled = ["web_search_ddg", "web_fetch", "screen_shot", "diary", "memory", "live2d_control"]
 
 [plugins.memory]
 user_id = "xnne"
 agent_id = "baoqiao"
 search_limit = 3
 # base_url defaults to http://localhost:12393 when omitted.
+
+[plugins.live2d_control]
+appearance_keys = ["默认", "预设发型1", "预设发型2", "隐藏双马尾", "隐藏左马尾", "隐藏右马尾", "隐藏披发", "隐藏麻花辫侧发"]

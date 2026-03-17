@@ -129,6 +129,8 @@ async def process_agent_response(
         if context.agent_engine is None:
             logger.error("agent_engine is None, cannot process agent response")
             raise ValueError("agent_engine cannot be None")
+        if hasattr(context.agent_engine, "core") and context.agent_engine.core.agent_context is not None:
+            context.agent_engine.core.agent_context.extra["websocket_send"] = websocket_send
         agent_output = context.agent_engine.chat(batch_input)  # type: ignore
         async for output in agent_output:  # type: ignore
             logger.debug(output)  # type: ignore

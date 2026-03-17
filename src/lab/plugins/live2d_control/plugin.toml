@@ -1,0 +1,14 @@
+[plugin]
+id = "live2d_control"
+name = "Live2D Control"
+version = "0.1.0"
+type = "tool"
+description = "通过 tool call 控制 Live2D 模型的持久形态切换（发型预设、部件显隐等）"
+author = "XnneHangLab"
+source = "builtin"
+
+[config]
+appearance_keys = []
+
+[type_config]
+entry = "Live2DControlPlugin"
