@@ -11,8 +11,10 @@ import soundfile as sf
 from loguru import logger
 
 from lab.agent.input_types import BatchInput, ImageData, ImageSource, TextData, TextSource
+from lab.agent.output_types import Actions
 from lab.api.clients import ASRClient, ASRRequest
 from lab.conversations.tts_manager import has_audible_tts_text
+from lab.live2d_startup import inject_startup_expression_once
 from lab.message_handler import message_handler
 
 if TYPE_CHECKING:
@@ -22,6 +24,7 @@ if TYPE_CHECKING:
     from lab.conversations.tts_manager import TTSTaskManager
     from lab.conversations.types import BroadcastContext, WebSocketSend
     from lab.live2d_model import Live2dModel
+    from lab.service_context import ServiceContext
 
 
 # Convert class methods to standalone functions
@@ -51,6 +54,7 @@ async def process_agent_output(
     lab_settings: XnneHangLabSettings,
     character_config: Any,
     live2d_model: Live2dModel,
+    service_context: ServiceContext,
     # tts_engine: TTSInterface,
     websocket_send: WebSocketSend,
     tts_manager: TTSTaskManager,
@@ -68,6 +72,7 @@ async def process_agent_output(
             output,
             lab_settings,
             live2d_model,
+            service_context,
             # tts_engine,
             websocket_send,
             tts_manager,
@@ -84,6 +89,7 @@ async def handle_sentence_output(
     output: SentenceOutput,
     lab_settings: XnneHangLabSettings,
     live2d_model: Live2dModel,
+    service_context: ServiceContext,
     # tts_engine: TTSInterface,
     websocket_send: WebSocketSend,
     tts_manager: TTSTaskManager,
@@ -92,6 +98,7 @@ async def handle_sentence_output(
     """Handle sentence output type with optional translation support"""
     full_response = ""
     async for display_text, tts_text, actions in output:
+        actions = actions or Actions()
         tts_text = tts_text.replace("*", "")
         display_text.text = display_text.text.replace("*", "")
 
@@ -110,6 +117,11 @@ async def handle_sentence_output(
                 except Exception as exc:
                     logger.warning("Translation failed, using original text: {}", exc)
         full_response += display_text.text
+        actions, service_context.live2d_startup_expression_applied = inject_startup_expression_once(
+            actions=actions,
+            model_name=live2d_model.live2d_model_name,
+            already_applied=service_context.live2d_startup_expression_applied,
+        )
         await tts_manager.speak(
             tts_text=tts_text,  # 直接使用大模型回復作為 TTS Text
             display_text=display_text,

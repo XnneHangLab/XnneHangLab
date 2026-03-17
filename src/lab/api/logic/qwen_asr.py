@@ -3,6 +3,8 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING, Any, cast
 
+from loguru import logger  # pyright: ignore[reportMissingImports,reportUnknownVariableType]
+
 from lab.asr.qwen_asr.engine import load_qwen_asr, reset_qwen_asr_engine
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 
@@ -10,6 +12,8 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from lab.config_manager.qwen_asr import QwenASRModelName
+
+logger = cast("Any", logger)
 
 
 def _get_qwen_settings() -> XnneHangLabSettings:
@@ -110,13 +114,19 @@ def load_qwen_asr_engine(model_name: QwenASRModelName) -> None:
     settings = _get_qwen_settings()
     qwen_settings = settings.asr.qwen_asr
     model_path = get_qwen_model_path(model_name, settings)
+    logger.info(  # pyright: ignore[reportUnknownMemberType]
+        f"Qwen3-ASR preload start: model={model_name}, device={qwen_settings.device}, "
+        f"model_path={model_path}, gpu_cache_dir={qwen_settings.gpu_cache_dir or '<default>'}"
+    )
     load_qwen_asr(
         model_path=model_path,
         device=qwen_settings.device,
         cpu_threads=qwen_settings.cpu_threads,
+        gpu_cache_dir=qwen_settings.gpu_cache_dir,
         forced_aligner_path=qwen_settings.forced_aligner_path,
         forced_aligner_device=qwen_settings.forced_aligner_device,
     )
+    logger.info(f"Qwen3-ASR preload complete: model={model_name}")  # pyright: ignore[reportUnknownMemberType]
 
 
 def preload_configured_qwen_asr_engines() -> list[QwenASRModelName]:
@@ -133,6 +143,7 @@ def preload_configured_qwen_asr_engines() -> list[QwenASRModelName]:
     """
     settings = _get_qwen_settings()
     preload_models = get_preload_qwen_models(settings)
+    logger.info(f"Qwen3-ASR configured preload models: {preload_models}")  # pyright: ignore[reportUnknownMemberType]
     for model_name in preload_models:
         load_qwen_asr_engine(model_name)
     return preload_models
@@ -161,6 +172,7 @@ def qwen_asr_transcribe(input_path: Path, model_name: QwenASRModelName) -> dict[
         model_path=model_path,
         device=qwen_settings.device,
         cpu_threads=qwen_settings.cpu_threads,
+        gpu_cache_dir=qwen_settings.gpu_cache_dir,
         forced_aligner_path=qwen_settings.forced_aligner_path,
         forced_aligner_device=qwen_settings.forced_aligner_device,
     )
@@ -195,6 +207,7 @@ def reload_qwen_asr_engine(model_name: QwenASRModelName) -> None:
         model_path=model_path,
         device=qwen_settings.device,
         cpu_threads=qwen_settings.cpu_threads,
+        gpu_cache_dir=qwen_settings.gpu_cache_dir,
         forced_aligner_path=qwen_settings.forced_aligner_path,
         forced_aligner_device=qwen_settings.forced_aligner_device,
     )
@@ -202,6 +215,7 @@ def reload_qwen_asr_engine(model_name: QwenASRModelName) -> None:
         model_path=model_path,
         device=qwen_settings.device,
         cpu_threads=qwen_settings.cpu_threads,
+        gpu_cache_dir=qwen_settings.gpu_cache_dir,
         forced_aligner_path=qwen_settings.forced_aligner_path,
         forced_aligner_device=qwen_settings.forced_aligner_device,
     )

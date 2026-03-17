@@ -40,6 +40,7 @@ class ServiceContext:
         self.vision_system_prompt: str | None = None
         # self.mcp_handlers: list[MCPHandlerInterface]
         self.history_uid: str = ""  # Add history_uid field
+        self.live2d_startup_expression_applied: bool = False
 
     def __str__(self):
         return (
@@ -75,6 +76,7 @@ class ServiceContext:
         self.character_config = character_config
         self.live2d_model = live2d_model
         self.agent_engine = agent_engine
+        self.live2d_startup_expression_applied = False
         self.init_translate(lab_setting)
         logger.debug(f"Loaded service context with cache: {character_config}")
 
@@ -128,6 +130,7 @@ class ServiceContext:
         try:
             self.live2d_model = Live2dModel(live2d_model_name)
             self.character_config.live2d_model_name = live2d_model_name
+            self.live2d_startup_expression_applied = False
         except Exception as e:
             logger.critical(f"Error initializing Live2D: {e}")
             logger.critical("Try to proceed without Live2D...")

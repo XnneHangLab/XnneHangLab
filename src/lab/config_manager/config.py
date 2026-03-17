@@ -108,7 +108,7 @@ def load_settings_file(setting_name: str, setting: type[ServerSettings]) -> Serv
 
 
 class XnneHangLabSettings(BaseModel):
-    conf_version: Annotated[str, Field("v1.5.4", title="配置版本")]
+    conf_version: Annotated[str, Field("v1.5.5", title="配置版本")]
     asr: Annotated[ASRSettings, Field(ASRSettings())]  # pyright: ignore[reportCallIssue]
     webui: Annotated[AudioRecognizeSettings, Field(AudioRecognizeSettings())]  # pyright: ignore[reportCallIssue]
     agent: Annotated[AgentSettings, Field(AgentSettings())]  # pyright: ignore[reportCallIssue]

@@ -2,7 +2,7 @@
 
 `lab.toml` 是 **XnneHangLab** 的主配置文件。ASR、WebUI、Agent、服务端口、角色配置，以及各模块开关都会从这里读取。
 
-> 当前配置版本：`v1.5.2`
+> 当前配置版本：`v1.5.5`
 >
 > 配置加载规则：程序会优先在项目 `config/` 下查找配置；找不到会尝试从系统配置目录读取；再找不到会初始化默认配置并写回，保证字段结构完整。
 
@@ -12,7 +12,7 @@
 
 ```text
 lab.toml
-├── conf_version = "v1.5.2"
+├── conf_version = "v1.5.5"
 ├── [asr]
 │   ├── FFMPEG_PATH
 │   ├── device
@@ -38,6 +38,7 @@ lab.toml
 │       ├── model_1_7b_path
 │       ├── device
 │       ├── cpu_threads
+│       ├── gpu_cache_dir
 │       ├── forced_aligner_path
 │       └── forced_aligner_device
 ├── [webui]
@@ -273,8 +274,9 @@ vad_max_speech_duration = 8.0
 | preload_models | 启动时预加载的模型列表（`"0.6b"` / `"1.7b"`） |
 | model_0_6b_path | Qwen3-ASR 0.6B OpenVINO 模型路径 |
 | model_1_7b_path | Qwen3-ASR 1.7B OpenVINO 模型路径 |
-| device | OpenVINO 推理设备（`"CPU"` / `"GPU"`） |
-| cpu_threads | OpenVINO CPU 线程数（0 = 自动） |
+| device | OpenVINO 推理设备（`"CPU"` / `"GPU"`；写 `"GPU"` 即可启用 Intel GPU 推理） |
+| cpu_threads | OpenVINO CPU 线程数（0 = 自动；仅在 `device = "CPU"` 时生效） |
+| gpu_cache_dir | OpenVINO GPU 编译缓存目录（空字符串 = 使用 `{model_dir}/.ov_cache_gpu`） |
 | forced_aligner_path | ForcedAligner 模型路径（**必填**，空路径将在启动时报错） |
 | forced_aligner_device | ForcedAligner 推理设备 |
 
@@ -286,13 +288,18 @@ model_dir = "./models"
 preload_models = ["0.6b"]
 model_0_6b_path = "./models/Qwen3-ASR-0.6B-INT8-OpenVINO"
 model_1_7b_path = "./models/Qwen3-ASR-1.7B-INT8-OpenVINO"
-device = "CPU"
+device = "GPU"
 cpu_threads = 0
+gpu_cache_dir = ""
 forced_aligner_path = "./models/Qwen3-ForcedAligner-0.6B"
-forced_aligner_device = "cpu"
+forced_aligner_device = "cuda"
 ```
 
 > **说明**：`preload_models` 控制启动时哪些模型加载进内存，未在列表中的模型首次请求时才加载（会有延迟）。
+>
+> **device 说明**：Qwen3-ASR 目前直接使用 OpenVINO 设备名，写 `"GPU"` 即可，不需要写 `intelGPU`。
+>
+> **GPU 缓存说明**：首次在 Intel GPU 上编译模型可能较慢，编译结果会写入 `gpu_cache_dir` 或默认的 `{model_dir}/.ov_cache_gpu/`。
 >
 > **注意**：`forced_aligner_path` 为必填项，Qwen3-ASR 依赖 ForcedAligner 生成词级时间戳。可通过 `just install-qwen-asr` 自动下载 `Qwen3-ForcedAligner-0.6B`。
 
