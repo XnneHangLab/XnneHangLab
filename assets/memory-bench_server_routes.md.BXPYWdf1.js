@@ -57,10 +57,9 @@ import{_ as i,o as a,c as n,ag as t}from"./chunks/framework.ePeAWSvT.js";const o
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8;">MEM0_LLM_BASE_URL</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583;">=</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8;">MEM0_LLM_MODEL</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583;">=</span></span>
 <span class="line"></span>
-<span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D;"># Embedding</span></span>
-<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8;">BENCHMARK_EMBEDDING_API_KEY</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583;">=</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF;">sk-xxx</span></span>
-<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8;">BENCHMARK_EMBEDDING_BASE_URL</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583;">=</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF;">https://api.openai.com/v1</span></span>
-<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8;">BENCHMARK_EMBEDDING_MODEL</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583;">=</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF;">text-embedding-3-small</span></span>
+<span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D;"># Local embedding</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8;">LOCAL_EMBEDDING_BASE_URL</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583;">=</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF;">http://localhost:12395/v1</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8;">LOCAL_EMBEDDING_MODEL</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583;">=</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF;">bge-m3</span></span>
 <span class="line"></span>
 <span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D;"># 认证（可选）</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8;">CHAT_SERVER_API_KEY</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583;">=</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF;">your-secret-key</span></span>
