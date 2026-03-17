@@ -126,11 +126,11 @@ config_alts_dir = "characters"
 uvicorn_log_level = "warning"
 
 [vtuber.character_config]
-conf_name = "elaina-local"
-conf_uid = "elaina-local-001"
-live2d_model_name = "Elaina"
-character_name = "Elaina"
-avatar = "ico_lss.png"
+conf_name = "baoqiao-local"
+conf_uid = "baoqiao-local-001"
+live2d_model_name = "薄巧_完整版_调用版"
+character_name = "薄巧"
+avatar = "baoqiao.png"
 human_name = "Human"
 
 [vtuber.character_config.tts_preprocessor_config]
