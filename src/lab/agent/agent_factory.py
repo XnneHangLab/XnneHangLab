@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from loguru import logger
+
 from lab.agent.agents.memory_agent import MemoryAgent
 from lab.agent.core import AgentCore
 from lab.agent.hook_manager import HookManager
@@ -28,6 +30,7 @@ if TYPE_CHECKING:
     from lab.config_manager.package import Packages
     from lab.config_manager.vtuber import TTSPreprocessorConfig
     from lab.live2d_model import Live2dModel
+    from lab.tools.plugin import PromptSegment
 
 
 def build_default_tool_manager(workspace_root: Path) -> ToolManager:
@@ -83,6 +86,10 @@ class AgentFactory:
             for builtin_tool in tool_plugin.get_tools():
                 tool_manager.register_builtin(builtin_tool)
 
+        tool_prompt_segments: list[PromptSegment] = []
+        for tool_plugin in tool_plugins:
+            tool_prompt_segments.extend(tool_plugin.get_prompt_segments())
+
         registered_tool_names = {
             name for schema in tool_manager.list_tools_schema() if (name := schema.get("function", {}).get("name"))
         }
@@ -127,7 +134,13 @@ class AgentFactory:
             format_path=profile.prompt.format,
             skills=skill_descriptors,
             tool_manager=tool_manager,
+            tool_prompt_segments=tool_prompt_segments,
             agent_name=profile.profile.agent_name.lower(),
+        )
+        logger.info(
+            "===== Chat System Prompt Preview ({}) =====\n{}\n===== End Chat System Prompt Preview =====",
+            profile.profile.name,
+            chat_system_prompt,
         )
 
         core = AgentCore(

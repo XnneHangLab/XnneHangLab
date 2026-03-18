@@ -7,6 +7,7 @@ if TYPE_CHECKING:
 
     from lab.plugin.loader import SkillDescriptor
     from lab.tools.manager import ToolManager
+    from lab.tools.plugin import PromptSegment
 
 
 class SystemPromptBuilder:
@@ -20,6 +21,7 @@ class SystemPromptBuilder:
         format_path: str | None,
         skills: list[SkillDescriptor],
         tool_manager: ToolManager | None,
+        tool_prompt_segments: list[PromptSegment] | None = None,
         agent_name: str = "",
     ) -> str:
         parts: list[str] = []
@@ -49,6 +51,14 @@ class SystemPromptBuilder:
                 lines.append(f"- {skill.id}: {skill.description} -> {files_str}")
             lines.append("需要时读取对应文件获取详细指引。")
             parts.append("\n".join(lines))
+
+        if tool_prompt_segments:
+            segment_lines = ["## 宸ュ叿琛屼负瑙勫垯"]
+            for segment in sorted(tool_prompt_segments, key=lambda item: (item.priority, item.name)):
+                segment_lines.append(f"### {segment.name}")
+                segment_lines.append(segment.content.strip())
+                segment_lines.append("")
+            parts.append("\n".join(segment_lines).rstrip())
 
         if tool_manager:
             tool_prompt = tool_manager.build_system_prompt()
