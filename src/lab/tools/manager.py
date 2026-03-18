@@ -37,13 +37,15 @@ class ToolManager:
         self,
         *,
         preamble: str = "",
+        include_default_preamble: bool = False,
     ) -> str:
         sections: list[str] = []
 
-        merged_preamble = self._DEFAULT_TOOL_PREAMBLE
         if preamble:
-            merged_preamble = f"{merged_preamble}\n{preamble.strip()}"
-        sections.append(merged_preamble.strip())
+            sections.append(preamble.strip())
+
+        if include_default_preamble:
+            sections.append(self._DEFAULT_TOOL_PREAMBLE.strip())
 
         tool_lines: list[str] = []
         for name, tool in self._builtin.items():

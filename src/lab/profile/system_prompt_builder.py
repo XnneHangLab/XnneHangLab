@@ -61,7 +61,7 @@ class SystemPromptBuilder:
             parts.append("\n".join(segment_lines).rstrip())
 
         if tool_manager:
-            tool_prompt = tool_manager.build_system_prompt()
+            tool_prompt = tool_manager.build_system_prompt(include_default_preamble=True)
             if tool_prompt:
                 parts.append(tool_prompt)
 
