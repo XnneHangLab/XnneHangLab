@@ -15,6 +15,7 @@ EmbeddingPoolingType = Literal["mean", "cls", "last"]
 class EmbeddingModel(Protocol):
     def embed(self, texts: list[str], normalize: bool = True) -> list[float] | list[list[float]]: ...
 
+
 DEFAULT_EMBEDDING_MODEL_NAME = "bge-m3"
 
 try:

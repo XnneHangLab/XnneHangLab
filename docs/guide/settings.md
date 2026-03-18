@@ -1,8 +1,8 @@
 # ⚙️ settings.md · lab.toml 配置说明
 
-`lab.toml` 是 **XnneHangLab** 的主配置文件。ASR、WebUI、Agent、服务端口、角色配置，以及各模块开关都会从这里读取。
+`lab.toml` 是 **XnneHangLab** 的主配置文件。ASR、WebUI、Agent、服务端口，以及各模块开关都会从这里读取；VTuber 角色身份与 Live2D 信息已迁移到 `profiles/*.toml`。
 
-> 当前配置版本：`v1.5.5`
+> 当前配置版本：`v1.6.0`
 >
 > 配置加载规则：程序会优先在项目 `config/` 下查找配置；找不到会尝试从系统配置目录读取；再找不到会初始化默认配置并写回，保证字段结构完整。
 
@@ -12,7 +12,7 @@
 
 ```text
 lab.toml
-├── conf_version = "v1.5.5"
+├── conf_version = "v1.6.0"
 ├── [asr]
 │   ├── FFMPEG_PATH
 │   ├── device
@@ -102,19 +102,6 @@ lab.toml
 │   ├── port
 │   ├── config_alts_dir
 │   └── uvicorn_log_level
-├── [vtuber.character_config]
-│   ├── conf_name
-│   ├── conf_uid
-│   ├── live2d_model_name
-│   ├── character_name
-│   ├── avatar
-│   ├── human_name
-│   └── [vtuber.character_config.tts_preprocessor_config]
-│       ├── remove_special_char
-│       ├── ignore_brackets
-│       ├── ignore_parentheses
-│       ├── ignore_asterisks
-│       └── ignore_angle_brackets
 └── [memory_bench]
     ├── user_id
     ├── agent_id
@@ -349,8 +336,8 @@ subtitle_speed = "normal"
 | require_detailed | 是否要求更详细的视觉总结 |
 | segment_method | 分句方式：`regex` / `pysbd` |
 | interrupt_method | 中断信号写入方式：`system` / `user` |
-| memory_agent_profile | MemoryAgent 使用的 profile 路径 |
-| memory_chat_profile | `/memory/chat` 使用的 profile 路径 |
+| memory_agent_profile | VTuber 主链路 MemoryAgent 使用的 profile 路径，必须在 profile 中提供 `[character]` |
+| memory_chat_profile | `/memory/chat` 使用的 profile 路径，可以不包含 `character` |
 
 示例：
 
@@ -541,20 +528,6 @@ port = 12393
 config_alts_dir = "characters"
 uvicorn_log_level = "warning"
 
-[vtuber.character_config]
-conf_name = "elaina-local"
-conf_uid = "elaina-local-001"
-live2d_model_name = "Elaina"
-character_name = "Elaina"
-avatar = "ico_lss.png"
-human_name = "Human"
-
-[vtuber.character_config.tts_preprocessor_config]
-remove_special_char = true
-ignore_brackets = true
-ignore_parentheses = true
-ignore_asterisks = true
-ignore_angle_brackets = true
 
 [memory_bench]
 user_id = "xnne"
@@ -569,4 +542,4 @@ server_api_key = ""
 
 - 不要把 API Key 提交到 Git
 - 修改配置后建议重启服务，避免运行中的旧配置继续生效
-- `profile` 相关角色设定不再从 `lab.toml` 读取，而是走 `profiles/*.toml` 的 `[prompt]`
+- VTuber 角色相关的 `conf_uid` / `avatar` / `live2d_model_name` / TTS 预处理已迁移到 `profiles/*.toml` 的 `[character]`

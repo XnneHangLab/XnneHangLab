@@ -193,6 +193,9 @@ qwen-asr = {  workspace = true }
 [tool.pyright]
 include = ["src/lab","tests"]
 pythonVersion = "3.11"
+venvPath = "."
+venv = ".venv"
+extraPaths = ["src", "memory_bench"]
 typeCheckingMode = "strict"
 reportMissingTypeStubs = false
 

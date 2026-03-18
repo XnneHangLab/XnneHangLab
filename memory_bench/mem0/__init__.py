@@ -45,7 +45,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any
+from typing import Any, cast
 
 log = logging.getLogger(__name__)
 
@@ -224,10 +224,11 @@ def make_memory(config: dict[str, Any]) -> Any:
         Exception: ``Memory.from_config`` 拋出的任何異常。
     """
     try:
-        from mem0 import Memory as _Memory  # type: ignore[import-untyped]
+        from mem0 import Memory as imported_memory  # type: ignore[import-untyped]
     except ImportError as exc:
         raise ImportError("mem0 未安裝。請先安裝 memory_bench 依賴組，例如：`uv sync --group memory_bench`。") from exc
 
-    memory = _Memory.from_config(config)
+    memory_cls = cast("type[Any]", imported_memory)
+    memory = memory_cls.from_config(config)
     _patch_vector_store_update(memory)
     return memory

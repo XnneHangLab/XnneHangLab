@@ -48,7 +48,7 @@ class TTSTaskManager:
         tts_text: str,
         display_text: DisplayText,
         actions: Actions | None,
-        live2d_model: Live2dModel,
+        live2d_model: Live2dModel | None,
         websocket_send: WebSocketSend,
     ) -> None:
         """
@@ -125,10 +125,11 @@ class TTSTaskManager:
         tts_text: str,
         display_text: DisplayText,
         actions: Actions | None,
-        live2d_model: Live2dModel,
+        live2d_model: Live2dModel | None,
         sequence_number: int,
     ) -> None:
         """Process TTS generation and queue the result for ordered delivery."""
+        del live2d_model
         audio_file_path = await self._generate_audio(tts_text)
         if not audio_file_path:
             raise ValueError("Audio file path is None")

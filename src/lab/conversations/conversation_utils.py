@@ -53,7 +53,7 @@ async def process_agent_output(
     output: SentenceOutput,  # 我们不使用 human ai ，所以仅有 SentenceOutput, voice 通过 tts 生成
     lab_settings: XnneHangLabSettings,
     character_config: Any,
-    live2d_model: Live2dModel,
+    live2d_model: Live2dModel | None,
     service_context: ServiceContext,
     # tts_engine: TTSInterface,
     websocket_send: WebSocketSend,
@@ -61,8 +61,9 @@ async def process_agent_output(
     translate_engine: TranslateEngineRouter | None = None,
 ) -> str:
     """Process agent output with character information and optional translation"""
-    output.display_text.name = character_config.character_name
-    output.display_text.avatar = character_config.avatar
+    if character_config is not None:
+        output.display_text.name = character_config.character_name
+        output.display_text.avatar = character_config.avatar
 
     full_response = ""
     try:
@@ -88,7 +89,7 @@ async def process_agent_output(
 async def handle_sentence_output(
     output: SentenceOutput,
     lab_settings: XnneHangLabSettings,
-    live2d_model: Live2dModel,
+    live2d_model: Live2dModel | None,
     service_context: ServiceContext,
     # tts_engine: TTSInterface,
     websocket_send: WebSocketSend,
@@ -119,7 +120,7 @@ async def handle_sentence_output(
         full_response += display_text.text
         actions, service_context.live2d_startup_expression_applied = inject_startup_expression_once(
             actions=actions,
-            model_name=live2d_model.live2d_model_name,
+            model_name=live2d_model.live2d_model_name if live2d_model else "",
             already_applied=service_context.live2d_startup_expression_applied,
         )
         await tts_manager.speak(

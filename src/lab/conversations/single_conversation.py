@@ -132,9 +132,6 @@ async def process_agent_response(
         agent_output = context.agent_engine.chat(batch_input)  # type: ignore
         async for output in agent_output:  # type: ignore
             logger.debug(output)  # type: ignore
-            if context.live2d_model is None:
-                logger.error("live2d_model is None, cannot process agent output")
-                raise ValueError("live2d_model cannot be None")
             response_part = await process_agent_output(
                 output=output,  # type: ignore
                 lab_settings=context.lab_setting,

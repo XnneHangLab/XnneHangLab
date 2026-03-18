@@ -1,14 +1,14 @@
 [profile]
-name = "elaina"
-description = "VTuber 主链路 - 多工具，memory agent"
-agent_name = "elaina"
+name = "baoqiao"
+description = "VTuber 主链路 - 薄巧，沿用 elaina 的 prompt/format"
+agent_name = "baoqiao"
 
 [character]
-conf_name = "elaina-local"
-conf_uid = "elaina-local-001"
-live2d_model_name = "Elaina"
-character_name = "Elaina"
-avatar = "ico_lss.png"
+conf_name = "baoqiao-local"
+conf_uid = "baoqiao-local-001"
+live2d_model_name = "薄巧_完整版_调用版"
+character_name = "薄巧"
+avatar = "baoqiao.png"
 human_name = "Human"
 
 [character.tts_preprocessor]
@@ -27,6 +27,6 @@ enabled = ["web_search_ddg", "web_fetch", "screen_shot", "diary", "memory"]
 
 [plugins.memory]
 user_id = "xnne"
-agent_id = "elaina"
+agent_id = "baoqiao"
 search_limit = 3
 # base_url defaults to http://localhost:12393 when omitted.
