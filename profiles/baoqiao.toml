@@ -1,6 +1,6 @@
 [profile]
 name = "baoqiao"
-description = "VTuber 主链路 - 薄巧，沿用 elaina 的 prompt/format"
+description = "VTuber 主链路 - 薄巧"
 agent_name = "baoqiao"
 
 [character]
@@ -19,14 +19,23 @@ ignore_asterisks = true
 ignore_angle_brackets = true
 
 [prompt]
-persona = "prompts/characters/elaina.md"
-format = "prompts/formats/emotion_bracket.md"
+persona = "prompts/characters/baoqiao.md"
+format = "prompts/formats/baoqiao_emotion_bracket.md"
 
 [plugins]
-enabled = ["web_search_ddg", "web_fetch", "screen_shot", "diary", "memory"]
+enabled = ["web_search_ddg", "web_fetch", "screen_shot", "diary", "memory", "live2d_control"]
 
 [plugins.memory]
 user_id = "xnne"
 agent_id = "baoqiao"
 search_limit = 3
 # base_url defaults to http://localhost:12393 when omitted.
+
+[plugins.live2d_control]
+appearance_keys = ["默认", "预设发型1", "预设发型2", "隐藏披发"]
+
+[plugins.live2d_control.appearance_descriptions]
+"默认" = "厚刘海、披肩长发、麻花辫和发饰都保留的完整造型，整体更精致隆重，适合正式感更强的场合，但是看起来有点热。"
+"预设发型1" = "短刘海露出额头，没有披发，保留单侧马尾，整体更轻盈清爽，像很适合夏天的可爱清凉发型。"
+"预设发型2" = "长刘海遮住一侧眼睛，没有双马尾，保留披发，整体更有神秘感，像带一点小心机。"
+"隐藏披发" = "去掉披发部分后，双马尾会显得更完整突出，整体更利落。"

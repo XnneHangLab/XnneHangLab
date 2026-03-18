@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from loguru import logger
+
 from lab.agent.agents.memory_agent import MemoryAgent
 from lab.agent.core import AgentCore
 from lab.agent.hook_manager import HookManager
@@ -28,6 +30,7 @@ if TYPE_CHECKING:
     from lab.config_manager.package import Packages
     from lab.config_manager.vtuber import TTSPreprocessorConfig
     from lab.live2d_model import Live2dModel
+    from lab.tools.plugin import PromptSegment
 
 
 def build_default_tool_manager(workspace_root: Path) -> ToolManager:
@@ -51,13 +54,17 @@ class AgentFactory:
         vision_system_prompt: str = "",
         workspace_root: Path | None = None,
         packages: Packages | None = None,
+        live2d_model: Live2dModel | None = None,
     ) -> AgentCore:
         chat_model = lab_setting.agent.chat_model
         vision_model = lab_setting.agent.vision_model
 
         ws_root = workspace_root or Path.cwd()
         profile = Profile.from_toml(profile_path)
-        agent_context = AgentContext(workspace_root=ws_root)
+        agent_context = AgentContext(
+            workspace_root=ws_root,
+            extra={"live2d_emo_map": live2d_model.emo_map if live2d_model else {}},
+        )
 
         def _read_prompt(path_str: str) -> str:
             path = Path(path_str)
@@ -78,6 +85,10 @@ class AgentFactory:
         for tool_plugin in tool_plugins:
             for builtin_tool in tool_plugin.get_tools():
                 tool_manager.register_builtin(builtin_tool)
+
+        tool_prompt_segments: list[PromptSegment] = []
+        for tool_plugin in tool_plugins:
+            tool_prompt_segments.extend(tool_plugin.get_prompt_segments())
 
         registered_tool_names = {
             name for schema in tool_manager.list_tools_schema() if (name := schema.get("function", {}).get("name"))
@@ -123,7 +134,13 @@ class AgentFactory:
             format_path=profile.prompt.format,
             skills=skill_descriptors,
             tool_manager=tool_manager,
+            tool_prompt_segments=tool_prompt_segments,
             agent_name=profile.profile.agent_name.lower(),
+        )
+        logger.info(
+            "===== Chat System Prompt Preview ({}) =====\n{}\n===== End Chat System Prompt Preview =====",
+            profile.profile.name,
+            chat_system_prompt,
         )
 
         core = AgentCore(
@@ -176,6 +193,7 @@ class AgentFactory:
             storage=storage,
             workspace_root=ws_root,
             packages=lab_setting.package.to_dict(),
+            live2d_model=live2d_model,
         )
 
         agent = MemoryAgent(
