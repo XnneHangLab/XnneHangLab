@@ -6,7 +6,7 @@ import json
 import time
 import urllib.parse
 import urllib.robotparser
-from typing import Any
+from typing import Annotated, Any
 
 import httpx
 import pydantic
@@ -14,6 +14,7 @@ from bs4 import BeautifulSoup
 from loguru import logger
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
 
+from lab.plugin.config import PluginConfigModel
 from lab.plugin.http import clamp_int, get_with_retries, make_headers
 from lab.tools.base import BuiltinTool
 from lab.tools.plugin import ToolPlugin
@@ -21,6 +22,19 @@ from lab.tools.types import AgentContext, ToolResult
 
 _ROBOTS_TTL_S = 6 * 3600
 _ROBOTS_CACHE: dict[str, tuple[float, urllib.robotparser.RobotFileParser]] = {}
+
+
+class WebFetchPluginConfig(PluginConfigModel):
+    user_agent: Annotated[str, Field("XnneHangLab-ToolPlugin/1.0", description="抓取网页时使用的 User-Agent 头")]
+    respect_robots: Annotated[bool, Field(False, description="是否遵守目标站点的 robots.txt")]
+    robots_fail_closed: Annotated[bool, Field(False, description="robots.txt 检查失败时是否默认拒绝抓取")]
+    use_jina_fallback: Annotated[bool, Field(False, description="正文提取效果不佳时是否启用 Jina Reader 回退")]
+    jina_api_key: Annotated[str, Field("", description="Jina Reader API Key，未配置时留空")]
+    timeout_s: Annotated[float, Field(10.0, ge=1.0, le=30.0, description="网页抓取默认超时时间（秒）")]
+    max_chars_default: Annotated[int, Field(8000, ge=256, le=20000, description="默认返回的最大正文字符数")]
+
+
+PLUGIN_CONFIG_MODEL = WebFetchPluginConfig
 
 
 class WebFetchArgs(BaseModel):
@@ -235,6 +249,7 @@ class _WebFetchTool(BuiltinTool):
 class WebFetchPlugin(ToolPlugin):
     name = "web_fetch"
     description = "Fetch a public URL and extract readable page content."
+    config_model = WebFetchPluginConfig
 
     def __init__(
         self,

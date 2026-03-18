@@ -2,14 +2,27 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Annotated, Any, cast
 
+from pydantic import Field
+
+from lab.plugin.config import PluginConfigModel
 from lab.tools.base import BuiltinTool
 from lab.tools.plugin import PromptSegment, ToolPlugin
 from lab.tools.types import AgentContext, ToolResult
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
+
+
+class Live2DControlPluginConfig(PluginConfigModel):
+    appearance_keys: Annotated[list[str], Field(default_factory=list, description="可切换的外观 key 列表")]
+    appearance_descriptions: Annotated[
+        dict[str, str], Field(default_factory=dict, description="外观 key 对应的说明文案")
+    ]
+
+
+PLUGIN_CONFIG_MODEL = Live2DControlPluginConfig
 
 
 @dataclass(frozen=True)
@@ -105,6 +118,7 @@ class _SetLive2DAppearanceTool(BuiltinTool):
 
 class Live2DControlPlugin(ToolPlugin):
     name = "live2d_control"
+    config_model = Live2DControlPluginConfig
     description = "控制 Live2D 模型的持久形态切换"
 
     def __init__(
@@ -123,7 +137,9 @@ class Live2DControlPlugin(ToolPlugin):
             return False
 
         typed_emo_map = cast("dict[object, object]", raw_emo_map)
-        emo_map = {key: value for key, value in typed_emo_map.items() if isinstance(key, str) and isinstance(value, str)}
+        emo_map = {
+            key: value for key, value in typed_emo_map.items() if isinstance(key, str) and isinstance(value, str)
+        }
 
         self._appearance_options = {
             key: AppearanceOption(

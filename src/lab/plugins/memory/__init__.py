@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, TypedDict, cast
+from typing import TYPE_CHECKING, Annotated, Any, TypedDict, cast
 
 import httpx
+from pydantic import Field
 
+from lab.plugin.config import PluginConfigModel
 from lab.plugin.hook import HookPlugin
 
 if TYPE_CHECKING:
@@ -14,8 +16,19 @@ class _MemorySearchItem(TypedDict, total=False):
     memory: str
 
 
+class MemoryPluginConfig(PluginConfigModel):
+    base_url: Annotated[str, Field("http://localhost:12393", description="Memory Bench 服务基础地址")]
+    user_id: Annotated[str, Field("xnne", description="记忆读写使用的用户 ID")]
+    agent_id: Annotated[str, Field("congyin", description="记忆读写使用的角色 ID")]
+    search_limit: Annotated[int, Field(10, ge=1, le=100, description="每轮注入的最大记忆条数")]
+
+
+PLUGIN_CONFIG_MODEL = MemoryPluginConfig
+
+
 class MemoryPlugin(HookPlugin):
     _requires_package = "memory_bench"
+    config_model = MemoryPluginConfig
 
     def __init__(
         self,

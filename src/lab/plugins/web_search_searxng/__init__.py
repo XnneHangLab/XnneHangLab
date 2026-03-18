@@ -3,18 +3,29 @@ from __future__ import annotations
 import html
 import json
 import urllib.parse
-from typing import Any
+from typing import Annotated, Any
 
 import httpx
 import pydantic
 from bs4 import BeautifulSoup
 from loguru import logger
+from pydantic import Field
 
+from lab.plugin.config import PluginConfigModel
 from lab.plugin.http import clamp_int, get_with_retries, make_headers
 from lab.plugin.search_types import WebSearchArgs, WebSearchResult, WebSearchResultItem
 from lab.tools.base import BuiltinTool
 from lab.tools.plugin import ToolPlugin
 from lab.tools.types import AgentContext, ToolResult
+
+
+class WebSearchSearxngPluginConfig(PluginConfigModel):
+    searxng_url: Annotated[str, Field("", description="SearXNG 实例基础 URL，留空时插件不会注册")]
+    user_agent: Annotated[str, Field("XnneHangLab-ToolPlugin/1.0", description="请求 SearXNG 时使用的 User-Agent 头")]
+    timeout_s: Annotated[float, Field(10.0, ge=1.0, le=60.0, description="SearXNG 搜索请求超时时间（秒）")]
+
+
+PLUGIN_CONFIG_MODEL = WebSearchSearxngPluginConfig
 
 
 def _is_http_url(url: str) -> bool:
@@ -112,6 +123,7 @@ class _WebSearchTool(BuiltinTool):
 class WebSearchSearxngPlugin(ToolPlugin):
     name = "web_search_searxng"
     description = "Search the web using a SearXNG instance."
+    config_model = WebSearchSearxngPluginConfig
 
     def __init__(
         self,

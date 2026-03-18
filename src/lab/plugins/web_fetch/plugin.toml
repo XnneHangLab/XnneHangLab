@@ -16,5 +16,37 @@ jina_api_key = ""
 timeout_s = 10.0
 max_chars_default = 8000
 
+[config_schema.user_agent]
+type = "str"
+description = "抓取网页时使用的 User-Agent 头"
+
+[config_schema.respect_robots]
+type = "bool"
+description = "是否遵守目标站点的 robots.txt"
+
+[config_schema.robots_fail_closed]
+type = "bool"
+description = "robots.txt 检查失败时是否默认拒绝抓取"
+
+[config_schema.use_jina_fallback]
+type = "bool"
+description = "正文提取效果不佳时是否启用 Jina Reader 回退"
+
+[config_schema.jina_api_key]
+type = "str"
+description = "Jina Reader API Key，未配置时留空"
+
+[config_schema.timeout_s]
+type = "float"
+description = "网页抓取默认超时时间（秒）"
+min = 1.0
+max = 30.0
+
+[config_schema.max_chars_default]
+type = "int"
+description = "默认返回的最大正文字符数"
+min = 256
+max = 20000
+
 [type_config]
 entry = "WebFetchPlugin"

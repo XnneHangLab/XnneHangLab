@@ -12,5 +12,19 @@ searxng_url = ""
 user_agent = "XnneHangLab-ToolPlugin/1.0"
 timeout_s = 10.0
 
+[config_schema.searxng_url]
+type = "str"
+description = "SearXNG 实例基础 URL，留空时插件不会注册"
+
+[config_schema.user_agent]
+type = "str"
+description = "请求 SearXNG 时使用的 User-Agent 头"
+
+[config_schema.timeout_s]
+type = "float"
+description = "SearXNG 搜索请求超时时间（秒）"
+min = 1.0
+max = 60.0
+
 [type_config]
 entry = "WebSearchSearxngPlugin"
