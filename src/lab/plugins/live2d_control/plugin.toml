@@ -9,6 +9,7 @@ source = "builtin"
 
 [config]
 appearance_keys = []
+appearance_descriptions = {}
 
 [type_config]
 entry = "Live2DControlPlugin"
