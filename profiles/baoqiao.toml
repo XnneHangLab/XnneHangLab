@@ -1,6 +1,6 @@
 [profile]
 name = "baoqiao"
-description = "VTuber 主链路 - 薄巧，沿用 elaina 的 prompt/format"
+description = "VTuber 主链路 - 薄巧"
 agent_name = "baoqiao"
 
 [character]
@@ -20,7 +20,7 @@ ignore_angle_brackets = true
 
 [prompt]
 persona = "prompts/characters/elaina.md"
-format = "prompts/formats/emotion_bracket.md"
+format = "prompts/formats/baoqiao_emotion_bracket.md"
 
 [plugins]
 enabled = ["web_search_ddg", "web_fetch", "screen_shot", "diary", "memory", "live2d_control"]
