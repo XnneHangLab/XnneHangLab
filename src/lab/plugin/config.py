@@ -3,10 +3,12 @@ from __future__ import annotations
 import importlib
 import importlib.util
 import inspect
-from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from pydantic import BaseModel, ConfigDict
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 SUPPORTED_SCHEMA_TYPE_MAP = {
     "string": "str",
@@ -69,7 +71,8 @@ def _extract_schema_type(prop: dict[str, object]) -> str | None:
     if isinstance(schema_type, str):
         return schema_type
     if isinstance(schema_type, list):
-        for item in schema_type:
+        schema_type_list = cast("list[object]", schema_type)
+        for item in schema_type_list:
             if isinstance(item, str) and item != "null":
                 return item
     return None
@@ -80,10 +83,11 @@ def build_plugin_config_schema(config_model: type[BaseModel]) -> dict[str, dict[
     properties_obj = json_schema.get("properties", {})
     if not isinstance(properties_obj, dict):
         return {}
+    properties = cast("dict[str, object]", properties_obj)
 
     out: dict[str, dict[str, Any]] = {}
-    for raw_name, raw_prop in properties_obj.items():
-        if not isinstance(raw_name, str) or not isinstance(raw_prop, dict):
+    for raw_name, raw_prop in properties.items():
+        if not isinstance(raw_prop, dict):
             continue
         name = raw_name
         prop = cast("dict[str, object]", raw_prop)
