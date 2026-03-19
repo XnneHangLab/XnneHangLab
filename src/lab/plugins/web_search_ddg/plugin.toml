@@ -11,5 +11,15 @@ source = "builtin"
 user_agent = "XnneHangLab-ToolPlugin/1.0"
 timeout_s = 10.0
 
+[config_schema.user_agent]
+type = "str"
+description = "请求 DuckDuckGo 时使用的 User-Agent 头"
+
+[config_schema.timeout_s]
+type = "float"
+description = "DuckDuckGo 搜索请求超时时间（秒）"
+min = 1.0
+max = 60.0
+
 [type_config]
 entry = "WebSearchDuckDuckGoPlugin"

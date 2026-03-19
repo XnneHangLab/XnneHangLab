@@ -9,9 +9,17 @@ import pydantic
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
+from lab.plugin.config import PluginConfigModel
 from lab.tools.base import BuiltinTool
 from lab.tools.plugin import PromptSegment, ToolPlugin
 from lab.tools.types import AgentContext, ToolResult
+
+
+class ScreenShotPluginConfig(PluginConfigModel):
+    pass
+
+
+PLUGIN_CONFIG_MODEL = ScreenShotPluginConfig
 
 
 class ScreenShotArgs(BaseModel):
@@ -58,6 +66,7 @@ class _ScreenShotTool(BuiltinTool):
 class ScreenShotPlugin(ToolPlugin):
     name = "screen_shot"
     description = "Capture the current desktop screen and return a base64 encoded JPEG image."
+    config_model = ScreenShotPluginConfig
 
     def __init__(self) -> None:
         self._tool = _ScreenShotTool()

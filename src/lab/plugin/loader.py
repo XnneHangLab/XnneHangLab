@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import importlib
-import importlib.util
 import inspect
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+from lab.plugin.config import get_plugin_config_model, import_plugin_module, validate_plugin_config
 
 if TYPE_CHECKING:
     from lab.plugin.hook import HookPlugin
@@ -45,19 +45,10 @@ class PluginLoader:
         self,
         *,
         plugin_id: str,
-        plugin_dir: Path,
+        module: Any,
         meta: dict[str, Any],
         config: dict[str, Any],
     ) -> Any:
-        module_name = f"lab.plugins.{plugin_id}"
-        try:
-            module = importlib.import_module(module_name)
-        except ImportError:
-            spec = importlib.util.spec_from_file_location(module_name, plugin_dir / "__init__.py")
-            assert spec and spec.loader
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)  # type: ignore[union-attr]
-
         entry_name = meta.get("type_config", {}).get("entry")
         if not entry_name:
             raise ValueError(f"plugin.toml missing [type_config].entry for {plugin_id!r}")
@@ -84,9 +75,13 @@ class PluginLoader:
         config: dict[str, Any] = {**meta.get("config", {}), **(profile_overrides or {})}
 
         if plugin_type == "tool":
+            module = import_plugin_module(plugin_id, plugin_dir)
+            config_model = get_plugin_config_model(module, meta)
+            if config_model is not None:
+                config = validate_plugin_config(config_model, config)
             plugin: ToolPlugin = self._instantiate_plugin(
                 plugin_id=plugin_id,
-                plugin_dir=plugin_dir,
+                module=module,
                 meta=meta,
                 config=config,
             )
@@ -95,9 +90,13 @@ class PluginLoader:
             return plugin
 
         if plugin_type == "hook":
+            module = import_plugin_module(plugin_id, plugin_dir)
+            config_model = get_plugin_config_model(module, meta)
+            if config_model is not None:
+                config = validate_plugin_config(config_model, config)
             hook = self._instantiate_plugin(
                 plugin_id=plugin_id,
-                plugin_dir=plugin_dir,
+                module=module,
                 meta=meta,
                 config=config,
             )
