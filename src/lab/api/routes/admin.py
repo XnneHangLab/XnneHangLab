@@ -82,16 +82,18 @@ def _validate_profile_payload(request: Request, payload: dict[str, Any]) -> None
     plugins_obj = payload.get("plugins")
     if not isinstance(plugins_obj, dict):
         return
+    plugins_dict = cast("dict[str, Any]", plugins_obj)
 
-    enabled_obj = plugins_obj.get("enabled", [])
+    enabled_obj = plugins_dict.get("enabled", [])
     if not isinstance(enabled_obj, list):
         raise HTTPException(status_code=400, detail="plugins.enabled must be a list")
+    enabled_plugins = cast("list[Any]", enabled_obj)
 
-    for plugin_id in enabled_obj:
+    for plugin_id in enabled_plugins:
         if not isinstance(plugin_id, str):
             raise HTTPException(status_code=400, detail="plugins.enabled must contain only strings")
 
-        plugin_override = plugins_obj.get(plugin_id, {})
+        plugin_override = plugins_dict.get(plugin_id, {})
         if not isinstance(plugin_override, dict):
             raise HTTPException(status_code=400, detail=f"plugins.{plugin_id} must be a table/object")
 

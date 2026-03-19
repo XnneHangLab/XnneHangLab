@@ -67,8 +67,8 @@ def validate_plugin_override(plugin_id: str, plugin_dir: Path, override: dict[st
         return override
 
     config_defaults = meta.get("config", {})
-    defaults = config_defaults if isinstance(config_defaults, dict) else {}
-    merged = {**defaults, **override}
+    defaults: dict[str, Any] = cast("dict[str, Any]", config_defaults) if isinstance(config_defaults, dict) else {}
+    merged: dict[str, Any] = {**defaults, **override}
     return validate_plugin_config(config_model, merged)
 
 
