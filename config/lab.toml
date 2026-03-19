@@ -50,7 +50,7 @@ max_vision_concurrency = 4
 require_detailed = true
 segment_method = "pysbd"
 interrupt_method = "user"
-memory_agent_profile = "profiles/elaina.toml"
+memory_agent_profile = "profiles/baoqioa.toml"
 memory_chat_profile = "profiles/congyin.toml"
 
 [agent.chat_model]
