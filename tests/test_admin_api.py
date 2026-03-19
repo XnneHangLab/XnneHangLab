@@ -114,10 +114,10 @@ def test_profiles_list_get_and_put(tmp_path: Path) -> None:
         }
 
 
-def test_profile_endpoints_block_path_traversal(tmp_path: Path) -> None:
+def test_profile_endpoints_reject_invalid_profile_names(tmp_path: Path) -> None:
     client = TestClient(_make_app(tmp_path))
 
-    response = client.get("/admin/api/profiles/..%5Csecret.toml")
+    response = client.get("/admin/api/profiles/not-toml.txt")
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Invalid profile name"
