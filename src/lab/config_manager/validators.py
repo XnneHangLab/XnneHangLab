@@ -10,9 +10,12 @@ import importlib
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from loguru import logger
+from pydantic import ValidationError
+
+from lab.plugin.config import validate_plugin_override
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -249,6 +252,11 @@ def _check_profiles(settings: XnneHangLabSettings) -> list[str]:
                 plugins_obj = profile_data.get("plugins")
                 if isinstance(plugins_obj, dict):
                     plugins_dict = cast("dict[str, object]", plugins_obj)
+                    errors += _check_profile_plugin_overrides(
+                        ws_root=ws_root,
+                        profile_label=memory_agent_profile,
+                        plugins_obj=plugins_dict,
+                    )
                     enabled_plugins_obj = plugins_dict.get("enabled")
                     enabled_plugins: list[str] = []
                     if isinstance(enabled_plugins_obj, list):
@@ -272,6 +280,63 @@ def _check_profiles(settings: XnneHangLabSettings) -> list[str]:
                 f" [agent.memory_chat_profile]\n"
                 f" 文件不存在: {chat_profile_path}\n"
                 " -> 检查路径是否正确，或创建对应的 profile 文件"
+            )
+        else:
+            try:
+                with chat_profile_path.open("rb") as file:
+                    chat_profile_data: dict[str, object] = tomllib.load(file)
+            except Exception as exc:
+                errors.append(f" [agent.memory_chat_profile]\n profile 解析失败: {chat_profile_path}\n -> {exc}")
+            else:
+                plugins_obj = chat_profile_data.get("plugins")
+                if isinstance(plugins_obj, dict):
+                    errors += _check_profile_plugin_overrides(
+                        ws_root=ws_root,
+                        profile_label=memory_chat_profile,
+                        plugins_obj=cast("dict[str, object]", plugins_obj),
+                    )
+
+    return errors
+
+
+def _check_profile_plugin_overrides(
+    *,
+    ws_root: Path,
+    profile_label: str,
+    plugins_obj: dict[str, object],
+) -> list[str]:
+    errors: list[str] = []
+    enabled_plugins_obj = plugins_obj.get("enabled")
+    enabled_plugins: list[str] = []
+    if isinstance(enabled_plugins_obj, list):
+        for plugin in cast("list[object]", enabled_plugins_obj):
+            if isinstance(plugin, str):
+                enabled_plugins.append(plugin)
+
+    candidate_plugin_dirs = [ws_root / "src" / "lab" / "plugins", Path(__file__).resolve().parents[1] / "plugins"]
+    for plugin_id in enabled_plugins:
+        plugin_override = plugins_obj.get(plugin_id, {})
+        if not isinstance(plugin_override, dict):
+            errors.append(
+                f" [plugins.{plugin_id}]\n"
+                f" profile '{profile_label}' 的插件 override 必须是 table/object"
+            )
+            continue
+
+        plugin_dir = next(
+            (candidate_dir / plugin_id for candidate_dir in candidate_plugin_dirs if (candidate_dir / plugin_id / "plugin.toml").is_file()),
+            None,
+        )
+        if plugin_dir is None:
+            continue
+
+        try:
+            validate_plugin_override(plugin_id, plugin_dir, cast("dict[str, Any]", plugin_override))
+        except ValidationError as exc:
+            errors.append(
+                f" [plugins.{plugin_id}]\n"
+                f" profile '{profile_label}' 的插件配置无效\n"
+                f" -> {exc}"
             )
 
     return errors

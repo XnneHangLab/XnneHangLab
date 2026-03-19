@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Any, cast
 
-from pydantic import Field
+from pydantic import Field, field_validator, model_validator
 
 from lab.plugin.config import PluginConfigModel
 from lab.tools.base import BuiltinTool
@@ -15,11 +15,33 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
 
+class AppearancePreset(PluginConfigModel):
+    key: Annotated[str, Field(description="可切换的外观 key")]
+    description: Annotated[str, Field(default="", description="该外观的说明文案")]
+
+    @field_validator("key")
+    @classmethod
+    def validate_key(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("appearance_presets[].key must not be empty")
+        return normalized
+
+
 class Live2DControlPluginConfig(PluginConfigModel):
-    appearance_keys: Annotated[list[str], Field(default_factory=list, description="可切换的外观 key 列表")]
-    appearance_descriptions: Annotated[
-        dict[str, str], Field(default_factory=dict, description="外观 key 对应的说明文案")
+    appearance_presets: Annotated[
+        list[AppearancePreset],
+        Field(default_factory=list, description="可切换的 Live2D 外观预设列表"),
     ]
+
+    @model_validator(mode="after")
+    def validate_unique_keys(self) -> Live2DControlPluginConfig:
+        seen: set[str] = set()
+        for preset in self.appearance_presets:
+            if preset.key in seen:
+                raise ValueError(f"appearance_presets contains duplicate key: {preset.key}")
+            seen.add(preset.key)
+        return self
 
 
 PLUGIN_CONFIG_MODEL = Live2DControlPluginConfig
@@ -121,14 +143,15 @@ class Live2DControlPlugin(ToolPlugin):
     config_model = Live2DControlPluginConfig
     description = "控制 Live2D 模型的持久形态切换"
 
-    def __init__(
-        self,
-        appearance_keys: list[str] | None = None,
-        appearance_descriptions: dict[str, str] | None = None,
-    ) -> None:
-        self._appearance_keys = appearance_keys or []
-        self._appearance_descriptions = appearance_descriptions or {}
+    def __init__(self, appearance_presets: list[dict[str, str]] | list[AppearancePreset] | None = None) -> None:
+        self._appearance_presets = [self._coerce_preset(preset) for preset in appearance_presets or []]
         self._appearance_options: dict[str, AppearanceOption] = {}
+
+    @staticmethod
+    def _coerce_preset(raw_preset: dict[str, str] | AppearancePreset) -> AppearancePreset:
+        if isinstance(raw_preset, AppearancePreset):
+            return raw_preset
+        return AppearancePreset.model_validate(raw_preset)
 
     async def on_register(self, ctx: AgentContext) -> bool:
         raw_emo_map = ctx.extra.get("live2d_emo_map", {})
@@ -142,12 +165,12 @@ class Live2DControlPlugin(ToolPlugin):
         }
 
         self._appearance_options = {
-            key: AppearanceOption(
-                expression=emo_map[key],
-                description=self._appearance_descriptions.get(key, ""),
+            preset.key: AppearanceOption(
+                expression=emo_map[preset.key],
+                description=preset.description,
             )
-            for key in self._appearance_keys
-            if key in emo_map
+            for preset in self._appearance_presets
+            if preset.key in emo_map
         }
         return bool(self._appearance_options)
 

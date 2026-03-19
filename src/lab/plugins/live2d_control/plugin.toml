@@ -8,11 +8,22 @@ author = "XnneHangLab"
 source = "builtin"
 
 [config]
-appearance_keys = []
+appearance_presets = []
 
-[config.appearance_descriptions]
+[config_schema.appearance_presets]
+type = "list"
+description = "可切换的 Live2D 外观预设列表"
 
-[config_schema]
+[config_schema.appearance_presets.items]
+type = "object"
+
+[config_schema.appearance_presets.items.properties.key]
+type = "str"
+description = "可切换的外观 key"
+
+[config_schema.appearance_presets.items.properties.description]
+type = "str"
+description = "该外观的说明文案"
 
 [type_config]
 entry = "Live2DControlPlugin"

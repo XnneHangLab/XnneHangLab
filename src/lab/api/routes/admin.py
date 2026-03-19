@@ -7,6 +7,9 @@ from typing import Any, cast
 
 import tomli_w as tomlw
 from fastapi import APIRouter, HTTPException, Request
+from pydantic import ValidationError
+
+from lab.plugin.config import validate_plugin_override
 
 router = APIRouter(tags=["admin"])
 
@@ -33,6 +36,17 @@ def _profiles_dir(request: Request) -> Path:
 
 def _plugins_dir(request: Request) -> Path:
     return _get_workspace_root(request) / "src" / "lab" / "plugins"
+
+
+def _resolve_plugin_dir(request: Request, plugin_id: str) -> Path | None:
+    candidate_dirs = [
+        _plugins_dir(request) / plugin_id,
+        Path(__file__).resolve().parents[2] / "plugins" / plugin_id,
+    ]
+    for candidate in candidate_dirs:
+        if (candidate / "plugin.toml").is_file():
+            return candidate
+    return None
 
 
 def _stable_table(value: Any) -> dict[str, Any]:
@@ -62,6 +76,33 @@ def _resolve_profile_path(request: Request, name: str) -> Path:
         raise HTTPException(status_code=400, detail="Invalid profile path") from exc
 
     return profile_path
+
+
+def _validate_profile_payload(request: Request, payload: dict[str, Any]) -> None:
+    plugins_obj = payload.get("plugins")
+    if not isinstance(plugins_obj, dict):
+        return
+
+    enabled_obj = plugins_obj.get("enabled", [])
+    if not isinstance(enabled_obj, list):
+        raise HTTPException(status_code=400, detail="plugins.enabled must be a list")
+
+    for plugin_id in enabled_obj:
+        if not isinstance(plugin_id, str):
+            raise HTTPException(status_code=400, detail="plugins.enabled must contain only strings")
+
+        plugin_override = plugins_obj.get(plugin_id, {})
+        if not isinstance(plugin_override, dict):
+            raise HTTPException(status_code=400, detail=f"plugins.{plugin_id} must be a table/object")
+
+        plugin_dir = _resolve_plugin_dir(request, plugin_id)
+        if plugin_dir is None:
+            continue
+
+        try:
+            validate_plugin_override(plugin_id, plugin_dir, cast("dict[str, Any]", plugin_override))
+        except ValidationError as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid plugins.{plugin_id}: {exc}") from exc
 
 
 @router.get("/api/plugins", response_model=None)
@@ -116,6 +157,7 @@ async def get_profile(name: str, request: Request) -> dict[str, Any]:
 @router.put("/api/profiles/{name}", response_model=None)
 async def put_profile(name: str, payload: dict[str, Any], request: Request) -> dict[str, str]:
     profile_path = _resolve_profile_path(request, name)
+    _validate_profile_payload(request, payload)
     profile_path.parent.mkdir(parents=True, exist_ok=True)
     profile_path.write_text(tomlw.dumps(payload), encoding="utf-8")
     return {"status": "ok", "name": name}

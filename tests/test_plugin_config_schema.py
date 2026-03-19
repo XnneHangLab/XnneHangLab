@@ -61,3 +61,14 @@ def test_builtin_plugins_define_config_schema() -> None:
 def test_plugin_loader_validates_profile_overrides() -> None:
     with pytest.raises(ValidationError):
         asyncio.run(PluginLoader().load("memory", profile_overrides={"search_limit": 0}))
+
+
+def test_live2d_control_schema_exposes_list_of_objects() -> None:
+    config_model, _ = _load_plugin_config_model("live2d_control")
+
+    schema = build_plugin_config_schema(config_model)
+
+    assert schema["appearance_presets"]["type"] == "list"
+    assert schema["appearance_presets"]["items"]["type"] == "object"
+    assert schema["appearance_presets"]["items"]["properties"]["key"]["type"] == "str"
+    assert schema["appearance_presets"]["items"]["properties"]["description"]["type"] == "str"

@@ -53,3 +53,55 @@ agent_name = "congyin"
     errors = validate_all(settings)
 
     assert any("缺少 [character]" in err for err in errors)
+
+
+def test_validate_rejects_duplicate_live2d_appearance_preset_keys(tmp_path: Path) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+    (profiles_dir / "vtuber.toml").write_text(
+        """
+[profile]
+name = "vtuber"
+agent_name = "vtuber"
+
+[character]
+conf_name = "vtuber-local"
+conf_uid = "vtuber-local-001"
+live2d_model_name = "Baoqiao"
+character_name = "VTuber"
+avatar = "avatar.png"
+human_name = "Human"
+
+[prompt]
+persona = "prompts/characters/elaina.md"
+format = "prompts/formats/emotion_bracket.md"
+
+[plugins]
+enabled = ["live2d_control"]
+
+[[plugins.live2d_control.appearance_presets]]
+key = "默认"
+description = "A"
+
+[[plugins.live2d_control.appearance_presets]]
+key = "默认"
+description = "B"
+""".strip(),
+        encoding="utf-8",
+    )
+    (profiles_dir / "congyin.toml").write_text(
+        """
+[profile]
+name = "congyin"
+agent_name = "congyin"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    settings = _base_settings(tmp_path)
+    settings.agent.memory_agent_profile = "profiles/vtuber.toml"
+
+    errors = validate_all(settings)
+
+    assert any("[plugins.live2d_control]" in err for err in errors)
+    assert any("duplicate key" in err for err in errors)
