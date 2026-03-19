@@ -147,6 +147,9 @@ async def lifespan(app: FastAPI):
 
         started = time.perf_counter()
         logger.info("⏳ 预加载本地 Embedding 模型...")
+        logger.warning(
+            "提示：本地 Embedding 模型首次加载有时会意外卡死；如果超过 10 秒仍未成功加载，请直接按 Ctrl+C 中断后重新运行。"
+        )
         load_embedding_model(
             model_path=lab_settings.local_embedding.model_path,
             pooling_type=lab_settings.local_embedding.pooling_type,
