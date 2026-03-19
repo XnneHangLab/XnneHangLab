@@ -253,6 +253,33 @@ class ServiceContext:
             tts_preprocessor_config=self.character_config.tts_preprocessor_config,
         )
 
+    async def reload_runtime_from_current_settings(self) -> None:
+        """Rebuild the shared default runtime state in place."""
+        new_context = ServiceContext()
+        new_context.lab_setting = self.lab_setting.model_copy(deep=True)
+        await new_context.load_from_config(new_context.lab_setting)
+        await new_context.ensure_mcp_connected()
+
+        if new_context.server_config is None or new_context.agent_engine is None:
+            raise ValueError("Reloaded context is incomplete")
+
+        previous_agent = self.agent_engine
+        self.load_cache(
+            lab_setting=new_context.lab_setting,
+            server_config=new_context.server_config,
+            character_config=new_context.character_config,
+            live2d_model=new_context.live2d_model,
+            agent_engine=new_context.agent_engine,
+        )
+        self._mcp_connected = new_context._mcp_connected
+        self.chat_system_prompt = new_context.chat_system_prompt
+        self.vision_system_prompt = new_context.vision_system_prompt
+        self.history_uid = ""
+        self.live2d_startup_expression_applied = new_context.live2d_startup_expression_applied
+
+        if previous_agent is not None and previous_agent is not self.agent_engine:
+            await previous_agent.close()
+
     async def ensure_mcp_connected(self) -> None:
         """确保 MCP 连接只初始化一次。"""
         if self._mcp_connected or self.agent_engine is None:

@@ -123,62 +123,119 @@ def test_profile_endpoints_block_path_traversal(tmp_path: Path) -> None:
     assert response.json()["detail"] == "Invalid profile name"
 
 
-def test_reload_default_agent_replaces_cached_agent(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_reload_default_agent_rebuilds_shared_context_in_place(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     app = _make_app(tmp_path, enable_tool=True)
-    close_calls: list[str] = []
-    create_calls: list[dict[str, object]] = []
+    shared_ctx = app.state.default_context_cache
+    reload_calls: list[Any] = []
 
-    class OldAgent:
-        async def close(self) -> None:
-            close_calls.append("old")
+    async def fake_reload() -> None:
+        reload_calls.append(shared_ctx)
+        shared_ctx.agent_engine = "reloaded-agent"
+        shared_ctx.character_config = SimpleNamespace(tts_preprocessor_config="reloaded-tts")
 
-    class NewAgent:
-        def __init__(self) -> None:
-            self.connected = False
-
-        async def connect_mcp_servers(self) -> None:
-            self.connected = True
-
-        async def close(self) -> None:
-            close_calls.append("new")
-
-    async def fake_create_agent(
-        *,
-        lab_setting: Any,
-        live2d_model: Any,
-        tts_preprocessor_config: Any,
-        workspace_root: Any,
-    ) -> NewAgent:
-        create_calls.append(
-            {
-                "lab_setting": lab_setting,
-                "live2d_model": live2d_model,
-                "tts_preprocessor_config": tts_preprocessor_config,
-                "workspace_root": workspace_root,
-            }
-        )
-        return NewAgent()
-
-    app.state.default_context_cache.agent_engine = OldAgent()
-    monkeypatch.setattr("lab.api.routes.admin.AgentFactory.create_agent", fake_create_agent)
+    monkeypatch.setattr(shared_ctx, "reload_runtime_from_current_settings", fake_reload, raising=False)
 
     client = TestClient(app)
     response = client.post("/admin/api/agent/reload")
 
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
-    assert isinstance(app.state.default_context_cache.agent_engine, NewAgent)
-    assert app.state.default_context_cache.agent_engine.connected is True
-    assert app.state.default_context_cache._mcp_connected is True
-    assert close_calls == ["old"]
-    assert create_calls == [
+    assert app.state.default_context_cache is shared_ctx
+    assert app.state.default_context_cache.agent_engine == "reloaded-agent"
+    assert reload_calls == [shared_ctx]
+
+
+def test_service_context_reload_runtime_refreshes_template_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    import asyncio
+
+    from lab.service_context import ServiceContext
+
+    close_calls: list[str] = []
+
+    class OldAgent:
+        async def close(self) -> None:
+            close_calls.append("old")
+
+    class NewAgent:
+        async def close(self) -> None:
+            close_calls.append("new")
+
+    ctx: Any = object.__new__(ServiceContext)
+    ctx.lab_setting = SimpleNamespace(model_copy=lambda deep=True: "settings-copy")
+    ctx.server_config = SimpleNamespace(model_copy=lambda deep=True: "server-copy")
+    ctx.character_config = SimpleNamespace(model_copy=lambda deep=True: "character-copy")
+    ctx.live2d_model = "old-live2d"
+    ctx.agent_engine = OldAgent()
+    ctx.translate_engine = None
+    ctx.history_uid = "history-1"
+    ctx.chat_system_prompt = "old-chat"
+    ctx.vision_system_prompt = "old-vision"
+    ctx.live2d_startup_expression_applied = True
+    ctx._mcp_connected = False
+
+    reloaded = SimpleNamespace(
+        lab_setting="new-settings",
+        server_config="new-server",
+        character_config="new-character",
+        live2d_model="new-live2d",
+        agent_engine=NewAgent(),
+        _mcp_connected=True,
+        chat_system_prompt="new-chat",
+        vision_system_prompt="new-vision",
+        live2d_startup_expression_applied=False,
+    )
+    load_calls: list[Any] = []
+    ensure_calls: list[Any] = []
+    cache_calls: list[dict[str, Any]] = []
+
+    async def fake_load_from_config(config: Any) -> None:
+        load_calls.append(config)
+
+    async def fake_ensure_mcp_connected() -> None:
+        ensure_calls.append(reloaded.agent_engine)
+
+    def fake_load_cache(*, lab_setting: Any, server_config: Any, character_config: Any, live2d_model: Any, agent_engine: Any) -> None:
+        cache_calls.append(
+            {
+                "lab_setting": lab_setting,
+                "server_config": server_config,
+                "character_config": character_config,
+                "live2d_model": live2d_model,
+                "agent_engine": agent_engine,
+            }
+        )
+        ctx.lab_setting = lab_setting
+        ctx.server_config = server_config
+        ctx.character_config = character_config
+        ctx.live2d_model = live2d_model
+        ctx.agent_engine = agent_engine
+
+    monkeypatch.setattr("lab.service_context.ServiceContext", lambda: reloaded)
+    monkeypatch.setattr(reloaded, "load_from_config", fake_load_from_config, raising=False)
+    monkeypatch.setattr(reloaded, "ensure_mcp_connected", fake_ensure_mcp_connected, raising=False)
+    monkeypatch.setattr(ctx, "load_cache", fake_load_cache)
+
+    asyncio.run(ServiceContext.reload_runtime_from_current_settings(ctx))
+
+    assert load_calls == ["settings-copy"]
+    assert ensure_calls == [reloaded.agent_engine]
+    assert cache_calls == [
         {
-            "lab_setting": app.state.default_context_cache.lab_setting,
-            "live2d_model": "live2d-model",
-            "tts_preprocessor_config": "tts-config",
-            "workspace_root": tmp_path.resolve(),
+            "lab_setting": "settings-copy",
+            "server_config": "new-server",
+            "character_config": "new-character",
+            "live2d_model": "new-live2d",
+            "agent_engine": reloaded.agent_engine,
         }
     ]
+    assert ctx._mcp_connected is True
+    assert ctx.chat_system_prompt == "new-chat"
+    assert ctx.vision_system_prompt == "new-vision"
+    assert ctx.history_uid == ""
+    assert ctx.live2d_startup_expression_applied is False
+    assert close_calls == ["old"]
 
 
 def test_server_registers_admin_router() -> None:

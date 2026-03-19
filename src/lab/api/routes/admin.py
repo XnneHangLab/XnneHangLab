@@ -8,8 +8,6 @@ from typing import Any, cast
 import tomli_w as tomlw
 from fastapi import APIRouter, HTTPException, Request
 
-from lab.agent.agent_factory import AgentFactory
-
 router = APIRouter(tags=["admin"])
 
 
@@ -126,42 +124,11 @@ async def put_profile(name: str, payload: dict[str, Any], request: Request) -> d
 @router.post("/api/agent/reload", response_model=None)
 async def reload_default_agent(request: Request) -> dict[str, Any]:
     ctx = _get_service_context(request)
-    lab_setting = getattr(ctx, "lab_setting", None)
-    if lab_setting is None:
-        raise HTTPException(status_code=503, detail="lab_setting is not initialized")
-
-    character_config = getattr(ctx, "character_config", None)
-    if character_config is None:
-        raise HTTPException(status_code=503, detail="character_config is not initialized")
-
-    workspace_root = Path(lab_setting.root.root_dir).resolve()
     started = time.perf_counter()
-    new_agent = None
 
     try:
-        new_agent = await AgentFactory.create_agent(
-            lab_setting=lab_setting,
-            live2d_model=getattr(ctx, "live2d_model", None),
-            tts_preprocessor_config=character_config.tts_preprocessor_config,
-            workspace_root=workspace_root,
-        )
-
-        if lab_setting.agent.enable_tool:
-            await new_agent.connect_mcp_servers()
-
-        old_agent = getattr(ctx, "agent_engine", None)
-        if old_agent is not None:
-            await old_agent.close()
-
-        ctx.agent_engine = new_agent
-        if hasattr(ctx, "_mcp_connected"):
-            ctx._mcp_connected = bool(lab_setting.agent.enable_tool)
-        request.app.state.default_context_cache = ctx
-    except HTTPException:
-        raise
+        await ctx.reload_runtime_from_current_settings()
     except Exception as exc:
-        if new_agent is not None:
-            await new_agent.close()
         raise HTTPException(
             status_code=500,
             detail=f"Failed to reload default agent: {type(exc).__name__}: {exc}",
