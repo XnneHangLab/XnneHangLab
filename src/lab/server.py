@@ -234,14 +234,14 @@ async def lifespan(app: FastAPI):
                 chat_started = time.perf_counter()
                 logger.info("⏳ 初始化 /memory/chat 端点...")
                 from lab.agent.agent_factory import AgentFactory
-                from lab.agent.storage import ConversationStoreAdapter
+                from lab.agent.storage import HistoryStorageAdapter
                 from lab.api.routes.chat import chat_state
-                from lab.conversation.store import ConversationStore
+                from lab.history_storage.store import HistoryStorage
 
                 ws_root = Path(lab_settings.root.root_dir)
                 chat_state.chat_model = chat_model_cfg.llm_model_name
                 chat_state.workspace_root = str(ws_root)
-                chat_state.conversations_dir = str(ws_root / "data" / "conversations")
+                chat_state.history_storage_dir = str(ws_root / "data" / "conversations")
 
                 chat_profile_path_str = lab_settings.agent.memory_chat_profile
                 if not chat_profile_path_str:
@@ -255,11 +255,11 @@ async def lifespan(app: FastAPI):
                 if not chat_profile_path.exists():
                     raise FileNotFoundError(f"memory_chat_profile not found: {chat_profile_path}")
 
-                chat_store = ConversationStore(base_dir=chat_state.conversations_dir)
+                chat_store = HistoryStorage(base_dir=chat_state.history_storage_dir)
                 chat_state.agent_core = await AgentFactory.create_core_with_profile(
                     lab_setting=lab_settings,
                     profile_path=chat_profile_path,
-                    storage=ConversationStoreAdapter(chat_store),
+                    storage=HistoryStorageAdapter(chat_store),
                     workspace_root=ws_root,
                     packages=lab_settings.package.to_dict(),
                 )
