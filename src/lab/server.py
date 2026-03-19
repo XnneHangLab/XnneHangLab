@@ -398,6 +398,14 @@ class WebSocketServer:
                 ),
             )
 
+        _include_router_with_log(
+            "Admin 管理端点",
+            lambda: self.app.include_router(
+                import_module("lab.api.routes.admin").router,
+                prefix="/admin",
+            ),
+        )
+
         logger.info("Mounting static files from {}", ROOT_DIR)
         self.app.mount(
             "/live2d-models",
