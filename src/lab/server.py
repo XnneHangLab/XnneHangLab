@@ -130,24 +130,28 @@ def _log_llm_translate_startup_result(step_logger: Logger, elapsed: float, loade
 
 
 def _init_gpt_sovits_backend() -> None:
-    """Initialize GPT-SoVITS state and complete the existing startup warmup.
+    """Initialize GPT-SoVITS into a startup-ready backend state.
 
-    Startup stores the synthesizer in the shared state manager and advances the
-    first generator step once so the backend finishes its lazy initialization
-    during lifespan startup instead of on the first real request.
+    This startup hook only imports the GPT-SoVITS modules, constructs the
+    synthesizer, and stores it in the shared state manager. It intentionally
+    does not execute a real synthesis warmup so the first-request warmup cost
+    is paid by the first synthesis request instead of blocking server startup.
     """
+    logger.info("[GSV init] import state manager")
     from gsv.gsv_state_manager import (  # type: ignore[reportMissingImports,reportUnknownVariableType]
         gsv_tts_state_manager,
     )
 
+    logger.info("[GSV init] import synthesizer module")
     synthesizer_module = import_module("gsv.Synthesizers.gsv_fast")
+    logger.info("[GSV init] construct TTS_Synthesizer")
     tts_synthesizer = synthesizer_module.TTS_Synthesizer(debug_mode=True)
+    logger.info("[GSV init] set shared state")
     gsv_tts_state_manager.set_state(tts_synthesizer)  # type: ignore[reportUnknownMemberType]
-    generator = tts_synthesizer.generate(
-        tts_synthesizer.params_parser({"text": "签名者ですでにエッセイの序説"})  # type: ignore[reportUnknownMemberType]
-    )
-    next(generator)
-
+    logger.info("[GSV init] build warmup params skipped during startup")
+    logger.info("[GSV init] create warmup generator skipped during startup")
+    logger.info("[GSV init] advance warmup generator skipped during startup")
+    logger.info("[GSV init] warmup first yield deferred to first synthesis request")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
