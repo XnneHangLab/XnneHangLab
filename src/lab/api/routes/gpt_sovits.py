@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -10,8 +11,6 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 # 从 packages/gpt_sovits 导入，实际上对应包里已经有了相关路由，只不过，再次定义是为了更清晰地看到和修改我们使用了哪些路由，以及方便定义 Client.
-from gsv.gsv_state_manager import gsv_tts_state_manager  # type: ignore[reportMissingImports,reportUnknownVariableType]
-
 from lab.api.clients import GPTSoVITSRequest
 from lab.utils.FFmpegHelper import file_to_mp3
 
@@ -23,9 +22,15 @@ if TYPE_CHECKING:
 router = APIRouter()
 
 
+def _get_gsv_tts_state_manager():
+    # Delay importing GSV until request handling so route registration stays side-effect free.
+    state_manager_module = import_module("gsv.gsv_state_manager")
+    return state_manager_module.gsv_tts_state_manager  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
+
+
 @router.post("/tts/gptsovits/character_list")
 async def character_list(request: Request):
-    tts_synthesizer = gsv_tts_state_manager.get_tts_synthesizer()  # type: ignore[reportUnknownMemberType]
+    tts_synthesizer = _get_gsv_tts_state_manager().get_tts_synthesizer()  # type: ignore[reportUnknownMemberType]
     if tts_synthesizer is None:
         return HTTPException(status_code=500, detail="TTS synthesizer not initialized")
     res = JSONResponse(tts_synthesizer.get_characters())  # type: ignore[reportUnknownMemberType]
@@ -40,7 +45,7 @@ async def gptsovits(request: Request) -> dict:  # type: ignore[reportUnknownPara
         _request = GPTSoVITSRequest.model_validate(data)
     except Exception as e:
         return {"code": 500, "message": str(e)}
-    tts_synthesizer = gsv_tts_state_manager.get_tts_synthesizer()  # type: ignore[reportUnknownMemberType]
+    tts_synthesizer = _get_gsv_tts_state_manager().get_tts_synthesizer()  # type: ignore[reportUnknownMemberType]
     if tts_synthesizer is None:
         return {"code": 500, "message": "TTS synthesizer not initialized"}
     task: Base_TTS_Task = tts_synthesizer.params_parser(data)  # type: ignore[reportUnknownMemberType]

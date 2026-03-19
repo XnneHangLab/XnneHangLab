@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
-from gsv.gsv_state_manager import gsv_tts_state_manager  # type: ignore[reportMissingImports,reportUnknownVariableType]
 from loguru import logger
 
 from lab.utils.FFmpegHelper import file_to_mp3
@@ -18,10 +18,16 @@ router = APIRouter()
 REF_AUDIO_BASE_DIR = Path("./models/gptsovits/elaina").resolve()
 
 
+def _get_gsv_tts_state_manager():
+    # Delay importing GSV until request handling so route registration stays side-effect free.
+    state_manager_module = import_module("gsv.gsv_state_manager")
+    return state_manager_module.gsv_tts_state_manager  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
+
+
 @router.get("/health")
 @router.get("/tts/gptsovitsv2/health")
 async def health() -> dict[str, str]:
-    synthesizer = gsv_tts_state_manager.get_tts_synthesizer()  # type: ignore[reportUnknownMemberType]
+    synthesizer = _get_gsv_tts_state_manager().get_tts_synthesizer()  # type: ignore[reportUnknownMemberType]
     if synthesizer is None:
         raise HTTPException(status_code=503, detail="TTS synthesizer not initialized")
     return {"status": "ok", "service": "gpt-sovits-v2"}
@@ -143,7 +149,7 @@ async def tts_webapi_v2_compat(request: Request, background_tasks: BackgroundTas
     # 你的内部实现如果必须要 sample_rate 等，params_parser 里一般会补齐；
     # 这里不强行校验 sample_rate。
 
-    tts_synthesizer = gsv_tts_state_manager.get_tts_synthesizer()  # type: ignore[reportUnknownMemberType]
+    tts_synthesizer = _get_gsv_tts_state_manager().get_tts_synthesizer()  # type: ignore[reportUnknownMemberType]
     if tts_synthesizer is None:
         logger.error("[GSV v2] TTS synthesizer 未初始化")
         raise HTTPException(status_code=500, detail="TTS synthesizer not initialized")
