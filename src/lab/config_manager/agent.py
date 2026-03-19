@@ -173,7 +173,7 @@ class AgentSettings(BaseModel):
     )
     memory_agent_profile: Annotated[
         str,
-        Field("profiles/elaina.toml", title="Profile path for MemoryAgent"),
+        Field("profiles/baoqioa.toml", title="Profile path for MemoryAgent"),
     ]
     memory_chat_profile: Annotated[
         str,
