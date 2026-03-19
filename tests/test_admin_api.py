@@ -169,9 +169,7 @@ def test_profile_endpoints_reject_invalid_profile_names(tmp_path: Path) -> None:
     assert response.json()["detail"] == "Invalid profile name"
 
 
-def test_reload_default_agent_rebuilds_shared_context_in_place(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_reload_default_agent_rebuilds_shared_context_in_place(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     app = _make_app(tmp_path, enable_tool=True)
     shared_ctx = app.state.default_context_cache
     reload_calls: list[Any] = []
@@ -242,7 +240,9 @@ def test_service_context_reload_runtime_refreshes_template_state(monkeypatch: py
     async def fake_ensure_mcp_connected() -> None:
         ensure_calls.append(reloaded.agent_engine)
 
-    def fake_load_cache(*, lab_setting: Any, server_config: Any, character_config: Any, live2d_model: Any, agent_engine: Any) -> None:
+    def fake_load_cache(
+        *, lab_setting: Any, server_config: Any, character_config: Any, live2d_model: Any, agent_engine: Any
+    ) -> None:
         cache_calls.append(
             {
                 "lab_setting": lab_setting,

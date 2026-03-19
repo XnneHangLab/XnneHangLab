@@ -317,14 +317,15 @@ def _check_profile_plugin_overrides(
     for plugin_id in enabled_plugins:
         plugin_override = plugins_obj.get(plugin_id, {})
         if not isinstance(plugin_override, dict):
-            errors.append(
-                f" [plugins.{plugin_id}]\n"
-                f" profile '{profile_label}' 的插件 override 必须是 table/object"
-            )
+            errors.append(f" [plugins.{plugin_id}]\n profile '{profile_label}' 的插件 override 必须是 table/object")
             continue
 
         plugin_dir = next(
-            (candidate_dir / plugin_id for candidate_dir in candidate_plugin_dirs if (candidate_dir / plugin_id / "plugin.toml").is_file()),
+            (
+                candidate_dir / plugin_id
+                for candidate_dir in candidate_plugin_dirs
+                if (candidate_dir / plugin_id / "plugin.toml").is_file()
+            ),
             None,
         )
         if plugin_dir is None:
@@ -333,11 +334,7 @@ def _check_profile_plugin_overrides(
         try:
             validate_plugin_override(plugin_id, plugin_dir, cast("dict[str, Any]", plugin_override))
         except ValidationError as exc:
-            errors.append(
-                f" [plugins.{plugin_id}]\n"
-                f" profile '{profile_label}' 的插件配置无效\n"
-                f" -> {exc}"
-            )
+            errors.append(f" [plugins.{plugin_id}]\n profile '{profile_label}' 的插件配置无效\n -> {exc}")
 
     return errors
 

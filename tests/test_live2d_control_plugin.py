@@ -13,9 +13,7 @@ from lab.tools.types import AgentContext
 
 def test_live2d_control_config_rejects_blank_and_duplicate_keys() -> None:
     with pytest.raises(ValidationError):
-        Live2DControlPluginConfig.model_validate(
-            {"appearance_presets": [{"key": "   ", "description": "blank"}]}
-        )
+        Live2DControlPluginConfig.model_validate({"appearance_presets": [{"key": "   ", "description": "blank"}]})
 
     with pytest.raises(ValidationError):
         Live2DControlPluginConfig.model_validate(
