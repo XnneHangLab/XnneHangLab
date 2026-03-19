@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from lab.history_storage import ConversationStore, HistoryStorage
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
-def test_history_storage_round_trip(tmp_path) -> None:
+
+def test_history_storage_round_trip(tmp_path: Path) -> None:
     """历史存储应能正确写入、读取并列出日期 ID。"""
     store = HistoryStorage(base_dir=str(tmp_path))
 
