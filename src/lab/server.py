@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import time
 from contextlib import asynccontextmanager
 from importlib import import_module
 from pathlib import Path
-from threading import Event, Thread
 from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
@@ -86,35 +86,6 @@ def _include_router_with_log(name: str, include: Callable[[], None]) -> None:
     logger.info("✅ {} 初始化完成 ({:.1f}s)", name, time.perf_counter() - started)
 
 
-def _start_embedding_preload_watchdog(timeout_seconds: float = 30.0) -> Event:
-    """为本地 Embedding 预加载启动超时提示 watchdog。
-
-    不打断真实加载流程；仅当加载耗时异常长时输出明确日志，提示用户可中断并重试。
-
-    Args:
-        timeout_seconds: 超时提示阈值，单位秒。
-
-    Returns:
-        Event: 在加载完成后用于停止 watchdog 的事件对象。
-
-    Raises:
-        None.
-    """
-    done_event = Event()
-
-    def _watchdog() -> None:
-        if done_event.wait(timeout_seconds):
-            return
-        logger.warning(
-            "本地 Embedding 模型预加载超过 {:.0f}s，可能遇到首轮初始化卡住的问题。"
-            "如果日志长时间停在 Loading model from ... 且没有继续，可按 Ctrl+C 中断后重新启动，通常第二次会恢复正常。",
-            timeout_seconds,
-        )
-
-    Thread(target=_watchdog, name="embedding-preload-watchdog", daemon=True).start()
-    return done_event
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """管理 FastAPI 生命周期中的预加载逻辑。
@@ -128,12 +99,14 @@ async def lifespan(app: FastAPI):
     Raises:
         ValueError: memory_bench 或 `/memory/chat` 缺少关键配置时抛出。
     """
+    loop = asyncio.get_running_loop()
+
     if lab_settings.package.sherpa_asr:
         from lab.api.logic.sherpa_asr import load_sherpa_asr
 
         started = time.perf_counter()
         logger.info("⏳ 预加载 Sherpa-ONNX ASR/VAD 引擎...")
-        load_sherpa_asr()
+        await loop.run_in_executor(None, load_sherpa_asr)
         logger.info("✅ Sherpa-ONNX ASR/VAD 预加载完成 ({:.1f}s)", time.perf_counter() - started)
 
     if lab_settings.package.qwen_asr:
@@ -141,7 +114,7 @@ async def lifespan(app: FastAPI):
 
         started = time.perf_counter()
         logger.info("⏳ 预加载 Qwen3-ASR 引擎...")
-        loaded_models = preload_configured_qwen_asr_engines()
+        loaded_models = await loop.run_in_executor(None, preload_configured_qwen_asr_engines)
         if loaded_models:
             logger.info(
                 "✅ Qwen3-ASR 引擎预加载完成 ({:.1f}s, models={})",
@@ -156,7 +129,7 @@ async def lifespan(app: FastAPI):
 
         started = time.perf_counter()
         logger.bind(group="tts").info("⏳ 初始化 faster-qwen-tts 后端...")
-        init_qwen_tts_model()
+        await loop.run_in_executor(None, init_qwen_tts_model)
         logger.bind(group="tts").info(
             "✅ faster-qwen-tts 后端初始化完成 ({:.1f}s)",
             time.perf_counter() - started,
@@ -167,7 +140,7 @@ async def lifespan(app: FastAPI):
 
         started = time.perf_counter()
         logger.info("⏳ 初始化 LLM Translate 后端...")
-        if preload_configured_llm_translate_engine():
+        if await loop.run_in_executor(None, preload_configured_llm_translate_engine):
             logger.info("✅ LLM Translate 后端初始化完成 ({:.1f}s)", time.perf_counter() - started)
         else:
             logger.warning("LLM Translate service is enabled, but `agent.translate.llm.model_path` is empty.")
@@ -177,15 +150,14 @@ async def lifespan(app: FastAPI):
 
         started = time.perf_counter()
         logger.info("⏳ 预加载本地 Embedding 模型...")
-        watchdog_done = _start_embedding_preload_watchdog()
-        try:
-            load_embedding_model(
+        await loop.run_in_executor(
+            None,
+            lambda: load_embedding_model(
                 model_path=lab_settings.local_embedding.model_path,
                 pooling_type=lab_settings.local_embedding.pooling_type,
                 n_gpu_layers=lab_settings.local_embedding.n_gpu_layers,
-            )
-        finally:
-            watchdog_done.set()
+            ),
+        )
         logger.info("✅ 本地 Embedding 模型预加载完成 ({:.1f}s)", time.perf_counter() - started)
 
     if lab_settings.package.gpt_sovits:
@@ -195,13 +167,17 @@ async def lifespan(app: FastAPI):
 
         started = time.perf_counter()
         logger.info("⏳ 初始化 GPT-SoVITS 后端...")
-        synthesizer_module = import_module("gsv.Synthesizers.gsv_fast")
-        tts_synthesizer = synthesizer_module.TTS_Synthesizer(debug_mode=True)
-        gsv_tts_state_manager.set_state(tts_synthesizer)  # type: ignore[reportUnknownMemberType]
-        generator = tts_synthesizer.generate(
-            tts_synthesizer.params_parser({"text": "签名者ですでにエッセイの序説"})  # type: ignore[reportUnknownMemberType]
-        )
-        next(generator)
+
+        def _init_gsv() -> None:
+            synthesizer_module = import_module("gsv.Synthesizers.gsv_fast")
+            tts_synthesizer = synthesizer_module.TTS_Synthesizer(debug_mode=True)
+            gsv_tts_state_manager.set_state(tts_synthesizer)  # type: ignore[reportUnknownMemberType]
+            generator = tts_synthesizer.generate(
+                tts_synthesizer.params_parser({"text": "签名者ですでにエッセイの序説"})  # type: ignore[reportUnknownMemberType]
+            )
+            next(generator)
+
+        await loop.run_in_executor(None, _init_gsv)
         logger.info("✅ GPT-SoVITS 后端初始化完成 ({:.1f}s)", time.perf_counter() - started)
 
     ctx = getattr(app.state, "default_context_cache", None)
@@ -355,8 +331,6 @@ class WebSocketServer:
             allow_methods=["*"],
             allow_headers=["*"],
         )
-
-        import asyncio
 
         default_context_cache = ServiceContext()
         asyncio.run(default_context_cache.load_from_config(default_context_cache.lab_setting))
