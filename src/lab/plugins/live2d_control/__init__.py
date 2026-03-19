@@ -31,7 +31,10 @@ class AppearancePreset(PluginConfigModel):
 class Live2DControlPluginConfig(PluginConfigModel):
     appearance_presets: Annotated[
         list[AppearancePreset],
-        Field(default_factory=list, description="可切换的 Live2D 外观预设列表"),
+        Field(
+            default_factory=list,
+            description="可切换的 Live2D 外观预设列表。按当前顺序保存为对象列表。需要根据 model_dict 的 emotion map 实际情况写 key name。",
+        ),
     ]
 
     @model_validator(mode="after")
