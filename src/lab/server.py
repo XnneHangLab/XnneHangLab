@@ -18,7 +18,7 @@ from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.service_context import ServiceContext
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
 
     from loguru import Logger
 
@@ -98,19 +98,44 @@ async def _run_blocking(func: Callable[[], _T]) -> _T:
 
 async def _run_startup_step(
     start_message: str,
-    success_message: str,
     func: Callable[[], _T],
     *,
+    success_message: str | None = None,
+    success_handler: Callable[[Logger, float, _T], None] | None = None,
     step_logger: Logger = logger,
 ) -> _T:
     started = time.perf_counter()
     step_logger.info(start_message)
     result = await _run_blocking(func)
-    step_logger.info(success_message, time.perf_counter() - started)
+    elapsed = time.perf_counter() - started
+    if success_handler is not None:
+        success_handler(step_logger, elapsed, result)
+    elif success_message is not None:
+        step_logger.info(success_message, elapsed)
     return result
 
 
+def _log_qwen_asr_startup_result(step_logger: Logger, elapsed: float, loaded_models: Sequence[str]) -> None:
+    if loaded_models:
+        step_logger.info(f"✅ Qwen3-ASR 引擎预加载完成 ({elapsed:.1f}s, models={','.join(loaded_models)})")
+    else:
+        step_logger.warning("Qwen3-ASR service is enabled, but `asr.qwen_asr.preload_models` is empty.")
+
+
+def _log_llm_translate_startup_result(step_logger: Logger, elapsed: float, loaded: bool) -> None:
+    if loaded:
+        step_logger.info(f"✅ LLM Translate 后端初始化完成 ({elapsed:.1f}s)")
+    else:
+        step_logger.warning("LLM Translate service is enabled, but `agent.translate.llm.model_path` is empty.")
+
+
 def _init_gpt_sovits_backend() -> None:
+    """Initialize GPT-SoVITS state and complete the existing startup warmup.
+
+    Startup stores the synthesizer in the shared state manager and advances the
+    first generator step once so the backend finishes its lazy initialization
+    during lifespan startup instead of on the first real request.
+    """
     from gsv.gsv_state_manager import (  # type: ignore[reportMissingImports,reportUnknownVariableType]
         gsv_tts_state_manager,
     )
@@ -142,64 +167,57 @@ async def lifespan(app: FastAPI):
 
         await _run_startup_step(
             "⏳ 预加载 Sherpa-ONNX ASR/VAD 引擎...",
-            "✅ Sherpa-ONNX ASR/VAD 预加载完成 ({:.1f}s)",
             load_sherpa_asr,
+            success_message="✅ Sherpa-ONNX ASR/VAD 预加载完成 ({:.1f}s)",
         )
 
     if lab_settings.package.qwen_asr:
         from lab.api.logic.qwen_asr import preload_configured_qwen_asr_engines
 
-        started = time.perf_counter()
-        logger.info("⏳ 预加载 Qwen3-ASR 引擎...")
-        loaded_models = await _run_blocking(preload_configured_qwen_asr_engines)
-        if loaded_models:
-            logger.info(
-                "✅ Qwen3-ASR 引擎预加载完成 ({:.1f}s, models={})",
-                time.perf_counter() - started,
-                ",".join(loaded_models),
-            )
-        else:
-            logger.warning("Qwen3-ASR service is enabled, but `asr.qwen_asr.preload_models` is empty.")
+        await _run_startup_step(
+            "⏳ 预加载 Qwen3-ASR 引擎...",
+            preload_configured_qwen_asr_engines,
+            success_handler=_log_qwen_asr_startup_result,
+        )
 
     if lab_settings.package.qwen_tts:
         from lab.api.logic.faster_qwen_tts import init_qwen_tts_model
 
         await _run_startup_step(
             "⏳ 初始化 faster-qwen-tts 后端...",
-            "✅ faster-qwen-tts 后端初始化完成 ({:.1f}s)",
             init_qwen_tts_model,
+            success_message="✅ faster-qwen-tts 后端初始化完成 ({:.1f}s)",
             step_logger=logger.bind(group="tts"),
         )
 
     if lab_settings.package.llm_translate:
         from lab.api.logic.llm_translate import preload_configured_llm_translate_engine
 
-        started = time.perf_counter()
-        logger.info("⏳ 初始化 LLM Translate 后端...")
-        if await _run_blocking(preload_configured_llm_translate_engine):
-            logger.info("✅ LLM Translate 后端初始化完成 ({:.1f}s)", time.perf_counter() - started)
-        else:
-            logger.warning("LLM Translate service is enabled, but `agent.translate.llm.model_path` is empty.")
+        await _run_startup_step(
+            "⏳ 初始化 LLM Translate 后端...",
+            preload_configured_llm_translate_engine,
+            success_handler=_log_llm_translate_startup_result,
+        )
 
     if lab_settings.package.local_embedding:
         from lab.api.logic.embedding import load_embedding_model
 
         await _run_startup_step(
             "⏳ 预加载本地 Embedding 模型...",
-            "✅ 本地 Embedding 模型预加载完成 ({:.1f}s)",
             partial(
                 load_embedding_model,
                 model_path=lab_settings.local_embedding.model_path,
                 pooling_type=lab_settings.local_embedding.pooling_type,
                 n_gpu_layers=lab_settings.local_embedding.n_gpu_layers,
             ),
+            success_message="✅ 本地 Embedding 模型预加载完成 ({:.1f}s)",
         )
 
     if lab_settings.package.gpt_sovits:
         await _run_startup_step(
             "⏳ 初始化 GPT-SoVITS 后端...",
-            "✅ GPT-SoVITS 后端初始化完成 ({:.1f}s)",
             _init_gpt_sovits_backend,
+            success_message="✅ GPT-SoVITS 后端初始化完成 ({:.1f}s)",
         )
 
     ctx = getattr(app.state, "default_context_cache", None)
