@@ -18,5 +18,53 @@ interval_low_s = 120.0
 mood_increase = 5
 mood_decrease = 10
 
+[config_schema.prompt]
+type = "str"
+description = "\u4e3b\u52a8\u5bf9\u8bdd\u65f6\u53d1\u9001\u7ed9 agent \u7684\u63d0\u793a\u8bcd"
+
+[config_schema.initial_mood]
+type = "int"
+description = "\u542f\u52a8\u540e\u7684\u521d\u59cb\u5fc3\u60c5\u5206"
+min = 0
+max = 100
+
+[config_schema.target_mood]
+type = "int"
+description = "\u5fc3\u60c5\u81ea\u7136\u56de\u5f52\u7684\u76ee\u6807\u5206\u6570"
+min = 0
+max = 100
+
+[config_schema.response_timeout_s]
+type = "float"
+description = "\u4e3b\u52a8\u53d1\u8a00\u540e\u7b49\u5f85\u7528\u6237\u56de\u5e94\u7684\u8d85\u65f6\u65f6\u95f4\uff08\u79d2\uff09"
+min = 0.0
+
+[config_schema.interval_excited_s]
+type = "float"
+description = "\u5fc3\u60c5 >= 90 \u65f6\u7684\u4e3b\u52a8\u53d1\u8a00\u95f4\u9694\uff08\u79d2\uff09"
+min = 0.0
+
+[config_schema.interval_normal_s]
+type = "float"
+description = "\u5fc3\u60c5 >= 80 \u65f6\u7684\u4e3b\u52a8\u53d1\u8a00\u95f4\u9694\uff08\u79d2\uff09"
+min = 0.0
+
+[config_schema.interval_low_s]
+type = "float"
+description = "\u5fc3\u60c5 >= 60 \u65f6\u7684\u4e3b\u52a8\u53d1\u8a00\u95f4\u9694\uff08\u79d2\uff09"
+min = 0.0
+
+[config_schema.mood_increase]
+type = "int"
+description = "\u7528\u6237\u53d1\u8a00\u540e\u589e\u52a0\u7684\u5fc3\u60c5\u5206"
+min = 0
+max = 100
+
+[config_schema.mood_decrease]
+type = "int"
+description = "\u4e3b\u52a8\u53d1\u8a00\u540e\u8d85\u65f6\u672a\u56de\u5e94\u65f6\u6263\u9664\u7684\u5fc3\u60c5\u5206"
+min = 0
+max = 100
+
 [type_config]
 entry = "MoodChatPlugin"

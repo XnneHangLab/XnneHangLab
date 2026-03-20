@@ -1,14 +1,38 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any
+
+from pydantic import Field
 
 from lab.agent.input_types import BatchInput, TextData, TextSource
+from lab.plugin.config import PluginConfigModel
 from lab.plugin.hook import HookPlugin
 
 if TYPE_CHECKING:
     from lab.agent.agents.memory_agent.agent import MemoryAgent
     from lab.tools.types import AgentContext
+
+
+class MoodChatPluginConfig(PluginConfigModel):
+    prompt: Annotated[
+        str,
+        Field(
+            "\u8bf7\u6839\u636e\u4e0a\u4e0b\u6587\uff0c\u4e3b\u52a8\u8bf4\u4e9b\u4ec0\u4e48\u3002",
+            description="主动对话时发送给 agent 的提示词",
+        ),
+    ]
+    initial_mood: Annotated[int, Field(80, ge=0, le=100, description="启动后的初始心情分")]
+    target_mood: Annotated[int, Field(80, ge=0, le=100, description="心情自然回归的目标分数")]
+    response_timeout_s: Annotated[float, Field(10.0, ge=0.0, description="主动发言后等待用户回应的超时时间（秒）")]
+    interval_excited_s: Annotated[float, Field(5.0, ge=0.0, description="心情 >= 90 时的主动发言间隔（秒）")]
+    interval_normal_s: Annotated[float, Field(30.0, ge=0.0, description="心情 >= 80 时的主动发言间隔（秒）")]
+    interval_low_s: Annotated[float, Field(120.0, ge=0.0, description="心情 >= 60 时的主动发言间隔（秒）")]
+    mood_increase: Annotated[int, Field(5, ge=0, le=100, description="用户发言后增加的心情分")]
+    mood_decrease: Annotated[int, Field(10, ge=0, le=100, description="主动发言后超时未回应时扣除的心情分")]
+
+
+PLUGIN_CONFIG_MODEL = MoodChatPluginConfig
 
 
 class MoodChatPlugin(HookPlugin):
