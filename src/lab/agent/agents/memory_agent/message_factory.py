@@ -100,6 +100,14 @@ class MessageFactory:
             f"[Tool Call Image Summary]\n{summary}"
         )
 
+    @staticmethod
+    def tool_image_failure_handoff_text(label: str, failure_notice: str) -> str:
+        return (
+            "The tool callback image was captured, but vision analysis did not succeed. "
+            f"Treat image [{label}] as unavailable visual evidence.\n\n"
+            f"{failure_notice}"
+        )
+
     # ------------------------------
     # BatchInput -> user message
     # ------------------------------

@@ -8,6 +8,7 @@ from typing import Any, cast
 import pytest
 from loguru import logger
 
+from lab.agent.agents.memory_agent.types import VisionAnalysisOutcome
 from lab.agent.core import AgentCore, extract_tool_image_payload
 from lab.agent.storage import ConversationStorage
 from lab.agent.types import ImagePart, OpenAIMessage, TextPart
@@ -103,6 +104,27 @@ class FakeChatLLM:
             yield _tool_call_chunk()
             return
         yield _text_chunk("final answer")
+
+
+class FakeFallbackAwareChatLLM(FakeChatLLM):
+    async def stream_with_tools(
+        self,
+        messages: list[OpenAIMessage],
+        *,
+        system: str | None = None,
+        tools: list[dict[str, object]] | None = None,
+    ):
+        del system, tools
+        self.calls.append([message.model_copy(deep=True) for message in messages])
+        if len(self.calls) == 1:
+            yield _tool_call_chunk()
+            return
+
+        last_content = messages[-1].content
+        if isinstance(last_content, str) and "Vision Failure State" in last_content:
+            yield _text_chunk("I can't analyze the screenshot content right now.")
+            return
+        yield _text_chunk("hallucinated answer")
 
 
 async def _collect_tokens(core: AgentCore) -> str:
@@ -214,7 +236,10 @@ def test_tool_image_is_sent_to_vision_summarizer_when_chat_lacks_vision(agent_ct
     async def _summarize_tool_image(*, user_input_text: str, tool_image: object):
         captured["user_input_text"] = user_input_text
         captured["tool_image"] = tool_image
-        return ('{"scene":"screen summary","summary":"window title"}', "screen summary")
+        return VisionAnalysisOutcome.success(
+            summary='{"scene":"screen summary","summary":"window title"}',
+            brief="screen summary",
+        )
 
     assert core.vision is not None
     core.vision.summarize_tool_image = _summarize_tool_image  # type: ignore[method-assign]
@@ -243,3 +268,48 @@ def test_tool_image_is_sent_to_vision_summarizer_when_chat_lacks_vision(agent_ct
     assert any("screenshot tool returned image data" in line for line in log_lines)
     assert any("tool_image handoff created" in line for line in log_lines)
     assert any("tool_image sent to vision summarizer" in line for line in log_lines)
+
+
+def test_tool_image_failure_injects_anti_hallucination_fallback_when_vision_unavailable(
+    agent_ctx: AgentContext,
+) -> None:
+    chat_llm = FakeFallbackAwareChatLLM()
+    storage = DummyStorage()
+    core = AgentCore(
+        chat_llm=cast("Any", chat_llm),
+        vision_llm=None,
+        tool_manager=cast(
+            "Any",
+            FakeToolManager(
+                ToolResult(
+                    ok=True,
+                    text="[screenshot captured]",
+                    data={"image_b64": "ZmFrZQ==", "mime": "image/jpeg"},
+                )
+            ),
+        ),
+        agent_context=agent_ctx,
+        context_injector=None,
+        storage=storage,
+        chat_system_prompt="system",
+        enable_tool=True,
+    )
+    core.chat_supports_vision = False
+
+    log_lines: list[str] = []
+    sink_id = logger.add(lambda message: log_lines.append(str(message).strip()), format="{message}")
+    try:
+        output = asyncio.run(_collect_tokens(core))
+    finally:
+        logger.remove(sink_id)
+
+    assert output.endswith("I can't analyze the screenshot content right now.")
+    handoff_msg = chat_llm.calls[1][-1]
+    assert handoff_msg.role == "user"
+    assert isinstance(handoff_msg.content, str)
+    assert "The tool callback image was captured, but vision analysis did not succeed." in handoff_msg.content
+    assert "There is not enough verified visual evidence" in handoff_msg.content
+    assert "Do not pretend to have seen, read, or recognized anything inside the image." in handoff_msg.content
+    assert "[Tool Call Image Summary]" not in handoff_msg.content
+    assert any("vision analysis unavailable" in line for line in log_lines)
+    assert any("anti-hallucination fallback injected" in line for line in log_lines)

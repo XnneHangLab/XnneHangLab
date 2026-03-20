@@ -123,11 +123,23 @@ class AgentFactory:
             base_url=chat_llm.llm_base_url,
             llm_api_key=chat_llm.llm_api_key,
         )
-        vision_llm_interface = LLMFactory.create_llm(
-            model=vision_model.llm_model_name,
-            base_url=vision_llm.llm_base_url,
-            llm_api_key=vision_llm.llm_api_key,
-        )
+        vision_llm_interface = None
+        if not vision_model.llm_model_name.strip() or not vision_llm.llm_base_url.strip():
+            logger.warning(
+                "[VISION] vision analysis unavailable: vision model configuration is incomplete. "
+                "model='{}' base_url='{}'",
+                vision_model.llm_model_name,
+                vision_llm.llm_base_url,
+            )
+        else:
+            try:
+                vision_llm_interface = LLMFactory.create_llm(
+                    model=vision_model.llm_model_name,
+                    base_url=vision_llm.llm_base_url,
+                    llm_api_key=vision_llm.llm_api_key,
+                )
+            except Exception as exc:
+                logger.warning("[VISION] vision analysis unavailable: failed to initialize vision model: {}", exc)
 
         chat_system_prompt = SystemPromptBuilder(ws_root).build(
             persona_path=profile.prompt.persona,
