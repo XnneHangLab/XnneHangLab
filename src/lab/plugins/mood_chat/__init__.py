@@ -1,18 +1,37 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, Annotated, Any
+import json
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Annotated, Any, cast
 
 from loguru import logger
 from pydantic import Field
 
 from lab.agent.input_types import BatchInput, TextData, TextSource
+from lab.agent.output_types import SentenceOutput
+from lab.conversations.conversation_utils import (
+    process_agent_output,
+    send_conversation_end_signal,
+    send_conversation_start_signals,
+)
+from lab.conversations.tts_manager import TTSTaskManager
+from lab.message_handler import message_handler
 from lab.plugin.config import PluginConfigModel
 from lab.plugin.hook import HookPlugin
 
 if TYPE_CHECKING:
     from lab.agent.agents.memory_agent.agent import MemoryAgent
+    from lab.conversations.types import WebSocketSend
+    from lab.service_context import ServiceContext
     from lab.tools.types import AgentContext
+
+
+@dataclass
+class _ProactiveRuntimeContext:
+    websocket_send: WebSocketSend
+    service_context: ServiceContext
+    client_uid: str
 
 
 class MoodChatPluginConfig(PluginConfigModel):
@@ -67,6 +86,7 @@ class MoodChatPlugin(HookPlugin):
         self._scheduler_task: asyncio.Task[None] | None = None
         self._mood_drift_task: asyncio.Task[None] | None = None
         self._response_timeout_task: asyncio.Task[None] | None = None
+        self._active_turn_task: asyncio.Task[bool] | None = None
 
         self._internal_turn_flag = "_mood_chat_internal_turn"
         self._stopped = False
@@ -79,7 +99,8 @@ class MoodChatPlugin(HookPlugin):
         del user_text
         await self._ensure_started(ctx)
 
-        if ctx.extra.get(self._internal_turn_flag):
+        current_task = asyncio.current_task()
+        if current_task is not None and ctx.extra.get(self._internal_turn_flag) is current_task:
             return None
 
         self._cancel_response_timeout()
@@ -95,17 +116,22 @@ class MoodChatPlugin(HookPlugin):
         if self._ctx is not None:
             self._ctx.extra.pop(self._internal_turn_flag, None)
 
-        tasks = [
-            task
-            for task in (self._response_timeout_task, self._scheduler_task, self._mood_drift_task)
-            if task is not None and not task.done()
-        ]
+        tasks: list[asyncio.Task[Any]] = []
+        for task in (
+            self._response_timeout_task,
+            self._active_turn_task,
+            self._scheduler_task,
+            self._mood_drift_task,
+        ):
+            if task is not None and not task.done():
+                tasks.append(task)
         for task in tasks:
             task.cancel()
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
 
         self._response_timeout_task = None
+        self._active_turn_task = None
         self._scheduler_task = None
         self._mood_drift_task = None
 
@@ -143,21 +169,14 @@ class MoodChatPlugin(HookPlugin):
                 if agent is None or ctx is None:
                     continue
 
-                fake_input = BatchInput(
-                    texts=[TextData(source=TextSource.INPUT, content=self._prompt)],
+                interrupted = await self._run_proactive_cycle(
+                    agent=agent,
+                    ctx=ctx,
+                    mood=mood,
+                    interval=interval,
                 )
-                logger.info(
-                    "[MOOD_CHAT] proactive chat triggered: mood={} interval_s={} prompt={}",
-                    mood,
-                    interval,
-                    self._prompt,
-                )
-                ctx.extra[self._internal_turn_flag] = True
-                try:
-                    async for _ in agent.chat(fake_input):
-                        pass
-                finally:
-                    ctx.extra.pop(self._internal_turn_flag, None)
+                if interrupted:
+                    continue
 
                 timeout_task = asyncio.create_task(self._handle_response_timeout())
                 self._response_timeout_task = timeout_task
@@ -172,6 +191,114 @@ class MoodChatPlugin(HookPlugin):
                         self._response_timeout_task = None
         except asyncio.CancelledError:
             return
+
+    async def _run_proactive_cycle(
+        self,
+        *,
+        agent: MemoryAgent,
+        ctx: AgentContext,
+        mood: int,
+        interval: float,
+    ) -> bool:
+        logger.info(
+            "[MOOD_CHAT] proactive chat triggered: mood={} interval_s={} prompt={}",
+            mood,
+            interval,
+            self._prompt,
+        )
+
+        turn_task = asyncio.create_task(self._run_proactive_turn(agent=agent, ctx=ctx))
+        self._active_turn_task = turn_task
+
+        interrupt_task: asyncio.Task[dict[Any, Any] | None] | None = None
+        client_uid = self._get_client_uid(ctx)
+        if client_uid is not None:
+            interrupt_task = asyncio.create_task(message_handler.wait_for_response(client_uid, "interrupt-signal"))
+
+        try:
+            if interrupt_task is None:
+                return await turn_task
+
+            done, pending = await asyncio.wait(
+                {turn_task, interrupt_task},
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+
+            if interrupt_task in done and interrupt_task.result():
+                logger.info("[MOOD_CHAT] proactive chat interrupted by user: client_uid={}", client_uid)
+                turn_task.cancel()
+                await asyncio.gather(turn_task, return_exceptions=True)
+                return True
+
+            for pending_task in pending:
+                pending_task.cancel()
+            if interrupt_task in pending:
+                await asyncio.gather(interrupt_task, return_exceptions=True)
+
+            return await turn_task
+        finally:
+            if interrupt_task is not None and not interrupt_task.done():
+                interrupt_task.cancel()
+                await asyncio.gather(interrupt_task, return_exceptions=True)
+            if self._active_turn_task is turn_task:
+                self._active_turn_task = None
+
+    async def _run_proactive_turn(self, *, agent: MemoryAgent, ctx: AgentContext) -> bool:
+        fake_input = BatchInput(
+            texts=[TextData(source=TextSource.INPUT, content=self._prompt)],
+        )
+        current_task = asyncio.current_task()
+        if current_task is not None:
+            ctx.extra[self._internal_turn_flag] = current_task
+
+        runtime = self._get_runtime_context(ctx)
+        try:
+            if runtime is None:
+                async for _ in agent.chat(fake_input):
+                    pass
+                return False
+
+            tts_manager = TTSTaskManager()
+            await send_conversation_start_signals(runtime.websocket_send)
+            try:
+                async for output in agent.chat(fake_input):
+                    if not isinstance(output, SentenceOutput):
+                        continue
+                    await process_agent_output(
+                        output=output,
+                        lab_settings=runtime.service_context.lab_setting,
+                        character_config=runtime.service_context.character_config,
+                        live2d_model=runtime.service_context.live2d_model,
+                        service_context=runtime.service_context,
+                        websocket_send=runtime.websocket_send,
+                        tts_manager=tts_manager,
+                        translate_engine=runtime.service_context.translate_engine,
+                    )
+
+                tts_manager_any: Any = tts_manager
+                raw_tts_tasks: Any = tts_manager_any.task_list
+                tts_tasks = cast("list[asyncio.Task[Any]]", raw_tts_tasks)
+                if tts_tasks:
+                    await asyncio.gather(*tts_tasks)
+                    await runtime.websocket_send(json.dumps({"type": "backend-synth-complete"}))
+                    response = await message_handler.wait_for_response(
+                        runtime.client_uid,
+                        "frontend-playback-complete",
+                    )
+                    if not response:
+                        logger.warning(
+                            "[MOOD_CHAT] no frontend playback completion response: client_uid={}",
+                            runtime.client_uid,
+                        )
+                        return False
+
+                await runtime.websocket_send(json.dumps({"type": "force-new-message"}))
+                await send_conversation_end_signal(runtime.websocket_send, None)
+                return False
+            finally:
+                tts_manager.clear()
+        finally:
+            ctx.extra.pop(self._internal_turn_flag, None)
 
     async def _run_mood_drift(self) -> None:
         try:
@@ -223,3 +350,27 @@ class MoodChatPlugin(HookPlugin):
     @staticmethod
     def _clamp_mood(value: Any) -> int:
         return max(0, min(100, int(value)))
+
+    @staticmethod
+    def _get_client_uid(ctx: AgentContext) -> str | None:
+        client_uid = ctx.extra.get("client_uid")
+        return client_uid if isinstance(client_uid, str) and client_uid else None
+
+    @staticmethod
+    def _get_runtime_context(
+        ctx: AgentContext,
+    ) -> _ProactiveRuntimeContext | None:
+        websocket_send = ctx.extra.get("websocket_send")
+        service_context = ctx.extra.get("service_context")
+        client_uid = ctx.extra.get("client_uid")
+        if not callable(websocket_send):
+            return None
+        if not isinstance(client_uid, str) or not client_uid:
+            return None
+        if service_context is None:
+            return None
+        return _ProactiveRuntimeContext(
+            websocket_send=cast("WebSocketSend", websocket_send),
+            service_context=cast("ServiceContext", service_context),
+            client_uid=client_uid,
+        )
