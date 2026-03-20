@@ -23,6 +23,7 @@ PREFIX_TO_GROUP = {
     "lab.api.routes": "tts",
     "lab.api.logic": "tts",
     "lab.api.clients": "tts",
+    "gsv": "tts",
     "lab.asr": "asr",
     "lab.config_manager": "config",
     "lab.conversations": "dialog",

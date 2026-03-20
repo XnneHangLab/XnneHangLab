@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import Response
+from tqdm import tqdm
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.service_context import ServiceContext
@@ -23,6 +24,7 @@ if TYPE_CHECKING:
     from loguru import Logger
 
 lab_settings: XnneHangLabSettings = load_settings_file("lab.toml", XnneHangLabSettings)
+_tts_logger = logger.bind(group="tts")
 
 _T = TypeVar("_T")
 
@@ -132,26 +134,80 @@ def _log_llm_translate_startup_result(step_logger: Logger, elapsed: float, loade
 def _init_gpt_sovits_backend() -> None:
     """Initialize GPT-SoVITS into a startup-ready backend state.
 
-    This startup hook only imports the GPT-SoVITS modules, constructs the
-    synthesizer, and stores it in the shared state manager. It intentionally
-    does not execute a real synthesis warmup so the first-request warmup cost
-    is paid by the first synthesis request instead of blocking server startup.
+    This startup hook imports the GPT-SoVITS modules, constructs the
+    synthesizer, stores it in the shared state manager, and performs a
+    startup warmup so the first-request cost is paid during startup.
     """
-    logger.info("[GSV init] import state manager")
-    from gsv.gsv_state_manager import (  # type: ignore[reportMissingImports,reportUnknownVariableType]
-        gsv_tts_state_manager,
-    )
+    _tts_logger.info("[GSV init] enter backend initialization")
+    try:
+        _tts_logger.info("[GSV init] import state manager start")
+        from gsv.gsv_state_manager import (  # type: ignore[reportMissingImports,reportUnknownVariableType]
+            gsv_tts_state_manager,
+        )
 
-    logger.info("[GSV init] import synthesizer module")
-    synthesizer_module = import_module("gsv.Synthesizers.gsv_fast")
-    logger.info("[GSV init] construct TTS_Synthesizer")
-    tts_synthesizer = synthesizer_module.TTS_Synthesizer(debug_mode=True)
-    logger.info("[GSV init] set shared state")
-    gsv_tts_state_manager.set_state(tts_synthesizer)  # type: ignore[reportUnknownMemberType]
-    logger.info("[GSV init] build warmup params skipped during startup")
-    logger.info("[GSV init] create warmup generator skipped during startup")
-    logger.info("[GSV init] advance warmup generator skipped during startup")
-    logger.info("[GSV init] warmup first yield deferred to first synthesis request")
+        _tts_logger.info("[GSV init] import state manager done")
+        _tts_logger.info("[GSV init] import synthesizer module start")
+        synthesizer_module = import_module("gsv.Synthesizers.gsv_fast")
+        _tts_logger.info("[GSV init] import synthesizer module done")
+        _tts_logger.info("[GSV init] construct TTS_Synthesizer start")
+        tts_synthesizer = synthesizer_module.TTS_Synthesizer(debug_mode=True)
+        _tts_logger.info("[GSV init] construct TTS_Synthesizer done")
+        _tts_logger.info("[GSV init] set shared state")
+        gsv_tts_state_manager.set_state(tts_synthesizer)  # type: ignore[reportUnknownMemberType]
+        _tts_logger.info("[GSV init] shared state registered")
+
+        warmup_character = getattr(tts_synthesizer, "character", None) or getattr(
+            tts_synthesizer,
+            "default_character",
+            None,
+        )
+        warmup_bar = tqdm(total=4, desc="GSV warmup", leave=False)
+        try:
+            _tts_logger.info("[GSV init] build warmup params")
+            warmup_task = tts_synthesizer.params_parser(  # type: ignore[reportUnknownMemberType]
+                {
+                    "task_type": "text",
+                    "text": "系统预热。",
+                    "text_language": "zh",
+                    "character": warmup_character,
+                    "stream": False,
+                }
+            )
+            _tts_logger.debug("[GSV init] warmup task={}", warmup_task)
+            warmup_bar.update(1)
+            warmup_bar.set_postfix_str("params")
+
+            _tts_logger.info("[GSV init] create warmup generator")
+            warmup_gen = tts_synthesizer.generate(  # type: ignore[reportUnknownMemberType]
+                warmup_task,
+                return_type="numpy",
+            )
+            warmup_bar.update(1)
+            warmup_bar.set_postfix_str("generator")
+            try:
+                _tts_logger.info("[GSV init] advance warmup generator via next(gen)")
+                sample_rate, audio_data = next(warmup_gen)
+                warmup_bar.update(1)
+                warmup_bar.set_postfix_str("first-yield")
+                _tts_logger.info("[GSV init] warmup first chunk reached")
+                _tts_logger.debug(
+                    "[GSV init] warmup first chunk details sample_rate={} samples={}",
+                    sample_rate,
+                    len(audio_data),
+                )
+            finally:
+                close = getattr(warmup_gen, "close", None)
+                if callable(close):
+                    close()
+
+            _tts_logger.info("[GSV init] warmup done")
+            warmup_bar.update(1)
+            warmup_bar.set_postfix_str("done")
+        finally:
+            warmup_bar.close()
+    except Exception:
+        _tts_logger.exception("[GSV init] backend initialization failed")
+        raise
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
