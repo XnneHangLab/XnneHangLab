@@ -587,7 +587,9 @@ class AgentCore:
                         final_messages.append(
                             OpenAIMessage(
                                 role="user",
-                                content=self.msg.tool_image_failure_handoff_text(tool_image.label, failure_notice or ""),
+                                content=self.msg.tool_image_failure_handoff_text(
+                                    tool_image.label, failure_notice or ""
+                                ),
                             )
                         )
                         last_tool_image_handoff_b64 = tool_image.b64

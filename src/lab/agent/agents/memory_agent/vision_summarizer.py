@@ -117,7 +117,7 @@ class VisionSummarizer:
                 messages=msgs,
                 system=vision_system,
             )
-        except (asyncio.TimeoutError, TimeoutError, APITimeoutError, httpx.TimeoutException) as exc:
+        except (TimeoutError, APITimeoutError, httpx.TimeoutException) as exc:
             return self._failure("timeout", f"{type(exc).__name__}: {exc}")
         except (APIError, APIConnectionError, RateLimitError) as exc:
             return self._failure("provider_error", f"{type(exc).__name__}: {exc}")
@@ -265,7 +265,9 @@ class VisionSummarizer:
 
         if not self.vision_llm:
             return {
-                f"{prefix}{i + 1}": self._failure("unavailable", "No vision model is configured for multi-image analysis.")
+                f"{prefix}{i + 1}": self._failure(
+                    "unavailable", "No vision model is configured for multi-image analysis."
+                )
                 for i, _ in enumerate(images)
             }
 
@@ -298,7 +300,7 @@ class VisionSummarizer:
                 messages=msgs,
                 system=self.vision_system_prompt,
             )
-        except (asyncio.TimeoutError, TimeoutError, APITimeoutError, httpx.TimeoutException) as exc:
+        except (TimeoutError, APITimeoutError, httpx.TimeoutException) as exc:
             detail = f"{type(exc).__name__}: {exc}"
             return {f"{prefix}{i + 1}": self._failure("timeout", detail) for i, _ in enumerate(images)}
         except (APIError, APIConnectionError, RateLimitError) as exc:
@@ -352,7 +354,7 @@ class VisionSummarizer:
             }
 
         by_label: dict[str, VisionAnalysisOutcome] = {}
-        for it in items:
+        for it in cast("list[object]", items):
             if not isinstance(it, dict):
                 continue
             it_typed = cast("dict[str, Any]", it)
@@ -363,7 +365,12 @@ class VisionSummarizer:
                 continue
 
             label = raw_id.strip()
-            if not isinstance(raw_scene, str) or not raw_scene.strip() or not isinstance(raw_summary, str) or not raw_summary.strip():
+            if (
+                not isinstance(raw_scene, str)
+                or not raw_scene.strip()
+                or not isinstance(raw_summary, str)
+                or not raw_summary.strip()
+            ):
                 by_label[label] = VisionAnalysisOutcome.failure(
                     "invalid",
                     detail=f"Vision model returned incomplete JSON for label={label}.",

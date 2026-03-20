@@ -12,6 +12,10 @@ DEFAULT_TOOL_IMAGE_LABEL = "tool1"
 VisionAnalysisStatus = Literal["success", "unavailable", "provider_error", "timeout", "empty", "invalid", "exception"]
 
 
+def _default_upload_images() -> dict[str, VisionAnalysisOutcome]:
+    return {}
+
+
 @dataclass(frozen=True)
 class ImagePayload:
     """内存中携带的一张图片（b64/mime），以及它的标签。
@@ -72,7 +76,7 @@ class VisionSummaryResult:
     """vision 摘要结果：tool 单张结果 + upload 多图结果。"""
 
     tool_image: VisionAnalysisOutcome | None = None
-    upload_images: dict[str, VisionAnalysisOutcome] = field(default_factory=dict)
+    upload_images: dict[str, VisionAnalysisOutcome] = field(default_factory=_default_upload_images)
 
     @property
     def tool_image_summary(self) -> str:
