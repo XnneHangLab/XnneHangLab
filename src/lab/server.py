@@ -4,6 +4,7 @@ import time
 from contextlib import asynccontextmanager
 from importlib import import_module
 from pathlib import Path
+from threading import Event, Thread
 from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
@@ -85,6 +86,35 @@ def _include_router_with_log(name: str, include: Callable[[], None]) -> None:
     logger.info("✅ {} 初始化完成 ({:.1f}s)", name, time.perf_counter() - started)
 
 
+def _start_embedding_preload_watchdog(timeout_seconds: float = 30.0) -> Event:
+    """为本地 Embedding 预加载启动超时提示 watchdog。
+
+    不打断真实加载流程；仅当加载耗时异常长时输出明确日志，提示用户可中断并重试。
+
+    Args:
+        timeout_seconds: 超时提示阈值，单位秒。
+
+    Returns:
+        Event: 在加载完成后用于停止 watchdog 的事件对象。
+
+    Raises:
+        None.
+    """
+    done_event = Event()
+
+    def _watchdog() -> None:
+        if done_event.wait(timeout_seconds):
+            return
+        logger.warning(
+            "本地 Embedding 模型预加载超过 {:.0f}s，可能遇到首轮初始化卡住的问题。"
+            "如果日志长时间停在 Loading model from ... 且没有继续，可按 Ctrl+C 中断后重新启动，通常第二次会恢复正常。",
+            timeout_seconds,
+        )
+
+    Thread(target=_watchdog, name="embedding-preload-watchdog", daemon=True).start()
+    return done_event
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """管理 FastAPI 生命周期中的预加载逻辑。
@@ -147,14 +177,15 @@ async def lifespan(app: FastAPI):
 
         started = time.perf_counter()
         logger.info("⏳ 预加载本地 Embedding 模型...")
-        logger.warning(
-            "提示：本地 Embedding 模型首次加载有时会意外卡死；如果超过 10 秒仍未成功加载，请直接按 Ctrl+C 中断后重新运行。"
-        )
-        load_embedding_model(
-            model_path=lab_settings.local_embedding.model_path,
-            pooling_type=lab_settings.local_embedding.pooling_type,
-            n_gpu_layers=lab_settings.local_embedding.n_gpu_layers,
-        )
+        watchdog_done = _start_embedding_preload_watchdog()
+        try:
+            load_embedding_model(
+                model_path=lab_settings.local_embedding.model_path,
+                pooling_type=lab_settings.local_embedding.pooling_type,
+                n_gpu_layers=lab_settings.local_embedding.n_gpu_layers,
+            )
+        finally:
+            watchdog_done.set()
         logger.info("✅ 本地 Embedding 模型预加载完成 ({:.1f}s)", time.perf_counter() - started)
 
     if lab_settings.package.gpt_sovits:
