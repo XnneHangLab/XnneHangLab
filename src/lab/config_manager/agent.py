@@ -161,6 +161,15 @@ class AgentSettings(BaseModel):
         ),
     ]
     require_detailed: Annotated[bool, Field(True, title="Require Detailed Vision Summary")]
+    structured_history_full_turns: Annotated[
+        int,
+        Field(
+            default=5,
+            ge=0,
+            title="Recent conversation turns that keep full structured history",
+            description="按对话轮数计，最近保留完整结构化 user history 的轮数；更早轮次将回退为 brief 摘要。",
+        ),
+    ]
     segment_method: Literal["regex", "pysbd"] = Field(
         "pysbd",
         title="Segment Method",

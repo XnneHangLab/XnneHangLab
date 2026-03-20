@@ -368,7 +368,10 @@ async def lifespan(app: FastAPI):
                 chat_state.agent_core = await AgentFactory.create_core_with_profile(
                     lab_setting=lab_settings,
                     profile_path=chat_profile_path,
-                    storage=HistoryStorageAdapter(chat_store),
+                    storage=HistoryStorageAdapter(
+                        chat_store,
+                        condense_after_turns=lab_settings.agent.structured_history_full_turns,
+                    ),
                     workspace_root=ws_root,
                     packages=lab_settings.package.to_dict(),
                 )

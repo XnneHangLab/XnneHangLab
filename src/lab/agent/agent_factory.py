@@ -197,7 +197,10 @@ class AgentFactory:
             raise FileNotFoundError(f"memory_agent_profile not found: {profile_path}")
 
         memory_store = MemoryStore()
-        storage = MemoryStoreAdapter(memory_store)
+        storage = MemoryStoreAdapter(
+            memory_store,
+            condense_after_turns=lab_setting.agent.structured_history_full_turns,
+        )
 
         core = await AgentFactory.create_core_with_profile(
             lab_setting=lab_setting,

@@ -10,6 +10,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, ValidationError
 
+from lab.agent.agents.memory_agent.user_prompt_block import UserPromptBlock
 from lab.config_manager.vtuber import scan_bg_directory
 from lab.conversations.chat_group import (
     ChatGroupManager,
@@ -84,6 +85,14 @@ _TASK_PROMPT_PATTERN = re.compile(r"\[Task / User Prompt\]\s*(.*?)(?:\n\s*###|$)
 
 def _extract_user_prompt_for_display(content: str) -> str:
     """Extract user-visible text from packed prompt content for frontend history display."""
+    if UserPromptBlock.is_block_content(content):
+        try:
+            block = UserPromptBlock.from_storage_content(content)
+        except Exception:
+            logger.warning("Failed to parse structured user prompt block for display; fallback to raw content")
+            return content
+        return block.user_text.strip() or content
+
     match = _TASK_PROMPT_PATTERN.search(content)
     if not match:
         return content
@@ -378,7 +387,14 @@ class WebSocketHandler:
         if context.character_config is None:
             logger.error("character_config is None, cannot create new history")
             raise ValueError("character_config cannot be None")
-        histories = get_history_list(context.character_config.conf_uid)  # type: ignore[return]
+        raw_histories = get_history_list(context.character_config.conf_uid)  # type: ignore[return]
+        histories: list[dict[str, Any]] = []
+        for item in raw_histories:
+            history = dict(item)
+            latest_message = history.get("latest_message")
+            if isinstance(latest_message, dict):
+                history["latest_message"] = _format_history_message_for_display(latest_message)
+            histories.append(history)
         await websocket.send_text(json.dumps({"type": "history-list", "histories": histories}))
 
     async def _handle_fetch_history(self, websocket: WebSocket, client_uid: str, data: dict[Any, Any]):

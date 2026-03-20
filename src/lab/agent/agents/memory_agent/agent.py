@@ -1,6 +1,4 @@
 from __future__ import annotations
-
-import re
 from typing import TYPE_CHECKING, Literal
 
 from loguru import logger
@@ -23,17 +21,6 @@ if TYPE_CHECKING:
     from lab.config_manager.vtuber import TTSPreprocessorConfig
     from lab.live2d_model import Live2dModel
 
-
-_TOOL_STATUS_RE = re.compile(r"<tool>\[[^\]]+]</tool>")
-
-
-def _strip_tool_status_tokens(text: str) -> str:
-    return _TOOL_STATUS_RE.sub("", text)
-
-
-strip_tool_status_tokens = _strip_tool_status_tokens
-
-
 class MemoryAgent(AgentInterface):
     """Compose AgentCore output into the TTS and Live2D pipeline."""
 
@@ -52,7 +39,7 @@ class MemoryAgent(AgentInterface):
 
         self.lab_settings = lab_settings
         self.core = core
-        self.core.write_back = False
+        self.core.write_back = True
 
         self.msg = MessageFactory()
         self.memory = MemoryStore()
@@ -97,7 +84,6 @@ class MemoryAgent(AgentInterface):
             user_images=user_images,
         ):
             yield token
-        self.memory.add_message(OpenAIMessage(role="user", content=user_text))
 
     def _chat_function_factory(
         self,
@@ -116,15 +102,9 @@ class MemoryAgent(AgentInterface):
             messages: list[OpenAIMessage] = [*self.memory.messages, user_msg]
 
             token_stream = chat_func(messages)
-            complete_response = ""
 
             async for token in token_stream:
                 yield token
-                complete_response += token
-
-            cleaned_response = _strip_tool_status_tokens(complete_response)
-            if cleaned_response:
-                self.memory.add_message(OpenAIMessage(role="assistant", content=cleaned_response))
 
         return chat_with_memory
 
