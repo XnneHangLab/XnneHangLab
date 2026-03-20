@@ -3,13 +3,14 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path  # noqa: TC003
 from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 from loguru import logger
 
-from lab.agent.core import AgentCore, _extract_tool_image_payload
+from lab.agent.core import AgentCore, extract_tool_image_payload
 from lab.agent.storage import ConversationStorage
-from lab.agent.types import OpenAIMessage
+from lab.agent.types import ImagePart, OpenAIMessage, TextPart
 from lab.tools import AgentContext
 from lab.tools.types import ToolResult
 
@@ -123,7 +124,7 @@ def test_extract_tool_image_payload_from_screenshot_result() -> None:
         data={"image_b64": "ZmFrZQ==", "mime": "image/jpeg"},
     )
 
-    tool_image = _extract_tool_image_payload("screen_shot", result)
+    tool_image = extract_tool_image_payload("screen_shot", result)
 
     assert tool_image is not None
     assert tool_image.label == "tool1"
@@ -136,14 +137,17 @@ def test_tool_image_is_attached_to_chat_model_when_chat_supports_vision(agent_ct
     chat_llm = FakeChatLLM()
     storage = DummyStorage()
     core = AgentCore(
-        chat_llm=chat_llm,
+        chat_llm=cast("Any", chat_llm),
         vision_llm=None,
-        tool_manager=FakeToolManager(
-            ToolResult(
-                ok=True,
-                text="[screenshot captured]",
-                data={"image_b64": "ZmFrZQ==", "mime": "image/jpeg"},
-            )
+        tool_manager=cast(
+            "Any",
+            FakeToolManager(
+                ToolResult(
+                    ok=True,
+                    text="[screenshot captured]",
+                    data={"image_b64": "ZmFrZQ==", "mime": "image/jpeg"},
+                )
+            ),
         ),
         agent_context=agent_ctx,
         context_injector=None,
@@ -166,9 +170,15 @@ def test_tool_image_is_attached_to_chat_model_when_chat_supports_vision(agent_ct
     handoff_msg = chat_llm.calls[1][-1]
     assert handoff_msg.role == "user"
     assert isinstance(handoff_msg.content, list)
-    assert handoff_msg.content[0].text.startswith("A tool callback image is attached below.")
-    assert handoff_msg.content[1].text == "\n\n[tool1]"
-    assert handoff_msg.content[2].image_url.url == "data:image/jpeg;base64,ZmFrZQ=="
+    first_part = handoff_msg.content[0]
+    second_part = handoff_msg.content[1]
+    third_part = handoff_msg.content[2]
+    assert isinstance(first_part, TextPart)
+    assert isinstance(second_part, TextPart)
+    assert isinstance(third_part, ImagePart)
+    assert first_part.text.startswith("A tool callback image is attached below.")
+    assert second_part.text == "\n\n[tool1]"
+    assert third_part.image_url.url == "data:image/jpeg;base64,ZmFrZQ=="
     assert any("screenshot tool returned image data" in line for line in log_lines)
     assert any("tool_image handoff created" in line for line in log_lines)
     assert any("tool_image attached to chat model" in line for line in log_lines)
@@ -178,14 +188,17 @@ def test_tool_image_is_sent_to_vision_summarizer_when_chat_lacks_vision(agent_ct
     chat_llm = FakeChatLLM()
     storage = DummyStorage()
     core = AgentCore(
-        chat_llm=chat_llm,
-        vision_llm=object(),
-        tool_manager=FakeToolManager(
-            ToolResult(
-                ok=True,
-                text="[screenshot captured]",
-                data={"image_b64": "ZmFrZQ==", "mime": "image/jpeg"},
-            )
+        chat_llm=cast("Any", chat_llm),
+        vision_llm=cast("Any", object()),
+        tool_manager=cast(
+            "Any",
+            FakeToolManager(
+                ToolResult(
+                    ok=True,
+                    text="[screenshot captured]",
+                    data={"image_b64": "ZmFrZQ==", "mime": "image/jpeg"},
+                )
+            ),
         ),
         agent_context=agent_ctx,
         context_injector=None,
@@ -215,7 +228,7 @@ def test_tool_image_is_sent_to_vision_summarizer_when_chat_lacks_vision(agent_ct
 
     assert output.endswith("final answer")
     assert captured["user_input_text"] == "what is on the screen?"
-    tool_image = captured["tool_image"]
+    tool_image = cast("Any", captured["tool_image"])
     assert tool_image is not None
     assert tool_image.label == "tool1"
     assert tool_image.source == "tool"

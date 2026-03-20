@@ -100,7 +100,7 @@ def _tool_result_to_text(result: ToolResult) -> str:
     return result.text if result.ok else f"Error: {result.error}"
 
 
-def _extract_tool_image_payload(tool_name: str, result: ToolResult) -> ImagePayload | None:
+def extract_tool_image_payload(tool_name: str, result: ToolResult) -> ImagePayload | None:
     if not result.ok or not isinstance(result.data, dict):
         return None
 
@@ -415,7 +415,7 @@ class AgentCore:
                 )
                 final_messages.append(tool_msg)
 
-                extracted_tool_image = _extract_tool_image_payload(tool_name, result)
+                extracted_tool_image = extract_tool_image_payload(tool_name, result)
                 if extracted_tool_image is not None:
                     tool_image = extracted_tool_image
 
@@ -450,13 +450,14 @@ class AgentCore:
                             tool_summary,
                             brief=tool_brief,
                         ).render(condensed=False)
-                        final_messages.append(
-                            OpenAIMessage(
-                                role="user",
-                                content=self.msg.tool_image_summary_handoff_text(tool_image.label, summary_text),
+                        if summary_text is not None:
+                            final_messages.append(
+                                OpenAIMessage(
+                                    role="user",
+                                    content=self.msg.tool_image_summary_handoff_text(tool_image.label, summary_text),
+                                )
                             )
-                        )
-                        last_tool_image_handoff_b64 = tool_image.b64
+                            last_tool_image_handoff_b64 = tool_image.b64
                 else:
                     logger.warning(
                         "[TOOL_IMAGE] tool image handoff blocked: chat_supports_vision=false and no vision summarizer"
