@@ -4,15 +4,18 @@ import asyncio
 import json
 from typing import TYPE_CHECKING, Any
 
+from loguru import logger
+
 from lab.agent.agents.memory_agent.message_factory import MessageFactory
 from lab.agent.agents.memory_agent.prompt_builder import PromptBuilder
+from lab.agent.agents.memory_agent.types import DEFAULT_TOOL_IMAGE_LABEL, ImagePayload
 from lab.agent.agents.memory_agent.vision_summarizer import VisionSummarizer
-from lab.agent.types import ConversationState, OpenAIMessage
+from lab.agent.types import ConversationState, OpenAIMessage, ScreenShotResult
+from lab.tools.types import ToolResult
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from lab.agent.agents.memory_agent.types import ImagePayload
     from lab.agent.agents.memory_agent.user_prompt_block import ContextEntry
     from lab.agent.hook_manager import HookManager
     from lab.agent.stateless_llm.openai_compatible_llm import AsyncLLM
@@ -91,6 +94,63 @@ def _format_tool_status_token(tool_name: str, args_json: str = "") -> str:
 
 
 format_tool_status_token = _format_tool_status_token
+
+
+def _tool_result_to_text(result: ToolResult) -> str:
+    return result.text if result.ok else f"Error: {result.error}"
+
+
+def extract_tool_image_payload(tool_name: str, result: ToolResult) -> ImagePayload | None:
+    if not result.ok or not isinstance(result.data, dict):
+        return None
+
+    data = result.data
+    image_b64: str | None = None
+    mime = "image/jpeg"
+
+    try:
+        if tool_name == "screen_shot":
+            parsed = ScreenShotResult.model_validate(data)
+            image_b64 = parsed.image_b64.strip()
+            mime = parsed.mime
+            logger.info(
+                "[TOOL_IMAGE] screenshot tool returned image data: tool={} mime={} b64_len={}",
+                tool_name,
+                mime,
+                len(image_b64),
+            )
+        else:
+            raw_b64 = data.get("image_b64") or data.get("b64")
+            if not isinstance(raw_b64, str) or not raw_b64.strip():
+                return None
+            image_b64 = raw_b64.strip()
+            raw_mime = data.get("mime")
+            if isinstance(raw_mime, str) and raw_mime.strip():
+                mime = raw_mime.strip()
+            logger.info(
+                "[TOOL_IMAGE] tool returned image data: tool={} mime={} b64_len={}",
+                tool_name,
+                mime,
+                len(image_b64),
+            )
+    except Exception as exc:  # pragma: no cover - defensive path
+        logger.warning("[TOOL_IMAGE] failed to parse tool image payload for tool={}: {}", tool_name, exc)
+        return None
+
+    tool_image = ImagePayload(
+        label=DEFAULT_TOOL_IMAGE_LABEL,
+        b64=image_b64,
+        mime=mime,
+        source="tool",
+    )
+    logger.info(
+        "[TOOL_IMAGE] tool_image handoff created: tool={} label={} source={} mime={}",
+        tool_name,
+        tool_image.label,
+        tool_image.source,
+        tool_image.mime,
+    )
+    return tool_image
 
 
 class AgentCore:
@@ -193,7 +253,7 @@ class AgentCore:
         vision_upload_entry: ContextEntry | None = None
 
         if not self.chat_supports_vision:
-            has_images = bool(tool_image or user_images)
+            has_images = bool(user_images)
             if has_images and self.vision is None:
                 # 没有 vision model，降级为文字警告注入 memory_context
                 warn = "注意：当前 chat_model 不支持图像输入，且未配置可用的 vision_model，无法读取图片内容。"
@@ -204,15 +264,10 @@ class AgentCore:
             elif self.vision is not None and has_images:
                 summaries = await self.vision.summarize_all(
                     user_input_text=user_text,
-                    tool_image=tool_image,
+                    tool_image=None,
                     upload_images=[(img.b64, img.mime) for img in user_images],
                     require_detailed=self.require_detailed,
                 )
-                if summaries.tool_image_summary:
-                    vision_tool_entry = self.prompt.make_vision_tool_summary(
-                        summaries.tool_image_summary,
-                        brief=summaries.tool_image_brief,
-                    )
                 if summaries.upload_summaries:
                     vision_upload_entry = self.prompt.make_vision_upload_summary(
                         summaries.upload_summaries,
@@ -220,18 +275,13 @@ class AgentCore:
                     )
         else:
             # chat model 原生支持视觉时，vision 摘要仍可选做（require_detailed 控制）
-            if self.require_detailed and self.vision is not None and (tool_image or user_images):
+            if self.require_detailed and self.vision is not None and user_images:
                 summaries = await self.vision.summarize_all(
                     user_input_text=user_text,
-                    tool_image=tool_image,
+                    tool_image=None,
                     upload_images=[(img.b64, img.mime) for img in user_images],
                     require_detailed=True,
                 )
-                if summaries.tool_image_summary:
-                    vision_tool_entry = self.prompt.make_vision_tool_summary(
-                        summaries.tool_image_summary,
-                        brief=summaries.tool_image_brief,
-                    )
                 if summaries.upload_summaries:
                     vision_upload_entry = self.prompt.make_vision_upload_summary(
                         summaries.upload_summaries,
@@ -250,12 +300,8 @@ class AgentCore:
         rendered_user_content = user_block.render(condensed=False)
 
         if self.chat_supports_vision:
-            labeled_images: list[ImagePayload] = []
-            if tool_image:
-                labeled_images.append(tool_image)
-            labeled_images.extend(user_images)
-            if labeled_images:
-                current_user_msg = self.msg.user_msg_with_labeled_images(rendered_user_content, labeled_images)
+            if user_images:
+                current_user_msg = self.msg.user_msg_with_labeled_images(rendered_user_content, user_images)
             else:
                 current_user_msg = OpenAIMessage(role="user", content=rendered_user_content)
         else:
@@ -263,6 +309,7 @@ class AgentCore:
 
         final_messages: list[OpenAIMessage] = [*history, current_user_msg]
         tools_schema = self.tool_manager.list_tools_schema() if (self.enable_tool and self.tool_manager) else None
+        last_tool_image_handoff_b64: str | None = None
 
         # —— 调用 chat LLM（原生 streaming tool-calling）——
         complete_response = ""
@@ -343,29 +390,78 @@ class AgentCore:
                 tc_info: dict[str, str],
                 bound_tool_manager: ToolManager,
                 bound_agent_context: AgentContext,
-            ) -> str:
+            ) -> ToolResult:
                 name = tc_info["name"]
                 args_json = tc_info["arguments"]
                 try:
-                    result = await bound_tool_manager.call_tool(name, args_json, bound_agent_context)
-                    return result.text if result.ok else f"Error: {result.error}"
+                    return await bound_tool_manager.call_tool(name, args_json, bound_agent_context)
                 except Exception as exc:  # pragma: no cover - defensive path
-                    return f"tool_error: {type(exc).__name__}: {exc}"
+                    return ToolResult(ok=False, text="", error=f"tool_error: {type(exc).__name__}: {exc}")
 
             results = await asyncio.gather(
                 *(_exec_tool(tc, active_tool_manager, active_agent_context) for tc in ordered_tool_calls)
             )
 
-            for tc_info, result_text in zip(ordered_tool_calls, results, strict=False):
+            for tc_info, result in zip(ordered_tool_calls, results, strict=False):
+                tool_name = tc_info["name"]
+                result_text = _tool_result_to_text(result)
                 tool_msg = OpenAIMessage.model_validate(
                     {
                         "role": "tool",
                         "tool_call_id": tc_info["id"],
                         "content": result_text,
-                        "name": tc_info["name"],
+                        "name": tool_name,
                     }
                 )
                 final_messages.append(tool_msg)
+
+                extracted_tool_image = extract_tool_image_payload(tool_name, result)
+                if extracted_tool_image is not None:
+                    tool_image = extracted_tool_image
+
+            if tool_image is not None and tool_image.b64 != last_tool_image_handoff_b64:
+                if self.chat_supports_vision:
+                    final_messages.append(
+                        self.msg.user_msg_with_labeled_images(
+                            self.msg.tool_image_handoff_text(tool_image.label),
+                            [tool_image],
+                        )
+                    )
+                    last_tool_image_handoff_b64 = tool_image.b64
+                    logger.info(
+                        "[TOOL_IMAGE] tool_image attached to chat model: label={} mime={} source={}",
+                        tool_image.label,
+                        tool_image.mime,
+                        tool_image.source,
+                    )
+                elif self.vision is not None:
+                    logger.info(
+                        "[TOOL_IMAGE] tool_image sent to vision summarizer: label={} mime={} source={}",
+                        tool_image.label,
+                        tool_image.mime,
+                        tool_image.source,
+                    )
+                    tool_summary, tool_brief = await self.vision.summarize_tool_image(
+                        user_input_text=user_text,
+                        tool_image=tool_image,
+                    )
+                    if tool_summary:
+                        summary_text = self.prompt.make_vision_tool_summary(
+                            tool_summary,
+                            brief=tool_brief,
+                        ).render(condensed=False)
+                        if summary_text is not None:
+                            final_messages.append(
+                                OpenAIMessage(
+                                    role="user",
+                                    content=self.msg.tool_image_summary_handoff_text(tool_image.label, summary_text),
+                                )
+                            )
+                            last_tool_image_handoff_b64 = tool_image.b64
+                else:
+                    logger.warning(
+                        "[TOOL_IMAGE] tool image handoff blocked: chat_supports_vision=false and no vision summarizer"
+                    )
 
             tools_schema = active_tool_manager.list_tools_schema() if self.enable_tool else None
 

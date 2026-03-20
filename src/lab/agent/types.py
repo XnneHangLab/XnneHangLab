@@ -294,6 +294,7 @@ class ImageRefResult(BaseModel):
 
 class ScreenShotResult(BaseModel):
     image_b64: str = Field(..., description="Current screenshot image data encoded as base64.")
+    mime: str = Field(default="image/jpeg", min_length=3)
 
 
 class UnknownArgs(RootModel[dict[str, object]]):

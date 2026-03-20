@@ -28,6 +28,7 @@ class ScreenShotArgs(BaseModel):
 
 class ScreenShotResult(BaseModel):
     image_b64: str = Field(..., description="Current screen screenshot in base64 encoded JPEG.")
+    mime: str = Field(default="image/jpeg", description="Screenshot MIME type.")
 
 
 class _ScreenShotTool(BuiltinTool):

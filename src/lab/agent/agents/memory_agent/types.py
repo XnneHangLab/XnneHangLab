@@ -8,6 +8,7 @@ if TYPE_CHECKING:
 
 
 ImageSource = Literal["tool", "upload"]
+DEFAULT_TOOL_IMAGE_LABEL = "tool1"
 
 
 @dataclass(frozen=True)
