@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import time
+from importlib import import_module
 from typing import TYPE_CHECKING, Any, cast
 
 from loguru import logger  # pyright: ignore[reportMissingImports,reportUnknownVariableType]
 
-from lab.asr.qwen_asr.engine import load_qwen_asr, reset_qwen_asr_engine
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 
 if TYPE_CHECKING:
@@ -14,6 +14,11 @@ if TYPE_CHECKING:
     from lab.config_manager.qwen_asr import QwenASRModelName
 
 logger = cast("Any", logger)
+
+
+def _get_qwen_asr_engine_module() -> Any:
+    # Delay importing the OpenVINO-backed engine until an explicit preload/transcribe path uses it.
+    return import_module("lab.asr.qwen_asr.engine")
 
 
 def _get_qwen_settings() -> XnneHangLabSettings:
@@ -118,7 +123,7 @@ def load_qwen_asr_engine(model_name: QwenASRModelName) -> None:
         f"Qwen3-ASR preload start: model={model_name}, device={qwen_settings.device}, "
         f"model_path={model_path}, gpu_cache_dir={qwen_settings.gpu_cache_dir or '<default>'}"
     )
-    load_qwen_asr(
+    _get_qwen_asr_engine_module().load_qwen_asr(
         model_path=model_path,
         device=qwen_settings.device,
         cpu_threads=qwen_settings.cpu_threads,
@@ -168,7 +173,7 @@ def qwen_asr_transcribe(input_path: Path, model_name: QwenASRModelName) -> dict[
     qwen_settings = settings.asr.qwen_asr
     model_path = get_qwen_model_path(model_name, settings)
 
-    engine = load_qwen_asr(
+    engine = _get_qwen_asr_engine_module().load_qwen_asr(
         model_path=model_path,
         device=qwen_settings.device,
         cpu_threads=qwen_settings.cpu_threads,
@@ -203,7 +208,8 @@ def reload_qwen_asr_engine(model_name: QwenASRModelName) -> None:
     settings = _get_qwen_settings()
     qwen_settings = settings.asr.qwen_asr
     model_path = get_qwen_model_path(model_name, settings)
-    reset_qwen_asr_engine(
+    qwen_asr_engine_module = _get_qwen_asr_engine_module()
+    qwen_asr_engine_module.reset_qwen_asr_engine(
         model_path=model_path,
         device=qwen_settings.device,
         cpu_threads=qwen_settings.cpu_threads,
@@ -211,7 +217,7 @@ def reload_qwen_asr_engine(model_name: QwenASRModelName) -> None:
         forced_aligner_path=qwen_settings.forced_aligner_path,
         forced_aligner_device=qwen_settings.forced_aligner_device,
     )
-    load_qwen_asr(
+    qwen_asr_engine_module.load_qwen_asr(
         model_path=model_path,
         device=qwen_settings.device,
         cpu_threads=qwen_settings.cpu_threads,

@@ -1,16 +1,20 @@
 from __future__ import annotations
 
 import tempfile
+from importlib import import_module
 from pathlib import Path
 
 from fastapi import APIRouter, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from loguru import logger
 
-from lab.api.logic.faster_qwen_tts import synthesize_once, synthesize_stream
-
 router = APIRouter(prefix="/tts/qwen-tts", tags=["qwen-tts"])
 _tts_logger = logger.bind(group="tts")
+
+
+def _get_qwen_tts_logic_module():
+    # Keep Qwen-TTS logic imports out of route registration so startup only pays this cost on use.
+    return import_module("lab.api.logic.faster_qwen_tts")
 
 
 @router.get("/health")
@@ -53,7 +57,8 @@ async def generate_non_stream(
             f"qwen-tts non-stream request received: text_len={len(text)}, has_ref_audio={temp_ref_path is not None}, has_ref_text={bool(ref_text)}"
         )
 
-        wav_bytes = synthesize_once(
+        qwen_tts_logic = _get_qwen_tts_logic_module()
+        wav_bytes = qwen_tts_logic.synthesize_once(
             text=text,
             ref_audio=temp_ref_path,
             ref_text=ref_text or None,
@@ -103,7 +108,8 @@ async def generate_stream(
 
         async def _event_stream():
             try:
-                async for chunk in synthesize_stream(
+                qwen_tts_logic = _get_qwen_tts_logic_module()
+                async for chunk in qwen_tts_logic.synthesize_stream(
                     text=text,
                     ref_audio=temp_ref_path,
                     ref_text=ref_text or None,

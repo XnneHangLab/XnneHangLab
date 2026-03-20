@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
+from importlib import import_module
 from typing import Any
 
 from fastapi import APIRouter, UploadFile
 from loguru import logger
 
-from lab.api.logic.qwen_asr import normalize_qwen_model_name, qwen_asr_transcribe
 from lab.api.routes.asr_shared import file_default, save_upload_to_temp
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 
 router = APIRouter(prefix="/asr/qwen-asr", tags=["asr", "qwen-asr"])
+
+
+def _get_qwen_asr_logic_module():
+    # Keep Qwen-ASR logic imports out of route registration so startup only pays this cost on use.
+    return import_module("lab.api.logic.qwen_asr")
 
 
 async def _transcribe_qwen_model(file: UploadFile, model_name: str) -> dict[str, Any]:
@@ -32,9 +37,10 @@ async def _transcribe_qwen_model(file: UploadFile, model_name: str) -> dict[str,
         lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
         if not lab_settings.package.qwen_asr:
             raise RuntimeError("Qwen3-ASR is disabled in lab.toml")
-        result = qwen_asr_transcribe(
+        qwen_asr_logic = _get_qwen_asr_logic_module()
+        result = qwen_asr_logic.qwen_asr_transcribe(
             input_path=temp_audio_path,
-            model_name=normalize_qwen_model_name(model_name),
+            model_name=qwen_asr_logic.normalize_qwen_model_name(model_name),
         )
     except Exception as exc:
         logger.exception("Qwen3-ASR route failed for model {}", model_name)
