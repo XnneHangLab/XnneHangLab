@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
+from shutil import copytree
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
@@ -101,7 +102,16 @@ def test_profiles_list_get_and_put(tmp_path: Path) -> None:
         "/admin/api/profiles/a.toml",
         json={
             "profile": {"name": "updated", "agent_name": "updated"},
-            "plugins": {"enabled": ["memory"], "memory": {"search_limit": 3}},
+            "plugins": {
+                "enabled": ["memory", "live2d_control"],
+                "memory": {"search_limit": 3},
+                "live2d_control": {
+                    "appearance_presets": [
+                        {"key": "默认", "description": "完整造型"},
+                        {"key": "隐藏披发", "description": "更利落"},
+                    ]
+                },
+            },
         },
     )
     assert put_response.status_code == 200
@@ -110,8 +120,44 @@ def test_profiles_list_get_and_put(tmp_path: Path) -> None:
     with (profiles_dir / "a.toml").open("rb") as file:
         assert tomllib.load(file) == {
             "profile": {"name": "updated", "agent_name": "updated"},
-            "plugins": {"enabled": ["memory"], "memory": {"search_limit": 3}},
+            "plugins": {
+                "enabled": ["memory", "live2d_control"],
+                "memory": {"search_limit": 3},
+                "live2d_control": {
+                    "appearance_presets": [
+                        {"key": "默认", "description": "完整造型"},
+                        {"key": "隐藏披发", "description": "更利落"},
+                    ]
+                },
+            },
         }
+
+
+def test_put_profile_rejects_invalid_live2d_appearance_presets(tmp_path: Path) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir(parents=True)
+    (tmp_path / "src" / "lab" / "plugins").mkdir(parents=True)
+    copytree(Path("src/lab/plugins/live2d_control"), tmp_path / "src" / "lab" / "plugins" / "live2d_control")
+
+    client = TestClient(_make_app(tmp_path))
+    response = client.put(
+        "/admin/api/profiles/a.toml",
+        json={
+            "profile": {"name": "updated", "agent_name": "updated"},
+            "plugins": {
+                "enabled": ["live2d_control"],
+                "live2d_control": {
+                    "appearance_presets": [
+                        {"key": "默认", "description": "ok"},
+                        {"key": "默认", "description": "duplicate"},
+                    ]
+                },
+            },
+        },
+    )
+
+    assert response.status_code == 400
+    assert "Invalid plugins.live2d_control" in response.json()["detail"]
 
 
 def test_profile_endpoints_reject_invalid_profile_names(tmp_path: Path) -> None:
@@ -123,9 +169,7 @@ def test_profile_endpoints_reject_invalid_profile_names(tmp_path: Path) -> None:
     assert response.json()["detail"] == "Invalid profile name"
 
 
-def test_reload_default_agent_rebuilds_shared_context_in_place(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_reload_default_agent_rebuilds_shared_context_in_place(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     app = _make_app(tmp_path, enable_tool=True)
     shared_ctx = app.state.default_context_cache
     reload_calls: list[Any] = []
@@ -196,7 +240,9 @@ def test_service_context_reload_runtime_refreshes_template_state(monkeypatch: py
     async def fake_ensure_mcp_connected() -> None:
         ensure_calls.append(reloaded.agent_engine)
 
-    def fake_load_cache(*, lab_setting: Any, server_config: Any, character_config: Any, live2d_model: Any, agent_engine: Any) -> None:
+    def fake_load_cache(
+        *, lab_setting: Any, server_config: Any, character_config: Any, live2d_model: Any, agent_engine: Any
+    ) -> None:
         cache_calls.append(
             {
                 "lab_setting": lab_setting,
