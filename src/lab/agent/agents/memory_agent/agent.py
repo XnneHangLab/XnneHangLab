@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, Literal
 
 from loguru import logger
 
 from lab.agent.agents.agent_interface import AgentInterface
 from lab.agent.transformers import actions_extractor, display_processor, sentence_divider, tts_filter
-from lab.agent.types import OpenAIMessage
 
 from .memory_store import MemoryStore
 from .message_factory import MessageFactory
@@ -18,9 +18,20 @@ if TYPE_CHECKING:
     from lab.agent.core import AgentCore
     from lab.agent.input_types import BatchInput
     from lab.agent.output_types import AudioOutput, SentenceOutput
+    from lab.agent.types import OpenAIMessage
     from lab.config_manager.config import XnneHangLabSettings
     from lab.config_manager.vtuber import TTSPreprocessorConfig
     from lab.live2d_model import Live2dModel
+
+
+_TOOL_STATUS_RE = re.compile(r"<tool>\[[^\]]+]</tool>")
+
+
+def _strip_tool_status_tokens(text: str) -> str:
+    return _TOOL_STATUS_RE.sub("", text)
+
+
+strip_tool_status_tokens = _strip_tool_status_tokens
 
 
 class MemoryAgent(AgentInterface):

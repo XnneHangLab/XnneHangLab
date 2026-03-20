@@ -71,7 +71,7 @@ class VisionSummarizer:
         return brief or None
 
     @classmethod
-    def _parse_single_summary_json(raw: str) -> tuple[str, str] | None:
+    def _parse_single_summary_json(cls, raw: str) -> tuple[str, str] | None:
         s = (raw or "").strip()
         if not s:
             return None

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
 
 import numpy as np
 from fastapi import WebSocket, WebSocketDisconnect
@@ -393,7 +393,7 @@ class WebSocketHandler:
             history = dict(item)
             latest_message = history.get("latest_message")
             if isinstance(latest_message, dict):
-                history["latest_message"] = _format_history_message_for_display(latest_message)
+                history["latest_message"] = _format_history_message_for_display(cast("HistoryMessage", latest_message))
             histories.append(history)
         await websocket.send_text(json.dumps({"type": "history-list", "histories": histories}))
 

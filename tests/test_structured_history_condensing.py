@@ -19,7 +19,7 @@ def test_tool_image_context_condenses_from_full_to_brief_and_omits_missing_brief
     - 较新轮次仍保留 full。
     """
     store = MemoryStore()
-    adapter = MemoryStoreAdapter(store)
+    adapter = MemoryStoreAdapter(store, condense_after_turns=4)
 
     adapter.append_turn(
         UserPromptBlock(
