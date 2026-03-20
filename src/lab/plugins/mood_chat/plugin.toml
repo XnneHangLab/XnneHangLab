@@ -1,0 +1,22 @@
+[plugin]
+id = "mood_chat"
+name = "Mood Chat"
+version = "0.1.0"
+type = "hook"
+description = "\u5fc3\u60c5\u9a71\u52a8\u7684\u4e3b\u52a8\u5bf9\u8bdd\u8c03\u5ea6\u5668"
+author = "XnneHangLab"
+source = "builtin"
+
+[config]
+prompt = "\u8bf7\u6839\u636e\u4e0a\u4e0b\u6587\uff0c\u4e3b\u52a8\u8bf4\u4e9b\u4ec0\u4e48\u3002"
+initial_mood = 80
+target_mood = 80
+response_timeout_s = 10.0
+interval_excited_s = 5.0
+interval_normal_s = 30.0
+interval_low_s = 120.0
+mood_increase = 5
+mood_decrease = 10
+
+[type_config]
+entry = "MoodChatPlugin"

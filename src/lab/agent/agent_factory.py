@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import inspect
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -221,4 +223,33 @@ class AgentFactory:
             interrupt_method=lab_setting.agent.interrupt_method,
         )
         agent.memory = memory_store
+        core.agent_context.extra["agent"] = agent
+
+        original_close = agent.close
+
+        async def _close_with_hooks() -> None:
+            hook_manager = getattr(core, "_hook_manager", None)
+            hooks = getattr(hook_manager, "_hooks", []) if hook_manager is not None else []
+            stop_awaitables: list[tuple[object, object]] = []
+            for hook in hooks:
+                stop = getattr(hook, "stop", None)
+                if stop is None:
+                    continue
+                try:
+                    result = stop()
+                except Exception as exc:
+                    logger.warning("Hook plugin stop failed for {}: {}", hook.__class__.__name__, exc)
+                    continue
+                if inspect.isawaitable(result):
+                    stop_awaitables.append((hook, result))
+
+            if stop_awaitables:
+                results = await asyncio.gather(*(result for _, result in stop_awaitables), return_exceptions=True)
+                for (hook, _), result in zip(stop_awaitables, results, strict=False):
+                    if isinstance(result, Exception):
+                        logger.warning("Hook plugin stop failed for {}: {}", hook.__class__.__name__, result)
+
+            await original_close()
+
+        agent.close = _close_with_hooks
         return agent
