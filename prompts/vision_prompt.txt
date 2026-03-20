@@ -28,11 +28,12 @@
 - 如果图片包含可能的敏感信息（邮箱、token、密钥、身份证号、银行卡号等），请在输出中用 [REDACTED] 替代敏感字段，但仍保留其“存在性”和“类型”（例如“发现疑似 API key：[REDACTED]”）。
 
 【输出格式（严格要求）】
-你必须输出 **严格 JSON**，且只输出 JSON（不要额外解释文本，不要 markdown code fence）。
+你必须输出严格 JSON，且只输出 JSON（不要额外解释文本，不要 markdown code fence）。
 
 JSON schema：
 {
   "scene": "一句话概述场景（<= 25 字）",
+  "summary": "对下游最有用的简短结构化概述（1~400 字）",
   "key_items": [
     {"type": "window|app|ui|text|object|error|file|url|code", "label": "简短名称", "detail": "关键信息（短）"}
   ],
@@ -48,20 +49,23 @@ JSON schema：
 }
 
 字段要求：
-- scene 必填
-- key_items 至少 3 条（除非图片几乎为空）
-- visible_text 只放你“确定看清”的文字；看不清不要写
-- uncertainty 必须在看不清/不确定时填写，不确定就写明原因（模糊/遮挡/分辨率不足）
+- scene 必填，必须是非空字符串。
+- summary 必填，必须是非空字符串，且不要超过 400 个字符。
+- key_items 至少 3 条（除非图片几乎为空）。
+- visible_text 只放你“确定看清”的文字；看不清不要写。
+- uncertainty 必须在看不清/不确定时填写，不确定就写明原因（模糊/遮挡/分辨率不足）。
+- 允许输出额外字段，但 scene 和 summary 必须保留在顶层。
 
 【例子（仅说明，不要照抄）】
 {
   "scene": "VS Code 全屏显示代码与终端",
+  "summary": "画面主体是 VS Code 编辑器，左侧文件树展开，中间为 Python async 代码，底部终端有日志输出。",
   "key_items": [
-    {"type":"app","label":"VS Code","detail":"深色主题，全屏窗口"},
-    {"type":"ui","label":"文件树","detail":"左侧资源管理器展开多个目录"},
-    {"type":"code","label":"Python 代码","detail":"中间编辑区显示 async 相关函数"}
+    {"type": "app", "label": "VS Code", "detail": "深色主题，全屏窗口"},
+    {"type": "ui", "label": "文件树", "detail": "左侧资源管理器展开多个目录"},
+    {"type": "code", "label": "Python 代码", "detail": "中间编辑区显示 async 相关函数"}
   ],
-  "visible_text":["run_tool_loop","ToolTrace","vision__screen_shot"],
-  "ui_hints":["顶部有多个文件标签","底部有终端输出日志"],
-  "uncertainty":["部分文件名过小，无法确认完整拼写"]
+  "visible_text": ["run_tool_loop", "ToolTrace", "vision__screen_shot"],
+  "ui_hints": ["顶部有多个文件标签", "底部有终端输出日志"],
+  "uncertainty": ["部分文件名过小，无法确认完整拼写"]
 }

@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """验证结构化 history 中 tool image context 的压缩行为。"""
+
+from __future__ import annotations
 
 from lab.agent.agents.memory_agent.memory_store import MemoryStore
 from lab.agent.agents.memory_agent.user_prompt_block import ContextEntry, UserPromptBlock

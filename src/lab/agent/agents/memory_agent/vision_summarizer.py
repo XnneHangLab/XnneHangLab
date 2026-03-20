@@ -18,6 +18,8 @@ if TYPE_CHECKING:
     from lab.agent.stateless_llm.openai_compatible_llm import AsyncLLM
     from lab.agent.types import ConversationState
 
+_MAX_SINGLE_SUMMARY_LEN = 400
+
 
 class VisionSummarizer:
     """vision_model 摘要服务：缓存、并发、解析、统一输出结构。"""
@@ -77,6 +79,8 @@ class VisionSummarizer:
         if not isinstance(scene, str) or not scene.strip():
             return None
         if not isinstance(summary, str) or not summary.strip():
+            return None
+        if len(summary.strip()) > _MAX_SINGLE_SUMMARY_LEN:
             return None
         return s, scene.strip().replace("\n", " ")
 
