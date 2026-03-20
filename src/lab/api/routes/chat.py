@@ -1,5 +1,5 @@
 # pyright: reportUnknownVariableType=none, reportUnknownMemberType=none, reportUnknownArgumentType=none, reportMissingTypeArgument=none
-"""Autonomous chat endpoint backed by AgentCore."""
+"""基于 AgentCore 的自主对话接口。"""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse  # type: ignore[reportMissingImports]
 from loguru import logger
 from pydantic import BaseModel  # type: ignore[reportMissingImports]
 
-from lab.conversation.store import ConversationStore
+from lab.history_storage.store import HistoryStorage
 
 if TYPE_CHECKING:
     from lab.agent.core import AgentCore
@@ -34,12 +34,22 @@ class ChatResponse(BaseModel):
 
 
 class ChatState:
-    """Mutable singleton populated during server startup."""
+    """在服务启动阶段填充的可变单例状态。"""
 
     chat_model: str = ""
-    conversations_dir: str = "conversations"
+    history_storage_dir: str = "conversations"
     workspace_root: str = ""
     agent_core: AgentCore | None = None
+
+    @property
+    def conversations_dir(self) -> str:
+        """兼容旧命名，返回历史存储目录。"""
+        return self.history_storage_dir
+
+    @conversations_dir.setter
+    def conversations_dir(self, value: str) -> None:
+        """兼容旧命名，允许继续写入历史存储目录。"""
+        self.history_storage_dir = value
 
 
 chat_state = ChatState()
@@ -90,8 +100,8 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> JSONResp
 
 @chat_router.get("/sessions", response_model=None)
 async def list_sessions() -> JSONResponse:
-    conv_store = ConversationStore(base_dir=chat_state.conversations_dir)
-    dates = conv_store.list_conversations()
+    history_store = HistoryStorage(base_dir=chat_state.history_storage_dir)
+    dates = history_store.list_conversations()
     return JSONResponse(content={"sessions": dates, "count": len(dates)})
 
 
@@ -103,6 +113,7 @@ async def chat_health() -> JSONResponse:
             "status": "ok",
             "agent_core_ready": core is not None,
             "model": chat_state.chat_model,
-            "conversations_dir": chat_state.conversations_dir,
+            "conversations_dir": chat_state.history_storage_dir,
+            "history_storage_dir": chat_state.history_storage_dir,
         }
     )
