@@ -85,6 +85,21 @@ class MessageFactory:
             parts.append(ImagePart(type="image_url", image_url=ImageURL(url=f"data:{img.mime};base64,{img.b64}")))
         return OpenAIMessage(role="user", content=parts)
 
+    @staticmethod
+    def tool_image_handoff_text(label: str) -> str:
+        return (
+            "A tool callback image is attached below. "
+            f"Use image [{label}] together with the preceding tool result to answer the current user request."
+        )
+
+    @staticmethod
+    def tool_image_summary_handoff_text(label: str, summary: str) -> str:
+        return (
+            "The tool callback image was routed through the vision summarizer. "
+            f"Use the summary for image [{label}] together with the preceding tool result.\n\n"
+            f"[Tool Call Image Summary]\n{summary}"
+        )
+
     # ------------------------------
     # BatchInput -> user message
     # ------------------------------
