@@ -173,7 +173,7 @@ def _init_gpt_sovits_backend() -> None:
                     "stream": False,
                 }
             )
-            _tts_logger.debug("[GSV init] warmup task={}", warmup_task)
+            _tts_logger.debug(f"[GSV init] warmup task={warmup_task}")
             warmup_bar.update(1)
             warmup_bar.set_postfix_str("params")
 
@@ -191,9 +191,7 @@ def _init_gpt_sovits_backend() -> None:
                 warmup_bar.set_postfix_str("first-yield")
                 _tts_logger.info("[GSV init] warmup first chunk reached")
                 _tts_logger.debug(
-                    "[GSV init] warmup first chunk details sample_rate={} samples={}",
-                    sample_rate,
-                    len(audio_data),
+                    f"[GSV init] warmup first chunk details sample_rate={sample_rate} samples={len(audio_data)}"
                 )
             finally:
                 close = getattr(warmup_gen, "close", None)
@@ -208,6 +206,7 @@ def _init_gpt_sovits_backend() -> None:
     except Exception:
         _tts_logger.exception("[GSV init] backend initialization failed")
         raise
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
