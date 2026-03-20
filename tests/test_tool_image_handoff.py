@@ -9,6 +9,7 @@ import pytest
 from loguru import logger
 
 from lab.agent.agents.memory_agent.types import VisionAnalysisOutcome
+from lab.agent.agents.memory_agent.user_prompt_block import UserPromptBlock
 from lab.agent.core import AgentCore, extract_tool_image_payload
 from lab.agent.storage import ConversationStorage
 from lab.agent.types import ImagePart, OpenAIMessage, TextPart
@@ -207,6 +208,11 @@ def test_tool_image_is_attached_to_chat_model_when_chat_supports_vision(agent_ct
 
 
 def test_tool_image_is_sent_to_vision_summarizer_when_chat_lacks_vision(agent_ctx: AgentContext) -> None:
+    """验证 screenshot summary 会进入 user-side working context 并与 assistant 回复分离。
+
+    Args:
+        agent_ctx: 测试使用的工具运行上下文。
+    """
     chat_llm = FakeChatLLM()
     storage = DummyStorage()
     core = AgentCore(
@@ -265,6 +271,14 @@ def test_tool_image_is_sent_to_vision_summarizer_when_chat_lacks_vision(agent_ct
         "Use the summary for image [tool1] together with the preceding tool result.\n\n"
         '[Tool Call Image Summary]\n{"scene":"screen summary","summary":"window title"}'
     )
+    assert len(storage.turns) == 1
+    stored_user_block, stored_assistant_text = storage.turns[0]
+    assert isinstance(stored_user_block, UserPromptBlock)
+    assert stored_user_block.vision_tool_summary is not None
+    assert stored_user_block.vision_tool_summary.full == '{"scene":"screen summary","summary":"window title"}'
+    assert stored_user_block.vision_tool_summary.brief == "screen summary"
+    assert stored_assistant_text == "final answer"
+    assert "[Tool Call Image Summary]" not in stored_assistant_text
     assert any("screenshot tool returned image data" in line for line in log_lines)
     assert any("tool_image handoff created" in line for line in log_lines)
     assert any("tool_image sent to vision summarizer" in line for line in log_lines)
