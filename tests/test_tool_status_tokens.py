@@ -30,6 +30,17 @@ def test_tool_status_token_truncates_long_values() -> None:
     assert "..." in token
 
 
+def test_tool_status_token_includes_live2d_appearance_key() -> None:
+    token = format_tool_status_token(
+        "set_live2d_appearance",
+        '{"appearance_key":"hidden_hair","character":"miku"}',
+    )
+    assert token.startswith("<tool>[")
+    assert "set_live2d_appearance appearance_key=hidden_hair" in token
+    assert token.endswith("]</tool>")
+    assert "character=" not in token
+
+
 def test_strip_tool_status_token_removes_wrapped_marker() -> None:
     token = format_tool_status_token("list_dir", '{"path":"tmp"}')
     assert strip_tool_status_tokens(f"before {token} after") == "before  after"

@@ -29,6 +29,7 @@ _TOOL_STATUS_ARG_KEYS: dict[str, tuple[str, ...]] = {
     "read_file": ("path", "start_line", "end_line"),
     "write_file": ("path", "append"),
     "edit_file": ("path", "count"),
+    "set_live2d_appearance": ("appearance_key",),
 }
 _DEFAULT_TOOL_STATUS_ARG_KEYS = ("path", "query", "q", "url")
 _MAX_TOOL_STATUS_FIELDS = 2
