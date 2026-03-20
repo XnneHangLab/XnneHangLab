@@ -109,26 +109,28 @@ class MoodChatPlugin(HookPlugin):
 
                 await asyncio.sleep(interval)
 
-                if self._agent is None or self._ctx is None:
+                agent = self._agent
+                ctx = self._ctx
+                if agent is None or ctx is None:
                     continue
 
                 fake_input = BatchInput(
                     texts=[TextData(source=TextSource.INPUT, content=self._prompt)],
                 )
-                self._ctx.extra[self._internal_turn_flag] = True
+                ctx.extra[self._internal_turn_flag] = True
                 try:
-                    async for _ in self._agent.chat(fake_input):
+                    async for _ in agent.chat(fake_input):
                         pass
                 finally:
-                    if self._ctx is not None:
-                        self._ctx.extra.pop(self._internal_turn_flag, None)
+                    ctx.extra.pop(self._internal_turn_flag, None)
 
                 timeout_task = asyncio.create_task(self._handle_response_timeout())
                 self._response_timeout_task = timeout_task
                 try:
                     await timeout_task
                 except asyncio.CancelledError:
-                    if asyncio.current_task() is not None and asyncio.current_task().cancelling():
+                    current_task = asyncio.current_task()
+                    if current_task is not None and current_task.cancelling():
                         raise
                 finally:
                     if self._response_timeout_task is timeout_task:
