@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Annotated, Any
 
+from loguru import logger
 from pydantic import Field
 
 from lab.agent.input_types import BatchInput, TextData, TextSource
@@ -128,6 +129,10 @@ class MoodChatPlugin(HookPlugin):
                 mood = await self._get_mood_score()
                 interval = self._interval_for_mood(mood)
                 if interval is None:
+                    logger.info(
+                        "[MOOD_CHAT] proactive chat paused: mood={} next_interval=paused(check_in=60.0s)",
+                        mood,
+                    )
                     await asyncio.sleep(60)
                     continue
 
@@ -140,6 +145,12 @@ class MoodChatPlugin(HookPlugin):
 
                 fake_input = BatchInput(
                     texts=[TextData(source=TextSource.INPUT, content=self._prompt)],
+                )
+                logger.info(
+                    "[MOOD_CHAT] proactive chat triggered: mood={} interval_s={} prompt={}",
+                    mood,
+                    interval,
+                    self._prompt,
                 )
                 ctx.extra[self._internal_turn_flag] = True
                 try:
@@ -185,6 +196,15 @@ class MoodChatPlugin(HookPlugin):
     async def _change_mood(self, delta: int) -> None:
         async with self._mood_lock:
             self._mood_score = self._clamp_mood(self._mood_score + delta)
+            current_mood = self._mood_score
+        interval = self._interval_for_mood(current_mood)
+        interval_text = f"{interval}s" if interval is not None else "paused"
+        logger.info(
+            "[MOOD_CHAT] mood changed: delta={:+d} mood={} proactive_interval={}",
+            delta,
+            current_mood,
+            interval_text,
+        )
 
     def _cancel_response_timeout(self) -> None:
         task = self._response_timeout_task
