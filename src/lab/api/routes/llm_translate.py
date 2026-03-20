@@ -62,6 +62,12 @@ async def llm_translate(request: Request) -> dict[str, object]:
         logger.exception("[LLMTranslate] Translation failed: {}", exc)
         return {"code": 500, "message": f"LLM translate failed: {exc}"}
 
+    logger.info(
+        "[LLMTranslate] Translation result: '{}'... -> '{}'...",
+        llm_request.text[:30],
+        target_text[:60],
+    )
+
     return {
         "code": 200,
         "message": "success",

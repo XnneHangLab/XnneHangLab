@@ -63,6 +63,8 @@ SENTENCE_END_CHARS = {".", "!", "?", "\u3002", "\uff01", "\uff1f"}
 TRAILING_SENTENCE_CHARS = set("\"'”’)]}】）」』」")
 LIST_MARKER_RE = re.compile(r"(^|[\s\[\(\{\]\)\}])\d+\.$")
 FRAGILE_DOT_RE = re.compile(r"(?<!\S)\d+\.(?=\s*\S)|[A-Za-z0-9_/-]+(?:\.[A-Za-z0-9_/-]+)+")
+PARAGRAPH_BREAK_RE = re.compile(r"(?:\r?\n\s*){2,}")
+ACTION_LINE_BREAK_RE = re.compile(r"\r?\n\s*(?:\[[^\]\r\n]+\]|【[^】\r\n]+】)")
 
 # Set of languages directly supported by pysbd
 SUPPORTED_LANGUAGES = {
@@ -254,6 +256,21 @@ def _find_first_sentence_boundary(text: str) -> int | None:
         if _boundary_token_length(text, idx) > 0:
             return idx
     return None
+
+
+def _find_structural_boundary(text: str) -> tuple[int, int] | None:
+    """Find a non-punctuation boundary that still should force a sentence split."""
+    candidates: list[tuple[int, int]] = []
+
+    for pattern in (PARAGRAPH_BREAK_RE, ACTION_LINE_BREAK_RE):
+        match = pattern.search(text)
+        if match and text[: match.start()].strip():
+            candidates.append(match.span())
+
+    if not candidates:
+        return None
+
+    return min(candidates, key=lambda span: span[0])
 
 
 def segment_text_by_rules(text: str) -> tuple[list[str], str]:
@@ -590,6 +607,21 @@ class SentenceDivider:
             current_tags = self._get_current_tags()
 
             # Handle first sentence with comma if enabled
+            structural_boundary = _find_structural_boundary(self._buffer)
+            if structural_boundary is not None:
+                boundary_start, boundary_end = structural_boundary
+                sentence = self._buffer[:boundary_start].strip()
+                if sentence:
+                    result.append(
+                        SentenceWithTags(
+                            text=sentence,
+                            tags=current_tags or [TagInfo("", TagState.NONE)],
+                        )
+                    )
+                    self._is_first_sentence = False
+                self._buffer = self._buffer[boundary_end:].lstrip()
+                continue
+
             if self._is_first_sentence and self.faster_first_response and contains_comma(self._buffer):
                 sentence, remaining = comma_splitter(self._buffer)
                 if sentence.strip():
@@ -669,7 +701,7 @@ class SentenceDivider:
             # or when we see a tag
             should_process = any(
                 re.search(f"{tag}(?:/)?>", self._buffer) for tag in self.valid_tags
-            ) or has_punctuation(self._buffer)
+            ) or has_punctuation(self._buffer) or _find_structural_boundary(self._buffer) is not None
 
             if should_process:
                 sentences = await self._process_buffer()
