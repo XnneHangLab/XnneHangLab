@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import TYPE_CHECKING, Literal
 
 from loguru import logger
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
     from lab.config_manager.config import XnneHangLabSettings
     from lab.config_manager.vtuber import TTSPreprocessorConfig
     from lab.live2d_model import Live2dModel
+
 
 class MemoryAgent(AgentInterface):
     """Compose AgentCore output into the TTS and Live2D pipeline."""

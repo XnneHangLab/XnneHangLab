@@ -64,6 +64,13 @@ class VisionSummarizer:
         return VisionAnalysisOutcome.failure(status, detail=detail)
 
     @staticmethod
+    def _normalize_brief(value: Any) -> str | None:
+        if not isinstance(value, str):
+            return None
+        brief = " ".join(value.strip().splitlines()).strip()
+        return brief or None
+
+    @classmethod
     def _parse_single_summary_json(raw: str) -> tuple[str, str] | None:
         s = (raw or "").strip()
         if not s:
@@ -82,7 +89,12 @@ class VisionSummarizer:
             return None
         if len(summary.strip()) > _MAX_SINGLE_SUMMARY_LEN:
             return None
-        return s, scene.strip().replace("\n", " ")
+        brief = cls._normalize_brief(obj.get("brief"))
+        if brief is None:
+            brief = cls._normalize_brief(scene)
+        if brief is None:
+            return None
+        return s, brief
 
     async def summarize_single(
         self,
@@ -381,12 +393,26 @@ class VisionSummarizer:
                 )
                 continue
 
+            brief = VisionSummarizer._normalize_brief(it_typed.get("brief"))
+            if brief is None:
+                brief = VisionSummarizer._normalize_brief(raw_scene)
+            if brief is None:
+                by_label[label] = VisionAnalysisOutcome.failure(
+                    "invalid",
+                    detail=f"Vision model returned invalid brief for label={label}.",
+                )
+                continue
+
+            item_for_storage = dict(it_typed)
+            item_for_storage["id"] = label
+            item_for_storage["scene"] = raw_scene.strip()
+            item_for_storage["summary"] = raw_summary.strip()
+            if "brief" in item_for_storage:
+                item_for_storage["brief"] = brief
+
             by_label[label] = VisionAnalysisOutcome.success(
-                summary=json.dumps(
-                    {"id": label, "scene": raw_scene.strip(), "summary": raw_summary.strip()},
-                    ensure_ascii=False,
-                ),
-                brief=raw_scene.strip().replace("\n", " "),
+                summary=json.dumps(item_for_storage, ensure_ascii=False),
+                brief=brief,
             )
 
         out: dict[str, VisionAnalysisOutcome] = {}
