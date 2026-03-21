@@ -151,7 +151,6 @@ install-model:
   just install-qwen-asr
   just install-sensevoice
   just install-bert-model
-  just install-gsv-model
   just install-qwen-tts
 
 install-nltk:
@@ -178,11 +177,15 @@ install-bert-model:
   pytorch_model.bin added_tokens.json config.json configuration.json README.md special_tokens_map.json tokenizer_config.json tokenizer.json
   # 这里不能用 --exclude 同时排除 tf_model.h5 和 flax_model.msgpack，多次 exclude 只会保留最后一个，所以这里指定了所有需要的文件
 
-install-gsv-model:
+install-gsv-model-elaina:
   uv lock
   uv sync
   uv run modelscope download --model xnnehang/elaina-gsv-v2 --local_dir ./models/gptsovits/elaina
 
+install-gsv-model-baoqiao:
+  uv lock
+  uv sync
+  uv run modelscope download --model xnnehang/luming-gsv-v2 --local_dir ./models/gptsovits/baoqiao
 
 install-qwen-tts:
   uv lock
