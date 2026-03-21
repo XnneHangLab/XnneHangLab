@@ -32,7 +32,6 @@ export default defineConfig({
             { text: "配置", link: "/guide/settings" },
             { text: "FastAPI 服务", link: "/guide/fastapi" },
             { text: "翻译引擎", link: "/guide/translate" },
-            { text: "CLI", link: "/guide/cli" },
           ],
         },
         {

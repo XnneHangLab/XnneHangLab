@@ -125,9 +125,9 @@ ConversationStorage (Protocol)
 | | MemoryAgent | /memory/chat |
 |---|---|---|
 | Storage | `MemoryStoreAdapter` | `ConversationStoreAdapter` |
-| Profile | `memory_agent_profile`（elaina.toml）| `memory_chat_profile`（congyin.toml）|
+| Profile | `memory_agent_profile`（baoqiao.toml）| `memory_chat_profile`（congyin.toml）|
 | `write_back` | False（由 MemoryAgent 统一写回）| True |
 | 输出方式 | token 流 → 断句 → TTS / Live2D | token 流收集完 → JSONResponse |
 | tool 标签 | TTS 过滤，不读出 | 混入回复，前端处理 |
 
-两条链路共用同一套 AgentCore 逻辑，差异完全由 Profile 封装。`[plugins.memory] agent_id` 决定记忆的读写归属——elaina 读写 elaina 的记忆，congyin 读写 congyin 的记忆，两者共存于同一个 Neo4j 图中，互不干扰。
+两条链路共用同一套 AgentCore 逻辑，差异完全由 Profile 封装。`[plugins.memory] agent_id` 决定记忆的读写归属——baoqiao 读写 baoqiao 的记忆，congyin 读写 congyin 的记忆，两者共存于同一个 Neo4j 图中，互不干扰。

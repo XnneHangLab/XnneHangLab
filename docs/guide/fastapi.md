@@ -200,11 +200,12 @@ just test-gsv
 ```json
 {
   "text": "合成文本",
-  "character": "elaina",
   "text_language": "ja",
-  "ref_audio_path": "./models/gptsovits/elaina/elaina.wav"
+  "ref_audio_path": "./models/gptsovits/baoqiao/emotions/neutral.wav"
 }
 ```
+
+> 说明：运行时主链路里的 ref_audio 选择现在通常由 `profiles/*.toml` 的 `[character.tts]` 与当前 emotion 自动决定；这里的 API 示例仍展示手动调用方式。
 
 **响应**：
 ```json
@@ -234,7 +235,7 @@ just test-gsv-v2
 # curl -G "http://127.0.0.1:12393/tts/gptsovitsv2/tts" \
 #   --data-urlencode "text=こんにちは" \
 #   --data-urlencode "text_lang=ja" \
-#   --data-urlencode "ref_audio_path=elaina.wav" \
+#   --data-urlencode "ref_audio_path=baoqiao/emotions/neutral.wav" \
 #   --data-urlencode "prompt_text=..." \
 #   --data-urlencode "prompt_lang=ja" \
 #   -o tts.wav
@@ -246,12 +247,14 @@ just test-gsv-v2
 |------|------|------|
 | `text` | string | 合成文本（必填） |
 | `text_lang` | string | 文本语言（`ja` / `zh` / `en`） |
-| `ref_audio_path` | string | 参考音频路径（相对于模型目录） |
+| `ref_audio_path` | string | 参考音频路径 |
 | `prompt_text` | string | 参考文本 |
 | `prompt_lang` | string | 参考文本语言 |
 | `speed_factor` | float | 语速倍率（默认 1.0） |
 | `audio_type` | string | 输出格式：`wav`（默认）/ `mp3` |
 | `streaming_mode` | bool | 是否流式返回（默认 false） |
+
+> 对主链路来说，推荐把 ref_audio 绑定到 profile 的 `[character.tts.emotions]`，而不是继续在代码里硬编码固定角色路径。
 
 #### GET `/health`
 
