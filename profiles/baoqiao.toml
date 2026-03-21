@@ -22,7 +22,7 @@ ignore_angle_brackets = true
 character_name = "baoqiao"
 
 [character.tts.emotions]
-default = "emotions/neutral.wav"
+default = "emotions/neutral/neutral_01.wav"
 
 [prompt]
 persona = "prompts/characters/baoqiao.md"
