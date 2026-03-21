@@ -102,6 +102,41 @@ def _resolve_path(settings: XnneHangLabSettings, raw_path: str) -> Path | None:
     return path
 
 
+def _resolve_active_gpt_sovits_character_name(settings: XnneHangLabSettings) -> str | None:
+    """Resolve the active GPT-SoVITS character name from the current profile."""
+    profile_path = _resolve_path(settings, settings.agent.memory_agent_profile)
+    if profile_path is None or not profile_path.exists():
+        return None
+
+    try:
+        with profile_path.open("rb") as file:
+            profile_data: dict[str, object] = tomllib.load(file)
+    except Exception:
+        return None
+
+    character_obj = profile_data.get("character")
+    if not isinstance(character_obj, dict):
+        return None
+
+    tts_obj = character_obj.get("tts")
+    if isinstance(tts_obj, dict):
+        tts_character_name = tts_obj.get("character_name")
+        if isinstance(tts_character_name, str) and tts_character_name.strip():
+            return tts_character_name.strip()
+
+    character_name = character_obj.get("character_name")
+    if isinstance(character_name, str) and character_name.strip():
+        return character_name.strip()
+
+    profile_obj = profile_data.get("profile")
+    if isinstance(profile_obj, dict):
+        profile_name = profile_obj.get("name")
+        if isinstance(profile_name, str) and profile_name.strip():
+            return profile_name.strip()
+
+    return None
+
+
 def _check_nltk_data(settings: XnneHangLabSettings) -> str | None:
     """校验 `gpt_sovits` 所需的 NLTK 数据是否存在。
 
@@ -398,8 +433,12 @@ PACKAGE_RULES: list[PackageRule] = [
         package_name="gpt_sovits",
         models=[
             ModelRequirement(
-                name="GPT-SoVITS elaina 模型",
-                path_getter=lambda s: Path(s.root.root_dir) / "models" / "gptsovits" / "elaina",
+                name="GPT-SoVITS 模型",
+                path_getter=lambda s: (
+                    Path(s.root.root_dir) / "models" / "gptsovits" / _resolve_active_gpt_sovits_character_name(s)
+                    if _resolve_active_gpt_sovits_character_name(s)
+                    else None
+                ),
                 install_hint="just install-gsv-model",
                 is_dir=True,
             ),
