@@ -183,18 +183,33 @@ def _init_gpt_sovits_backend() -> None:
         _tts_logger.info("[GSV init] import synthesizer module start")
         synthesizer_module = import_module("gsv.Synthesizers.gsv_fast")
         _tts_logger.info("[GSV init] import synthesizer module done")
+        active_character = _resolve_active_gpt_sovits_character(lab_settings)
+        if not active_character:
+            raise ValueError(
+                "Failed to resolve GPT-SoVITS character from active profile; "
+                "set [character.tts].character_name in the active memory_agent_profile."
+            )
+        _tts_logger.info("[GSV init] resolved active profile character ({})", active_character)
         _tts_logger.info("[GSV init] construct TTS_Synthesizer start")
-        tts_synthesizer = synthesizer_module.TTS_Synthesizer(debug_mode=True)
+        tts_synthesizer = synthesizer_module.TTS_Synthesizer(
+            debug_mode=True,
+            default_character=active_character,
+        )
         _tts_logger.info("[GSV init] construct TTS_Synthesizer done")
+        _tts_logger.info("[GSV init] force load active character start ({})", active_character)
+        tts_synthesizer.load_character(active_character)  # type: ignore[reportUnknownMemberType]
+        _tts_logger.info("[GSV init] force load active character done ({})", active_character)
         _tts_logger.info("[GSV init] set shared state")
         gsv_tts_state_manager.set_state(tts_synthesizer)  # type: ignore[reportUnknownMemberType]
         _tts_logger.info("[GSV init] shared state registered")
 
-        warmup_character = getattr(tts_synthesizer, "character", None) or getattr(
+        warmup_character = active_character or getattr(tts_synthesizer, "character", None) or getattr(
             tts_synthesizer,
             "default_character",
             None,
         )
+        if not warmup_character:
+            raise ValueError("No GPT-SoVITS character available for startup warmup")
         warmup_bar = tqdm(total=4, desc="GSV warmup", leave=False)
         try:
             _tts_logger.info("[GSV init] build warmup params")

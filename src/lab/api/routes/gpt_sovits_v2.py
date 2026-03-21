@@ -8,6 +8,8 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from loguru import logger
 
+from lab.config_manager import XnneHangLabSettings, load_settings_file
+from lab.profile.schema import Profile
 from lab.utils.FFmpegHelper import file_to_mp3
 
 if TYPE_CHECKING:
@@ -15,7 +17,39 @@ if TYPE_CHECKING:
 
 router = APIRouter()
 
-REF_AUDIO_BASE_DIR = Path("./models/gptsovits/elaina").resolve()
+
+def _resolve_profile_path(settings: XnneHangLabSettings, profile_path_str: str) -> Path:
+    profile_path = Path(profile_path_str)
+    if not profile_path.is_absolute():
+        profile_path = Path(settings.root.root_dir) / profile_path
+    return profile_path
+
+
+def _resolve_ref_audio_base_dir() -> Path:
+    settings = load_settings_file("lab.toml", XnneHangLabSettings)
+    profile_path_str = settings.agent.memory_agent_profile
+    if not profile_path_str:
+        return (Path(settings.root.root_dir) / "models" / "gptsovits").resolve()
+
+    profile_path = _resolve_profile_path(settings, profile_path_str)
+    if not profile_path.exists():
+        return (Path(settings.root.root_dir) / "models" / "gptsovits").resolve()
+
+    try:
+        profile = Profile.from_toml(profile_path)
+    except Exception:
+        return (Path(settings.root.root_dir) / "models" / "gptsovits").resolve()
+
+    character_name = ""
+    if profile.character is not None:
+        character_name = profile.character.tts.character_name.strip() or profile.character.character_name.strip()
+    if not character_name:
+        character_name = profile.profile.name.strip()
+
+    base_dir = Path(settings.root.root_dir) / "models" / "gptsovits"
+    if character_name:
+        return (base_dir / character_name).resolve()
+    return base_dir.resolve()
 
 
 def _get_gsv_tts_state_manager():
@@ -37,12 +71,13 @@ def _resolve_ref_audio_path(p: str) -> str:
     """
     解析 ref_audio_path，确保它是绝对路径，且在 REF_AUDIO_BASE_DIR 下。
     """
+    ref_audio_base_dir = _resolve_ref_audio_base_dir()
     cand = Path(p)
     if not cand.is_absolute():
-        cand = (REF_AUDIO_BASE_DIR / cand).resolve()
+        cand = (ref_audio_base_dir / cand).resolve()
     else:
         cand = cand.resolve()
-    if REF_AUDIO_BASE_DIR not in cand.parents and cand != REF_AUDIO_BASE_DIR:
+    if ref_audio_base_dir not in cand.parents and cand != ref_audio_base_dir:
         raise HTTPException(status_code=400, detail="Invalid ref_audio_path (out of base dir)")
     if not cand.exists():
         raise HTTPException(status_code=404, detail=f"ref_audio_path not found: {cand}")
