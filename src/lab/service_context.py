@@ -11,7 +11,11 @@ from loguru import logger
 from lab.agent.agent_factory import AgentFactory
 from lab.api.logic.translate import TranslateEngineRouter
 from lab.config_manager import XnneHangLabSettings, load_settings_file
-from lab.config_manager.vtuber import CharacterSettings, TTSPreprocessorConfig as VTuberTTSConfig
+from lab.config_manager.vtuber import (
+    CharacterSettings,
+    TTSConfig as VTuberTTSConfig,
+    TTSPreprocessorConfig as VTuberTTSPreprocessorConfig,
+)
 from lab.live2d_model import Live2dModel
 from lab.profile.schema import Profile
 
@@ -153,12 +157,16 @@ class ServiceContext:
             character_name=char.character_name,
             avatar=char.avatar,
             human_name=char.human_name,
-            tts_preprocessor_config=VTuberTTSConfig(
+            tts_preprocessor_config=VTuberTTSPreprocessorConfig(
                 remove_special_char=char.tts_preprocessor.remove_special_char,
                 ignore_brackets=char.tts_preprocessor.ignore_brackets,
                 ignore_parentheses=char.tts_preprocessor.ignore_parentheses,
                 ignore_asterisks=char.tts_preprocessor.ignore_asterisks,
                 ignore_angle_brackets=char.tts_preprocessor.ignore_angle_brackets,
+            ),
+            tts_config=VTuberTTSConfig(
+                character_name=char.tts.character_name,
+                emotions=char.tts.emotions,
             ),
         )
 

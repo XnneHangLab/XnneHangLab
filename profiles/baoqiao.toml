@@ -18,6 +18,15 @@ ignore_parentheses = true
 ignore_asterisks = true
 ignore_angle_brackets = true
 
+[character.tts]
+character_name = "baoqiao"
+
+[character.tts.emotions]
+default = "emotions/neutral.wav"
+"开心" = "emotions/happy.wav"
+"委屈" = "emotions/sad.wav"
+"生气" = "emotions/angry.wav"
+
 [prompt]
 persona = "prompts/characters/baoqiao.md"
 format = "prompts/formats/baoqiao_emotion_bracket.md"

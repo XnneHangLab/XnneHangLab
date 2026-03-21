@@ -24,6 +24,13 @@ class TTSPreprocessorConfig(BaseModel):
     ignore_angle_brackets: Annotated[bool, Field(True)]
 
 
+class TTSConfig(BaseModel):
+    """运行时使用的角色 TTS 配置。"""
+
+    character_name: Annotated[str, Field("")]
+    emotions: Annotated[dict[str, str], Field(default_factory=lambda: {"default": "emotions/neutral.wav"})]
+
+
 class CharacterSettings(BaseModel):
     """运行时使用的角色配置。
 
@@ -38,6 +45,7 @@ class CharacterSettings(BaseModel):
         avatar: 展示用头像。
         human_name: 人类一侧展示名称。
         tts_preprocessor_config: TTS 文本预处理配置。
+        tts_config: 角色 TTS 配置。
     """
 
     conf_name: Annotated[str, Field("elaina-local")]
@@ -47,6 +55,7 @@ class CharacterSettings(BaseModel):
     avatar: Annotated[str, Field("ico_lss.png")]
     human_name: Annotated[str, Field("Human")]
     tts_preprocessor_config: Annotated[TTSPreprocessorConfig, Field(TTSPreprocessorConfig())]  # pyright: ignore[reportCallIssue]
+    tts_config: Annotated[TTSConfig, Field(default_factory=TTSConfig)]
 
 
 class VtuberSettings(BaseModel):

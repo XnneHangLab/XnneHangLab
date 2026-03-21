@@ -80,6 +80,8 @@ def actions_extractor(live2d_model: Live2dModel | None):
                             expressions = live2d_model.extract_emotion(chunk.text)
                             if expressions:
                                 actions.expressions = expressions
+                                inv_emo_map = {value: key for key, value in live2d_model.emo_map.items()}
+                                actions.emotion_keys = [inv_emo_map.get(expression, "") for expression in expressions]
                     yield chunk, actions
 
         return wrapper
