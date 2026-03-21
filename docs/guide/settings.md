@@ -2,7 +2,7 @@
 
 `lab.toml` 是 **XnneHangLab** 的主配置文件。ASR、WebUI、Agent、服务端口，以及各模块开关都会从这里读取；VTuber 角色身份与 Live2D 信息已迁移到 `profiles/*.toml`。
 
-> 当前配置版本：`v1.6.0`
+> 当前配置版本：`v1.6.2`
 >
 > 配置加载规则：程序会优先在项目 `config/` 下查找配置；找不到会尝试从系统配置目录读取；再找不到会初始化默认配置并写回，保证字段结构完整。
 
@@ -12,7 +12,7 @@
 
 ```text
 lab.toml
-├── conf_version = "v1.6.0"
+├── conf_version = "v1.6.2"
 ├── [asr]
 │   ├── FFMPEG_PATH
 │   ├── device
