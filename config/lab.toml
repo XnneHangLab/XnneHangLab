@@ -64,9 +64,6 @@ llm_provider = "oaipro"
 llm_model_name = "gpt-5.1-2025-11-13"
 
 [agent.prompts]
-live2d_expression_prompt = "./prompts/live2d_expression_prompt.txt"
-think_tag_prompt = "./prompts/think_tag_prompt.txt"
-character_prompt = "./prompts/characters/elaina.txt"
 vision_prompt = "./prompts/vision_prompt.txt"
 
 [agent.llm.openai]
