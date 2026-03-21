@@ -1,3 +1,10 @@
+"""MoodChat 主动对话插件。
+
+该模块提供一个基于心情分数的 HookPlugin，在用户长时间没有继续对话时，
+按当前心情状态主动触发一轮对话，并在用户回应、超时未回应和自然回归之间
+调整内部心情值。
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -27,6 +34,9 @@ if TYPE_CHECKING:
     from lab.tools.types import AgentContext
 
 
+plugin_logger = logger.bind(group="dialog")
+
+
 @dataclass
 class _ProactiveRuntimeContext:
     websocket_send: WebSocketSend
@@ -35,6 +45,12 @@ class _ProactiveRuntimeContext:
 
 
 class MoodChatPluginConfig(PluginConfigModel):
+    """MoodChatPlugin 的可视化配置模型。
+
+    该配置模型用于为 admin/web-tool 生成逐字段可编辑的插件表单，并约束
+    主动对话提示词、心情阈值、时间间隔和心情增减规则的取值范围。
+    """
+
     prompt: Annotated[
         str,
         Field(
@@ -56,6 +72,15 @@ PLUGIN_CONFIG_MODEL = MoodChatPluginConfig
 
 
 class MoodChatPlugin(HookPlugin):
+    """基于心情分数调度主动对话的 Hook 插件。
+
+    插件会在首次真实用户回合时绑定当前 agent，并启动两个后台任务：
+    一个根据心情值决定是否主动发话，另一个让心情缓慢回归到目标值。
+
+    Attributes:
+        mood_score: 当前心情分，范围为 0 到 100。
+    """
+
     def __init__(
         self,
         prompt: str = "\u8bf7\u6839\u636e\u4e0a\u4e0b\u6587\uff0c\u4e3b\u52a8\u8bf4\u4e9b\u4ec0\u4e48\u3002",
@@ -68,6 +93,19 @@ class MoodChatPlugin(HookPlugin):
         mood_increase: int = 5,
         mood_decrease: int = 10,
     ) -> None:
+        """初始化主动对话插件。
+
+        Args:
+            prompt: 主动发话时伪造给 agent 的输入文本。
+            initial_mood: 插件启动后的初始心情分。
+            target_mood: 心情自然漂移时要回归到的目标分数。
+            response_timeout_s: 主动发话结束后等待用户回应的超时时间，单位为秒。
+            interval_excited_s: 心情大于等于 90 时的主动发话间隔，单位为秒。
+            interval_normal_s: 心情大于等于 80 时的主动发话间隔，单位为秒。
+            interval_low_s: 心情大于等于 60 时的主动发话间隔，单位为秒。
+            mood_increase: 用户真实发言后增加的心情分。
+            mood_decrease: 主动发话后超时未得到用户回应时减少的心情分。
+        """
         self._prompt = prompt
         self._target_mood = self._clamp_mood(target_mood)
         self._response_timeout_s = response_timeout_s
@@ -93,9 +131,22 @@ class MoodChatPlugin(HookPlugin):
 
     @property
     def mood_score(self) -> int:
+        """返回当前心情分。"""
         return self._mood_score
 
     async def on_before_turn(self, user_text: str, ctx: AgentContext) -> str | None:
+        """在每轮对话开始前更新插件状态。
+
+        真实用户回合进入时会确保后台任务已启动，取消正在等待的回应超时计时，
+        并将当前心情分上调；若当前回合是插件内部主动触发的回合，则跳过加分逻辑。
+
+        Args:
+            user_text: 当前回合的用户输入文本。
+            ctx: 当前 agent 的运行时上下文。
+
+        Returns:
+            可注入到主对话中的额外上下文。该插件不注入额外文本，因此返回 `None`。
+        """
         del user_text
         await self._ensure_started(ctx)
 
@@ -108,10 +159,24 @@ class MoodChatPlugin(HookPlugin):
         return None
 
     async def on_after_turn(self, user_text: str, assistant_text: str, ctx: AgentContext) -> None:
+        """在每轮对话结束后执行收尾逻辑。
+
+        MoodChatPlugin 不需要在回合结束时额外写入记忆或修改状态，因此这里保留为空实现。
+
+        Args:
+            user_text: 当前回合的用户输入文本。
+            assistant_text: 当前回合的助手输出文本。
+            ctx: 当前 agent 的运行时上下文。
+        """
         del user_text, assistant_text, ctx
         return
 
     async def stop(self) -> None:
+        """停止插件内部的所有后台任务。
+
+        该方法会取消主动调度任务、心情漂移任务、当前主动发话任务以及等待回应超时任务，
+        以确保 agent 关闭或运行时切换时不会遗留悬空任务。
+        """
         self._stopped = True
         if self._ctx is not None:
             self._ctx.extra.pop(self._internal_turn_flag, None)
@@ -155,9 +220,8 @@ class MoodChatPlugin(HookPlugin):
                 mood = await self._get_mood_score()
                 interval = self._interval_for_mood(mood)
                 if interval is None:
-                    logger.info(
-                        "[MOOD_CHAT] proactive chat paused: mood={} next_interval=paused(check_in=60.0s)",
-                        mood,
+                    plugin_logger.info(
+                        f"[MOOD_CHAT] proactive chat paused: mood={mood} next_interval=paused(check_in=60.0s)"
                     )
                     await asyncio.sleep(60)
                     continue
@@ -200,11 +264,8 @@ class MoodChatPlugin(HookPlugin):
         mood: int,
         interval: float,
     ) -> bool:
-        logger.info(
-            "[MOOD_CHAT] proactive chat triggered: mood={} interval_s={} prompt={}",
-            mood,
-            interval,
-            self._prompt,
+        plugin_logger.info(
+            f"[MOOD_CHAT] proactive chat triggered: mood={mood} interval_s={interval} prompt={self._prompt}"
         )
 
         turn_task = asyncio.create_task(self._run_proactive_turn(agent=agent, ctx=ctx))
@@ -225,7 +286,7 @@ class MoodChatPlugin(HookPlugin):
             )
 
             if interrupt_task in done and interrupt_task.result():
-                logger.info("[MOOD_CHAT] proactive chat interrupted by user: client_uid={}", client_uid)
+                plugin_logger.info(f"[MOOD_CHAT] proactive chat interrupted by user: client_uid={client_uid}")
                 turn_task.cancel()
                 await asyncio.gather(turn_task, return_exceptions=True)
                 return True
@@ -286,9 +347,8 @@ class MoodChatPlugin(HookPlugin):
                         "frontend-playback-complete",
                     )
                     if not response:
-                        logger.warning(
-                            "[MOOD_CHAT] no frontend playback completion response: client_uid={}",
-                            runtime.client_uid,
+                        plugin_logger.warning(
+                            f"[MOOD_CHAT] no frontend playback completion response: client_uid={runtime.client_uid}"
                         )
                         return False
 
@@ -326,11 +386,8 @@ class MoodChatPlugin(HookPlugin):
             current_mood = self._mood_score
         interval = self._interval_for_mood(current_mood)
         interval_text = f"{interval}s" if interval is not None else "paused"
-        logger.info(
-            "[MOOD_CHAT] mood changed: delta={:+d} mood={} proactive_interval={}",
-            delta,
-            current_mood,
-            interval_text,
+        plugin_logger.info(
+            f"[MOOD_CHAT] mood changed: delta={delta:+d} mood={current_mood} proactive_interval={interval_text}"
         )
 
     def _cancel_response_timeout(self) -> None:
