@@ -10,8 +10,8 @@ if TYPE_CHECKING:
     from lab.agent.agents.memory_agent.memory_store import MemoryStore
     from lab.history_storage.store import HistoryStorage
 
-# 超过这轮数的历史 user message 使用 brief 版本，减少上下文占用。
-_CONDENSE_AFTER_TURNS = 4
+# 默认保留最近 5 轮结构化 history 的 full 版本。
+_DEFAULT_CONDENSE_AFTER_TURNS = 5
 
 
 @runtime_checkable
@@ -38,13 +38,17 @@ def _render_user_content(content: str, *, condensed: bool) -> str:
     return content
 
 
-def _build_messages_with_condensing(raw_pairs: list[tuple[str, str]]) -> list[OpenAIMessage]:
+def _build_messages_with_condensing(
+    raw_pairs: list[tuple[str, str]],
+    *,
+    condense_after_turns: int,
+) -> list[OpenAIMessage]:
     """把按轮次配对的消息渲染成 OpenAIMessage 列表。"""
     total = len(raw_pairs)
     messages: list[OpenAIMessage] = []
     for index, (user_content, assistant_content) in enumerate(raw_pairs):
         turns_from_end = total - 1 - index
-        condensed = turns_from_end >= _CONDENSE_AFTER_TURNS
+        condensed = turns_from_end >= condense_after_turns
         messages.append(OpenAIMessage(role="user", content=_render_user_content(user_content, condensed=condensed)))
         messages.append(OpenAIMessage(role="assistant", content=assistant_content))
     return messages
@@ -53,9 +57,10 @@ def _build_messages_with_condensing(raw_pairs: list[tuple[str, str]]) -> list[Op
 class MemoryStoreAdapter:
     """包装 MemoryStore，使其符合统一的会话存储接口。"""
 
-    def __init__(self, store: MemoryStore) -> None:
+    def __init__(self, store: MemoryStore, *, condense_after_turns: int = _DEFAULT_CONDENSE_AFTER_TURNS) -> None:
         """初始化 MemoryStore 适配器。"""
         self._store = store
+        self._condense_after_turns = condense_after_turns
 
     def load(self) -> list[OpenAIMessage]:
         """读取 MemoryStore 中的消息，并压缩较早轮次。"""
@@ -72,7 +77,7 @@ class MemoryStoreAdapter:
                 index += 2
             else:
                 index += 1
-        return _build_messages_with_condensing(pairs)
+        return _build_messages_with_condensing(pairs, condense_after_turns=self._condense_after_turns)
 
     def append_turn(self, user_block: UserPromptBlock, assistant_text: str) -> None:
         """向 MemoryStore 追加一轮结构化对话。"""
@@ -87,9 +92,10 @@ class MemoryStoreAdapter:
 class HistoryStorageAdapter:
     """包装历史持久化存储，使其符合统一的会话存储接口。"""
 
-    def __init__(self, store: HistoryStorage) -> None:
+    def __init__(self, store: HistoryStorage, *, condense_after_turns: int = _DEFAULT_CONDENSE_AFTER_TURNS) -> None:
         """初始化 HistoryStorage 适配器。"""
         self._store = store
+        self._condense_after_turns = condense_after_turns
 
     @staticmethod
     def _current_date_id() -> str:
@@ -108,7 +114,7 @@ class HistoryStorageAdapter:
                 index += 2
             else:
                 index += 1
-        return _build_messages_with_condensing(pairs)
+        return _build_messages_with_condensing(pairs, condense_after_turns=self._condense_after_turns)
 
     def append_turn(self, user_block: UserPromptBlock, assistant_text: str) -> None:
         """向持久化历史追加一轮结构化对话。"""

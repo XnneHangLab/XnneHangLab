@@ -7,7 +7,6 @@ from loguru import logger
 
 from lab.agent.agents.agent_interface import AgentInterface
 from lab.agent.transformers import actions_extractor, display_processor, sentence_divider, tts_filter
-from lab.agent.types import OpenAIMessage
 
 from .memory_store import MemoryStore
 from .message_factory import MessageFactory
@@ -19,6 +18,7 @@ if TYPE_CHECKING:
     from lab.agent.core import AgentCore
     from lab.agent.input_types import BatchInput
     from lab.agent.output_types import AudioOutput, SentenceOutput
+    from lab.agent.types import OpenAIMessage
     from lab.config_manager.config import XnneHangLabSettings
     from lab.config_manager.vtuber import TTSPreprocessorConfig
     from lab.live2d_model import Live2dModel
@@ -52,7 +52,7 @@ class MemoryAgent(AgentInterface):
 
         self.lab_settings = lab_settings
         self.core = core
-        self.core.write_back = False
+        self.core.write_back = True
 
         self.msg = MessageFactory()
         self.memory = MemoryStore()
@@ -97,7 +97,6 @@ class MemoryAgent(AgentInterface):
             user_images=user_images,
         ):
             yield token
-        self.memory.add_message(OpenAIMessage(role="user", content=user_text))
 
     def _chat_function_factory(
         self,
@@ -116,15 +115,9 @@ class MemoryAgent(AgentInterface):
             messages: list[OpenAIMessage] = [*self.memory.messages, user_msg]
 
             token_stream = chat_func(messages)
-            complete_response = ""
 
             async for token in token_stream:
                 yield token
-                complete_response += token
-
-            cleaned_response = _strip_tool_status_tokens(complete_response)
-            if cleaned_response:
-                self.memory.add_message(OpenAIMessage(role="assistant", content=cleaned_response))
 
         return chat_with_memory
 

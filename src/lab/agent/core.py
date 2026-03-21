@@ -565,10 +565,12 @@ class AgentCore:
                         tool_image=tool_image,
                     )
                     if tool_outcome.succeeded:
-                        summary_text = self.prompt.make_vision_tool_summary(
+                        tool_entry = self.prompt.make_vision_tool_summary(
                             tool_outcome.summary,
                             brief=tool_outcome.brief,
-                        ).render(condensed=False)
+                        )
+                        vision_tool_entry = self._append_context_entry(vision_tool_entry, tool_entry)
+                        summary_text = tool_entry.render(condensed=False)
                         if summary_text is not None:
                             final_messages.append(
                                 OpenAIMessage(
@@ -578,12 +580,14 @@ class AgentCore:
                             )
                             last_tool_image_handoff_b64 = tool_image.b64
                     else:
-                        failure_notice = self._make_vision_failure_entry(
+                        failure_entry = self._make_vision_failure_entry(
                             source_kind="screenshot",
                             source_label=tool_image.label,
                             status=tool_outcome.status,
                             detail=tool_outcome.detail,
-                        ).render(condensed=False)
+                        )
+                        vision_tool_entry = self._append_context_entry(vision_tool_entry, failure_entry)
+                        failure_notice = failure_entry.render(condensed=False)
                         final_messages.append(
                             OpenAIMessage(
                                 role="user",
@@ -605,12 +609,14 @@ class AgentCore:
                     logger.warning(
                         "[TOOL_IMAGE] tool image handoff blocked: chat_supports_vision=false and no vision summarizer"
                     )
-                    failure_notice = self._make_vision_failure_entry(
+                    failure_entry = self._make_vision_failure_entry(
                         source_kind="screenshot",
                         source_label=tool_image.label,
                         status="unavailable",
                         detail="chat_supports_vision=false and no vision summarizer is available for tool callback images.",
-                    ).render(condensed=False)
+                    )
+                    vision_tool_entry = self._append_context_entry(vision_tool_entry, failure_entry)
+                    failure_notice = failure_entry.render(condensed=False)
                     final_messages.append(
                         OpenAIMessage(
                             role="user",
@@ -628,6 +634,8 @@ class AgentCore:
 
         # —— 写回存储 ——
         if self.write_back:
+            user_block.vision_tool_summary = vision_tool_entry
+            user_block.validate()
             self.storage.append_turn(user_block, complete_response)
         if self._hook_manager is not None and self.agent_context is not None:
             await self._hook_manager.after_turn(user_text, complete_response, self.agent_context)
