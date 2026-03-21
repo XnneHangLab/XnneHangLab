@@ -16,6 +16,7 @@ from starlette.responses import Response
 from tqdm import tqdm
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
+from lab.profile.schema import Profile
 from lab.service_context import ServiceContext
 
 if TYPE_CHECKING:
@@ -129,6 +130,39 @@ def _log_llm_translate_startup_result(step_logger: Logger, elapsed: float, loade
         step_logger.info(f"✅ LLM Translate 后端初始化完成 ({elapsed:.1f}s)")
     else:
         step_logger.warning("LLM Translate service is enabled, but `agent.translate.llm.model_path` is empty.")
+
+
+def _resolve_profile_path(settings: XnneHangLabSettings, profile_path_str: str) -> Path:
+    profile_path = Path(profile_path_str)
+    if not profile_path.is_absolute():
+        profile_path = Path(settings.root.root_dir) / profile_path
+    return profile_path
+
+
+def _resolve_active_gpt_sovits_character(settings: XnneHangLabSettings) -> str | None:
+    profile_path_str = settings.agent.memory_agent_profile
+    if not profile_path_str:
+        return None
+
+    profile_path = _resolve_profile_path(settings, profile_path_str)
+    if not profile_path.exists():
+        return None
+
+    try:
+        profile = Profile.from_toml(profile_path)
+    except Exception:
+        return None
+
+    if profile.character is None:
+        return None
+
+    if profile.character.tts.character_name.strip():
+        return profile.character.tts.character_name.strip()
+    if profile.character.character_name.strip():
+        return profile.character.character_name.strip()
+    if profile.profile.name.strip():
+        return profile.profile.name.strip()
+    return None
 
 
 def _init_gpt_sovits_backend() -> None:
