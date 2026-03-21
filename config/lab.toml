@@ -1,4 +1,4 @@
-conf_version = "v1.6.0"
+conf_version = "v1.6.2"
 
 [asr]
 FFMPEG_PATH = "ffmpeg"
@@ -48,6 +48,7 @@ speaker_model = "gpt_sovits"
 faster_first_response = false
 max_vision_concurrency = 4
 require_detailed = true
+structured_history_full_turns = 5
 segment_method = "pysbd"
 interrupt_method = "user"
 memory_agent_profile = "profiles/baoqiao.toml"
@@ -67,7 +68,6 @@ live2d_expression_prompt = "./prompts/live2d_expression_prompt.txt"
 think_tag_prompt = "./prompts/think_tag_prompt.txt"
 character_prompt = "./prompts/characters/elaina.txt"
 vision_prompt = "./prompts/vision_prompt.txt"
-tool_prompt = "./prompts/tool_prompt.txt"
 
 [agent.llm.openai]
 llm_api_key = ""

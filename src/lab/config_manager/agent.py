@@ -106,10 +106,6 @@ class PromptSettings(BaseModel):
         str,
         Field("./prompts/vision_prompt.txt", title="Vision Prompt"),
     ]
-    tool_prompt: Annotated[
-        str,
-        Field("./prompts/tool_prompt.txt", title="Tool Prompt"),
-    ]
 
 
 class DeepLXTranslateSetting(BaseModel):

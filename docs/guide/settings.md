@@ -2,7 +2,7 @@
 
 `lab.toml` 是 **XnneHangLab** 的主配置文件。ASR、WebUI、Agent、服务端口，以及各模块开关都会从这里读取；VTuber 角色身份与 Live2D 信息已迁移到 `profiles/*.toml`。
 
-> 当前配置版本：`v1.6.0`
+> 当前配置版本：`v1.6.2`
 >
 > 配置加载规则：程序会优先在项目 `config/` 下查找配置；找不到会尝试从系统配置目录读取；再找不到会初始化默认配置并写回，保证字段结构完整。
 
@@ -12,7 +12,7 @@
 
 ```text
 lab.toml
-├── conf_version = "v1.6.0"
+├── conf_version = "v1.6.2"
 ├── [asr]
 │   ├── FFMPEG_PATH
 │   ├── device
@@ -68,8 +68,7 @@ lab.toml
 │   │   ├── live2d_expression_prompt
 │   │   ├── think_tag_prompt
 │   │   ├── character_prompt
-│   │   ├── vision_prompt
-│   │   └── tool_prompt
+│   │   └── vision_prompt
 │   ├── [agent.llm]
 │   │   ├── [agent.llm.openai]
 │   │   ├── [agent.llm.lingyi]
@@ -399,7 +398,6 @@ llm_model_name = "gpt-5.1-2025-11-13"
 | think_tag_prompt | think tag 提示词 |
 | character_prompt | 角色提示词 |
 | vision_prompt | 视觉提示词 |
-| tool_prompt | 工具提示词 |
 
 ```toml
 [agent.prompts]
@@ -407,8 +405,9 @@ live2d_expression_prompt = "./prompts/live2d_expression_prompt.txt"
 think_tag_prompt = "./prompts/think_tag_prompt.txt"
 character_prompt = "./prompts/characters/elaina.txt"
 vision_prompt = "./prompts/vision_prompt.txt"
-tool_prompt = "./prompts/tool_prompt.txt"
 ```
+
+工具相关提示词不再通过单独的 `tool_prompt` 文件配置；当前 system prompt 中的工具部分会在运行时由 `tool_prompt_segments` 和 `ToolManager.build_system_prompt()` 共同组装。
 
 ---
 

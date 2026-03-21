@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Literal
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.utils.console.logger import Logger
@@ -172,28 +171,6 @@ def read_prompt_from_text_file(prompt_path: str) -> str:
         ValueError: 文件不存在时抛出。
     """
     prompt_text_path = Path(prompt_path)
-    if not prompt_text_path.exists():
-        raise ValueError(f"prompt file {prompt_text_path} not exists")
-    with prompt_text_path.open("r", encoding="utf-8") as file:
-        return file.read()
-
-
-ToolNameList = Literal["core_memory_writer", "core_memory_reader", "knowledge_base_reader", "long_term_memory_reader"]
-
-
-def read_tool_prompt_from_text_file(tool_name: ToolNameList) -> str:
-    """读取工具专用提示词文件内容。
-
-    Args:
-        tool_name: 工具名称。
-
-    Returns:
-        str: 工具提示词文本。
-
-    Raises:
-        ValueError: 提示词文件不存在时抛出。
-    """
-    prompt_text_path = Path("prompts") / "tools" / f"{tool_name}.txt"
     if not prompt_text_path.exists():
         raise ValueError(f"prompt file {prompt_text_path} not exists")
     with prompt_text_path.open("r", encoding="utf-8") as file:
