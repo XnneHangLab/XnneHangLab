@@ -15,6 +15,13 @@
 
 切换 VTuber 角色时，只需要切换 `memory_agent_profile` 指向的 profile 文件；`/memory/chat` 则继续使用独立的 `memory_chat_profile`。
 
+除了直接编辑 `profiles/*.toml`，现在也支持通过可视化页面修改：
+
+- admin 配置页：`http://127.0.0.1:12393/web-tool/admin/`
+- 普通 Web 工具页：`http://127.0.0.1:12393/web-tool/`
+
+其中 admin 页适合编辑 profile、插件配置，以及 `[character]` / `[character.tts_preprocessor]` / `[character.tts]` 这类结构化配置。
+
 ```toml
 [prompt]
 persona = "prompts/characters/satone.md"
