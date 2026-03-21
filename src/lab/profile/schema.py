@@ -53,6 +53,16 @@ class TTSPreprocessorConfig(BaseModel):
     ignore_angle_brackets: bool = True
 
 
+class TTSConfig(BaseModel):
+    """角色 TTS 配置，包括模型标识和情绪 ref_audio 映射。"""
+
+    character_name: str = ""
+    emotions: dict[str, str] = Field(
+        default_factory=lambda: {"default": "emotions/neutral.wav"},
+        description="情绪名到 ref_audio 路径的映射，相对于 models/gptsovits/<character_name>/。",
+    )
+
+
 class CharacterConfig(BaseModel):
     """角色身份与 Live2D 配置。
 
@@ -67,6 +77,7 @@ class CharacterConfig(BaseModel):
         avatar: 前端头像文件名。
         human_name: 人类一侧显示名称。
         tts_preprocessor: TTS 文本预处理配置。
+        tts: 角色 TTS 配置。
     """
 
     conf_name: str = ""
@@ -76,6 +87,7 @@ class CharacterConfig(BaseModel):
     avatar: str = ""
     human_name: str = "Human"
     tts_preprocessor: TTSPreprocessorConfig = Field(default_factory=TTSPreprocessorConfig)
+    tts: TTSConfig = Field(default_factory=TTSConfig)
 
 
 class PluginsConfig(BaseModel):

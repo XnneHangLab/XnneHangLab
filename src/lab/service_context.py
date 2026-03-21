@@ -11,7 +11,11 @@ from loguru import logger
 from lab.agent.agent_factory import AgentFactory
 from lab.api.logic.translate import TranslateEngineRouter
 from lab.config_manager import XnneHangLabSettings, load_settings_file
-from lab.config_manager.vtuber import CharacterSettings, TTSPreprocessorConfig as VTuberTTSConfig
+from lab.config_manager.vtuber import (
+    CharacterSettings,
+    TTSConfig as VTuberTTSConfig,
+    TTSPreprocessorConfig as VTuberTTSPreprocessorConfig,
+)
 from lab.live2d_model import Live2dModel
 from lab.profile.schema import Profile
 
@@ -153,12 +157,16 @@ class ServiceContext:
             character_name=char.character_name,
             avatar=char.avatar,
             human_name=char.human_name,
-            tts_preprocessor_config=VTuberTTSConfig(
+            tts_preprocessor_config=VTuberTTSPreprocessorConfig(
                 remove_special_char=char.tts_preprocessor.remove_special_char,
                 ignore_brackets=char.tts_preprocessor.ignore_brackets,
                 ignore_parentheses=char.tts_preprocessor.ignore_parentheses,
                 ignore_asterisks=char.tts_preprocessor.ignore_asterisks,
                 ignore_angle_brackets=char.tts_preprocessor.ignore_angle_brackets,
+            ),
+            tts_config=VTuberTTSConfig(
+                character_name=char.tts.character_name,
+                emotions=char.tts.emotions,
             ),
         )
 
@@ -255,15 +263,26 @@ class ServiceContext:
 
     async def reload_runtime_from_current_settings(self) -> None:
         """Rebuild the shared default runtime state in place."""
+        previous_agent = self.agent_engine
+        if previous_agent is not None:
+            await previous_agent.close()
+            self.agent_engine = None
+            self._mcp_connected = False
+
         new_context = ServiceContext()
-        new_context.lab_setting = self.lab_setting.model_copy(deep=True)
-        await new_context.load_from_config(new_context.lab_setting)
-        await new_context.ensure_mcp_connected()
+        try:
+            new_context.lab_setting = self.lab_setting.model_copy(deep=True)
+            await new_context.load_from_config(new_context.lab_setting)
+            await new_context.ensure_mcp_connected()
+        except Exception:
+            if new_context.agent_engine is not None:
+                await new_context.agent_engine.close()
+                new_context.agent_engine = None
+            raise
 
         if new_context.server_config is None or new_context.agent_engine is None:
             raise ValueError("Reloaded context is incomplete")
 
-        previous_agent = self.agent_engine
         self.load_cache(
             lab_setting=new_context.lab_setting,
             server_config=new_context.server_config,
@@ -276,9 +295,6 @@ class ServiceContext:
         self.vision_system_prompt = new_context.vision_system_prompt
         self.history_uid = ""
         self.live2d_startup_expression_applied = new_context.live2d_startup_expression_applied
-
-        if previous_agent is not None and previous_agent is not self.agent_engine:
-            await previous_agent.close()
 
     async def ensure_mcp_connected(self) -> None:
         """确保 MCP 连接只初始化一次。"""

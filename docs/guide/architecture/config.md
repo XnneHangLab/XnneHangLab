@@ -16,8 +16,6 @@
 - 默认值集中：默认配置直接写在模型里
 - 序列化稳定：`model_dump()` 后可以直接回写 TOML
 
-加载入口很简单：
-
 ```python
 from lab.config_manager import load_settings_file, XnneHangLabSettings
 
@@ -26,34 +24,16 @@ settings = load_settings_file("lab.toml", XnneHangLabSettings)
 
 ---
 
-### 加载流程
+## 加载流程
 
-`load_settings_file()` 的工作顺序是固定的：
+`load_settings_file()` 的工作顺序固定：
 
 1. 搜索配置文件位置
 2. 用 `tomllib` 读取 TOML
 3. 交给 Pydantic 做校验和默认值补全
 4. 用 `tomli_w` 写回完整配置
 
-```python
-def load_settings_file(setting_name: str, setting: type[XnneHangLabSettings]) -> XnneHangLabSettings:
-    settings_file = search_for_settings_file(setting_name=setting_name)
-    if settings_file is None:
-        config_dir = Path("config")
-        if not config_dir.exists():
-            config_dir.mkdir()
-        settings_file = config_dir / setting_name
-        settings_file.touch()
-
-    with settings_file.open("r", encoding="utf-8") as f:
-        settings_raw = tomllib.loads(f.read())
-
-    validated_settings = setting.model_validate(settings_raw)
-    write_settings_file(settings_name=setting_name, settings=validated_settings)
-    return validated_settings
-```
-
-这么设计的原因，是让"缺字段"变成可恢复状态，而不是把运行期异常甩给用户。
+这样设计的原因，是让“缺字段”变成可恢复状态，而不是把运行期异常直接甩给用户。
 
 ---
 
@@ -63,7 +43,7 @@ def load_settings_file(setting_name: str, setting: type[XnneHangLabSettings]) ->
 
 ```python
 class XnneHangLabSettings(BaseModel):
-    conf_version: str = "v1.5.2"
+    conf_version: str = "v1.6.3"
     asr: ASRSettings
     webui: AudioRecognizeSettings
     agent: AgentSettings
@@ -75,65 +55,72 @@ class XnneHangLabSettings(BaseModel):
     memory_bench: MemoryBenchSettings
 ```
 
-这里的重点不是"字段多"，而是每个子模块都拥有自己的独立模型。这样 UI、服务端、Agent 初始化都能按模块读取，不需要到处手写键名。
-
----
-
-## 目录结构
-
-```text
-config_manager/
-├── __init__.py           # 导出 XnneHangLabSettings 和 load_settings_file
-├── config.py             # 主配置类 + 加载/写回逻辑
-├── agent.py              # AgentSettings 及其子模型
-├── asr.py                # ASRSettings（含 SherpaASRSettings / QwenASRSettings）
-├── sherpa_asr.py         # SherpaASRSettings
-├── qwen_asr.py           # QwenASRSettings
-├── server.py             # ServerSettings
-├── vtuber.py             # VtuberSettings / CharacterSettings / TTSPreprocessorConfig
-├── package.py            # PackagesSettings
-├── abs_root.py           # RootAbsDir
-├── audio_recognize.py    # AudioRecognizeSettings
-├── embedding.py          # LocalEmbeddingSetting
-├── memory_bench.py       # MemoryBenchSettings
-└── webui_i18n_model.py   # WebUI i18n 基类
-```
+这里的重点不是“字段多”，而是每个子模块都拥有自己的独立模型。这样 UI、服务端、Agent 初始化都能按模块读取，不需要到处手写键名。
 
 ---
 
 ## Agent 配置分层
 
-`AgentSettings` 不是一个平铺的大表，而是按职责拆成了几组子模型。拆法的依据很简单：哪些配置属于同一个运行时职责，就归在一起--这样 `AgentFactory` 初始化时可以按模块取，不需要到处散拼字段：
+`AgentSettings` 当前的关键字段是：
 
 ```python
 class AgentSettings(BaseModel):
-    chat_model: ChatModelSetting      # 聊天模型选择（provider + model name）
-    vision_model: VisionModelSetting  # 视觉模型选择
-    enable_tool: bool = True          # BuiltinTool 总开关
-    prompts: PromptSettings           # Agent 侧提示词路径
-    llm: LLMSettings                  # 各 provider 连接配置（api_key / base_url）
-    translate_provider: TranslateProvider = "llm"  # "llm" | "deeplx"
-    translate: TranslateSettings              # DeepLX + 本地 LLM 翻译配置
+    chat_model: ChatModelSetting
+    vision_model: VisionModelSetting
+    enable_tool: bool = True
+    prompts: PromptSettings
+    llm: LLMSettings
+    translate_provider: TranslateProvider = "llm"
+    translate: TranslateSettings
     user_lang: Literal["ZH", "EN", "JA"] = "ZH"
     speaker_lang: Literal["ZH", "EN", "JA"] = "EN"
     speaker_model: Literal["gpt_sovits"] = "gpt_sovits"
     faster_first_response: bool = False
     max_vision_concurrency: int = 4
     require_detailed: bool = True
+    structured_history_full_turns: int = 5
     segment_method: Literal["regex", "pysbd"] = "pysbd"
     interrupt_method: Literal["system", "user"] = "user"
-    memory_agent_profile: str = "profiles/elaina.toml"
+    memory_agent_profile: str = "profiles/baoqiao.toml"
     memory_chat_profile: str = "profiles/congyin.toml"
 ```
 
-`LLMSettings` 当前内置的 provider 包括 `openai`、`lingyi`、`gemini`、`oaipro`、`cerebras` 和 `qwen-code-plan`。
-其中 `qwen-code-plan` 在 Python 模型里使用字段名 `qwen_code_plan`，写回 `lab.toml` 时会序列化成 `[agent.llm.qwen-code-plan]`，这样配置名可以保持和实际 provider 名一致。
+### 一个重要变化
+
+现在的配置分层已经很明确：
+
+- `lab.toml` 负责**全局运行时配置**（模型 provider、端口、ASR、包开关等）
+- `profiles/*.toml` 负责**角色 / 场景配置**（persona、format、plugins、character、TTS 情绪映射）
+
+因此，以下内容**不再属于 `lab.toml`**：
+
+- persona / format prompt
+- 角色身份与前端展示字段
+- Live2D 模型名
+- TTS 文本预处理
+- GPT-SoVITS 角色名与 emotion → ref_audio 映射
+
+这些都在 Profile 系统里承接。
+
+---
+
+## 与 Profile 系统的衔接
+
+运行时 `ServiceContext` 会：
+
+1. 从 `lab.toml` 读取 `memory_agent_profile`
+2. 加载对应 `profiles/*.toml`
+3. 将 `[character]` 转换为内部 `CharacterSettings`
+4. 将 `[character.tts_preprocessor]` 转成 `tts_preprocessor_config`
+5. 将 `[character.tts]` 转成 `tts_config`
+
+也就是说，TTS 情绪联动现在不是硬编码，而是 profile 驱动。
+
+详见：[Profile 系统](./profile-system)。
 
 ---
 
 ## Package 开关
-
-`PackagesSettings` 控制哪些功能模块会参与启动：
 
 ```toml
 [package]
@@ -148,7 +135,7 @@ to_do_list = true
 yutto_uiya = true
 ```
 
-`sherpa_asr` 和 `qwen_asr` 可同时开启，各自注册独立路由，互不干扰。这层设计不是为了做"大而全"的配置中心，而是为了把运行依赖前移到启动阶段。不开的模块，路由和相关服务就不要硬加载。
+`sherpa_asr` 和 `qwen_asr` 可同时开启，各自注册独立路由，互不干扰。
 
 ---
 
@@ -168,6 +155,4 @@ yutto_uiya = true
 - `service_context.py` 会读取配置并初始化 Agent 与服务上下文
 - `server.py` 会根据 `[package]` 开关决定加载哪些路由
 - `AgentFactory` 会读取 `[agent]`，再继续进入 Profile / Plugin / ToolManager 流程
-- `webui_i18n_model.py` 为 WebUI 配置项提供统一的枚举映射能力
-
-> **注：** 向量模型配置已从 `AgentSettings` 中移除。Embedding 现在通过 `LocalEmbeddingSetting` 管理，启用 `package.local_embedding` 后，服务端会在现有 FastAPI 服务上挂载 `/v1/embeddings` 端点，`memory_bench` 自动使用本地 embedding 服务。
+- `Profile` 负责角色化配置；`config_manager` 不再直接承载这些角色字段

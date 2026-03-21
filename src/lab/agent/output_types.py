@@ -9,6 +9,7 @@ class ActionsDict(TypedDict):
     expressions: list[str] | list[int] | None
     pictures: list[str] | None
     sounds: list[str] | None
+    emotion_keys: list[str] | None
 
 
 @dataclass
@@ -18,6 +19,7 @@ class Actions:
     expressions: list[str] | list[int] | None = None
     pictures: list[str] | None = None
     sounds: list[str] | None = None
+    emotion_keys: list[str] | None = None
 
     def to_dict(self) -> ActionsDict:
         """Convert Actions object to a dictionary for JSON serialization"""

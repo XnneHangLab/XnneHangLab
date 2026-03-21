@@ -90,18 +90,6 @@ class LLMSettings(BaseModel):
 class PromptSettings(BaseModel):
     """Paths to agent-side prompt files."""
 
-    live2d_expression_prompt: Annotated[
-        str,
-        Field("./prompts/live2d_expression_prompt.txt", title="Live2D Expression Prompt"),
-    ]
-    think_tag_prompt: Annotated[
-        str,
-        Field("./prompts/think_tag_prompt.txt", title="Think Tag Prompt"),
-    ]
-    character_prompt: Annotated[
-        str,
-        Field("./prompts/characters/elaina.txt", title="Character Prompt"),
-    ]
     vision_prompt: Annotated[
         str,
         Field("./prompts/vision_prompt.txt", title="Vision Prompt"),

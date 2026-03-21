@@ -15,6 +15,7 @@ from lab.utils.stream_audio import AudioPayload, prepare_audio_payload
 
 if TYPE_CHECKING:
     from lab.agent.output_types import Actions, DisplayText
+    from lab.config_manager.vtuber import CharacterSettings
     from lab.conversations.types import WebSocketSend
     from lab.live2d_model import Live2dModel
 
@@ -30,6 +31,33 @@ def has_audible_tts_text(tts_text: str) -> bool:
     normalized = _TOOL_STATUS_XML_RE.sub("", normalized)
     normalized = _TOOL_STATUS_DISPLAY_RE.sub("", normalized)
     return len(_NON_SPOKEN_TTS_RE.sub("", normalized)) > 0
+
+
+def _resolve_ref_audio(
+    character_config: CharacterSettings | None,
+    emotion_keys: list[str] | None,
+) -> str:
+    """Resolve ref_audio from the current character TTS config."""
+    fallback = "./models/gptsovits/elaina/elaina.wav"
+
+    if character_config is None:
+        return fallback
+
+    tts_cfg = character_config.tts_config
+    if not tts_cfg.character_name:
+        return fallback
+
+    base = Path("models/gptsovits") / tts_cfg.character_name
+    emotions = tts_cfg.emotions
+    candidates = [key for key in emotion_keys or [] if key] + ["default"]
+
+    for key in candidates:
+        if key in emotions:
+            candidate = base / emotions[key]
+            if candidate.exists():
+                return str(candidate)
+
+    return fallback
 
 
 class TTSTaskManager:
@@ -50,6 +78,7 @@ class TTSTaskManager:
         actions: Actions | None,
         live2d_model: Live2dModel | None,
         websocket_send: WebSocketSend,
+        character_config: CharacterSettings | None = None,
     ) -> None:
         """
         Queue a TTS task while maintaining order of delivery.
@@ -60,6 +89,7 @@ class TTSTaskManager:
             actions: Live2D model actions
             live2d_model: Live2D model instance
             websocket_send: WebSocket send function
+            character_config: Current runtime character configuration
         """
         if not has_audible_tts_text(tts_text):
             logger.debug("Empty TTS text, sending silent display payload")
@@ -84,6 +114,7 @@ class TTSTaskManager:
                 display_text=display_text,
                 actions=actions,
                 live2d_model=live2d_model,
+                character_config=character_config,
                 sequence_number=current_sequence,
             )
         )
@@ -126,11 +157,17 @@ class TTSTaskManager:
         display_text: DisplayText,
         actions: Actions | None,
         live2d_model: Live2dModel | None,
+        character_config: CharacterSettings | None,
         sequence_number: int,
     ) -> None:
         """Process TTS generation and queue the result for ordered delivery."""
         del live2d_model
-        audio_file_path = await self._generate_audio(tts_text)
+        emotion_keys = actions.emotion_keys if actions is not None else None
+        audio_file_path = await self._generate_audio(
+            tts_text,
+            character_config=character_config,
+            emotion_keys=emotion_keys,
+        )
         if not audio_file_path:
             raise ValueError("Audio file path is None")
         payload = prepare_audio_payload(
@@ -140,7 +177,12 @@ class TTSTaskManager:
         )
         await self._payload_queue.put((payload, sequence_number))
 
-    async def _generate_audio(self, text: str) -> Path | None:
+    async def _generate_audio(
+        self,
+        text: str,
+        character_config: CharacterSettings | None = None,
+        emotion_keys: list[str] | None = None,
+    ) -> Path | None:
         """Generate audio file from text."""
         try:
             lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
@@ -150,11 +192,12 @@ class TTSTaskManager:
                 from lab.api.clients import GPTSoVITSClient, GPTSoVITSRequest
 
                 gpt_sovits_client = GPTSoVITSClient()
+                ref_audio_path = _resolve_ref_audio(character_config, emotion_keys)
                 response = await gpt_sovits_client.asyncpost(
                     GPTSoVITSRequest(
                         text=text,
                         audio_type="mp3",
-                        ref_audio_path="./models/gptsovits/elaina/elaina.wav",
+                        ref_audio_path=ref_audio_path,
                         text_language=lab_settings.agent.speaker_lang,
                     )
                 )

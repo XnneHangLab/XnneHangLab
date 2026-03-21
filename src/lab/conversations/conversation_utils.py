@@ -128,6 +128,7 @@ async def handle_sentence_output(
             display_text=display_text,
             actions=actions,
             live2d_model=live2d_model,
+            character_config=service_context.character_config,
             # tts_engine=tts_engine,
             websocket_send=websocket_send,
         )
