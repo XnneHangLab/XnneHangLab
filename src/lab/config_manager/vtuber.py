@@ -55,7 +55,10 @@ class CharacterSettings(BaseModel):
     avatar: Annotated[str, Field("")]
     human_name: Annotated[str, Field("Human")]
     tts_preprocessor_config: Annotated[TTSPreprocessorConfig, Field(TTSPreprocessorConfig())]  # pyright: ignore[reportCallIssue]
-    tts_config: Annotated[TTSConfig, Field(default_factory=TTSConfig)]
+    tts_config: Annotated[
+        TTSConfig,
+        Field(default_factory=lambda: TTSConfig(character_name="", emotions={"default": "emotions/neutral.wav"})),
+    ]
 
 
 class VtuberSettings(BaseModel):
