@@ -77,9 +77,14 @@ class MoodChatPlugin(HookPlugin):
     插件会在首次真实用户回合时绑定当前 agent，并启动两个后台任务：
     一个根据心情值决定是否主动发话，另一个让心情缓慢回归到目标值。
 
+    同一进程内只允许存在一个 MoodChatPlugin 实例。尝试创建第二个实例时会立即
+    抛出 RuntimeError，以防止多实例并发运行时 ctx.extra flag 冲突导致难以排查的 bug。
+
     Attributes:
         mood_score: 当前心情分，范围为 0 到 100。
     """
+
+    _instance_count: int = 0
 
     def __init__(
         self,
@@ -105,7 +110,16 @@ class MoodChatPlugin(HookPlugin):
             interval_low_s: 心情大于等于 60 时的主动发话间隔，单位为秒。
             mood_increase: 用户真实发言后增加的心情分。
             mood_decrease: 主动发话后超时未得到用户回应时减少的心情分。
+
+        Raises:
+            RuntimeError: 当进程内已存在一个 MoodChatPlugin 实例时抛出。
         """
+        if MoodChatPlugin._instance_count > 0:
+            raise RuntimeError(
+                "MoodChatPlugin 不支持多实例：进程内已存在一个 MoodChatPlugin 实例。"
+                "请检查 profile 配置，确保 mood_chat 只被启用一次。"
+            )
+        MoodChatPlugin._instance_count += 1
         self._prompt = prompt
         self._target_mood = self._clamp_mood(target_mood)
         self._response_timeout_s = response_timeout_s
@@ -150,8 +164,7 @@ class MoodChatPlugin(HookPlugin):
         del user_text
         await self._ensure_started(ctx)
 
-        current_task = asyncio.current_task()
-        if current_task is not None and ctx.extra.get(self._internal_turn_flag) is current_task:
+        if ctx.extra.get(self._internal_turn_flag):
             return None
 
         self._cancel_response_timeout()
@@ -178,6 +191,7 @@ class MoodChatPlugin(HookPlugin):
         以确保 agent 关闭或运行时切换时不会遗留悬空任务。
         """
         self._stopped = True
+        MoodChatPlugin._instance_count = max(0, MoodChatPlugin._instance_count - 1)
         if self._ctx is not None:
             self._ctx.extra.pop(self._internal_turn_flag, None)
 
@@ -308,9 +322,7 @@ class MoodChatPlugin(HookPlugin):
         fake_input = BatchInput(
             texts=[TextData(source=TextSource.INPUT, content=self._prompt)],
         )
-        current_task = asyncio.current_task()
-        if current_task is not None:
-            ctx.extra[self._internal_turn_flag] = current_task
+        ctx.extra[self._internal_turn_flag] = True
 
         runtime = self._get_runtime_context(ctx)
         try:
