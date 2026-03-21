@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from loguru import logger
+
 from lab.agent.types import OpenAIMessage
 from lab.conversations.chat_history_manager import get_history, store_message
 
@@ -67,12 +69,20 @@ class MemoryStore:
         self.history_uid = history_uid
         self._memory = []
         for msg in messages:
-            self._memory.append(
-                OpenAIMessage(
-                    role="user" if msg["role"] in ("human", "user") else "assistant",
-                    content=msg["content"],
-                )
-            )
+            role = msg["role"]
+            if role in ("human", "user"):
+                target_role = "user"
+            elif role in ("ai", "assistant"):
+                target_role = "assistant"
+            else:
+                continue
+
+            content = msg["content"]
+            if target_role == "assistant" and not content:
+                logger.warning("Skip empty assistant message while rebuilding memory from history: %s", history_uid)
+                continue
+
+            self._memory.append(OpenAIMessage(role=target_role, content=content))
 
     def handle_interrupt(self, heard_response: str) -> None:
         if self.interrupt_handled:

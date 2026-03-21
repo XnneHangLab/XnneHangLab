@@ -77,6 +77,7 @@ async def process_single_conversation(
             context=context,
             batch_input=batch_input,
             websocket_send=websocket_send,
+            client_uid=client_uid,
             tts_manager=tts_manager,
         )
 
@@ -111,6 +112,7 @@ async def process_agent_response(
     context: ServiceContext,
     batch_input: BatchInput,
     websocket_send: WebSocketSend,
+    client_uid: str,
     tts_manager: TTSTaskManager,
 ) -> str:
     """Process agent response and generate output
@@ -133,6 +135,8 @@ async def process_agent_response(
         agent_core = getattr(context.agent_engine, "core", None)
         if isinstance(agent_core, AgentCore) and agent_core.agent_context is not None:
             agent_core.agent_context.extra["websocket_send"] = websocket_send
+            agent_core.agent_context.extra["client_uid"] = client_uid
+            agent_core.agent_context.extra["service_context"] = context
         agent_output = context.agent_engine.chat(batch_input)  # type: ignore
         async for output in agent_output:  # type: ignore
             logger.debug(output)  # type: ignore
