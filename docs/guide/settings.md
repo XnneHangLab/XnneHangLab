@@ -68,8 +68,7 @@ lab.toml
 │   │   ├── live2d_expression_prompt
 │   │   ├── think_tag_prompt
 │   │   ├── character_prompt
-│   │   ├── vision_prompt
-│   │   └── tool_prompt
+│   │   └── vision_prompt
 │   ├── [agent.llm]
 │   │   ├── [agent.llm.openai]
 │   │   ├── [agent.llm.lingyi]
@@ -399,7 +398,6 @@ llm_model_name = "gpt-5.1-2025-11-13"
 | think_tag_prompt | think tag 提示词 |
 | character_prompt | 角色提示词 |
 | vision_prompt | 视觉提示词 |
-| tool_prompt | 工具提示词 |
 
 ```toml
 [agent.prompts]
@@ -407,8 +405,9 @@ live2d_expression_prompt = "./prompts/live2d_expression_prompt.txt"
 think_tag_prompt = "./prompts/think_tag_prompt.txt"
 character_prompt = "./prompts/characters/elaina.txt"
 vision_prompt = "./prompts/vision_prompt.txt"
-tool_prompt = "./prompts/tool_prompt.txt"
 ```
+
+工具相关提示词不再通过单独的 `tool_prompt` 文件配置；当前 system prompt 中的工具部分会在运行时由 `tool_prompt_segments` 和 `ToolManager.build_system_prompt()` 共同组装。
 
 ---
 
