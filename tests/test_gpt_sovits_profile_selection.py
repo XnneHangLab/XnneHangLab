@@ -1,9 +1,14 @@
+# pyright: reportPrivateUsage=false, reportUnknownParameterType=false, reportMissingParameterType=false, reportUnknownMemberType=false, reportUnknownLambdaType=false
+
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from lab.config_manager import XnneHangLabSettings
 from lab.server import _resolve_active_gpt_sovits_character
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _build_settings(tmp_path: Path) -> XnneHangLabSettings:

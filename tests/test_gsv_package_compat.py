@@ -1,15 +1,19 @@
+# pyright: reportPrivateUsage=false, reportUnknownParameterType=false, reportMissingParameterType=false, reportUnknownMemberType=false, reportUnknownLambdaType=false, reportAttributeAccessIssue=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
+
 from __future__ import annotations
 
-from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
-
 from gsv.GPT_SoVITS.module.models import TextEncoder
 from gsv.GPT_SoVITS.TTS_infer_pack.TTS import TTS
-from gsv.Synthesizers.gsv_fast.GSV_Synthesizer import GSV_Synthesizer
 from gsv.Synthesizers.gsv_fast import gsv_config
+from gsv.Synthesizers.gsv_fast.GSV_Synthesizer import GSV_Synthesizer
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_load_infer_config_falls_back_to_infer_json(tmp_path: Path) -> None:

@@ -13,8 +13,8 @@ from lab.api.logic.translate import TranslateEngineRouter
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.config_manager.vtuber import (
     CharacterSettings,
-    TTSEmotionConfig as VTuberTTSEmotionConfig,
     TTSConfig as VTuberTTSConfig,
+    TTSEmotionConfig as VTuberTTSEmotionConfig,
     TTSPreprocessorConfig as VTuberTTSPreprocessorConfig,
 )
 from lab.live2d_model import Live2dModel

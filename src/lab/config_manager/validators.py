@@ -117,24 +117,34 @@ def _resolve_active_gpt_sovits_character_name(settings: XnneHangLabSettings) -> 
     character_obj = profile_data.get("character")
     if not isinstance(character_obj, dict):
         return None
+    character_data = cast("dict[str, object]", character_obj)
 
-    tts_obj = character_obj.get("tts")
+    tts_obj = character_data.get("tts")
     if isinstance(tts_obj, dict):
-        tts_character_name = tts_obj.get("character_name")
+        tts_data = cast("dict[str, object]", tts_obj)
+        tts_character_name = tts_data.get("character_name")
         if isinstance(tts_character_name, str) and tts_character_name.strip():
             return tts_character_name.strip()
 
-    character_name = character_obj.get("character_name")
+    character_name = character_data.get("character_name")
     if isinstance(character_name, str) and character_name.strip():
         return character_name.strip()
 
     profile_obj = profile_data.get("profile")
     if isinstance(profile_obj, dict):
-        profile_name = profile_obj.get("name")
+        profile_data_dict = cast("dict[str, object]", profile_obj)
+        profile_name = profile_data_dict.get("name")
         if isinstance(profile_name, str) and profile_name.strip():
             return profile_name.strip()
 
     return None
+
+
+def _resolve_active_gpt_sovits_model_path(settings: XnneHangLabSettings) -> Path | None:
+    character_name = _resolve_active_gpt_sovits_character_name(settings)
+    if character_name is None:
+        return None
+    return Path(settings.root.root_dir) / "models" / "gptsovits" / character_name
 
 
 def _check_nltk_data(settings: XnneHangLabSettings) -> str | None:
@@ -434,11 +444,7 @@ PACKAGE_RULES: list[PackageRule] = [
         models=[
             ModelRequirement(
                 name="GPT-SoVITS 模型",
-                path_getter=lambda s: (
-                    Path(s.root.root_dir) / "models" / "gptsovits" / _resolve_active_gpt_sovits_character_name(s)
-                    if _resolve_active_gpt_sovits_character_name(s)
-                    else None
-                ),
+                path_getter=_resolve_active_gpt_sovits_model_path,
                 install_hint="just install-gsv-model",
                 is_dir=True,
             ),

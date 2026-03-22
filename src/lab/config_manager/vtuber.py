@@ -30,7 +30,7 @@ class TTSEmotionConfig(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _coerce_legacy_value(cls, value):
+    def _coerce_legacy_value(cls, value: object) -> object:
         if isinstance(value, str):
             return {"path": value, "ref_text": ""}
         if value is None:
@@ -44,7 +44,7 @@ class TTSConfig(BaseModel):
     character_name: Annotated[str, Field("")]
     emotions: Annotated[
         dict[str, TTSEmotionConfig],
-        Field(default_factory=lambda: {"default": TTSEmotionConfig(path="emotions/neutral.wav")}),
+        Field(default_factory=lambda: {"default": TTSEmotionConfig(path="emotions/neutral.wav", ref_text="")}),
     ]
 
 
@@ -77,7 +77,7 @@ class CharacterSettings(BaseModel):
         Field(
             default_factory=lambda: TTSConfig(
                 character_name="",
-                emotions={"default": TTSEmotionConfig(path="emotions/neutral.wav")},
+                emotions={"default": TTSEmotionConfig(path="emotions/neutral.wav", ref_text="")},
             )
         ),
     ]

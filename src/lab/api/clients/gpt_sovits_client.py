@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import base64
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 from loguru import logger
 from pydantic import Field
@@ -52,19 +52,20 @@ class GPTSoVITSClient(BaseClientInterface):
         self.last_error = None
         response = self.session.post(self.base_url, json=request.model_dump(exclude_none=True))
         response.raise_for_status()
-        response = response.json()
-        if isinstance(response, dict) and response.get("code") not in (None, 200, "200"):
-            self.last_error = str(response.get("message", "GPT-SoVITS request failed"))
-            logger.error(f"GPTSoVITS server returned error payload: {response}")
+        response_payload: object = response.json()
+        error_message = _extract_error_message(response_payload)
+        if error_message is not None:
+            self.last_error = error_message
+            logger.error(f"GPTSoVITS server returned error payload: {response_payload}")
             return None
         try:
-            response = GPTSoVITSResponseModel.model_validate(response)
+            response = GPTSoVITSResponseModel.model_validate(response_payload)
             if response.audio_type != request.audio_type:
                 raise ValueError(f"Expected audio type {request.audio_type}, but got {response.audio_type}")
             return response.to_dict()
         except Exception as e:
             self.last_error = f"Failed to parse GPTSoVITS response: {e}"
-            logger.error(f"Failed to parse GPTSoVITS response: {e}, {response}")
+            logger.error(f"Failed to parse GPTSoVITS response: {e}, {response_payload}")
             return None
 
     async def asyncpost(self, request: GPTSoVITSRequest) -> GPTSoVITSResponse | None:  # type: ignore[override]
@@ -81,9 +82,10 @@ class GPTSoVITSClient(BaseClientInterface):
                     self.last_error = f"GPTSoVITS HTTP {response.status}: {error_body}"
                     logger.error(self.last_error)
                     return None
-                response_data = await response.json()
-                if isinstance(response_data, dict) and response_data.get("code") not in (None, 200, "200"):
-                    self.last_error = str(response_data.get("message", "GPT-SoVITS request failed"))
+                response_data: object = await response.json()
+                error_message = _extract_error_message(response_data)
+                if error_message is not None:
+                    self.last_error = error_message
                     logger.error(f"GPTSoVITS server returned error payload: {response_data}")
                     return None
                 try:
@@ -100,3 +102,14 @@ class GPTSoVITSClient(BaseClientInterface):
                 await self.async_session.close()
             finally:
                 self.async_session = None
+
+
+def _extract_error_message(payload: object) -> str | None:
+    if not isinstance(payload, dict):
+        return None
+    data = cast("dict[str, object]", payload)
+    code = data.get("code")
+    if code in (None, 200, "200"):
+        return None
+    message = data.get("message", "GPT-SoVITS request failed")
+    return str(message)

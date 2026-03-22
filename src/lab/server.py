@@ -193,16 +193,16 @@ def _init_gpt_sovits_backend() -> None:
                 "Failed to resolve GPT-SoVITS character from active profile; "
                 "set [character.tts].character_name in the active memory_agent_profile."
             )
-        _tts_logger.info("[GSV init] resolved active profile character ({})", active_character)
+        _tts_logger.info(f"[GSV init] resolved active profile character ({active_character})")
         _tts_logger.info("[GSV init] construct TTS_Synthesizer start")
         tts_synthesizer = synthesizer_module.TTS_Synthesizer(
             debug_mode=True,
             default_character=active_character,
         )
         _tts_logger.info("[GSV init] construct TTS_Synthesizer done")
-        _tts_logger.info("[GSV init] force load active character start ({})", active_character)
+        _tts_logger.info(f"[GSV init] force load active character start ({active_character})")
         tts_synthesizer.load_character(active_character)  # type: ignore[reportUnknownMemberType]
-        _tts_logger.info("[GSV init] force load active character done ({})", active_character)
+        _tts_logger.info(f"[GSV init] force load active character done ({active_character})")
         _tts_logger.info("[GSV init] set shared state")
         gsv_tts_state_manager.set_state(tts_synthesizer)  # type: ignore[reportUnknownMemberType]
         _tts_logger.info("[GSV init] shared state registered")
