@@ -13,6 +13,7 @@ from lab.api.logic.translate import TranslateEngineRouter
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.config_manager.vtuber import (
     CharacterSettings,
+    TTSEmotionConfig as VTuberTTSEmotionConfig,
     TTSConfig as VTuberTTSConfig,
     TTSPreprocessorConfig as VTuberTTSPreprocessorConfig,
 )
@@ -166,7 +167,13 @@ class ServiceContext:
             ),
             tts_config=VTuberTTSConfig(
                 character_name=char.tts.character_name,
-                emotions=char.tts.emotions,
+                emotions={
+                    name: VTuberTTSEmotionConfig(
+                        path=emotion.path,
+                        ref_text=emotion.ref_text,
+                    )
+                    for name, emotion in char.tts.emotions.items()
+                },
             ),
         )
 

@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 from pathlib import Path
 from types import SimpleNamespace
 
-from gsv.GPT_SoVITS.TTS_infer_pack.TTS import TTS
 from gsv.GPT_SoVITS.module.models import TextEncoder
+from gsv.GPT_SoVITS.TTS_infer_pack.TTS import TTS
 from gsv.Synthesizers.gsv_fast import gsv_config
 
 
@@ -29,6 +31,21 @@ def test_text_encoder_uses_v2_symbol_count() -> None:
     )
 
     assert encoder.text_embedding.num_embeddings == 732
+
+
+def test_text_encoder_uses_v1_symbol_count() -> None:
+    encoder = TextEncoder(
+        out_channels=192,
+        hidden_channels=192,
+        filter_channels=768,
+        n_heads=2,
+        n_layers=6,
+        kernel_size=3,
+        p_dropout=0.1,
+        version="v1",
+    )
+
+    assert encoder.text_embedding.num_embeddings == 322
 
 
 def test_init_vits_weights_detects_v2_checkpoint(monkeypatch) -> None:

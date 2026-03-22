@@ -52,6 +52,10 @@ class CustomStaticFiles(StaticFiles):
         response = await super().get_response(path, scope)
         if path.endswith(".js"):
             response.headers["Content-Type"] = "application/javascript"
+        if path.endswith((".html", ".js", ".css")):
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
         return response
 
 
@@ -203,10 +207,14 @@ def _init_gpt_sovits_backend() -> None:
         gsv_tts_state_manager.set_state(tts_synthesizer)  # type: ignore[reportUnknownMemberType]
         _tts_logger.info("[GSV init] shared state registered")
 
-        warmup_character = active_character or getattr(tts_synthesizer, "character", None) or getattr(
-            tts_synthesizer,
-            "default_character",
-            None,
+        warmup_character = (
+            active_character
+            or getattr(tts_synthesizer, "character", None)
+            or getattr(
+                tts_synthesizer,
+                "default_character",
+                None,
+            )
         )
         if not warmup_character:
             raise ValueError("No GPT-SoVITS character available for startup warmup")

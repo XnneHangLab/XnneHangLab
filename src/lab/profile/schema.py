@@ -3,7 +3,7 @@ from __future__ import annotations
 import tomllib
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -53,12 +53,26 @@ class TTSPreprocessorConfig(BaseModel):
     ignore_angle_brackets: bool = True
 
 
+class TTSEmotionConfig(BaseModel):
+    path: str = ""
+    ref_text: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_legacy_value(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return {"path": value, "ref_text": ""}
+        if value is None:
+            return {"path": "", "ref_text": ""}
+        return value
+
+
 class TTSConfig(BaseModel):
     """角色 TTS 配置，包括模型标识和情绪 ref_audio 映射。"""
 
     character_name: str = ""
-    emotions: dict[str, str] = Field(
-        default_factory=lambda: {"default": "emotions/neutral.wav"},
+    emotions: dict[str, TTSEmotionConfig] = Field(
+        default_factory=lambda: {"default": TTSEmotionConfig(path="emotions/neutral.wav")},
         description="情绪名到 ref_audio 路径的映射，相对于 models/gptsovits/<character_name>/。",
     )
 

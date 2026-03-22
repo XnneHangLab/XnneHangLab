@@ -18,15 +18,26 @@ ignore_parentheses = true
 ignore_asterisks = true
 ignore_angle_brackets = true
 
+[character.tts]
+character_name = "elaina"
+
+[character.tts.emotions]
+default = "elaina.wav"
+
 [prompt]
 persona = "prompts/characters/elaina.md"
 format = "prompts/formats/emotion_bracket.md"
 
 [plugins]
-enabled = ["web_search_ddg", "web_fetch", "screen_shot", "diary", "memory"]
+enabled = [
+    "web_search_ddg",
+    "web_fetch",
+    "screen_shot",
+    "diary",
+    "memory",
+]
 
 [plugins.memory]
 user_id = "xnne"
 agent_id = "elaina"
 search_limit = 3
-# base_url defaults to http://localhost:12393 when omitted.

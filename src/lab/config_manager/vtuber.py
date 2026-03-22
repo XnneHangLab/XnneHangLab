@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from typing import Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class TTSPreprocessorConfig(BaseModel):
@@ -24,11 +24,28 @@ class TTSPreprocessorConfig(BaseModel):
     ignore_angle_brackets: Annotated[bool, Field(True)]
 
 
+class TTSEmotionConfig(BaseModel):
+    path: Annotated[str, Field("")]
+    ref_text: Annotated[str, Field("")]
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_legacy_value(cls, value):
+        if isinstance(value, str):
+            return {"path": value, "ref_text": ""}
+        if value is None:
+            return {"path": "", "ref_text": ""}
+        return value
+
+
 class TTSConfig(BaseModel):
     """运行时使用的角色 TTS 配置。"""
 
     character_name: Annotated[str, Field("")]
-    emotions: Annotated[dict[str, str], Field(default_factory=lambda: {"default": "emotions/neutral.wav"})]
+    emotions: Annotated[
+        dict[str, TTSEmotionConfig],
+        Field(default_factory=lambda: {"default": TTSEmotionConfig(path="emotions/neutral.wav")}),
+    ]
 
 
 class CharacterSettings(BaseModel):
@@ -57,7 +74,12 @@ class CharacterSettings(BaseModel):
     tts_preprocessor_config: Annotated[TTSPreprocessorConfig, Field(TTSPreprocessorConfig())]  # pyright: ignore[reportCallIssue]
     tts_config: Annotated[
         TTSConfig,
-        Field(default_factory=lambda: TTSConfig(character_name="", emotions={"default": "emotions/neutral.wav"})),
+        Field(
+            default_factory=lambda: TTSConfig(
+                character_name="",
+                emotions={"default": TTSEmotionConfig(path="emotions/neutral.wav")},
+            )
+        ),
     ]
 
 
