@@ -1,3 +1,5 @@
+"""GPT-SoVITS v1 兼容路由。"""
+
 # pyright: reportUnknownVariableType=none, reportUnknownMemberType=none
 # 在开头加入路径
 from __future__ import annotations
@@ -23,6 +25,14 @@ router = APIRouter()
 
 
 def _get_gsv_tts_state_manager():
+    """延迟获取 GSV 状态管理器。
+
+    Args:
+        无。
+
+    Returns:
+        当前进程中的 GSV TTS 状态管理器。
+    """
     # Delay importing GSV until request handling so route registration stays side-effect free.
     state_manager_module = import_module("gsv.gsv_state_manager")
     return state_manager_module.gsv_tts_state_manager  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
@@ -30,6 +40,14 @@ def _get_gsv_tts_state_manager():
 
 @router.post("/tts/gptsovits/character_list")
 async def character_list(request: Request):
+    """返回当前可用的 GPT-SoVITS 角色列表。
+
+    Args:
+        request: FastAPI 请求对象。
+
+    Returns:
+        角色列表响应；若后端未初始化则返回错误对象。
+    """
     tts_synthesizer = _get_gsv_tts_state_manager().get_tts_synthesizer()  # type: ignore[reportUnknownMemberType]
     if tts_synthesizer is None:
         return HTTPException(status_code=500, detail="TTS synthesizer not initialized")
@@ -39,6 +57,14 @@ async def character_list(request: Request):
 
 @router.post("/tts/gptsovits")
 async def gptsovits(request: Request) -> dict:  # type: ignore[reportUnknownParameterType,reportUnknownVariableType]
+    """处理 GPT-SoVITS 合成请求并返回音频数据。
+
+    Args:
+        request: FastAPI 请求对象。
+
+    Returns:
+        包含音频内容或错误信息的响应字典。
+    """
     # 尝试从JSON中获取数据，如果不是JSON，则从查询参数中获取
     data = await request.json()
     try:

@@ -1,3 +1,5 @@
+"""GPT-SoVITS HTTP 客户端。"""
+
 from __future__ import annotations
 
 import base64
@@ -12,6 +14,23 @@ from lab.api.types import GPTSoVITSResponse
 
 
 class GPTSoVITSRequest(BaseRequest):
+    """GPT-SoVITS 合成请求。
+
+    Attributes:
+        text: 需要合成的文本。
+        ref_audio_path: 参考音频路径。
+        prompt_text: 参考音频对应的参考文本。
+        prompt_language: 参考文本语言。
+        audio_type: 期望返回的音频格式。
+        text_language: 待合成文本语言。
+        batch_size: 批处理大小。
+        speed: 语速倍率。
+        top_k: 采样 top-k。
+        top_p: 采样 top-p。
+        temperature: 采样温度。
+        repetition_penalty: 重复惩罚系数。
+    """
+
     text: str
     ref_audio_path: str | None = None
     prompt_text: str | None = None
@@ -27,11 +46,27 @@ class GPTSoVITSRequest(BaseRequest):
 
 
 class GPTSoVITSResponseModel(BaseResponse):
+    """GPT-SoVITS 接口响应模型。
+
+    Attributes:
+        audio_type: 返回的音频格式。
+        audio_rate: 返回的采样率。
+        audio_byte: Base64 编码后的音频二进制。
+    """
+
     audio_type: Literal["mp3"]
     audio_rate: int
     audio_byte: str
 
     def to_dict(self) -> GPTSoVITSResponse:
+        """将响应模型转换为业务层使用的字典。
+
+        Args:
+            无。
+
+        Returns:
+            转换后的 GPT-SoVITS 响应字典。
+        """
         return GPTSoVITSResponse(
             audio_type=self.audio_type,
             audio_rate=self.audio_rate,
@@ -40,11 +75,22 @@ class GPTSoVITSResponseModel(BaseResponse):
 
 
 class GPTSoVITSClient(BaseClientInterface):
+    """调用本地 GPT-SoVITS 路由的客户端。"""
+
     def __init__(self):
+        """初始化 GPT-SoVITS 客户端。"""
         self.base_url = self.base_url + "/tts/gptsovits"
         self.last_error: str | None = None
 
     def post(self, request: GPTSoVITSRequest) -> GPTSoVITSResponse | None:  # type: ignore[override]
+        """以同步方式调用 GPT-SoVITS。
+
+        Args:
+            request: GPT-SoVITS 合成请求。
+
+        Returns:
+            合成成功时返回音频响应；失败时返回 `None`。
+        """
         if request.ref_audio_path and not Path(request.ref_audio_path).exists():
             self.last_error = f"Reference audio file does not exist: {request.ref_audio_path}"
             logger.error(self.last_error)
@@ -69,6 +115,14 @@ class GPTSoVITSClient(BaseClientInterface):
             return None
 
     async def asyncpost(self, request: GPTSoVITSRequest) -> GPTSoVITSResponse | None:  # type: ignore[override]
+        """以异步方式调用 GPT-SoVITS。
+
+        Args:
+            request: GPT-SoVITS 合成请求。
+
+        Returns:
+            合成成功时返回音频响应；失败时返回 `None`。
+        """
         if request.ref_audio_path and not Path(request.ref_audio_path).exists():
             self.last_error = f"Reference audio file does not exist: {request.ref_audio_path}"
             logger.error(self.last_error)
@@ -105,6 +159,14 @@ class GPTSoVITSClient(BaseClientInterface):
 
 
 def _extract_error_message(payload: object) -> str | None:
+    """从 GPT-SoVITS 响应载荷中提取错误消息。
+
+    Args:
+        payload: 原始响应对象。
+
+    Returns:
+        提取到的错误消息；若载荷表示成功则返回 `None`。
+    """
     if not isinstance(payload, dict):
         return None
     data = cast("dict[str, object]", payload)

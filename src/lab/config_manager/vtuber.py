@@ -1,3 +1,5 @@
+"""VTuber 运行时配置模型。"""
+
 from __future__ import annotations
 
 import os
@@ -25,12 +27,27 @@ class TTSPreprocessorConfig(BaseModel):
 
 
 class TTSEmotionConfig(BaseModel):
+    """单个情绪参考音频配置。
+
+    Attributes:
+        path: 相对于角色模型目录的参考音频路径。
+        ref_text: 参考音频对应的参考文本。
+    """
+
     path: Annotated[str, Field("")]
     ref_text: Annotated[str, Field("")]
 
     @model_validator(mode="before")
     @classmethod
     def _coerce_legacy_value(cls, value: object) -> object:
+        """兼容旧版字符串格式的 emotion 配置。
+
+        Args:
+            value: 原始配置值，可能是字符串、字典或 `None`。
+
+        Returns:
+            归一化后的 emotion 配置值。
+        """
         if isinstance(value, str):
             return {"path": value, "ref_text": ""}
         if value is None:

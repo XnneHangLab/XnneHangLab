@@ -1,3 +1,5 @@
+"""GPT-SoVITS WebAPI v2 兼容路由。"""
+
 from __future__ import annotations
 
 from importlib import import_module
@@ -19,6 +21,15 @@ router = APIRouter()
 
 
 def _resolve_profile_path(settings: XnneHangLabSettings, profile_path_str: str) -> Path:
+    """解析 profile 路径。
+
+    Args:
+        settings: 当前实验室配置。
+        profile_path_str: 原始 profile 路径字符串。
+
+    Returns:
+        解析后的 profile 路径。
+    """
     profile_path = Path(profile_path_str)
     if not profile_path.is_absolute():
         profile_path = Path(settings.root.root_dir) / profile_path
@@ -26,6 +37,14 @@ def _resolve_profile_path(settings: XnneHangLabSettings, profile_path_str: str) 
 
 
 def _resolve_ref_audio_base_dir() -> Path:
+    """解析当前角色的参考音频根目录。
+
+    Args:
+        无。
+
+    Returns:
+        当前角色对应的参考音频根目录。
+    """
     settings = load_settings_file("lab.toml", XnneHangLabSettings)
     profile_path_str = settings.agent.memory_agent_profile
     if not profile_path_str:
@@ -53,6 +72,14 @@ def _resolve_ref_audio_base_dir() -> Path:
 
 
 def _get_gsv_tts_state_manager():
+    """延迟获取 GSV 状态管理器。
+
+    Args:
+        无。
+
+    Returns:
+        当前进程中的 GSV TTS 状态管理器。
+    """
     # Delay importing GSV until request handling so route registration stays side-effect free.
     state_manager_module = import_module("gsv.gsv_state_manager")
     return state_manager_module.gsv_tts_state_manager  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
@@ -61,6 +88,14 @@ def _get_gsv_tts_state_manager():
 @router.get("/health")
 @router.get("/tts/gptsovitsv2/health")
 async def health() -> dict[str, str]:
+    """返回 GPT-SoVITS v2 路由的健康状态。
+
+    Args:
+        无。
+
+    Returns:
+        服务状态信息。
+    """
     synthesizer = _get_gsv_tts_state_manager().get_tts_synthesizer()  # type: ignore[reportUnknownMemberType]
     if synthesizer is None:
         raise HTTPException(status_code=503, detail="TTS synthesizer not initialized")
@@ -158,6 +193,15 @@ def _iter_file(path: Path, chunk_size: int = 1024 * 256) -> Generator[bytes, Non
 @router.get("/tts/gptsovitsv2/tts")
 @router.post("/tts/gptsovitsv2/tts")
 async def tts_webapi_v2_compat(request: Request, background_tasks: BackgroundTasks):
+    """兼容 GPT-SoVITS WebAPI v2 的 TTS 入口。
+
+    Args:
+        request: FastAPI 请求对象。
+        background_tasks: FastAPI 后台任务管理器。
+
+    Returns:
+        流式或文件响应。
+    """
     logger.debug(f"[GSV v2] 收到请求：method={request.method}, path={request.url.path}")
 
     raw = await _read_request_data(request)
