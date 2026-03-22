@@ -16,6 +16,7 @@ from starlette.responses import Response
 from tqdm import tqdm
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
+from lab.profile.schema import Profile
 from lab.service_context import ServiceContext
 
 if TYPE_CHECKING:
@@ -51,6 +52,10 @@ class CustomStaticFiles(StaticFiles):
         response = await super().get_response(path, scope)
         if path.endswith(".js"):
             response.headers["Content-Type"] = "application/javascript"
+        if path.endswith((".html", ".js", ".css")):
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
         return response
 
 
@@ -131,6 +136,39 @@ def _log_llm_translate_startup_result(step_logger: Logger, elapsed: float, loade
         step_logger.warning("LLM Translate service is enabled, but `agent.translate.llm.model_path` is empty.")
 
 
+def _resolve_profile_path(settings: XnneHangLabSettings, profile_path_str: str) -> Path:
+    profile_path = Path(profile_path_str)
+    if not profile_path.is_absolute():
+        profile_path = Path(settings.root.root_dir) / profile_path
+    return profile_path
+
+
+def _resolve_active_gpt_sovits_character(settings: XnneHangLabSettings) -> str | None:
+    profile_path_str = settings.agent.memory_agent_profile
+    if not profile_path_str:
+        return None
+
+    profile_path = _resolve_profile_path(settings, profile_path_str)
+    if not profile_path.exists():
+        return None
+
+    try:
+        profile = Profile.from_toml(profile_path)
+    except Exception:
+        return None
+
+    if profile.character is None:
+        return None
+
+    if profile.character.tts.character_name.strip():
+        return profile.character.tts.character_name.strip()
+    if profile.character.character_name.strip():
+        return profile.character.character_name.strip()
+    if profile.profile.name.strip():
+        return profile.profile.name.strip()
+    return None
+
+
 def _init_gpt_sovits_backend() -> None:
     """Initialize GPT-SoVITS into a startup-ready backend state.
 
@@ -149,18 +187,37 @@ def _init_gpt_sovits_backend() -> None:
         _tts_logger.info("[GSV init] import synthesizer module start")
         synthesizer_module = import_module("gsv.Synthesizers.gsv_fast")
         _tts_logger.info("[GSV init] import synthesizer module done")
+        active_character = _resolve_active_gpt_sovits_character(lab_settings)
+        if not active_character:
+            raise ValueError(
+                "Failed to resolve GPT-SoVITS character from active profile; "
+                "set [character.tts].character_name in the active memory_agent_profile."
+            )
+        _tts_logger.info(f"[GSV init] resolved active profile character ({active_character})")
         _tts_logger.info("[GSV init] construct TTS_Synthesizer start")
-        tts_synthesizer = synthesizer_module.TTS_Synthesizer(debug_mode=True)
+        tts_synthesizer = synthesizer_module.TTS_Synthesizer(
+            debug_mode=True,
+            default_character=active_character,
+        )
         _tts_logger.info("[GSV init] construct TTS_Synthesizer done")
+        _tts_logger.info(f"[GSV init] force load active character start ({active_character})")
+        tts_synthesizer.load_character(active_character)  # type: ignore[reportUnknownMemberType]
+        _tts_logger.info(f"[GSV init] force load active character done ({active_character})")
         _tts_logger.info("[GSV init] set shared state")
         gsv_tts_state_manager.set_state(tts_synthesizer)  # type: ignore[reportUnknownMemberType]
         _tts_logger.info("[GSV init] shared state registered")
 
-        warmup_character = getattr(tts_synthesizer, "character", None) or getattr(
-            tts_synthesizer,
-            "default_character",
-            None,
+        warmup_character = (
+            active_character
+            or getattr(tts_synthesizer, "character", None)
+            or getattr(
+                tts_synthesizer,
+                "default_character",
+                None,
+            )
         )
+        if not warmup_character:
+            raise ValueError("No GPT-SoVITS character available for startup warmup")
         warmup_bar = tqdm(total=4, desc="GSV warmup", leave=False)
         try:
             _tts_logger.info("[GSV init] build warmup params")

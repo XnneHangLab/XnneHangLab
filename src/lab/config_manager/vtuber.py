@@ -1,9 +1,11 @@
+"""VTuber 运行时配置模型。"""
+
 from __future__ import annotations
 
 import os
 from typing import Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class TTSPreprocessorConfig(BaseModel):
@@ -24,11 +26,43 @@ class TTSPreprocessorConfig(BaseModel):
     ignore_angle_brackets: Annotated[bool, Field(True)]
 
 
+class TTSEmotionConfig(BaseModel):
+    """单个情绪参考音频配置。
+
+    Attributes:
+        path: 相对于角色模型目录的参考音频路径。
+        ref_text: 参考音频对应的参考文本。
+    """
+
+    path: Annotated[str, Field("")]
+    ref_text: Annotated[str, Field("")]
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_legacy_value(cls, value: object) -> object:
+        """兼容旧版字符串格式的 emotion 配置。
+
+        Args:
+            value: 原始配置值，可能是字符串、字典或 `None`。
+
+        Returns:
+            归一化后的 emotion 配置值。
+        """
+        if isinstance(value, str):
+            return {"path": value, "ref_text": ""}
+        if value is None:
+            return {"path": "", "ref_text": ""}
+        return value
+
+
 class TTSConfig(BaseModel):
     """运行时使用的角色 TTS 配置。"""
 
     character_name: Annotated[str, Field("")]
-    emotions: Annotated[dict[str, str], Field(default_factory=lambda: {"default": "emotions/neutral.wav"})]
+    emotions: Annotated[
+        dict[str, TTSEmotionConfig],
+        Field(default_factory=lambda: {"default": TTSEmotionConfig(path="emotions/neutral.wav", ref_text="")}),
+    ]
 
 
 class CharacterSettings(BaseModel):
@@ -57,7 +91,12 @@ class CharacterSettings(BaseModel):
     tts_preprocessor_config: Annotated[TTSPreprocessorConfig, Field(TTSPreprocessorConfig())]  # pyright: ignore[reportCallIssue]
     tts_config: Annotated[
         TTSConfig,
-        Field(default_factory=lambda: TTSConfig(character_name="", emotions={"default": "emotions/neutral.wav"})),
+        Field(
+            default_factory=lambda: TTSConfig(
+                character_name="",
+                emotions={"default": TTSEmotionConfig(path="emotions/neutral.wav", ref_text="")},
+            )
+        ),
     ]
 
 

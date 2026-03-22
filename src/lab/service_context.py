@@ -14,6 +14,7 @@ from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.config_manager.vtuber import (
     CharacterSettings,
     TTSConfig as VTuberTTSConfig,
+    TTSEmotionConfig as VTuberTTSEmotionConfig,
     TTSPreprocessorConfig as VTuberTTSPreprocessorConfig,
 )
 from lab.live2d_model import Live2dModel
@@ -166,7 +167,13 @@ class ServiceContext:
             ),
             tts_config=VTuberTTSConfig(
                 character_name=char.tts.character_name,
-                emotions=char.tts.emotions,
+                emotions={
+                    name: VTuberTTSEmotionConfig(
+                        path=emotion.path,
+                        ref_text=emotion.ref_text,
+                    )
+                    for name, emotion in char.tts.emotions.items()
+                },
             ),
         )
 

@@ -33,31 +33,42 @@ def has_audible_tts_text(tts_text: str) -> bool:
     return len(_NON_SPOKEN_TTS_RE.sub("", normalized)) > 0
 
 
-def _resolve_ref_audio(
+def _resolve_ref_audio_and_text(
     character_config: CharacterSettings | None,
     emotion_keys: list[str] | None,
-) -> str:
-    """Resolve ref_audio from the current character TTS config."""
-    fallback = "./models/gptsovits/elaina/elaina.wav"
+) -> tuple[str | None, str | None]:
+    """Resolve ref_audio and optional ref_text from the current character TTS config."""
 
     if character_config is None:
-        return fallback
+        return None, None
 
     tts_cfg = character_config.tts_config
     if not tts_cfg.character_name:
-        return fallback
+        return None, None
 
     base = Path("models/gptsovits") / tts_cfg.character_name
     emotions = tts_cfg.emotions
-    candidates = [key for key in emotion_keys or [] if key] + ["default"]
+    if not emotions:
+        logger.error("No GPT-SoVITS emotions configured for character: {}", tts_cfg.character_name)
+        return None, None
+
+    candidates = [key for key in emotion_keys or [] if key]
 
     for key in candidates:
-        if key in emotions:
-            candidate = base / emotions[key]
-            if candidate.exists():
-                return str(candidate)
+        emotion = emotions.get(key)
+        if emotion is None or not emotion.path:
+            continue
+        candidate = base / emotion.path
+        if candidate.is_file():
+            return str(candidate), (emotion.ref_text or None)
 
-    return fallback
+    first_emotion = next(iter(emotions.values()), None)
+    if first_emotion is not None and first_emotion.path:
+        candidate = base / first_emotion.path
+        if candidate.is_file():
+            return str(candidate), (first_emotion.ref_text or None)
+
+    return None, None
 
 
 class TTSTaskManager:
@@ -192,17 +203,21 @@ class TTSTaskManager:
                 from lab.api.clients import GPTSoVITSClient, GPTSoVITSRequest
 
                 gpt_sovits_client = GPTSoVITSClient()
-                ref_audio_path = _resolve_ref_audio(character_config, emotion_keys)
+                ref_audio_path, ref_text = _resolve_ref_audio_and_text(character_config, emotion_keys)
                 response = await gpt_sovits_client.asyncpost(
                     GPTSoVITSRequest(
                         text=text,
                         audio_type="mp3",
                         ref_audio_path=ref_audio_path,
+                        prompt_text=ref_text,
                         text_language=lab_settings.agent.speaker_lang,
                     )
                 )
                 if response is None:
-                    logger.error("Failed to get a valid response from GPT-SoVITS client")
+                    logger.error(
+                        "Failed to get a valid response from GPT-SoVITS client: {}",
+                        gpt_sovits_client.last_error or "unknown error",
+                    )
                     return None
             else:
                 logger.error(f"Unsupported speaker model: {lab_settings.agent.speaker_model}")

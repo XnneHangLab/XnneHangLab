@@ -14,6 +14,17 @@ def _base_settings(tmp_path: Path) -> XnneHangLabSettings:
     return settings
 
 
+def _write_memory_chat_profile(profiles_dir: Path) -> None:
+    (profiles_dir / "congyin.toml").write_text(
+        """
+[profile]
+name = "congyin"
+agent_name = "congyin"
+""".strip(),
+        encoding="utf-8",
+    )
+
+
 def test_validate_requires_memory_agent_profile() -> None:
     settings = _base_settings(Path.cwd())
 
@@ -105,3 +116,39 @@ agent_name = "congyin"
 
     assert any("[plugins.live2d_control]" in err for err in errors)
     assert any("duplicate key" in err for err in errors)
+
+
+def test_validate_uses_active_profile_character_tts_model(tmp_path: Path) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+    (profiles_dir / "vtuber.toml").write_text(
+        """
+[profile]
+name = "vtuber"
+agent_name = "vtuber"
+
+[character]
+conf_name = "vtuber-local"
+conf_uid = "vtuber-local-001"
+live2d_model_name = "Baoqiao"
+character_name = "VTuber"
+avatar = "avatar.png"
+human_name = "Human"
+
+[character.tts]
+character_name = "baoqiao"
+
+[prompt]
+persona = "prompts/characters/elaina.md"
+format = "prompts/formats/emotion_bracket.md"
+""".strip(),
+        encoding="utf-8",
+    )
+    _write_memory_chat_profile(profiles_dir)
+
+    settings = _base_settings(tmp_path)
+    settings.agent.memory_agent_profile = "profiles/vtuber.toml"
+
+    errors = validate_all(settings)
+
+    assert any("models" in err and "gptsovits" in err and "baoqiao" in err for err in errors)

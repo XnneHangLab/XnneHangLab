@@ -133,7 +133,7 @@ class AgentSettings(BaseModel):
     translate_provider: Annotated[TranslateProvider, Field("llm", title="Translation Provider")]
     translate: Annotated[TranslateSettings, Field(TranslateSettings())]  # pyright: ignore[reportCallIssue]
     user_lang: Annotated[Literal["ZH", "EN", "JA"], Field("ZH", title="User Language")]
-    speaker_lang: Annotated[Literal["ZH", "EN", "JA"], Field("EN", title="Speaker Language")]
+    speaker_lang: Annotated[Literal["ZH", "EN", "JA"], Field("ZH", title="Speaker Language")]
     speaker_model: Annotated[Literal["gpt_sovits"], Field("gpt_sovits", title="Speaker Model")]
     faster_first_response: Annotated[bool, Field(False, title="Faster First Response")]
     max_vision_concurrency: Annotated[
