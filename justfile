@@ -1,7 +1,13 @@
-sync:
+sync-dev:
   git checkout dev
   git pull origin dev
   git submodule update --init --recursive
+
+sync-submodule:
+  git submodule sync --recursive
+  git submodule update --init --recursive
+  git submodule absorbgitdirs
+
 
 # Config
 

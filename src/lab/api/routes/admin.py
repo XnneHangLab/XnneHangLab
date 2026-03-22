@@ -7,11 +7,34 @@ from typing import Any, cast
 
 import tomli_w as tomlw
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
+from lab.config_manager.config import XnneHangLabSettings
+from lab.config_manager.agent import LLMProviderSetting
 from lab.plugin.config import validate_plugin_override
 
 router = APIRouter(tags=["admin"])
+
+
+class ProviderCreatePayload(BaseModel):
+    name: str
+    base_url: str = ""
+    api_key: str = ""
+
+
+class ProviderUpdatePayload(BaseModel):
+    base_url: str | None = None
+    api_key: str | None = None
+
+
+class AgentModelPayload(BaseModel):
+    llm_provider: str
+    llm_model_name: str
+
+
+class AgentConfigPayload(BaseModel):
+    chat_model: AgentModelPayload
+    vision_model: AgentModelPayload
 
 
 def _get_service_context(request: Request) -> Any:
@@ -25,9 +48,9 @@ def _get_workspace_root(request: Request) -> Path:
     ctx = _get_service_context(request)
     lab_setting = getattr(ctx, "lab_setting", None)
     root_dir = getattr(getattr(lab_setting, "root", None), "root_dir", "")
-    if not root_dir:
-        raise HTTPException(status_code=503, detail="workspace root is not configured")
-    return Path(root_dir).resolve()
+    if root_dir:
+        return Path(root_dir).resolve()
+    return Path.cwd().resolve()
 
 
 def _profiles_dir(request: Request) -> Path:
@@ -36,6 +59,38 @@ def _profiles_dir(request: Request) -> Path:
 
 def _plugins_dir(request: Request) -> Path:
     return _get_workspace_root(request) / "src" / "lab" / "plugins"
+
+
+def _lab_config_path(request: Request) -> Path:
+    return _get_workspace_root(request) / "config" / "lab.toml"
+
+
+def _load_lab_settings(request: Request) -> tuple[XnneHangLabSettings, Path]:
+    settings_path = _lab_config_path(request)
+    raw_settings: dict[str, Any] = {}
+
+    if settings_path.exists():
+        with settings_path.open("rb") as file:
+            raw_settings = cast("dict[str, Any]", tomllib.load(file))
+    else:
+        ctx = _get_service_context(request)
+        current_settings = getattr(ctx, "lab_setting", None)
+        model_dump = getattr(current_settings, "model_dump", None)
+        if callable(model_dump):
+            raw_settings = cast("dict[str, Any]", model_dump(exclude_none=True, by_alias=True))
+
+    try:
+        return XnneHangLabSettings.model_validate(raw_settings), settings_path
+    except ValidationError as exc:
+        raise HTTPException(status_code=500, detail=f"Invalid lab.toml: {exc}") from exc
+
+
+def _save_lab_settings(settings_path: Path, settings: XnneHangLabSettings) -> None:
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    settings_path.write_text(
+        tomlw.dumps(settings.model_dump(exclude_none=True, by_alias=True)),
+        encoding="utf-8",
+    )
 
 
 def _resolve_plugin_dir(request: Request, plugin_id: str) -> Path | None:
@@ -107,6 +162,41 @@ def _validate_profile_payload(request: Request, payload: dict[str, Any]) -> None
             raise HTTPException(status_code=400, detail=f"Invalid plugins.{plugin_id}: {exc}") from exc
 
 
+def _normalize_provider_name(name: str) -> str:
+    normalized = name.strip()
+    if not normalized:
+        raise HTTPException(status_code=400, detail="Provider name cannot be empty")
+    if "/" in normalized or "\\" in normalized:
+        raise HTTPException(status_code=400, detail="Provider name cannot contain path separators")
+    return normalized
+
+
+def _mask_api_key(api_key: str) -> str:
+    if not api_key:
+        return ""
+    if len(api_key) <= 8:
+        return "*" * len(api_key)
+    return api_key[:4] + "*" * (len(api_key) - 8) + api_key[-4:]
+
+
+def _serialize_provider(provider: LLMProviderSetting) -> dict[str, Any]:
+    return {
+        "name": provider.name,
+        "base_url": provider.llm_base_url,
+        "api_key_masked": _mask_api_key(provider.llm_api_key),
+        "has_api_key": bool(provider.llm_api_key),
+        "api_format": provider.api_format,
+    }
+
+
+def _find_provider(settings: XnneHangLabSettings, name: str) -> tuple[int, LLMProviderSetting]:
+    provider_name = _normalize_provider_name(name)
+    for index, provider in enumerate(settings.agent.llm.providers):
+        if provider.name == provider_name:
+            return index, provider
+    raise HTTPException(status_code=404, detail=f"Provider not found: {provider_name}")
+
+
 @router.get("/api/plugins", response_model=None)
 async def list_plugins(request: Request) -> list[dict[str, Any]]:
     workspace_root = _get_workspace_root(request)
@@ -163,6 +253,95 @@ async def put_profile(name: str, payload: dict[str, Any], request: Request) -> d
     profile_path.parent.mkdir(parents=True, exist_ok=True)
     profile_path.write_text(tomlw.dumps(payload), encoding="utf-8")
     return {"status": "ok", "name": name}
+
+
+@router.get("/api/providers", response_model=None)
+async def list_providers(request: Request) -> list[dict[str, Any]]:
+    settings, _ = _load_lab_settings(request)
+    return [_serialize_provider(provider) for provider in settings.agent.llm.providers]
+
+
+@router.post("/api/providers", response_model=None)
+async def create_provider(payload: ProviderCreatePayload, request: Request) -> dict[str, Any]:
+    settings, settings_path = _load_lab_settings(request)
+    provider_name = _normalize_provider_name(payload.name)
+
+    if settings.agent.llm.has_provider(provider_name):
+        raise HTTPException(status_code=409, detail=f"Provider already exists: {provider_name}")
+
+    settings.agent.llm.providers.append(
+        LLMProviderSetting(
+            name=provider_name,
+            llm_base_url=payload.base_url,
+            llm_api_key=payload.api_key,
+            api_format="chat_completion",
+        )
+    )
+    _save_lab_settings(settings_path, settings)
+    return {"status": "ok", "provider": _serialize_provider(settings.agent.llm.providers[-1])}
+
+
+@router.put("/api/providers/{name}", response_model=None)
+async def update_provider(name: str, payload: ProviderUpdatePayload, request: Request) -> dict[str, Any]:
+    settings, settings_path = _load_lab_settings(request)
+    index, provider = _find_provider(settings, name)
+
+    if payload.base_url is not None:
+        provider.llm_base_url = payload.base_url
+    if payload.api_key is not None:
+        provider.llm_api_key = payload.api_key
+
+    settings.agent.llm.providers[index] = provider
+    _save_lab_settings(settings_path, settings)
+    return {"status": "ok", "provider": _serialize_provider(provider)}
+
+
+@router.delete("/api/providers/{name}", response_model=None)
+async def delete_provider(name: str, request: Request) -> dict[str, Any]:
+    settings, settings_path = _load_lab_settings(request)
+    provider_name = _normalize_provider_name(name)
+    index, _provider = _find_provider(settings, provider_name)
+
+    if settings.agent.chat_model.llm_provider == provider_name or settings.agent.vision_model.llm_provider == provider_name:
+        raise HTTPException(status_code=400, detail=f"Provider is still in use: {provider_name}")
+
+    settings.agent.llm.providers.pop(index)
+    _save_lab_settings(settings_path, settings)
+    return {"status": "ok", "name": provider_name}
+
+
+@router.get("/api/config/agent", response_model=None)
+async def get_agent_config(request: Request) -> dict[str, Any]:
+    settings, _ = _load_lab_settings(request)
+    return {
+        "chat_model": {
+            "llm_provider": settings.agent.chat_model.llm_provider,
+            "llm_model_name": settings.agent.chat_model.llm_model_name,
+            "support_vision": settings.agent.chat_model.support_vision,
+        },
+        "vision_model": {
+            "llm_provider": settings.agent.vision_model.llm_provider,
+            "llm_model_name": settings.agent.vision_model.llm_model_name,
+        },
+    }
+
+
+@router.put("/api/config/agent", response_model=None)
+async def update_agent_config(payload: AgentConfigPayload, request: Request) -> dict[str, Any]:
+    settings, settings_path = _load_lab_settings(request)
+
+    for field_name, config in (("chat_model", payload.chat_model), ("vision_model", payload.vision_model)):
+        provider_name = _normalize_provider_name(config.llm_provider)
+        if not settings.agent.llm.has_provider(provider_name):
+            raise HTTPException(status_code=400, detail=f"Unknown provider for {field_name}: {provider_name}")
+
+    settings.agent.chat_model.llm_provider = _normalize_provider_name(payload.chat_model.llm_provider)
+    settings.agent.chat_model.llm_model_name = payload.chat_model.llm_model_name
+    settings.agent.vision_model.llm_provider = _normalize_provider_name(payload.vision_model.llm_provider)
+    settings.agent.vision_model.llm_model_name = payload.vision_model.llm_model_name
+
+    _save_lab_settings(settings_path, settings)
+    return {"status": "ok"}
 
 
 @router.post("/api/agent/reload", response_model=None)

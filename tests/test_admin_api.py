@@ -191,6 +191,160 @@ def test_reload_default_agent_rebuilds_shared_context_in_place(monkeypatch: pyte
     assert reload_calls == [shared_ctx]
 
 
+def test_provider_endpoints_migrate_legacy_lab_toml_and_write_provider_list(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir(parents=True)
+    (config_dir / "lab.toml").write_text(
+        """
+[agent.chat_model]
+llm_provider = "oaipro"
+llm_model_name = "gpt-chat"
+support_vision = false
+
+[agent.vision_model]
+llm_provider = "openai"
+llm_model_name = "gpt-vision"
+
+[agent.llm.openai]
+llm_api_key = "sk-openai-1234"
+llm_base_url = "https://api.openai.com/v1"
+api_format = "chat_completion"
+
+[agent.llm.oaipro]
+llm_api_key = "sk-oaipro-5678"
+llm_base_url = "https://api.oaipro.com/v1"
+api_format = "chat_completion"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    client = TestClient(_make_app(tmp_path))
+
+    list_response = client.get("/admin/api/providers")
+    assert list_response.status_code == 200
+    assert list_response.json() == [
+        {
+            "name": "openai",
+            "base_url": "https://api.openai.com/v1",
+            "api_key_masked": "sk-o******1234",
+            "has_api_key": True,
+            "api_format": "chat_completion",
+        },
+        {
+            "name": "oaipro",
+            "base_url": "https://api.oaipro.com/v1",
+            "api_key_masked": "sk-o******5678",
+            "has_api_key": True,
+            "api_format": "chat_completion",
+        },
+    ]
+
+    create_response = client.post(
+        "/admin/api/providers",
+        json={"name": "custom", "base_url": "https://example.test/v1", "api_key": "secret"},
+    )
+    assert create_response.status_code == 200
+
+    update_response = client.put(
+        "/admin/api/providers/openai",
+        json={"base_url": "https://proxy.example/v1", "api_key": "sk-openai-updated"},
+    )
+    assert update_response.status_code == 200
+
+    delete_response = client.delete("/admin/api/providers/custom")
+    assert delete_response.status_code == 200
+    assert delete_response.json() == {"status": "ok", "name": "custom"}
+
+    with (config_dir / "lab.toml").open("rb") as file:
+        saved = tomllib.load(file)
+
+    assert saved["agent"]["llm"] == {
+        "providers": [
+            {
+                "name": "openai",
+                "llm_api_key": "sk-openai-updated",
+                "llm_base_url": "https://proxy.example/v1",
+                "api_format": "chat_completion",
+            },
+            {
+                "name": "oaipro",
+                "llm_api_key": "sk-oaipro-5678",
+                "llm_base_url": "https://api.oaipro.com/v1",
+                "api_format": "chat_completion",
+            },
+        ]
+    }
+
+
+def test_agent_config_endpoints_read_and_update_model_selection(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir(parents=True)
+    (config_dir / "lab.toml").write_text(
+        """
+[agent.chat_model]
+llm_provider = "oaipro"
+llm_model_name = "gpt-chat"
+support_vision = true
+
+[agent.vision_model]
+llm_provider = "openai"
+llm_model_name = "gpt-vision"
+
+[[agent.llm.providers]]
+name = "oaipro"
+llm_api_key = "sk-oaipro-5678"
+llm_base_url = "https://api.oaipro.com/v1"
+api_format = "chat_completion"
+
+[[agent.llm.providers]]
+name = "openai"
+llm_api_key = "sk-openai-1234"
+llm_base_url = "https://api.openai.com/v1"
+api_format = "chat_completion"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    client = TestClient(_make_app(tmp_path))
+
+    get_response = client.get("/admin/api/config/agent")
+    assert get_response.status_code == 200
+    assert get_response.json() == {
+        "chat_model": {
+            "llm_provider": "oaipro",
+            "llm_model_name": "gpt-chat",
+            "support_vision": True,
+        },
+        "vision_model": {
+            "llm_provider": "openai",
+            "llm_model_name": "gpt-vision",
+        },
+    }
+
+    put_response = client.put(
+        "/admin/api/config/agent",
+        json={
+            "chat_model": {"llm_provider": "openai", "llm_model_name": "gpt-next"},
+            "vision_model": {"llm_provider": "oaipro", "llm_model_name": "vision-next"},
+        },
+    )
+    assert put_response.status_code == 200
+    assert put_response.json() == {"status": "ok"}
+
+    with (config_dir / "lab.toml").open("rb") as file:
+        saved = tomllib.load(file)
+
+    assert saved["agent"]["chat_model"] == {
+        "llm_provider": "openai",
+        "llm_model_name": "gpt-next",
+        "support_vision": True,
+    }
+    assert saved["agent"]["vision_model"] == {
+        "llm_provider": "oaipro",
+        "llm_model_name": "vision-next",
+    }
+
+
 def test_service_context_reload_runtime_refreshes_template_state(monkeypatch: pytest.MonkeyPatch) -> None:
     import asyncio
 

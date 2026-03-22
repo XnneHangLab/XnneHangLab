@@ -208,12 +208,19 @@ def _check_chat_api_key(settings: XnneHangLabSettings) -> str | None:
         错误信息；若校验通过则返回 `None`。
     """
     chat_provider = settings.agent.chat_model.llm_provider
-    llm_cfg = getattr(settings.agent.llm, chat_provider.replace("-", "_"), None)
-    if llm_cfg is not None and not llm_cfg.llm_api_key:
+    try:
+        llm_cfg = settings.agent.llm.get_provider_config(chat_provider)
+    except KeyError:
         return (
-            f" [agent.llm.{chat_provider}]\n"
+            " [agent.llm.providers]\n"
+            f" 当前 chat_model 引用了不存在的 provider: {chat_provider}\n"
+            " -> 检查 [agent.chat_model].llm_provider，或在 [[agent.llm.providers]] 中补齐同名 provider"
+        )
+    if not llm_cfg.llm_api_key:
+        return (
+            " [agent.llm.providers]\n"
             " llm_api_key 未配置\n"
-            f" -> 在 config/lab.toml 的 [agent.llm.{chat_provider}] 下设置 llm_api_key"
+            f" -> 在 [[agent.llm.providers]] 中找到 name = \"{chat_provider}\" 的条目并设置 llm_api_key"
         )
     return None
 
