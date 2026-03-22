@@ -33,18 +33,21 @@ def test_resolve_ref_audio_and_text_prefers_matching_emotion(tmp_path: Path, mon
     assert ref_text == "happy ref text"
 
 
-def test_resolve_ref_audio_and_text_falls_back_to_default_without_ref_text(tmp_path: Path, monkeypatch) -> None:
+def test_resolve_ref_audio_and_text_falls_back_to_first_emotion_without_ref_text(tmp_path: Path, monkeypatch) -> None:
     model_dir = tmp_path / "models" / "gptsovits" / "baoqiao" / "emotions"
     model_dir.mkdir(parents=True)
-    default_ref = model_dir / "neutral.wav"
-    default_ref.write_bytes(b"wav")
+    first_ref = model_dir / "neutral.wav"
+    first_ref.write_bytes(b"wav")
 
     monkeypatch.chdir(tmp_path)
 
     character = CharacterSettings(
         tts_config=TTSConfig(
             character_name="baoqiao",
-            emotions={"default": "emotions/neutral.wav"},
+            emotions={
+                "neutral": "emotions/neutral.wav",
+                "sad": {"path": "emotions/sad.wav", "ref_text": "sad ref text"},
+            },
         )
     )
 
@@ -61,6 +64,20 @@ def test_resolve_ref_audio_and_text_returns_none_when_missing(tmp_path: Path, mo
         tts_config=TTSConfig(
             character_name="baoqiao",
             emotions={"default": "emotions/neutral.wav"},
+        )
+    )
+
+    ref_audio, ref_text = _resolve_ref_audio_and_text(character, emotion_keys=["happy"])
+
+    assert ref_audio is None
+    assert ref_text is None
+
+
+def test_resolve_ref_audio_and_text_returns_none_when_emotions_empty() -> None:
+    character = CharacterSettings(
+        tts_config=TTSConfig(
+            character_name="baoqiao",
+            emotions={},
         )
     )
 

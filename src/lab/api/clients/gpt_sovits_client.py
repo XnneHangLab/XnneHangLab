@@ -42,40 +42,61 @@ class GPTSoVITSResponseModel(BaseResponse):
 class GPTSoVITSClient(BaseClientInterface):
     def __init__(self):
         self.base_url = self.base_url + "/tts/gptsovits"
+        self.last_error: str | None = None
 
     def post(self, request: GPTSoVITSRequest) -> GPTSoVITSResponse | None:  # type: ignore[override]
         if request.ref_audio_path and not Path(request.ref_audio_path).exists():
-            logger.error(f"Reference audio file does not exist: {request.ref_audio_path}")
+            self.last_error = f"Reference audio file does not exist: {request.ref_audio_path}"
+            logger.error(self.last_error)
             return None
+        self.last_error = None
         response = self.session.post(self.base_url, json=request.model_dump(exclude_none=True))
         response.raise_for_status()
         response = response.json()
+        if isinstance(response, dict) and response.get("code") not in (None, 200, "200"):
+            self.last_error = str(response.get("message", "GPT-SoVITS request failed"))
+            logger.error(f"GPTSoVITS server returned error payload: {response}")
+            return None
         try:
             response = GPTSoVITSResponseModel.model_validate(response)
             if response.audio_type != request.audio_type:
                 raise ValueError(f"Expected audio type {request.audio_type}, but got {response.audio_type}")
             return response.to_dict()
         except Exception as e:
+            self.last_error = f"Failed to parse GPTSoVITS response: {e}"
             logger.error(f"Failed to parse GPTSoVITS response: {e}, {response}")
             return None
 
     async def asyncpost(self, request: GPTSoVITSRequest) -> GPTSoVITSResponse | None:  # type: ignore[override]
         if request.ref_audio_path and not Path(request.ref_audio_path).exists():
-            logger.error(f"Reference audio file does not exist: {request.ref_audio_path}")
+            self.last_error = f"Reference audio file does not exist: {request.ref_audio_path}"
+            logger.error(self.last_error)
             return None
         self.async_session = await self.get_async_session()
-        async with self.async_session.post(self.base_url, json=request.model_dump(exclude_none=True)) as response:
-            if response.status != 200:
-                logger.error(f"Failed to get a valid response: {response.status}")
-                return None
-            response_data = await response.json()
+        self.last_error = None
+        try:
+            async with self.async_session.post(self.base_url, json=request.model_dump(exclude_none=True)) as response:
+                if response.status != 200:
+                    error_body = await response.text()
+                    self.last_error = f"GPTSoVITS HTTP {response.status}: {error_body}"
+                    logger.error(self.last_error)
+                    return None
+                response_data = await response.json()
+                if isinstance(response_data, dict) and response_data.get("code") not in (None, 200, "200"):
+                    self.last_error = str(response_data.get("message", "GPT-SoVITS request failed"))
+                    logger.error(f"GPTSoVITS server returned error payload: {response_data}")
+                    return None
+                try:
+                    response = GPTSoVITSResponseModel.model_validate(response_data)
+                    if response.audio_type != request.audio_type:
+                        raise ValueError(f"Expected audio type {request.audio_type}, but got {response.audio_type}")
+                    return response.to_dict()
+                except Exception as e:
+                    self.last_error = f"Failed to parse GPTSoVITS response: {e}"
+                    logger.error(f"Failed to parse GPTSoVITS response: {e}, {response_data}")
+                    return None
+        finally:
             try:
-                response = GPTSoVITSResponseModel.model_validate(response_data)
-                if response.audio_type != request.audio_type:
-                    raise ValueError(f"Expected audio type {request.audio_type}, but got {response.audio_type}")
-                return response.to_dict()
-            except Exception as e:
-                logger.error(f"Failed to parse GPTSoVITS response: {e}, {response_data}")
-                return None
-            finally:
                 await self.async_session.close()
+            finally:
+                self.async_session = None

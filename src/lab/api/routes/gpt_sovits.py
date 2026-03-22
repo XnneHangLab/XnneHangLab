@@ -55,7 +55,10 @@ async def gptsovits(request: Request) -> dict:  # type: ignore[reportUnknownPara
     elif task.sample_rate is None:  # type: ignore[reportUnknownMemberType]
         return {"code": 400, "message": "Sample rate must be specified"}
 
-    save_path = tts_synthesizer.generate(task, return_type="filepath")  # type: ignore[reportUnknownMemberType]
+    try:
+        save_path = tts_synthesizer.generate(task, return_type="filepath")  # type: ignore[reportUnknownMemberType]
+    except Exception as e:
+        return {"code": 500, "message": f"Failed to generate audio: {e}"}
     if not isinstance(save_path, str):
         return {"code": 500, "message": "Failed to generate audio file"}
     # 转换 wav 文件为 mp3

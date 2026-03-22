@@ -3,8 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
+import torch
+
 from gsv.GPT_SoVITS.module.models import TextEncoder
 from gsv.GPT_SoVITS.TTS_infer_pack.TTS import TTS
+from gsv.Synthesizers.gsv_fast.GSV_Synthesizer import GSV_Synthesizer
 from gsv.Synthesizers.gsv_fast import gsv_config
 
 
@@ -130,3 +134,105 @@ def test_init_vits_weights_detects_v2_checkpoint(monkeypatch) -> None:
 
     assert tts.configs.version == "v2"
     assert captured["kwargs"]["version"] == "v2"
+
+
+def test_gsv_synthesizer_uses_conservative_defaults(tmp_path: Path) -> None:
+    captured = {}
+    ref_audio = tmp_path / "ref.wav"
+    ref_audio.write_bytes(b"wav")
+
+    synth = object.__new__(GSV_Synthesizer)
+    synth.save_prompt_cache = False
+    synth.prompt_cache_dir = "cache/prompt_cache"
+    synth.tts_pipline = SimpleNamespace(run=lambda params: captured.setdefault("params", params))
+
+    synth.get_wav_from_text_api(
+        text="hello",
+        ref_audio_path=str(ref_audio),
+        prompt_text="hello",
+        prompt_language="auto",
+    )
+
+    assert captured["params"]["parallel_infer"] is False
+    assert captured["params"]["split_bucket"] is False
+
+
+def test_tts_run_uses_serial_vits_decode_when_parallel_infer_disabled() -> None:
+    decode_calls: list[tuple[tuple[int, ...], tuple[int, ...]]] = []
+
+    class FakeModel:
+        def infer_panel_0307(self, *args, **kwargs):
+            return [
+                torch.tensor([1, 2, 3], dtype=torch.long),
+                torch.tensor([4, 5, 6], dtype=torch.long),
+            ], [2, 2]
+
+        infer_panel_batch_infer_with_flash_attn = infer_panel_0307
+
+    class FakeVITS:
+        upsample_rates = [2, 2]
+
+        def decode(self, codes, text, refer):
+            del refer
+            decode_calls.append((tuple(codes.shape), tuple(text.shape)))
+            return torch.ones((1, 1, 8), dtype=torch.float32)
+
+    fake_batch = {
+        "phones": [
+            torch.tensor([1, 2, 3], dtype=torch.long),
+            torch.tensor([4, 5], dtype=torch.long),
+        ],
+        "phones_len": torch.tensor([3, 2], dtype=torch.long),
+        "all_phones": torch.tensor([[1, 2, 3], [4, 5, 0]], dtype=torch.long),
+        "all_phones_len": torch.tensor([3, 2], dtype=torch.long),
+        "all_bert_features": torch.zeros((2, 1024, 3), dtype=torch.float32),
+        "norm_text": "hello",
+        "max_len": 3,
+    }
+
+    tts = object.__new__(TTS)
+    tts.configs = SimpleNamespace(
+        sampling_rate=32000,
+        device="cpu",
+        languages=["auto", "zh", "ja", "en", "all_zh", "all_ja"],
+        hz=50,
+        max_sec=1,
+    )
+    tts.precision = torch.float32
+    tts.prompt_cache = {
+        "ref_audio_path": "dummy.wav",
+        "prompt_semantic": torch.zeros((1, 4), dtype=torch.float32),
+        "refer_spec": torch.zeros((1, 704, 3), dtype=torch.float32),
+        "prompt_text": "hello",
+        "prompt_lang": "auto",
+        "phones": None,
+        "bert_features": None,
+        "norm_text": None,
+    }
+    tts.prompt_cache_path = ""
+    tts.stop_flag = False
+    tts.text_preprocessor = SimpleNamespace(preprocess=lambda *args, **kwargs: [{"dummy": True}])
+    tts.to_batch = lambda *args, **kwargs: ([fake_batch], [0])
+    tts.audio_postprocess = lambda *args, **kwargs: (32000, np.zeros(8, dtype=np.int16))
+    tts.empty_cache = lambda: None
+    tts.t2s_model = SimpleNamespace(model=FakeModel())
+    tts.vits_model = FakeVITS()
+
+    result = next(
+        tts.run(
+            {
+                "text": "hello",
+                "text_lang": "auto",
+                "prompt_text": "hello",
+                "prompt_lang": "auto",
+                "ref_audio_path": "dummy.wav",
+                "batch_size": 20,
+                "parallel_infer": False,
+                "split_bucket": False,
+                "test_mode": True,
+            }
+        )
+    )
+
+    assert result[0] == 32000
+    assert len(decode_calls) == 2

@@ -48,7 +48,11 @@ def _resolve_ref_audio_and_text(
 
     base = Path("models/gptsovits") / tts_cfg.character_name
     emotions = tts_cfg.emotions
-    candidates = [key for key in emotion_keys or [] if key] + ["default"]
+    if not emotions:
+        logger.error("No GPT-SoVITS emotions configured for character: {}", tts_cfg.character_name)
+        return None, None
+
+    candidates = [key for key in emotion_keys or [] if key]
 
     for key in candidates:
         emotion = emotions.get(key)
@@ -57,6 +61,12 @@ def _resolve_ref_audio_and_text(
         candidate = base / emotion.path
         if candidate.is_file():
             return str(candidate), (emotion.ref_text or None)
+
+    first_emotion = next(iter(emotions.values()), None)
+    if first_emotion is not None and first_emotion.path:
+        candidate = base / first_emotion.path
+        if candidate.is_file():
+            return str(candidate), (first_emotion.ref_text or None)
 
     return None, None
 
@@ -204,7 +214,10 @@ class TTSTaskManager:
                     )
                 )
                 if response is None:
-                    logger.error("Failed to get a valid response from GPT-SoVITS client")
+                    logger.error(
+                        "Failed to get a valid response from GPT-SoVITS client: {}",
+                        gpt_sovits_client.last_error or "unknown error",
+                    )
                     return None
             else:
                 logger.error(f"Unsupported speaker model: {lab_settings.agent.speaker_model}")
