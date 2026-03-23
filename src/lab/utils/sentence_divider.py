@@ -1,6 +1,5 @@
 # type:ignore
 # copyright@https://github.com/Open-LLM-VTuber/Open-LLM-VTuber
-# 该文件和 Live2d 的代码一样暂时不修改。但其实我应该只会搞英文和日文。后续适配日文的时候才会尝试大修
 
 from __future__ import annotations
 
@@ -14,33 +13,12 @@ from langdetect import detect
 from loguru import logger
 
 from lab.agent.output_types import AudioOutput
+from lab.utils.text_cleaner import CleanerConfig, TextCleaner
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
 
-# Constants for additional checks
-COMMAS = [
-    ",",
-    "،",
-    "，",
-    "、",
-    "፣",
-    "၊",
-    ";",
-    "΄",
-    "‛",
-    "।",
-    "﹐",
-    "꓾",
-    "⹁",
-    "︐",
-    "﹑",
-    "､",
-    "،",
-]
-
-END_PUNCTUATIONS = [".", "!", "?", "。", "！", "？", "...", "。。。"]
 ABBREVIATIONS = [
     "Mr.",
     "Mrs.",
@@ -55,16 +33,23 @@ ABBREVIATIONS = [
     "vs.",
     "St.",
     "Rd.",
-    "Dr.",
 ]
 COMMAS = [",", ";", "\u3001", "\uff0c", "\uff1b"]
 END_PUNCTUATIONS = [".", "!", "?", "\u3002", "\uff01", "\uff1f", "...", "\u2026\u2026"]
 SENTENCE_END_CHARS = {".", "!", "?", "\u3002", "\uff01", "\uff1f"}
-TRAILING_SENTENCE_CHARS = set("\"'”’)]}】）」』」")
+TRAILING_SENTENCE_CHARS = set("\"')]}>\u300d\u300f\u3011\uff09")
+SECONDARY_SPLIT_CHARS = {",", ";", "\u3001", "\uff0c", "\uff1b", ":", "\uff1a"}
 LIST_MARKER_RE = re.compile(r"(^|[\s\[\(\{\]\)\}])\d+\.$")
 FRAGILE_DOT_RE = re.compile(r"(?<!\S)\d+\.(?=\s*\S)|[A-Za-z0-9_/-]+(?:\.[A-Za-z0-9_/-]+)+")
 PARAGRAPH_BREAK_RE = re.compile(r"(?:\r?\n\s*){2,}")
-ACTION_LINE_BREAK_RE = re.compile(r"\r?\n\s*(?:\[[^\]\r\n]+\]|【[^】\r\n]+】)")
+ACTION_LINE_BREAK_RE = re.compile(r"\r?\n\s*(?:\[[^\]\r\n]+\]|\([^)]+\))")
+DEFAULT_STREAMING_CLEANER = TextCleaner(
+    CleanerConfig(
+        clean_emoji=False,
+        clean_markdown=False,
+        normalize_whitespace=True,
+    )
+)
 
 # Set of languages directly supported by pysbd
 SUPPORTED_LANGUAGES = {
@@ -94,29 +79,16 @@ SUPPORTED_LANGUAGES = {
 }
 
 
-def detect_language(text: str) -> str:
-    """
-    Detect text language and check if it's supported by pysbd.
-    Returns None for unsupported languages.
-    """
+def detect_language(text: str) -> str | None:
     try:
         detected = detect(text)
         return detected if detected in SUPPORTED_LANGUAGES else None
-    except Exception as e:
-        logger.debug(f"Language detection failed, language not supported by pysdb: {e}")
+    except Exception as exc:
+        logger.debug(f"Language detection failed, language not supported by pysbd: {exc}")
         return None
 
 
 def is_complete_sentence(text: str) -> bool:
-    """
-    Check if text ends with sentence-ending punctuation and not abbreviation.
-
-    Args:
-        text: Text to check
-
-    Returns:
-        bool: Whether the text is a complete sentence
-    """
     text = text.strip()
     if not text:
         return False
@@ -133,63 +105,25 @@ def is_complete_sentence(text: str) -> bool:
 
 
 def contains_comma(text: str) -> bool:
-    """
-    Check if text contains any comma.
-
-    Args:
-        text: Text to check
-
-    Returns:
-        bool: Whether the text contains a comma
-    """
     return any(comma in text for comma in COMMAS)
 
 
 def comma_splitter(text: str) -> tuple[str, str]:
-    """
-    Process text and split it at the first comma.
-    Returns the split text (including the comma) and the remaining text.
-
-    Args:
-        text: Text to split
-
-    Returns:
-        tuple[str, str]: (split text with comma, remaining text)
-    """
     if not text:
-        return [], ""
+        return "", ""
 
     for comma in COMMAS:
         if comma in text:
             split_text = text.split(comma, 1)
-            # Return first part with the comma
             return split_text[0].strip() + comma, split_text[1].strip()
     return text, ""
 
 
 def has_punctuation(text: str) -> bool:
-    """
-    Check if the text is a punctuation mark.
-
-    Args:
-        text: Text to check
-
-    Returns:
-        bool: Whether the text is a punctuation mark
-    """
     return contains_comma(text) or contains_end_punctuation(text)
 
 
 def contains_end_punctuation(text: str) -> bool:
-    """
-    Check if text contains any sentence-ending punctuation.
-
-    Args:
-        text: Text to check
-
-    Returns:
-        bool: Whether the text contains ending punctuation
-    """
     return _find_first_sentence_boundary(text) is not None
 
 
@@ -215,9 +149,7 @@ def _is_inline_period(text: str, idx: int) -> bool:
     prev_char = text[idx - 1] if idx > 0 else ""
     immediate_next = text[idx + 1] if idx + 1 < len(text) else ""
     next_idx = _next_non_space_index(text, idx + 1)
-    next_char = text[next_idx] if next_idx is not None else ""
 
-    # Streaming often pauses on a bare list marker like "1." before the item text arrives.
     if prev_char.isdigit() and next_idx is None:
         return True
 
@@ -259,7 +191,6 @@ def _find_first_sentence_boundary(text: str) -> int | None:
 
 
 def _find_structural_boundary(text: str) -> tuple[int, int] | None:
-    """Find a non-punctuation boundary that still should force a sentence split."""
     candidates: list[tuple[int, int]] = []
 
     for pattern in (PARAGRAPH_BREAK_RE, ACTION_LINE_BREAK_RE):
@@ -274,7 +205,6 @@ def _find_structural_boundary(text: str) -> tuple[int, int] | None:
 
 
 def segment_text_by_rules(text: str) -> tuple[list[str], str]:
-    """Segment text with lightweight rules that preserve filenames and list markers."""
     if not text:
         return [], ""
 
@@ -306,30 +236,10 @@ def segment_text_by_rules(text: str) -> tuple[list[str], str]:
 
 
 def segment_text_by_regex(text: str) -> tuple[list[str], str]:
-    """
-    Segment text into complete sentences using regex pattern matching.
-    More efficient but less accurate than pysbd.
-
-    Args:
-        text: Text to segment into sentences
-
-    Returns:
-        tuple[list[str], str]: (list of complete sentences, remaining incomplete text)
-    """
     return segment_text_by_rules(text)
 
 
 def segment_text_by_pysbd(text: str) -> tuple[list[str], str]:
-    """
-    Segment text into complete sentences and remaining text.
-    Uses pysbd for supported languages, falls back to regex for others.
-
-    Args:
-        text: Text to segment into sentences
-
-    Returns:
-        tuple[list[str], str]: (list of complete sentences, remaining incomplete text)
-    """
     if not text:
         return [], ""
 
@@ -337,67 +247,152 @@ def segment_text_by_pysbd(text: str) -> tuple[list[str], str]:
         return segment_text_by_rules(text)
 
     try:
-        # Detect language
         lang = detect_language(text)
-
-        if lang is not None:
-            # Use pysbd for supported languages
-            segmenter = pysbd.Segmenter(language=lang, clean=False)
-            sentences = segmenter.segment(text)
-
-            if not sentences:
-                return [], text
-
-            # Process all but the last sentence
-            complete_sentences = []
-            for sent in sentences[:-1]:
-                sent = sent.strip()
-                if sent:
-                    complete_sentences.append(sent)
-
-            # Handle the last sentence
-            last_sent = sentences[-1].strip()
-            if is_complete_sentence(last_sent):
-                complete_sentences.append(last_sent)
-                remaining = ""
-            else:
-                remaining = last_sent
-
-        else:
-            # Use regex for unsupported languages
+        if lang is None:
             return segment_text_by_regex(text)
+
+        segmenter = pysbd.Segmenter(language=lang, clean=False)
+        sentences = segmenter.segment(text)
+        if not sentences:
+            return [], text
+
+        complete_sentences: list[str] = []
+        for sent in sentences[:-1]:
+            sent = sent.strip()
+            if sent:
+                complete_sentences.append(sent)
+
+        last_sent = sentences[-1].strip()
+        if is_complete_sentence(last_sent):
+            complete_sentences.append(last_sent)
+            remaining = ""
+        else:
+            remaining = last_sent
 
         if any(len(sent) <= 2 and contains_end_punctuation(sent) for sent in complete_sentences):
             return segment_text_by_rules(text)
 
         logger.debug(f"Processed sentences: {complete_sentences}, Remaining: {remaining}")
         return complete_sentences, remaining
-
-    except Exception as e:
-        logger.error(f"Error in sentence segmentation: {e}")
-        # Fallback to regex on any error
+    except Exception as exc:
+        logger.error(f"Error in sentence segmentation: {exc}")
         return segment_text_by_rules(text)
 
 
-class TagState(Enum):
-    """State of a tag in text"""
+def _normalize_paragraph(paragraph: str) -> str:
+    return re.sub(r"\s*\n\s*", " ", paragraph).strip()
 
-    START = "start"  # <tag>
-    INSIDE = "inside"  # text between tags
-    END = "end"  # </tag>
-    SELF_CLOSING = "self"  # <tag/>
-    NONE = "none"  # no tag
+
+def _split_long_sentence(sentence: str, max_sentence_len: int) -> list[str]:
+    sentence = sentence.strip()
+    if not sentence:
+        return []
+    if max_sentence_len <= 0 or len(sentence) <= max_sentence_len:
+        return [sentence]
+
+    parts: list[str] = []
+    remaining = sentence
+
+    while len(remaining) > max_sentence_len:
+        split_idx = max((remaining.rfind(char, 0, max_sentence_len + 1) for char in SECONDARY_SPLIT_CHARS), default=-1)
+        if split_idx <= 0:
+            split_idx = min(
+                (
+                    idx
+                    for idx, char in enumerate(remaining[max_sentence_len:], start=max_sentence_len)
+                    if char in SECONDARY_SPLIT_CHARS
+                ),
+                default=-1,
+            )
+        if split_idx <= 0:
+            break
+
+        piece = remaining[: split_idx + 1].strip()
+        if not piece:
+            break
+        parts.append(piece)
+        remaining = remaining[split_idx + 1 :].lstrip()
+
+    if remaining:
+        parts.append(remaining.strip())
+
+    return [part for part in parts if part]
+
+
+def _segment_with_method(text: str, segment_method: str) -> tuple[list[str], str]:
+    if segment_method == "regex":
+        return segment_text_by_regex(text)
+    return segment_text_by_pysbd(text)
+
+
+def _segment_document(
+    text: str,
+    *,
+    max_sentence_len: int,
+    segment_method: str,
+    include_incomplete_tail: bool,
+) -> tuple[list[str], str]:
+    if not text.strip():
+        return [], ""
+
+    paragraphs = [part for part in PARAGRAPH_BREAK_RE.split(text) if part.strip()]
+    sentences: list[str] = []
+    trailing_fragment = ""
+
+    for index, paragraph in enumerate(paragraphs):
+        normalized = _normalize_paragraph(paragraph)
+        if not normalized:
+            continue
+
+        paragraph_sentences, remaining = _segment_with_method(normalized, segment_method)
+        for sentence in paragraph_sentences:
+            sentences.extend(_split_long_sentence(sentence, max_sentence_len))
+
+        is_last_paragraph = index == len(paragraphs) - 1
+        if not remaining.strip():
+            continue
+
+        if is_last_paragraph and not include_incomplete_tail:
+            trailing_fragment = remaining.strip()
+        else:
+            sentences.extend(_split_long_sentence(remaining, max_sentence_len))
+
+    return [sentence for sentence in sentences if sentence.strip()], trailing_fragment
+
+
+def segment_full(
+    text: str,
+    cleaner: TextCleaner | None = None,
+    max_sentence_len: int = 100,
+    segment_method: str = "pysbd",
+) -> list[str]:
+    active_cleaner = cleaner or TextCleaner()
+    cleaned = active_cleaner.clean(text)
+    sentences, trailing_fragment = _segment_document(
+        cleaned,
+        max_sentence_len=max_sentence_len,
+        segment_method=segment_method,
+        include_incomplete_tail=True,
+    )
+    if trailing_fragment.strip():
+        sentences.extend(_split_long_sentence(trailing_fragment, max_sentence_len))
+    return [sentence for sentence in sentences if sentence.strip()]
+
+
+class TagState(Enum):
+    START = "start"
+    INSIDE = "inside"
+    END = "end"
+    SELF_CLOSING = "self"
+    NONE = "none"
 
 
 @dataclass
 class TagInfo:
-    """Information about a tag"""
-
     name: str
     state: TagState
 
     def __str__(self) -> str:
-        """String representation of tag info"""
         if self.state == TagState.NONE:
             return "none"
         return f"{self.name}:{self.state.value}"
@@ -405,10 +400,8 @@ class TagInfo:
 
 @dataclass
 class SentenceWithTags:
-    """A sentence with its tag information, supporting nested tags"""
-
     text: str
-    tags: list[TagInfo]  # list of tags from outermost to innermost
+    tags: list[TagInfo]
 
 
 class SentenceDivider:
@@ -416,60 +409,31 @@ class SentenceDivider:
         self,
         faster_first_response: bool = True,
         segment_method: str = "pysbd",
-        valid_tags: list[str] = None,
+        valid_tags: list[str] | None = None,
+        cleaner: TextCleaner | None = None,
+        max_sentence_len: int = 100,
+        stream_min_sentences: int = 2,
     ):
-        """
-        Initialize the SentenceDivider.
-
-        Args:
-            faster_first_response: Whether to split first sentence at commas
-            segment_method: Method for segmenting sentences
-            valid_tags: list of valid tag names to detect
-        """
         self.faster_first_response = faster_first_response
         self.segment_method = segment_method
         self.valid_tags = valid_tags or ["think"]
+        self.cleaner = cleaner or DEFAULT_STREAMING_CLEANER
+        self.max_sentence_len = max_sentence_len
+        self.stream_min_sentences = max(1, stream_min_sentences)
         self._is_first_sentence = True
         self._buffer = ""
-        # Replace active_tags dict with a stack to handle nesting
-        self._tag_stack = []
+        self._tag_stack: list[TagInfo] = []
+        self._full_response: list[str] = []
 
     def _get_current_tags(self) -> list[TagInfo]:
-        """
-        Get all current active tags from outermost to innermost.
-
-        Returns:
-            list[TagInfo]: list of active tags
-        """
         return [TagInfo(tag.name, TagState.INSIDE) for tag in self._tag_stack]
 
-    def _get_current_tag(self) -> TagInfo | None:
-        """
-        Get the current innermost active tag.
-
-        Returns:
-            TagInfo if there's an active tag, None otherwise
-        """
-        return self._tag_stack[-1] if self._tag_stack else None
-
     def _extract_tag(self, text: str) -> tuple[TagInfo | None, str]:
-        """
-        Extract the first tag from text if present.
-        Handles nested tags by maintaining a tag stack.
-
-        Args:
-            text: Text to check for tags
-
-        Returns:
-            tuple of (TagInfo if tag found else None, remaining text)
-        """
-        # Find the first occurrence of any tag
         first_tag = None
         first_pos = len(text)
         tag_type = None
         matched_tag = None
 
-        # Check for self-closing tags
         for tag in self.valid_tags:
             pattern = f"<{tag}/>"
             match = re.search(pattern, text)
@@ -479,7 +443,6 @@ class SentenceDivider:
                 tag_type = TagState.SELF_CLOSING
                 matched_tag = tag
 
-        # Check for opening tags
         for tag in self.valid_tags:
             pattern = f"<{tag}>"
             match = re.search(pattern, text)
@@ -489,7 +452,6 @@ class SentenceDivider:
                 tag_type = TagState.START
                 matched_tag = tag
 
-        # Check for closing tags
         for tag in self.valid_tags:
             pattern = f"</{tag}>"
             match = re.search(pattern, text)
@@ -499,170 +461,156 @@ class SentenceDivider:
                 tag_type = TagState.END
                 matched_tag = tag
 
-        if not first_tag:
+        if not first_tag or tag_type is None or matched_tag is None:
             return None, text
 
-        # Handle the found tag
         if tag_type == TagState.START:
-            # Push new tag onto stack
             self._tag_stack.append(TagInfo(matched_tag, TagState.START))
         elif tag_type == TagState.END:
-            # Verify matching tags
             if not self._tag_stack or self._tag_stack[-1].name != matched_tag:
                 logger.warning(f"Mismatched closing tag: {matched_tag}")
             else:
                 self._tag_stack.pop()
 
-        return (TagInfo(matched_tag, tag_type), text[first_tag.end() :].lstrip())
+        return TagInfo(matched_tag, tag_type), text[first_tag.end() :].lstrip()
 
-    async def _process_buffer(self) -> list[SentenceWithTags]:
-        """
-        Process the current buffer and return complete sentences with tags.
-        Handles tags that may appear anywhere in the buffer.
+    def _find_next_tag_pos(self) -> int:
+        next_tag_pos = len(self._buffer)
+        for tag in self.valid_tags:
+            for pattern in (f"<{tag}>", f"</{tag}>", f"<{tag}/>"):
+                pos = self._buffer.find(pattern)
+                if pos != -1 and pos < next_tag_pos:
+                    next_tag_pos = pos
+        return next_tag_pos
 
-        Returns:
-            list[SentenceWithTags]: list of sentences with their tag information
-        """
-        result = []
+    def _default_tags(self) -> list[TagInfo]:
+        return self._get_current_tags() or [TagInfo("", TagState.NONE)]
+
+    def _clean_stream_text(self, text: str) -> str:
+        cleaned = self.cleaner.clean(text)
+        return cleaned.strip()
+
+    def _build_sentences(self, texts: list[str], tags: list[TagInfo] | None = None) -> list[SentenceWithTags]:
+        sentence_tags = tags or self._default_tags()
+        result: list[SentenceWithTags] = []
+        for text in texts:
+            cleaned = self._clean_stream_text(text)
+            if cleaned:
+                result.append(SentenceWithTags(text=cleaned, tags=sentence_tags))
+        return result
+
+    def _flush_plain_buffer(self, *, force: bool = False, final: bool = False) -> list[SentenceWithTags]:
+        if not self._buffer.strip():
+            return []
+
+        if final:
+            sentences = segment_full(
+                self._buffer,
+                cleaner=self.cleaner,
+                max_sentence_len=self.max_sentence_len,
+                segment_method=self.segment_method,
+            )
+            self._buffer = ""
+            if sentences:
+                self._is_first_sentence = False
+            return self._build_sentences(sentences)
+
+        sentences, remaining = _segment_document(
+            self._buffer,
+            max_sentence_len=self.max_sentence_len,
+            segment_method=self.segment_method,
+            include_incomplete_tail=False,
+        )
+
+        if not force and len(sentences) < self.stream_min_sentences:
+            return []
+
+        if force and remaining.strip():
+            sentences = [*sentences, remaining.strip()]
+            remaining = ""
+
+        if not sentences:
+            return []
+
+        self._buffer = remaining
+        self._is_first_sentence = False
+        return self._build_sentences(sentences)
+
+    async def _process_buffer(self, *, final: bool = False) -> list[SentenceWithTags]:
+        result: list[SentenceWithTags] = []
 
         while self._buffer.strip():
-            # Find the next tag position
-            next_tag_pos = len(self._buffer)
-            for tag in self.valid_tags:
-                patterns = [f"<{tag}>", f"</{tag}>", f"<{tag}/>"]
-                for pattern in patterns:
-                    pos = self._buffer.find(pattern)
-                    if pos != -1 and pos < next_tag_pos:
-                        next_tag_pos = pos
+            next_tag_pos = self._find_next_tag_pos()
 
             if next_tag_pos == 0:
-                # Tag is at the start of buffer
                 tag_info, remaining = self._extract_tag(self._buffer)
                 if tag_info:
-                    result.append(
-                        SentenceWithTags(
-                            text=self._buffer[: len(self._buffer) - len(remaining)].strip(),
-                            tags=[tag_info],  # Tag itself is a single-item list
-                        )
-                    )
+                    marker_text = self._buffer[: len(self._buffer) - len(remaining)].strip()
+                    if marker_text:
+                        result.append(SentenceWithTags(text=marker_text, tags=[tag_info]))
                     self._buffer = remaining
                     continue
 
             elif next_tag_pos < len(self._buffer):
-                # Tag is in the middle - process text before tag first
                 text_before_tag = self._buffer[:next_tag_pos]
                 current_tags = self._get_current_tags()
 
-                # Preserve text inside active tags as a single chunk.
                 if current_tags and text_before_tag.strip():
-                    result.append(
-                        SentenceWithTags(
-                            text=text_before_tag.strip(),
-                            tags=current_tags,
-                        )
-                    )
-                # Process complete sentences in plain text before tag
-                elif contains_end_punctuation(text_before_tag):
-                    sentences, remaining = self._segment_text(text_before_tag)
-                    for sentence in sentences:
-                        if sentence.strip():
-                            result.append(
-                                SentenceWithTags(
-                                    text=sentence.strip(),
-                                    tags=current_tags or [TagInfo("", TagState.NONE)],
-                                )
-                            )
-
-                    if remaining.strip():
-                        result.append(
-                            SentenceWithTags(
-                                text=remaining.strip(),
-                                tags=current_tags or [TagInfo("", TagState.NONE)],
-                            )
-                        )
-
+                    result.extend(self._build_sentences([text_before_tag], current_tags))
                 elif text_before_tag.strip():
-                    # No complete sentence but has content
-                    result.append(
-                        SentenceWithTags(
-                            text=text_before_tag.strip(),
-                            tags=current_tags or [TagInfo("", TagState.NONE)],
-                        )
-                    )
+                    original_buffer = self._buffer
+                    self._buffer = text_before_tag
+                    result.extend(self._flush_plain_buffer(force=True, final=False))
+                    self._buffer = original_buffer[next_tag_pos:]
+                else:
+                    self._buffer = self._buffer[next_tag_pos:]
 
-                # Process the tag
-                self._buffer = self._buffer[next_tag_pos:]
                 tag_info, remaining = self._extract_tag(self._buffer)
                 if tag_info:
-                    result.append(
-                        SentenceWithTags(
-                            text=self._buffer[: len(self._buffer) - len(remaining)].strip(),
-                            tags=[tag_info],
-                        )
-                    )
+                    marker_text = self._buffer[: len(self._buffer) - len(remaining)].strip()
+                    if marker_text:
+                        result.append(SentenceWithTags(text=marker_text, tags=[tag_info]))
                     self._buffer = remaining
                 continue
 
-            # No tags found - process normal text
             current_tags = self._get_current_tags()
+            if current_tags:
+                if final:
+                    result.extend(self._build_sentences([self._buffer], current_tags))
+                    self._buffer = ""
+                    break
 
-            # Handle first sentence with comma if enabled
+                structural_boundary = _find_structural_boundary(self._buffer)
+                if structural_boundary is not None:
+                    boundary_start, boundary_end = structural_boundary
+                    result.extend(self._build_sentences([self._buffer[:boundary_start]], current_tags))
+                    self._buffer = self._buffer[boundary_end:].lstrip()
+                    continue
+
+                if contains_end_punctuation(self._buffer):
+                    sentences, remaining = self._segment_text(self._buffer)
+                    if not sentences:
+                        break
+                    self._buffer = remaining
+                    self._is_first_sentence = False
+                    result.extend(self._build_sentences(sentences, current_tags))
+                    continue
+                break
+
             structural_boundary = _find_structural_boundary(self._buffer)
             if structural_boundary is not None:
                 boundary_start, boundary_end = structural_boundary
-                sentence = self._buffer[:boundary_start].strip()
-                if sentence:
-                    result.append(
-                        SentenceWithTags(
-                            text=sentence,
-                            tags=current_tags or [TagInfo("", TagState.NONE)],
-                        )
-                    )
-                    self._is_first_sentence = False
-                self._buffer = self._buffer[boundary_end:].lstrip()
+                text_before_boundary = self._buffer[:boundary_start]
+                original_tail = self._buffer[boundary_end:].lstrip()
+                self._buffer = text_before_boundary
+                result.extend(self._flush_plain_buffer(force=True, final=False))
+                self._buffer = original_tail
                 continue
 
-            if self._is_first_sentence and self.faster_first_response and contains_comma(self._buffer):
-                sentence, remaining = comma_splitter(self._buffer)
-                if sentence.strip():
-                    result.append(
-                        SentenceWithTags(
-                            text=sentence.strip(),
-                            tags=current_tags or [TagInfo("", TagState.NONE)],
-                        )
-                    )
-                self._buffer = remaining
-                self._is_first_sentence = False
+            flushed = self._flush_plain_buffer(force=False, final=final)
+            if flushed:
+                result.extend(flushed)
                 continue
-
-            # Process normal sentences
-            if contains_end_punctuation(self._buffer):
-                display_sentence = ""
-                sentences, remaining = self._segment_text(self._buffer)
-                self._is_first_sentence = False
-                self._buffer = remaining
-                for index, sentence in enumerate(sentences):
-                    if sentence.strip():
-                        if display_sentence == "":
-                            display_sentence = sentence
-                        elif len(display_sentence) < 10:
-                            display_sentence += sentence
-                            if index == len(sentences) - 1:
-                                result.append(
-                                    SentenceWithTags(
-                                        text=display_sentence.strip(),
-                                        tags=current_tags or [TagInfo("", TagState.NONE)],
-                                    )
-                                )
-                                break
-                            continue
-                        result.append(
-                            SentenceWithTags(
-                                text=display_sentence.strip(),
-                                tags=current_tags or [TagInfo("", TagState.NONE)],
-                            )
-                        )
-                        display_sentence = ""
             break
 
         return result
@@ -678,27 +626,16 @@ class SentenceDivider:
     async def process_stream(
         self, segment_stream: AsyncIterator[str | AudioOutput]
     ) -> AsyncIterator[SentenceWithTags | AudioOutput]:
-        """
-        Process a stream of tokens and yield complete sentences with tag information.
-        pysbd may not able to handle ...
-
-        Args:
-            segment_stream: An async iterator yielding segments
-
-        Yields:
-            SentenceWithTags: Complete sentences with their tag information
-        """
         self._full_response = []
         logger.info("Starting sentence processing stream...")
         async for segment in segment_stream:
             if isinstance(segment, AudioOutput):
                 yield segment
-                continue  # yield 似乎不会像 return 一样终止下面所有的代码。需要手动 continue
+                continue
+
             self._buffer += segment
             self._full_response.append(segment)
 
-            # Process buffer after punctuation, when buffer gets too long,
-            # or when we see a tag
             should_process = (
                 any(re.search(f"{tag}(?:/)?>", self._buffer) for tag in self.valid_tags)
                 or has_punctuation(self._buffer)
@@ -706,49 +643,22 @@ class SentenceDivider:
             )
 
             if should_process:
-                sentences = await self._process_buffer()
-                for sentence in sentences:
+                for sentence in await self._process_buffer(final=False):
                     yield sentence
 
-        # Process remaining text at end of stream
         if self._buffer.strip():
-            tag_info, remaining = self._extract_tag(self._buffer)
-            if tag_info:
-                yield SentenceWithTags(
-                    text=self._buffer[: len(self._buffer) - len(remaining)].strip(),
-                    tags=[tag_info],
-                )
-                self._buffer = remaining
-
-            if self._buffer.strip():
-                sentences, remaining = self._segment_text(self._buffer)
-                current_tags = self._get_current_tags()
-
-                for sentence in sentences:
-                    if sentence.strip():
-                        yield SentenceWithTags(
-                            text=sentence.strip(),
-                            tags=current_tags or [TagInfo("", TagState.NONE)],
-                        )
-            if remaining.strip():
-                yield SentenceWithTags(
-                    text=remaining.strip(),
-                    tags=current_tags or [TagInfo("", TagState.NONE)],
-                )
+            for sentence in await self._process_buffer(final=True):
+                yield sentence
 
     @property
     def complete_response(self) -> str:
-        """Get the complete response accumulated so far"""
         return "".join(self._full_response)
 
     def _segment_text(self, text: str) -> tuple[list[str], str]:
-        """Segment text using the configured method"""
-        if self.segment_method == "regex":
-            return segment_text_by_regex(text)
-        return segment_text_by_pysbd(text)
+        return _segment_with_method(text, self.segment_method)
 
     def reset(self):
-        """Reset the divider state for a new conversation"""
         self._is_first_sentence = True
         self._buffer = ""
         self._tag_stack = []
+        self._full_response = []

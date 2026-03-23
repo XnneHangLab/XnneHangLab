@@ -220,6 +220,9 @@ test:
   uv run pytest tests -vvv
   uv run pytest memory_bench/tests -vvv
 
+test-sentence-divider:
+  uv run python scripts/test_sentence_divider.py
+
 # CI-workflow
 
 ci-install:

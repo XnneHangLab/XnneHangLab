@@ -6,12 +6,28 @@ from typing import TYPE_CHECKING
 from lab.utils.sentence_divider import (
     SentenceDivider,
     contains_end_punctuation,
+    segment_full,
     segment_text_by_pysbd,
     segment_text_by_regex,
 )
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
+
+
+class _TestSentenceDivider(SentenceDivider):
+    async def process_buffer_for_test(self) -> list[str]:
+        return [chunk.text for chunk in await self._process_buffer()]
+
+    def set_buffer_for_test(self, text: str) -> None:
+        self._buffer = text
+
+    def append_buffer_for_test(self, text: str) -> None:
+        self._buffer += text
+
+    @property
+    def buffer_for_test(self) -> str:
+        return self._buffer
 
 
 def test_regex_splitter_keeps_filename_intact() -> None:
@@ -90,3 +106,51 @@ def test_sentence_divider_stream_keeps_emotion_prefixed_number_marker_together()
     assert asyncio.run(_collect()) == [
         "[\u5e73\u9759]1.\u6839\u76ee\u5f55\u91cc\u5df2\u7ecf\u6709 `test.txt` \u4e86\uff0c\u6211\u521a\u624d\u67e5\u8fc7\uff0c\u4e0d\u9700\u8981\u91cd\u65b0\u5efa\u3002"
     ]
+
+
+def test_segment_full_keeps_version_intact() -> None:
+    sentences = segment_full("Use v1.2.3 today. Ship tomorrow.", segment_method="pysbd")
+
+    assert sentences == ["Use v1.2.3 today.", "Ship tomorrow."]
+
+
+def test_sentence_divider_stream_waits_for_two_sentences_before_flushing() -> None:
+    async def _run() -> tuple[list[str], str]:
+        divider = _TestSentenceDivider(
+            faster_first_response=False,
+            segment_method="regex",
+            valid_tags=["think", "tool"],
+        )
+
+        divider.set_buffer_for_test("First sentence.")
+        first_pass = await divider.process_buffer_for_test()
+        assert first_pass == []
+        assert divider.buffer_for_test == "First sentence."
+
+        divider.append_buffer_for_test(" Second sentence. Tail fragment")
+        second_pass = await divider.process_buffer_for_test()
+        return second_pass, divider.buffer_for_test
+
+    chunks, remaining = asyncio.run(_run())
+    assert chunks == ["First sentence.", "Second sentence."]
+    assert remaining == "Tail fragment"
+
+
+def test_sentence_divider_stream_flushes_tail_fragment_at_end() -> None:
+    async def _collect() -> list[str]:
+        divider = SentenceDivider(
+            faster_first_response=False,
+            segment_method="regex",
+            valid_tags=["think", "tool"],
+        )
+
+        async def _source() -> AsyncIterator[str]:
+            yield "First sentence."
+            yield " Second sentence. Tail fragment"
+
+        chunks: list[str] = []
+        async for chunk in divider.process_stream(_source()):
+            chunks.append(chunk.text)
+        return chunks
+
+    assert asyncio.run(_collect()) == ["First sentence.", "Second sentence.", "Tail fragment"]
