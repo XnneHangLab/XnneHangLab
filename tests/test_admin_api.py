@@ -354,6 +354,136 @@ api_format = "chat_completion"
     }
 
 
+def test_lab_config_raw_endpoints_read_and_update_file(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir(parents=True)
+    lab_path = config_dir / "lab.toml"
+    lab_path.write_text(
+        """
+[agent.chat_model]
+llm_provider = "openai"
+llm_model_name = "before"
+
+[[agent.llm.providers]]
+name = "openai"
+llm_api_key = "sk-before"
+llm_base_url = "https://api.openai.com/v1"
+api_format = "chat_completion"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    client = TestClient(_make_app(tmp_path))
+
+    get_response = client.get("/admin/api/config/lab/raw")
+    assert get_response.status_code == 200
+    assert get_response.json()["path"] == "config/lab.toml"
+    assert 'llm_provider = "openai"' in get_response.json()["content"]
+
+    put_response = client.put(
+        "/admin/api/config/lab/raw",
+        json={
+            "content": """
+[agent.chat_model]
+llm_provider = "openai"
+llm_model_name = "gpt-5.1"
+
+[agent.vision_model]
+llm_provider = "gemini"
+llm_model_name = "gemini-2.5-pro"
+
+[[agent.llm.providers]]
+name = "openai"
+llm_api_key = "sk-openai"
+llm_base_url = "https://api.openai.com/v1"
+api_format = "chat_completion"
+
+[[agent.llm.providers]]
+name = "gemini"
+llm_api_key = "AIza..."
+llm_base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
+api_format = "chat_completion"
+
+[server]
+host = "0.0.0.0"
+port = 23456
+
+[local_embedding]
+model_path = "./models/custom.gguf"
+pooling_type = "cls"
+n_gpu_layers = 8
+""".strip()
+        },
+    )
+    assert put_response.status_code == 200
+    assert put_response.json()["status"] == "ok"
+    assert "port = 23456" in put_response.json()["content"]
+
+    with lab_path.open("rb") as file:
+        saved = tomllib.load(file)
+
+    assert saved["server"]["host"] == "0.0.0.0"
+    assert saved["server"]["port"] == 23456
+    assert saved["local_embedding"] == {
+        "model_path": "./models/custom.gguf",
+        "pooling_type": "cls",
+        "n_gpu_layers": 8,
+    }
+
+
+def test_lab_config_form_endpoints_expose_schema_and_save_values(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir(parents=True)
+    (config_dir / "lab.toml").write_text(
+        """
+[agent.chat_model]
+llm_provider = "openai"
+llm_model_name = "before"
+
+[[agent.llm.providers]]
+name = "openai"
+llm_api_key = "sk-before"
+llm_base_url = "https://api.openai.com/v1"
+api_format = "chat_completion"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    client = TestClient(_make_app(tmp_path))
+
+    get_response = client.get("/admin/api/config/lab/form")
+    assert get_response.status_code == 200
+    payload = get_response.json()
+    section_keys = [section["key"] for section in payload["sections"]]
+    assert "asr" in section_keys
+    assert "agent" in section_keys
+    assert "server" in section_keys
+    assert payload["values"]["agent"]["chat_model"]["llm_provider"] == "openai"
+
+    put_response = client.put(
+        "/admin/api/config/lab/form",
+        json={
+            "values": {
+                **payload["values"],
+                "server": {
+                    **payload["values"]["server"],
+                    "host": "0.0.0.0",
+                    "port": 23456,
+                },
+                "memory_bench": {
+                    **payload["values"]["memory_bench"],
+                    "search_limit": 12,
+                },
+            }
+        },
+    )
+    assert put_response.status_code == 200
+    updated = put_response.json()
+    assert updated["status"] == "ok"
+    assert updated["values"]["server"]["port"] == 23456
+    assert updated["values"]["memory_bench"]["search_limit"] == 12
+
+
 def test_service_context_reload_runtime_refreshes_template_state(monkeypatch: pytest.MonkeyPatch) -> None:
     import asyncio
 
