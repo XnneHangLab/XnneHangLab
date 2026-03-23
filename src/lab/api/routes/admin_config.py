@@ -129,7 +129,14 @@ async def get_lab_config_raw(request: Request) -> dict[str, Any]:
     settings_path = lab_config_path(request)
 
     if settings_path.exists():
-        content = settings_path.read_text(encoding="utf-8")
+        raw_content = settings_path.read_text(encoding="utf-8")
+        try:
+            raw_settings = tomllib.loads(raw_content)
+            validated = XnneHangLabSettings.model_validate(raw_settings)
+            content = dump_lab_settings(validated)
+        except (tomllib.TOMLDecodeError, ValidationError):
+            # Keep the original text when the file is broken so the raw editor can repair it.
+            content = raw_content
     else:
         settings, _ = load_lab_settings(request)
         content = dump_lab_settings(settings)

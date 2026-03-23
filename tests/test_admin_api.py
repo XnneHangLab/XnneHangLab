@@ -31,6 +31,18 @@ def _make_app(tmp_path: Path, *, enable_tool: bool = False) -> FastAPI:
     return app
 
 
+def _find_schema_field(fields: list[dict[str, Any]], path: list[str]) -> dict[str, Any]:
+    current_fields = fields
+    current_field: dict[str, Any] | None = None
+
+    for key in path:
+        current_field = next(field for field in current_fields if field["key"] == key)
+        current_fields = current_field.get("fields", [])
+
+    assert current_field is not None
+    return current_field
+
+
 def test_list_plugins_returns_stable_plugin_structure(tmp_path: Path) -> None:
     plugins_dir = tmp_path / "src" / "lab" / "plugins"
     (plugins_dir / "z_plugin").mkdir(parents=True)
@@ -431,6 +443,37 @@ n_gpu_layers = 8
     }
 
 
+def test_lab_config_raw_get_normalizes_valid_legacy_content(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir(parents=True)
+    lab_path = config_dir / "lab.toml"
+    lab_path.write_text(
+        """
+[agent.chat_model]
+llm_provider = "openai"
+llm_model_name = "before"
+
+[agent.llm.openai]
+llm_api_key = "sk-before"
+llm_base_url = "https://api.openai.com/v1"
+api_format = "chat_completion"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    client = TestClient(_make_app(tmp_path))
+
+    response = client.get("/admin/api/config/lab/raw")
+
+    assert response.status_code == 200
+    content = response.json()["content"]
+    assert "[[agent.llm.providers]]" in content
+    assert '[agent.llm.openai]' not in content
+    assert 'name = "openai"' in content
+    with lab_path.open("r", encoding="utf-8") as file:
+        assert '[agent.llm.openai]' in file.read()
+
+
 def test_lab_config_form_endpoints_expose_schema_and_save_values(tmp_path: Path) -> None:
     config_dir = tmp_path / "config"
     config_dir.mkdir(parents=True)
@@ -482,6 +525,151 @@ api_format = "chat_completion"
     assert updated["status"] == "ok"
     assert updated["values"]["server"]["port"] == 23456
     assert updated["values"]["memory_bench"]["search_limit"] == 12
+
+
+def test_lab_config_form_schema_covers_i18n_literal_and_array_object_shapes(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir(parents=True)
+    (config_dir / "lab.toml").write_text(
+        """
+[agent.chat_model]
+llm_provider = "openai"
+llm_model_name = "before"
+
+[[agent.llm.providers]]
+name = "openai"
+llm_api_key = "sk-before"
+llm_base_url = "https://api.openai.com/v1"
+api_format = "chat_completion"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    client = TestClient(_make_app(tmp_path))
+
+    payload = client.get("/admin/api/config/lab/form").json()
+
+    asr_provider = _find_schema_field(payload["sections"], ["asr", "asr_model_provider"])
+    assert asr_provider["kind"] == "enum"
+    assert asr_provider["options"] == [
+        {"value": "qwen", "label": "Qwen3-ASR"},
+        {"value": "sherpa", "label": "Sherpa-ONNX Paraformer"},
+    ]
+
+    preload_models = _find_schema_field(payload["sections"], ["asr", "qwen_asr", "preload_models"])
+    assert preload_models["kind"] == "array"
+    assert preload_models["default"] == ["0.6b"]
+    assert preload_models["item"]["kind"] == "enum"
+    assert preload_models["item"]["default"] == "0.6b"
+    assert preload_models["item"]["options"] == [
+        {"value": "0.6b", "label": "0.6b"},
+        {"value": "1.7b", "label": "1.7b"},
+    ]
+
+    providers_field = _find_schema_field(payload["sections"], ["agent", "llm", "providers"])
+    assert providers_field["kind"] == "array"
+    assert providers_field["item"]["kind"] == "object"
+    provider_field_keys = [field["key"] for field in providers_field["item"]["fields"]]
+    assert provider_field_keys == ["name", "llm_api_key", "llm_base_url", "api_format"]
+    api_format_field = next(field for field in providers_field["item"]["fields"] if field["key"] == "api_format")
+    assert api_format_field["kind"] == "enum"
+    assert api_format_field["default"] == "chat_completion"
+    assert api_format_field["options"] == [{"value": "chat_completion", "label": "chat_completion"}]
+
+    translate_model_path = _find_schema_field(payload["sections"], ["agent", "translate", "llm", "model_path"])
+    assert translate_model_path["title"] == "LLM Translate Model Path"
+    assert "Local GGUF model path" in translate_model_path["description"]
+
+
+def test_lab_config_raw_and_form_write_back_to_same_normalized_content(tmp_path: Path) -> None:
+    raw_root = tmp_path / "raw_case"
+    form_root = tmp_path / "form_case"
+    for root in (raw_root, form_root):
+        config_dir = root / "config"
+        config_dir.mkdir(parents=True)
+        (config_dir / "lab.toml").write_text(
+            """
+[agent.chat_model]
+llm_provider = "openai"
+llm_model_name = "before"
+
+[[agent.llm.providers]]
+name = "openai"
+llm_api_key = "sk-before"
+llm_base_url = "https://api.openai.com/v1"
+api_format = "chat_completion"
+""".strip(),
+            encoding="utf-8",
+        )
+
+    raw_client = TestClient(_make_app(raw_root))
+    form_client = TestClient(_make_app(form_root))
+
+    raw_response = raw_client.put(
+        "/admin/api/config/lab/raw",
+        json={
+            "content": """
+[agent.chat_model]
+llm_provider = "openai"
+llm_model_name = "gpt-5.1"
+support_vision = true
+
+[agent.vision_model]
+llm_provider = "gemini"
+llm_model_name = "gemini-2.5-pro"
+
+[[agent.llm.providers]]
+name = "openai"
+llm_api_key = "sk-openai"
+llm_base_url = "https://api.openai.com/v1"
+api_format = "chat_completion"
+
+[[agent.llm.providers]]
+name = "gemini"
+llm_api_key = "AIza..."
+llm_base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
+api_format = "chat_completion"
+
+[server]
+host = "0.0.0.0"
+port = 23456
+""".strip()
+        },
+    )
+    assert raw_response.status_code == 200
+
+    form_payload = form_client.get("/admin/api/config/lab/form").json()["values"]
+    form_payload["agent"]["chat_model"]["llm_provider"] = "openai"
+    form_payload["agent"]["chat_model"]["llm_model_name"] = "gpt-5.1"
+    form_payload["agent"]["chat_model"]["support_vision"] = True
+    form_payload["agent"]["vision_model"]["llm_provider"] = "gemini"
+    form_payload["agent"]["vision_model"]["llm_model_name"] = "gemini-2.5-pro"
+    form_payload["agent"]["llm"]["providers"] = [
+        {
+            "name": "openai",
+            "llm_api_key": "sk-openai",
+            "llm_base_url": "https://api.openai.com/v1",
+            "api_format": "chat_completion",
+        },
+        {
+            "name": "gemini",
+            "llm_api_key": "AIza...",
+            "llm_base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+            "api_format": "chat_completion",
+        },
+    ]
+    form_payload["server"]["host"] = "0.0.0.0"
+    form_payload["server"]["port"] = 23456
+
+    form_response = form_client.put("/admin/api/config/lab/form", json={"values": form_payload})
+    assert form_response.status_code == 200
+
+    with (raw_root / "config" / "lab.toml").open("rb") as file:
+        raw_saved = tomllib.load(file)
+    with (form_root / "config" / "lab.toml").open("rb") as file:
+        form_saved = tomllib.load(file)
+
+    assert raw_saved == form_saved
 
 
 def test_service_context_reload_runtime_refreshes_template_state(monkeypatch: pytest.MonkeyPatch) -> None:
