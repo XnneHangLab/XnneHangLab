@@ -81,6 +81,8 @@ async def process_single_conversation(
             tts_manager=tts_manager,
         )
 
+        await context.send_current_mood(websocket_send)
+
         # Wait for any pending TTS tasks
         if tts_manager.task_list:  #  type: ignore
             logger.debug(f"Waiting for {len(tts_manager.task_list)} TTS tasks to complete")  #  type: ignore

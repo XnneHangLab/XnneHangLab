@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 
     from lab.agent.agents.agent_interface import AgentInterface
     from lab.config_manager.server import ServerSettings
+    from lab.conversations.types import WebSocketSend
 
 
 class ServiceContext:
@@ -326,6 +327,35 @@ class ServiceContext:
 
         self.translate_engine.update_settings(lab_settings)
 
+    def get_current_mood_score(self) -> int | None:
+        """Return the current mood score from the active mood hook, if present."""
+        agent_engine = self.agent_engine
+        agent_core = getattr(agent_engine, "core", None)
+        hook_manager = getattr(agent_core, "_hook_manager", None)
+        hooks = getattr(hook_manager, "_hooks", [])
+
+        for hook in hooks:
+            mood_score = getattr(hook, "mood_score", None)
+            if isinstance(mood_score, int):
+                return max(0, min(100, mood_score))
+
+        return None
+
+    async def send_current_mood(self, websocket_send: "WebSocketSend") -> None:
+        """Push the current mood score to the frontend if mood support is active."""
+        mood_score = self.get_current_mood_score()
+        if mood_score is None:
+            return
+
+        await websocket_send(
+            json.dumps(
+                {
+                    "type": "mood-update",
+                    "score": mood_score,
+                }
+            )
+        )
+
     async def handle_config_switch(
         self,
         websocket: WebSocket,
@@ -372,6 +402,8 @@ class ServiceContext:
                     }
                 )
             )
+
+            await self.send_current_mood(websocket.send_text)
 
             logger.info("Configuration switched to lab.toml")
 

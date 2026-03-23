@@ -225,6 +225,8 @@ class WebSocketHandler:
         # Send initial group status
         await self.send_group_update(websocket, client_uid)
 
+        await session_service_context.send_current_mood(websocket.send_text)
+
         # Start microphone
         await websocket.send_text(json.dumps({"type": "control", "text": "start-mic"}))
 

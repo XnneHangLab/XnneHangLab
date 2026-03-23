@@ -376,11 +376,11 @@ class MoodChatPlugin(HookPlugin):
         try:
             while True:
                 await asyncio.sleep(60)
-                async with self._mood_lock:
-                    if self._mood_score < self._target_mood:
-                        self._mood_score += 1
-                    elif self._mood_score > self._target_mood:
-                        self._mood_score -= 1
+                current_mood = await self._get_mood_score()
+                if current_mood < self._target_mood:
+                    await self._change_mood(1)
+                elif current_mood > self._target_mood:
+                    await self._change_mood(-1)
         except asyncio.CancelledError:
             return
 
@@ -401,6 +401,24 @@ class MoodChatPlugin(HookPlugin):
         plugin_logger.info(
             f"[MOOD_CHAT] mood changed: delta={delta:+d} mood={current_mood} proactive_interval={interval_text}"
         )
+        await self._publish_mood_update(current_mood)
+
+    async def _publish_mood_update(self, mood_score: int | None = None) -> None:
+        ctx = self._ctx
+        if ctx is None:
+            return
+
+        websocket_send = ctx.extra.get("websocket_send")
+        if not callable(websocket_send):
+            return
+
+        score = self._clamp_mood(self._mood_score if mood_score is None else mood_score)
+        try:
+            await cast("WebSocketSend", websocket_send)(
+                json.dumps({"type": "mood-update", "score": score})
+            )
+        except Exception as exc:
+            plugin_logger.warning(f"[MOOD_CHAT] failed to publish mood update: score={score} error={exc}")
 
     def _cancel_response_timeout(self) -> None:
         task = self._response_timeout_task
