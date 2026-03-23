@@ -500,3 +500,12 @@ test-embedding server='http://127.0.0.1:12393':
       "model": "bge-m3", \
       "input": ["hello world", "今天下午一起去散步吧"] \
     }'
+
+gsv-batch input='data/gsv_batch_input.txt' output_dir='output/gsv_batch' server='http://127.0.0.1:12393' character='' emotion='':
+  uv run python scripts/gsv_batch_generate.py --input {{ input }} --output-dir {{ output_dir }} --server {{ server }} {{ if character != '' { '--character ' + character } else { '' } }} {{ if emotion != '' { '--emotion ' + emotion } else { '' } }}
+
+gsv-batch-prune input='data/gsv_batch_input.txt' output_dir='output/gsv_batch' server='http://127.0.0.1:12393' character='' emotion='':
+  uv run python scripts/gsv_batch_generate.py --input {{ input }} --output-dir {{ output_dir }} --server {{ server }} --prune-stale {{ if character != '' { '--character ' + character } else { '' } }} {{ if emotion != '' { '--emotion ' + emotion } else { '' } }}
+
+gsv-batch-help:
+  uv run python scripts/gsv_batch_generate.py --help
