@@ -6,13 +6,13 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import ValidationError
 
+from lab.api.routes.admin_schema import build_lab_config_form_schema
 from lab.api.routes.admin_shared import (
     AgentConfigPayload,
     LabConfigFormPayload,
     ProviderCreatePayload,
     ProviderUpdatePayload,
     RawLabConfigPayload,
-    build_lab_config_form_schema,
     display_path,
     dump_lab_settings,
     find_provider,
