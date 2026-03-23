@@ -37,8 +37,12 @@ ABBREVIATIONS = [
 COMMAS = [",", ";", "\u3001", "\uff0c", "\uff1b"]
 END_PUNCTUATIONS = [".", "!", "?", "\u3002", "\uff01", "\uff1f", "...", "\u2026\u2026"]
 SENTENCE_END_CHARS = {".", "!", "?", "\u3002", "\uff01", "\uff1f"}
-TRAILING_SENTENCE_CHARS = set("\"')]}>\u300d\u300f\u3011\uff09")
+TRAILING_SENTENCE_CHARS = set("\"'”’)]}>\u300d\u300f\u3011\uff09")
 SECONDARY_SPLIT_CHARS = {",", ";", "\u3001", "\uff0c", "\uff1b", ":", "\uff1a"}
+SHORT_SENTENCE_EDGE_CHARS = "\"'”’“‘()[]{}<>（）【】「」『』"
+SHORT_SENTENCE_TRAILING_CHARS = ".,!?;:。！？；：…~，、"
+SHORT_SENTENCE_THRESHOLD = 5
+PREFERRED_SENTENCE_LEN_RANGE = (10, 15)
 LIST_MARKER_RE = re.compile(r"(^|[\s\[\(\{\]\)\}])\d+\.$")
 FRAGILE_DOT_RE = re.compile(r"(?<!\S)\d+\.(?=\s*\S)|[A-Za-z0-9_/-]+(?:\.[A-Za-z0-9_/-]+)+")
 PARAGRAPH_BREAK_RE = re.compile(r"(?:\r?\n\s*){2,}")
@@ -319,6 +323,87 @@ def _split_long_sentence(sentence: str, max_sentence_len: int) -> list[str]:
     return [part for part in parts if part]
 
 
+def _effective_sentence_length(text: str) -> int:
+    compact = re.sub(r"\s+", "", text.strip())
+    compact = compact.strip(SHORT_SENTENCE_EDGE_CHARS)
+    compact = compact.rstrip(SHORT_SENTENCE_TRAILING_CHARS)
+    compact = compact.strip(SHORT_SENTENCE_EDGE_CHARS)
+    return len(compact)
+
+
+def _should_merge_short_sentence(text: str) -> bool:
+    candidate = text.strip()
+    if not candidate:
+        return False
+
+    if FRAGILE_DOT_RE.search(candidate):
+        return False
+
+    if LIST_MARKER_RE.search(candidate):
+        return False
+
+    return _effective_sentence_length(candidate) <= SHORT_SENTENCE_THRESHOLD
+
+
+def _sentence_merge_score(text: str) -> tuple[float, float]:
+    low, high = PREFERRED_SENTENCE_LEN_RANGE
+    length = _effective_sentence_length(text)
+    if low <= length <= high:
+        penalty = 0.0
+    elif length < low:
+        penalty = float(low - length)
+    else:
+        penalty = float(length - high)
+    midpoint = (low + high) / 2
+    return penalty, abs(length - midpoint)
+
+
+def _merge_short_sentence_texts(
+    texts: list[str],
+    *,
+    hold_trailing_short: bool = False,
+) -> tuple[list[str], str]:
+    pending = [text.strip() for text in texts if text.strip()]
+    merged: list[str] = []
+    trailing_short = ""
+
+    index = 0
+    while index < len(pending):
+        candidate = pending[index]
+        if not _should_merge_short_sentence(candidate):
+            merged.append(candidate)
+            index += 1
+            continue
+
+        has_prev = bool(merged)
+        has_next = index + 1 < len(pending)
+
+        if has_prev and has_next:
+            previous_merged = f"{merged[-1]}{candidate}"
+            next_merged = f"{candidate}{pending[index + 1]}"
+            if _sentence_merge_score(previous_merged) <= _sentence_merge_score(next_merged):
+                merged[-1] = previous_merged
+            else:
+                pending[index + 1] = next_merged
+            index += 1
+            continue
+
+        if has_next:
+            pending[index + 1] = f"{candidate}{pending[index + 1]}"
+            index += 1
+            continue
+
+        if hold_trailing_short:
+            trailing_short = f"{trailing_short}{candidate}" if trailing_short else candidate
+        elif has_prev:
+            merged[-1] = f"{merged[-1]}{candidate}"
+        else:
+            merged.append(candidate)
+        index += 1
+
+    return merged, trailing_short
+
+
 def _segment_with_method(text: str, segment_method: str) -> tuple[list[str], str]:
     if segment_method == "regex":
         return segment_text_by_regex(text)
@@ -376,7 +461,10 @@ def segment_full(
     )
     if trailing_fragment.strip():
         sentences.extend(_split_long_sentence(trailing_fragment, max_sentence_len))
-    return [sentence for sentence in sentences if sentence.strip()]
+    merged_sentences, trailing_short = _merge_short_sentence_texts(sentences)
+    if trailing_short:
+        merged_sentences.append(trailing_short)
+    return [sentence for sentence in merged_sentences if sentence.strip()]
 
 
 class TagState(Enum):
@@ -493,7 +581,10 @@ class SentenceDivider:
     def _build_sentences(self, texts: list[str], tags: list[TagInfo] | None = None) -> list[SentenceWithTags]:
         sentence_tags = tags or self._default_tags()
         result: list[SentenceWithTags] = []
-        for text in texts:
+        merged_texts, trailing_short = _merge_short_sentence_texts(texts)
+        if trailing_short:
+            merged_texts.append(trailing_short)
+        for text in merged_texts:
             cleaned = self._clean_stream_text(text)
             if cleaned:
                 result.append(SentenceWithTags(text=cleaned, tags=sentence_tags))
@@ -521,6 +612,12 @@ class SentenceDivider:
             segment_method=self.segment_method,
             include_incomplete_tail=False,
         )
+        sentences, trailing_short = _merge_short_sentence_texts(
+            sentences,
+            hold_trailing_short=not force,
+        )
+        if trailing_short:
+            remaining = f"{trailing_short}{remaining}".strip()
 
         if not force and len(sentences) < self.stream_min_sentences:
             return []

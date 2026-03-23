@@ -114,6 +114,24 @@ def test_segment_full_keeps_version_intact() -> None:
     assert sentences == ["Use v1.2.3 today.", "Ship tomorrow."]
 
 
+def test_segment_full_merges_short_interjection_into_following_sentence() -> None:
+    sentences = segment_full("[欸。]我刚刚看错了。然后继续。", segment_method="regex")
+
+    assert sentences == ["[欸。]我刚刚看错了。然后继续。"]
+
+
+def test_segment_full_merges_trailing_short_interjection_backward() -> None:
+    sentences = segment_full("我知道了。[欸。]", segment_method="regex")
+
+    assert sentences == ["我知道了。[欸。]"]
+
+
+def test_segment_full_merges_short_sentence_by_tts_threshold() -> None:
+    sentences = segment_full("我懂了。然后继续。", segment_method="regex")
+
+    assert sentences == ["我懂了。然后继续。"]
+
+
 def test_sentence_divider_stream_waits_for_two_sentences_before_flushing() -> None:
     async def _run() -> tuple[list[str], str]:
         divider = _TestSentenceDivider(
@@ -154,3 +172,23 @@ def test_sentence_divider_stream_flushes_tail_fragment_at_end() -> None:
         return chunks
 
     assert asyncio.run(_collect()) == ["First sentence.", "Second sentence.", "Tail fragment"]
+
+
+def test_sentence_divider_stream_merges_short_interjection_before_emitting() -> None:
+    async def _collect() -> list[str]:
+        divider = SentenceDivider(
+            faster_first_response=False,
+            segment_method="regex",
+            valid_tags=["think", "tool"],
+        )
+
+        async def _source() -> AsyncIterator[str]:
+            yield "[欸。]"
+            yield "我刚刚看错了。然后继续。"
+
+        chunks: list[str] = []
+        async for chunk in divider.process_stream(_source()):
+            chunks.append(chunk.text)
+        return chunks
+
+    assert asyncio.run(_collect()) == ["[欸。]我刚刚看错了。然后继续。"]
