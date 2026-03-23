@@ -341,7 +341,7 @@ class ServiceContext:
 
         return None
 
-    async def send_current_mood(self, websocket_send: "WebSocketSend") -> None:
+    async def send_current_mood(self, websocket_send: WebSocketSend) -> None:
         """Push the current mood score to the frontend if mood support is active."""
         mood_score = self.get_current_mood_score()
         if mood_score is None:

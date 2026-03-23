@@ -414,9 +414,7 @@ class MoodChatPlugin(HookPlugin):
 
         score = self._clamp_mood(self._mood_score if mood_score is None else mood_score)
         try:
-            await cast("WebSocketSend", websocket_send)(
-                json.dumps({"type": "mood-update", "score": score})
-            )
+            await cast("WebSocketSend", websocket_send)(json.dumps({"type": "mood-update", "score": score}))
         except Exception as exc:
             plugin_logger.warning(f"[MOOD_CHAT] failed to publish mood update: score={score} error={exc}")
 
