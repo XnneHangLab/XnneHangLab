@@ -224,6 +224,12 @@ test:
   uv run pytest tests -vvv
   uv run pytest memory_bench/tests -vvv
 
+test-sentence-divider:
+  uv run python scripts/test_sentence_divider.py
+
+prepare-gsv-batch-input input='./data/input.txt' output='data/gsv_batch_input.txt' segment_method='pysbd' max_sentence_len='20':
+    uv run python scripts/prepare_gsv_batch_input.py --input {{ input }} --output {{ output }} --segment-method {{ segment_method }} --max-sentence-len {{ max_sentence_len }}
+
 # CI-workflow
 
 ci-install:

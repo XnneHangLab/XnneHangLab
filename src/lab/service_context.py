@@ -164,6 +164,7 @@ class ServiceContext:
                 ignore_parentheses=char.tts_preprocessor.ignore_parentheses,
                 ignore_asterisks=char.tts_preprocessor.ignore_asterisks,
                 ignore_angle_brackets=char.tts_preprocessor.ignore_angle_brackets,
+                ignore_urls=char.tts_preprocessor.ignore_urls,
             ),
             tts_config=VTuberTTSConfig(
                 character_name=char.tts.character_name,
