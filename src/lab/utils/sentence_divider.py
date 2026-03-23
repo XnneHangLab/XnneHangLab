@@ -591,6 +591,19 @@ class SentenceDivider:
         return result
 
     def _flush_plain_buffer(self, *, force: bool = False, final: bool = False) -> list[SentenceWithTags]:
+        """刷新纯文本缓冲区，并复用统一分句路径输出结果。
+
+        这是 plain text buffer 的统一出口。普通流式文本会先进入 `_buffer`，
+        再在这里决定是否调用 Full 分句路径、是否继续保留尾部残句，以及是否
+        达到当前允许输出的稳定句子数量。
+
+        Args:
+            force: 是否强制输出当前缓冲中的可用内容。
+            final: 是否作为流结束时的最终刷新。
+
+        Returns:
+            list[SentenceWithTags]: 当前可以安全输出的句子列表。
+        """
         if not self._buffer.strip():
             return []
 
@@ -723,6 +736,18 @@ class SentenceDivider:
     async def process_stream(
         self, segment_stream: AsyncIterator[str | AudioOutput]
     ) -> AsyncIterator[SentenceWithTags | AudioOutput]:
+        """处理流式输出，并在内部复用统一的分句与缓冲逻辑。
+
+        该入口主要负责持续积攒 stream 片段、维护 tag 状态，并在检测到
+        标点、结构边界或标签时触发内部刷新。真正的清洗、分句和短句合并，
+        统一交给 divider 内部的共享路径处理，避免维护两套平行规则。
+
+        Args:
+            segment_stream: 上游返回的流式文本或音频输出迭代器。
+
+        Yields:
+            SentenceWithTags | AudioOutput: 处理后的句子或原样透传的音频输出。
+        """
         self._full_response = []
         logger.info("Starting sentence processing stream...")
         async for segment in segment_stream:
