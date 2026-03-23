@@ -69,3 +69,21 @@ def test_segment_full_respects_single_line_break_boundaries() -> None:
         "风信，是个好名字",
         '"十年一觉扬州梦，赢得青楼薄幸名。"',
     ]
+
+
+def test_segment_full_keeps_short_sentence_when_merge_would_exceed_max_length() -> None:
+    text = "嗯。abcdefghijklmnopqrst."
+
+    assert segment_full(text, max_sentence_len=20, segment_method="regex") == [
+        "嗯。",
+        "abcdefghijklmnopqrst.",
+    ]
+
+
+def test_segment_full_keeps_line_broken_url_as_one_sentence() -> None:
+    text = "在这里：https:\n//xnnehang.top/posts/default/learn_alma_part1\n我们当时试着把 tool model 和 chat model 分离了。"
+
+    assert segment_full(text, max_sentence_len=20, segment_method="regex") == [
+        "在这里：https://xnnehang.top/posts/default/learn_alma_part1",
+        "我们当时试着把 tool model 和 chat model 分离了。",
+    ]

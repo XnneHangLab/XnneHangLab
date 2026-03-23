@@ -48,6 +48,7 @@ FRAGILE_DOT_RE = re.compile(r"(?<!\S)\d+\.(?=\s*\S)|[A-Za-z0-9_/-]+(?:\.[A-Za-z0
 PARAGRAPH_BREAK_RE = re.compile(r"(?:\r?\n\s*){2,}")
 ACTION_LINE_BREAK_RE = re.compile(r"\r?\n\s*(?:\[[^\]\r\n]+\]|\([^)]+\))")
 FULL_BLOCK_BREAK_RE = re.compile(r"\r?\n+")
+URL_TEXT_RE = re.compile(r"(?i)\b(?:https?://|www\.)[^\s<>\u3000]+")
 DEFAULT_STREAMING_CLEANER = TextCleaner(
     CleanerConfig(
         clean_emoji=False,
@@ -294,6 +295,8 @@ def _split_long_sentence(sentence: str, max_sentence_len: int) -> list[str]:
         return []
     if max_sentence_len <= 0 or len(sentence) <= max_sentence_len:
         return [sentence]
+    if URL_TEXT_RE.search(sentence):
+        return [sentence]
 
     parts: list[str] = []
     remaining = sentence
@@ -359,10 +362,17 @@ def _sentence_merge_score(text: str) -> tuple[float, float]:
     return penalty, abs(length - midpoint)
 
 
+def _within_sentence_length_limit(text: str, max_sentence_len: int) -> bool:
+    if max_sentence_len <= 0:
+        return True
+    return _effective_sentence_length(text) <= max_sentence_len
+
+
 def _merge_short_sentence_texts(
     texts: list[str],
     *,
     hold_trailing_short: bool = False,
+    max_sentence_len: int = 0,
 ) -> tuple[list[str], str]:
     pending = [text.strip() for text in texts if text.strip()]
     merged: list[str] = []
@@ -382,21 +392,34 @@ def _merge_short_sentence_texts(
         if has_prev and has_next:
             previous_merged = f"{merged[-1]}{candidate}"
             next_merged = f"{candidate}{pending[index + 1]}"
-            if _sentence_merge_score(previous_merged) <= _sentence_merge_score(next_merged):
+            previous_allowed = _within_sentence_length_limit(previous_merged, max_sentence_len)
+            next_allowed = _within_sentence_length_limit(next_merged, max_sentence_len)
+            if previous_allowed and next_allowed:
+                if _sentence_merge_score(previous_merged) <= _sentence_merge_score(next_merged):
+                    merged[-1] = previous_merged
+                else:
+                    pending[index + 1] = next_merged
+            elif previous_allowed:
                 merged[-1] = previous_merged
-            else:
+            elif next_allowed:
                 pending[index + 1] = next_merged
+            else:
+                merged.append(candidate)
             index += 1
             continue
 
         if has_next:
-            pending[index + 1] = f"{candidate}{pending[index + 1]}"
+            next_merged = f"{candidate}{pending[index + 1]}"
+            if _within_sentence_length_limit(next_merged, max_sentence_len):
+                pending[index + 1] = next_merged
+            else:
+                merged.append(candidate)
             index += 1
             continue
 
         if hold_trailing_short:
             trailing_short = f"{trailing_short}{candidate}" if trailing_short else candidate
-        elif has_prev:
+        elif has_prev and _within_sentence_length_limit(f"{merged[-1]}{candidate}", max_sentence_len):
             merged[-1] = f"{merged[-1]}{candidate}"
         else:
             merged.append(candidate)
@@ -468,7 +491,10 @@ def segment_full(
         )
         if trailing_fragment.strip():
             sentences.extend(_split_long_sentence(trailing_fragment, max_sentence_len))
-        merged_sentences, trailing_short = _merge_short_sentence_texts(sentences)
+        merged_sentences, trailing_short = _merge_short_sentence_texts(
+            sentences,
+            max_sentence_len=max_sentence_len,
+        )
         if trailing_short:
             merged_sentences.append(trailing_short)
         results.extend(sentence for sentence in merged_sentences if sentence.strip())
@@ -589,7 +615,7 @@ class SentenceDivider:
     def _build_sentences(self, texts: list[str], tags: list[TagInfo] | None = None) -> list[SentenceWithTags]:
         sentence_tags = tags or self._default_tags()
         result: list[SentenceWithTags] = []
-        merged_texts, trailing_short = _merge_short_sentence_texts(texts)
+        merged_texts, trailing_short = _merge_short_sentence_texts(texts, max_sentence_len=self.max_sentence_len)
         if trailing_short:
             merged_texts.append(trailing_short)
         for text in merged_texts:
@@ -636,6 +662,7 @@ class SentenceDivider:
         sentences, trailing_short = _merge_short_sentence_texts(
             sentences,
             hold_trailing_short=not force,
+            max_sentence_len=self.max_sentence_len,
         )
         if trailing_short:
             remaining = f"{trailing_short}{remaining}".strip()

@@ -50,3 +50,27 @@ def test_tts_filter_can_return_empty_when_text_is_only_url() -> None:
         )
         == ""
     )
+
+
+def test_tts_filter_ignores_line_broken_url() -> None:
+    config = TTSPreprocessorConfig(
+        remove_special_char=True,
+        ignore_brackets=True,
+        ignore_parentheses=True,
+        ignore_asterisks=True,
+        ignore_angle_brackets=True,
+        ignore_urls=True,
+    )
+
+    assert (
+        tts_filter(
+            text="see this https:\n//xnnehang.top/posts/default/learn_alma_part1",
+            remove_special_char=config.remove_special_char,
+            ignore_brackets=config.ignore_brackets,
+            ignore_parentheses=config.ignore_parentheses,
+            ignore_asterisks=config.ignore_asterisks,
+            ignore_angle_brackets=config.ignore_angle_brackets,
+            ignore_urls=config.ignore_urls,
+        )
+        == "see this"
+    )

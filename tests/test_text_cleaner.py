@@ -37,6 +37,19 @@ def test_text_cleaner_removes_markdown_thematic_break() -> None:
     assert cleaner.clean("第一段。\n---\n第二段。") == "第一段。\n\n第二段。"
 
 
+def test_text_cleaner_rejoins_line_broken_url_protocol() -> None:
+    cleaner = TextCleaner(
+        CleanerConfig(
+            clean_emoji=False,
+            clean_markdown=False,
+        )
+    )
+
+    assert cleaner.clean("在这里：https:\n//xnnehang.top/posts/default/learn_alma_part1") == (
+        "在这里：https://xnnehang.top/posts/default/learn_alma_part1"
+    )
+
+
 def test_text_cleaner_normalizes_whitespace() -> None:
     cleaner = TextCleaner(
         CleanerConfig(

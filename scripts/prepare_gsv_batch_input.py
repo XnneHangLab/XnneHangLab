@@ -30,7 +30,7 @@ def _parse_args() -> argparse.Namespace:
         "--max-sentence-len",
         type=int,
         default=20,
-        help="Maximum sentence length before secondary splitting inside the shared divider path.",
+        help="Maximum sentence length before secondary splitting inside the shared divider path. Use 0 for no limit.",
     )
     return parser.parse_args()
 

@@ -5,7 +5,7 @@ import unicodedata
 
 from loguru import logger
 
-URL_RE = re.compile(r"(?i)\b(?:https?://|www\.)[^\s<>\u3000]+")
+URL_RE = re.compile(r"(?is)\b(?:https?\s*:\s*/\s*/\s*|www\.)[^\s<>\u3000]+")
 
 
 def tts_filter(
