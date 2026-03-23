@@ -5,6 +5,8 @@ import unicodedata
 
 from loguru import logger
 
+URL_RE = re.compile(r"(?i)\b(?:https?://|www\.)[^\s<>\u3000]+")
+
 
 def tts_filter(
     text: str,
@@ -13,6 +15,7 @@ def tts_filter(
     ignore_parentheses: bool,
     ignore_asterisks: bool,
     ignore_angle_brackets: bool,
+    ignore_urls: bool,
     # translator: TranslateInterface | None = None,
 ) -> str:
     """
@@ -26,6 +29,8 @@ def tts_filter(
         ignore_brackets (bool): Whether to ignore text within brackets.
         ignore_parentheses (bool): Whether to ignore text within parentheses.
         ignore_asterisks (bool): Whether to ignore text within asterisks.
+        ignore_angle_brackets (bool): Whether to ignore text within angle brackets.
+        ignore_urls (bool): Whether to ignore URL text.
         translator (TranslateInterface, optional):
             The translator to use. If None, we'll skip the translation. Defaults to None.
 
@@ -59,6 +64,13 @@ def tts_filter(
             text = filter_angle_brackets(text)
         except Exception as e:
             logger.warning(f"Error ignoring angle brackets: {e}")
+            logger.warning(f"Text: {text}")
+            logger.warning("Skipping...")
+    if ignore_urls:
+        try:
+            text = filter_urls(text)
+        except Exception as e:
+            logger.warning(f"Error ignoring urls: {e}")
             logger.warning(f"Text: {text}")
             logger.warning("Skipping...")
     if remove_special_char:
@@ -190,4 +202,11 @@ def filter_asterisks(text: str) -> str:
     # Clean up any extra spaces
     filtered_text = re.sub(r"\s+", " ", filtered_text).strip()
 
+    return filtered_text
+
+
+def filter_urls(text: str) -> str:
+    """Remove URLs from TTS text while preserving surrounding readable content."""
+    filtered_text = URL_RE.sub("", text)
+    filtered_text = re.sub(r"\s+", " ", filtered_text).strip()
     return filtered_text

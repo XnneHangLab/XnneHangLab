@@ -12,7 +12,8 @@ The second paragraph keeps going without drama. It still ends cleanly.
 """.strip()
 
     assert segment_full(text) == [
-        "Weekly Notes This is the first paragraph.",
+        "Weekly Notes",
+        "This is the first paragraph.",
         "It has two sentences.",
         "The second paragraph keeps going without drama.",
         "It still ends cleanly.",
@@ -45,4 +46,26 @@ def test_segment_full_secondary_splits_long_sentence() -> None:
         "with several clauses, and enough commas,",
         "to force a secondary split,",
         "while still reading naturally.",
+    ]
+
+
+def test_segment_full_treats_html_break_as_paragraph_boundary() -> None:
+    text = "第一段。<br>第二段。<br/>第三段。"
+
+    assert segment_full(text) == [
+        "第一段。",
+        "第二段。",
+        "第三段。",
+    ]
+
+
+def test_segment_full_respects_single_line_break_boundaries() -> None:
+    text = """
+# 风信，是个好名字
+"十年一觉扬州梦，赢得青楼薄幸名。"
+""".strip()
+
+    assert segment_full(text) == [
+        "风信，是个好名字",
+        '"十年一觉扬州梦，赢得青楼薄幸名。"',
     ]

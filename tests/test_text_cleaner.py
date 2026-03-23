@@ -25,6 +25,18 @@ def test_text_cleaner_strips_basic_markdown() -> None:
     assert cleaner.clean("# Title\n**bold** and `code`") == "Title\nbold and code"
 
 
+def test_text_cleaner_converts_html_breaks_to_paragraph_breaks() -> None:
+    cleaner = TextCleaner()
+
+    assert cleaner.clean("first line<br>second line<br/>third line") == "first line\nsecond line\nthird line"
+
+
+def test_text_cleaner_removes_markdown_thematic_break() -> None:
+    cleaner = TextCleaner()
+
+    assert cleaner.clean("第一段。\n---\n第二段。") == "第一段。\n\n第二段。"
+
+
 def test_text_cleaner_normalizes_whitespace() -> None:
     cleaner = TextCleaner(
         CleanerConfig(

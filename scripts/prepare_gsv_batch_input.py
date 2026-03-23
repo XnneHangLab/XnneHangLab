@@ -29,8 +29,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--max-sentence-len",
         type=int,
-        default=100,
-        help="Maximum sentence length before secondary splitting.",
+        default=20,
+        help="Maximum sentence length before secondary splitting inside the shared divider path.",
     )
     return parser.parse_args()
 
@@ -49,7 +49,7 @@ def _validate_input(path: Path) -> None:
 
 
 def _read_text(path: Path) -> str:
-    return path.read_text(encoding="utf-8")
+    return path.read_text(encoding="utf-8-sig")
 
 
 def _write_output(path: Path, sentences: list[str]) -> None:

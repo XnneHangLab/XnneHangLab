@@ -17,6 +17,7 @@ class TTSPreprocessorConfig(BaseModel):
         ignore_parentheses: 是否忽略圆括号内容。
         ignore_asterisks: 是否忽略星号包裹内容。
         ignore_angle_brackets: 是否忽略尖括号内容。
+        ignore_urls: 是否忽略 URL 链接内容。
     """
 
     remove_special_char: Annotated[bool, Field(True)]
@@ -24,6 +25,7 @@ class TTSPreprocessorConfig(BaseModel):
     ignore_parentheses: Annotated[bool, Field(True)]
     ignore_asterisks: Annotated[bool, Field(True)]
     ignore_angle_brackets: Annotated[bool, Field(True)]
+    ignore_urls: Annotated[bool, Field(True)]
 
 
 class TTSEmotionConfig(BaseModel):

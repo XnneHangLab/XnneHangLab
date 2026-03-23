@@ -46,6 +46,7 @@ class TTSPreprocessorConfig(BaseModel):
         ignore_parentheses: 是否忽略圆括号内容。
         ignore_asterisks: 是否忽略星号包裹内容。
         ignore_angle_brackets: 是否忽略尖括号内容。
+        ignore_urls: 是否忽略 URL 链接内容。
     """
 
     remove_special_char: bool = True
@@ -53,6 +54,7 @@ class TTSPreprocessorConfig(BaseModel):
     ignore_parentheses: bool = True
     ignore_asterisks: bool = True
     ignore_angle_brackets: bool = True
+    ignore_urls: bool = True
 
 
 class TTSEmotionConfig(BaseModel):

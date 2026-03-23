@@ -47,6 +47,7 @@ LIST_MARKER_RE = re.compile(r"(^|[\s\[\(\{\]\)\}])\d+\.$")
 FRAGILE_DOT_RE = re.compile(r"(?<!\S)\d+\.(?=\s*\S)|[A-Za-z0-9_/-]+(?:\.[A-Za-z0-9_/-]+)+")
 PARAGRAPH_BREAK_RE = re.compile(r"(?:\r?\n\s*){2,}")
 ACTION_LINE_BREAK_RE = re.compile(r"\r?\n\s*(?:\[[^\]\r\n]+\]|\([^)]+\))")
+FULL_BLOCK_BREAK_RE = re.compile(r"\r?\n+")
 DEFAULT_STREAMING_CLEANER = TextCleaner(
     CleanerConfig(
         clean_emoji=False,
@@ -453,18 +454,25 @@ def segment_full(
 ) -> list[str]:
     active_cleaner = cleaner or TextCleaner()
     cleaned = active_cleaner.clean(text)
-    sentences, trailing_fragment = _segment_document(
-        cleaned,
-        max_sentence_len=max_sentence_len,
-        segment_method=segment_method,
-        include_incomplete_tail=True,
-    )
-    if trailing_fragment.strip():
-        sentences.extend(_split_long_sentence(trailing_fragment, max_sentence_len))
-    merged_sentences, trailing_short = _merge_short_sentence_texts(sentences)
-    if trailing_short:
-        merged_sentences.append(trailing_short)
-    return [sentence for sentence in merged_sentences if sentence.strip()]
+    blocks = [block.strip() for block in FULL_BLOCK_BREAK_RE.split(cleaned) if block.strip()]
+    if not blocks:
+        return []
+
+    results: list[str] = []
+    for block in blocks:
+        sentences, trailing_fragment = _segment_document(
+            block,
+            max_sentence_len=max_sentence_len,
+            segment_method=segment_method,
+            include_incomplete_tail=True,
+        )
+        if trailing_fragment.strip():
+            sentences.extend(_split_long_sentence(trailing_fragment, max_sentence_len))
+        merged_sentences, trailing_short = _merge_short_sentence_texts(sentences)
+        if trailing_short:
+            merged_sentences.append(trailing_short)
+        results.extend(sentence for sentence in merged_sentences if sentence.strip())
+    return results
 
 
 class TagState(Enum):

@@ -14,7 +14,9 @@ EMOJI_SEQUENCE_RE = re.compile(
 )
 INLINE_CODE_RE = re.compile(r"`([^`]+)`")
 MARKDOWN_BOLD_RE = re.compile(r"\*\*(.+?)\*\*")
-MARKDOWN_HEADER_RE = re.compile(r"(?m)^\s{0,3}#{1,6}\s+")
+MARKDOWN_HEADER_LINE_RE = re.compile(r"(?m)^\s{0,3}#{1,6}\s+(.+?)\s*$")
+MARKDOWN_THEMATIC_BREAK_RE = re.compile(r"(?m)^\s*(?:-{3,}|\*{3,}|_{3,})\s*$")
+HTML_BREAK_RE = re.compile(r"(?i)<br\s*/?>")
 SPACE_RE = re.compile(r"[^\S\r\n]+")
 NEWLINE_SPACING_RE = re.compile(r"[ \t]*\n[ \t]*")
 PARAGRAPH_GAP_RE = re.compile(r"\n{3,}")
@@ -40,9 +42,11 @@ class TextCleaner:
         cleaned = text
 
         if self.config.clean_markdown:
+            cleaned = MARKDOWN_THEMATIC_BREAK_RE.sub("", cleaned)
+            cleaned = HTML_BREAK_RE.sub("\n", cleaned)
+            cleaned = MARKDOWN_HEADER_LINE_RE.sub(r"\1", cleaned)
             cleaned = MARKDOWN_BOLD_RE.sub(r"\1", cleaned)
             cleaned = INLINE_CODE_RE.sub(r"\1", cleaned)
-            cleaned = MARKDOWN_HEADER_RE.sub("", cleaned)
 
         if self.config.clean_emoji:
             cleaned = self._clean_emoji(cleaned)

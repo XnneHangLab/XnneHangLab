@@ -161,6 +161,7 @@ def tts_filter(
                             ignore_parentheses=config.ignore_parentheses,
                             ignore_asterisks=config.ignore_asterisks,
                             ignore_angle_brackets=config.ignore_angle_brackets,
+                            ignore_urls=config.ignore_urls,
                         )
 
                     logger.debug(f"[{display.name}] display: {display.text}")
