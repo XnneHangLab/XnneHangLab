@@ -4,7 +4,7 @@ import tomllib
 from pathlib import Path
 from shutil import copytree
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -32,14 +32,33 @@ def _make_app(tmp_path: Path, *, enable_tool: bool = False) -> FastAPI:
 
 
 def _find_schema_field(fields: list[dict[str, Any]], path: list[str]) -> dict[str, Any]:
-    current_fields = fields
-    current_field: dict[str, Any] | None = None
+    if not path:
+        raise ValueError("path cannot be empty")
+
+    current_fields: list[dict[str, Any]] = fields
+    current_field: dict[str, Any] = {}
 
     for key in path:
-        current_field = next(field for field in current_fields if field["key"] == key)
-        current_fields = current_field.get("fields", [])
+        matched_field: dict[str, Any] | None = None
+        for field in current_fields:
+            if field.get("key") == key:
+                matched_field = field
+                break
 
-    assert current_field is not None
+        if matched_field is None:
+            raise KeyError(f"Schema field not found: {'/'.join(path)}")
+
+        current_field = matched_field
+        nested_fields = current_field.get("fields", [])
+        if isinstance(nested_fields, list):
+            next_fields: list[dict[str, Any]] = []
+            for item in cast("list[object]", nested_fields):
+                if isinstance(item, dict):
+                    next_fields.append(cast("dict[str, Any]", item))
+            current_fields = next_fields
+        else:
+            current_fields = []
+
     return current_field
 
 
