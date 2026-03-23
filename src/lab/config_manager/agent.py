@@ -1,90 +1,94 @@
 from __future__ import annotations
 
-from typing import Annotated, Literal, cast
+from typing import Annotated, Any, Literal, cast
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-LLM_Provider = Literal["openai", "lingyi", "gemini", "oaipro", "cerebras", "qwen-code-plan"]
+LLM_Provider = str
 TranslateProvider = Literal["llm", "deeplx"]
 
 
 class ChatModelSetting(BaseModel):
-    llm_provider: Annotated[LLM_Provider, Field("oaipro", title="LLM Provider for Chat Model")]
-    llm_model_name: Annotated[str, Field("gpt-5.1-2025-11-13", title="Chat Model Name")]
+    llm_provider: Annotated[str, Field("", title="LLM Provider for Chat Model")]
+    llm_model_name: Annotated[str, Field("", title="Chat Model Name")]
     support_vision: Annotated[bool, Field(False, title="Whether the chat model supports vision input")]
 
 
 class VisionModelSetting(BaseModel):
-    llm_provider: Annotated[LLM_Provider, Field("oaipro", title="LLM Provider for Vision Model")]
-    llm_model_name: Annotated[str, Field("gpt-5.1-2025-11-13", title="Vision Model Name")]
+    llm_provider: Annotated[str, Field("", title="LLM Provider for Vision Model")]
+    llm_model_name: Annotated[str, Field("", title="Vision Model Name")]
 
 
-class LLMSettingBase(BaseModel):
-    llm_api_key: Annotated[str, Field("", title="OpenAI API Key")]
-    llm_base_url: Annotated[str, Field("", title="OpenAI API Base URL")]
+class LLMProviderSetting(BaseModel):
+    name: Annotated[str, Field(..., title="Provider Name")]
+    llm_api_key: Annotated[str, Field("", title="LLM API Key")]
+    llm_base_url: Annotated[str, Field("", title="LLM API Base URL")]
     api_format: Annotated[
         Literal["chat_completion"],
         Field("chat_completion", title="API Format"),
     ]
 
-
-class LingyiSetting(LLMSettingBase):
-    llm_base_url: Annotated[str, Field("https://api.lingyiwanwu.com/v1", title="Lingyi API Base URL")]
-
-
-class GeminiSetting(LLMSettingBase):
-    llm_base_url: Annotated[
-        str,
-        Field("https://generativelanguage.googleapis.com/v1beta/openai/", title="Gemini API Base URL"),
-    ]
-
-
-class OpenAISetting(LLMSettingBase):
-    llm_base_url: Annotated[str, Field("https://api.openai.com/v1", title="ChatGPT API Base URL")]
-
-
-class OAIPROSetting(LLMSettingBase):
-    llm_base_url: Annotated[str, Field("https://api.oaipro.com/v1", title="OAIPRO API Base URL")]
-
-
-class CerebrasSetting(LLMSettingBase):
-    llm_base_url: Annotated[str, Field("https://api.cerebras.ai/v1", title="Cerebras API Base URL")]
-
-
-class QwenCodePlanSetting(LLMSettingBase):
-    llm_base_url: Annotated[
-        str,
-        Field("https://coding.dashscope.aliyuncs.com/v1", title="Qwen Code Plan API Base URL"),
-    ]
-
-
-def _default_qwen_code_plan_setting() -> QwenCodePlanSetting:
-    return QwenCodePlanSetting(
-        llm_api_key="",
-        llm_base_url="https://coding.dashscope.aliyuncs.com/v1",
-        api_format="chat_completion",
-    )
+    @model_validator(mode="after")
+    def validate_name(self) -> LLMProviderSetting:
+        self.name = self.name.strip()
+        if not self.name:
+            raise ValueError("provider name cannot be empty")
+        return self
 
 
 class LLMSettings(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    openai: Annotated[OpenAISetting, Field(OpenAISetting())]  # pyright: ignore[reportCallIssue]
-    lingyi: Annotated[LingyiSetting, Field(LingyiSetting())]  # pyright: ignore[reportCallIssue]
-    gemini: Annotated[GeminiSetting, Field(GeminiSetting())]  # pyright: ignore[reportCallIssue]
-    oaipro: Annotated[OAIPROSetting, Field(OAIPROSetting())]  # pyright: ignore[reportCallIssue]
-    cerebras: Annotated[CerebrasSetting, Field(CerebrasSetting())]  # pyright: ignore[reportCallIssue]
-    qwen_code_plan: Annotated[
-        QwenCodePlanSetting,
-        Field(
-            default_factory=_default_qwen_code_plan_setting,
-            alias="qwen-code-plan",
-            serialization_alias="qwen-code-plan",
-        ),
-    ]
+    providers: Annotated[list[LLMProviderSetting], Field(default_factory=list)]
 
-    def get_provider_config(self, provider: LLM_Provider) -> LLMSettingBase:
-        return cast("LLMSettingBase", getattr(self, provider.replace("-", "_")))
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_shape(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+
+        raw = cast("dict[str, Any]", value)
+        if isinstance(raw.get("providers"), list):
+            return raw
+
+        providers: list[dict[str, Any]] = []
+        for key, candidate in raw.items():
+            if key == "providers" or not isinstance(candidate, dict):
+                continue
+            candidate_map = cast("dict[object, Any]", candidate)
+            entry = {str(item_key): item_value for item_key, item_value in candidate_map.items()}
+            entry["name"] = key.replace("_", "-")
+            providers.append(entry)
+
+        if providers:
+            return {"providers": providers}
+
+        return raw
+
+    @model_validator(mode="after")
+    def validate_providers(self) -> LLMSettings:
+        seen: set[str] = set()
+        normalized: list[LLMProviderSetting] = []
+        for provider in self.providers:
+            name = provider.name.strip()
+            if name in seen:
+                raise ValueError(f"duplicate provider name: {name}")
+            seen.add(name)
+            provider.name = name
+            normalized.append(provider)
+        self.providers = normalized
+        return self
+
+    def get_provider_config(self, provider: str) -> LLMProviderSetting:
+        provider_name = str(provider).strip()
+        for item in self.providers:
+            if item.name == provider_name:
+                return item
+        raise KeyError(f"LLM provider not found: {provider_name}")
+
+    def has_provider(self, provider: str) -> bool:
+        provider_name = str(provider).strip()
+        return any(item.name == provider_name for item in self.providers)
 
 
 class PromptSettings(BaseModel):
@@ -151,7 +155,7 @@ class AgentSettings(BaseModel):
             default=5,
             ge=0,
             title="Recent conversation turns that keep full structured history",
-            description="按对话轮数计，最近保留完整结构化 user history 的轮数；更早轮次将回退为 brief 摘要。",
+            description="鎸夊璇濊疆鏁拌锛屾渶杩戜繚鐣欏畬鏁寸粨鏋勫寲 user history 鐨勮疆鏁帮紱鏇存棭杞灏嗗洖閫€涓?brief 鎽樿銆?",
         ),
     ]
     segment_method: Literal["regex", "pysbd"] = Field(
@@ -172,6 +176,17 @@ class AgentSettings(BaseModel):
         str,
         Field("profiles/congyin.toml", title="Profile path for /memory/chat"),
     ]
+
+    @model_validator(mode="after")
+    def validate_model_providers(self) -> AgentSettings:
+        for field_name, provider_name in (
+            ("chat_model", self.chat_model.llm_provider),
+            ("vision_model", self.vision_model.llm_provider),
+        ):
+            normalized = provider_name.strip()
+            if normalized and not self.llm.has_provider(normalized):
+                raise ValueError(f"Unknown LLM provider reference: {field_name}.llm_provider={provider_name}")
+        return self
 
 
 def main() -> None:

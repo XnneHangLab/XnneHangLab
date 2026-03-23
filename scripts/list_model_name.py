@@ -25,6 +25,22 @@ class ProviderConfig(NamedTuple):
     static_models: tuple[str, ...] = ()
 
 
+STATIC_PROVIDER_MODELS: dict[str, tuple[str, ...]] = {
+    # Coding Plan currently does not expose a standard OpenAI-compatible /models endpoint.
+    # Keep this list aligned with the official provider docs instead of failing on 404.
+    "qwen-code-plan": (
+        "MiniMax-M2.5",
+        "glm-4.7",
+        "glm-5",
+        "kimi-k2.5",
+        "qwen3-coder-next",
+        "qwen3-coder-plus",
+        "qwen3-max-2026-01-23",
+        "qwen3.5-plus",
+    ),
+}
+
+
 def fetch_model_list(base_url: str, api_key: str | None = None, timeout: float = 10.0) -> list[str]:
     url = f"{base_url.rstrip('/')}/models"
     headers: dict[str, str] = {"Accept": "application/json"}
@@ -56,28 +72,13 @@ def main() -> None:
     root_setting: RootAbsDir = lab_settings.root
     s = lab_settings.agent.llm
 
-    providers: dict[str, ProviderConfig] = {
-        "openai": ProviderConfig(s.openai.llm_base_url, s.openai.llm_api_key),
-        "cerebras": ProviderConfig(s.cerebras.llm_base_url, s.cerebras.llm_api_key),
-        "gemini": ProviderConfig(s.gemini.llm_base_url, s.gemini.llm_api_key),
-        "lingyi": ProviderConfig(s.lingyi.llm_base_url, s.lingyi.llm_api_key),
-        "oaipro": ProviderConfig(s.oaipro.llm_base_url, s.oaipro.llm_api_key),
-        # Coding Plan currently does not expose a standard OpenAI-compatible /models endpoint.
-        # Keep this list aligned with the official provider docs instead of failing on 404.
-        "qwen-code-plan": ProviderConfig(
-            s.qwen_code_plan.llm_base_url,
-            s.qwen_code_plan.llm_api_key,
-            (
-                "MiniMax-M2.5",
-                "glm-4.7",
-                "glm-5",
-                "kimi-k2.5",
-                "qwen3-coder-next",
-                "qwen3-coder-plus",
-                "qwen3-max-2026-01-23",
-                "qwen3.5-plus",
-            ),
-        ),
+    providers = {
+        provider.name: ProviderConfig(
+            provider.llm_base_url,
+            provider.llm_api_key,
+            STATIC_PROVIDER_MODELS.get(provider.name, ()),
+        )
+        for provider in s.providers
     }
 
     model_map: dict[str, list[str]] = {}

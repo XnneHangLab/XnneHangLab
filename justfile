@@ -1,7 +1,13 @@
-sync:
+sync-dev:
   git checkout dev
   git pull origin dev
   git submodule update --init --recursive
+
+sync-submodule:
+  git submodule sync --recursive
+  git submodule update --init --recursive
+  git submodule absorbgitdirs
+
 
 # Config
 
@@ -147,11 +153,11 @@ install-model:
   uv lock
   uv sync
   just install-nltk
-
-  just install-qwen-asr
-  just install-sensevoice
   just install-bert-model
-  just install-qwen-tts
+  just install-gsv-model-baoqiao
+  just install-local-embedding
+  just install-llm-translate
+
 
 install-nltk:
   uv run python -c "import nltk; nltk.download('averaged_perceptron_tagger_eng')"
@@ -162,12 +168,6 @@ install-qwen-asr model_dir='./models':
   uv run modelscope download --model xnnehang/Qwen3-ASR-1.7B-INT8_OpenVINO --local_dir {{ model_dir }}/Qwen3-ASR-1.7B-INT8-OpenVINO
   uv run modelscope download --model xnnehang/Qwen3-ASR-0.6B-INT8-OpenVINO --local_dir {{ model_dir }}/Qwen3-ASR-0.6B-INT8-OpenVINO
   uv run modelscope download --model Qwen/Qwen3-ForcedAligner-0.6B --local_dir {{ model_dir }}/Qwen3-ForcedAligner-0.6B
-
-install-sensevoice:
-  uv lock
-  uv sync
-  # SenseVoiceSmall
-  uv run modelscope download --model iic/SenseVoiceSmall --local_dir ./models/SenseVoiceSmall
 
 install-bert-model:
   uv lock
@@ -192,7 +192,7 @@ install-qwen-tts:
   uv sync
   uv run modelscope download --model Qwen/Qwen3-TTS-12Hz-1.7B-Base --local_dir ./models/Qwen3-TTS-12Hz-1.7B-Base
 
-download-local-embedding model_dir='./models':
+install-local-embedding model_dir='./models':
   uv lock
   uv sync
   uv run modelscope download --model ggml-org/bge-m3-Q8_0-GGUF bge-m3-q8_0.gguf --local_dir {{ model_dir }}
@@ -202,6 +202,10 @@ install-sherpa-model:
   curl -L https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-paraformer-zh-2023-09-14.tar.bz2 -o ./models/sherpa-onnx-paraformer-zh-2023-09-14.tar.bz2
   tar xf ./models/sherpa-onnx-paraformer-zh-2023-09-14.tar.bz2 -C ./models/
   curl -L https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx -o ./models/silero_vad.onnx
+
+install-llm-translate:
+  uv run modelscope download --model Qwen/Qwen2.5-0.5B-Instruct-GGUF qwen2.5-0.5b-instruct-q8_0.gguf --local_dir ./models
+
 
 # Code Quality Check
 
@@ -462,9 +466,6 @@ mem0-run-real-time:
   just memory-chat-server
 
 # -- Local LLM translation ----------------------------------------------------
-
-install-llm-translate:
-  uv run modelscope download --model Qwen/Qwen2.5-0.5B-Instruct-GGUF qwen2.5-0.5b-instruct-q8_0.gguf --local_dir ./models
 
 test-llm-translate server='http://127.0.0.1:12393':
   curl {{ server }}/translate/llm/health
