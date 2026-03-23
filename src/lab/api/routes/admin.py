@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 import tomllib
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import tomli_w as tomlw
 from fastapi import APIRouter, HTTPException, Request
@@ -20,11 +20,13 @@ class ProviderCreatePayload(BaseModel):
     name: str
     base_url: str = ""
     api_key: str = ""
+    api_format: Literal["chat_completion"] = "chat_completion"
 
 
 class ProviderUpdatePayload(BaseModel):
     base_url: str | None = None
     api_key: str | None = None
+    api_format: Literal["chat_completion"] | None = None
 
 
 class AgentModelPayload(BaseModel):
@@ -274,7 +276,7 @@ async def create_provider(payload: ProviderCreatePayload, request: Request) -> d
             name=provider_name,
             llm_base_url=payload.base_url,
             llm_api_key=payload.api_key,
-            api_format="chat_completion",
+            api_format=payload.api_format,
         )
     )
     _save_lab_settings(settings_path, settings)
@@ -290,6 +292,8 @@ async def update_provider(name: str, payload: ProviderUpdatePayload, request: Re
         provider.llm_base_url = payload.base_url
     if payload.api_key is not None:
         provider.llm_api_key = payload.api_key
+    if payload.api_format is not None:
+        provider.api_format = payload.api_format
 
     settings.agent.llm.providers[index] = provider
     _save_lab_settings(settings_path, settings)

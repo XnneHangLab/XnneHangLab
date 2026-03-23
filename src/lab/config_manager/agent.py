@@ -4,74 +4,29 @@ from typing import Annotated, Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-BuiltinLLMProvider = Literal["openai", "lingyi", "gemini", "oaipro", "cerebras", "qwen-code-plan"]
-LLM_Provider = BuiltinLLMProvider
+LLM_Provider = str
 TranslateProvider = Literal["llm", "deeplx"]
-
-BUILTIN_LLM_PROVIDERS: tuple[BuiltinLLMProvider, ...] = (
-    "openai",
-    "lingyi",
-    "gemini",
-    "oaipro",
-    "cerebras",
-    "qwen-code-plan",
-)
-
-_LEGACY_PROVIDER_ORDER = list(BUILTIN_LLM_PROVIDERS)
 
 
 class ChatModelSetting(BaseModel):
-    llm_provider: Annotated[str, Field("oaipro", title="LLM Provider for Chat Model")]
-    llm_model_name: Annotated[str, Field("gpt-5.1-2025-11-13", title="Chat Model Name")]
+    llm_provider: Annotated[str, Field("", title="LLM Provider for Chat Model")]
+    llm_model_name: Annotated[str, Field("", title="Chat Model Name")]
     support_vision: Annotated[bool, Field(False, title="Whether the chat model supports vision input")]
 
 
 class VisionModelSetting(BaseModel):
-    llm_provider: Annotated[str, Field("oaipro", title="LLM Provider for Vision Model")]
-    llm_model_name: Annotated[str, Field("gpt-5.1-2025-11-13", title="Vision Model Name")]
+    llm_provider: Annotated[str, Field("", title="LLM Provider for Vision Model")]
+    llm_model_name: Annotated[str, Field("", title="Vision Model Name")]
 
 
-class LLMSettingBase(BaseModel):
-    llm_api_key: Annotated[str, Field("", title="OpenAI API Key")]
-    llm_base_url: Annotated[str, Field("", title="OpenAI API Base URL")]
+class LLMProviderSetting(BaseModel):
+    name: Annotated[str, Field(..., title="Provider Name")]
+    llm_api_key: Annotated[str, Field("", title="LLM API Key")]
+    llm_base_url: Annotated[str, Field("", title="LLM API Base URL")]
     api_format: Annotated[
         Literal["chat_completion"],
         Field("chat_completion", title="API Format"),
     ]
-
-
-class LingyiSetting(LLMSettingBase):
-    llm_base_url: Annotated[str, Field("https://api.lingyiwanwu.com/v1", title="Lingyi API Base URL")]
-
-
-class GeminiSetting(LLMSettingBase):
-    llm_base_url: Annotated[
-        str,
-        Field("https://generativelanguage.googleapis.com/v1beta/openai/", title="Gemini API Base URL"),
-    ]
-
-
-class OpenAISetting(LLMSettingBase):
-    llm_base_url: Annotated[str, Field("https://api.openai.com/v1", title="ChatGPT API Base URL")]
-
-
-class OAIPROSetting(LLMSettingBase):
-    llm_base_url: Annotated[str, Field("https://api.oaipro.com/v1", title="OAIPRO API Base URL")]
-
-
-class CerebrasSetting(LLMSettingBase):
-    llm_base_url: Annotated[str, Field("https://api.cerebras.ai/v1", title="Cerebras API Base URL")]
-
-
-class QwenCodePlanSetting(LLMSettingBase):
-    llm_base_url: Annotated[
-        str,
-        Field("https://coding.dashscope.aliyuncs.com/v1", title="Qwen Code Plan API Base URL"),
-    ]
-
-
-class LLMProviderSetting(LLMSettingBase):
-    name: Annotated[str, Field(..., title="Provider Name")]
 
     @model_validator(mode="after")
     def validate_name(self) -> LLMProviderSetting:
@@ -81,31 +36,10 @@ class LLMProviderSetting(LLMSettingBase):
         return self
 
 
-def _default_provider_settings() -> list[LLMProviderSetting]:
-    return [_default_provider_setting(provider_name) for provider_name in BUILTIN_LLM_PROVIDERS]
-
-
-def _default_provider_setting(provider_name: BuiltinLLMProvider) -> LLMProviderSetting:
-    base_url_map: dict[BuiltinLLMProvider, str] = {
-        "openai": "https://api.openai.com/v1",
-        "lingyi": "https://api.lingyiwanwu.com/v1",
-        "gemini": "https://generativelanguage.googleapis.com/v1beta/openai/",
-        "oaipro": "https://api.oaipro.com/v1",
-        "cerebras": "https://api.cerebras.ai/v1",
-        "qwen-code-plan": "https://coding.dashscope.aliyuncs.com/v1",
-    }
-    return LLMProviderSetting(
-        name=provider_name,
-        llm_api_key="",
-        llm_base_url=base_url_map[provider_name],
-        api_format="chat_completion",
-    )
-
-
 class LLMSettings(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    providers: Annotated[list[LLMProviderSetting], Field(default_factory=_default_provider_settings)]
+    providers: Annotated[list[LLMProviderSetting], Field(default_factory=list)]
 
     @model_validator(mode="before")
     @classmethod
@@ -118,16 +52,13 @@ class LLMSettings(BaseModel):
             return raw
 
         providers: list[dict[str, Any]] = []
-        for provider_name in _LEGACY_PROVIDER_ORDER:
-            legacy_key = provider_name.replace("-", "_")
-            candidate = raw.get(provider_name)
-            if not isinstance(candidate, dict):
-                candidate = raw.get(legacy_key)
-            if isinstance(candidate, dict):
-                candidate_map = cast("dict[object, Any]", candidate)
-                entry = {str(key): value for key, value in candidate_map.items()}
-                entry["name"] = provider_name
-                providers.append(entry)
+        for key, candidate in raw.items():
+            if key == "providers" or not isinstance(candidate, dict):
+                continue
+            candidate_map = cast("dict[object, Any]", candidate)
+            entry = {str(item_key): item_value for item_key, item_value in candidate_map.items()}
+            entry["name"] = key.replace("_", "-")
+            providers.append(entry)
 
         if providers:
             return {"providers": providers}
@@ -158,30 +89,6 @@ class LLMSettings(BaseModel):
     def has_provider(self, provider: str) -> bool:
         provider_name = str(provider).strip()
         return any(item.name == provider_name for item in self.providers)
-
-    @property
-    def openai(self) -> LLMProviderSetting:
-        return self.get_provider_config("openai")
-
-    @property
-    def lingyi(self) -> LLMProviderSetting:
-        return self.get_provider_config("lingyi")
-
-    @property
-    def gemini(self) -> LLMProviderSetting:
-        return self.get_provider_config("gemini")
-
-    @property
-    def oaipro(self) -> LLMProviderSetting:
-        return self.get_provider_config("oaipro")
-
-    @property
-    def cerebras(self) -> LLMProviderSetting:
-        return self.get_provider_config("cerebras")
-
-    @property
-    def qwen_code_plan(self) -> LLMProviderSetting:
-        return self.get_provider_config("qwen-code-plan")
 
 
 class PromptSettings(BaseModel):
@@ -272,15 +179,13 @@ class AgentSettings(BaseModel):
 
     @model_validator(mode="after")
     def validate_model_providers(self) -> AgentSettings:
-        missing: list[str] = []
         for field_name, provider_name in (
             ("chat_model", self.chat_model.llm_provider),
             ("vision_model", self.vision_model.llm_provider),
         ):
-            if not self.llm.has_provider(provider_name):
-                missing.append(f"{field_name}.llm_provider={provider_name}")
-        if missing:
-            raise ValueError("Unknown LLM provider reference(s): " + ", ".join(missing))
+            normalized = provider_name.strip()
+            if normalized and not self.llm.has_provider(normalized):
+                raise ValueError(f"Unknown LLM provider reference: {field_name}.llm_provider={provider_name}")
         return self
 
 

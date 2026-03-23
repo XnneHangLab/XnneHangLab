@@ -241,13 +241,22 @@ api_format = "chat_completion"
 
     create_response = client.post(
         "/admin/api/providers",
-        json={"name": "custom", "base_url": "https://example.test/v1", "api_key": "secret"},
+        json={
+            "name": "custom",
+            "base_url": "https://example.test/v1",
+            "api_key": "secret",
+            "api_format": "chat_completion",
+        },
     )
     assert create_response.status_code == 200
 
     update_response = client.put(
         "/admin/api/providers/openai",
-        json={"base_url": "https://proxy.example/v1", "api_key": "sk-openai-updated"},
+        json={
+            "base_url": "https://proxy.example/v1",
+            "api_key": "sk-openai-updated",
+            "api_format": "chat_completion",
+        },
     )
     assert update_response.status_code == 200
 

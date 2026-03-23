@@ -1,4 +1,4 @@
-conf_version = "v1.6.3"
+conf_version = "v1.6.4"
 
 [asr]
 FFMPEG_PATH = "ffmpeg"
@@ -55,45 +55,27 @@ memory_agent_profile = "profiles/baoqiao.toml"
 memory_chat_profile = "profiles/congyin.toml"
 
 [agent.chat_model]
-llm_provider = "oaipro"
-llm_model_name = "gpt-5.1-2025-11-13"
+llm_provider = ""
+llm_model_name = ""
 support_vision = false
 
 [agent.vision_model]
-llm_provider = "oaipro"
-llm_model_name = "gpt-5.1-2025-11-13"
+llm_provider = ""
+llm_model_name = ""
 
 [agent.prompts]
 vision_prompt = "./prompts/vision_prompt.txt"
 
-[agent.llm.openai]
+[[agent.llm.providers]]
+name = "openai"
 llm_api_key = ""
 llm_base_url = "https://api.openai.com/v1"
 api_format = "chat_completion"
 
-[agent.llm.lingyi]
-llm_api_key = ""
-llm_base_url = "https://api.lingyiwanwu.com/v1"
-api_format = "chat_completion"
-
-[agent.llm.gemini]
+[[agent.llm.providers]]
+name = "google"
 llm_api_key = ""
 llm_base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
-api_format = "chat_completion"
-
-[agent.llm.oaipro]
-llm_api_key = ""
-llm_base_url = "https://api.oaipro.com/v1"
-api_format = "chat_completion"
-
-[agent.llm.cerebras]
-llm_api_key = ""
-llm_base_url = "https://api.cerebras.ai/v1"
-api_format = "chat_completion"
-
-[agent.llm.qwen-code-plan]
-llm_api_key = ""
-llm_base_url = "https://coding.dashscope.aliyuncs.com/v1"
 api_format = "chat_completion"
 
 [agent.translate.deeplx]

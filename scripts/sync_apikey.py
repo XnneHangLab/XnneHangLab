@@ -1,84 +1,37 @@
-# pyright: reportMissingImports=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportMissingTypeArgument=false
+# pyright: reportMissingImports=false
 
 from __future__ import annotations
 
+import json
 import os
-from typing import Literal, TypeGuard
+from typing import Literal, TypeGuard, cast
 
 from dotenv import load_dotenv
 from loguru import logger
+from pydantic import BaseModel, ValidationError
 
-from lab.config_manager import (
-    LLM_Provider,
-    TranslateProvider,
-    XnneHangLabSettings,
-    load_settings_file,
-    write_settings_file,
-)
+from lab.config_manager import TranslateProvider, XnneHangLabSettings, load_settings_file, write_settings_file
+from lab.config_manager.agent import LLMProviderSetting
 
-ALLOWED_API_FORMATS = "chat_completion"
 ApiFormat = Literal["chat_completion"]
 EmbeddingPoolingType = Literal["mean", "cls", "last"]
+ALLOWED_API_FORMATS: tuple[ApiFormat, ...] = ("chat_completion",)
 ALLOWED_EMBEDDING_POOLING_TYPES: tuple[EmbeddingPoolingType, ...] = ("mean", "cls", "last")
+LLM_PROVIDERS_ENV_KEY = "LLM_PROVIDERS_JSON"
 
-EnvKeyNames = Literal[
-    "OPENAI_API_KEY",
-    "OPENAI_API_FORMAT",
-    "LINGYI_API_KEY",
-    "LINGYI_API_FORMAT",
-    "GEMINI_API_KEY",
-    "GEMINI_API_FORMAT",
-    "OAIPRO_API_KEY",
-    "OAIPRO_API_FORMAT",
-    "CEREBRAS_API_KEY",
-    "CEREBRAS_API_FORMAT",
-    "QWEN_CODE_PLAN_API_KEY",
-    "QWEN_CODE_PLAN_API_FORMAT",
-    "DEEPLX_API_KEY",
-    "TRANSLATE_PROVIDER",
-    "LLM_TRANSLATE_MODEL_PATH",
-    "LLM_TRANSLATE_N_GPU_LAYERS",
-    "CHAT_MODEL_PROVIDER",
-    "CHAT_MODEL_NAME",
-    "CHAT_MODEL_SUPPORT_VISION",
-    "VISION_MODEL_PROVIDER",
-    "VISION_MODEL_NAME",
-    "LOCAL_EMBEDDING_MODEL_PATH",
-    "LOCAL_EMBEDDING_POOLING_TYPE",
-    "LOCAL_EMBEDDING_N_GPU_LAYERS",
-    "MEMORY_BENCH_SERVER_API_KEY",
-    "PKG_MEMORY_BENCH",
-    "PKG_LLM_TRANSLATE",
-    "PKG_LOCAL_EMBEDDING",
-    "PKG_QWEN_TTS",
-    "PKG_GPT_SOVITS",
-    "PKG_SHERPA_ASR",
-    "PKG_QWEN_ASR",
-]
+
+class ProviderEnvPatch(BaseModel):
+    name: str
+    llm_base_url: str | None = None
+    llm_api_key: str | None = None
+    api_format: ApiFormat | None = None
+
+
+ProviderEnvPatch.model_rebuild()
 
 
 def is_api_format(value: str) -> TypeGuard[ApiFormat]:
     return value in ALLOWED_API_FORMATS
-
-
-def validate_api_format(env_key_name: EnvKeyNames, default: ApiFormat = "chat_completion") -> ApiFormat:
-    value = os.getenv(env_key_name, default).strip().lower()
-    if is_api_format(value):
-        return value
-    logger.warning("Invalid %s=%r, allowed=%s, fallback=%r", env_key_name, value, ALLOWED_API_FORMATS, default)
-    return default
-
-
-def is_llm_provider(value: str) -> TypeGuard[LLM_Provider]:
-    return value in LLM_Provider.__args__
-
-
-def validate_llm_provider(env_key_name: EnvKeyNames, default: LLM_Provider = "cerebras") -> LLM_Provider:
-    value = os.getenv(env_key_name, default).strip().lower()
-    if is_llm_provider(value):
-        return value
-    logger.warning("Invalid %s=%r, allowed=%s, fallback=%r", env_key_name, value, LLM_Provider.__args__, default)
-    return default
 
 
 def is_translate_provider(value: str) -> TypeGuard[TranslateProvider]:
@@ -86,7 +39,7 @@ def is_translate_provider(value: str) -> TypeGuard[TranslateProvider]:
 
 
 def validate_translate_provider(
-    env_key_name: EnvKeyNames,
+    env_key_name: str,
     default: TranslateProvider = "llm",
 ) -> TranslateProvider:
     value = os.getenv(env_key_name, default).strip().lower()
@@ -101,7 +54,7 @@ def is_embedding_pooling_type(value: str) -> TypeGuard[EmbeddingPoolingType]:
 
 
 def validate_embedding_pooling_type(
-    env_key_name: EnvKeyNames,
+    env_key_name: str,
     default: EmbeddingPoolingType = "mean",
 ) -> EmbeddingPoolingType:
     value = os.getenv(env_key_name, default).strip().lower()
@@ -117,6 +70,20 @@ def validate_embedding_pooling_type(
     return default
 
 
+def validate_provider_name(value: str, available_names: set[str], env_key_name: str, fallback: str = "") -> str:
+    normalized = value.strip()
+    if normalized in available_names:
+        return normalized
+    logger.warning(
+        "Invalid %s=%r, available providers=%s, fallback=%r",
+        env_key_name,
+        value,
+        sorted(available_names),
+        fallback,
+    )
+    return fallback
+
+
 def mask_api_key(api_key: str) -> str:
     if not api_key:
         return "None"
@@ -125,7 +92,7 @@ def mask_api_key(api_key: str) -> str:
     return f"{api_key[:4]}...{api_key[-4:]}"
 
 
-def _parse_bool_env(key: EnvKeyNames) -> bool | None:
+def _parse_bool_env(key: str) -> bool | None:
     value = os.environ.get(key, "").strip().lower()
     if value in {"true", "1", "yes"}:
         return True
@@ -134,7 +101,7 @@ def _parse_bool_env(key: EnvKeyNames) -> bool | None:
     return None
 
 
-def _parse_int_env(key: EnvKeyNames) -> int | None:
+def _parse_int_env(key: str) -> int | None:
     raw_value = os.environ.get(key)
     if raw_value is None or not raw_value.strip():
         return None
@@ -146,22 +113,83 @@ def _parse_int_env(key: EnvKeyNames) -> int | None:
         return None
 
 
+def _parse_provider_env_json() -> list[ProviderEnvPatch]:
+    raw_value = os.environ.get(LLM_PROVIDERS_ENV_KEY, "").strip()
+    if not raw_value:
+        return []
+
+    try:
+        payload: object = json.loads(raw_value)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid {LLM_PROVIDERS_ENV_KEY}: JSON decode failed: {exc}") from exc
+
+    items: list[object]
+    if isinstance(payload, list):
+        items = cast("list[object]", payload)
+    elif isinstance(payload, dict):
+        payload_map = cast("dict[str, object]", payload)
+        providers_value = payload_map.get("providers", [])
+        if not isinstance(providers_value, list):
+            raise ValueError(f"Invalid {LLM_PROVIDERS_ENV_KEY}: providers must be a list")
+        items = cast("list[object]", providers_value)
+    else:
+        raise ValueError(f"Invalid {LLM_PROVIDERS_ENV_KEY}: expected a JSON object or list")
+
+    try:
+        patches: list[ProviderEnvPatch] = []
+        for item in items:
+            patches.append(ProviderEnvPatch.model_validate(item))
+        return patches
+    except ValidationError as exc:
+        raise ValueError(f"Invalid {LLM_PROVIDERS_ENV_KEY}: {exc}") from exc
+
+
+def merge_provider_patches(
+    current_providers: list[LLMProviderSetting],
+    patches: list[ProviderEnvPatch],
+) -> list[LLMProviderSetting]:
+    merged = [provider.model_copy(deep=True) for provider in current_providers]
+    index_by_name = {provider.name: index for index, provider in enumerate(merged)}
+
+    for patch in patches:
+        provider_name = patch.name.strip()
+        if not provider_name:
+            logger.warning("Skipping provider patch with blank name")
+            continue
+
+        if provider_name in index_by_name:
+            target = merged[index_by_name[provider_name]]
+        else:
+            target = LLMProviderSetting(
+                name=provider_name,
+                llm_api_key="",
+                llm_base_url="",
+                api_format="chat_completion",
+            )
+            merged.append(target)
+            index_by_name[provider_name] = len(merged) - 1
+
+        if patch.llm_base_url is not None:
+            target.llm_base_url = patch.llm_base_url
+        if patch.llm_api_key is not None:
+            target.llm_api_key = patch.llm_api_key
+        if patch.api_format is not None:
+            target.api_format = patch.api_format
+
+        merged[index_by_name[provider_name]] = target
+
+    return merged
+
+
 def main() -> None:
     load_dotenv()
     settings = load_settings_file("lab.toml", XnneHangLabSettings)
 
-    settings.agent.llm.openai.llm_api_key = os.environ.get("OPENAI_API_KEY", "")
-    settings.agent.llm.openai.api_format = validate_api_format("OPENAI_API_FORMAT")
-    settings.agent.llm.lingyi.llm_api_key = os.environ.get("LINGYI_API_KEY", "")
-    settings.agent.llm.lingyi.api_format = validate_api_format("LINGYI_API_FORMAT")
-    settings.agent.llm.gemini.llm_api_key = os.environ.get("GEMINI_API_KEY", "")
-    settings.agent.llm.gemini.api_format = validate_api_format("GEMINI_API_FORMAT")
-    settings.agent.llm.oaipro.llm_api_key = os.environ.get("OAIPRO_API_KEY", "")
-    settings.agent.llm.oaipro.api_format = validate_api_format("OAIPRO_API_FORMAT")
-    settings.agent.llm.cerebras.llm_api_key = os.environ.get("CEREBRAS_API_KEY", "")
-    settings.agent.llm.cerebras.api_format = validate_api_format("CEREBRAS_API_FORMAT")
-    settings.agent.llm.qwen_code_plan.llm_api_key = os.environ.get("QWEN_CODE_PLAN_API_KEY", "")
-    settings.agent.llm.qwen_code_plan.api_format = validate_api_format("QWEN_CODE_PLAN_API_FORMAT")
+    provider_patches = _parse_provider_env_json()
+    if provider_patches:
+        settings.agent.llm.providers = merge_provider_patches(settings.agent.llm.providers, provider_patches)
+
+    provider_names = {provider.name for provider in settings.agent.llm.providers}
 
     settings.agent.translate.deeplx.api_key = os.environ.get("DEEPLX_API_KEY", "")
     settings.agent.translate_provider = validate_translate_provider("TRANSLATE_PROVIDER")
@@ -170,11 +198,29 @@ def main() -> None:
     if (value := _parse_int_env("LLM_TRANSLATE_N_GPU_LAYERS")) is not None:
         settings.agent.translate.llm.n_gpu_layers = value
 
-    settings.agent.chat_model.llm_provider = validate_llm_provider("CHAT_MODEL_PROVIDER")
-    settings.agent.chat_model.llm_model_name = os.environ.get("CHAT_MODEL_NAME", "")
-    settings.agent.chat_model.support_vision = os.environ.get("CHAT_MODEL_SUPPORT_VISION", "false").lower() == "true"
-    settings.agent.vision_model.llm_provider = validate_llm_provider("VISION_MODEL_PROVIDER")
-    settings.agent.vision_model.llm_model_name = os.environ.get("VISION_MODEL_NAME", "")
+    if "CHAT_MODEL_PROVIDER" in os.environ:
+        settings.agent.chat_model.llm_provider = validate_provider_name(
+            os.environ.get("CHAT_MODEL_PROVIDER", ""),
+            provider_names,
+            "CHAT_MODEL_PROVIDER",
+            settings.agent.chat_model.llm_provider,
+        )
+    if "CHAT_MODEL_NAME" in os.environ:
+        settings.agent.chat_model.llm_model_name = os.environ.get("CHAT_MODEL_NAME", "").strip()
+    if "CHAT_MODEL_SUPPORT_VISION" in os.environ:
+        settings.agent.chat_model.support_vision = (
+            os.environ.get("CHAT_MODEL_SUPPORT_VISION", "false").lower() == "true"
+        )
+
+    if "VISION_MODEL_PROVIDER" in os.environ:
+        settings.agent.vision_model.llm_provider = validate_provider_name(
+            os.environ.get("VISION_MODEL_PROVIDER", ""),
+            provider_names,
+            "VISION_MODEL_PROVIDER",
+            settings.agent.vision_model.llm_provider,
+        )
+    if "VISION_MODEL_NAME" in os.environ:
+        settings.agent.vision_model.llm_model_name = os.environ.get("VISION_MODEL_NAME", "").strip()
 
     if "LOCAL_EMBEDDING_MODEL_PATH" in os.environ:
         settings.local_embedding.model_path = os.environ.get("LOCAL_EMBEDDING_MODEL_PATH", "").strip()
@@ -201,21 +247,11 @@ def main() -> None:
     if (value := _parse_bool_env("PKG_QWEN_ASR")) is not None:
         settings.package.qwen_asr = value
 
-    logger.info("llm.openai.llm_api_key: {}", mask_api_key(settings.agent.llm.openai.llm_api_key))
-    logger.info("llm.openai.api_format: {}", settings.agent.llm.openai.api_format)
-    logger.info("llm.lingyi.llm_api_key: {}", mask_api_key(settings.agent.llm.lingyi.llm_api_key))
-    logger.info("llm.lingyi.api_format: {}", settings.agent.llm.lingyi.api_format)
-    logger.info("llm.gemini.llm_api_key: {}", mask_api_key(settings.agent.llm.gemini.llm_api_key))
-    logger.info("llm.gemini.api_format: {}", settings.agent.llm.gemini.api_format)
-    logger.info("llm.oaipro.llm_api_key: {}", mask_api_key(settings.agent.llm.oaipro.llm_api_key))
-    logger.info("llm.oaipro.api_format: {}", settings.agent.llm.oaipro.api_format)
-    logger.info("llm.cerebras.llm_api_key: {}", mask_api_key(settings.agent.llm.cerebras.llm_api_key))
-    logger.info("llm.cerebras.api_format: {}", settings.agent.llm.cerebras.api_format)
-    logger.info(
-        "llm.qwen-code-plan.llm_api_key: {}",
-        mask_api_key(settings.agent.llm.qwen_code_plan.llm_api_key),
-    )
-    logger.info("llm.qwen-code-plan.api_format: {}", settings.agent.llm.qwen_code_plan.api_format)
+    for provider in settings.agent.llm.providers:
+        logger.info("llm.providers[%s].llm_api_key: %s", provider.name, mask_api_key(provider.llm_api_key))
+        logger.info("llm.providers[%s].llm_base_url: %s", provider.name, provider.llm_base_url)
+        logger.info("llm.providers[%s].api_format: %s", provider.name, provider.api_format)
+
     logger.info("agent.translate.deeplx.api_key: {}", mask_api_key(settings.agent.translate.deeplx.api_key))
     logger.info("agent.translate_provider: {}", settings.agent.translate_provider)
     logger.info("agent.translate.llm.model_path: {}", settings.agent.translate.llm.model_path)
