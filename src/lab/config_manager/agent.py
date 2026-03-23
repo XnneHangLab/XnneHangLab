@@ -4,17 +4,20 @@ from typing import Annotated, Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-LLM_Provider = str
+BuiltinLLMProvider = Literal["openai", "lingyi", "gemini", "oaipro", "cerebras", "qwen-code-plan"]
+LLM_Provider = BuiltinLLMProvider
 TranslateProvider = Literal["llm", "deeplx"]
 
-_LEGACY_PROVIDER_ORDER = [
+BUILTIN_LLM_PROVIDERS: tuple[BuiltinLLMProvider, ...] = (
     "openai",
     "lingyi",
     "gemini",
     "oaipro",
     "cerebras",
     "qwen-code-plan",
-]
+)
+
+_LEGACY_PROVIDER_ORDER = list(BUILTIN_LLM_PROVIDERS)
 
 
 class ChatModelSetting(BaseModel):
@@ -78,27 +81,25 @@ class LLMProviderSetting(LLMSettingBase):
         return self
 
 
-def _default_qwen_code_plan_setting() -> QwenCodePlanSetting:
-    return QwenCodePlanSetting(
+def _default_provider_settings() -> list[LLMProviderSetting]:
+    return [_default_provider_setting(provider_name) for provider_name in BUILTIN_LLM_PROVIDERS]
+
+
+def _default_provider_setting(provider_name: BuiltinLLMProvider) -> LLMProviderSetting:
+    base_url_map: dict[BuiltinLLMProvider, str] = {
+        "openai": "https://api.openai.com/v1",
+        "lingyi": "https://api.lingyiwanwu.com/v1",
+        "gemini": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "oaipro": "https://api.oaipro.com/v1",
+        "cerebras": "https://api.cerebras.ai/v1",
+        "qwen-code-plan": "https://coding.dashscope.aliyuncs.com/v1",
+    }
+    return LLMProviderSetting(
+        name=provider_name,
         llm_api_key="",
-        llm_base_url="https://coding.dashscope.aliyuncs.com/v1",
+        llm_base_url=base_url_map[provider_name],
         api_format="chat_completion",
     )
-
-
-def _default_provider_settings() -> list[LLMProviderSetting]:
-    return [
-        LLMProviderSetting(name="openai", **OpenAISetting().model_dump()),
-        LLMProviderSetting(name="lingyi", **LingyiSetting().model_dump()),
-        LLMProviderSetting(name="gemini", **GeminiSetting().model_dump()),
-        LLMProviderSetting(name="oaipro", **OAIPROSetting().model_dump()),
-        LLMProviderSetting(name="cerebras", **CerebrasSetting().model_dump()),
-        LLMProviderSetting(name="qwen-code-plan", **_default_qwen_code_plan_setting().model_dump()),
-    ]
-
-
-def _normalize_legacy_provider_name(name: str) -> str:
-    return name.replace("_", "-")
 
 
 class LLMSettings(BaseModel):
@@ -123,7 +124,8 @@ class LLMSettings(BaseModel):
             if not isinstance(candidate, dict):
                 candidate = raw.get(legacy_key)
             if isinstance(candidate, dict):
-                entry = dict(candidate)
+                candidate_map = cast("dict[object, Any]", candidate)
+                entry = {str(key): value for key, value in candidate_map.items()}
                 entry["name"] = provider_name
                 providers.append(entry)
 
@@ -146,16 +148,40 @@ class LLMSettings(BaseModel):
         self.providers = normalized
         return self
 
-    def get_provider_config(self, provider: LLM_Provider) -> LLMProviderSetting:
+    def get_provider_config(self, provider: str) -> LLMProviderSetting:
         provider_name = str(provider).strip()
         for item in self.providers:
             if item.name == provider_name:
                 return item
         raise KeyError(f"LLM provider not found: {provider_name}")
 
-    def has_provider(self, provider: LLM_Provider) -> bool:
+    def has_provider(self, provider: str) -> bool:
         provider_name = str(provider).strip()
         return any(item.name == provider_name for item in self.providers)
+
+    @property
+    def openai(self) -> LLMProviderSetting:
+        return self.get_provider_config("openai")
+
+    @property
+    def lingyi(self) -> LLMProviderSetting:
+        return self.get_provider_config("lingyi")
+
+    @property
+    def gemini(self) -> LLMProviderSetting:
+        return self.get_provider_config("gemini")
+
+    @property
+    def oaipro(self) -> LLMProviderSetting:
+        return self.get_provider_config("oaipro")
+
+    @property
+    def cerebras(self) -> LLMProviderSetting:
+        return self.get_provider_config("cerebras")
+
+    @property
+    def qwen_code_plan(self) -> LLMProviderSetting:
+        return self.get_provider_config("qwen-code-plan")
 
 
 class PromptSettings(BaseModel):

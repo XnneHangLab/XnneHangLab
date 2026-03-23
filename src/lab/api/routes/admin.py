@@ -9,8 +9,8 @@ import tomli_w as tomlw
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, ValidationError
 
-from lab.config_manager.config import XnneHangLabSettings
 from lab.config_manager.agent import LLMProviderSetting
+from lab.config_manager.config import XnneHangLabSettings
 from lab.plugin.config import validate_plugin_override
 
 router = APIRouter(tags=["admin"])
@@ -71,7 +71,7 @@ def _load_lab_settings(request: Request) -> tuple[XnneHangLabSettings, Path]:
 
     if settings_path.exists():
         with settings_path.open("rb") as file:
-            raw_settings = cast("dict[str, Any]", tomllib.load(file))
+            raw_settings = tomllib.load(file)
     else:
         ctx = _get_service_context(request)
         current_settings = getattr(ctx, "lab_setting", None)
@@ -302,7 +302,10 @@ async def delete_provider(name: str, request: Request) -> dict[str, Any]:
     provider_name = _normalize_provider_name(name)
     index, _provider = _find_provider(settings, provider_name)
 
-    if settings.agent.chat_model.llm_provider == provider_name or settings.agent.vision_model.llm_provider == provider_name:
+    if (
+        settings.agent.chat_model.llm_provider == provider_name
+        or settings.agent.vision_model.llm_provider == provider_name
+    ):
         raise HTTPException(status_code=400, detail=f"Provider is still in use: {provider_name}")
 
     settings.agent.llm.providers.pop(index)

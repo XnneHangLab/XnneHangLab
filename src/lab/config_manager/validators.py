@@ -220,7 +220,7 @@ def _check_chat_api_key(settings: XnneHangLabSettings) -> str | None:
         return (
             " [agent.llm.providers]\n"
             " llm_api_key 未配置\n"
-            f" -> 在 [[agent.llm.providers]] 中找到 name = \"{chat_provider}\" 的条目并设置 llm_api_key"
+            f' -> 在 [[agent.llm.providers]] 中找到 name = "{chat_provider}" 的条目并设置 llm_api_key'
         )
     return None
 
