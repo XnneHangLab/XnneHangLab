@@ -172,6 +172,7 @@ class MoodChatPlugin(HookPlugin):
         self._external_turn_active = True
         self._cancel_response_timeout()
         self._cancel_proactive_timer()
+        await self._cancel_active_turn()
         await self._change_mood(self._mood_increase)
         return None
 
@@ -225,6 +226,17 @@ class MoodChatPlugin(HookPlugin):
         self._proactive_timer_task = None
         self._mood_drift_task = None
         self._external_turn_active = False
+
+    async def _cancel_active_turn(self) -> None:
+        task = self._active_turn_task
+        if task is None or task.done():
+            self._active_turn_task = None
+            return
+
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        if self._active_turn_task is task:
+            self._active_turn_task = None
 
     async def _ensure_started(self, ctx: AgentContext) -> None:
         async with self._startup_lock:
