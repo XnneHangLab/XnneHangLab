@@ -29,3 +29,10 @@ class HookManager:
                 await hook.on_after_turn(user_text, assistant_text, ctx)
             except Exception:
                 pass
+
+    async def after_playback(self, user_text: str, assistant_text: str, ctx: AgentContext) -> None:
+        for hook in self._hooks:
+            try:
+                await hook.on_after_playback(user_text, assistant_text, ctx)
+            except Exception:
+                pass

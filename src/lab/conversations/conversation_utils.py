@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import json
 from datetime import datetime
 from pathlib import Path
@@ -193,8 +192,8 @@ async def finalize_conversation_turn(
     broadcast_ctx: BroadcastContext | None = None,
 ) -> None:
     """Finalize a conversation turn"""
-    if tts_manager.task_list:  # type: ignore
-        await asyncio.gather(*tts_manager.task_list)  # type: ignore
+    if tts_manager.has_output():
+        await tts_manager.wait_until_all_payloads_sent()
         await websocket_send(json.dumps({"type": "backend-synth-complete"}))
 
         response = await message_handler.wait_for_response(client_uid, "frontend-playback-complete")  # type: ignore

@@ -51,7 +51,7 @@ class MessageType(Enum):
     ]
     CONVERSATION = ["mic-audio-end", "text-input", "ai-speak-signal"]
     CONFIG = ["fetch-configs", "switch-config"]
-    CONTROL = ["interrupt-signal", "audio-play-start"]
+    CONTROL = ["interrupt-signal", "audio-play-start", "audio-play-began", "frontend-playback-complete"]
     DATA = ["mic-audio-data"]
 
 
@@ -148,6 +148,8 @@ class WebSocketHandler:
             "switch-config": self._handle_config_switch,  # type: ignore[return]
             "fetch-backgrounds": self._handle_fetch_backgrounds,
             "audio-play-start": self._handle_audio_play_start,
+            "audio-play-began": self._handle_audio_play_began,
+            "frontend-playback-complete": self._handle_frontend_playback_complete,
         }
 
     async def handle_new_connection(self, websocket: WebSocket, client_uid: str) -> None:
@@ -295,8 +297,7 @@ class WebSocketHandler:
         if handler:
             await handler(websocket, client_uid, data)
         else:
-            if msg_type != "frontend-playback-complete":
-                logger.warning(f"Unknown message type: {msg_type}")
+            logger.warning(f"Unknown message type: {msg_type}")
 
     async def _handle_group_operation(self, websocket: WebSocket, client_uid: str, data: dict[str, Any]) -> None:
         """Handle group-related operations"""
@@ -542,9 +543,33 @@ class WebSocketHandler:
 
     async def _handle_audio_play_start(self, websocket: WebSocket, client_uid: str, data: WSMessage) -> None:
         """
-        Handle audio playback start notification
+        Handle frontend audio task acceptance notification
         """
-        logger.debug(data)
+        display_text = data.get("display_text") or {}
+        text = display_text.get("text") if isinstance(display_text, dict) else None
+        logger.debug(
+            "[PLAYBACK] frontend accepted audio task: client_uid={} text={}",
+            client_uid,
+            " ".join(str(text or "").split()),
+        )
+
+    async def _handle_audio_play_began(self, websocket: WebSocket, client_uid: str, data: WSMessage) -> None:
+        """Handle actual frontend audio playback begin notification."""
+        del websocket
+        display_text = data.get("display_text") or {}
+        text = display_text.get("text") if isinstance(display_text, dict) else None
+        logger.debug(
+            "[PLAYBACK] frontend began audible playback: client_uid={} text={}",
+            client_uid,
+            " ".join(str(text or "").split()),
+        )
+
+    async def _handle_frontend_playback_complete(
+        self, websocket: WebSocket, client_uid: str, data: WSMessage
+    ) -> None:
+        """Handle frontend playback completion notification."""
+        del websocket, data
+        logger.debug("[PLAYBACK] frontend completed queued audio: client_uid={}", client_uid)
 
     async def _handle_group_info(self, websocket: WebSocket, client_uid: str, data: WSMessage) -> None:
         """Handle group info request"""
