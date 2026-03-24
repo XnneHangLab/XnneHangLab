@@ -2,7 +2,7 @@
 
 `lab.toml` 是 **XnneHangLab** 的主配置文件。ASR、WebUI、Agent、服务端口，以及各模块开关都会从这里读取；**角色身份、Live2D、TTS 预处理、GSV 角色与情绪映射** 已迁移到 `profiles/*.toml`。
 
-> 当前配置版本：`v1.6.3`
+> 当前配置版本：`v1.6.4`
 >
 > 配置加载规则：程序会优先在项目 `config/` 下查找配置；找不到会尝试从系统配置目录读取；再找不到会初始化默认配置并写回，保证字段结构完整。
 
@@ -12,7 +12,7 @@
 
 ```text
 lab.toml
-├── conf_version = "v1.6.3"
+├── conf_version = "v1.6.4"
 ├── [asr]
 │   ├── FFMPEG_PATH
 │   ├── device
@@ -62,7 +62,8 @@ lab.toml
 │   ├── [agent.vision_model]
 │   ├── [agent.prompts]
 │   │   └── vision_prompt
-│   ├── [agent.llm.*]
+│   ├── [agent.llm]
+│   │   └── [[agent.llm.providers]]
 │   └── [agent.translate.*]
 ├── [local_embedding]
 ├── [package]
@@ -149,7 +150,7 @@ root_dir = "D:\\tmp\\XnneHangLab"
 enable_tool = true
 translate_provider = "llm"
 user_lang = "ZH"
-speaker_lang = "EN"
+speaker_lang = "ZH"
 speaker_model = "gpt_sovits"
 faster_first_response = false
 max_vision_concurrency = 4
@@ -163,10 +164,12 @@ memory_chat_profile = "profiles/congyin.toml"
 
 ### 💬 [agent.chat_model]
 
+`llm_provider` 不是固定枚举，而是**引用 `[[agent.llm.providers]]` 中某个 `name`**。聊天模型和视觉模型可以共用同一个 provider，也可以分开配置。
+
 ```toml
 [agent.chat_model]
-llm_provider = "oaipro"
-llm_model_name = "gpt-5.1-2025-11-13"
+llm_provider = "openai"
+llm_model_name = "gpt-4.1"
 support_vision = false
 ```
 
@@ -174,9 +177,40 @@ support_vision = false
 
 ```toml
 [agent.vision_model]
-llm_provider = "oaipro"
-llm_model_name = "gpt-5.1-2025-11-13"
+llm_provider = "google"
+llm_model_name = "gemini-2.0-flash"
 ```
+
+### 🔌 [agent.llm]
+
+`[agent.llm]` 现在维护的是 provider 注册表，正式结构是 `[[agent.llm.providers]]`。`[agent.chat_model]` 和 `[agent.vision_model]` 只保存“引用哪个 provider”和“使用哪个模型名”。
+
+```toml
+[[agent.llm.providers]]
+name = "openai"
+llm_api_key = ""
+llm_base_url = "https://api.openai.com/v1"
+api_format = "chat_completion"
+
+[[agent.llm.providers]]
+name = "google"
+llm_api_key = ""
+llm_base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
+api_format = "chat_completion"
+```
+
+| 字段 | 说明 |
+|---|---|
+| name | provider 的唯一标识，供 `llm_provider` 引用 |
+| llm_api_key | 当前 provider 的 API Key |
+| llm_base_url | 当前 provider 的 OpenAI-compatible Base URL |
+| api_format | 当前仅支持 `chat_completion` |
+
+补充说明：
+
+- provider 名称必须唯一
+- `llm_provider` 负责选择 provider，`llm_model_name` 负责选择模型
+- 旧版 `[agent.llm.openai]` / `[agent.llm.google]` 写法仍可被读取，但重新保存后会归一化成 `[[agent.llm.providers]]`
 
 ### 🧠 [agent.prompts]
 

@@ -43,7 +43,7 @@ settings = load_settings_file("lab.toml", XnneHangLabSettings)
 
 ```python
 class XnneHangLabSettings(BaseModel):
-    conf_version: str = "v1.6.3"
+    conf_version: str = "v1.6.4"
     asr: ASRSettings
     webui: AudioRecognizeSettings
     agent: AgentSettings
@@ -51,7 +51,6 @@ class XnneHangLabSettings(BaseModel):
     package: PackagesSettings
     root: RootAbsDir
     server: ServerSettings
-    vtuber: VtuberSettings
     memory_bench: MemoryBenchSettings
 ```
 
@@ -73,7 +72,7 @@ class AgentSettings(BaseModel):
     translate_provider: TranslateProvider = "llm"
     translate: TranslateSettings
     user_lang: Literal["ZH", "EN", "JA"] = "ZH"
-    speaker_lang: Literal["ZH", "EN", "JA"] = "EN"
+    speaker_lang: Literal["ZH", "EN", "JA"] = "ZH"
     speaker_model: Literal["gpt_sovits"] = "gpt_sovits"
     faster_first_response: bool = False
     max_vision_concurrency: int = 4
@@ -84,6 +83,22 @@ class AgentSettings(BaseModel):
     memory_agent_profile: str = "profiles/baoqiao.toml"
     memory_chat_profile: str = "profiles/congyin.toml"
 ```
+
+其中 `LLMSettings` 现在已经改成“provider 列表 + 名称引用”的结构，而不是把 provider 名字硬编码进字段层级：
+
+```python
+class LLMProviderSetting(BaseModel):
+    name: str
+    llm_api_key: str = ""
+    llm_base_url: str = ""
+    api_format: Literal["chat_completion"] = "chat_completion"
+
+
+class LLMSettings(BaseModel):
+    providers: list[LLMProviderSetting] = []
+```
+
+`chat_model.llm_provider` 和 `vision_model.llm_provider` 会在校验阶段检查：如果填写了 provider 名称，那么它必须能在 `agent.llm.providers` 中找到同名条目。
 
 ### 一个重要变化
 
@@ -101,6 +116,8 @@ class AgentSettings(BaseModel):
 - GPT-SoVITS 角色名与 emotion → ref_audio 映射
 
 这些都在 Profile 系统里承接。
+
+另外，`[agent.llm]` 还有一个兼容层：旧版 `[agent.llm.openai]` 这类结构仍然能被读取，但会在模型校验后迁移成统一的 `[[agent.llm.providers]]` 结构。这也是文档里应该优先展示列表写法的原因。
 
 ---
 
