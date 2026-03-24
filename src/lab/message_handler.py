@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import asyncio
 from collections import defaultdict
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class MessageHandler:
@@ -13,7 +16,11 @@ class MessageHandler:
         self._response_data: dict[str, dict[str, dict[Any, Any]]] = defaultdict(dict)
 
     async def wait_for_response(
-        self, client_uid: str, response_type: str, timeout: float | None = None
+        self,
+        client_uid: str,
+        response_type: str,
+        timeout: float | None = None,
+        response_filter: Callable[[dict[Any, Any]], bool] | None = None,
     ) -> dict[Any, Any] | None:
         """
         Wait for a response of specific type from a client.
@@ -30,14 +37,18 @@ class MessageHandler:
         self._response_events[client_uid][response_type] = event
 
         try:
-            if timeout is not None:
-                # Wait with timeout
-                await asyncio.wait_for(event.wait(), timeout)
-            else:
-                # Wait indefinitely
-                await event.wait()
+            while True:
+                if timeout is not None:
+                    await asyncio.wait_for(event.wait(), timeout)
+                else:
+                    await event.wait()
 
-            return self._response_data[client_uid].pop(response_type, None)
+                response = self._response_data[client_uid].pop(response_type, None)
+                event.clear()
+                if response is None:
+                    continue
+                if response_filter is None or response_filter(response):
+                    return response
         except TimeoutError:
             logger.warning(f"Timeout waiting for {response_type} from {client_uid}")
             return None

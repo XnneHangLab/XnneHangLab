@@ -18,9 +18,10 @@ from pydantic import Field
 from lab.agent.input_types import BatchInput, TextData, TextSource
 from lab.agent.output_types import SentenceOutput
 from lab.conversations.conversation_utils import (
+    create_turn_id,
     process_agent_output,
     send_conversation_end_signal,
-    send_conversation_start_signals,
+    send_conversation_start_signals_for_turn,
 )
 from lab.conversations.tts_manager import TTSTaskManager
 from lab.message_handler import message_handler
@@ -135,12 +136,13 @@ class MoodChatPlugin(HookPlugin):
 
         self._agent: MemoryAgent | None = None
         self._ctx: AgentContext | None = None
-        self._scheduler_task: asyncio.Task[None] | None = None
+        self._proactive_timer_task: asyncio.Task[None] | None = None
         self._mood_drift_task: asyncio.Task[None] | None = None
         self._response_timeout_task: asyncio.Task[None] | None = None
         self._active_turn_task: asyncio.Task[bool] | None = None
 
         self._internal_turn_flag = "_mood_chat_internal_turn"
+        self._external_turn_active = False
         self._stopped = False
 
     @property
@@ -167,7 +169,9 @@ class MoodChatPlugin(HookPlugin):
         if ctx.extra.get(self._internal_turn_flag):
             return None
 
+        self._external_turn_active = True
         self._cancel_response_timeout()
+        self._cancel_proactive_timer()
         await self._change_mood(self._mood_increase)
         return None
 
@@ -182,6 +186,13 @@ class MoodChatPlugin(HookPlugin):
             ctx: 当前 agent 的运行时上下文。
         """
         del user_text, assistant_text, ctx
+        return
+
+    async def on_after_playback(self, user_text: str, assistant_text: str, ctx: AgentContext) -> None:
+        del user_text, assistant_text
+        if not ctx.extra.get(self._internal_turn_flag):
+            self._external_turn_active = False
+            self._arm_proactive_timer()
         return
 
     async def stop(self) -> None:
@@ -199,7 +210,7 @@ class MoodChatPlugin(HookPlugin):
         for task in (
             self._response_timeout_task,
             self._active_turn_task,
-            self._scheduler_task,
+            self._proactive_timer_task,
             self._mood_drift_task,
         ):
             if task is not None and not task.done():
@@ -211,8 +222,9 @@ class MoodChatPlugin(HookPlugin):
 
         self._response_timeout_task = None
         self._active_turn_task = None
-        self._scheduler_task = None
+        self._proactive_timer_task = None
         self._mood_drift_task = None
+        self._external_turn_active = False
 
     async def _ensure_started(self, ctx: AgentContext) -> None:
         async with self._startup_lock:
@@ -223,52 +235,8 @@ class MoodChatPlugin(HookPlugin):
             self._agent = agent
             self._stopped = False
 
-            if self._scheduler_task is None or self._scheduler_task.done():
-                self._scheduler_task = asyncio.create_task(self._run_scheduler())
             if self._mood_drift_task is None or self._mood_drift_task.done():
                 self._mood_drift_task = asyncio.create_task(self._run_mood_drift())
-
-    async def _run_scheduler(self) -> None:
-        try:
-            while True:
-                mood = await self._get_mood_score()
-                interval = self._interval_for_mood(mood)
-                if interval is None:
-                    plugin_logger.info(
-                        f"[MOOD_CHAT] proactive chat paused: mood={mood} next_interval=paused(check_in=60.0s)"
-                    )
-                    await asyncio.sleep(60)
-                    continue
-
-                await asyncio.sleep(interval)
-
-                agent = self._agent
-                ctx = self._ctx
-                if agent is None or ctx is None:
-                    continue
-
-                interrupted = await self._run_proactive_cycle(
-                    agent=agent,
-                    ctx=ctx,
-                    mood=mood,
-                    interval=interval,
-                )
-                if interrupted:
-                    continue
-
-                timeout_task = asyncio.create_task(self._handle_response_timeout())
-                self._response_timeout_task = timeout_task
-                try:
-                    await timeout_task
-                except asyncio.CancelledError:
-                    current_task = asyncio.current_task()
-                    if current_task is not None and current_task.cancelling():
-                        raise
-                finally:
-                    if self._response_timeout_task is timeout_task:
-                        self._response_timeout_task = None
-        except asyncio.CancelledError:
-            return
 
     async def _run_proactive_cycle(
         self,
@@ -331,8 +299,9 @@ class MoodChatPlugin(HookPlugin):
                     pass
                 return False
 
-            tts_manager = TTSTaskManager()
-            await send_conversation_start_signals(runtime.websocket_send)
+            turn_id = create_turn_id()
+            tts_manager = TTSTaskManager(turn_id=turn_id)
+            await send_conversation_start_signals_for_turn(runtime.websocket_send, turn_id)
             try:
                 async for output in agent.chat(fake_input):
                     if not isinstance(output, SentenceOutput):
@@ -351,12 +320,17 @@ class MoodChatPlugin(HookPlugin):
                 tts_manager_any: Any = tts_manager
                 raw_tts_tasks: Any = tts_manager_any.task_list
                 tts_tasks = cast("list[asyncio.Task[Any]]", raw_tts_tasks)
-                if tts_tasks:
-                    await asyncio.gather(*tts_tasks)
-                    await runtime.websocket_send(json.dumps({"type": "backend-synth-complete"}))
+                if tts_manager.has_output():
+                    if tts_tasks:
+                        plugin_logger.debug(
+                            f"[MOOD_CHAT] waiting for queued payloads to reach frontend: count={len(tts_tasks)}"
+                        )
+                    await tts_manager.wait_until_all_payloads_sent()
+                    await runtime.websocket_send(json.dumps({"type": "backend-synth-complete", "turn_id": turn_id}))
                     response = await message_handler.wait_for_response(
                         runtime.client_uid,
                         "frontend-playback-complete",
+                        response_filter=lambda message: message.get("turn_id") == turn_id,
                     )
                     if not response:
                         plugin_logger.warning(
@@ -371,6 +345,65 @@ class MoodChatPlugin(HookPlugin):
                 tts_manager.clear()
         finally:
             ctx.extra.pop(self._internal_turn_flag, None)
+
+    def _cancel_proactive_timer(self) -> None:
+        task = self._proactive_timer_task
+        if task is not None and not task.done():
+            task.cancel()
+        self._proactive_timer_task = None
+
+    def _arm_proactive_timer(self) -> None:
+        if self._stopped or self._external_turn_active or self._active_turn_task is not None:
+            return
+
+        agent = self._agent
+        ctx = self._ctx
+        if agent is None or ctx is None:
+            return
+
+        mood = self._mood_score
+        interval = self._interval_for_mood(mood)
+        if interval is None:
+            plugin_logger.info(f"[MOOD_CHAT] proactive chat paused: mood={mood} next_interval=paused")
+            return
+
+        self._cancel_proactive_timer()
+        self._proactive_timer_task = asyncio.create_task(
+            self._run_proactive_timer(agent=agent, ctx=ctx, mood=mood, interval=interval)
+        )
+
+    async def _run_proactive_timer(
+        self,
+        *,
+        agent: MemoryAgent,
+        ctx: AgentContext,
+        mood: int,
+        interval: float,
+    ) -> None:
+        current_task = asyncio.current_task()
+        try:
+            await asyncio.sleep(interval)
+            if self._stopped or self._external_turn_active or self._active_turn_task is not None:
+                return
+
+            interrupted = await self._run_proactive_cycle(
+                agent=agent,
+                ctx=ctx,
+                mood=mood,
+                interval=interval,
+            )
+            if interrupted or self._stopped:
+                return
+
+            if self._proactive_timer_task is current_task:
+                self._proactive_timer_task = None
+            self._start_response_timeout()
+            self._arm_proactive_timer()
+        except asyncio.CancelledError:
+            raise
+        finally:
+            if self._proactive_timer_task is current_task:
+                self._proactive_timer_task = None
 
     async def _run_mood_drift(self) -> None:
         try:
@@ -387,6 +420,8 @@ class MoodChatPlugin(HookPlugin):
     async def _handle_response_timeout(self) -> None:
         await asyncio.sleep(self._response_timeout_s)
         await self._change_mood(-self._mood_decrease)
+        if not self._external_turn_active and self._active_turn_task is None:
+            self._arm_proactive_timer()
 
     async def _get_mood_score(self) -> int:
         async with self._mood_lock:
@@ -422,6 +457,11 @@ class MoodChatPlugin(HookPlugin):
         task = self._response_timeout_task
         if task is not None and not task.done():
             task.cancel()
+        self._response_timeout_task = None
+
+    def _start_response_timeout(self) -> None:
+        self._cancel_response_timeout()
+        self._response_timeout_task = asyncio.create_task(self._handle_response_timeout())
 
     def _interval_for_mood(self, mood_score: int) -> float | None:
         if mood_score >= 90:

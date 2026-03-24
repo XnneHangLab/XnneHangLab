@@ -1,9 +1,10 @@
-"""GPT-SoVITS HTTP 客户端。"""
+"""GPT-SoVITS HTTP client."""
 
 from __future__ import annotations
 
 import base64
 from pathlib import Path
+from time import perf_counter
 from typing import Literal, cast
 
 from loguru import logger
@@ -14,22 +15,7 @@ from lab.api.types import GPTSoVITSResponse
 
 
 class GPTSoVITSRequest(BaseRequest):
-    """GPT-SoVITS 合成请求。
-
-    Attributes:
-        text: 需要合成的文本。
-        ref_audio_path: 参考音频路径。
-        prompt_text: 参考音频对应的参考文本。
-        prompt_language: 参考文本语言。
-        audio_type: 期望返回的音频格式。
-        text_language: 待合成文本语言。
-        batch_size: 批处理大小。
-        speed: 语速倍率。
-        top_k: 采样 top-k。
-        top_p: 采样 top-p。
-        temperature: 采样温度。
-        repetition_penalty: 重复惩罚系数。
-    """
+    """GPT-SoVITS synthesis request."""
 
     text: str
     ref_audio_path: str | None = None
@@ -46,27 +32,13 @@ class GPTSoVITSRequest(BaseRequest):
 
 
 class GPTSoVITSResponseModel(BaseResponse):
-    """GPT-SoVITS 接口响应模型。
-
-    Attributes:
-        audio_type: 返回的音频格式。
-        audio_rate: 返回的采样率。
-        audio_byte: Base64 编码后的音频二进制。
-    """
+    """Typed GPT-SoVITS response."""
 
     audio_type: Literal["mp3"]
     audio_rate: int
     audio_byte: str
 
     def to_dict(self) -> GPTSoVITSResponse:
-        """将响应模型转换为业务层使用的字典。
-
-        Args:
-            无。
-
-        Returns:
-            转换后的 GPT-SoVITS 响应字典。
-        """
         return GPTSoVITSResponse(
             audio_type=self.audio_type,
             audio_rate=self.audio_rate,
@@ -75,81 +47,136 @@ class GPTSoVITSResponseModel(BaseResponse):
 
 
 class GPTSoVITSClient(BaseClientInterface):
-    """调用本地 GPT-SoVITS 路由的客户端。"""
+    """Client for the local GPT-SoVITS route."""
 
-    def __init__(self):
-        """初始化 GPT-SoVITS 客户端。"""
+    def __init__(self) -> None:
         self.base_url = self.base_url + "/tts/gptsovits"
         self.last_error: str | None = None
 
+    @staticmethod
+    def _log_request_timing(
+        request: GPTSoVITSRequest,
+        *,
+        elapsed_s: float,
+        outcome: str,
+        detail: str | None = None,
+    ) -> None:
+        logger.info(
+            "[GPTSoVITSClient] request {} in {:.2f}s text_len={} batch_size={} lang={} detail={}",
+            outcome,
+            elapsed_s,
+            len(request.text),
+            request.batch_size,
+            request.text_language,
+            detail or "-",
+        )
+
     def post(self, request: GPTSoVITSRequest) -> GPTSoVITSResponse | None:  # type: ignore[override]
-        """以同步方式调用 GPT-SoVITS。
-
-        Args:
-            request: GPT-SoVITS 合成请求。
-
-        Returns:
-            合成成功时返回音频响应；失败时返回 `None`。
-        """
         if request.ref_audio_path and not Path(request.ref_audio_path).exists():
             self.last_error = f"Reference audio file does not exist: {request.ref_audio_path}"
             logger.error(self.last_error)
             return None
+
         self.last_error = None
-        response = self.session.post(self.base_url, json=request.model_dump(exclude_none=True))
-        response.raise_for_status()
-        response_payload: object = response.json()
-        error_message = _extract_error_message(response_payload)
-        if error_message is not None:
-            self.last_error = error_message
-            logger.error(f"GPTSoVITS server returned error payload: {response_payload}")
-            return None
+        started = perf_counter()
+
         try:
-            response = GPTSoVITSResponseModel.model_validate(response_payload)
-            if response.audio_type != request.audio_type:
-                raise ValueError(f"Expected audio type {request.audio_type}, but got {response.audio_type}")
-            return response.to_dict()
-        except Exception as e:
-            self.last_error = f"Failed to parse GPTSoVITS response: {e}"
-            logger.error(f"Failed to parse GPTSoVITS response: {e}, {response_payload}")
+            response = self.session.post(self.base_url, json=request.model_dump(exclude_none=True))
+            response.raise_for_status()
+            response_payload: object = response.json()
+
+            error_message = _extract_error_message(response_payload)
+            if error_message is not None:
+                self.last_error = error_message
+                logger.error("GPTSoVITS server returned error payload: {}", response_payload)
+                self._log_request_timing(
+                    request,
+                    elapsed_s=perf_counter() - started,
+                    outcome="failed",
+                    detail=error_message,
+                )
+                return None
+
+            parsed = GPTSoVITSResponseModel.model_validate(response_payload)
+            if parsed.audio_type != request.audio_type:
+                raise ValueError(f"Expected audio type {request.audio_type}, but got {parsed.audio_type}")
+
+            self._log_request_timing(
+                request,
+                elapsed_s=perf_counter() - started,
+                outcome="succeeded",
+                detail=f"audio_rate={parsed.audio_rate}",
+            )
+            return parsed.to_dict()
+        except Exception as exc:
+            self.last_error = f"Failed to parse GPTSoVITS response: {exc}"
+            logger.error(self.last_error)
+            self._log_request_timing(
+                request,
+                elapsed_s=perf_counter() - started,
+                outcome="failed",
+                detail=self.last_error,
+            )
             return None
 
     async def asyncpost(self, request: GPTSoVITSRequest) -> GPTSoVITSResponse | None:  # type: ignore[override]
-        """以异步方式调用 GPT-SoVITS。
-
-        Args:
-            request: GPT-SoVITS 合成请求。
-
-        Returns:
-            合成成功时返回音频响应；失败时返回 `None`。
-        """
         if request.ref_audio_path and not Path(request.ref_audio_path).exists():
             self.last_error = f"Reference audio file does not exist: {request.ref_audio_path}"
             logger.error(self.last_error)
             return None
+
         self.async_session = await self.get_async_session()
         self.last_error = None
+        started = perf_counter()
+
         try:
             async with self.async_session.post(self.base_url, json=request.model_dump(exclude_none=True)) as response:
                 if response.status != 200:
                     error_body = await response.text()
                     self.last_error = f"GPTSoVITS HTTP {response.status}: {error_body}"
                     logger.error(self.last_error)
+                    self._log_request_timing(
+                        request,
+                        elapsed_s=perf_counter() - started,
+                        outcome="failed",
+                        detail=self.last_error,
+                    )
                     return None
+
                 response_data: object = await response.json()
                 error_message = _extract_error_message(response_data)
                 if error_message is not None:
                     self.last_error = error_message
-                    logger.error(f"GPTSoVITS server returned error payload: {response_data}")
+                    logger.error("GPTSoVITS server returned error payload: {}", response_data)
+                    self._log_request_timing(
+                        request,
+                        elapsed_s=perf_counter() - started,
+                        outcome="failed",
+                        detail=error_message,
+                    )
                     return None
+
                 try:
-                    response = GPTSoVITSResponseModel.model_validate(response_data)
-                    if response.audio_type != request.audio_type:
-                        raise ValueError(f"Expected audio type {request.audio_type}, but got {response.audio_type}")
-                    return response.to_dict()
-                except Exception as e:
-                    self.last_error = f"Failed to parse GPTSoVITS response: {e}"
-                    logger.error(f"Failed to parse GPTSoVITS response: {e}, {response_data}")
+                    parsed = GPTSoVITSResponseModel.model_validate(response_data)
+                    if parsed.audio_type != request.audio_type:
+                        raise ValueError(f"Expected audio type {request.audio_type}, but got {parsed.audio_type}")
+
+                    self._log_request_timing(
+                        request,
+                        elapsed_s=perf_counter() - started,
+                        outcome="succeeded",
+                        detail=f"audio_rate={parsed.audio_rate}",
+                    )
+                    return parsed.to_dict()
+                except Exception as exc:
+                    self.last_error = f"Failed to parse GPTSoVITS response: {exc}"
+                    logger.error("Failed to parse GPTSoVITS response: {}, {}", exc, response_data)
+                    self._log_request_timing(
+                        request,
+                        elapsed_s=perf_counter() - started,
+                        outcome="failed",
+                        detail=self.last_error,
+                    )
                     return None
         finally:
             try:
@@ -159,14 +186,6 @@ class GPTSoVITSClient(BaseClientInterface):
 
 
 def _extract_error_message(payload: object) -> str | None:
-    """从 GPT-SoVITS 响应载荷中提取错误消息。
-
-    Args:
-        payload: 原始响应对象。
-
-    Returns:
-        提取到的错误消息；若载荷表示成功则返回 `None`。
-    """
     if not isinstance(payload, dict):
         return None
     data = cast("dict[str, object]", payload)

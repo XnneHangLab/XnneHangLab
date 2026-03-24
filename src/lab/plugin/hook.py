@@ -16,5 +16,9 @@ class HookPlugin(ABC):
         ...
 
     async def on_after_turn(self, user_text: str, assistant_text: str, ctx: AgentContext) -> None:
-        """在每轮 run_turn 结束后调用。默认什么都不做。"""
+        """Run after text generation for a turn completes."""
+        return
+
+    async def on_after_playback(self, user_text: str, assistant_text: str, ctx: AgentContext) -> None:
+        """Run after the turn's frontend playback has fully completed."""
         return

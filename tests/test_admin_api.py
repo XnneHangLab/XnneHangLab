@@ -487,10 +487,10 @@ api_format = "chat_completion"
     assert response.status_code == 200
     content = response.json()["content"]
     assert "[[agent.llm.providers]]" in content
-    assert '[agent.llm.openai]' not in content
+    assert "[agent.llm.openai]" not in content
     assert 'name = "openai"' in content
     with lab_path.open("r", encoding="utf-8") as file:
-        assert '[agent.llm.openai]' in file.read()
+        assert "[agent.llm.openai]" in file.read()
 
 
 def test_lab_config_form_endpoints_expose_schema_and_save_values(tmp_path: Path) -> None:

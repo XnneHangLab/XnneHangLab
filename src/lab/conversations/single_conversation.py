@@ -12,10 +12,11 @@ from lab.conversations.conversation_utils import (
     EMOJI_LIST,
     cleanup_conversation,
     create_batch_input,
+    create_turn_id,
     finalize_conversation_turn,
     process_agent_output,
     process_user_input,
-    send_conversation_start_signals,
+    send_conversation_start_signals_for_turn,
 )
 from lab.conversations.tts_manager import TTSTaskManager
 
@@ -47,11 +48,12 @@ async def process_single_conversation(
         str: Complete response text
     """
     # Create TTSTaskManager for this conversation
-    tts_manager = TTSTaskManager()
+    turn_id = create_turn_id()
+    tts_manager = TTSTaskManager(turn_id=turn_id)
 
     try:
         # Send initial signals
-        await send_conversation_start_signals(websocket_send)
+        await send_conversation_start_signals_for_turn(websocket_send, turn_id)
         logger.info(f"New Conversation Chain {session_emoji} started!")
 
         # Process user input
@@ -83,11 +85,8 @@ async def process_single_conversation(
 
         await context.send_current_mood(websocket_send)
 
-        # Wait for any pending TTS tasks
-        if tts_manager.task_list:  #  type: ignore
-            logger.debug(f"Waiting for {len(tts_manager.task_list)} TTS tasks to complete")  #  type: ignore
-            await asyncio.gather(*tts_manager.task_list)  #  type: ignore
-            await websocket_send(json.dumps({"type": "backend-synth-complete"}))
+        if tts_manager.has_output():
+            logger.debug("Conversation queued response payloads; waiting for frontend playback handshake")
         else:
             logger.debug("No TTS tasks to wait for")
 
@@ -95,7 +94,14 @@ async def process_single_conversation(
             tts_manager=tts_manager,
             websocket_send=websocket_send,
             client_uid=client_uid,
+            turn_id=turn_id,
         )
+
+        agent_core = getattr(context.agent_engine, "core", None)
+        hook_manager = getattr(agent_core, "_hook_manager", None)
+        agent_context = getattr(agent_core, "agent_context", None)
+        if hook_manager is not None and agent_context is not None:
+            await hook_manager.after_playback(input_text, full_response, agent_context)
 
         return full_response
 

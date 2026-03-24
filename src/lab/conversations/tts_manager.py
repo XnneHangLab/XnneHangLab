@@ -25,6 +25,13 @@ _TOOL_STATUS_DISPLAY_RE = re.compile(r"\[\s*🔧[^\]]*]")
 _TOOL_STATUS_XML_RE = re.compile(r"<tool>.*?</tool>", re.DOTALL)
 
 
+def _summarize_text(text: str | None, *, limit: int = 48) -> str:
+    normalized = " ".join((text or "").split())
+    if len(normalized) <= limit:
+        return normalized
+    return normalized[: limit - 3] + "..."
+
+
 def has_audible_tts_text(tts_text: str) -> bool:
     """Return True only when the text has something worth translating or speaking."""
     normalized = (tts_text or "").replace("*", "")
@@ -74,13 +81,19 @@ def _resolve_ref_audio_and_text(
 class TTSTaskManager:
     """Manages TTS tasks and ensures ordered delivery to frontend while allowing parallel TTS generation"""
 
-    def __init__(self) -> None:
-        self.task_list: list[asyncio.Task] = []  # type: ignore
+    def __init__(self, turn_id: str | None = None) -> None:
+        self.task_list: list[asyncio.Task[None]] = []
         self._lock = asyncio.Lock()
-        self._payload_queue: asyncio.Queue[tuple[AudioPayload, int]] = asyncio.Queue()  # type: ignore
-        self._sender_task: asyncio.Task | None = None  # type: ignore
+        self._tts_semaphore = asyncio.Semaphore(1)
+        self._payload_queue: asyncio.Queue[tuple[AudioPayload, int]] = asyncio.Queue()
+        self._sender_task: asyncio.Task[None] | None = None
         self._sequence_counter = 0
         self._next_sequence_to_send = 0
+        self._turn_id = turn_id
+
+    def has_output(self) -> bool:
+        """Return True when this turn queued any display or audio payload."""
+        return self._sequence_counter > 0
 
     async def speak(
         self,
@@ -107,7 +120,7 @@ class TTSTaskManager:
             current_sequence = self._sequence_counter
             self._sequence_counter += 1
 
-            if not self._sender_task or self._sender_task.done():  # type: ignore
+            if self._sender_task is None or self._sender_task.done():
                 self._sender_task = asyncio.create_task(self._process_payload_queue(websocket_send))
 
             await self._send_silent_payload(display_text, actions, current_sequence)
@@ -116,7 +129,7 @@ class TTSTaskManager:
         current_sequence = self._sequence_counter
         self._sequence_counter += 1
 
-        if not self._sender_task or self._sender_task.done():  # type: ignore
+        if self._sender_task is None or self._sender_task.done():
             self._sender_task = asyncio.create_task(self._process_payload_queue(websocket_send))
 
         task = asyncio.create_task(
@@ -129,7 +142,7 @@ class TTSTaskManager:
                 sequence_number=current_sequence,
             )
         )
-        self.task_list.append(task)  # type: ignore
+        self.task_list.append(task)
 
     async def _process_payload_queue(self, websocket_send: WebSocketSend) -> None:
         """Process and send payloads in correct order."""
@@ -141,8 +154,23 @@ class TTSTaskManager:
             sequence_number = int(sequence_number)
             buffered_payloads[sequence_number] = payload
 
+            if sequence_number != self._next_sequence_to_send:
+                logger.debug(
+                    "[TTS_SEND] payload ready but waiting for earlier seq: ready_seq={} next_seq={} text={}",
+                    sequence_number,
+                    self._next_sequence_to_send,
+                    _summarize_text(payload.get("display_text", {}).get("text")),  # type: ignore[arg-type]
+                )
+
             while self._next_sequence_to_send in buffered_payloads:
                 next_payload = buffered_payloads.pop(self._next_sequence_to_send)
+                display_text = next_payload.get("display_text", {})
+                logger.debug(
+                    "[TTS_SEND] payload sent seq={} has_audio={} text={}",
+                    self._next_sequence_to_send,
+                    bool(next_payload.get("audio")),
+                    _summarize_text(display_text.get("text")),  # type: ignore[arg-type]
+                )
                 await websocket_send(json.dumps(next_payload))
                 self._next_sequence_to_send += 1
 
@@ -159,6 +187,7 @@ class TTSTaskManager:
             audio_path=None,
             display_text=display_text,
             actions=actions,
+            turn_id=self._turn_id,
         )
         await self._payload_queue.put((audio_payload, sequence_number))
 
@@ -173,20 +202,27 @@ class TTSTaskManager:
     ) -> None:
         """Process TTS generation and queue the result for ordered delivery."""
         del live2d_model
-        emotion_keys = actions.emotion_keys if actions is not None else None
-        audio_file_path = await self._generate_audio(
-            tts_text,
-            character_config=character_config,
-            emotion_keys=emotion_keys,
-        )
-        if not audio_file_path:
-            raise ValueError("Audio file path is None")
-        payload = prepare_audio_payload(
-            audio_path=str(audio_file_path),
-            display_text=display_text,
-            actions=actions,
-        )
-        await self._payload_queue.put((payload, sequence_number))
+        async with self._tts_semaphore:
+            emotion_keys = actions.emotion_keys if actions is not None else None
+            audio_file_path = await self._generate_audio(
+                tts_text,
+                character_config=character_config,
+                emotion_keys=emotion_keys,
+            )
+            if not audio_file_path:
+                raise ValueError("Audio file path is None")
+            payload = prepare_audio_payload(
+                audio_path=str(audio_file_path),
+                display_text=display_text,
+                actions=actions,
+                turn_id=self._turn_id,
+            )
+            logger.debug(
+                "[TTS_READY] audio ready seq={} text={}",
+                sequence_number,
+                _summarize_text(display_text.text),
+            )
+            await self._payload_queue.put((payload, sequence_number))
 
     async def _generate_audio(
         self,
@@ -232,11 +268,21 @@ class TTSTaskManager:
             logger.error(f"Error generating audio: {e}", exc_info=True)
             return None
 
+    async def wait_until_all_payloads_sent(self) -> None:
+        """Wait until all queued TTS work has been converted and sent to the frontend."""
+        if self.task_list:
+            await asyncio.gather(*self.task_list)
+        if self._sender_task is not None:
+            await self._payload_queue.join()
+
     def clear(self) -> None:
         """Clear all pending tasks and reset state."""
-        self.task_list.clear()  # type: ignore
-        if self._sender_task:  # type: ignore
-            self._sender_task.cancel()  # type: ignore
+        for task in self.task_list:
+            if not task.done():
+                task.cancel()
+        self.task_list.clear()
+        if self._sender_task:
+            self._sender_task.cancel()
         self._sequence_counter = 0
         self._next_sequence_to_send = 0
         logger.debug("Clearing TTS payload queue...")
