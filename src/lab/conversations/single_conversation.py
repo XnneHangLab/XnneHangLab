@@ -12,10 +12,11 @@ from lab.conversations.conversation_utils import (
     EMOJI_LIST,
     cleanup_conversation,
     create_batch_input,
+    create_turn_id,
     finalize_conversation_turn,
     process_agent_output,
     process_user_input,
-    send_conversation_start_signals,
+    send_conversation_start_signals_for_turn,
 )
 from lab.conversations.tts_manager import TTSTaskManager
 
@@ -47,11 +48,12 @@ async def process_single_conversation(
         str: Complete response text
     """
     # Create TTSTaskManager for this conversation
-    tts_manager = TTSTaskManager()
+    turn_id = create_turn_id()
+    tts_manager = TTSTaskManager(turn_id=turn_id)
 
     try:
         # Send initial signals
-        await send_conversation_start_signals(websocket_send)
+        await send_conversation_start_signals_for_turn(websocket_send, turn_id)
         logger.info(f"New Conversation Chain {session_emoji} started!")
 
         # Process user input
@@ -92,6 +94,7 @@ async def process_single_conversation(
             tts_manager=tts_manager,
             websocket_send=websocket_send,
             client_uid=client_uid,
+            turn_id=turn_id,
         )
 
         agent_core = getattr(context.agent_engine, "core", None)

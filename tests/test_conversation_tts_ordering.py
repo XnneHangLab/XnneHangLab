@@ -37,8 +37,9 @@ def test_finalize_waits_for_all_audio_payloads_before_backend_complete(monkeypat
         actions: Actions | None = None,
         chunk_length_ms: int = 20,
         forwarded: bool = False,
+        turn_id: str | None = None,
     ) -> dict[str, object]:
-        del audio_path, actions
+        del audio_path, actions, turn_id
         return {
             "type": "audio",
             "audio": display_text.text,
@@ -49,7 +50,13 @@ def test_finalize_waits_for_all_audio_payloads_before_backend_complete(monkeypat
             "forwarded": forwarded,
         }
 
-    async def fake_wait_for_response(client_uid: str, message_type: str) -> dict[str, str]:
+    async def fake_wait_for_response(
+        client_uid: str,
+        message_type: str,
+        timeout: float | None = None,
+        response_filter: object | None = None,
+    ) -> dict[str, str]:
+        del timeout, response_filter
         assert client_uid == "client-1"
         assert message_type == "frontend-playback-complete"
         return {"type": message_type}
@@ -79,3 +86,42 @@ def test_finalize_waits_for_all_audio_payloads_before_backend_complete(monkeypat
     assert sent_messages[0]["display_text"]["text"] == "First sentence."
     assert sent_messages[1]["display_text"]["text"] == "Second sentence."
     assert sent_messages[2]["type"] == "backend-synth-complete"
+
+
+def test_clear_cancels_pending_tts_before_later_sentences_start(monkeypatch: pytest.MonkeyPatch) -> None:
+    started_texts: list[str] = []
+    first_started = asyncio.Event()
+
+    async def websocket_send(payload: str) -> None:
+        del payload
+
+    async def fake_generate_audio(
+        self: TTSTaskManager,
+        text: str,
+        character_config: object | None = None,
+        emotion_keys: list[str] | None = None,
+    ) -> Path:
+        del self, character_config, emotion_keys
+        started_texts.append(text)
+        if text == "first":
+            first_started.set()
+            await asyncio.sleep(0.2)
+        return Path(f"{text}.wav")
+
+    monkeypatch.setattr(TTSTaskManager, "_generate_audio", fake_generate_audio)
+
+    async def run_test() -> None:
+        manager = TTSTaskManager()
+        try:
+            await manager.speak("first", DisplayText("First sentence."), Actions(), None, websocket_send)
+            await manager.speak("second", DisplayText("Second sentence."), Actions(), None, websocket_send)
+            await first_started.wait()
+            await asyncio.sleep(0)
+            manager.clear()
+            await asyncio.sleep(0)
+        finally:
+            manager.clear()
+
+    asyncio.run(run_test())
+
+    assert started_texts == ["first"]

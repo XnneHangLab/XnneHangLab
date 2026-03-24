@@ -66,6 +66,7 @@ class WSMessage(TypedDict, total=False):
     history_uid: str | None
     file: str | None
     display_text: DisplayTextDict | None
+    turn_id: str | None
 
 
 class DisplayHistoryMessage(BaseModel):

@@ -24,6 +24,7 @@ class AudioPayload(TypedDict):
     display_text: DisplayText | None
     actions: Actions | None
     forwarded: bool | None
+    turn_id: str | None
 
 
 @dataclass

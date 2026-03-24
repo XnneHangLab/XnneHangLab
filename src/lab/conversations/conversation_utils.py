@@ -4,6 +4,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from uuid import uuid4
 
 import numpy as np
 import soundfile as sf
@@ -147,6 +148,23 @@ async def send_conversation_start_signals(websocket_send: WebSocketSend) -> None
     await websocket_send(json.dumps({"type": "full-text", "text": "Thinking..."}))
 
 
+def create_turn_id() -> str:
+    return uuid4().hex
+
+
+async def send_conversation_start_signals_for_turn(websocket_send: WebSocketSend, turn_id: str) -> None:
+    await websocket_send(
+        json.dumps(
+            {
+                "type": "control",
+                "text": "conversation-chain-start",
+                "turn_id": turn_id,
+            }
+        )
+    )
+    await websocket_send(json.dumps({"type": "full-text", "text": "Thinking...", "turn_id": turn_id}))
+
+
 async def process_user_input(
     user_input: str | np.ndarray[Any, Any],  #  text, 或者 mico
     # asr_engine: Any,  # 假设 asr_engine 存在，修正注释中的类型提示
@@ -190,13 +208,18 @@ async def finalize_conversation_turn(
     websocket_send: WebSocketSend,
     client_uid: str,
     broadcast_ctx: BroadcastContext | None = None,
+    turn_id: str | None = None,
 ) -> None:
     """Finalize a conversation turn"""
     if tts_manager.has_output():
         await tts_manager.wait_until_all_payloads_sent()
-        await websocket_send(json.dumps({"type": "backend-synth-complete"}))
+        await websocket_send(json.dumps({"type": "backend-synth-complete", "turn_id": turn_id}))
 
-        response = await message_handler.wait_for_response(client_uid, "frontend-playback-complete")  # type: ignore
+        response = await message_handler.wait_for_response(
+            client_uid,
+            "frontend-playback-complete",
+            response_filter=(lambda message: message.get("turn_id") == turn_id) if turn_id else None,
+        )  # type: ignore
 
         if not response:
             logger.warning(f"No playback completion response from {client_uid}")

@@ -18,9 +18,10 @@ from pydantic import Field
 from lab.agent.input_types import BatchInput, TextData, TextSource
 from lab.agent.output_types import SentenceOutput
 from lab.conversations.conversation_utils import (
+    create_turn_id,
     process_agent_output,
     send_conversation_end_signal,
-    send_conversation_start_signals,
+    send_conversation_start_signals_for_turn,
 )
 from lab.conversations.tts_manager import TTSTaskManager
 from lab.message_handler import message_handler
@@ -298,8 +299,9 @@ class MoodChatPlugin(HookPlugin):
                     pass
                 return False
 
-            tts_manager = TTSTaskManager()
-            await send_conversation_start_signals(runtime.websocket_send)
+            turn_id = create_turn_id()
+            tts_manager = TTSTaskManager(turn_id=turn_id)
+            await send_conversation_start_signals_for_turn(runtime.websocket_send, turn_id)
             try:
                 async for output in agent.chat(fake_input):
                     if not isinstance(output, SentenceOutput):
@@ -324,10 +326,11 @@ class MoodChatPlugin(HookPlugin):
                             f"[MOOD_CHAT] waiting for queued payloads to reach frontend: count={len(tts_tasks)}"
                         )
                     await tts_manager.wait_until_all_payloads_sent()
-                    await runtime.websocket_send(json.dumps({"type": "backend-synth-complete"}))
+                    await runtime.websocket_send(json.dumps({"type": "backend-synth-complete", "turn_id": turn_id}))
                     response = await message_handler.wait_for_response(
                         runtime.client_uid,
                         "frontend-playback-complete",
+                        response_filter=lambda message: message.get("turn_id") == turn_id,
                     )
                     if not response:
                         plugin_logger.warning(

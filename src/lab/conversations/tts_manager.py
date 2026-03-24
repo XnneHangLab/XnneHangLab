@@ -81,13 +81,15 @@ def _resolve_ref_audio_and_text(
 class TTSTaskManager:
     """Manages TTS tasks and ensures ordered delivery to frontend while allowing parallel TTS generation"""
 
-    def __init__(self) -> None:
+    def __init__(self, turn_id: str | None = None) -> None:
         self.task_list: list[asyncio.Task[None]] = []
         self._lock = asyncio.Lock()
+        self._tts_semaphore = asyncio.Semaphore(1)
         self._payload_queue: asyncio.Queue[tuple[AudioPayload, int]] = asyncio.Queue()
         self._sender_task: asyncio.Task[None] | None = None
         self._sequence_counter = 0
         self._next_sequence_to_send = 0
+        self._turn_id = turn_id
 
     def has_output(self) -> bool:
         """Return True when this turn queued any display or audio payload."""
@@ -185,6 +187,7 @@ class TTSTaskManager:
             audio_path=None,
             display_text=display_text,
             actions=actions,
+            turn_id=self._turn_id,
         )
         await self._payload_queue.put((audio_payload, sequence_number))
 
@@ -199,25 +202,27 @@ class TTSTaskManager:
     ) -> None:
         """Process TTS generation and queue the result for ordered delivery."""
         del live2d_model
-        emotion_keys = actions.emotion_keys if actions is not None else None
-        audio_file_path = await self._generate_audio(
-            tts_text,
-            character_config=character_config,
-            emotion_keys=emotion_keys,
-        )
-        if not audio_file_path:
-            raise ValueError("Audio file path is None")
-        payload = prepare_audio_payload(
-            audio_path=str(audio_file_path),
-            display_text=display_text,
-            actions=actions,
-        )
-        logger.debug(
-            "[TTS_READY] audio ready seq={} text={}",
-            sequence_number,
-            _summarize_text(display_text.text),
-        )
-        await self._payload_queue.put((payload, sequence_number))
+        async with self._tts_semaphore:
+            emotion_keys = actions.emotion_keys if actions is not None else None
+            audio_file_path = await self._generate_audio(
+                tts_text,
+                character_config=character_config,
+                emotion_keys=emotion_keys,
+            )
+            if not audio_file_path:
+                raise ValueError("Audio file path is None")
+            payload = prepare_audio_payload(
+                audio_path=str(audio_file_path),
+                display_text=display_text,
+                actions=actions,
+                turn_id=self._turn_id,
+            )
+            logger.debug(
+                "[TTS_READY] audio ready seq={} text={}",
+                sequence_number,
+                _summarize_text(display_text.text),
+            )
+            await self._payload_queue.put((payload, sequence_number))
 
     async def _generate_audio(
         self,
@@ -272,6 +277,9 @@ class TTSTaskManager:
 
     def clear(self) -> None:
         """Clear all pending tasks and reset state."""
+        for task in self.task_list:
+            if not task.done():
+                task.cancel()
         self.task_list.clear()
         if self._sender_task:
             self._sender_task.cancel()
