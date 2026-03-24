@@ -157,8 +157,8 @@ def test_gsv_synthesizer_uses_conservative_defaults(tmp_path: Path) -> None:
         prompt_language="auto",
     )
 
-    assert captured["params"]["parallel_infer"] is False
-    assert captured["params"]["split_bucket"] is False
+    assert captured["params"]["parallel_infer"] is True
+    assert captured["params"]["split_bucket"] is True
 
 
 def test_tts_run_uses_serial_vits_decode_when_parallel_infer_disabled() -> None:

@@ -82,10 +82,10 @@ class TTSTaskManager:
     """Manages TTS tasks and ensures ordered delivery to frontend while allowing parallel TTS generation"""
 
     def __init__(self) -> None:
-        self.task_list: list[asyncio.Task] = []  # type: ignore
+        self.task_list: list[asyncio.Task[None]] = []
         self._lock = asyncio.Lock()
-        self._payload_queue: asyncio.Queue[tuple[AudioPayload, int]] = asyncio.Queue()  # type: ignore
-        self._sender_task: asyncio.Task | None = None  # type: ignore
+        self._payload_queue: asyncio.Queue[tuple[AudioPayload, int]] = asyncio.Queue()
+        self._sender_task: asyncio.Task[None] | None = None
         self._sequence_counter = 0
         self._next_sequence_to_send = 0
 
@@ -118,7 +118,7 @@ class TTSTaskManager:
             current_sequence = self._sequence_counter
             self._sequence_counter += 1
 
-            if not self._sender_task or self._sender_task.done():  # type: ignore
+            if self._sender_task is None or self._sender_task.done():
                 self._sender_task = asyncio.create_task(self._process_payload_queue(websocket_send))
 
             await self._send_silent_payload(display_text, actions, current_sequence)
@@ -127,7 +127,7 @@ class TTSTaskManager:
         current_sequence = self._sequence_counter
         self._sequence_counter += 1
 
-        if not self._sender_task or self._sender_task.done():  # type: ignore
+        if self._sender_task is None or self._sender_task.done():
             self._sender_task = asyncio.create_task(self._process_payload_queue(websocket_send))
 
         task = asyncio.create_task(
@@ -140,7 +140,7 @@ class TTSTaskManager:
                 sequence_number=current_sequence,
             )
         )
-        self.task_list.append(task)  # type: ignore
+        self.task_list.append(task)
 
     async def _process_payload_queue(self, websocket_send: WebSocketSend) -> None:
         """Process and send payloads in correct order."""
@@ -265,16 +265,16 @@ class TTSTaskManager:
 
     async def wait_until_all_payloads_sent(self) -> None:
         """Wait until all queued TTS work has been converted and sent to the frontend."""
-        if self.task_list:  # type: ignore
-            await asyncio.gather(*self.task_list)  # type: ignore
+        if self.task_list:
+            await asyncio.gather(*self.task_list)
         if self._sender_task is not None:
             await self._payload_queue.join()
 
     def clear(self) -> None:
         """Clear all pending tasks and reset state."""
-        self.task_list.clear()  # type: ignore
-        if self._sender_task:  # type: ignore
-            self._sender_task.cancel()  # type: ignore
+        self.task_list.clear()
+        if self._sender_task:
+            self._sender_task.cancel()
         self._sequence_counter = 0
         self._next_sequence_to_send = 0
         logger.debug("Clearing TTS payload queue...")

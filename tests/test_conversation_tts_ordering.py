@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import lab.conversations.conversation_utils as conversation_utils_module
 import lab.conversations.tts_manager as tts_manager_module
@@ -11,8 +11,11 @@ from lab.agent.output_types import Actions, DisplayText
 from lab.conversations.conversation_utils import finalize_conversation_turn
 from lab.conversations.tts_manager import TTSTaskManager
 
+if TYPE_CHECKING:
+    import pytest
 
-def test_finalize_waits_for_all_audio_payloads_before_backend_complete(monkeypatch) -> None:
+
+def test_finalize_waits_for_all_audio_payloads_before_backend_complete(monkeypatch: pytest.MonkeyPatch) -> None:
     sent_messages: list[dict[str, Any]] = []
 
     async def websocket_send(payload: str) -> None:

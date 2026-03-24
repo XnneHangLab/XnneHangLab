@@ -1,9 +1,12 @@
+# pyright: reportPrivateUsage=false
+
 from __future__ import annotations
 
 import asyncio
-from types import SimpleNamespace
+from pathlib import Path
 
 from lab.plugins.mood_chat import MoodChatPlugin
+from lab.tools.types import AgentContext
 
 
 def test_mood_chat_cancels_timer_on_user_turn_and_rearms_after_turn() -> None:
@@ -11,7 +14,7 @@ def test_mood_chat_cancels_timer_on_user_turn_and_rearms_after_turn() -> None:
     plugin = MoodChatPlugin(initial_mood=90, interval_excited_s=5.0)
 
     async def _run() -> None:
-        ctx = SimpleNamespace(extra={"agent": object()})
+        ctx = AgentContext(workspace_root=Path.cwd(), extra={"agent": object()})
         try:
             await plugin._ensure_started(ctx)
             plugin._arm_proactive_timer()

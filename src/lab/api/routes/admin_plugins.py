@@ -18,7 +18,9 @@ async def list_plugins(request: Request) -> list[dict[str, Any]]:
         return []
 
     plugins: list[dict[str, Any]] = []
-    for plugin_dir in sorted((path for path in resolved_plugins_dir.iterdir() if path.is_dir()), key=lambda path: path.name):
+    for plugin_dir in sorted(
+        (path for path in resolved_plugins_dir.iterdir() if path.is_dir()), key=lambda path: path.name
+    ):
         plugin_toml = plugin_dir / "plugin.toml"
         if not plugin_toml.is_file():
             continue

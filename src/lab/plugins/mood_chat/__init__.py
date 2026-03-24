@@ -321,8 +321,7 @@ class MoodChatPlugin(HookPlugin):
                 if tts_manager.has_output():
                     if tts_tasks:
                         plugin_logger.debug(
-                            "[MOOD_CHAT] waiting for queued payloads to reach frontend: count={}",
-                            len(tts_tasks),
+                            f"[MOOD_CHAT] waiting for queued payloads to reach frontend: count={len(tts_tasks)}"
                         )
                     await tts_manager.wait_until_all_payloads_sent()
                     await runtime.websocket_send(json.dumps({"type": "backend-synth-complete"}))
@@ -362,9 +361,7 @@ class MoodChatPlugin(HookPlugin):
         mood = self._mood_score
         interval = self._interval_for_mood(mood)
         if interval is None:
-            plugin_logger.info(
-                f"[MOOD_CHAT] proactive chat paused: mood={mood} next_interval=paused"
-            )
+            plugin_logger.info(f"[MOOD_CHAT] proactive chat paused: mood={mood} next_interval=paused")
             return
 
         self._cancel_proactive_timer()

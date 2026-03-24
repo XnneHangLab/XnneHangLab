@@ -546,7 +546,7 @@ class WebSocketHandler:
         Handle frontend audio task acceptance notification
         """
         display_text = data.get("display_text") or {}
-        text = display_text.get("text") if isinstance(display_text, dict) else None
+        text = display_text.get("text")
         logger.debug(
             "[PLAYBACK] frontend accepted audio task: client_uid={} text={}",
             client_uid,
@@ -557,16 +557,14 @@ class WebSocketHandler:
         """Handle actual frontend audio playback begin notification."""
         del websocket
         display_text = data.get("display_text") or {}
-        text = display_text.get("text") if isinstance(display_text, dict) else None
+        text = display_text.get("text")
         logger.debug(
             "[PLAYBACK] frontend began audible playback: client_uid={} text={}",
             client_uid,
             " ".join(str(text or "").split()),
         )
 
-    async def _handle_frontend_playback_complete(
-        self, websocket: WebSocket, client_uid: str, data: WSMessage
-    ) -> None:
+    async def _handle_frontend_playback_complete(self, websocket: WebSocket, client_uid: str, data: WSMessage) -> None:
         """Handle frontend playback completion notification."""
         del websocket, data
         logger.debug("[PLAYBACK] frontend completed queued audio: client_uid={}", client_uid)
