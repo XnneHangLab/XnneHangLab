@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import asyncio
 import json
@@ -10,6 +10,7 @@ from lab.agent.agents.memory_agent.message_factory import MessageFactory
 from lab.agent.agents.memory_agent.prompt_builder import PromptBuilder
 from lab.agent.agents.memory_agent.types import DEFAULT_TOOL_IMAGE_LABEL, ImagePayload, VisionAnalysisOutcome
 from lab.agent.agents.memory_agent.vision_summarizer import VisionSummarizer
+from lab.agent.extra_inputs import consume_core_extra_inputs, render_core_extra_inputs_context
 from lab.agent.types import ConversationState, OpenAIMessage, ScreenShotResult
 from lab.tools.types import ToolResult
 
@@ -338,6 +339,11 @@ class AgentCore:
             hook_memory = await self._hook_manager.before_turn(user_text, self.agent_context)
             if hook_memory:
                 memory_context = f"{memory_context}\n\n{hook_memory}" if memory_context else hook_memory
+        if self.agent_context is not None:
+            extra_inputs = consume_core_extra_inputs(self.agent_context)
+            extra_context = render_core_extra_inputs_context(extra_inputs)
+            if extra_context:
+                memory_context = f"{memory_context}\n\n{extra_context}" if memory_context else extra_context
 
         # —— 背景上下文 ContextEntry（brief 由调用方提供；暂无则为 None）——
         mem_entry = self.prompt.make_context_entry(memory_context, brief=None) if memory_context else None

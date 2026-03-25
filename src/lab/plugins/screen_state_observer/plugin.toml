@@ -1,0 +1,63 @@
+[plugin]
+id = "screen_state_observer"
+name = "Screen State Observer"
+version = "0.1.0"
+type = "hook"
+description = "Poll screen evidence, refresh one screen state summary, and inject updates into AgentCore context"
+author = "XnneHangLab"
+source = "builtin"
+
+[config]
+enabled = true
+polling_interval_seconds = 3.0
+skip_if_inflight = true
+checkpoint_interval_ticks = 20
+compare_timeout_seconds = 8.0
+inject_on_summary_refresh = true
+min_importance_for_injection = "medium"
+hard_injection_importance = "high"
+capture_mode = "screen_shot_tool"
+
+[config_schema.enabled]
+type = "bool"
+description = "Whether the poll-based observer is enabled"
+
+[config_schema.polling_interval_seconds]
+type = "float"
+description = "Polling interval in seconds"
+min = 0.5
+max = 120.0
+
+[config_schema.skip_if_inflight]
+type = "bool"
+description = "Skip new tick if compare request is still running"
+
+[config_schema.checkpoint_interval_ticks]
+type = "int"
+description = "Log a lightweight debug checkpoint every N ticks; 0 disables"
+min = 0
+
+[config_schema.compare_timeout_seconds]
+type = "float"
+description = "Timeout for one compare request"
+min = 0.1
+max = 120.0
+
+[config_schema.inject_on_summary_refresh]
+type = "bool"
+description = "Whether refreshed summary should be considered for core injection"
+
+[config_schema.min_importance_for_injection]
+type = "str"
+description = "Minimum importance to inject summary updates"
+
+[config_schema.hard_injection_importance]
+type = "str"
+description = "Importance threshold for hard injection"
+
+[config_schema.capture_mode]
+type = "str"
+description = "Capture adapter mode"
+
+[type_config]
+entry = "ScreenStateObserverPlugin"
