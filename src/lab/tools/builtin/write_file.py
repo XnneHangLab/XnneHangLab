@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from lab.tools.base import BuiltinTool
+from lab.tools.builtin.workspace_root import resolve_workspace_root
 from lab.tools.types import AgentContext, ToolResult
 
 
@@ -63,7 +64,7 @@ class WriteFileTool(BuiltinTool):
         if not path_str:
             return ToolResult(ok=False, text="", error="path is required")
 
-        root = ctx.workspace_root.resolve()
+        root = resolve_workspace_root(ctx)
         p = Path(path_str).expanduser()
         target = (root / p).resolve() if not p.is_absolute() else p.resolve()
 
