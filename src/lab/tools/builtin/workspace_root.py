@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from lab.tools.types import AgentContext
+if TYPE_CHECKING:
+    from lab.tools.types import AgentContext
 
 
 def _load_configured_root() -> Path | None:

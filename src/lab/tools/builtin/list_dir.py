@@ -4,8 +4,8 @@ from pathlib import Path
 from typing import Any
 
 from lab.tools.base import BuiltinTool
-from lab.tools.types import AgentContext, ToolResult
 from lab.tools.builtin.workspace_root import resolve_workspace_root
+from lab.tools.types import AgentContext, ToolResult
 
 _MAX_ENTRIES = 200
 
