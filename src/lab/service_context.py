@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import json
-import time
 import math
+import time
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from loguru import logger
 
@@ -363,19 +363,21 @@ class ServiceContext:
         agent_engine = self.agent_engine
         agent_core = getattr(agent_engine, "core", None)
         agent_context = getattr(agent_core, "agent_context", None)
-        extra = getattr(agent_context, "extra", {}) if agent_context is not None else {}
+        raw_extra = getattr(agent_context, "extra", {}) if agent_context is not None else {}
+        extra: dict[str, object] = cast("dict[str, object]", raw_extra) if isinstance(raw_extra, dict) else {}
 
         raw_banks = extra.get("live2d_idle_banks")
-        idle_banks = raw_banks if isinstance(raw_banks, dict) else {}
-        typed_banks = {
-            str(key): value for key, value in idle_banks.items() if isinstance(key, str) and isinstance(value, dict)
-        }
+        typed_banks: dict[str, dict[str, object]] = {}
+        if isinstance(raw_banks, dict):
+            banks_map = cast("dict[object, object]", raw_banks)
+            for key_obj, value_obj in banks_map.items():
+                if not isinstance(key_obj, str) or not isinstance(value_obj, dict):
+                    continue
+                typed_banks[key_obj] = cast("dict[str, object]", value_obj)
 
         raw_default_state = extra.get("live2d_idle_default_state")
         default_state = (
-            raw_default_state.strip()
-            if isinstance(raw_default_state, str) and raw_default_state
-            else "listening"
+            raw_default_state.strip() if isinstance(raw_default_state, str) and raw_default_state else "listening"
         )
         return typed_banks, default_state
 
@@ -384,39 +386,43 @@ class ServiceContext:
         agent_engine = self.agent_engine
         agent_core = getattr(agent_engine, "core", None)
         agent_context = getattr(agent_core, "agent_context", None)
-        extra = getattr(agent_context, "extra", {}) if agent_context is not None else {}
+        raw_extra = getattr(agent_context, "extra", {}) if agent_context is not None else {}
+        extra: dict[str, object] = cast("dict[str, object]", raw_extra) if isinstance(raw_extra, dict) else {}
 
         raw_weights = extra.get("live2d_mixer_weights_by_state")
         typed_weights: dict[str, dict[str, float]] = {}
         if isinstance(raw_weights, dict):
-            for state_key, state_weights in raw_weights.items():
-                if not isinstance(state_key, str) or not isinstance(state_weights, dict):
+            weights_map = cast("dict[object, object]", raw_weights)
+            for state_key_obj, state_weights_obj in weights_map.items():
+                if not isinstance(state_key_obj, str) or not isinstance(state_weights_obj, dict):
                     continue
-                state_name = state_key.strip()
+                state_name = state_key_obj.strip()
                 if not state_name:
                     continue
 
                 normalized_weights: dict[str, float] = {}
-                for layer_id, raw_weight in state_weights.items():
-                    if not isinstance(layer_id, str):
+                state_weights = cast("dict[object, object]", state_weights_obj)
+                for layer_id_obj, raw_weight_obj in state_weights.items():
+                    if not isinstance(layer_id_obj, str):
                         continue
-                    if isinstance(raw_weight, bool):
+                    if isinstance(raw_weight_obj, bool):
                         continue
-                    if not isinstance(raw_weight, (int, float)):
+                    if not isinstance(raw_weight_obj, (int, float)):
                         continue
-                    value = float(raw_weight)
+                    value = float(raw_weight_obj)
                     if not math.isfinite(value) or value < 0:
                         continue
-                    normalized_weights[layer_id.strip()] = value
+                    layer_id = layer_id_obj.strip()
+                    if not layer_id:
+                        continue
+                    normalized_weights[layer_id] = value
 
                 if normalized_weights:
                     typed_weights[state_name] = normalized_weights
 
         raw_default_state = extra.get("live2d_idle_default_state")
         default_state = (
-            raw_default_state.strip()
-            if isinstance(raw_default_state, str) and raw_default_state
-            else "listening"
+            raw_default_state.strip() if isinstance(raw_default_state, str) and raw_default_state else "listening"
         )
         return typed_weights, default_state
 
@@ -490,7 +496,9 @@ class ServiceContext:
 
         await websocket_send(json.dumps(payload))
 
-    async def send_live2d_mixer_weights_for_state(self, websocket_send: WebSocketSend, state: str | None = None) -> bool:
+    async def send_live2d_mixer_weights_for_state(
+        self, websocket_send: WebSocketSend, state: str | None = None
+    ) -> bool:
         """Push state-resolved mixer weights to frontend (reset + patch for deterministic state switching)."""
         resolved = self.resolve_live2d_mixer_weights(state)
         if resolved is None:

@@ -116,11 +116,19 @@ class MixerStateWeights(PluginConfigModel):
 
 
 def _default_idle_assignments() -> dict[str, IdleAssignment]:
-    return {state: IdleAssignment() for state in DEFAULT_IDLE_STATES}
+    return {state: IdleAssignment(mode="random_no_repeat", clip_ids=[]) for state in DEFAULT_IDLE_STATES}
 
 
 def _default_mixer_weights_by_state() -> dict[str, MixerStateWeights]:
-    return {state: MixerStateWeights() for state in DEFAULT_IDLE_STATES}
+    return {
+        state: MixerStateWeights(
+            idle_layer=DEFAULT_MIXER_LAYER_WEIGHTS["idle_layer"],
+            speech_layer=DEFAULT_MIXER_LAYER_WEIGHTS["speech_layer"],
+            backend_pose_layer=DEFAULT_MIXER_LAYER_WEIGHTS["backend_pose_layer"],
+            mouse_attention_layer=DEFAULT_MIXER_LAYER_WEIGHTS["mouse_attention_layer"],
+        )
+        for state in DEFAULT_IDLE_STATES
+    }
 
 
 class Live2DControlPluginConfig(PluginConfigModel):
@@ -339,8 +347,6 @@ class Live2DControlPlugin(ToolPlugin):
     ) -> dict[str, dict[str, Any]]:
         normalized: dict[str, dict[str, Any]] = {}
         for state_name, raw_assignment in raw_idle_assignments.items():
-            if not isinstance(state_name, str):
-                continue
             state_key = state_name.strip()
             if not state_key:
                 continue
@@ -355,30 +361,38 @@ class Live2DControlPlugin(ToolPlugin):
     def _normalize_idle_banks(cls, raw_idle_banks: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
         normalized: dict[str, dict[str, Any]] = {}
         for state_name, raw_bank in raw_idle_banks.items():
-            if not isinstance(state_name, str):
-                continue
             key = state_name.strip()
-            if not key or not isinstance(raw_bank, dict):
+            if not key:
                 continue
 
-            raw_clips = raw_bank.get("clips")
-            if not isinstance(raw_clips, list):
+            raw_clips_obj = raw_bank.get("clips")
+            if not isinstance(raw_clips_obj, list):
                 continue
+            raw_clips = cast("list[object]", raw_clips_obj)
 
             clips: list[dict[str, Any]] = []
-            for item in raw_clips:
-                if not isinstance(item, dict):
+            for item_obj in raw_clips:
+                if not isinstance(item_obj, dict):
                     continue
-                url = item.get("url")
-                if not isinstance(url, str) or not url.strip():
+
+                item = cast("dict[str, object]", item_obj)
+                url_obj = item.get("url")
+                if not isinstance(url_obj, str):
                     continue
-                clip: dict[str, Any] = {"url": url.strip()}
-                clip_id = item.get("id")
-                if isinstance(clip_id, str) and clip_id.strip():
-                    clip["id"] = clip_id.strip()
-                weight = item.get("weight")
-                if isinstance(weight, (int, float)):
-                    clip["weight"] = max(0.0, float(weight))
+                url = url_obj.strip()
+                if not url:
+                    continue
+
+                clip: dict[str, Any] = {"url": url}
+                clip_id_obj = item.get("id")
+                if isinstance(clip_id_obj, str):
+                    clip_id = clip_id_obj.strip()
+                    if clip_id:
+                        clip["id"] = clip_id
+
+                weight_obj = item.get("weight")
+                if isinstance(weight_obj, (int, float)):
+                    clip["weight"] = max(0.0, float(weight_obj))
                 clips.append(clip)
 
             if not clips:
@@ -402,13 +416,17 @@ class Live2DControlPlugin(ToolPlugin):
 
         resolved_banks: dict[str, dict[str, Any]] = {}
         for state, assignment in assignments.items():
-            clip_ids = assignment.get("clip_ids")
-            if not isinstance(clip_ids, list):
+            clip_ids_obj = assignment.get("clip_ids")
+            if not isinstance(clip_ids_obj, list):
                 continue
+            clip_ids = cast("list[object]", clip_ids_obj)
 
             selected_clips: list[dict[str, Any]] = []
-            for clip_id in clip_ids:
-                if not isinstance(clip_id, str):
+            for clip_id_obj in clip_ids:
+                if not isinstance(clip_id_obj, str):
+                    continue
+                clip_id = clip_id_obj.strip()
+                if not clip_id:
                     continue
                 clip = clips_by_id.get(clip_id)
                 if clip is not None:
@@ -434,8 +452,6 @@ class Live2DControlPlugin(ToolPlugin):
     ) -> dict[str, dict[str, float]]:
         normalized: dict[str, dict[str, float]] = {}
         for state_name, raw_weights in raw_weights_by_state.items():
-            if not isinstance(state_name, str):
-                continue
             state_key = state_name.strip()
             if not state_key:
                 continue
