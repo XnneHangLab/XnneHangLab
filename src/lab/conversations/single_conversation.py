@@ -53,7 +53,11 @@ async def process_single_conversation(
 
     try:
         # Send initial signals
-        await send_conversation_start_signals_for_turn(websocket_send, turn_id)
+        await send_conversation_start_signals_for_turn(
+            websocket_send,
+            turn_id,
+            service_context=context,
+        )
         logger.info(f"New Conversation Chain {session_emoji} started!")
 
         # Process user input
@@ -95,6 +99,7 @@ async def process_single_conversation(
             websocket_send=websocket_send,
             client_uid=client_uid,
             turn_id=turn_id,
+            service_context=context,
         )
 
         agent_core = getattr(context.agent_engine, "core", None)

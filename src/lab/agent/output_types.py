@@ -10,6 +10,15 @@ class ActionsDict(TypedDict):
     pictures: list[str] | None
     sounds: list[str] | None
     emotion_keys: list[str] | None
+    pose: dict[str, float] | None
+    pose_patch: dict[str, float] | None
+    pose_mode: str | None
+    pose_weight: float | None
+    mixer_weights: dict[str, float] | None
+    mixer_weights_mode: str | None
+    idle_list: list[str] | None
+    idle_mode: str | None
+    idle_bank: dict[str, object] | None
 
 
 @dataclass
@@ -20,6 +29,15 @@ class Actions:
     pictures: list[str] | None = None
     sounds: list[str] | None = None
     emotion_keys: list[str] | None = None
+    pose: dict[str, float] | None = None
+    pose_patch: dict[str, float] | None = None
+    pose_mode: str | None = None
+    pose_weight: float | None = None
+    mixer_weights: dict[str, float] | None = None
+    mixer_weights_mode: str | None = None
+    idle_list: list[str] | None = None
+    idle_mode: str | None = None
+    idle_bank: dict[str, object] | None = None
 
     def to_dict(self) -> ActionsDict:
         """Convert Actions object to a dictionary for JSON serialization"""

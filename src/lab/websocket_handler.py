@@ -232,6 +232,7 @@ class WebSocketHandler:
 
         # Start microphone
         await websocket.send_text(json.dumps({"type": "control", "text": "start-mic"}))
+        await session_service_context.send_live2d_runtime_state(websocket.send_text, state="listening")
 
     async def _init_service_context(self) -> ServiceContext:
         """Initialize service context for a new session by cloning the default context"""
@@ -247,6 +248,7 @@ class WebSocketHandler:
             live2d_model=self.default_context_cache.live2d_model,
             agent_engine=self.default_context_cache.agent_engine,  # type: ignore
         )
+
         return session_service_context
 
     async def handle_websocket_communication(self, websocket: WebSocket, client_uid: str) -> None:
@@ -328,6 +330,19 @@ class WebSocketHandler:
             client_connections=self.client_connections,
             send_group_update=self.send_group_update,
         )
+
+        session_context = self.client_contexts.get(client_uid)
+        if (
+            session_context is not None
+            and session_context.agent_engine is not None
+            and session_context.agent_engine is not self.default_context_cache.agent_engine
+        ):
+            try:
+                await session_context.agent_engine.close()
+            except Exception as exc:
+                logger.warning("Failed to close session agent engine for client {}: {}", client_uid, exc)
+            finally:
+                session_context.agent_engine = None
 
         # Clean up other client data
         self.client_connections.pop(client_uid, None)

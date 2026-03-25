@@ -313,7 +313,11 @@ class MoodChatPlugin(HookPlugin):
 
             turn_id = create_turn_id()
             tts_manager = TTSTaskManager(turn_id=turn_id)
-            await send_conversation_start_signals_for_turn(runtime.websocket_send, turn_id)
+            await send_conversation_start_signals_for_turn(
+                runtime.websocket_send,
+                turn_id,
+                service_context=runtime.service_context,
+            )
             try:
                 async for output in agent.chat(fake_input):
                     if not isinstance(output, SentenceOutput):
@@ -351,7 +355,11 @@ class MoodChatPlugin(HookPlugin):
                         return False
 
                 await runtime.websocket_send(json.dumps({"type": "force-new-message"}))
-                await send_conversation_end_signal(runtime.websocket_send, None)
+                await send_conversation_end_signal(
+                    runtime.websocket_send,
+                    None,
+                    service_context=runtime.service_context,
+                )
                 return False
             finally:
                 tts_manager.clear()

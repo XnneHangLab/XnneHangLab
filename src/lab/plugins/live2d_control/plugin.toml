@@ -3,16 +3,19 @@ id = "live2d_control"
 name = "Live2D Control"
 version = "0.1.0"
 type = "tool"
-description = "通过 tool call 控制 Live2D 模型的持久形态切换（发型预设、部件显隐等）"
+description = "Control persistent Live2D appearance and runtime state payloads."
 author = "XnneHangLab"
 source = "builtin"
 
 [config]
 appearance_presets = []
+idle_clips = []
+idle_assignments = { listening = { mode = "random_no_repeat", clip_ids = [] }, speaking = { mode = "random_no_repeat", clip_ids = [] } }
+mixer_weights_by_state = { listening = { idle_layer = 1.0, speech_layer = 1.0, backend_pose_layer = 1.0, mouse_attention_layer = 0.35 }, speaking = { idle_layer = 1.0, speech_layer = 1.0, backend_pose_layer = 1.0, mouse_attention_layer = 0.35 } }
 
 [config_schema.appearance_presets]
 type = "list"
-description = "可切换的 Live2D 外观预设列表。按当前顺序保存为对象列表。需要根据 model_dict 的 emotion map 实际情况写 key name。"
+description = "可切换的 Live2D 外观预设列表。按当前顺序保存为对象列表。需要根据 model_dict 的 emotion map 实际情况填写 key name。"
 
 [config_schema.appearance_presets.items]
 type = "object"
@@ -24,6 +27,105 @@ description = "可切换的外观 key"
 [config_schema.appearance_presets.items.properties.description]
 type = "str"
 description = "该外观的说明文案"
+
+[config_schema.idle_clips]
+type = "list"
+description = "全量可选 idle clip 列表。先在这里新增 clip（id/url/weight），再在 idle_assignments 里分配给状态。"
+
+[config_schema.idle_clips.items]
+type = "object"
+
+[config_schema.idle_clips.items.properties.id]
+type = "str"
+description = "clip 唯一 id（用于状态分配）"
+
+[config_schema.idle_clips.items.properties.url]
+type = "str"
+description = "motion3.json 的 URL 或相对模型目录路径（例如 idle1.motion3.json）"
+
+[config_schema.idle_clips.items.properties.weight]
+type = "float"
+description = "随机权重（>=0）"
+
+[config_schema.idle_assignments]
+type = "object"
+description = "状态到 idle clip 的分配。可把同一个 clip 分配给多个状态。P2 起仅保留 listening / speaking。"
+
+[config_schema.idle_assignments.properties.listening]
+type = "object"
+description = "倾听（listening）idle 分配"
+
+[config_schema.idle_assignments.properties.listening.properties.mode]
+type = "str"
+description = "播放模式：random 或 random_no_repeat"
+
+[config_schema.idle_assignments.properties.listening.properties.clip_ids]
+type = "list"
+description = "分配给 listening 状态的 clip id 列表（来自 idle_clips[].id）"
+
+[config_schema.idle_assignments.properties.listening.properties.clip_ids.items]
+type = "str"
+description = "idle clip id"
+
+[config_schema.idle_assignments.properties.speaking]
+type = "object"
+description = "讲话（speaking）idle 分配"
+
+[config_schema.idle_assignments.properties.speaking.properties.mode]
+type = "str"
+description = "播放模式：random 或 random_no_repeat"
+
+[config_schema.idle_assignments.properties.speaking.properties.clip_ids]
+type = "list"
+description = "分配给 speaking 状态的 clip id 列表（来自 idle_clips[].id）"
+
+[config_schema.idle_assignments.properties.speaking.properties.clip_ids.items]
+type = "str"
+description = "idle clip id"
+
+[config_schema.mixer_weights_by_state]
+type = "object"
+description = "按状态配置 mixer 层权重。用于 listening/speaking 切换时由后端下发到前端。"
+
+[config_schema.mixer_weights_by_state.properties.listening]
+type = "object"
+description = "listening 状态的 mixer 权重。"
+
+[config_schema.mixer_weights_by_state.properties.listening.properties.idle_layer]
+type = "float"
+description = "idle_layer 权重（>=0）"
+
+[config_schema.mixer_weights_by_state.properties.listening.properties.speech_layer]
+type = "float"
+description = "speech_layer 权重（>=0）"
+
+[config_schema.mixer_weights_by_state.properties.listening.properties.backend_pose_layer]
+type = "float"
+description = "backend_pose_layer 权重（>=0）"
+
+[config_schema.mixer_weights_by_state.properties.listening.properties.mouse_attention_layer]
+type = "float"
+description = "mouse_attention_layer 权重（>=0）"
+
+[config_schema.mixer_weights_by_state.properties.speaking]
+type = "object"
+description = "speaking 状态的 mixer 权重。"
+
+[config_schema.mixer_weights_by_state.properties.speaking.properties.idle_layer]
+type = "float"
+description = "idle_layer 权重（>=0）"
+
+[config_schema.mixer_weights_by_state.properties.speaking.properties.speech_layer]
+type = "float"
+description = "speech_layer 权重（>=0）"
+
+[config_schema.mixer_weights_by_state.properties.speaking.properties.backend_pose_layer]
+type = "float"
+description = "backend_pose_layer 权重（>=0）"
+
+[config_schema.mixer_weights_by_state.properties.speaking.properties.mouse_attention_layer]
+type = "float"
+description = "mouse_attention_layer 权重（>=0）"
 
 [type_config]
 entry = "Live2DControlPlugin"
