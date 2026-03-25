@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from lab.tools.base import BuiltinTool
+from lab.tools.builtin.workspace_root import resolve_workspace_root
 from lab.tools.types import AgentContext, ToolResult
 
 _MAX_ENTRIES = 200
@@ -50,7 +51,7 @@ class ListDirTool(BuiltinTool):
         path_str: str = args.get("path", "")
         show_hidden: bool = bool(args.get("show_hidden", False))
 
-        root = ctx.workspace_root.resolve()
+        root = resolve_workspace_root(ctx)
 
         if path_str:
             p = Path(path_str).expanduser()
