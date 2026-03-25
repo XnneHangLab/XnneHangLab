@@ -152,7 +152,11 @@ def create_turn_id() -> str:
     return uuid4().hex
 
 
-async def send_conversation_start_signals_for_turn(websocket_send: WebSocketSend, turn_id: str) -> None:
+async def send_conversation_start_signals_for_turn(
+    websocket_send: WebSocketSend,
+    turn_id: str,
+    service_context: ServiceContext | None = None,
+) -> None:
     await websocket_send(
         json.dumps(
             {
@@ -163,6 +167,8 @@ async def send_conversation_start_signals_for_turn(websocket_send: WebSocketSend
         )
     )
     await websocket_send(json.dumps({"type": "full-text", "text": "Thinking...", "turn_id": turn_id}))
+    if service_context is not None:
+        await service_context.send_live2d_runtime_state(websocket_send, state="speaking")
 
 
 async def process_user_input(
@@ -209,6 +215,7 @@ async def finalize_conversation_turn(
     client_uid: str,
     broadcast_ctx: BroadcastContext | None = None,
     turn_id: str | None = None,
+    service_context: ServiceContext | None = None,
 ) -> None:
     """Finalize a conversation turn"""
     if tts_manager.has_output():
@@ -234,13 +241,18 @@ async def finalize_conversation_turn(
             broadcast_ctx.current_client_uid,
         )
 
-    await send_conversation_end_signal(websocket_send, broadcast_ctx)
+    await send_conversation_end_signal(
+        websocket_send,
+        broadcast_ctx,
+        service_context=service_context,
+    )
 
 
 async def send_conversation_end_signal(
     websocket_send: WebSocketSend,
     broadcast_ctx: BroadcastContext | None,
     session_emoji: str = "😊",
+    service_context: ServiceContext | None = None,
 ) -> None:
     """Send conversation chain end signal"""
     chain_end_msg = {
@@ -255,6 +267,9 @@ async def send_conversation_end_signal(
             broadcast_ctx.group_members,
             chain_end_msg,
         )
+
+    if service_context is not None:
+        await service_context.send_live2d_runtime_state(websocket_send, state="listening")
 
     logger.info(f"😎👍✅ Conversation Chain {session_emoji} completed!")
 

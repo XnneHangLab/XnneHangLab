@@ -52,3 +52,33 @@ appearance_presets = [
     { key = "预设发型2", description = "长刘海遮住一侧眼睛，没有双马尾，保留披发，整体更有神秘感，像带一点小心机。" },
     { key = "隐藏披发", description = "去掉披发部分后，双马尾会显得更完整突出，整体更利落。" },
 ]
+idle_clips = [
+    { id = "idle_recorded_1", url = "idle1.motion3.json", weight = 1 },
+    { id = "idle_recorded_2", url = "idle2.motion3.json", weight = 1 },
+]
+
+[plugins.live2d_control.idle_assignments.listening]
+mode = "random_no_repeat"
+clip_ids = [
+    "idle_recorded_1",
+    "idle_recorded_2",
+]
+
+[plugins.live2d_control.idle_assignments.speaking]
+mode = "random_no_repeat"
+clip_ids = [
+    "idle_recorded_1",
+    "idle_recorded_2",
+]
+
+[plugins.live2d_control.mixer_weights_by_state.listening]
+idle_layer = 1
+speech_layer = 0
+backend_pose_layer = 0
+mouse_attention_layer = 1
+
+[plugins.live2d_control.mixer_weights_by_state.speaking]
+idle_layer = 0
+speech_layer = 0
+backend_pose_layer = 0
+mouse_attention_layer = 1

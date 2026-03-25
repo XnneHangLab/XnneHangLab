@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from loguru import logger
 
@@ -357,6 +358,166 @@ class ServiceContext:
             )
         )
 
+    def _get_live2d_idle_runtime_config(self) -> tuple[dict[str, dict[str, object]], str]:
+        """Read live2d idle bank runtime config exported by the live2d_control plugin."""
+        agent_engine = self.agent_engine
+        agent_core = getattr(agent_engine, "core", None)
+        agent_context = getattr(agent_core, "agent_context", None)
+        raw_extra = getattr(agent_context, "extra", {}) if agent_context is not None else {}
+        extra: dict[str, object] = cast("dict[str, object]", raw_extra) if isinstance(raw_extra, dict) else {}
+
+        raw_banks = extra.get("live2d_idle_banks")
+        typed_banks: dict[str, dict[str, object]] = {}
+        if isinstance(raw_banks, dict):
+            banks_map = cast("dict[object, object]", raw_banks)
+            for key_obj, value_obj in banks_map.items():
+                if not isinstance(key_obj, str) or not isinstance(value_obj, dict):
+                    continue
+                typed_banks[key_obj] = cast("dict[str, object]", value_obj)
+
+        raw_default_state = extra.get("live2d_idle_default_state")
+        default_state = (
+            raw_default_state.strip() if isinstance(raw_default_state, str) and raw_default_state else "listening"
+        )
+        return typed_banks, default_state
+
+    def _get_live2d_mixer_runtime_config(self) -> tuple[dict[str, dict[str, float]], str]:
+        """Read live2d mixer weight config exported by the live2d_control plugin."""
+        agent_engine = self.agent_engine
+        agent_core = getattr(agent_engine, "core", None)
+        agent_context = getattr(agent_core, "agent_context", None)
+        raw_extra = getattr(agent_context, "extra", {}) if agent_context is not None else {}
+        extra: dict[str, object] = cast("dict[str, object]", raw_extra) if isinstance(raw_extra, dict) else {}
+
+        raw_weights = extra.get("live2d_mixer_weights_by_state")
+        typed_weights: dict[str, dict[str, float]] = {}
+        if isinstance(raw_weights, dict):
+            weights_map = cast("dict[object, object]", raw_weights)
+            for state_key_obj, state_weights_obj in weights_map.items():
+                if not isinstance(state_key_obj, str) or not isinstance(state_weights_obj, dict):
+                    continue
+                state_name = state_key_obj.strip()
+                if not state_name:
+                    continue
+
+                normalized_weights: dict[str, float] = {}
+                state_weights = cast("dict[object, object]", state_weights_obj)
+                for layer_id_obj, raw_weight_obj in state_weights.items():
+                    if not isinstance(layer_id_obj, str):
+                        continue
+                    if isinstance(raw_weight_obj, bool):
+                        continue
+                    if not isinstance(raw_weight_obj, (int, float)):
+                        continue
+                    value = float(raw_weight_obj)
+                    if not math.isfinite(value) or value < 0:
+                        continue
+                    layer_id = layer_id_obj.strip()
+                    if not layer_id:
+                        continue
+                    normalized_weights[layer_id] = value
+
+                if normalized_weights:
+                    typed_weights[state_name] = normalized_weights
+
+        raw_default_state = extra.get("live2d_idle_default_state")
+        default_state = (
+            raw_default_state.strip() if isinstance(raw_default_state, str) and raw_default_state else "listening"
+        )
+        return typed_weights, default_state
+
+    def resolve_live2d_idle_bank(self, state: str | None = None) -> tuple[str, dict[str, object]] | None:
+        """Resolve idle bank by requested state with fallback to listening/first available."""
+        idle_banks, default_state = self._get_live2d_idle_runtime_config()
+        if not idle_banks:
+            return None
+
+        candidates = [state or "", default_state]
+        for candidate in candidates:
+            if candidate and candidate in idle_banks:
+                return candidate, idle_banks[candidate]
+
+        first_key = next(iter(idle_banks.keys()), "")
+        if not first_key:
+            return None
+        return first_key, idle_banks[first_key]
+
+    def resolve_live2d_mixer_weights(self, state: str | None = None) -> tuple[str, dict[str, float]] | None:
+        """Resolve mixer weights by requested state with fallback to listening/first available."""
+        mixer_weights_by_state, default_state = self._get_live2d_mixer_runtime_config()
+        if not mixer_weights_by_state:
+            return None
+
+        candidates = [state or "", default_state]
+        for candidate in candidates:
+            if candidate and candidate in mixer_weights_by_state:
+                return candidate, mixer_weights_by_state[candidate]
+
+        first_key = next(iter(mixer_weights_by_state.keys()), "")
+        if not first_key:
+            return None
+        return first_key, mixer_weights_by_state[first_key]
+
+    async def send_live2d_idle_bank(self, websocket_send: WebSocketSend, state: str | None = None) -> bool:
+        """Push a live2d recorded idle bank message to frontend."""
+        resolved = self.resolve_live2d_idle_bank(state)
+        if resolved is None:
+            return False
+
+        resolved_state, idle_bank = resolved
+        await websocket_send(
+            json.dumps(
+                {
+                    "type": "set-live2d-idle-bank",
+                    "idle_state": resolved_state,
+                    "idle_bank": idle_bank,
+                }
+            )
+        )
+        return True
+
+    async def send_live2d_mixer_weights(
+        self,
+        websocket_send: WebSocketSend,
+        mixer_weights: dict[str, float] | None = None,
+        mixer_weights_mode: str | None = None,
+        mixer_state: str | None = None,
+    ) -> None:
+        """Push mixer layer weights to frontend (e.g. idle/speech/backend/mouse attention blend ratios)."""
+        payload: dict[str, object] = {
+            "type": "set-live2d-mixer-weights",
+        }
+        if isinstance(mixer_weights, dict):
+            payload["mixer_weights"] = mixer_weights
+        if isinstance(mixer_weights_mode, str) and mixer_weights_mode:
+            payload["mixer_weights_mode"] = mixer_weights_mode
+        if isinstance(mixer_state, str) and mixer_state:
+            payload["idle_state"] = mixer_state
+
+        await websocket_send(json.dumps(payload))
+
+    async def send_live2d_mixer_weights_for_state(
+        self, websocket_send: WebSocketSend, state: str | None = None
+    ) -> bool:
+        """Push state-resolved mixer weights to frontend (reset + patch for deterministic state switching)."""
+        resolved = self.resolve_live2d_mixer_weights(state)
+        if resolved is None:
+            return False
+
+        resolved_state, mixer_weights = resolved
+        await self.send_live2d_mixer_weights(
+            websocket_send=websocket_send,
+            mixer_weights=mixer_weights,
+            mixer_weights_mode="reset",
+            mixer_state=resolved_state,
+        )
+        return True
+
+    async def send_live2d_runtime_state(self, websocket_send: WebSocketSend, state: str | None = None) -> None:
+        """Push both recorded-idle bank and mixer weight state in one call."""
+        await self.send_live2d_idle_bank(websocket_send, state=state)
+        await self.send_live2d_mixer_weights_for_state(websocket_send, state=state)
+
     async def handle_config_switch(
         self,
         websocket: WebSocket,
@@ -394,6 +555,7 @@ class ServiceContext:
                     }
                 )
             )
+            await self.send_live2d_runtime_state(websocket.send_text, state="listening")
 
             await websocket.send_text(
                 json.dumps(

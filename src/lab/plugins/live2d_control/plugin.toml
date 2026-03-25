@@ -3,12 +3,16 @@ id = "live2d_control"
 name = "Live2D Control"
 version = "0.1.0"
 type = "tool"
-description = "通过 tool call 控制 Live2D 模型的持久形态切换（发型预设、部件显隐等）"
+description = "Control persistent Live2D appearance and runtime state payloads."
 author = "XnneHangLab"
 source = "builtin"
 
 [config]
 appearance_presets = []
+idle_clips = []
+idle_assignments = { listening = { mode = "random_no_repeat", clip_ids = [] }, speaking = { mode = "random_no_repeat", clip_ids = [] } }
+idle_banks = {}
+mixer_weights_by_state = { listening = { idle_layer = 1.0, speech_layer = 1.0, backend_pose_layer = 1.0, mouse_attention_layer = 0.35 }, speaking = { idle_layer = 1.0, speech_layer = 1.0, backend_pose_layer = 1.0, mouse_attention_layer = 0.35 } }
 
 [config_schema.appearance_presets]
 type = "list"
@@ -24,6 +28,41 @@ description = "可切换的外观 key"
 [config_schema.appearance_presets.items.properties.description]
 type = "str"
 description = "该外观的说明文案"
+
+[config_schema.idle_clips]
+type = "list"
+description = "All available recorded idle clips. Add clips here first, then assign by state."
+
+[config_schema.idle_clips.items]
+type = "object"
+
+[config_schema.idle_clips.items.properties.id]
+type = "str"
+description = "Unique clip id used by idle assignments."
+
+[config_schema.idle_clips.items.properties.url]
+type = "str"
+description = "motion3.json URL/path."
+
+[config_schema.idle_clips.items.properties.weight]
+type = "float"
+description = "Optional random selection weight (>=0)."
+min = 0
+
+[config_schema.idle_assignments]
+type = "object"
+description = "State -> idle assignment. Each state references idle_clips by clip id."
+properties = {}
+
+[config_schema.idle_banks]
+type = "object"
+description = "Legacy: recorded idle banks keyed by state name. Prefer idle_clips + idle_assignments."
+properties = {}
+
+[config_schema.mixer_weights_by_state]
+type = "object"
+description = "State -> mixer layer weights used by frontend pose mixer."
+properties = {}
 
 [type_config]
 entry = "Live2DControlPlugin"
