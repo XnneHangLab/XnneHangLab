@@ -56,6 +56,10 @@ appearance_presets = [
 idle_clips = [
     { id = "idle_recorded_1", url = "idle1.motion3.json", weight = 1 },
     { id = "idle_recorded_2", url = "idle2.motion3.json", weight = 1 },
+    { id = "idle_recorded_3", url = "idle3.motion3.json", weight = 1 },
+    { id = "idle_recorded_4", url = "idle4.motion3.json", weight = 1 },
+    { id = "idle_recorded_5", url = "idle5.motion3.json", weight = 1 },
+    { id = "idle_recorded_6", url = "idle6.motion3.json", weight = 1 },
 ]
 
 [plugins.live2d_control.idle_assignments.listening]
@@ -63,6 +67,10 @@ mode = "random_no_repeat"
 clip_ids = [
     "idle_recorded_1",
     "idle_recorded_2",
+    "idle_recorded_3",
+    "idle_recorded_4",
+    "idle_recorded_5",
+    "idle_recorded_6",
 ]
 
 [plugins.live2d_control.idle_assignments.speaking]
@@ -70,13 +78,17 @@ mode = "random_no_repeat"
 clip_ids = [
     "idle_recorded_1",
     "idle_recorded_2",
+    "idle_recorded_3",
+    "idle_recorded_4",
+    "idle_recorded_5",
+    "idle_recorded_6",
 ]
 
 [plugins.live2d_control.mixer_weights_by_state.listening]
 idle_layer = 1
 speech_layer = 0
 backend_pose_layer = 0
-mouse_attention_layer = 0.25
+mouse_attention_layer = 0.5
 
 [plugins.live2d_control.mixer_weights_by_state.speaking]
 idle_layer = 1
