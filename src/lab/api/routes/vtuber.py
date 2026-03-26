@@ -13,7 +13,11 @@ if TYPE_CHECKING:
     from lab.service_context import ServiceContext
 
 
-def init_client_ws_route(default_context_cache: ServiceContext) -> APIRouter:
+class ClientWebSocketRouter(APIRouter):
+    ws_handler: WebSocketHandler
+
+
+def init_client_ws_route(default_context_cache: ServiceContext) -> ClientWebSocketRouter:
     """
     Create and return API routes for handling the `/client-ws` WebSocket connections.
 
@@ -24,7 +28,7 @@ def init_client_ws_route(default_context_cache: ServiceContext) -> APIRouter:
         APIRouter: Configured router with WebSocket endpoint.
     """
 
-    router = APIRouter()
+    router = ClientWebSocketRouter()
     ws_handler = WebSocketHandler(default_context_cache)
     router.ws_handler = ws_handler
 
