@@ -58,9 +58,32 @@ idle_clips = [
     { id = "idle_recorded_2", url = "idle2.motion3.json", weight = 1 },
 ]
 
-[plugins.live2d_control.idle_assignments]
+[plugins.live2d_control.idle_assignments.listening]
+mode = "random_no_repeat"
+clip_ids = [
+    "idle_recorded_1",
+    "idle_recorded_2",
+]
 
-[plugins.live2d_control.mixer_weights_by_state]
+[plugins.live2d_control.idle_assignments.speaking]
+mode = "random_no_repeat"
+clip_ids = [
+    "idle_recorded_1",
+    "idle_recorded_2",
+]
+
+[plugins.live2d_control.mixer_weights_by_state.listening]
+idle_layer = 1
+speech_layer = 0
+backend_pose_layer = 0
+mouse_attention_layer = 1
+
+[plugins.live2d_control.mixer_weights_by_state.speaking]
+idle_layer = 0
+speech_layer = 0
+backend_pose_layer = 0
+mouse_attention_layer = 1
+
 
 [plugins.mood_chat]
 prompt = "请根据上下文，主动说些什么，如果上下文较少，或者最近正在做一些视觉上的工作，比如逛 pixiv 插画网站，或者玩 galgame，你可以调用截图能力（如果开启了的话），参与其中。"

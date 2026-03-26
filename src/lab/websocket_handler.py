@@ -582,8 +582,12 @@ class WebSocketHandler:
 
     async def _handle_frontend_playback_complete(self, websocket: WebSocket, client_uid: str, data: WSMessage) -> None:
         """Handle frontend playback completion notification."""
-        del websocket, data
-        logger.debug("[PLAYBACK] frontend completed queued audio: client_uid={}", client_uid)
+        del websocket
+        logger.debug(
+            "[PLAYBACK] frontend completed queued audio: client_uid={} turn_id={}",
+            client_uid,
+            data.get("turn_id"),
+        )
 
     async def _handle_group_info(self, websocket: WebSocket, client_uid: str, data: WSMessage) -> None:
         """Handle group info request"""
