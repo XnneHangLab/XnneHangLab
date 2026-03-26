@@ -38,14 +38,14 @@ class AppearancePreset(PluginConfigModel):
 
 
 class IdleClip(PluginConfigModel):
-    id: Annotated[str, Field(description="Unique clip id used by idle assignments.")]
-    url: Annotated[str, Field(description="motion3.json URL/path.")]
+    id: Annotated[str, Field(description="待机动作的唯一 ID，供状态分配引用。")]
+    url: Annotated[str, Field(description="motion3.json 的相对路径或 URL。")]
     weight: Annotated[
         float,
         Field(
             default=1.0,
             ge=0,
-            description="Optional random selection weight (>=0).",
+            description="随机抽取权重，可选，需大于等于 0。",
         ),
     ]
 
@@ -71,14 +71,14 @@ class IdleAssignment(PluginConfigModel):
         IdleMode,
         Field(
             default="random_no_repeat",
-            description="Playback mode: random or random_no_repeat.",
+            description="播放方式：`random` 或 `random_no_repeat`。",
         ),
     ]
     clip_ids: Annotated[
         list[str],
         Field(
             default_factory=list,
-            description="Clip ids picked from idle_clips.",
+            description="状态可用的动作 ID 列表，引用上方 idle_clips 中的 id。",
         ),
     ]
 
@@ -96,39 +96,111 @@ class IdleAssignment(PluginConfigModel):
         return normalized
 
 
+class ListeningIdleAssignment(IdleAssignment):
+    clip_ids: Annotated[
+        list[Annotated[str, Field(description="动作 ID。")]],
+        Field(
+            default_factory=list,
+            description="listening 状态可用的动作 ID 列表，引用上方 idle_clips 中的 id。",
+        ),
+    ]
+
+
+class SpeakingIdleAssignment(IdleAssignment):
+    clip_ids: Annotated[
+        list[Annotated[str, Field(description="动作 ID。")]],
+        Field(
+            default_factory=list,
+            description="speaking 状态可用的动作 ID 列表，引用上方 idle_clips 中的 id。",
+        ),
+    ]
+
+
 class MixerStateWeights(PluginConfigModel):
     idle_layer: Annotated[
         float,
-        Field(default=1.0, ge=0, description="Weight for idle_layer."),
+        Field(default=1.0, ge=0, description="待机层权重。"),
     ]
     speech_layer: Annotated[
         float,
-        Field(default=1.0, ge=0, description="Weight for speech_layer."),
+        Field(default=1.0, ge=0, description="说话层权重。"),
     ]
     backend_pose_layer: Annotated[
         float,
-        Field(default=1.0, ge=0, description="Weight for backend_pose_layer."),
+        Field(default=1.0, ge=0, description="后端姿态层权重。用于 actions.pose / pose_patch 等后端姿态输入。"),
     ]
     mouse_attention_layer: Annotated[
         float,
-        Field(default=0.35, ge=0, description="Weight for mouse_attention_layer."),
+        Field(default=0.35, ge=0, description="鼠标注意力层权重。"),
     ]
 
 
-def _default_idle_assignments() -> dict[str, IdleAssignment]:
-    return {state: IdleAssignment(mode="random_no_repeat", clip_ids=[]) for state in DEFAULT_IDLE_STATES}
+class IdleAssignmentsByState(PluginConfigModel):
+    listening: Annotated[
+        ListeningIdleAssignment,
+        Field(
+            default_factory=lambda: ListeningIdleAssignment(mode="random_no_repeat", clip_ids=[]),
+            description="角色处于 listening 状态时的待机动作配置。",
+        ),
+    ]
+    speaking: Annotated[
+        SpeakingIdleAssignment,
+        Field(
+            default_factory=lambda: SpeakingIdleAssignment(mode="random_no_repeat", clip_ids=[]),
+            description="角色处于 speaking 状态时的待机动作配置。",
+        ),
+    ]
 
 
-def _default_mixer_weights_by_state() -> dict[str, MixerStateWeights]:
-    return {
-        state: MixerStateWeights(
+class MixerWeightsByStateConfig(PluginConfigModel):
+    listening: Annotated[
+        MixerStateWeights,
+        Field(
+            default_factory=lambda: MixerStateWeights(
+                idle_layer=DEFAULT_MIXER_LAYER_WEIGHTS["idle_layer"],
+                speech_layer=DEFAULT_MIXER_LAYER_WEIGHTS["speech_layer"],
+                backend_pose_layer=DEFAULT_MIXER_LAYER_WEIGHTS["backend_pose_layer"],
+                mouse_attention_layer=DEFAULT_MIXER_LAYER_WEIGHTS["mouse_attention_layer"],
+            ),
+            description="listening 状态下的 mixer 权重。",
+        ),
+    ]
+    speaking: Annotated[
+        MixerStateWeights,
+        Field(
+            default_factory=lambda: MixerStateWeights(
+                idle_layer=DEFAULT_MIXER_LAYER_WEIGHTS["idle_layer"],
+                speech_layer=DEFAULT_MIXER_LAYER_WEIGHTS["speech_layer"],
+                backend_pose_layer=DEFAULT_MIXER_LAYER_WEIGHTS["backend_pose_layer"],
+                mouse_attention_layer=DEFAULT_MIXER_LAYER_WEIGHTS["mouse_attention_layer"],
+            ),
+            description="speaking 状态下的 mixer 权重。",
+        ),
+    ]
+
+
+def _default_idle_assignments() -> IdleAssignmentsByState:
+    return IdleAssignmentsByState(
+        listening=ListeningIdleAssignment(mode="random_no_repeat", clip_ids=[]),
+        speaking=SpeakingIdleAssignment(mode="random_no_repeat", clip_ids=[]),
+    )
+
+
+def _default_mixer_weights_by_state() -> MixerWeightsByStateConfig:
+    return MixerWeightsByStateConfig(
+        listening=MixerStateWeights(
             idle_layer=DEFAULT_MIXER_LAYER_WEIGHTS["idle_layer"],
             speech_layer=DEFAULT_MIXER_LAYER_WEIGHTS["speech_layer"],
             backend_pose_layer=DEFAULT_MIXER_LAYER_WEIGHTS["backend_pose_layer"],
             mouse_attention_layer=DEFAULT_MIXER_LAYER_WEIGHTS["mouse_attention_layer"],
-        )
-        for state in DEFAULT_IDLE_STATES
-    }
+        ),
+        speaking=MixerStateWeights(
+            idle_layer=DEFAULT_MIXER_LAYER_WEIGHTS["idle_layer"],
+            speech_layer=DEFAULT_MIXER_LAYER_WEIGHTS["speech_layer"],
+            backend_pose_layer=DEFAULT_MIXER_LAYER_WEIGHTS["backend_pose_layer"],
+            mouse_attention_layer=DEFAULT_MIXER_LAYER_WEIGHTS["mouse_attention_layer"],
+        ),
+    )
 
 
 class Live2DControlPluginConfig(PluginConfigModel):
@@ -143,14 +215,14 @@ class Live2DControlPluginConfig(PluginConfigModel):
         list[IdleClip],
         Field(
             default_factory=list,
-            description="All available recorded idle clips. Add clips here first, then assign by state.",
+            description="所有可用的待机动作片段。先在这里添加动作，再按 listening / speaking 状态分配。",
         ),
     ]
     idle_assignments: Annotated[
-        dict[str, IdleAssignment],
+        IdleAssignmentsByState,
         Field(
             default_factory=_default_idle_assignments,
-            description="State -> idle assignment. Each state references idle_clips by clip id.",
+            description="不同运行状态下使用哪些待机动作，以及播放方式。",
         ),
     ]
     idle_banks: Annotated[
@@ -158,13 +230,14 @@ class Live2DControlPluginConfig(PluginConfigModel):
         Field(
             default_factory=dict,
             description="Legacy: recorded idle banks keyed by state name. Prefer idle_clips + idle_assignments.",
+            json_schema_extra={"plugin_meta_hidden": True},
         ),
     ]
     mixer_weights_by_state: Annotated[
-        dict[str, MixerStateWeights],
+        MixerWeightsByStateConfig,
         Field(
             default_factory=_default_mixer_weights_by_state,
-            description="State -> mixer layer weights used by frontend pose mixer.",
+            description="前端 Pose Mixer 在不同状态下的各层权重。",
         ),
     ]
 
@@ -287,9 +360,9 @@ class Live2DControlPlugin(ToolPlugin):
         self,
         appearance_presets: list[dict[str, str]] | list[AppearancePreset] | None = None,
         idle_clips: list[dict[str, Any]] | list[IdleClip] | None = None,
-        idle_assignments: dict[str, dict[str, Any]] | dict[str, IdleAssignment] | None = None,
+        idle_assignments: dict[str, dict[str, Any]] | IdleAssignmentsByState | None = None,
         idle_banks: dict[str, dict[str, Any]] | None = None,
-        mixer_weights_by_state: dict[str, dict[str, Any]] | dict[str, MixerStateWeights] | None = None,
+        mixer_weights_by_state: dict[str, dict[str, Any]] | MixerWeightsByStateConfig | None = None,
     ) -> None:
         self._appearance_presets = [self._coerce_preset(preset) for preset in appearance_presets or []]
         self._appearance_options: dict[str, AppearanceOption] = {}
@@ -343,8 +416,11 @@ class Live2DControlPlugin(ToolPlugin):
     @classmethod
     def _normalize_idle_assignments(
         cls,
-        raw_idle_assignments: dict[str, dict[str, Any]] | dict[str, IdleAssignment],
+        raw_idle_assignments: dict[str, dict[str, Any]] | dict[str, IdleAssignment] | IdleAssignmentsByState,
     ) -> dict[str, dict[str, Any]]:
+        if isinstance(raw_idle_assignments, IdleAssignmentsByState):
+            raw_idle_assignments = raw_idle_assignments.model_dump(mode="python")
+
         normalized: dict[str, dict[str, Any]] = {}
         for state_name, raw_assignment in raw_idle_assignments.items():
             state_key = state_name.strip()
@@ -408,7 +484,7 @@ class Live2DControlPlugin(ToolPlugin):
     def _build_idle_banks_from_idle_catalog(
         cls,
         idle_clips: list[dict[str, Any]] | list[IdleClip],
-        idle_assignments: dict[str, dict[str, Any]] | dict[str, IdleAssignment],
+        idle_assignments: dict[str, dict[str, Any]] | dict[str, IdleAssignment] | IdleAssignmentsByState,
         legacy_idle_banks: dict[str, dict[str, Any]],
     ) -> dict[str, dict[str, Any]]:
         clips_by_id = cls._normalize_idle_clips(idle_clips)
@@ -448,8 +524,11 @@ class Live2DControlPlugin(ToolPlugin):
     @classmethod
     def _normalize_mixer_weights_by_state(
         cls,
-        raw_weights_by_state: dict[str, dict[str, Any]] | dict[str, MixerStateWeights],
+        raw_weights_by_state: dict[str, dict[str, Any]] | MixerWeightsByStateConfig,
     ) -> dict[str, dict[str, float]]:
+        if isinstance(raw_weights_by_state, MixerWeightsByStateConfig):
+            raw_weights_by_state = raw_weights_by_state.model_dump(mode="python")
+
         normalized: dict[str, dict[str, float]] = {}
         for state_name, raw_weights in raw_weights_by_state.items():
             state_key = state_name.strip()
