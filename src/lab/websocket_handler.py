@@ -251,6 +251,24 @@ class WebSocketHandler:
 
         return session_service_context
 
+    def refresh_client_contexts_from_default(self) -> int:
+        """Refresh all connected session contexts from the shared default context."""
+        refreshed = 0
+        for context in self.client_contexts.values():
+            context.load_cache(
+                lab_setting=self.default_context_cache.lab_setting.model_copy(deep=True),  # type: ignore[arg-type]
+                server_config=self.default_context_cache.server_config.model_copy(deep=True),  # type: ignore[arg-type]
+                character_config=(
+                    self.default_context_cache.character_config.model_copy(deep=True)
+                    if self.default_context_cache.character_config is not None
+                    else None
+                ),
+                live2d_model=self.default_context_cache.live2d_model,
+                agent_engine=self.default_context_cache.agent_engine,  # type: ignore[arg-type]
+            )
+            refreshed += 1
+        return refreshed
+
     async def handle_websocket_communication(self, websocket: WebSocket, client_uid: str) -> None:
         """
         Handle ongoing WebSocket communication

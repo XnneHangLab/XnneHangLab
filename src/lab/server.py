@@ -493,18 +493,16 @@ class WebSocketServer:
 
         default_context_cache = ServiceContext()
         asyncio.run(default_context_cache.load_from_config(default_context_cache.lab_setting))
+        vtuber_routes = import_module("lab.api.routes.vtuber")
+        client_ws_router = vtuber_routes.init_client_ws_route(default_context_cache=default_context_cache)
 
         _include_router_with_log(
             "/client-ws 端点",
-            lambda: self.app.include_router(
-                import_module("lab.api.routes.vtuber").init_client_ws_route(
-                    default_context_cache=default_context_cache
-                ),
-            ),
+            lambda: self.app.include_router(client_ws_router),
         )
         _include_router_with_log(
             "VTuber 基础端点",
-            lambda: self.app.include_router(import_module("lab.api.routes.vtuber").router),
+            lambda: self.app.include_router(vtuber_routes.router),
         )
         _include_router_with_log(
             "DeepLX 端点",
@@ -596,6 +594,7 @@ class WebSocketServer:
         )
 
         self.app.state.default_context_cache = default_context_cache
+        self.app.state.ws_handler = getattr(client_ws_router, "ws_handler", None)
 
     def run(self) -> None:
         """预留运行入口。

@@ -22,8 +22,8 @@ ignore_angle_brackets = true
 character_name = "baoqiao"
 
 [character.tts.emotions.default]
-path = "emotions/neutral/neutral_01.wav"
-ref_text = "这个名字是不是很适合他，长得像猫咪一样嘛。"
+path = "emotions/很适合夏天哦，我之前就是在这样清爽的氛围里面录了一支舞蹈。.wav"
+ref_text = "很适合夏天哦，我之前就是在这样清爽的氛围里面录了一支舞蹈。"
 
 [prompt]
 persona = "prompts/characters/baoqiao.md"

@@ -204,6 +204,10 @@ def test_reload_default_agent_rebuilds_shared_context_in_place(monkeypatch: pyte
     app = _make_app(tmp_path, enable_tool=True)
     shared_ctx = app.state.default_context_cache
     reload_calls: list[Any] = []
+    refreshed_sessions: list[str] = []
+    app.state.ws_handler = SimpleNamespace(
+        refresh_client_contexts_from_default=lambda: refreshed_sessions.append("ok") or 1
+    )
 
     async def fake_reload() -> None:
         reload_calls.append(shared_ctx)
@@ -217,9 +221,11 @@ def test_reload_default_agent_rebuilds_shared_context_in_place(monkeypatch: pyte
 
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+    assert response.json()["refreshed_sessions"] == 1
     assert app.state.default_context_cache is shared_ctx
     assert app.state.default_context_cache.agent_engine == "reloaded-agent"
     assert reload_calls == [shared_ctx]
+    assert refreshed_sessions == ["ok"]
 
 
 def test_provider_endpoints_migrate_legacy_lab_toml_and_write_provider_list(tmp_path: Path) -> None:

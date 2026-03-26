@@ -78,6 +78,57 @@ def _resolve_ref_audio_and_text(
     return None, None
 
 
+def _require_ref_audio_and_text(
+    character_config: CharacterSettings | None,
+    emotion_keys: list[str] | None,
+) -> tuple[str, str | None]:
+    """Resolve ref_audio and fail fast when the configured file is missing."""
+
+    resolved_ref_audio_path, resolved_ref_text = _resolve_ref_audio_and_text(character_config, emotion_keys)
+    if resolved_ref_audio_path is not None:
+        return resolved_ref_audio_path, resolved_ref_text
+
+    if character_config is None:
+        raise ValueError("GPT-SoVITS ref audio is not configured: character_config is missing")
+
+    tts_cfg = character_config.tts_config
+    if not tts_cfg.character_name:
+        raise ValueError("GPT-SoVITS ref audio is not configured: character_name is empty")
+
+    base = Path("models/gptsovits") / tts_cfg.character_name
+    emotions = tts_cfg.emotions
+    if not emotions:
+        raise ValueError(f"GPT-SoVITS ref audio is not configured for character: {tts_cfg.character_name}")
+
+    candidate_keys = [key for key in emotion_keys or [] if key]
+    checked_paths: list[Path] = []
+
+    for key in candidate_keys:
+        emotion = emotions.get(key)
+        if emotion is None or not emotion.path:
+            continue
+        candidate = base / emotion.path
+        checked_paths.append(candidate)
+        if candidate.is_file():
+            return str(candidate), (emotion.ref_text or None)
+
+    first_emotion = next(iter(emotions.values()), None)
+    if first_emotion is not None and first_emotion.path:
+        candidate = base / first_emotion.path
+        if candidate not in checked_paths:
+            checked_paths.append(candidate)
+        if candidate.is_file():
+            return str(candidate), (first_emotion.ref_text or None)
+
+    if checked_paths:
+        checked = ", ".join(str(path) for path in checked_paths)
+        raise FileNotFoundError(
+            f"GPT-SoVITS ref audio does not exist for character '{tts_cfg.character_name}'. Checked: {checked}"
+        )
+
+    raise ValueError(f"GPT-SoVITS ref audio is not configured for character: {tts_cfg.character_name}")
+
+
 class TTSTaskManager:
     """Manages TTS tasks and ensures ordered delivery to frontend while allowing parallel TTS generation"""
 
@@ -210,7 +261,13 @@ class TTSTaskManager:
                 emotion_keys=emotion_keys,
             )
             if not audio_file_path:
-                raise ValueError("Audio file path is None")
+                logger.warning(
+                    "[TTS_READY] skipping audio payload because synthesis failed seq={} text={}",
+                    sequence_number,
+                    _summarize_text(display_text.text),
+                )
+                await self._send_silent_payload(display_text, actions, sequence_number)
+                return
             payload = prepare_audio_payload(
                 audio_path=str(audio_file_path),
                 display_text=display_text,
@@ -239,7 +296,7 @@ class TTSTaskManager:
                 from lab.api.clients import GPTSoVITSClient, GPTSoVITSRequest
 
                 gpt_sovits_client = GPTSoVITSClient()
-                ref_audio_path, ref_text = _resolve_ref_audio_and_text(character_config, emotion_keys)
+                ref_audio_path, ref_text = _require_ref_audio_and_text(character_config, emotion_keys)
                 response = await gpt_sovits_client.asyncpost(
                     GPTSoVITSRequest(
                         text=text,
