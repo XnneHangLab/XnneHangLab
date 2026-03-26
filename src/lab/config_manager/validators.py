@@ -253,6 +253,27 @@ def _check_translate_config(settings: XnneHangLabSettings) -> str | None:
     return None
 
 
+def _check_asr_provider_package_match(settings: XnneHangLabSettings) -> str | None:
+    """校验当前 ASR provider 与 package 开关是否一致。"""
+    provider = settings.asr.asr_model_provider.strip().lower()
+
+    if provider == "sherpa" and not settings.package.sherpa_asr:
+        return (
+            " [package]\n"
+            ' 当前 [asr].asr_model_provider = "sherpa"，但 package.sherpa_asr = false\n'
+            ' -> 在 [package] 下设置 sherpa_asr = true，或将 [asr].asr_model_provider 改为 "qwen"'
+        )
+
+    if provider == "qwen" and not settings.package.qwen_asr:
+        return (
+            " [package]\n"
+            ' 当前 [asr].asr_model_provider = "qwen"，但 package.qwen_asr = false\n'
+            ' -> 在 [package] 下设置 qwen_asr = true，或将 [asr].asr_model_provider 改为 "sherpa"'
+        )
+
+    return None
+
+
 def _check_profiles(settings: XnneHangLabSettings) -> list[str]:
     """校验 profile 路径及其角色字段。
 
@@ -552,6 +573,10 @@ def validate_all(settings: XnneHangLabSettings) -> list[str]:
     translate_err = _check_translate_config(settings)
     if translate_err:
         errors.append(translate_err)
+
+    asr_provider_err = _check_asr_provider_package_match(settings)
+    if asr_provider_err:
+        errors.append(asr_provider_err)
 
     errors += _check_profiles(settings)
     errors += validate_packages(settings)

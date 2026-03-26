@@ -23,6 +23,9 @@ class ASRRequest(BaseRequest):
     model_name: str | None = None
 
 
+ASRRequest.model_rebuild(_types_namespace={"Path": __import__("pathlib").Path})
+
+
 class ASRResponseModel(BaseResponse):
     key: str
     text: str
