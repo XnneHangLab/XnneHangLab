@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from lab.tools.plugin import PromptInjectionPosition
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -13,6 +15,27 @@ if TYPE_CHECKING:
 class SystemPromptBuilder:
     def __init__(self, workspace_root: Path) -> None:
         self._root = workspace_root
+
+    def _append_prompt_segments(
+        self,
+        parts: list[str],
+        segments: list[PromptSegment] | None,
+        *,
+        position: PromptInjectionPosition,
+    ) -> None:
+        if not segments:
+            return
+
+        selected_segments = [segment for segment in segments if segment.position == position]
+        if not selected_segments:
+            return
+
+        segment_lines = ["## 工具行为规则"]
+        for segment in sorted(selected_segments, key=lambda item: (item.priority, item.name)):
+            segment_lines.append(f"### {segment.name}")
+            segment_lines.append(segment.content.strip())
+            segment_lines.append("")
+        parts.append("\n".join(segment_lines).rstrip())
 
     def build(
         self,
@@ -52,17 +75,13 @@ class SystemPromptBuilder:
             lines.append("需要时读取对应文件获取详细指引。")
             parts.append("\n".join(lines))
 
-        if tool_prompt_segments:
-            segment_lines = ["## 宸ュ叿琛屼负瑙勫垯"]
-            for segment in sorted(tool_prompt_segments, key=lambda item: (item.priority, item.name)):
-                segment_lines.append(f"### {segment.name}")
-                segment_lines.append(segment.content.strip())
-                segment_lines.append("")
-            parts.append("\n".join(segment_lines).rstrip())
+        self._append_prompt_segments(parts, tool_prompt_segments, position=PromptInjectionPosition.BEFORE_TOOLS)
 
         if tool_manager:
             tool_prompt = tool_manager.build_system_prompt(include_default_preamble=True)
             if tool_prompt:
                 parts.append(tool_prompt)
+
+        self._append_prompt_segments(parts, tool_prompt_segments, position=PromptInjectionPosition.AFTER_TOOLS)
 
         return "\n\n".join(parts)

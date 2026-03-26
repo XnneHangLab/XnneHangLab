@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 from lab.plugin.config import get_plugin_config_model, import_plugin_module, validate_plugin_config
 
 if TYPE_CHECKING:
-    from lab.plugin.hook import HookPlugin
+    from lab.plugin.hook import HookPlugin, PolicyPlugin
     from lab.tools.plugin import ToolPlugin
     from lab.tools.types import AgentContext
 
@@ -65,7 +65,7 @@ class PluginLoader:
         *,
         profile_overrides: dict[str, Any] | None = None,
         ctx: AgentContext | None = None,
-    ) -> ToolPlugin | SkillDescriptor | HookPlugin | None:
+    ) -> ToolPlugin | SkillDescriptor | HookPlugin | PolicyPlugin | None:
         plugin_dir = self._find_plugin_dir(plugin_id)
         with (plugin_dir / "plugin.toml").open("rb") as f:
             meta = tomllib.load(f)
@@ -102,6 +102,19 @@ class PluginLoader:
             )
             return hook
 
+        if plugin_type == "policy":
+            module = import_plugin_module(plugin_id, plugin_dir)
+            config_model = get_plugin_config_model(module, meta)
+            if config_model is not None:
+                config = validate_plugin_config(config_model, config)
+            policy = self._instantiate_plugin(
+                plugin_id=plugin_id,
+                module=module,
+                meta=meta,
+                config=config,
+            )
+            return policy
+
         if plugin_type == "skill":
             type_config = meta.get("type_config", {})
             files = type_config.get("files", ["skill.md"])
@@ -127,13 +140,14 @@ class PluginLoader:
         *,
         profile_overrides: dict[str, dict[str, Any]] | None = None,
         ctx: AgentContext | None = None,
-    ) -> tuple[list[ToolPlugin], list[SkillDescriptor], list[HookPlugin]]:
-        """Batch load plugins and return tool, skill, and hook collections."""
-        from lab.plugin.hook import HookPlugin
+    ) -> tuple[list[ToolPlugin], list[SkillDescriptor], list[HookPlugin], list[PolicyPlugin]]:
+        """Batch load plugins and return tool, skill, hook, and policy collections."""
+        from lab.plugin.hook import HookPlugin, PolicyPlugin
 
         tools: list[ToolPlugin] = []
         skills: list[SkillDescriptor] = []
         hooks: list[HookPlugin] = []
+        policies: list[PolicyPlugin] = []
         for pid in plugin_ids:
             overrides = (profile_overrides or {}).get(pid, {})
             result = await self.load(pid, profile_overrides=overrides, ctx=ctx)
@@ -141,8 +155,10 @@ class PluginLoader:
                 skills.append(result)
             elif isinstance(result, HookPlugin):
                 hooks.append(result)
+            elif isinstance(result, PolicyPlugin):
+                policies.append(result)
             elif result is not None:
                 tools.append(result)
 
         skills.sort(key=lambda skill: skill.priority)
-        return tools, skills, hooks
+        return tools, skills, hooks, policies

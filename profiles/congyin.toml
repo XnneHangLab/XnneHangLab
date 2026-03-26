@@ -8,7 +8,12 @@ persona = "prompts/characters/satone.md"
 format = "prompts/formats/emotion_pipe.md"
 
 [plugins]
-enabled = ["web_fetch", "diary", "memory"]
+enabled = ["pre_tool_preview", "web_fetch", "diary", "memory"]
+
+[plugins.pre_tool_preview]
+preview_max_chars = 24
+preview_when_latency_over_ms = 2000
+injection_position = "before_tools"
 
 [plugins.web_fetch]
 timeout_s = 15.0

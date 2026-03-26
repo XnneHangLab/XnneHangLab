@@ -30,6 +30,7 @@ format = "prompts/formats/emotion_bracket.md"
 
 [plugins]
 enabled = [
+    "pre_tool_preview",
     "web_search_ddg",
     "web_fetch",
     "screen_shot",

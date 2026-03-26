@@ -1,0 +1,37 @@
+[plugin]
+id = "pre_tool_preview"
+name = "Pre Tool Preview"
+version = "0.1.0"
+type = "policy"
+description = "注入工具调用前的简短预告规则，不暴露额外可调用工具"
+author = "XnneHangLab"
+source = "builtin"
+
+[config]
+preview_max_chars = 30
+preview_when_latency_over_ms = 3000
+allow_skip_on_user_request = true
+injection_position = "before_tools"
+
+[config_schema.preview_max_chars]
+type = "int"
+description = "工具调用前预告的最大字数"
+min = 10
+max = 80
+
+[config_schema.preview_when_latency_over_ms]
+type = "int"
+description = "仅在预计等待达到该毫秒数时更强地倾向输出预告"
+min = 0
+max = 60000
+
+[config_schema.allow_skip_on_user_request]
+type = "bool"
+description = "用户明确要求直接执行时是否允许跳过预告"
+
+[config_schema.injection_position]
+type = "str"
+description = "提示词注入位置，可选 before_tools 或 after_tools"
+
+[type_config]
+entry = "PreToolPreviewPlugin"

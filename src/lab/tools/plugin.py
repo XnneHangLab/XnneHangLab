@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -8,11 +9,23 @@ if TYPE_CHECKING:
     from lab.tools.types import AgentContext
 
 
+class PromptInjectionPosition(StrEnum):
+    BEFORE_TOOLS = "before_tools"
+    AFTER_TOOLS = "after_tools"
+
+
 class PromptSegment:
-    def __init__(self, name: str, content: str, priority: int = 50):
+    def __init__(
+        self,
+        name: str,
+        content: str,
+        priority: int = 50,
+        position: PromptInjectionPosition = PromptInjectionPosition.BEFORE_TOOLS,
+    ):
         self.name = name
         self.content = content
         self.priority = priority
+        self.position = position
 
 
 class ToolPlugin(ABC):

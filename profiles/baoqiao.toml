@@ -31,6 +31,7 @@ format = "prompts/formats/baoqiao_emotion_bracket.md"
 
 [plugins]
 enabled = [
+    "pre_tool_preview",
     "web_fetch",
     "screen_shot",
     "diary",
