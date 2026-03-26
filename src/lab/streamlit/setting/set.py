@@ -15,6 +15,7 @@ from lab.config_manager import (
     load_settings_file,
     write_settings_file,
 )
+from lab.streamlit.i18n import ASRModelProvider
 from lab.streamlit.session_keys import setting_keys
 from lab.streamlit.style import style
 
@@ -288,6 +289,21 @@ with save_container:
             }
 
             if current_settings != initial_settings:
+                selected_provider = current_settings["basic"]["asr_model_provider"]
+                if selected_provider == ASRModelProvider.sherpa.value and not lab_settings.package.sherpa_asr:
+                    message_box(
+                        "保存失败",
+                        "当前已选择 Sherpa-ONNX 作为 ASR provider，但 [package].sherpa_asr 仍为 false。请先启用 Sherpa ASR 服务。",
+                    )
+                    st.stop()
+
+                if selected_provider == ASRModelProvider.qwen.value and not lab_settings.package.qwen_asr:
+                    message_box(
+                        "保存失败",
+                        "当前已选择 Qwen3-ASR 作为 ASR provider，但 [package].qwen_asr 仍为 false。请先启用 Qwen3-ASR 服务。",
+                    )
+                    st.stop()
+
                 if not check_device_is_available(current_settings["basic"]["device"]):
                     message_box("保存失败", "当前设备不可用，请检查配置。")
                     st.stop()

@@ -152,3 +152,27 @@ format = "prompts/formats/emotion_bracket.md"
     errors = validate_all(settings)
 
     assert any("models" in err and "gptsovits" in err and "baoqiao" in err for err in errors)
+
+
+def test_validate_rejects_disabled_sherpa_provider_selection(tmp_path: Path) -> None:
+    settings = _base_settings(tmp_path)
+    settings.asr.asr_model_provider = "sherpa"
+    settings.package.sherpa_asr = False
+    settings.package.qwen_asr = False
+
+    errors = validate_all(settings)
+
+    assert any('asr_model_provider = "sherpa"' in err for err in errors)
+    assert any("package.sherpa_asr = false" in err for err in errors)
+
+
+def test_validate_rejects_disabled_qwen_provider_selection(tmp_path: Path) -> None:
+    settings = _base_settings(tmp_path)
+    settings.asr.asr_model_provider = "qwen"
+    settings.package.sherpa_asr = False
+    settings.package.qwen_asr = False
+
+    errors = validate_all(settings)
+
+    assert any('asr_model_provider = "qwen"' in err for err in errors)
+    assert any("package.qwen_asr = false" in err for err in errors)
