@@ -23,6 +23,19 @@ class PluginConfigModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+def _field_hidden_from_plugin_meta(config_model: type[BaseModel], field_name: str) -> bool:
+    field_info = config_model.model_fields.get(field_name)
+    if field_info is None:
+        return False
+
+    extra_obj = field_info.json_schema_extra
+    if not isinstance(extra_obj, dict):
+        return False
+
+    extra = cast("dict[str, object]", extra_obj)
+    return bool(extra.get("plugin_meta_hidden"))
+
+
 def import_plugin_module(plugin_id: str, plugin_dir: Path) -> Any:
     module_name = f"lab.plugins.{plugin_id}"
     try:
@@ -74,7 +87,8 @@ def validate_plugin_override(plugin_id: str, plugin_dir: Path, override: dict[st
 
 def build_default_plugin_config(config_model: type[BaseModel]) -> dict[str, Any]:
     defaults = config_model()
-    return defaults.model_dump(mode="python", exclude_none=True)
+    data = defaults.model_dump(mode="python", exclude_none=True)
+    return {key: value for key, value in data.items() if not _field_hidden_from_plugin_meta(config_model, key)}
 
 
 def _get_str_value(data: dict[str, object], key: str) -> str | None:
@@ -103,7 +117,12 @@ def _resolve_schema_ref(prop: dict[str, object], defs: dict[str, object]) -> dic
     resolved = defs.get(ref_name)
     if not isinstance(resolved, dict):
         return prop
-    return cast("dict[str, object]", resolved)
+    merged = dict(cast("dict[str, object]", resolved))
+    for key, value in prop.items():
+        if key == "$ref":
+            continue
+        merged[key] = value
+    return merged
 
 
 def _build_field_schema(prop: dict[str, object], defs: dict[str, object]) -> dict[str, Any] | None:
@@ -178,6 +197,8 @@ def build_plugin_config_schema(config_model: type[BaseModel]) -> dict[str, dict[
     out: dict[str, dict[str, Any]] = {}
     for raw_name, raw_prop in properties.items():
         if not isinstance(raw_prop, dict):
+            continue
+        if _field_hidden_from_plugin_meta(config_model, raw_name):
             continue
         field_schema = _build_field_schema(cast("dict[str, object]", raw_prop), defs)
         if field_schema is not None:
