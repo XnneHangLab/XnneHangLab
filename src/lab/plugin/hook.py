@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from lab.tools.plugin import PromptSegment
     from lab.tools.types import AgentContext
 
 
@@ -22,3 +23,10 @@ class HookPlugin(ABC):
     async def on_after_playback(self, user_text: str, assistant_text: str, ctx: AgentContext) -> None:
         """Run after the turn's frontend playback has fully completed."""
         return
+
+
+class PolicyPlugin:
+    """Prompt policy plugin base class."""
+
+    def get_prompt_segments(self) -> list[PromptSegment]:
+        return []

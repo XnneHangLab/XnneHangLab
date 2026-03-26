@@ -79,7 +79,7 @@ class AgentFactory:
         resolved_vision_prompt = vision_system_prompt or _read_prompt(lab_setting.agent.prompts.vision_prompt)
 
         plugin_loader = PluginLoader()
-        tool_plugins, skill_descriptors, hook_plugins = await plugin_loader.load_many(
+        tool_plugins, skill_descriptors, hook_plugins, policy_plugins = await plugin_loader.load_many(
             profile.plugins.enabled,
             profile_overrides=profile.plugins.overrides,
             ctx=agent_context,
@@ -91,6 +91,8 @@ class AgentFactory:
                 tool_manager.register_builtin(builtin_tool)
 
         tool_prompt_segments: list[PromptSegment] = []
+        for policy_plugin in policy_plugins:
+            tool_prompt_segments.extend(policy_plugin.get_prompt_segments())
         for tool_plugin in tool_plugins:
             tool_prompt_segments.extend(tool_plugin.get_prompt_segments())
 
