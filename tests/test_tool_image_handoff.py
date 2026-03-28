@@ -559,7 +559,7 @@ def test_mixed_content_then_tool_call_stream_still_executes_tool(agent_ctx: Agen
     assert output.startswith("我先说明一下计划。")
     assert output.endswith("final answer")
     assert len(chat_llm.calls) == 2
-    first_assistant_msg = chat_llm.calls[1][-2]
+    first_assistant_msg = next(message for message in chat_llm.calls[1] if message.role == "assistant")
     assert first_assistant_msg.role == "assistant"
     assert first_assistant_msg.content == "我先说明一下计划。"
     assert first_assistant_msg.tool_calls is not None
