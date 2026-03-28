@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 from lab.tools.base import BuiltinTool
+from lab.tools.builtin.workspace_root import resolve_workspace_path, resolve_workspace_root
 from lab.tools.types import AgentContext, ToolResult
 
 
@@ -65,9 +65,8 @@ class EditFileTool(BuiltinTool):
         if not old_text:
             return ToolResult(ok=False, text="", error="old_text is required")
 
-        root = ctx.workspace_root.resolve()
-        p = Path(path_str).expanduser()
-        target = (root / p).resolve() if not p.is_absolute() else p.resolve()
+        root = resolve_workspace_root(ctx)
+        target = resolve_workspace_path(ctx, path_str)
 
         try:
             target.relative_to(root)

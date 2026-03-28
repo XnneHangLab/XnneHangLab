@@ -103,9 +103,10 @@ class TestReadFileTool:
         assert result.error is not None
         assert "not found" in result.error
 
-    def test_path_outside_workspace(self, ctx: AgentContext) -> None:
+    def test_path_outside_workspace(self, workspace: Path, ctx: AgentContext) -> None:
         tool = ReadFileTool()
-        result = asyncio.run(tool.execute({"path": "/etc/passwd"}, ctx))
+        outside_path = str((workspace.parent / "outside-read.txt").resolve())
+        result = asyncio.run(tool.execute({"path": outside_path}, ctx))
         assert not result.ok
         assert result.error is not None
         assert "outside workspace" in result.error
@@ -160,9 +161,18 @@ class TestWriteFileTool:
         assert result.ok
         assert (workspace / "a" / "b" / "c.txt").read_text() == "deep"
 
-    def test_path_outside_workspace(self, ctx: AgentContext) -> None:
+    def test_root_anchored_path_writes_inside_workspace(self, workspace: Path, ctx: AgentContext) -> None:
         tool = WriteFileTool()
-        result = asyncio.run(tool.execute({"path": "/tmp/evil.txt", "content": "bad"}, ctx))
+        result = asyncio.run(
+            tool.execute({"path": "/data/baoqiao/diary/2026-03-28.md", "content": "entry"}, ctx)
+        )
+        assert result.ok
+        assert (workspace / "data" / "baoqiao" / "diary" / "2026-03-28.md").read_text() == "entry"
+
+    def test_path_outside_workspace(self, workspace: Path, ctx: AgentContext) -> None:
+        tool = WriteFileTool()
+        outside_path = str((workspace.parent / "outside-write.txt").resolve())
+        result = asyncio.run(tool.execute({"path": outside_path, "content": "bad"}, ctx))
         assert not result.ok
         assert "outside workspace" in (result.error or "")
 
@@ -259,6 +269,15 @@ class TestListDirTool:
         result = asyncio.run(tool.execute({"path": "sub"}, ctx))
         assert result.ok
         assert "file.py" in result.text
+
+    def test_root_anchored_path_is_treated_as_workspace_relative(self, workspace: Path, ctx: AgentContext) -> None:
+        diary_dir = workspace / "data" / "baoqiao" / "diary"
+        diary_dir.mkdir(parents=True)
+        (diary_dir / "2026-03-28.md").write_text("")
+        tool = ListDirTool()
+        result = asyncio.run(tool.execute({"path": "/data/baoqiao/diary"}, ctx))
+        assert result.ok
+        assert "2026-03-28.md" in result.text
 
     def test_not_a_directory(self, workspace: Path, ctx: AgentContext) -> None:
         (workspace / "f.txt").write_text("x")

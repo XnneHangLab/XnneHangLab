@@ -36,6 +36,72 @@ _MAX_TOOL_STATUS_FIELDS = 2
 _MAX_TOOL_STATUS_VALUE_LEN = 48
 
 
+def _normalize_tool_call_record(idx: int, tc: dict[str, str]) -> dict[str, str] | None:
+    name = tc["name"].strip()
+    if not name:
+        logger.warning("[TOOLS] skipping incomplete tool call at index {} because function name is empty", idx)
+        return None
+
+    tool_call_id = tc["id"].strip() or f"call_{idx}"
+    arguments = tc["arguments"].strip()
+    if not arguments:
+        logger.warning("[TOOLS] skipping incomplete tool call at index {} because arguments are empty", idx)
+        return None
+
+    try:
+        parsed_arguments = json.loads(arguments)
+    except json.JSONDecodeError as exc:
+        logger.warning(
+            "[TOOLS] skipping incomplete tool call at index {} because arguments are not valid JSON: {}",
+            idx,
+            exc,
+        )
+        return None
+
+    if not isinstance(parsed_arguments, dict):
+        logger.warning(
+            "[TOOLS] skipping incomplete tool call at index {} because arguments JSON is not an object",
+            idx,
+        )
+        return None
+
+    return {"id": tool_call_id, "name": name, "arguments": arguments}
+
+
+def _ordered_complete_tool_calls(tool_calls_buf: dict[int, dict[str, str]]) -> list[dict[str, str]]:
+    ordered: list[dict[str, str]] = []
+    for idx in sorted(tool_calls_buf):
+        normalized = _normalize_tool_call_record(idx, tool_calls_buf[idx])
+        if normalized is not None:
+            ordered.append(normalized)
+    return ordered
+
+
+def _should_execute_tool_calls(finish_reason: str | None, ordered_tool_calls: list[dict[str, str]]) -> bool:
+    if not ordered_tool_calls:
+        return False
+
+    if finish_reason in (None, "tool_calls"):
+        return True
+
+    if finish_reason == "stop":
+        logger.warning("[TOOLS] tool calls detected with finish_reason=stop; executing validated tool calls")
+        return True
+
+    if finish_reason in {"length", "content_filter"}:
+        logger.warning(
+            "[TOOLS] tool calls detected but skipping execution because finish_reason={} suggests incomplete output",
+            finish_reason,
+        )
+        return False
+
+    logger.warning(
+        "[TOOLS] tool calls detected with non-standard finish_reason={}; skipping execution",
+        finish_reason,
+    )
+    return False
+
+
 def _stringify_tool_status_value(value: Any) -> str | None:
     if value is None:
         return None
@@ -450,6 +516,8 @@ class AgentCore:
                     continue
                 delta = choice.delta
 
+                # Some backends emit reasoning/thinking chunks before user-visible content.
+                # We intentionally ignore them here and only stream visible content.
                 if delta.content:
                     text_buf += delta.content
                     complete_response += delta.content
@@ -471,7 +539,7 @@ class AgentCore:
                 if choice.finish_reason:
                     finish_reason = choice.finish_reason
 
-            ordered_tool_calls = [tool_calls_buf[idx] for idx in sorted(tool_calls_buf)]
+            ordered_tool_calls = _ordered_complete_tool_calls(tool_calls_buf)
             if ordered_tool_calls:
                 assistant_payload: dict[str, Any] = {
                     "role": "assistant",
@@ -493,7 +561,7 @@ class AgentCore:
                 assistant_msg = OpenAIMessage(role="assistant", content=text_buf or " ")
             final_messages.append(assistant_msg)
 
-            if finish_reason != "tool_calls" or not ordered_tool_calls:
+            if not _should_execute_tool_calls(finish_reason, ordered_tool_calls):
                 break
 
             tool_manager = self.tool_manager

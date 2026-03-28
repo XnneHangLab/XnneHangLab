@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 from lab.tools.base import BuiltinTool
-from lab.tools.builtin.workspace_root import resolve_workspace_root
+from lab.tools.builtin.workspace_root import resolve_workspace_path, resolve_workspace_root
 from lab.tools.types import AgentContext, ToolResult
 
 _MAX_ENTRIES = 200
@@ -54,8 +53,7 @@ class ListDirTool(BuiltinTool):
         root = resolve_workspace_root(ctx)
 
         if path_str:
-            p = Path(path_str).expanduser()
-            target = (root / p).resolve() if not p.is_absolute() else p.resolve()
+            target = resolve_workspace_path(ctx, path_str)
         else:
             target = root
 

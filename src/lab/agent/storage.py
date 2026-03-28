@@ -38,6 +38,10 @@ def _render_user_content(content: str, *, condensed: bool) -> str:
     return content
 
 
+def _normalize_assistant_storage_text(content: str) -> str:
+    return content if content else " "
+
+
 def _build_messages_with_condensing(
     raw_pairs: list[tuple[str, str]],
     *,
@@ -82,7 +86,9 @@ class MemoryStoreAdapter:
     def append_turn(self, user_block: UserPromptBlock, assistant_text: str) -> None:
         """向 MemoryStore 追加一轮结构化对话。"""
         self._store.add_message(OpenAIMessage(role="user", content=user_block.to_storage_content()))
-        self._store.add_message(OpenAIMessage(role="assistant", content=assistant_text))
+        self._store.add_message(
+            OpenAIMessage(role="assistant", content=_normalize_assistant_storage_text(assistant_text))
+        )
 
     def handle_interrupt(self, heard_response: str) -> None:
         """委托 MemoryStore 处理打断事件。"""
@@ -120,7 +126,11 @@ class HistoryStorageAdapter:
         """向持久化历史追加一轮结构化对话。"""
         date_id = self._current_date_id()
         self._store.append_turn(date_id, role="user", content=user_block.to_storage_content())
-        self._store.append_turn(date_id, role="assistant", content=assistant_text)
+        self._store.append_turn(
+            date_id,
+            role="assistant",
+            content=_normalize_assistant_storage_text(assistant_text),
+        )
 
     def handle_interrupt(self, heard_response: str) -> None:
         """持久化历史暂不处理打断事件。"""

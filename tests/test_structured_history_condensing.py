@@ -66,3 +66,16 @@ def test_tool_image_context_condenses_from_full_to_brief_and_omits_missing_brief
     assert isinstance(latest_user.content, str)
     assert "[User Input]\nturn 6" in latest_user.content
     assert "recent tool full" in latest_user.content
+
+
+def test_empty_assistant_turn_is_normalized_for_storage() -> None:
+    store = MemoryStore()
+    adapter = MemoryStoreAdapter(store)
+
+    adapter.append_turn(UserPromptBlock(user_text="turn 1"), "")
+
+    messages = adapter.load()
+
+    assert len(messages) == 2
+    assert messages[1].role == "assistant"
+    assert messages[1].content == " "

@@ -32,3 +32,22 @@ def resolve_workspace_root(ctx: AgentContext) -> Path:
         return configured_root
 
     return ctx_root
+
+
+def resolve_workspace_path(ctx: AgentContext, path_str: str) -> Path:
+    root = resolve_workspace_root(ctx)
+    raw = (path_str or "").strip()
+    path = Path(raw).expanduser()
+
+    # Treat "/foo" and "\foo" as workspace-root-relative paths instead of filesystem-rooted
+    # paths so prompt-authored paths like "/data/agent/diary" stay inside the project.
+    is_root_anchored_without_drive = (
+        bool(raw)
+        and raw[0] in {"/", "\\"}
+        and path.drive == ""
+        and not raw.startswith(("\\\\", "//"))
+    )
+    if is_root_anchored_without_drive:
+        path = Path(raw.lstrip("/\\"))
+
+    return (root / path).resolve() if not path.is_absolute() else path.resolve()
