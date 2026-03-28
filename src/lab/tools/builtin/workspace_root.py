@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -39,9 +40,12 @@ def resolve_workspace_path(ctx: AgentContext, path_str: str) -> Path:
     raw = (path_str or "").strip()
     path = Path(raw).expanduser()
 
-    # Treat "/foo" and "\foo" as workspace-root-relative paths instead of filesystem-rooted
-    # paths so prompt-authored paths like "/data/agent/diary" stay inside the project.
+    # On Windows, treat "/foo" and "\foo" as workspace-root-relative paths instead of
+    # drive-rooted paths so prompt-authored paths like "/data/agent/diary" stay inside
+    # the project. On POSIX, "/foo" must remain an absolute filesystem path.
     is_root_anchored_without_drive = (
+        os.name == "nt"
+        and
         bool(raw)
         and raw[0] in {"/", "\\"}
         and path.drive == ""
