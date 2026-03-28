@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 from lab.tools.base import BuiltinTool
-from lab.tools.builtin.workspace_root import resolve_workspace_root
+from lab.tools.builtin.workspace_root import resolve_workspace_path, resolve_workspace_root
 from lab.tools.types import AgentContext, ToolResult
 
 _MAX_CHARS_CLAMP = (256, 20000)
@@ -74,8 +73,7 @@ class ReadFileTool(BuiltinTool):
         max_chars: int = _clamp(args.get("max_chars", 8000), *_MAX_CHARS_CLAMP)
 
         root = resolve_workspace_root(ctx)
-        p = Path(path_str).expanduser()
-        target = (root / p).resolve() if not p.is_absolute() else p.resolve()
+        target = resolve_workspace_path(ctx, path_str)
 
         try:
             target.relative_to(root)

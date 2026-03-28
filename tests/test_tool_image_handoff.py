@@ -34,6 +34,7 @@ class DummyStorage(ConversationStorage):
 class FakeToolManager:
     def __init__(self, result: ToolResult) -> None:
         self._result = result
+        self.calls: list[tuple[str, object]] = []
 
     def list_tools_schema(self) -> list[dict[str, object]]:
         return [
@@ -52,7 +53,8 @@ class FakeToolManager:
         ]
 
     async def call_tool(self, name: str, args: object, ctx: AgentContext) -> ToolResult:
-        del args, ctx
+        self.calls.append((name, args))
+        del ctx
         assert name == "screen_shot"
         return self._result
 
@@ -77,7 +79,27 @@ def _tool_call_chunk() -> object:
     )
 
 
-def _text_chunk(text: str, finish_reason: str = "stop") -> object:
+def _tool_call_chunk_with_finish_reason(finish_reason: str | None) -> object:
+    return SimpleNamespace(
+        choices=[
+            SimpleNamespace(
+                delta=SimpleNamespace(
+                    content="",
+                    tool_calls=[
+                        SimpleNamespace(
+                            index=0,
+                            id="call_1",
+                            function=SimpleNamespace(name="screen_shot", arguments="{}"),
+                        )
+                    ],
+                ),
+                finish_reason=finish_reason,
+            )
+        ]
+    )
+
+
+def _text_chunk(text: str, finish_reason: str | None = "stop") -> object:
     return SimpleNamespace(
         choices=[
             SimpleNamespace(
@@ -126,6 +148,185 @@ class FakeFallbackAwareChatLLM(FakeChatLLM):
             yield _text_chunk("I can't analyze the screenshot content right now.")
             return
         yield _text_chunk("hallucinated answer")
+
+
+class FakeMixedContentToolCallLLM(FakeChatLLM):
+    async def stream_with_tools(
+        self,
+        messages: list[OpenAIMessage],
+        *,
+        system: str | None = None,
+        tools: list[dict[str, object]] | None = None,
+    ):
+        del system, tools
+        self.calls.append([message.model_copy(deep=True) for message in messages])
+        if len(self.calls) == 1:
+            yield SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        delta=SimpleNamespace(content="", tool_calls=None, reasoning="让我先想想"),
+                        finish_reason=None,
+                    )
+                ]
+            )
+            yield _text_chunk("我先说明一下计划。", finish_reason=None)
+            yield _tool_call_chunk()
+            return
+        yield _text_chunk("final answer")
+
+
+class FakeStopFinishReasonToolCallLLM(FakeChatLLM):
+    async def stream_with_tools(
+        self,
+        messages: list[OpenAIMessage],
+        *,
+        system: str | None = None,
+        tools: list[dict[str, object]] | None = None,
+    ):
+        del system, tools
+        self.calls.append([message.model_copy(deep=True) for message in messages])
+        if len(self.calls) == 1:
+            yield _text_chunk("先说一句。", finish_reason=None)
+            yield _tool_call_chunk_with_finish_reason("stop")
+            return
+        yield _text_chunk("final answer")
+
+
+class FakeSplitArgumentsToolCallLLM(FakeChatLLM):
+    async def stream_with_tools(
+        self,
+        messages: list[OpenAIMessage],
+        *,
+        system: str | None = None,
+        tools: list[dict[str, object]] | None = None,
+    ):
+        del system, tools
+        self.calls.append([message.model_copy(deep=True) for message in messages])
+        if len(self.calls) == 1:
+            yield SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        delta=SimpleNamespace(
+                            content="",
+                            tool_calls=[
+                                SimpleNamespace(
+                                    index=0,
+                                    id="call_1",
+                                    function=SimpleNamespace(name="screen_shot", arguments='{"par'),
+                                )
+                            ],
+                        ),
+                        finish_reason=None,
+                    )
+                ]
+            )
+            yield SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        delta=SimpleNamespace(
+                            content="",
+                            tool_calls=[
+                                SimpleNamespace(
+                                    index=0,
+                                    id=None,
+                                    function=SimpleNamespace(name=None, arguments='tial":true}'),
+                                )
+                            ],
+                        ),
+                        finish_reason="tool_calls",
+                    )
+                ]
+            )
+            return
+        yield _text_chunk("final answer")
+
+
+class FakeInterleavedMultiToolLLM(FakeChatLLM):
+    async def stream_with_tools(
+        self,
+        messages: list[OpenAIMessage],
+        *,
+        system: str | None = None,
+        tools: list[dict[str, object]] | None = None,
+    ):
+        del system, tools
+        self.calls.append([message.model_copy(deep=True) for message in messages])
+        if len(self.calls) == 1:
+            yield SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        delta=SimpleNamespace(
+                            content="",
+                            tool_calls=[
+                                SimpleNamespace(
+                                    index=0,
+                                    id="call_1",
+                                    function=SimpleNamespace(name="screen", arguments='{"a":'),
+                                ),
+                                SimpleNamespace(
+                                    index=1,
+                                    id="call_2",
+                                    function=SimpleNamespace(name="screen", arguments='{"b":'),
+                                ),
+                            ],
+                        ),
+                        finish_reason=None,
+                    )
+                ]
+            )
+            yield SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        delta=SimpleNamespace(
+                            content="",
+                            tool_calls=[
+                                SimpleNamespace(
+                                    index=1,
+                                    id=None,
+                                    function=SimpleNamespace(name="_shot", arguments='2}'),
+                                ),
+                                SimpleNamespace(
+                                    index=0,
+                                    id=None,
+                                    function=SimpleNamespace(name="_shot", arguments='1}'),
+                                ),
+                            ],
+                        ),
+                        finish_reason="tool_calls",
+                    )
+                ]
+            )
+            return
+        yield _text_chunk("final answer")
+
+
+class FakeInvalidJsonToolCallLLM(FakeChatLLM):
+    async def stream_with_tools(
+        self,
+        messages: list[OpenAIMessage],
+        *,
+        system: str | None = None,
+        tools: list[dict[str, object]] | None = None,
+    ):
+        del system, tools
+        self.calls.append([message.model_copy(deep=True) for message in messages])
+        yield SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    delta=SimpleNamespace(
+                        content="",
+                        tool_calls=[
+                            SimpleNamespace(
+                                index=0,
+                                id="call_bad",
+                                function=SimpleNamespace(name="screen_shot", arguments='{"broken":'),
+                            )
+                        ],
+                    ),
+                    finish_reason="stop",
+                )
+            ]
+        )
 
 
 async def _collect_tokens(core: AgentCore) -> str:
@@ -327,3 +528,158 @@ def test_tool_image_failure_injects_anti_hallucination_fallback_when_vision_unav
     assert "[Tool Call Image Summary]" not in handoff_msg.content
     assert any("vision analysis unavailable" in line for line in log_lines)
     assert any("anti-hallucination fallback injected" in line for line in log_lines)
+
+
+def test_mixed_content_then_tool_call_stream_still_executes_tool(agent_ctx: AgentContext) -> None:
+    chat_llm = FakeMixedContentToolCallLLM()
+    storage = DummyStorage()
+    core = AgentCore(
+        chat_llm=cast("Any", chat_llm),
+        vision_llm=None,
+        tool_manager=cast(
+            "Any",
+            FakeToolManager(
+                ToolResult(
+                    ok=True,
+                    text="[screenshot captured]",
+                    data={"image_b64": "ZmFrZQ==", "mime": "image/jpeg"},
+                )
+            ),
+        ),
+        agent_context=agent_ctx,
+        context_injector=None,
+        storage=storage,
+        chat_system_prompt="system",
+        enable_tool=True,
+    )
+    core.chat_supports_vision = True
+
+    output = asyncio.run(_collect_tokens(core))
+
+    assert output.startswith("我先说明一下计划。")
+    assert output.endswith("final answer")
+    assert len(chat_llm.calls) == 2
+    first_assistant_msg = next(message for message in chat_llm.calls[1] if message.role == "assistant")
+    assert first_assistant_msg.role == "assistant"
+    assert first_assistant_msg.content == "我先说明一下计划。"
+    assert first_assistant_msg.tool_calls is not None
+    assert first_assistant_msg.tool_calls[0].function.name == "screen_shot"
+
+
+def test_tool_calls_with_stop_finish_reason_are_still_executed(agent_ctx: AgentContext) -> None:
+    chat_llm = FakeStopFinishReasonToolCallLLM()
+    storage = DummyStorage()
+    core = AgentCore(
+        chat_llm=cast("Any", chat_llm),
+        vision_llm=None,
+        tool_manager=cast(
+            "Any",
+            FakeToolManager(
+                ToolResult(
+                    ok=True,
+                    text="[screenshot captured]",
+                    data={"image_b64": "ZmFrZQ==", "mime": "image/jpeg"},
+                )
+            ),
+        ),
+        agent_context=agent_ctx,
+        context_injector=None,
+        storage=storage,
+        chat_system_prompt="system",
+        enable_tool=True,
+    )
+    core.chat_supports_vision = True
+
+    output = asyncio.run(_collect_tokens(core))
+
+    assert output.startswith("先说一句。")
+    assert output.endswith("final answer")
+    assert len(chat_llm.calls) == 2
+
+
+def test_split_tool_arguments_are_assembled_before_execution(agent_ctx: AgentContext) -> None:
+    chat_llm = FakeSplitArgumentsToolCallLLM()
+    tool_manager = FakeToolManager(
+        ToolResult(
+            ok=True,
+            text="[screenshot captured]",
+            data={"image_b64": "ZmFrZQ==", "mime": "image/jpeg"},
+        )
+    )
+    storage = DummyStorage()
+    core = AgentCore(
+        chat_llm=cast("Any", chat_llm),
+        vision_llm=None,
+        tool_manager=cast("Any", tool_manager),
+        agent_context=agent_ctx,
+        context_injector=None,
+        storage=storage,
+        chat_system_prompt="system",
+        enable_tool=True,
+    )
+    core.chat_supports_vision = True
+
+    output = asyncio.run(_collect_tokens(core))
+
+    assert output.endswith("final answer")
+    assert len(tool_manager.calls) == 1
+    assert tool_manager.calls[0][1] == '{"partial":true}'
+
+
+def test_interleaved_tool_calls_are_assembled_by_index(agent_ctx: AgentContext) -> None:
+    chat_llm = FakeInterleavedMultiToolLLM()
+    tool_manager = FakeToolManager(
+        ToolResult(
+            ok=True,
+            text="[screenshot captured]",
+            data={"image_b64": "ZmFrZQ==", "mime": "image/jpeg"},
+        )
+    )
+    storage = DummyStorage()
+    core = AgentCore(
+        chat_llm=cast("Any", chat_llm),
+        vision_llm=None,
+        tool_manager=cast("Any", tool_manager),
+        agent_context=agent_ctx,
+        context_injector=None,
+        storage=storage,
+        chat_system_prompt="system",
+        enable_tool=True,
+    )
+    core.chat_supports_vision = True
+
+    output = asyncio.run(_collect_tokens(core))
+
+    assert output.endswith("final answer")
+    assert len(tool_manager.calls) == 2
+    assert tool_manager.calls[0][1] == '{"a":1}'
+    assert tool_manager.calls[1][1] == '{"b":2}'
+
+
+def test_invalid_json_tool_call_is_not_executed_on_stop_finish_reason(agent_ctx: AgentContext) -> None:
+    chat_llm = FakeInvalidJsonToolCallLLM()
+    tool_manager = FakeToolManager(
+        ToolResult(
+            ok=True,
+            text="[screenshot captured]",
+            data={"image_b64": "ZmFrZQ==", "mime": "image/jpeg"},
+        )
+    )
+    storage = DummyStorage()
+    core = AgentCore(
+        chat_llm=cast("Any", chat_llm),
+        vision_llm=None,
+        tool_manager=cast("Any", tool_manager),
+        agent_context=agent_ctx,
+        context_injector=None,
+        storage=storage,
+        chat_system_prompt="system",
+        enable_tool=True,
+    )
+    core.chat_supports_vision = True
+
+    output = asyncio.run(_collect_tokens(core))
+
+    assert output == ""
+    assert len(tool_manager.calls) == 0
+    assert len(chat_llm.calls) == 1
