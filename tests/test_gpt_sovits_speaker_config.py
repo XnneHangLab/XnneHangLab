@@ -18,7 +18,7 @@ def test_generate_audio_rejects_missing_configured_ref_audio(tmp_path, monkeypat
     def fake_load_settings_file(*_args: object, **_kwargs: object) -> SimpleNamespace:
         return SimpleNamespace(
             agent=SimpleNamespace(
-                speaker_model="gpt_sovits",
+                tts=SimpleNamespace(provider="gpt_sovits"),
                 speaker_lang="ZH",
             )
         )

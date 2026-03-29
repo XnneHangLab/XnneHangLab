@@ -25,7 +25,7 @@ def test_generate_audio_uses_qwen_tts_client(tmp_path: Path, monkeypatch: pytest
     def fake_load_settings_file(*_args: object, **_kwargs: object) -> SimpleNamespace:
         return SimpleNamespace(
             agent=SimpleNamespace(
-                speaker_model="qwen_tts",
+                tts=SimpleNamespace(provider="qwen_tts"),
                 speaker_lang="ZH",
             )
         )
