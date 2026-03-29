@@ -292,7 +292,7 @@ class TTSTaskManager:
             lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
             cache_dir = Path("cache") / "tts"
             cache_dir.mkdir(parents=True, exist_ok=True)
-            if lab_settings.agent.speaker_model == "gpt_sovits":
+            if lab_settings.agent.tts.provider == "gpt_sovits":
                 from lab.api.clients import GPTSoVITSClient, GPTSoVITSRequest
 
                 gpt_sovits_client = GPTSoVITSClient()
@@ -312,7 +312,7 @@ class TTSTaskManager:
                         gpt_sovits_client.last_error or "unknown error",
                     )
                     return None
-            elif lab_settings.agent.speaker_model == "qwen_tts":
+            elif lab_settings.agent.tts.provider == "qwen_tts":
                 from lab.api.clients import QwenTTSClient, QwenTTSRequest
 
                 qwen_tts_client = QwenTTSClient()
@@ -331,7 +331,7 @@ class TTSTaskManager:
                     )
                     return None
             else:
-                logger.error(f"Unsupported speaker model: {lab_settings.agent.speaker_model}")
+                logger.error(f"Unsupported TTS provider: {lab_settings.agent.tts.provider}")
                 return None
             audio_path = (
                 cache_dir / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid4())[:8]}.{response['audio_type']}"

@@ -10,7 +10,7 @@ QwenTTSModelName = Literal["0.6b", "1.7b"]
 class QwenTTSSettings(BaseModel):
     model_name: Annotated[
         QwenTTSModelName,
-        Field("1.7b", title="Qwen-TTS model name"),
+        Field("0.6b", title="Qwen-TTS model name"),
     ]
     model_0_6b_path: Annotated[
         str,
@@ -22,7 +22,7 @@ class QwenTTSSettings(BaseModel):
     ]
     device: Annotated[
         str,
-        Field("", title="Qwen-TTS device (empty = auto detect)"),
+        Field("cuda", title="Qwen-TTS device (empty = auto detect)"),
     ]
     warmup_cuda_graphs: Annotated[
         bool,

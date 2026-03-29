@@ -44,7 +44,6 @@ enable_tool = true
 translate_provider = "llm"
 user_lang = "ZH"
 speaker_lang = "ZH"
-speaker_model = "gpt_sovits"
 faster_first_response = false
 max_vision_concurrency = 4
 require_detailed = true
@@ -85,11 +84,14 @@ api_key = ""
 model_path = "./models/qwen2.5-0.5b-instruct-q8_0.gguf"
 n_gpu_layers = 0
 
+[agent.tts]
+provider = "gpt_sovits"
+
 [agent.qwen_tts]
-model_name = "1.7b"
+model_name = "0.6b"
 model_0_6b_path = "./models/Qwen3-TTS-12Hz-0.6B-Base"
 model_1_7b_path = "./models/Qwen3-TTS-12Hz-1.7B-Base"
-device = ""
+device = "cuda"
 warmup_cuda_graphs = true
 
 [local_embedding]

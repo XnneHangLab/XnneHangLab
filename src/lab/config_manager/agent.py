@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Annotated, Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -8,6 +9,7 @@ from lab.config_manager.qwen_tts import QwenTTSSettings
 
 LLM_Provider = str
 TranslateProvider = Literal["llm", "deeplx"]
+TTSProvider = Literal["gpt_sovits", "qwen_tts"]
 
 
 class ChatModelSetting(BaseModel):
@@ -130,7 +132,45 @@ class TranslateSettings(BaseModel):
     llm: Annotated[LLMTranslateSetting, Field(LLMTranslateSetting())]  # pyright: ignore[reportCallIssue]
 
 
+class TTSSettings(BaseModel):
+    provider: Annotated[
+        TTSProvider,
+        Field(
+            "gpt_sovits",
+            title="TTS Provider",
+            description="Can be overridden by the TTS_PROVIDER environment variable.",
+        ),
+    ]
+
+
 class AgentSettings(BaseModel):
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_tts_shape(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+
+        raw = dict(cast("dict[str, Any]", value))
+        raw_tts_value = raw.get("tts")
+        raw_tts: dict[str, Any]
+        if isinstance(raw_tts_value, dict):
+            raw_tts_map = cast("dict[object, Any]", raw_tts_value)
+            raw_tts = {str(key): value for key, value in raw_tts_map.items()}
+        else:
+            raw_tts = {}
+
+        if "provider" not in raw_tts and isinstance(raw.get("speaker_model"), str):
+            raw_tts = {**raw_tts, "provider": raw["speaker_model"]}
+
+        env_provider = os.environ.get("TTS_PROVIDER", "").strip()
+        if env_provider:
+            raw_tts = {**raw_tts, "provider": env_provider}
+
+        if raw_tts:
+            raw["tts"] = raw_tts
+
+        return raw
+
     chat_model: Annotated[ChatModelSetting, Field(ChatModelSetting())]  # pyright: ignore[reportCallIssue]
     vision_model: Annotated[VisionModelSetting, Field(VisionModelSetting())]  # pyright: ignore[reportCallIssue]
     enable_tool: Annotated[bool, Field(True, title="Enable Tool Calling (BuiltinTool)")]
@@ -140,10 +180,7 @@ class AgentSettings(BaseModel):
     translate: Annotated[TranslateSettings, Field(TranslateSettings())]  # pyright: ignore[reportCallIssue]
     user_lang: Annotated[Literal["ZH", "EN", "JA"], Field("ZH", title="User Language")]
     speaker_lang: Annotated[Literal["ZH", "EN", "JA"], Field("ZH", title="Speaker Language")]
-    speaker_model: Annotated[
-        Literal["gpt_sovits", "qwen_tts"],
-        Field("gpt_sovits", title="Speaker Model"),
-    ]
+    tts: Annotated[TTSSettings, Field(TTSSettings())]  # pyright: ignore[reportCallIssue]
     qwen_tts: Annotated[QwenTTSSettings, Field(QwenTTSSettings())]  # pyright: ignore[reportCallIssue]
     faster_first_response: Annotated[bool, Field(False, title="Faster First Response")]
     max_vision_concurrency: Annotated[
@@ -193,6 +230,14 @@ class AgentSettings(BaseModel):
             if normalized and not self.llm.has_provider(normalized):
                 raise ValueError(f"Unknown LLM provider reference: {field_name}.llm_provider={provider_name}")
         return self
+
+    @property
+    def speaker_model(self) -> TTSProvider:
+        return self.tts.provider
+
+    @speaker_model.setter
+    def speaker_model(self, value: TTSProvider) -> None:
+        self.tts.provider = value
 
 
 def main() -> None:

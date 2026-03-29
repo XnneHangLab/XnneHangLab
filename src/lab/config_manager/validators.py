@@ -282,13 +282,13 @@ def _check_asr_provider_package_match(settings: XnneHangLabSettings) -> str | No
 
 
 def _check_qwen_tts_package_match(settings: XnneHangLabSettings) -> str | None:
-    if settings.agent.speaker_model != "qwen_tts":
+    if settings.agent.tts.provider != "qwen_tts":
         return None
     if settings.package.qwen_tts:
         return None
     return (
         " [package]\n"
-        ' Current [agent].speaker_model = "qwen_tts", but package.qwen_tts = false\n'
+        ' Current [agent.tts].provider = "qwen_tts", but package.qwen_tts = false\n'
         " -> Set qwen_tts = true under [package], then run `just install-qwen-tts`"
     )
 
