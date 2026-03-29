@@ -11,12 +11,13 @@ from loguru import logger
 from pydantic import BaseModel, ValidationError
 
 from lab.config_manager import TranslateProvider, XnneHangLabSettings, load_settings_file, write_settings_file
-from lab.config_manager.agent import LLMProviderSetting
+from lab.config_manager.agent import LLMProviderSetting, TTSProvider
 
 ApiFormat = Literal["chat_completion"]
 EmbeddingPoolingType = Literal["mean", "cls", "last"]
 ALLOWED_API_FORMATS: tuple[ApiFormat, ...] = ("chat_completion",)
 ALLOWED_EMBEDDING_POOLING_TYPES: tuple[EmbeddingPoolingType, ...] = ("mean", "cls", "last")
+ALLOWED_TTS_PROVIDERS: tuple[TTSProvider, ...] = ("gpt_sovits", "qwen_tts")
 LLM_PROVIDERS_ENV_KEY = "LLM_PROVIDERS_JSON"
 
 
@@ -76,6 +77,19 @@ def validate_provider_name(value: str, available_names: set[str], env_key_name: 
         return normalized
     raise ValueError(
         f"Invalid {env_key_name}={value!r}, available providers={sorted(available_names)}"
+    )
+
+
+def is_tts_provider(value: str) -> TypeGuard[TTSProvider]:
+    return value in ALLOWED_TTS_PROVIDERS
+
+
+def validate_tts_provider(value: str, env_key_name: str) -> TTSProvider:
+    normalized = value.strip()
+    if is_tts_provider(normalized):
+        return normalized
+    raise ValueError(
+        f"Invalid {env_key_name}={value!r}, available TTS providers={list(ALLOWED_TTS_PROVIDERS)}"
     )
 
 
@@ -216,6 +230,11 @@ def main() -> None:
         )
     if "VISION_MODEL_NAME" in os.environ:
         settings.agent.vision_model.llm_model_name = os.environ.get("VISION_MODEL_NAME", "").strip()
+    if "TTS_PROVIDER" in os.environ:
+        settings.agent.tts.provider = validate_tts_provider(
+            os.environ.get("TTS_PROVIDER", ""),
+            "TTS_PROVIDER",
+        )
 
     if "LOCAL_EMBEDDING_MODEL_PATH" in os.environ:
         settings.local_embedding.model_path = os.environ.get("LOCAL_EMBEDDING_MODEL_PATH", "").strip()
@@ -256,6 +275,7 @@ def main() -> None:
     logger.info("agent.chat_model.support_vision: {}", settings.agent.chat_model.support_vision)
     logger.info("agent.vision_model.llm_provider: {}", settings.agent.vision_model.llm_provider)
     logger.info("agent.vision_model.llm_model_name: {}", settings.agent.vision_model.llm_model_name)
+    logger.info("agent.tts.provider: {}", settings.agent.tts.provider)
     logger.info("local_embedding.model_path: {}", settings.local_embedding.model_path)
     logger.info("local_embedding.pooling_type: {}", settings.local_embedding.pooling_type)
     logger.info("local_embedding.n_gpu_layers: {}", settings.local_embedding.n_gpu_layers)

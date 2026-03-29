@@ -517,3 +517,12 @@ gsv-batch-prune input='data/gsv_batch_input.txt' output_dir='output/gsv_batch' s
 
 gsv-batch-help:
   uv run python scripts/gsv_batch_generate.py --help
+
+qwen-tts-batch input='data/qwen_tts_batch_input.txt' output_dir='output/qwen_tts_batch' server='http://127.0.0.1:12393' profile='' emotion='default' ref_audio_path='' ref_text='':
+  uv run python scripts/qwen_tts_batch_generate.py --input {{ input }} --output-dir {{ output_dir }} --server {{ server }} {{ if profile != '' { '--profile ' + profile } else { '' } }} {{ if emotion != '' { '--emotion ' + emotion } else { '' } }} {{ if ref_audio_path != '' { '--ref-audio-path ' + ref_audio_path } else { '' } }} {{ if ref_text != '' { '--ref-text ' + ref_text } else { '' } }}
+
+qwen-tts-batch-prune input='data/qwen_tts_batch_input.txt' output_dir='output/qwen_tts_batch' server='http://127.0.0.1:12393' profile='' emotion='default' ref_audio_path='' ref_text='':
+  uv run python scripts/qwen_tts_batch_generate.py --input {{ input }} --output-dir {{ output_dir }} --server {{ server }} --prune-stale {{ if profile != '' { '--profile ' + profile } else { '' } }} {{ if emotion != '' { '--emotion ' + emotion } else { '' } }} {{ if ref_audio_path != '' { '--ref-audio-path ' + ref_audio_path } else { '' } }} {{ if ref_text != '' { '--ref-text ' + ref_text } else { '' } }}
+
+qwen-tts-batch-help:
+  uv run python scripts/qwen_tts_batch_generate.py --help
