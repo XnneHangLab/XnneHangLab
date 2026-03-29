@@ -288,7 +288,7 @@ async def wait_for_frontend_playback_completion(
         response_filter=(lambda message: message.get("turn_id") == turn_id) if turn_id else None,
     )
 
-    logger.info(f"😎👍✅ Conversation Chain {session_emoji} completed!")
+
 def cleanup_conversation(tts_manager: TTSTaskManager, session_emoji: str) -> None:
     """Clean up conversation resources"""
     tts_manager.clear()
