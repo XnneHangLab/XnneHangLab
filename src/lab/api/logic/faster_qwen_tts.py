@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import gc
 import io
 import json
 import os
@@ -16,41 +17,84 @@ from fastapi import HTTPException
 from loguru import logger
 from numpy.typing import NDArray
 
+from lab.config_manager import XnneHangLabSettings, load_settings_file
+
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-DEFAULT_MODEL_NAME = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
+    from lab.config_manager.qwen_tts import QwenTTSModelName
+
 DEFAULT_SAMPLE_RATE = 24000  # https://github.com/andimarafioti/faster-qwen3-tts/issues/50
+DEFAULT_MODEL_SOURCES = {
+    "0.6b": "Qwen/Qwen3-TTS-12Hz-0.6B-Base",
+    "1.7b": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+}
 
 Float32Array = NDArray[np.float32]
 
 _tts_logger = logger.bind(group="tts")
 _qwen_tts_engine: Any | None = None
+_loaded_model_name: QwenTTSModelName | None = None
+_loaded_model_source: str | None = None
 _sample_rate: int = DEFAULT_SAMPLE_RATE
 _model_lock = threading.Lock()
 
 
-def resolve_model_name() -> str:
-    """解析模型来源：环境变量 > 本地目录 > HuggingFace 模型 ID。"""
-    if env_model := os.environ.get("XNNEHANG_QWEN_TTS_MODEL", "").strip():
-        return env_model
-
-    local_candidates = [
-        Path("./models/Qwen3-TTS-12Hz-1.7B-Base"),
-        Path("./models/Qwen3-TTS-1.7B-Base"),
-        Path("./models/Qwen/Qwen3-TTS-12Hz-1.7B-Base"),
-        Path("./models/Qwen/Qwen3-TTS-1.7B-Base"),
-    ]
-    for candidate in local_candidates:
-        if candidate.exists():
-            return str(candidate.resolve())
-
-    return DEFAULT_MODEL_NAME
+def _get_qwen_tts_settings() -> XnneHangLabSettings:
+    return load_settings_file("lab.toml", XnneHangLabSettings)
 
 
-def _resolve_device() -> str:
+def normalize_qwen_tts_model_name(model_name: str) -> QwenTTSModelName:
+    normalized = model_name.strip().lower()
+    aliases = {
+        "0.6b": "0.6b",
+        "0.6": "0.6b",
+        "qwen3-tts-12hz-0.6b-base": "0.6b",
+        "qwen/qwen3-tts-12hz-0.6b-base": "0.6b",
+        "1.7b": "1.7b",
+        "1.7": "1.7b",
+        "qwen3-tts-12hz-1.7b-base": "1.7b",
+        "qwen/qwen3-tts-12hz-1.7b-base": "1.7b",
+    }
+    resolved = aliases.get(normalized)
+    if resolved is None:
+        raise RuntimeError(f"Unsupported Qwen-TTS model: {model_name}")
+    return cast("QwenTTSModelName", resolved)
+
+
+def get_configured_qwen_tts_model_name(settings: XnneHangLabSettings | None = None) -> QwenTTSModelName:
+    return (settings or _get_qwen_tts_settings()).agent.qwen_tts.model_name
+
+
+def get_qwen_tts_model_path(model_name: QwenTTSModelName, settings: XnneHangLabSettings | None = None) -> str:
+    qwen_tts_settings = (settings or _get_qwen_tts_settings()).agent.qwen_tts
+    if model_name == "0.6b":
+        return qwen_tts_settings.model_0_6b_path
+    return qwen_tts_settings.model_1_7b_path
+
+
+def _resolve_model_source(model_name: QwenTTSModelName, settings: XnneHangLabSettings) -> str:
+    configured_path = get_qwen_tts_model_path(model_name, settings).strip()
+    if configured_path:
+        resolved_path = Path(configured_path)
+        if not resolved_path.is_absolute():
+            resolved_path = Path(settings.root.root_dir) / resolved_path
+        if not resolved_path.exists():
+            raise FileNotFoundError(f"Qwen-TTS model path does not exist for model '{model_name}': {resolved_path}")
+        return str(resolved_path.resolve())
+
+    legacy_env_model = os.environ.get("XNNEHANG_QWEN_TTS_MODEL", "").strip()
+    if legacy_env_model:
+        return legacy_env_model
+
+    return DEFAULT_MODEL_SOURCES[model_name]
+
+
+def _resolve_device(settings: XnneHangLabSettings | None = None) -> str:
     if device := os.environ.get("XNNEHANG_QWEN_TTS_DEVICE", "").strip():
         return device
+    if settings is not None and settings.agent.qwen_tts.device.strip():
+        return settings.agent.qwen_tts.device.strip()
 
     try:
         import torch
@@ -60,55 +104,133 @@ def _resolve_device() -> str:
         return "cpu"
 
 
-def _init_engine() -> Any:
-    """初始化 faster-qwen3-tts 引擎（全局单例）。"""
-    global _qwen_tts_engine, _sample_rate
-    if _qwen_tts_engine is not None:
-        return _qwen_tts_engine
+def _release_engine() -> None:
+    global _qwen_tts_engine, _loaded_model_name, _loaded_model_source
 
+    old_engine = _qwen_tts_engine
+    _qwen_tts_engine = None
+    _loaded_model_name = None
+    _loaded_model_source = None
+    if old_engine is not None:
+        del old_engine
+
+    gc.collect()
     try:
-        from faster_qwen3_tts import FasterQwen3TTS
-    except Exception as exc:  # pragma: no cover
-        raise RuntimeError("faster-qwen3-tts is not installed") from exc
+        import torch
 
-    model_name = resolve_model_name()
-    device = _resolve_device()
-    _tts_logger.info(f"qwen-tts model source: {model_name}")
-    _tts_logger.info(f"qwen-tts model device: {device}")
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            ipc_collect = getattr(torch.cuda, "ipc_collect", None)
+            if callable(ipc_collect):
+                ipc_collect()
+    except Exception:
+        pass
 
-    kwargs: dict[str, Any] = {"device": device}
-    if device == "cuda":
+
+def get_qwen_tts_status() -> dict[str, Any]:
+    settings = _get_qwen_tts_settings()
+    configured_model = get_configured_qwen_tts_model_name(settings)
+    return {
+        "loaded": _qwen_tts_engine is not None,
+        "configured_model": configured_model,
+        "loaded_model": _loaded_model_name,
+        "loaded_model_matches_config": _qwen_tts_engine is not None and _loaded_model_name == configured_model,
+        "loaded_model_source": _loaded_model_source,
+        "sample_rate": _sample_rate,
+        "device": _resolve_device(settings),
+    }
+
+
+def load_qwen_tts_model(
+    model_name: QwenTTSModelName | None = None,
+    *,
+    force_reload: bool = False,
+) -> dict[str, Any]:
+    global _qwen_tts_engine, _loaded_model_name, _loaded_model_source, _sample_rate
+
+    settings = _get_qwen_tts_settings()
+    if not settings.package.qwen_tts:
+        raise RuntimeError("Qwen-TTS is disabled in lab.toml")
+
+    target_model = model_name or get_configured_qwen_tts_model_name(settings)
+
+    with _model_lock:
+        if _qwen_tts_engine is not None and _loaded_model_name == target_model and not force_reload:
+            return get_qwen_tts_status()
+        if _qwen_tts_engine is not None:
+            _tts_logger.info(
+                f"releasing qwen-tts engine before loading model={target_model} "
+                f"(current={_loaded_model_name})"
+            )
+            _release_engine()
+
         try:
-            import torch
+            from faster_qwen3_tts import FasterQwen3TTS
+        except Exception as exc:  # pragma: no cover
+            raise RuntimeError("faster-qwen3-tts is not installed") from exc
 
-            kwargs["dtype"] = torch.bfloat16
-        except Exception:
-            pass
+        model_source = _resolve_model_source(target_model, settings)
+        device = _resolve_device(settings)
+        _tts_logger.info(f"qwen-tts load start: model={target_model}, source={model_source}, device={device}")
 
-    _qwen_tts_engine = FasterQwen3TTS.from_pretrained(model_name, **kwargs)
+        kwargs: dict[str, Any] = {"device": device}
+        if device == "cuda":
+            try:
+                import torch
 
-    warmup_fn = getattr(_qwen_tts_engine, "_warmup", None)
-    if callable(warmup_fn):
-        try:
-            _tts_logger.info("warming up qwen-tts model (cuda graphs)...")
-            warmup_fn(prefill_len=100)
-            _tts_logger.info("qwen-tts warmup done")
-        except Exception:
-            _tts_logger.warning("qwen-tts warmup failed, continue without warmup")
+                kwargs["dtype"] = torch.bfloat16
+            except Exception:
+                pass
 
-    _sample_rate = DEFAULT_SAMPLE_RATE
+        _qwen_tts_engine = FasterQwen3TTS.from_pretrained(model_source, **kwargs)
 
-    _tts_logger.info(f"faster-qwen-tts model initialized. sample_rate={_sample_rate}")
-    return _qwen_tts_engine
+        warmup_fn = getattr(_qwen_tts_engine, "_warmup", None)
+        if settings.agent.qwen_tts.warmup_cuda_graphs and device == "cuda" and callable(warmup_fn):
+            try:
+                _tts_logger.info("warming up qwen-tts model (cuda graphs)...")
+                warmup_fn(prefill_len=100)
+                _tts_logger.info("qwen-tts warmup done")
+            except Exception:
+                _tts_logger.warning("qwen-tts warmup failed, continue without warmup")
+
+        _sample_rate = DEFAULT_SAMPLE_RATE
+        _loaded_model_name = target_model
+        _loaded_model_source = model_source
+        _tts_logger.info(f"qwen-tts load complete: model={target_model}, sample_rate={_sample_rate}")
+
+    return get_qwen_tts_status()
 
 
 def init_qwen_tts_model() -> None:
-    _init_engine()
+    load_qwen_tts_model()
+
+
+def reload_qwen_tts_model(model_name: QwenTTSModelName | None = None) -> dict[str, Any]:
+    return load_qwen_tts_model(model_name=model_name, force_reload=True)
 
 
 def get_qwen_tts_model() -> Any:
+    settings = _get_qwen_tts_settings()
+    if not settings.package.qwen_tts:
+        raise HTTPException(status_code=503, detail="Qwen-TTS is disabled in lab.toml")
+
+    configured_model = get_configured_qwen_tts_model_name(settings)
     if _qwen_tts_engine is None:
-        raise HTTPException(status_code=503, detail="Qwen-TTS model not initialized")
+        raise HTTPException(
+            status_code=503,
+            detail=f"Qwen-TTS model '{configured_model}' is not loaded. Call /tts/qwen-tts/load first.",
+        )
+
+    if _loaded_model_name != configured_model:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"Configured Qwen-TTS model '{configured_model}' is not loaded. "
+                f"Currently loaded model: '{_loaded_model_name}'. "
+                "Call /tts/qwen-tts/load or /tts/qwen-tts/reload."
+            ),
+        )
+
     return _qwen_tts_engine
 
 
@@ -117,9 +239,6 @@ def get_sample_rate() -> int:
 
 
 def _as_float32_mono_array(value: Any) -> Float32Array:
-    """
-    把任意输入规整成 float32 一维数组。
-    """
     arr = np.asarray(value, dtype=np.float32).squeeze()
     return arr
 
@@ -129,7 +248,6 @@ def _empty_float32() -> Float32Array:
 
 
 def _to_wav_chunk(pcm: Float32Array, sample_rate: int) -> bytes:
-    """把 float32 音频写成完整独立 WAV bytes。"""
     buf = io.BytesIO()
     sf.write(buf, pcm, sample_rate, format="WAV", subtype="PCM_16")  # type: ignore[reportUnknownMemberType]
     return buf.getvalue()
@@ -141,7 +259,6 @@ def _to_wav_b64(pcm: Float32Array, sample_rate: int) -> str:
 
 
 def _concat_audio(audio_list: Any) -> Float32Array:
-    """把多段音频拼接为一段 float32。"""
     if isinstance(audio_list, np.ndarray):
         return _as_float32_mono_array(audio_list)
 
@@ -159,12 +276,10 @@ def _concat_audio(audio_list: Any) -> Float32Array:
     if not parts:
         return _empty_float32()
 
-    concatenated = np.concatenate(parts)
-    return concatenated
+    return np.concatenate(parts)
 
 
 def _to_wav_bytes(pcm: Float32Array, sample_rate: int) -> bytes:
-    """非流式：生成完整 WAV。"""
     return _to_wav_chunk(pcm, sample_rate)
 
 
@@ -174,7 +289,6 @@ def _resolve_ref(ref_audio: Path | None, ref_text: str | None) -> tuple[str | No
 
 
 def synthesize_once(*, text: str, ref_audio: Path | None, ref_text: str | None) -> bytes:
-    """非流式一次性合成，返回完整 WAV bytes。"""
     model = get_qwen_tts_model()
     ref_audio_str, ref_text_str = _resolve_ref(ref_audio, ref_text)
 
@@ -203,11 +317,6 @@ async def synthesize_stream(
     ref_text: str | None,
     chunk_size: int = 8,
 ) -> AsyncIterator[str]:
-    """
-    流式合成：返回 SSE 文本事件。
-    每个 chunk 都是一个 JSON payload，audio_b64 是完整独立 WAV。
-    完全对齐官方 demo 的传输思路，而不是直接输出 raw wav byte stream。
-    """
     model = get_qwen_tts_model()
     ref_audio_str, ref_text_str = _resolve_ref(ref_audio, ref_text)
 

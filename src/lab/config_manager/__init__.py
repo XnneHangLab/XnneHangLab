@@ -14,6 +14,7 @@ from .config import XnneHangLabSettings, get_setting_title, load_settings_file, 
 from .embedding import LocalEmbeddingSetting
 from .package import PackagesSettings
 from .qwen_asr import QwenASRSettings
+from .qwen_tts import QwenTTSSettings
 from .sherpa_asr import SherpaASRSettings
 
 
@@ -27,6 +28,7 @@ __all__ = [
     "AudioRecognizeSettings",
     "SherpaASRSettings",
     "QwenASRSettings",
+    "QwenTTSSettings",
     "load_settings_file",
     "write_settings_file",
     "get_setting_title",

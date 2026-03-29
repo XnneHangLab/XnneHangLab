@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 from typing import Literal, TypeGuard, cast
 
 from dotenv import load_dotenv
@@ -11,12 +12,13 @@ from loguru import logger
 from pydantic import BaseModel, ValidationError
 
 from lab.config_manager import TranslateProvider, XnneHangLabSettings, load_settings_file, write_settings_file
-from lab.config_manager.agent import LLMProviderSetting
+from lab.config_manager.agent import LLMProviderSetting, TTSProvider
 
 ApiFormat = Literal["chat_completion"]
 EmbeddingPoolingType = Literal["mean", "cls", "last"]
 ALLOWED_API_FORMATS: tuple[ApiFormat, ...] = ("chat_completion",)
 ALLOWED_EMBEDDING_POOLING_TYPES: tuple[EmbeddingPoolingType, ...] = ("mean", "cls", "last")
+ALLOWED_TTS_PROVIDERS: tuple[TTSProvider, ...] = ("gpt_sovits", "qwen_tts")
 LLM_PROVIDERS_ENV_KEY = "LLM_PROVIDERS_JSON"
 
 
@@ -74,14 +76,22 @@ def validate_provider_name(value: str, available_names: set[str], env_key_name: 
     normalized = value.strip()
     if normalized in available_names:
         return normalized
-    logger.warning(
-        "Invalid %s=%r, available providers=%s, fallback=%r",
-        env_key_name,
-        value,
-        sorted(available_names),
-        fallback,
+    raise ValueError(
+        f"Invalid {env_key_name}={value!r}, available providers={sorted(available_names)}"
     )
-    return fallback
+
+
+def is_tts_provider(value: str) -> TypeGuard[TTSProvider]:
+    return value in ALLOWED_TTS_PROVIDERS
+
+
+def validate_tts_provider(value: str, env_key_name: str) -> TTSProvider:
+    normalized = value.strip()
+    if is_tts_provider(normalized):
+        return normalized
+    raise ValueError(
+        f"Invalid {env_key_name}={value!r}, available TTS providers={list(ALLOWED_TTS_PROVIDERS)}"
+    )
 
 
 def mask_api_key(api_key: str) -> str:
@@ -182,7 +192,7 @@ def merge_provider_patches(
 
 
 def main() -> None:
-    load_dotenv()
+    load_dotenv(dotenv_path=Path.cwd() / ".env")
     settings = load_settings_file("lab.toml", XnneHangLabSettings)
 
     provider_patches = _parse_provider_env_json()
@@ -221,6 +231,11 @@ def main() -> None:
         )
     if "VISION_MODEL_NAME" in os.environ:
         settings.agent.vision_model.llm_model_name = os.environ.get("VISION_MODEL_NAME", "").strip()
+    if "TTS_PROVIDER" in os.environ:
+        settings.agent.tts.provider = validate_tts_provider(
+            os.environ.get("TTS_PROVIDER", ""),
+            "TTS_PROVIDER",
+        )
 
     if "LOCAL_EMBEDDING_MODEL_PATH" in os.environ:
         settings.local_embedding.model_path = os.environ.get("LOCAL_EMBEDDING_MODEL_PATH", "").strip()
@@ -248,9 +263,9 @@ def main() -> None:
         settings.package.qwen_asr = value
 
     for provider in settings.agent.llm.providers:
-        logger.info("llm.providers[%s].llm_api_key: %s", provider.name, mask_api_key(provider.llm_api_key))
-        logger.info("llm.providers[%s].llm_base_url: %s", provider.name, provider.llm_base_url)
-        logger.info("llm.providers[%s].api_format: %s", provider.name, provider.api_format)
+        logger.info("llm.providers[{}].llm_api_key: {}", provider.name, mask_api_key(provider.llm_api_key))
+        logger.info("llm.providers[{}].llm_base_url: {}", provider.name, provider.llm_base_url)
+        logger.info("llm.providers[{}].api_format: {}", provider.name, provider.api_format)
 
     logger.info("agent.translate.deeplx.api_key: {}", mask_api_key(settings.agent.translate.deeplx.api_key))
     logger.info("agent.translate_provider: {}", settings.agent.translate_provider)
@@ -261,6 +276,7 @@ def main() -> None:
     logger.info("agent.chat_model.support_vision: {}", settings.agent.chat_model.support_vision)
     logger.info("agent.vision_model.llm_provider: {}", settings.agent.vision_model.llm_provider)
     logger.info("agent.vision_model.llm_model_name: {}", settings.agent.vision_model.llm_model_name)
+    logger.info("agent.tts.provider: {}", settings.agent.tts.provider)
     logger.info("local_embedding.model_path: {}", settings.local_embedding.model_path)
     logger.info("local_embedding.pooling_type: {}", settings.local_embedding.pooling_type)
     logger.info("local_embedding.n_gpu_layers: {}", settings.local_embedding.n_gpu_layers)
