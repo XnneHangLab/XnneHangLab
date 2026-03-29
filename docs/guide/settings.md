@@ -49,7 +49,6 @@ lab.toml
 │   ├── translate_provider
 │   ├── user_lang
 │   ├── speaker_lang
-│   ├── speaker_model
 │   ├── faster_first_response
 │   ├── max_vision_concurrency
 │   ├── require_detailed
@@ -64,7 +63,15 @@ lab.toml
 │   │   └── vision_prompt
 │   ├── [agent.llm]
 │   │   └── [[agent.llm.providers]]
-│   └── [agent.translate.*]
+│   ├── [agent.translate.*]
+│   ├── [agent.tts]
+│   │   └── provider
+│   └── [agent.qwen_tts]
+│       ├── model_name
+│       ├── model_0_6b_path
+│       ├── model_1_7b_path
+│       ├── device
+│       └── warmup_cuda_graphs
 ├── [local_embedding]
 ├── [package]
 ├── [root]
@@ -135,7 +142,6 @@ root_dir = "D:\\tmp\\XnneHangLab"
 | translate_provider | 翻译引擎：`"llm"` / `"deeplx"` |
 | user_lang | 用户输入语言 |
 | speaker_lang | 语音输出语言 |
-| speaker_model | 当前语音模型，默认 `gpt_sovits` |
 | faster_first_response | 是否偏向更快首响 |
 | max_vision_concurrency | 最大视觉请求并发数 |
 | require_detailed | 是否要求更详细的视觉总结 |
@@ -151,7 +157,6 @@ enable_tool = true
 translate_provider = "llm"
 user_lang = "ZH"
 speaker_lang = "ZH"
-speaker_model = "gpt_sovits"
 faster_first_response = false
 max_vision_concurrency = 4
 require_detailed = true
@@ -161,6 +166,52 @@ interrupt_method = "user"
 memory_agent_profile = "profiles/baoqiao.toml"
 memory_chat_profile = "profiles/congyin.toml"
 ```
+
+### 🔊 [agent.tts]
+
+`[agent.tts]` 负责选择当前 Agent 使用哪个 TTS provider。旧字段 `agent.speaker_model` 仍可被读取并迁移，但保存后会统一写成 `[agent.tts]` 结构。
+
+```toml
+[agent.tts]
+provider = "gpt_sovits"
+```
+
+| 字段 | 说明 |
+|---|---|
+| provider | 当前 TTS 提供方，支持 `gpt_sovits` / `qwen_tts` |
+
+补充说明：
+
+- 旧配置里的 `speaker_model` 会迁移为 `agent.tts.provider`
+- 也可以通过环境变量 `TTS_PROVIDER` 临时覆写该值
+- 当前 `AgentSettings.speaker_model` 只是对 `agent.tts.provider` 的兼容属性
+
+### 🗣️ [agent.qwen_tts]
+
+`[agent.qwen_tts]` 负责 Qwen-TTS 自身的模型、路径与加载行为设置；只有当 `package.qwen_tts = true` 且 `agent.tts.provider = "qwen_tts"` 时，这组配置才会真正参与主 TTS 链路。
+
+```toml
+[agent.qwen_tts]
+model_name = "0.6b"
+model_0_6b_path = "./models/Qwen3-TTS-12Hz-0.6B-Base"
+model_1_7b_path = "./models/Qwen3-TTS-12Hz-1.7B-Base"
+device = "cuda"
+warmup_cuda_graphs = true
+```
+
+| 字段 | 说明 |
+|---|---|
+| model_name | 当前使用的 Qwen-TTS 模型规格，支持 `0.6b` / `1.7b` |
+| model_0_6b_path | Qwen3-TTS 0.6B 模型目录 |
+| model_1_7b_path | Qwen3-TTS 1.7B 模型目录 |
+| device | 推理设备；默认 `cuda`，留空时按实现自行检测 |
+| warmup_cuda_graphs | 加载后是否预热 CUDA graphs |
+
+使用建议：
+
+- 如果只部署 0.6B，可只保证 `model_0_6b_path` 可用
+- 如果切到 `model_name = "1.7b"`，需同步准备 `model_1_7b_path`
+- 启用 `package.qwen_tts` 后，配置校验会检查当前激活的 Qwen-TTS 模型路径是否存在
 
 ### 💬 [agent.chat_model]
 
