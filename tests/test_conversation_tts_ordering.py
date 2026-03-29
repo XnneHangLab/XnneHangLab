@@ -125,3 +125,38 @@ def test_clear_cancels_pending_tts_before_later_sentences_start(monkeypatch: pyt
     asyncio.run(run_test())
 
     assert started_texts == ["first"]
+
+
+def test_finalize_continues_when_frontend_playback_ack_times_out(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent_messages: list[dict[str, Any]] = []
+
+    async def websocket_send(payload: str) -> None:
+        sent_messages.append(json.loads(payload))
+
+    async def fake_wait_for_response(
+        client_uid: str,
+        message_type: str,
+        timeout: float | None = None,
+        response_filter: object | None = None,
+    ) -> None:
+        del client_uid, message_type, timeout, response_filter
+        return None
+
+    monkeypatch.setattr(conversation_utils_module.message_handler, "wait_for_response", fake_wait_for_response)
+
+    async def run_test() -> None:
+        manager = TTSTaskManager()
+        try:
+            await manager.speak("...", DisplayText("[tool]"), Actions(), None, websocket_send)
+            await finalize_conversation_turn(manager, websocket_send, "client-1", turn_id="turn-1")
+        finally:
+            manager.clear()
+
+    asyncio.run(run_test())
+
+    assert [message["type"] for message in sent_messages] == [
+        "audio",
+        "backend-synth-complete",
+        "force-new-message",
+        "control",
+    ]

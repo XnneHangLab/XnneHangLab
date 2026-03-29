@@ -108,3 +108,5 @@ docs/.vitepress/dist/
 QwenASRMiniTool-1.0.0
 Qwen3-ASR-1.7B-INT8-OpenVINO
 Qwen3-ASR-0.6B-INT8-OpenVINO
+
+dataset
