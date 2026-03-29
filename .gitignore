@@ -99,6 +99,7 @@ memory_bench/state/*
 memory_bench/conversations/
 # nested repos (workspace copies)
 Qwen3-TTS-12Hz-1.7B-Base
+Qwen3-TTS-12Hz-0.6B-Base
 
 # VitePress docs
 docs/node_modules/

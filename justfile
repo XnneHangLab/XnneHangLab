@@ -191,6 +191,7 @@ install-qwen-tts:
   uv lock
   uv sync
   uv run modelscope download --model Qwen/Qwen3-TTS-12Hz-1.7B-Base --local_dir ./models/Qwen3-TTS-12Hz-1.7B-Base
+  uv run modelscope download --model Qwen/Qwen3-TTS-12Hz-0.6B-Base --local_dir ./models/Qwen3-TTS-12Hz-0.6B-Base
 
 install-local-embedding model_dir='./models':
   uv lock
