@@ -4,6 +4,8 @@ from typing import Annotated, Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from lab.config_manager.qwen_tts import QwenTTSSettings
+
 LLM_Provider = str
 TranslateProvider = Literal["llm", "deeplx"]
 
@@ -138,7 +140,11 @@ class AgentSettings(BaseModel):
     translate: Annotated[TranslateSettings, Field(TranslateSettings())]  # pyright: ignore[reportCallIssue]
     user_lang: Annotated[Literal["ZH", "EN", "JA"], Field("ZH", title="User Language")]
     speaker_lang: Annotated[Literal["ZH", "EN", "JA"], Field("ZH", title="Speaker Language")]
-    speaker_model: Annotated[Literal["gpt_sovits"], Field("gpt_sovits", title="Speaker Model")]
+    speaker_model: Annotated[
+        Literal["gpt_sovits", "qwen_tts"],
+        Field("gpt_sovits", title="Speaker Model"),
+    ]
+    qwen_tts: Annotated[QwenTTSSettings, Field(QwenTTSSettings())]  # pyright: ignore[reportCallIssue]
     faster_first_response: Annotated[bool, Field(False, title="Faster First Response")]
     max_vision_concurrency: Annotated[
         int,

@@ -74,14 +74,9 @@ def validate_provider_name(value: str, available_names: set[str], env_key_name: 
     normalized = value.strip()
     if normalized in available_names:
         return normalized
-    logger.warning(
-        "Invalid %s=%r, available providers=%s, fallback=%r",
-        env_key_name,
-        value,
-        sorted(available_names),
-        fallback,
+    raise ValueError(
+        f"Invalid {env_key_name}={value!r}, available providers={sorted(available_names)}"
     )
-    return fallback
 
 
 def mask_api_key(api_key: str) -> str:
@@ -248,9 +243,9 @@ def main() -> None:
         settings.package.qwen_asr = value
 
     for provider in settings.agent.llm.providers:
-        logger.info("llm.providers[%s].llm_api_key: %s", provider.name, mask_api_key(provider.llm_api_key))
-        logger.info("llm.providers[%s].llm_base_url: %s", provider.name, provider.llm_base_url)
-        logger.info("llm.providers[%s].api_format: %s", provider.name, provider.api_format)
+        logger.info("llm.providers[{}].llm_api_key: {}", provider.name, mask_api_key(provider.llm_api_key))
+        logger.info("llm.providers[{}].llm_base_url: {}", provider.name, provider.llm_base_url)
+        logger.info("llm.providers[{}].api_format: {}", provider.name, provider.api_format)
 
     logger.info("agent.translate.deeplx.api_key: {}", mask_api_key(settings.agent.translate.deeplx.api_key))
     logger.info("agent.translate_provider: {}", settings.agent.translate_provider)

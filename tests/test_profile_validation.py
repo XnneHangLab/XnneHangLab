@@ -176,3 +176,14 @@ def test_validate_rejects_disabled_qwen_provider_selection(tmp_path: Path) -> No
 
     assert any('asr_model_provider = "qwen"' in err for err in errors)
     assert any("package.qwen_asr = false" in err for err in errors)
+
+
+def test_validate_rejects_disabled_qwen_tts_selection(tmp_path: Path) -> None:
+    settings = _base_settings(tmp_path)
+    settings.agent.speaker_model = "qwen_tts"
+    settings.package.qwen_tts = False
+
+    errors = validate_all(settings)
+
+    assert any('speaker_model = "qwen_tts"' in err for err in errors)
+    assert any("package.qwen_tts = false" in err for err in errors)

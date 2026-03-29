@@ -147,6 +147,13 @@ def _resolve_active_gpt_sovits_model_path(settings: XnneHangLabSettings) -> Path
     return Path(settings.root.root_dir) / "models" / "gptsovits" / character_name
 
 
+def _resolve_active_qwen_tts_model_path(settings: XnneHangLabSettings) -> Path | None:
+    model_name = settings.agent.qwen_tts.model_name
+    if model_name == "0.6b":
+        return _resolve_path(settings, settings.agent.qwen_tts.model_0_6b_path)
+    return _resolve_path(settings, settings.agent.qwen_tts.model_1_7b_path)
+
+
 def _check_nltk_data(settings: XnneHangLabSettings) -> str | None:
     """校验 `gpt_sovits` 所需的 NLTK 数据是否存在。
 
@@ -273,6 +280,17 @@ def _check_asr_provider_package_match(settings: XnneHangLabSettings) -> str | No
 
     return None
 
+
+def _check_qwen_tts_package_match(settings: XnneHangLabSettings) -> str | None:
+    if settings.agent.speaker_model != "qwen_tts":
+        return None
+    if settings.package.qwen_tts:
+        return None
+    return (
+        " [package]\n"
+        ' Current [agent].speaker_model = "qwen_tts", but package.qwen_tts = false\n'
+        " -> Set qwen_tts = true under [package], then run `just install-qwen-tts`"
+    )
 
 def _check_profiles(settings: XnneHangLabSettings) -> list[str]:
     """校验 profile 路径及其角色字段。
@@ -496,7 +514,7 @@ PACKAGE_RULES: list[PackageRule] = [
         models=[
             ModelRequirement(
                 name="Qwen3-TTS 模型 (Qwen3-TTS-12Hz-1.7B-Base)",
-                path_getter=lambda s: Path(s.root.root_dir) / "models" / "Qwen3-TTS-12Hz-1.7B-Base",
+                path_getter=_resolve_active_qwen_tts_model_path,
                 install_hint="just install-qwen-tts",
                 is_dir=True,
             ),
@@ -577,6 +595,10 @@ def validate_all(settings: XnneHangLabSettings) -> list[str]:
     asr_provider_err = _check_asr_provider_package_match(settings)
     if asr_provider_err:
         errors.append(asr_provider_err)
+
+    qwen_tts_err = _check_qwen_tts_package_match(settings)
+    if qwen_tts_err:
+        errors.append(qwen_tts_err)
 
     errors += _check_profiles(settings)
     errors += validate_packages(settings)

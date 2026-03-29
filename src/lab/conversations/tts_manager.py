@@ -312,6 +312,24 @@ class TTSTaskManager:
                         gpt_sovits_client.last_error or "unknown error",
                     )
                     return None
+            elif lab_settings.agent.speaker_model == "qwen_tts":
+                from lab.api.clients import QwenTTSClient, QwenTTSRequest
+
+                qwen_tts_client = QwenTTSClient()
+                ref_audio_path, ref_text = _require_ref_audio_and_text(character_config, emotion_keys)
+                response = await qwen_tts_client.asyncpost(
+                    QwenTTSRequest(
+                        text=text,
+                        ref_audio_path=ref_audio_path,
+                        ref_text=ref_text,
+                    )
+                )
+                if response is None:
+                    logger.error(
+                        "Failed to get a valid response from Qwen-TTS client: {}",
+                        qwen_tts_client.last_error or "unknown error",
+                    )
+                    return None
             else:
                 logger.error(f"Unsupported speaker model: {lab_settings.agent.speaker_model}")
                 return None

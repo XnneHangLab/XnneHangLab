@@ -282,27 +282,27 @@ async def lifespan(app: FastAPI):
         from lab.api.logic.sherpa_asr import load_sherpa_asr
 
         await _run_startup_step(
-            "⏳ 预加载 Sherpa-ONNX ASR/VAD 引擎...",
+            "Preloading Sherpa-ONNX ASR/VAD engines...",
             load_sherpa_asr,
-            success_message="✅ Sherpa-ONNX ASR/VAD 预加载完成 ({:.1f}s)",
+            success_message="Sherpa-ONNX ASR/VAD preload finished ({:.1f}s)",
         )
 
     if lab_settings.package.qwen_asr:
         from lab.api.logic.qwen_asr import preload_configured_qwen_asr_engines
 
         await _run_startup_step(
-            "⏳ 预加载 Qwen3-ASR 引擎...",
+            "Preloading Qwen3-ASR engines...",
             preload_configured_qwen_asr_engines,
             success_handler=_log_qwen_asr_startup_result,
         )
 
     if lab_settings.package.qwen_tts:
-        from lab.api.logic.faster_qwen_tts import init_qwen_tts_model
+        from lab.api.logic.faster_qwen_tts import load_qwen_tts_model
 
         await _run_startup_step(
-            "⏳ 初始化 faster-qwen-tts 后端...",
-            init_qwen_tts_model,
-            success_message="✅ faster-qwen-tts 后端初始化完成 ({:.1f}s)",
+            "Loading Qwen-TTS model...",
+            load_qwen_tts_model,
+            success_message="Qwen-TTS model loaded and warmed up ({:.1f}s)",
             step_logger=logger.bind(group="tts"),
         )
 
