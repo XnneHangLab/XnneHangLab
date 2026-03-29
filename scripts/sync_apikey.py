@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 from typing import Literal, TypeGuard, cast
 
 from dotenv import load_dotenv
@@ -191,7 +192,7 @@ def merge_provider_patches(
 
 
 def main() -> None:
-    load_dotenv()
+    load_dotenv(dotenv_path=Path.cwd() / ".env")
     settings = load_settings_file("lab.toml", XnneHangLabSettings)
 
     provider_patches = _parse_provider_env_json()

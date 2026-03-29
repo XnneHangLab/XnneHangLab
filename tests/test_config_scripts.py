@@ -94,6 +94,9 @@ api_format = "chat_completion"
         '{"name":"custom","llm_base_url":"https://custom.example/v1","llm_api_key":"sk-custom","api_format":"chat_completion"}'
         "]}",
     )
+    monkeypatch.delenv("VISION_MODEL_PROVIDER", raising=False)
+    monkeypatch.delenv("VISION_MODEL_NAME", raising=False)
+    monkeypatch.delenv("TTS_PROVIDER", raising=False)
     monkeypatch.setenv("CHAT_MODEL_PROVIDER", "custom")
     monkeypatch.setenv("CHAT_MODEL_NAME", "custom-chat")
 
