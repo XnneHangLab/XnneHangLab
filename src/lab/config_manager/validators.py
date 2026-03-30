@@ -293,6 +293,18 @@ def _check_qwen_tts_package_match(settings: XnneHangLabSettings) -> str | None:
     )
 
 
+def _check_gsv_lite_package_match(settings: XnneHangLabSettings) -> str | None:
+    if settings.agent.tts.provider != "gsv_lite":
+        return None
+    if settings.package.gsv_lite:
+        return None
+    return (
+        " [package]\n"
+        ' Current [agent.tts].provider = "gsv_lite", but package.gsv_lite = false\n'
+        " -> Set gsv_lite = true under [package], then run `uv sync --group gsv-lite`"
+    )
+
+
 def _check_profiles(settings: XnneHangLabSettings) -> list[str]:
     """校验 profile 路径及其角色字段。
 
@@ -511,6 +523,17 @@ PACKAGE_RULES: list[PackageRule] = [
         extra_checks=[_check_nltk_data],
     ),
     PackageRule(
+        package_name="gsv_lite",
+        models=[
+            ModelRequirement(
+                name="GSV-Lite character model directory",
+                path_getter=_resolve_active_gpt_sovits_model_path,
+                install_hint="just install-gsv-model",
+                is_dir=True,
+            ),
+        ],
+    ),
+    PackageRule(
         package_name="qwen_tts",
         models=[
             ModelRequirement(
@@ -600,6 +623,10 @@ def validate_all(settings: XnneHangLabSettings) -> list[str]:
     qwen_tts_err = _check_qwen_tts_package_match(settings)
     if qwen_tts_err:
         errors.append(qwen_tts_err)
+
+    gsv_lite_err = _check_gsv_lite_package_match(settings)
+    if gsv_lite_err:
+        errors.append(gsv_lite_err)
 
     errors += _check_profiles(settings)
     errors += validate_packages(settings)

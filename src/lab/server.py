@@ -307,6 +307,16 @@ async def lifespan(app: FastAPI):
             step_logger=logger.bind(group="tts"),
         )
 
+    if lab_settings.package.gsv_lite:
+        from lab.api.logic.gsv_lite import load_gsv_lite_model
+
+        await _run_startup_step(
+            "Loading GSV-Lite model...",
+            load_gsv_lite_model,
+            success_message="GSV-Lite model loaded and warmed up ({:.1f}s)",
+            step_logger=logger.bind(group="tts"),
+        )
+
     if lab_settings.package.llm_translate:
         from lab.api.logic.llm_translate import preload_configured_llm_translate_engine
 
@@ -541,6 +551,11 @@ class WebSocketServer:
             _include_router_with_log(
                 "faster-qwen-tts 端点",
                 lambda: self.app.include_router(import_module("lab.api.routes.faster_qwen_tts").router),
+            )
+        if lab_settings.package.gsv_lite:
+            _include_router_with_log(
+                "gsv-lite 端点",
+                lambda: self.app.include_router(import_module("lab.api.routes.gsv_lite").router),
             )
         if lab_settings.package.gpt_sovits:
             _include_router_with_log(

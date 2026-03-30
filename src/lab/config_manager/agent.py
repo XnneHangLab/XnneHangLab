@@ -9,7 +9,7 @@ from lab.config_manager.qwen_tts import QwenTTSSettings
 
 LLM_Provider = str
 TranslateProvider = Literal["llm", "deeplx"]
-TTSProvider = Literal["gpt_sovits", "qwen_tts"]
+TTSProvider = Literal["gpt_sovits", "gsv_lite", "qwen_tts"]
 
 
 class ChatModelSetting(BaseModel):

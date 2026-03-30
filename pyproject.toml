@@ -118,6 +118,10 @@ gpt_sovits = [
   "scipy>=1.16.0",
 ]
 
+gsv-lite = [
+  "gsv-tts-lite==0.3.8",
+]
+
 vtuber = [
   "socksio>=1.0.0",
   "chardet>=5.2.0",
@@ -151,7 +155,7 @@ qwen-tts = [
 ]
 
 [tool.uv]
-default-groups = ["base", "qwen-asr", "dev", "llama-cpp", "yutto-uiya", "tts_base", "gpt_sovits", "qwen-tts", "vtuber", "memory_bench", "sherpa-onnx"]
+default-groups = ["base", "qwen-asr", "dev", "llama-cpp", "yutto-uiya", "tts_base", "gpt_sovits", "gsv-lite", "qwen-tts", "vtuber", "memory_bench", "sherpa-onnx"]
 
 [tool.uv.workspace]
 members = ["packages/yutto-uiya","packages/todo/","packages/gpt_sovits","packages/Qwen3-ASR"]

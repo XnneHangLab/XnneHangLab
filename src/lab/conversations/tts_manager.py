@@ -319,6 +319,27 @@ class TTSTaskManager:
                         gpt_sovits_client.last_error or "unknown error",
                     )
                     return None
+            elif lab_settings.agent.tts.provider == "gsv_lite":
+                from lab.api.clients import GSVLiteClient, GSVLiteRequest
+
+                gsv_lite_client = GSVLiteClient()
+                ref_audio_path, ref_text = _require_ref_audio_and_text(character_config, emotion_keys)
+                response = await asyncio.wait_for(
+                    gsv_lite_client.asyncpost(
+                        GSVLiteRequest(
+                            text=text,
+                            ref_audio_path=ref_audio_path,
+                            ref_text=ref_text,
+                        )
+                    ),
+                    timeout=TTS_GENERATION_TIMEOUT_S,
+                )
+                if response is None:
+                    logger.error(
+                        "Failed to get a valid response from GSV-Lite client: {}",
+                        gsv_lite_client.last_error or "unknown error",
+                    )
+                    return None
             elif lab_settings.agent.tts.provider == "qwen_tts":
                 from lab.api.clients import QwenTTSClient, QwenTTSRequest
 
