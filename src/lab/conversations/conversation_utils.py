@@ -271,16 +271,16 @@ async def send_conversation_end_signal(
     logger.info(f"😎👍✅ Conversation Chain {session_emoji} completed!")
 
 
-PLAYBACK_COMPLETION_TIMEOUT_S = 10.0
+PLAYBACK_COMPLETION_TIMEOUT_S: float | None = None
 
 
 async def wait_for_frontend_playback_completion(
     client_uid: str,
     *,
     turn_id: str | None = None,
-    timeout: float = PLAYBACK_COMPLETION_TIMEOUT_S,
+    timeout: float | None = PLAYBACK_COMPLETION_TIMEOUT_S,
 ) -> dict[Any, Any] | None:
-    """Wait briefly for the frontend playback completion ack without blocking forever."""
+    """Wait for the frontend playback completion ack for the current turn."""
     return await message_handler.wait_for_response(
         client_uid,
         "frontend-playback-complete",

@@ -20,6 +20,7 @@ class AudioPayload(TypedDict):
     actions: ActionsDict | None
     forwarded: bool
     turn_id: str | None
+    tts_error: bool
 
 
 def _get_volume_by_chunks(audio: AudioSegment, chunk_length_ms: int) -> list[float]:
@@ -48,6 +49,7 @@ def prepare_audio_payload(
     chunk_length_ms: int = 20,
     forwarded: bool = False,
     turn_id: str | None = None,
+    tts_error: bool = False,
 ) -> AudioPayload:
     """
     Prepares the audio payload for sending to a broadcast endpoint.
@@ -76,6 +78,7 @@ def prepare_audio_payload(
             "actions": actions.to_dict() if actions else None,
             "forwarded": forwarded,
             "turn_id": turn_id,
+            "tts_error": tts_error,
         }
 
     try:
@@ -98,6 +101,7 @@ def prepare_audio_payload(
         "actions": actions.to_dict() if actions else None,
         "forwarded": forwarded,
         "turn_id": turn_id,
+        "tts_error": tts_error,
     }
 
 
