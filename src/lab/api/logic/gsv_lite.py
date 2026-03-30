@@ -3,11 +3,13 @@ from __future__ import annotations
 import gc
 import io
 import json
+import re
 import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import soundfile as sf
 from fastapi import HTTPException
 from loguru import logger
@@ -16,6 +18,11 @@ from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.profile.schema import Profile
 
 DEFAULT_SAMPLE_RATE = 32000
+_GSV_LITE_GPT_CACHE = [(1, 512), (1, 1024), (1, 2048), (4, 512), (4, 1024)]
+_GSV_LITE_SEGMENT_MAX_CHARS = 80
+_GSV_LITE_SEGMENT_SILENCE_S = 0.08
+_JAPANESE_CHAR_RE = re.compile(r"[\u3040-\u30ff\u4e00-\u9fff\uff66-\uff9f]")
+_GSV_LITE_MONKEY_PATCH_APPLIED = False
 
 _tts_logger = logger.bind(group="tts")
 _gsv_lite_engine: Any | None = None
@@ -179,6 +186,111 @@ def _release_engine() -> None:
         pass
 
 
+def _redistribute_japanese_word2ph(words: list[str], phone_count: int) -> dict[str, list[Any]]:
+    if phone_count <= 0:
+        return {"word": words[:1], "ph": [0] if words else []}
+
+    if not words:
+        return {"word": ["?"], "ph": [phone_count]}
+
+    if phone_count < len(words):
+        return {"word": ["".join(words)], "ph": [phone_count]}
+
+    base = phone_count // len(words)
+    extra = phone_count % len(words)
+    counts = [base + (1 if i < extra else 0) for i in range(len(words))]
+    return {"word": list(words), "ph": counts}
+
+
+def _repair_japanese_word2ph(word2ph: object, phone_count: int) -> dict[str, list[Any]]:
+    if not isinstance(word2ph, dict):
+        return _redistribute_japanese_word2ph([], phone_count)
+
+    raw_words = word2ph.get("word")
+    raw_counts = word2ph.get("ph")
+    if not isinstance(raw_words, list) or not isinstance(raw_counts, list):
+        return _redistribute_japanese_word2ph([], phone_count)
+
+    words = [str(word) for word in raw_words]
+    try:
+        counts = [max(int(count), 0) for count in raw_counts]
+    except Exception:
+        return _redistribute_japanese_word2ph(words, phone_count)
+
+    if not words or len(words) != len(counts):
+        return _redistribute_japanese_word2ph(words, phone_count)
+
+    diff = phone_count - sum(counts)
+    if diff == 0:
+        return {"word": words, "ph": counts}
+
+    indices = list(range(len(counts) - 1, -1, -1))
+    if diff > 0:
+        step = 0
+        while diff > 0:
+            counts[indices[step % len(indices)]] += 1
+            diff -= 1
+            step += 1
+        return {"word": words, "ph": counts}
+
+    remaining = -diff
+    step = 0
+    max_iterations = max(1, len(indices) * (remaining + 1))
+    while remaining > 0 and step < max_iterations:
+        idx = indices[step % len(indices)]
+        if counts[idx] > 1:
+            counts[idx] -= 1
+            remaining -= 1
+        step += 1
+
+    if remaining > 0:
+        return _redistribute_japanese_word2ph(words, phone_count)
+
+    return {"word": words, "ph": counts}
+
+
+def _apply_gsv_lite_monkey_patch() -> None:
+    global _GSV_LITE_MONKEY_PATCH_APPLIED
+
+    if _GSV_LITE_MONKEY_PATCH_APPLIED:
+        return
+
+    from gsv_tts.GPT_SoVITS.G2P.Japanese.japanese import JapaneseG2P
+
+    if getattr(JapaneseG2P.g2p, "_xnnehanglab_gsv_lite_patched", False):
+        _GSV_LITE_MONKEY_PATCH_APPLIED = True
+        return
+
+    original_g2p = JapaneseG2P.g2p
+
+    def patched_g2p(self: Any, norm_text: str, with_prosody: bool = True) -> tuple[list[str], dict[str, list[Any]]]:
+        phones, word2ph = original_g2p(self, norm_text, with_prosody=with_prosody)
+
+        try:
+            original_total = sum(int(count) for count in word2ph["ph"])
+        except Exception:
+            original_total = None
+
+        if original_total == len(phones):
+            return phones, word2ph
+
+        repaired = _repair_japanese_word2ph(word2ph, len(phones))
+        repaired_total = sum(repaired["ph"])
+        _tts_logger.warning(
+            "gsv-lite monkey patch repaired Japanese word2ph mismatch: text={!r}, phones={}, original_total={}, repaired_total={}",
+            norm_text,
+            len(phones),
+            original_total,
+            repaired_total,
+        )
+        return phones, repaired
+
+    setattr(patched_g2p, "_xnnehanglab_gsv_lite_patched", True)
+    JapaneseG2P.g2p = patched_g2p
+    _GSV_LITE_MONKEY_PATCH_APPLIED = True
+    _tts_logger.info("gsv-lite monkey patch applied: JapaneseG2P.g2p word2ph repair")
+
+
 def get_gsv_lite_status() -> dict[str, Any]:
     settings = _get_gsv_lite_settings()
     configured_character: str | None = None
@@ -235,6 +347,7 @@ def load_gsv_lite_model(*, force_reload: bool = False) -> dict[str, Any]:
             from gsv_tts import TTS
         except Exception as exc:  # pragma: no cover
             raise RuntimeError("gsv-tts-lite is not installed") from exc
+        _apply_gsv_lite_monkey_patch()
 
         _tts_logger.info(
             "gsv-lite load start: character={}, gpt={}, sovits={}, models_dir={}",
@@ -244,7 +357,7 @@ def load_gsv_lite_model(*, force_reload: bool = False) -> dict[str, Any]:
             target_spec.models_dir,
         )
 
-        engine = TTS(models_dir=str(target_spec.models_dir))
+        engine = TTS(models_dir=str(target_spec.models_dir), gpt_cache=_GSV_LITE_GPT_CACHE)
         engine.load_gpt_model(str(target_spec.gpt_path))
         engine.load_sovits_model(str(target_spec.sovits_path))
 
@@ -304,6 +417,155 @@ def get_sample_rate() -> int:
     return DEFAULT_SAMPLE_RATE
 
 
+def _should_retry_gsv_lite_text(exc: Exception, text: str) -> bool:
+    return isinstance(exc, AssertionError) and "length mismatch" in str(exc) and _JAPANESE_CHAR_RE.search(text) is not None
+
+
+def _normalize_gsv_lite_retry_text(text: str) -> str:
+    normalized = text.strip()
+    normalized = normalized.replace("......", "…").replace("...", "…")
+    normalized = normalized.translate(str.maketrans({"?": "？", "!": "！"}))
+
+    # Rare/literary kanji occasionally break the Japanese G2P alignment in gsv-tts-lite.
+    replacement_rules = (
+        ("洒れる", "こぼれる"),
+        ("洒れた", "こぼれた"),
+        ("洒れて", "こぼれて"),
+        ("洒れ", "こぼれ"),
+    )
+    for source, target in replacement_rules:
+        normalized = normalized.replace(source, target)
+
+    return normalized
+
+
+def _should_retry_gsv_lite_by_chunking(exc: Exception, text: str) -> bool:
+    message = str(exc)
+    return (
+        isinstance(exc, RuntimeError)
+        and "expanded size of the tensor" in message
+        and "existing size" in message
+        and len(text.strip()) > _GSV_LITE_SEGMENT_MAX_CHARS
+    )
+
+
+def _split_gsv_lite_long_text(text: str, *, max_chars: int = _GSV_LITE_SEGMENT_MAX_CHARS) -> list[str]:
+    normalized = "".join(text.split())
+    if len(normalized) <= max_chars:
+        return [normalized]
+
+    primary_parts = [part for part in re.split(r"(?<=[。！？!?…])", normalized) if part]
+    parts = primary_parts if len(primary_parts) > 1 else [part for part in re.split(r"(?<=[、，,])", normalized) if part]
+    if not parts:
+        parts = [normalized]
+
+    segments: list[str] = []
+    current = ""
+
+    def flush_segment(value: str) -> None:
+        stripped = value.strip()
+        if stripped:
+            segments.append(stripped)
+
+    for part in parts:
+        chunk = part.strip()
+        if not chunk:
+            continue
+
+        if len(chunk) > max_chars:
+            if current:
+                flush_segment(current)
+                current = ""
+
+            remaining = chunk
+            while len(remaining) > max_chars:
+                split_at = max(
+                    remaining.rfind("。", 0, max_chars),
+                    remaining.rfind("！", 0, max_chars),
+                    remaining.rfind("？", 0, max_chars),
+                    remaining.rfind("、", 0, max_chars),
+                    remaining.rfind("，", 0, max_chars),
+                    remaining.rfind(",", 0, max_chars),
+                )
+                if split_at <= 0:
+                    split_at = max_chars
+                else:
+                    split_at += 1
+                flush_segment(remaining[:split_at])
+                remaining = remaining[split_at:].strip()
+            current = remaining
+            continue
+
+        candidate = f"{current}{chunk}"
+        if current and len(candidate) > max_chars:
+            flush_segment(current)
+            current = chunk
+        else:
+            current = candidate
+
+    if current:
+        flush_segment(current)
+
+    return segments or [normalized]
+
+
+def _wav_bytes_from_audio(audio_data: np.ndarray, samplerate: int) -> bytes:
+    buf = io.BytesIO()
+    sf.write(buf, audio_data, samplerate, format="WAV", subtype="PCM_16")
+    return buf.getvalue()
+
+
+def _wav_bytes_from_clips(clips: list[Any], *, silence_s: float = _GSV_LITE_SEGMENT_SILENCE_S) -> bytes:
+    if not clips:
+        raise RuntimeError("gsv-lite clip list is empty")
+
+    samplerate = int(clips[0].samplerate)
+    arrays: list[np.ndarray] = []
+    silence_samples = max(int(samplerate * silence_s), 0)
+    silence = np.zeros(silence_samples, dtype=np.float32) if silence_samples else None
+
+    for i, clip in enumerate(clips):
+        clip_samplerate = int(clip.samplerate)
+        if clip_samplerate != samplerate:
+            raise RuntimeError(
+                f"gsv-lite clip samplerate mismatch: expected {samplerate}, got {clip_samplerate}"
+            )
+        arrays.append(np.asarray(clip.audio_data, dtype=np.float32))
+        if silence is not None and i < len(clips) - 1:
+            arrays.append(silence)
+
+    merged_audio = np.concatenate(arrays, axis=0) if len(arrays) > 1 else arrays[0]
+    return _wav_bytes_from_audio(merged_audio, samplerate)
+
+
+async def _infer_clip(
+    model: Any,
+    *,
+    text: str,
+    speaker_audio_path: Path,
+    ref_audio: Path,
+    prompt_text: str,
+    top_k: int,
+    top_p: float,
+    temperature: float,
+    repetition_penalty: float,
+    noise_scale: float,
+    speed: float,
+) -> Any:
+    return await model.infer_async(
+        spk_audio_path=str(speaker_audio_path),
+        prompt_audio_path=str(ref_audio),
+        prompt_audio_text=prompt_text,
+        text=text,
+        top_k=top_k,
+        top_p=top_p,
+        temperature=temperature,
+        repetition_penalty=repetition_penalty,
+        noise_scale=noise_scale,
+        speed=speed,
+    )
+
+
 async def synthesize_once(
     *,
     text: str,
@@ -332,19 +594,79 @@ async def synthesize_once(
     if not speaker_audio_path.exists():
         raise HTTPException(status_code=404, detail=f"speaker_audio_path not found: {speaker_audio_path}")
 
-    clip: Any = await model.infer_async(
-        spk_audio_path=str(speaker_audio_path),
-        prompt_audio_path=str(ref_audio),
-        prompt_audio_text=prompt_text,
-        text=text,
-        top_k=top_k,
-        top_p=top_p,
-        temperature=temperature,
-        repetition_penalty=repetition_penalty,
-        noise_scale=noise_scale,
-        speed=speed,
-    )
+    candidate_text = text
 
-    buf = io.BytesIO()
-    sf.write(buf, clip.audio_data, clip.samplerate, format="WAV", subtype="PCM_16")
-    return buf.getvalue()
+    try:
+        clip: Any = await _infer_clip(
+            model,
+            text=candidate_text,
+            speaker_audio_path=speaker_audio_path,
+            ref_audio=ref_audio,
+            prompt_text=prompt_text,
+            top_k=top_k,
+            top_p=top_p,
+            temperature=temperature,
+            repetition_penalty=repetition_penalty,
+            noise_scale=noise_scale,
+            speed=speed,
+        )
+    except Exception as exc:
+        last_exc = exc
+        if _should_retry_gsv_lite_text(exc, candidate_text):
+            normalized_text = _normalize_gsv_lite_retry_text(candidate_text)
+            if normalized_text != candidate_text:
+                _tts_logger.warning(
+                    "gsv-lite retry after Japanese G2P mismatch: original_text={!r}, normalized_text={!r}",
+                    candidate_text,
+                    normalized_text,
+                )
+                candidate_text = normalized_text
+                try:
+                    clip = await _infer_clip(
+                        model,
+                        text=candidate_text,
+                        speaker_audio_path=speaker_audio_path,
+                        ref_audio=ref_audio,
+                        prompt_text=prompt_text,
+                        top_k=top_k,
+                        top_p=top_p,
+                        temperature=temperature,
+                        repetition_penalty=repetition_penalty,
+                        noise_scale=noise_scale,
+                        speed=speed,
+                    )
+                except Exception as retry_exc:
+                    last_exc = retry_exc
+                else:
+                    return _wav_bytes_from_clips([clip])
+
+        if _should_retry_gsv_lite_by_chunking(last_exc, candidate_text):
+            chunks = _split_gsv_lite_long_text(candidate_text)
+            if len(chunks) > 1:
+                _tts_logger.warning(
+                    "gsv-lite retry by splitting long text after GPT cache overflow: text_len={}, chunks={}",
+                    len(candidate_text),
+                    len(chunks),
+                )
+                clips: list[Any] = []
+                for chunk in chunks:
+                    clips.append(
+                        await _infer_clip(
+                            model,
+                            text=chunk,
+                            speaker_audio_path=speaker_audio_path,
+                            ref_audio=ref_audio,
+                            prompt_text=prompt_text,
+                            top_k=top_k,
+                            top_p=top_p,
+                            temperature=temperature,
+                            repetition_penalty=repetition_penalty,
+                            noise_scale=noise_scale,
+                            speed=speed,
+                        )
+                    )
+                return _wav_bytes_from_clips(clips)
+
+        raise last_exc
+
+    return _wav_bytes_from_clips([clip])

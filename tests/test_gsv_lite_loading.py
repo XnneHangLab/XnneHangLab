@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from types import SimpleNamespace
+from types import ModuleType
 
 import pytest
 from fastapi import HTTPException
@@ -47,3 +49,40 @@ def test_get_gsv_lite_model_raises_when_loaded_model_mismatch(monkeypatch: pytes
 
     assert exc_info.value.status_code == 503
     assert "Currently loaded character: 'baoqiao'" in str(exc_info.value.detail)
+
+
+def test_load_gsv_lite_model_uses_extended_gpt_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeTTS:
+        def __init__(self, **kwargs: object) -> None:
+            captured.update(kwargs)
+
+        def load_gpt_model(self, *_args: object) -> None:
+            return None
+
+        def load_sovits_model(self, *_args: object) -> None:
+            return None
+
+    monkeypatch.setattr(
+        gsv_lite_module,
+        "_get_gsv_lite_settings",
+        lambda: SimpleNamespace(
+            package=SimpleNamespace(gsv_lite=True),
+            root=SimpleNamespace(root_dir="."),
+        ),
+    )
+    monkeypatch.setattr(gsv_lite_module, "_get_configured_model_spec", lambda *_args, **_kwargs: _spec("luoqixi"))
+    monkeypatch.setattr(gsv_lite_module, "_resolve_warmup_reference", lambda *_args, **_kwargs: (None, None))
+    monkeypatch.setattr(gsv_lite_module, "_apply_gsv_lite_monkey_patch", lambda: None)
+    monkeypatch.setattr(gsv_lite_module, "_gsv_lite_engine", None)
+    monkeypatch.setattr(gsv_lite_module, "_loaded_model_spec", None)
+
+    gsv_tts_module = ModuleType("gsv_tts")
+    gsv_tts_module.TTS = FakeTTS
+    monkeypatch.setitem(sys.modules, "gsv_tts", gsv_tts_module)
+
+    status = gsv_lite_module.load_gsv_lite_model(force_reload=True)
+
+    assert status["loaded"] is True
+    assert captured["gpt_cache"] == [(1, 512), (1, 1024), (1, 2048), (4, 512), (4, 1024)]

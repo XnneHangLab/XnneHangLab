@@ -33,6 +33,18 @@ class LLMTranslateEngine:
     }
 
     @classmethod
+    def _build_system_prompt(cls, normalized_target: str) -> str:
+        target_language_name = cls._language_map.get(normalized_target, normalized_target)
+        if normalized_target == "JA":
+            return (
+                f"Translate to {target_language_name}. "
+                "Output translation only. "
+                "Use natural Japanese. "
+                "Do not include Simplified Chinese characters, source-language text, explanations, or quotes."
+            )
+        return f"Translate to {target_language_name}. Output translation only."
+
+    @classmethod
     def is_loaded(cls) -> bool:
         return cls._instance is not None
 
@@ -106,7 +118,6 @@ class LLMTranslateEngine:
             raise RuntimeError("LLM translate model is not loaded")
 
         normalized_target = target_language.strip().upper()
-        target_language_name = self._language_map.get(normalized_target, normalized_target)
 
         logger.info(
             "[LLMTranslate] Translating text (target={}, chars={})",
@@ -118,7 +129,7 @@ class LLMTranslateEngine:
             messages=[
                 {
                     "role": "system",
-                    "content": f"Translate to {target_language_name}. Output translation only.",
+                    "content": self._build_system_prompt(normalized_target),
                 },
                 {"role": "user", "content": text},
             ],
