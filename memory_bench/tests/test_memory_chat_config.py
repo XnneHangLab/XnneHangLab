@@ -143,3 +143,20 @@ def test_resolve_memory_bench_config_uses_local_embedding_defaults(monkeypatch: 
     assert cfg["embedding_api_key"] == "no-key"
     assert cfg["embedding_base_url"] == "http://localhost:12395/v1"
     assert cfg["embedding_model"] == "bge-m3"
+
+
+def test_resolve_memory_bench_config_keeps_hosted_extra_body_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
+    _set_base_env(monkeypatch)
+    _set_identity_env(monkeypatch)
+
+    cfg = resolve_memory_bench_config(
+        overrides={
+            "chat_extra_body": {"reasoning_effort": "none"},
+            "llm_extra_body": {"reasoning_effort": "none"},
+            "claim_extra_body": {"reasoning_effort": "none"},
+        }
+    )
+
+    assert cfg["chat_extra_body"] == {"reasoning_effort": "none"}
+    assert cfg["llm_extra_body"] == {"reasoning_effort": "none"}
+    assert cfg["claim_extra_body"] == {"reasoning_effort": "none"}

@@ -292,6 +292,7 @@ def _check_qwen_tts_package_match(settings: XnneHangLabSettings) -> str | None:
         " -> Set qwen_tts = true under [package], then run `just install-qwen-tts`"
     )
 
+
 def _check_profiles(settings: XnneHangLabSettings) -> list[str]:
     """校验 profile 路径及其角色字段。
 

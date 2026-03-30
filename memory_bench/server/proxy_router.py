@@ -121,6 +121,20 @@ def _extract_last_user_text(messages: list[_AnyMessage]) -> str:
     return ""
 
 
+def _merge_extra_body(body: dict[str, Any], extra_body: dict[str, Any] | None) -> dict[str, Any]:
+    if not extra_body:
+        return body
+
+    merged = dict(body)
+    existing_extra = merged.get("extra_body")
+    if existing_extra is None:
+        merged["extra_body"] = dict(extra_body)
+        return merged
+    if isinstance(existing_extra, dict):
+        merged["extra_body"] = {**extra_body, **existing_extra}
+    return merged
+
+
 def _should_writeback(assistant_msg: dict[str, Any]) -> tuple[bool, str]:
     """判断 assistant 消息是否应写回 mem0，以及提取文本内容。
 
@@ -191,7 +205,7 @@ async def proxy_chat_completions(raw_request: Request) -> StreamingResponse | JS
     augmented_messages = _inject_memories_any(req.messages, memories_text)
 
     # 3. 构造转发 body（extra 字段保留，messages 替换）
-    forward_body: dict[str, Any] = dict(raw_body)
+    forward_body = _merge_extra_body(dict(raw_body), state.chat_extra_body)
     forward_body["messages"] = _messages_to_dicts(augmented_messages)
     model = req.model or state.chat_model or ""
     if model:

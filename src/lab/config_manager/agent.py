@@ -16,11 +16,13 @@ class ChatModelSetting(BaseModel):
     llm_provider: Annotated[str, Field("", title="LLM Provider for Chat Model")]
     llm_model_name: Annotated[str, Field("", title="Chat Model Name")]
     support_vision: Annotated[bool, Field(False, title="Whether the chat model supports vision input")]
+    reasoning: Annotated[bool, Field(True, title="Enable model reasoning for chat requests")]
 
 
 class VisionModelSetting(BaseModel):
     llm_provider: Annotated[str, Field("", title="LLM Provider for Vision Model")]
     llm_model_name: Annotated[str, Field("", title="Vision Model Name")]
+    reasoning: Annotated[bool, Field(True, title="Enable model reasoning for vision requests")]
 
 
 class LLMProviderSetting(BaseModel):

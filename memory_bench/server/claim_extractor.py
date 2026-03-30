@@ -308,6 +308,7 @@ def extract_claims(
     model: str,
     mem0_results: list[Mem0Result],
     *,
+    extra_body: dict[str, Any] | None = None,
     character_id: str,
     agent_id: str,
     scene_id: str = "chill_ai_chat",
@@ -350,12 +351,15 @@ def extract_claims(
 
     # 3. Call LLM
     try:
-        response = openai_client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0,
-            max_completion_tokens=4000,
-        )
+        request_kwargs: dict[str, Any] = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0,
+            "max_completion_tokens": 4000,
+        }
+        if extra_body is not None:
+            request_kwargs["extra_body"] = dict(extra_body)
+        response = openai_client.chat.completions.create(**request_kwargs)
         raw_output = response.choices[0].message.content or ""
     except Exception as exc:
         log.error("\u274c claim_extractor LLM call failed: %s", exc)

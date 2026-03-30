@@ -283,12 +283,12 @@ class FakeInterleavedMultiToolLLM(FakeChatLLM):
                                 SimpleNamespace(
                                     index=1,
                                     id=None,
-                                    function=SimpleNamespace(name="_shot", arguments='2}'),
+                                    function=SimpleNamespace(name="_shot", arguments="2}"),
                                 ),
                                 SimpleNamespace(
                                     index=0,
                                     id=None,
-                                    function=SimpleNamespace(name="_shot", arguments='1}'),
+                                    function=SimpleNamespace(name="_shot", arguments="1}"),
                                 ),
                             ],
                         ),

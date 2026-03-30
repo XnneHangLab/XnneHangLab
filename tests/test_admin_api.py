@@ -360,10 +360,12 @@ api_format = "chat_completion"
             "llm_provider": "oaipro",
             "llm_model_name": "gpt-chat",
             "support_vision": True,
+            "reasoning": True,
         },
         "vision_model": {
             "llm_provider": "openai",
             "llm_model_name": "gpt-vision",
+            "reasoning": True,
         },
     }
 
@@ -384,10 +386,12 @@ api_format = "chat_completion"
         "llm_provider": "openai",
         "llm_model_name": "gpt-next",
         "support_vision": True,
+        "reasoning": True,
     }
     assert saved["agent"]["vision_model"] == {
         "llm_provider": "oaipro",
         "llm_model_name": "vision-next",
+        "reasoning": True,
     }
 
 

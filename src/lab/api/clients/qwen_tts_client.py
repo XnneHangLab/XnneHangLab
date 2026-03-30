@@ -56,7 +56,9 @@ class QwenTTSClient(BaseClientInterface):
                 }
                 response = self.session.post(self.base_url, data=data)
             response.raise_for_status()
-            logger.info("[QwenTTSClient] request succeeded in {:.2f}s text_len={}", perf_counter() - started, len(request.text))
+            logger.info(
+                "[QwenTTSClient] request succeeded in {:.2f}s text_len={}", perf_counter() - started, len(request.text)
+            )
             return self._build_response(response.content)
         except Exception as exc:
             self.last_error = f"Qwen-TTS request failed: {exc}"

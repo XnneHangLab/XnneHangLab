@@ -97,10 +97,12 @@ async def get_agent_config(request: Request) -> dict[str, Any]:
             "llm_provider": settings.agent.chat_model.llm_provider,
             "llm_model_name": settings.agent.chat_model.llm_model_name,
             "support_vision": settings.agent.chat_model.support_vision,
+            "reasoning": settings.agent.chat_model.reasoning,
         },
         "vision_model": {
             "llm_provider": settings.agent.vision_model.llm_provider,
             "llm_model_name": settings.agent.vision_model.llm_model_name,
+            "reasoning": settings.agent.vision_model.reasoning,
         },
     }
 
@@ -116,8 +118,10 @@ async def update_agent_config(payload: AgentConfigPayload, request: Request) -> 
 
     settings.agent.chat_model.llm_provider = normalize_provider_name(payload.chat_model.llm_provider)
     settings.agent.chat_model.llm_model_name = payload.chat_model.llm_model_name
+    settings.agent.chat_model.reasoning = payload.chat_model.reasoning
     settings.agent.vision_model.llm_provider = normalize_provider_name(payload.vision_model.llm_provider)
     settings.agent.vision_model.llm_model_name = payload.vision_model.llm_model_name
+    settings.agent.vision_model.reasoning = payload.vision_model.reasoning
 
     save_lab_settings(settings_path, settings)
     return {"status": "ok"}

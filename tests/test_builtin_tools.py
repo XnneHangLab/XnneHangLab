@@ -163,9 +163,7 @@ class TestWriteFileTool:
 
     def test_root_anchored_path_writes_inside_workspace(self, workspace: Path, ctx: AgentContext) -> None:
         tool = WriteFileTool()
-        result = asyncio.run(
-            tool.execute({"path": "/data/baoqiao/diary/2026-03-28.md", "content": "entry"}, ctx)
-        )
+        result = asyncio.run(tool.execute({"path": "/data/baoqiao/diary/2026-03-28.md", "content": "entry"}, ctx))
         assert result.ok
         assert (workspace / "data" / "baoqiao" / "diary" / "2026-03-28.md").read_text() == "entry"
 

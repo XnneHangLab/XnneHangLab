@@ -23,11 +23,10 @@ Usage from an external FastAPI app::
 
 Configuration isolation
 -----------------------
-All configuration for the memory-bench router is loaded from
+Standalone ``memory_bench`` reads its config from
 ``memory_bench/.env.benchmark`` (or CLI overrides in the standalone launcher).
-It is **never** sourced from ``config/lab.toml`` or any other lab-side file.
-The host application only decides *whether* to enable the router; it does not
-inject or override any memory-bench configuration values.
+When mounted inside XnneHangLab, the host app may pass explicit overrides for
+the hosted runtime, but those overrides do not affect standalone execution.
 
 Note: The ``/memory/chat`` endpoint (autonomous agent with tool calling) has
 been migrated to ``src/lab/api/routes/chat.py``. memory_bench now only provides
@@ -151,9 +150,11 @@ def resolve_memory_bench_config(overrides: dict[str, Any] | None = None) -> dict
         "chat_api_key": chat_api_key,
         "chat_base_url": chat_base_url,
         "chat_model": chat_model,
+        "chat_extra_body": overrides.get("chat_extra_body"),
         "llm_api_key": llm_api_key,
         "llm_base_url": llm_base_url,
         "llm_model": llm_model,
+        "llm_extra_body": overrides.get("llm_extra_body"),
         "embedding_api_key": embedding_api_key,
         "embedding_base_url": embedding_base_url,
         "embedding_model": embedding_model,
@@ -167,6 +168,7 @@ def resolve_memory_bench_config(overrides: dict[str, Any] | None = None) -> dict
         "claim_api_key": claim_api_key,
         "claim_base_url": claim_base_url,
         "claim_model": claim_model,
+        "claim_extra_body": overrides.get("claim_extra_body"),
         "neo4j_container": neo4j_container,
         "neo4j_user": neo4j_user,
         "neo4j_password": neo4j_password,
@@ -276,7 +278,13 @@ def _init_mem0(cfg: dict[str, Any]) -> Any:
     from memory_bench.mem0 import make_memory
 
     config = _build_mem0_config(cfg)
-    return make_memory(config)
+    memory = make_memory(config)
+    extra_body = cfg.get("llm_extra_body")
+    if extra_body is not None and getattr(memory, "llm", None) is not None:
+        llm_config = getattr(memory.llm, "config", None)
+        if llm_config is not None:
+            llm_config.extra_body = dict(extra_body)
+    return memory
 
 
 # ---------------------------------------------------------------------------
@@ -307,6 +315,7 @@ def init_router_state(state: ServerState, cfg: dict[str, Any]) -> None:
     # OpenAI forwarding client
     state.openai_client = OpenAI(api_key=cfg["chat_api_key"], base_url=cfg["chat_base_url"])
     state.chat_model = cfg["chat_model"]
+    state.chat_extra_body = cfg.get("chat_extra_body")
     state.user_id = cfg["user_id"]
     state.agent_id = cfg["agent_id"]
     state.search_limit = cfg["search_limit"]
@@ -325,6 +334,7 @@ def init_router_state(state: ServerState, cfg: dict[str, Any]) -> None:
             base_url=cfg["claim_base_url"],
         )
         state.claim_llm_model = cfg["claim_model"]
+        state.claim_extra_body = cfg.get("claim_extra_body")
         state.neo4j_container = cfg["neo4j_container"]
         state.neo4j_user = cfg["neo4j_user"]
         state.neo4j_password = cfg["neo4j_password"]
@@ -349,4 +359,8 @@ def init_router_state(state: ServerState, cfg: dict[str, Any]) -> None:
 
         init_metadata_nodes()
     else:
+        state.claim_llm_client = None
+        state.claim_llm_model = ""
+        state.claim_extra_body = None
+        state.graph_pipeline_enabled = False
         logger.info("ℹ️ Graph pipeline disabled (set enable_graph=True or --enable-graph to enable)")
