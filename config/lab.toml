@@ -57,10 +57,12 @@ memory_chat_profile = "profiles/congyin.toml"
 llm_provider = ""
 llm_model_name = ""
 support_vision = false
+reasoning = true
 
 [agent.vision_model]
 llm_provider = ""
 llm_model_name = ""
+reasoning = true
 
 [agent.prompts]
 vision_prompt = "./prompts/vision_prompt.txt"

@@ -77,6 +77,7 @@ class ServerState:
     mem0: Any = None
     openai_client: OpenAI | None = None  # type: ignore[reportUnknownVariableType]
     chat_model: str = ""
+    chat_extra_body: dict[str, Any] | None = None
     user_id: str = ""
     agent_id: str = ""
     search_limit: int = _DEFAULT_SEARCH_LIMIT
@@ -85,6 +86,7 @@ class ServerState:
     # --- Graph pipeline (Sub-3) ---
     claim_llm_client: OpenAI | None = None  # type: ignore[reportUnknownVariableType]
     claim_llm_model: str = ""  # Model name for claim extraction
+    claim_extra_body: dict[str, Any] | None = None
     graph_pipeline_enabled: bool = False  # Set True when claim LLM is configured
     neo4j_container: str = "membench-neo4j-mem0"
     neo4j_user: str = "neo4j"
@@ -429,6 +431,7 @@ def _graph_pipeline_sync(
             openai_client=state.claim_llm_client,  # type: ignore[reportUnknownMemberType]
             model=state.claim_llm_model,
             mem0_results=mem0_results,  # type: ignore[reportArgumentType]
+            extra_body=state.claim_extra_body,
             character_id=effective_agent_id,
             scene_id="chill_ai_chat",
             agent_id=effective_agent_id,

@@ -31,6 +31,7 @@ class ProviderUpdatePayload(BaseModel):
 class AgentModelPayload(BaseModel):
     llm_provider: str
     llm_model_name: str
+    reasoning: bool = True
 
 
 class AgentConfigPayload(BaseModel):

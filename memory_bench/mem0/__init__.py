@@ -107,6 +107,9 @@ def _patch_openai_llm_store() -> None:
         if tools:
             params["tools"] = tools
             params["tool_choice"] = tool_choice
+        extra_body = getattr(self.config, "extra_body", None)
+        if extra_body is not None:
+            params["extra_body"] = dict(extra_body)
 
         response = self.client.chat.completions.create(**params)
         parsed_response = self._parse_response(response, tools)

@@ -22,6 +22,12 @@ if TYPE_CHECKING:
     from openai.types.chat import ChatCompletion, ChatCompletionChunk
 
 
+def build_reasoning_extra_body(reasoning_enabled: bool) -> dict[str, str] | None:
+    if reasoning_enabled:
+        return None
+    return {"reasoning_effort": "none"}
+
+
 def normalize_messages(
     messages: Sequence[OpenAIMessage | dict[str, Any]],
     *,
@@ -52,10 +58,12 @@ class AsyncLLM:
         organization_id: str = "z",
         project_id: str = "z",
         temperature: float = 1.0,
+        reasoning_enabled: bool = True,
     ) -> None:
         self.base_url = base_url
         self.model = model
         self.temperature = temperature
+        self.extra_body = build_reasoning_extra_body(reasoning_enabled)
 
         # localhost/127.0.0.1 绕过系统代理（Clash 等会拦截本地请求导致 502）
         # trust_env=False 阻止 httpx 读取 HTTP_PROXY/HTTPS_PROXY 等环境变量
@@ -72,6 +80,28 @@ class AsyncLLM:
             http_client=_http_client,
         )
         logger.info(f"Initialized AsyncLLM: base_url={self.base_url}, model={self.model}")
+
+    def _build_request_kwargs(
+        self,
+        *,
+        messages: list[dict[str, Any]],
+        stream: bool,
+        temperature: float,
+        tools: list[dict[str, Any]] | None = None,
+        tool_choice: str | None = None,
+    ) -> dict[str, Any]:
+        kwargs: dict[str, Any] = {
+            "messages": messages,
+            "model": self.model,
+            "stream": stream,
+            "temperature": temperature,
+        }
+        if self.extra_body is not None:
+            kwargs["extra_body"] = dict(self.extra_body)
+        if tools:
+            kwargs["tools"] = tools
+            kwargs["tool_choice"] = tool_choice or "auto"
+        return kwargs
 
     async def chat_completion(
         self,
@@ -95,10 +125,11 @@ class AsyncLLM:
 
             if stream_:
                 stream = await self.client.chat.completions.create(  # type: ignore[return-value]
-                    messages=messages_with_system,  # type: ignore[arg-type]
-                    model=self.model,
-                    stream=True,
-                    temperature=temp,
+                    **self._build_request_kwargs(
+                        messages=messages_with_system,
+                        stream=True,
+                        temperature=temp,
+                    )
                 )
 
                 async for chunk in stream:  # type: ignore[return-value]
@@ -108,10 +139,11 @@ class AsyncLLM:
                     yield delta.content  # type: ignore[misc]
             else:
                 response = await self.client.chat.completions.create(  # type: ignore[return-value]
-                    messages=messages_with_system,  # type: ignore[arg-type]
-                    model=self.model,
-                    stream=False,
-                    temperature=temp,
+                    **self._build_request_kwargs(
+                        messages=messages_with_system,
+                        stream=False,
+                        temperature=temp,
+                    )
                 )
 
                 assistant_msg = response.choices[0].message  # type: ignore[attr-defined]
@@ -152,15 +184,13 @@ class AsyncLLM:
         """Stream raw chunks with tool call support."""
         messages_with_system = normalize_messages(messages, system=system)
         temp = self.temperature if temperature is None else temperature
-        kwargs: dict[str, Any] = {
-            "messages": messages_with_system,
-            "model": self.model,
-            "stream": True,
-            "temperature": temp,
-        }
-        if tools:
-            kwargs["tools"] = tools
-            kwargs["tool_choice"] = tool_choice
+        kwargs = self._build_request_kwargs(
+            messages=messages_with_system,
+            stream=True,
+            temperature=temp,
+            tools=tools,
+            tool_choice=tool_choice,
+        )
 
         stream = cast("AsyncStream[ChatCompletionChunk]", await self.client.chat.completions.create(**kwargs))
         try:
@@ -186,10 +216,11 @@ class AsyncLLM:
             "ChatCompletion",
             await call_with_short_retry(  # type: ignore[assignment]
                 lambda: self.client.chat.completions.create(  # type: ignore[return-value]
-                    model=self.model,
-                    messages=messages_with_system,  # type: ignore[arg-type]
-                    stream=False,
-                    temperature=temp,
+                    **self._build_request_kwargs(
+                        messages=messages_with_system,
+                        stream=False,
+                        temperature=temp,
+                    )
                 ),
                 max_retries=2,
             ),

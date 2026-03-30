@@ -128,6 +128,7 @@ class AgentFactory:
             model=chat_model.llm_model_name,
             base_url=chat_llm.llm_base_url,
             llm_api_key=chat_llm.llm_api_key,
+            reasoning_enabled=chat_model.reasoning,
         )
         vision_llm_interface = None
         if not vision_model.llm_model_name.strip() or not vision_llm.llm_base_url.strip():
@@ -143,6 +144,7 @@ class AgentFactory:
                     model=vision_model.llm_model_name,
                     base_url=vision_llm.llm_base_url,
                     llm_api_key=vision_llm.llm_api_key,
+                    reasoning_enabled=vision_model.reasoning,
                 )
             except Exception as exc:
                 logger.warning("[VISION] vision analysis unavailable: failed to initialize vision model: {}", exc)
