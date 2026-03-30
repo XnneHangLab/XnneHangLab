@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 _NON_SPOKEN_TTS_RE = re.compile(r'[\s.,!?，。！？\'"』」）】()\[\]{}…\-\n\r\t]+')
 _TOOL_STATUS_DISPLAY_RE = re.compile(r"\[\s*🔧[^\]]*]")
 _TOOL_STATUS_XML_RE = re.compile(r"<tool>.*?</tool>", re.DOTALL)
+TTS_GENERATION_TIMEOUT_S = 8.0
 
 
 def _summarize_text(text: str | None, *, limit: int = 48) -> str:
@@ -232,6 +233,8 @@ class TTSTaskManager:
         display_text: DisplayText,
         actions: Actions | None,
         sequence_number: int,
+        *,
+        tts_error: bool = False,
     ) -> None:
         """Queue a silent audio payload."""
         audio_payload = prepare_audio_payload(
@@ -239,6 +242,7 @@ class TTSTaskManager:
             display_text=display_text,
             actions=actions,
             turn_id=self._turn_id,
+            tts_error=tts_error,
         )
         await self._payload_queue.put((audio_payload, sequence_number))
 
@@ -266,7 +270,7 @@ class TTSTaskManager:
                     sequence_number,
                     _summarize_text(display_text.text),
                 )
-                await self._send_silent_payload(display_text, actions, sequence_number)
+                await self._send_silent_payload(display_text, actions, sequence_number, tts_error=True)
                 return
             payload = prepare_audio_payload(
                 audio_path=str(audio_file_path),
@@ -297,14 +301,17 @@ class TTSTaskManager:
 
                 gpt_sovits_client = GPTSoVITSClient()
                 ref_audio_path, ref_text = _require_ref_audio_and_text(character_config, emotion_keys)
-                response = await gpt_sovits_client.asyncpost(
-                    GPTSoVITSRequest(
-                        text=text,
-                        audio_type="mp3",
-                        ref_audio_path=ref_audio_path,
-                        prompt_text=ref_text,
-                        text_language=lab_settings.agent.speaker_lang,
-                    )
+                response = await asyncio.wait_for(
+                    gpt_sovits_client.asyncpost(
+                        GPTSoVITSRequest(
+                            text=text,
+                            audio_type="mp3",
+                            ref_audio_path=ref_audio_path,
+                            prompt_text=ref_text,
+                            text_language=lab_settings.agent.speaker_lang,
+                        )
+                    ),
+                    timeout=TTS_GENERATION_TIMEOUT_S,
                 )
                 if response is None:
                     logger.error(
@@ -317,12 +324,15 @@ class TTSTaskManager:
 
                 qwen_tts_client = QwenTTSClient()
                 ref_audio_path, ref_text = _require_ref_audio_and_text(character_config, emotion_keys)
-                response = await qwen_tts_client.asyncpost(
-                    QwenTTSRequest(
-                        text=text,
-                        ref_audio_path=ref_audio_path,
-                        ref_text=ref_text,
-                    )
+                response = await asyncio.wait_for(
+                    qwen_tts_client.asyncpost(
+                        QwenTTSRequest(
+                            text=text,
+                            ref_audio_path=ref_audio_path,
+                            ref_text=ref_text,
+                        )
+                    ),
+                    timeout=TTS_GENERATION_TIMEOUT_S,
                 )
                 if response is None:
                     logger.error(
@@ -339,6 +349,13 @@ class TTSTaskManager:
             with audio_path.open("wb") as f:
                 f.write(response["audio_byte"])
             return Path(audio_path)
+        except TimeoutError:
+            logger.warning(
+                "TTS generation timed out after {}s, degrading to silent payload: {}",
+                TTS_GENERATION_TIMEOUT_S,
+                _summarize_text(text),
+            )
+            return None
         except Exception as e:
             logger.error(f"Error generating audio: {e}", exc_info=True)
             return None

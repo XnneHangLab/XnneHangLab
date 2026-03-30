@@ -53,3 +53,19 @@ def test_message_handler_replays_early_message_to_later_waiter() -> None:
         assert result == {"type": "frontend-playback-complete", "turn_id": "turn-1"}
 
     asyncio.run(run_test())
+
+
+def test_message_handler_does_not_replay_early_interrupt_signal() -> None:
+    async def run_test() -> None:
+        handler = MessageHandler()
+        handler.handle_message("client-1", {"type": "interrupt-signal"})
+
+        result = await handler.wait_for_response(
+            "client-1",
+            "interrupt-signal",
+            timeout=0.01,
+        )
+
+        assert result is None
+
+    asyncio.run(run_test())
