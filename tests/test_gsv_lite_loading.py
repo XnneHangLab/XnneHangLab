@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+# pyright: reportPrivateUsage=false
 import os
 import sys
 from pathlib import Path
-from types import SimpleNamespace
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
+from typing import Any, cast
 
 import pytest
 from fastapi import HTTPException
@@ -27,8 +28,11 @@ def _spec(character_name: str) -> gsv_lite_module.GSVLiteModelSpec:
 
 
 def test_get_gsv_lite_model_raises_when_not_loaded(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_get_configured_model_spec(*_args: object, **_kwargs: object) -> gsv_lite_module.GSVLiteModelSpec:
+        return _spec("baoqiao")
+
     monkeypatch.setattr(gsv_lite_module, "load_settings_file", _fake_settings)
-    monkeypatch.setattr(gsv_lite_module, "_get_configured_model_spec", lambda *_args, **_kwargs: _spec("baoqiao"))
+    monkeypatch.setattr(gsv_lite_module, "_get_configured_model_spec", fake_get_configured_model_spec)
     monkeypatch.setattr(gsv_lite_module, "_gsv_lite_engine", None)
     monkeypatch.setattr(gsv_lite_module, "_loaded_model_spec", None)
 
@@ -40,8 +44,11 @@ def test_get_gsv_lite_model_raises_when_not_loaded(monkeypatch: pytest.MonkeyPat
 
 
 def test_get_gsv_lite_model_raises_when_loaded_model_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_get_configured_model_spec(*_args: object, **_kwargs: object) -> gsv_lite_module.GSVLiteModelSpec:
+        return _spec("elaina")
+
     monkeypatch.setattr(gsv_lite_module, "load_settings_file", _fake_settings)
-    monkeypatch.setattr(gsv_lite_module, "_get_configured_model_spec", lambda *_args, **_kwargs: _spec("elaina"))
+    monkeypatch.setattr(gsv_lite_module, "_get_configured_model_spec", fake_get_configured_model_spec)
     monkeypatch.setattr(gsv_lite_module, "_gsv_lite_engine", object())
     monkeypatch.setattr(gsv_lite_module, "_loaded_model_spec", _spec("baoqiao"))
 
@@ -65,6 +72,12 @@ def test_load_gsv_lite_model_uses_extended_gpt_cache(monkeypatch: pytest.MonkeyP
         def load_sovits_model(self, *_args: object) -> None:
             return None
 
+    def fake_get_configured_model_spec(*_args: object, **_kwargs: object) -> gsv_lite_module.GSVLiteModelSpec:
+        return _spec("luoqixi")
+
+    def fake_resolve_warmup_reference(*_args: object, **_kwargs: object) -> tuple[None, None]:
+        return None, None
+
     monkeypatch.setattr(
         gsv_lite_module,
         "_get_gsv_lite_settings",
@@ -73,14 +86,14 @@ def test_load_gsv_lite_model_uses_extended_gpt_cache(monkeypatch: pytest.MonkeyP
             root=SimpleNamespace(root_dir="."),
         ),
     )
-    monkeypatch.setattr(gsv_lite_module, "_get_configured_model_spec", lambda *_args, **_kwargs: _spec("luoqixi"))
-    monkeypatch.setattr(gsv_lite_module, "_resolve_warmup_reference", lambda *_args, **_kwargs: (None, None))
+    monkeypatch.setattr(gsv_lite_module, "_get_configured_model_spec", fake_get_configured_model_spec)
+    monkeypatch.setattr(gsv_lite_module, "_resolve_warmup_reference", fake_resolve_warmup_reference)
     monkeypatch.setattr(gsv_lite_module, "_apply_gsv_lite_monkey_patch", lambda: None)
     monkeypatch.setattr(gsv_lite_module, "_gsv_lite_engine", None)
     monkeypatch.setattr(gsv_lite_module, "_loaded_model_spec", None)
 
     gsv_tts_module = ModuleType("gsv_tts")
-    gsv_tts_module.TTS = FakeTTS
+    cast("Any", gsv_tts_module).TTS = FakeTTS
     monkeypatch.setitem(sys.modules, "gsv_tts", gsv_tts_module)
 
     status = gsv_lite_module.load_gsv_lite_model(force_reload=True)
@@ -89,9 +102,7 @@ def test_load_gsv_lite_model_uses_extended_gpt_cache(monkeypatch: pytest.MonkeyP
     assert captured["gpt_cache"] == [(1, 512), (1, 1024), (1, 2048), (4, 512), (4, 1024)]
 
 
-def test_configure_gsv_lite_openjtalk_uses_local_ja_resources(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_configure_gsv_lite_openjtalk_uses_local_ja_resources(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     models_dir = tmp_path / "models"
     ja_dir = models_dir / "g2p" / "ja"
     openjtalk_dir = ja_dir / "open_jtalk_dic_utf_8-1.11"
@@ -102,9 +113,19 @@ def test_configure_gsv_lite_openjtalk_uses_local_ja_resources(
     calls: list[tuple[str, str | None]] = []
 
     pyopenjtalk_module = ModuleType("pyopenjtalk")
-    pyopenjtalk_module.unset_user_dict = lambda: calls.append(("unset", None))
-    pyopenjtalk_module.update_global_jtalk_with_user_dict = lambda path: calls.append(("update", path))
-    pyopenjtalk_module.mecab_dict_index = lambda _src, _dst: calls.append(("build", None))
+
+    def fake_unset_user_dict() -> None:
+        calls.append(("unset", None))
+
+    def fake_update_global_jtalk_with_user_dict(path: str) -> None:
+        calls.append(("update", path))
+
+    def fake_mecab_dict_index(_src: str, _dst: str) -> None:
+        calls.append(("build", None))
+
+    cast("Any", pyopenjtalk_module).unset_user_dict = fake_unset_user_dict
+    cast("Any", pyopenjtalk_module).update_global_jtalk_with_user_dict = fake_update_global_jtalk_with_user_dict
+    cast("Any", pyopenjtalk_module).mecab_dict_index = fake_mecab_dict_index
 
     monkeypatch.setitem(sys.modules, "pyopenjtalk", pyopenjtalk_module)
     monkeypatch.delenv("OPEN_JTALK_DICT_DIR", raising=False)

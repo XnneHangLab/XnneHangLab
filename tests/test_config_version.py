@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import tomllib
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.config_manager.config import CURRENT_CONF_VERSION
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
-def test_load_lab_settings_normalizes_conf_version(monkeypatch, tmp_path: Path) -> None:
+    from pytest import MonkeyPatch
+
+
+def test_load_lab_settings_normalizes_conf_version(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
     config_dir = tmp_path / "config"
     config_dir.mkdir(parents=True)
     lab_toml = config_dir / "lab.toml"

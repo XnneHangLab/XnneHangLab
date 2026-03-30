@@ -4,7 +4,7 @@ import os
 import platform
 import tomllib
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, overload
+from typing import TYPE_CHECKING, Annotated, Any, cast, overload
 
 import tomli_w as tomlw
 from pydantic import BaseModel, Field, model_validator
@@ -126,7 +126,8 @@ class XnneHangLabSettings(BaseModel):
     @classmethod
     def _normalize_conf_version(cls, value: object) -> object:
         if isinstance(value, dict):
-            return {**value, "conf_version": CURRENT_CONF_VERSION}
+            normalized = cast("dict[str, Any]", value)
+            return {**normalized, "conf_version": CURRENT_CONF_VERSION}
         return value
 
 

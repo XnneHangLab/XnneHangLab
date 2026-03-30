@@ -101,9 +101,7 @@ class CharacterSettings(BaseModel):
         Field(
             default_factory=lambda: TTSConfig(
                 character_name="",
-                emotions={
-                    "default": TTSEmotionConfig(path="emotions/neutral.wav", ref_text="", speaker_audio_path="")
-                },
+                emotions={"default": TTSEmotionConfig(path="emotions/neutral.wav", ref_text="", speaker_audio_path="")},
             )
         ),
     ]

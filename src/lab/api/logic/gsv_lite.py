@@ -8,7 +8,7 @@ import re
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import soundfile as sf
@@ -18,12 +18,17 @@ from loguru import logger
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.profile.schema import Profile
 
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    from numpy.typing import NDArray
+
 DEFAULT_SAMPLE_RATE = 32000
 _GSV_LITE_GPT_CACHE = [(1, 512), (1, 1024), (1, 2048), (4, 512), (4, 1024)]
 _GSV_LITE_SEGMENT_MAX_CHARS = 80
 _GSV_LITE_SEGMENT_SILENCE_S = 0.08
 _JAPANESE_CHAR_RE = re.compile(r"[\u3040-\u30ff\u4e00-\u9fff\uff66-\uff9f]")
-_GSV_LITE_MONKEY_PATCH_APPLIED = False
+_gsv_lite_monkey_patch_applied = False
 
 _tts_logger = logger.bind(group="tts")
 _gsv_lite_engine: Any | None = None
@@ -101,7 +106,7 @@ def _load_infer_config(character_dir: Path) -> dict[str, Any]:
         data = json.load(file)
     if not isinstance(data, dict):
         raise RuntimeError(f"invalid infer config: {config_path}")
-    return data
+    return cast("dict[str, Any]", data)
 
 
 def _resolve_model_file(character_dir: Path, raw_path: object, label: str) -> Path:
@@ -151,11 +156,13 @@ def _resolve_warmup_reference(settings: XnneHangLabSettings, spec: GSVLiteModelS
     infer_config = _load_infer_config(spec.character_dir)
     emotion_list = infer_config.get("emotion_list")
     if isinstance(emotion_list, dict):
-        for candidate in emotion_list.values():
+        emotion_map = cast("dict[str, object]", emotion_list)
+        for candidate in emotion_map.values():
             if not isinstance(candidate, dict):
                 continue
-            ref_wav_path = candidate.get("ref_wav_path")
-            prompt_text = candidate.get("prompt_text")
+            candidate_dict = cast("dict[str, object]", candidate)
+            ref_wav_path = candidate_dict.get("ref_wav_path")
+            prompt_text = candidate_dict.get("prompt_text")
             if isinstance(ref_wav_path, str) and ref_wav_path.strip():
                 ref_audio = (spec.character_dir / ref_wav_path).resolve()
                 if ref_audio.is_file():
@@ -193,11 +200,7 @@ def _configure_gsv_lite_openjtalk(models_dir: Path) -> None:
     user_dict_csv = ja_dir / "userdict.csv"
     user_dict_bin = ja_dir / "user.dict"
 
-    if not (
-        openjtalk_dict_dir.is_dir()
-        or user_dict_csv.is_file()
-        or user_dict_bin.is_file()
-    ):
+    if not (openjtalk_dict_dir.is_dir() or user_dict_csv.is_file() or user_dict_bin.is_file()):
         return
 
     if openjtalk_dict_dir.is_dir():
@@ -206,32 +209,32 @@ def _configure_gsv_lite_openjtalk(models_dir: Path) -> None:
     try:
         import pyopenjtalk
     except Exception as exc:
-        _tts_logger.warning("gsv-lite failed to import pyopenjtalk for local JA resources: {}", exc)
+        _tts_logger.warning(f"gsv-lite failed to import pyopenjtalk for local JA resources: {exc}")
         return
 
     if openjtalk_dict_dir.is_dir():
         try:
-            setattr(pyopenjtalk, "OPEN_JTALK_DICT_DIR", str(openjtalk_dict_dir).encode("utf-8"))
+            pyopenjtalk.OPEN_JTALK_DICT_DIR = str(openjtalk_dict_dir).encode("utf-8")
             unset_user_dict = getattr(pyopenjtalk, "unset_user_dict", None)
             if callable(unset_user_dict):
                 unset_user_dict()
-            _tts_logger.info("gsv-lite configured OpenJTalk dictionary: {}", openjtalk_dict_dir)
+            _tts_logger.info(f"gsv-lite configured OpenJTalk dictionary: {openjtalk_dict_dir}")
         except Exception as exc:
-            _tts_logger.warning("gsv-lite failed to activate local OpenJTalk dictionary: {}", exc)
+            _tts_logger.warning(f"gsv-lite failed to activate local OpenJTalk dictionary: {exc}")
 
     if user_dict_csv.is_file() and not user_dict_bin.is_file():
         try:
             pyopenjtalk.mecab_dict_index(str(user_dict_csv), str(user_dict_bin))
-            _tts_logger.info("gsv-lite built OpenJTalk user dictionary: {}", user_dict_bin)
+            _tts_logger.info(f"gsv-lite built OpenJTalk user dictionary: {user_dict_bin}")
         except Exception as exc:
-            _tts_logger.warning("gsv-lite failed to build OpenJTalk user dictionary: {}", exc)
+            _tts_logger.warning(f"gsv-lite failed to build OpenJTalk user dictionary: {exc}")
 
     if user_dict_bin.is_file():
         try:
             pyopenjtalk.update_global_jtalk_with_user_dict(str(user_dict_bin))
-            _tts_logger.info("gsv-lite activated OpenJTalk user dictionary: {}", user_dict_bin)
+            _tts_logger.info(f"gsv-lite activated OpenJTalk user dictionary: {user_dict_bin}")
         except Exception as exc:
-            _tts_logger.warning("gsv-lite failed to activate OpenJTalk user dictionary: {}", exc)
+            _tts_logger.warning(f"gsv-lite failed to activate OpenJTalk user dictionary: {exc}")
 
 
 def _redistribute_japanese_word2ph(words: list[str], phone_count: int) -> dict[str, list[Any]]:
@@ -254,14 +257,17 @@ def _repair_japanese_word2ph(word2ph: object, phone_count: int) -> dict[str, lis
     if not isinstance(word2ph, dict):
         return _redistribute_japanese_word2ph([], phone_count)
 
-    raw_words = word2ph.get("word")
-    raw_counts = word2ph.get("ph")
+    mapping = cast("dict[str, object]", word2ph)
+    raw_words = mapping.get("word")
+    raw_counts = mapping.get("ph")
     if not isinstance(raw_words, list) or not isinstance(raw_counts, list):
         return _redistribute_japanese_word2ph([], phone_count)
 
-    words = [str(word) for word in raw_words]
+    word_list = cast("list[object]", raw_words)
+    raw_count_list = cast("list[object]", raw_counts)
+    words = [str(word) for word in word_list]
     try:
-        counts = [max(int(count), 0) for count in raw_counts]
+        counts = [max(int(cast("Any", count)), 0) for count in raw_count_list]
     except Exception:
         return _redistribute_japanese_word2ph(words, phone_count)
 
@@ -298,21 +304,25 @@ def _repair_japanese_word2ph(word2ph: object, phone_count: int) -> dict[str, lis
 
 
 def _apply_gsv_lite_monkey_patch() -> None:
-    global _GSV_LITE_MONKEY_PATCH_APPLIED
+    global _gsv_lite_monkey_patch_applied
 
-    if _GSV_LITE_MONKEY_PATCH_APPLIED:
+    if _gsv_lite_monkey_patch_applied:
         return
 
     from gsv_tts.GPT_SoVITS.G2P.Japanese.japanese import JapaneseG2P
 
-    if getattr(JapaneseG2P.g2p, "_xnnehanglab_gsv_lite_patched", False):
-        _GSV_LITE_MONKEY_PATCH_APPLIED = True
+    current_g2p = cast(
+        "Callable[[Any, str, bool], tuple[list[str], dict[str, list[Any]]]]",
+        cast("Any", JapaneseG2P).g2p,
+    )
+    if getattr(cast("Any", current_g2p), "_xnnehanglab_gsv_lite_patched", False):
+        _gsv_lite_monkey_patch_applied = True
         return
 
-    original_g2p = JapaneseG2P.g2p
+    original_g2p = current_g2p
 
     def patched_g2p(self: Any, norm_text: str, with_prosody: bool = True) -> tuple[list[str], dict[str, list[Any]]]:
-        phones, word2ph = original_g2p(self, norm_text, with_prosody=with_prosody)
+        phones, word2ph = original_g2p(self, norm_text, with_prosody)
 
         try:
             original_total = sum(int(count) for count in word2ph["ph"])
@@ -325,17 +335,14 @@ def _apply_gsv_lite_monkey_patch() -> None:
         repaired = _repair_japanese_word2ph(word2ph, len(phones))
         repaired_total = sum(repaired["ph"])
         _tts_logger.warning(
-            "gsv-lite monkey patch repaired Japanese word2ph mismatch: text={!r}, phones={}, original_total={}, repaired_total={}",
-            norm_text,
-            len(phones),
-            original_total,
-            repaired_total,
+            "gsv-lite monkey patch repaired Japanese word2ph mismatch: "
+            f"text={norm_text!r}, phones={len(phones)}, original_total={original_total}, repaired_total={repaired_total}"
         )
         return phones, repaired
 
-    setattr(patched_g2p, "_xnnehanglab_gsv_lite_patched", True)
+    cast("Any", patched_g2p)._xnnehanglab_gsv_lite_patched = True
     JapaneseG2P.g2p = patched_g2p
-    _GSV_LITE_MONKEY_PATCH_APPLIED = True
+    _gsv_lite_monkey_patch_applied = True
     _tts_logger.info("gsv-lite monkey patch applied: JapaneseG2P.g2p word2ph repair")
 
 
@@ -386,8 +393,8 @@ def load_gsv_lite_model(*, force_reload: bool = False) -> dict[str, Any]:
             return get_gsv_lite_status()
         if _gsv_lite_engine is not None:
             _tts_logger.info(
-                "releasing gsv-lite engine before reload (current_character={})",
-                _loaded_model_spec.character_name if _loaded_model_spec is not None else "-",
+                "releasing gsv-lite engine before reload "
+                f"(current_character={_loaded_model_spec.character_name if _loaded_model_spec is not None else '-'})"
             )
             _release_engine()
 
@@ -400,11 +407,9 @@ def load_gsv_lite_model(*, force_reload: bool = False) -> dict[str, Any]:
         _apply_gsv_lite_monkey_patch()
 
         _tts_logger.info(
-            "gsv-lite load start: character={}, gpt={}, sovits={}, models_dir={}",
-            target_spec.character_name,
-            target_spec.gpt_path,
-            target_spec.sovits_path,
-            target_spec.models_dir,
+            "gsv-lite load start: "
+            f"character={target_spec.character_name}, gpt={target_spec.gpt_path}, "
+            f"sovits={target_spec.sovits_path}, models_dir={target_spec.models_dir}"
         )
 
         engine = TTS(models_dir=str(target_spec.models_dir), gpt_cache=_GSV_LITE_GPT_CACHE)
@@ -414,19 +419,20 @@ def load_gsv_lite_model(*, force_reload: bool = False) -> dict[str, Any]:
         warmup_ref_audio, warmup_ref_text = _resolve_warmup_reference(settings, target_spec)
         if warmup_ref_audio is not None and warmup_ref_text:
             try:
-                engine.infer(
+                infer = cast("Callable[..., Any]", cast("Any", engine).infer)
+                infer(
                     spk_audio_path=str(warmup_ref_audio),
                     prompt_audio_path=str(warmup_ref_audio),
                     prompt_audio_text=warmup_ref_text,
                     text="System warmup.",
                 )
-                _tts_logger.info("gsv-lite warmup finished: character={}", target_spec.character_name)
+                _tts_logger.info(f"gsv-lite warmup finished: character={target_spec.character_name}")
             except Exception:
                 _tts_logger.warning("gsv-lite warmup failed; continue with loaded engine")
 
         _gsv_lite_engine = engine
         _loaded_model_spec = target_spec
-        _tts_logger.info("gsv-lite load complete: character={}", target_spec.character_name)
+        _tts_logger.info(f"gsv-lite load complete: character={target_spec.character_name}")
 
     return get_gsv_lite_status()
 
@@ -468,7 +474,9 @@ def get_sample_rate() -> int:
 
 
 def _should_retry_gsv_lite_text(exc: Exception, text: str) -> bool:
-    return isinstance(exc, AssertionError) and "length mismatch" in str(exc) and _JAPANESE_CHAR_RE.search(text) is not None
+    return (
+        isinstance(exc, AssertionError) and "length mismatch" in str(exc) and _JAPANESE_CHAR_RE.search(text) is not None
+    )
 
 
 def _normalize_gsv_lite_retry_text(text: str) -> str:
@@ -505,7 +513,9 @@ def _split_gsv_lite_long_text(text: str, *, max_chars: int = _GSV_LITE_SEGMENT_M
         return [normalized]
 
     primary_parts = [part for part in re.split(r"(?<=[。！？!?…])", normalized) if part]
-    parts = primary_parts if len(primary_parts) > 1 else [part for part in re.split(r"(?<=[、，,])", normalized) if part]
+    parts = (
+        primary_parts if len(primary_parts) > 1 else [part for part in re.split(r"(?<=[、，,])", normalized) if part]
+    )
     if not parts:
         parts = [normalized]
 
@@ -559,9 +569,10 @@ def _split_gsv_lite_long_text(text: str, *, max_chars: int = _GSV_LITE_SEGMENT_M
     return segments or [normalized]
 
 
-def _wav_bytes_from_audio(audio_data: np.ndarray, samplerate: int) -> bytes:
+def _wav_bytes_from_audio(audio_data: NDArray[np.float32], samplerate: int) -> bytes:
     buf = io.BytesIO()
-    sf.write(buf, audio_data, samplerate, format="WAV", subtype="PCM_16")
+    sf_write = cast("Callable[..., None]", cast("Any", sf).write)
+    sf_write(buf, audio_data, samplerate, format="WAV", subtype="PCM_16")
     return buf.getvalue()
 
 
@@ -570,21 +581,20 @@ def _wav_bytes_from_clips(clips: list[Any], *, silence_s: float = _GSV_LITE_SEGM
         raise RuntimeError("gsv-lite clip list is empty")
 
     samplerate = int(clips[0].samplerate)
-    arrays: list[np.ndarray] = []
+    arrays: list[NDArray[np.float32]] = []
     silence_samples = max(int(samplerate * silence_s), 0)
     silence = np.zeros(silence_samples, dtype=np.float32) if silence_samples else None
 
     for i, clip in enumerate(clips):
         clip_samplerate = int(clip.samplerate)
         if clip_samplerate != samplerate:
-            raise RuntimeError(
-                f"gsv-lite clip samplerate mismatch: expected {samplerate}, got {clip_samplerate}"
-            )
-        arrays.append(np.asarray(clip.audio_data, dtype=np.float32))
+            raise RuntimeError(f"gsv-lite clip samplerate mismatch: expected {samplerate}, got {clip_samplerate}")
+        audio_array = np.asarray(clip.audio_data, dtype=np.float32)
+        arrays.append(audio_array)
         if silence is not None and i < len(clips) - 1:
             arrays.append(silence)
 
-    merged_audio = np.concatenate(arrays, axis=0) if len(arrays) > 1 else arrays[0]
+    merged_audio = np.concatenate(arrays, axis=0).astype(np.float32, copy=False) if len(arrays) > 1 else arrays[0]
     return _wav_bytes_from_audio(merged_audio, samplerate)
 
 
@@ -602,7 +612,8 @@ async def _infer_clip(
     noise_scale: float,
     speed: float,
 ) -> Any:
-    return await model.infer_async(
+    infer_async = cast("Callable[..., Awaitable[Any]]", model.infer_async)
+    return await infer_async(
         spk_audio_path=str(speaker_audio_path),
         prompt_audio_path=str(ref_audio),
         prompt_audio_text=prompt_text,
@@ -666,9 +677,8 @@ async def synthesize_once(
             normalized_text = _normalize_gsv_lite_retry_text(candidate_text)
             if normalized_text != candidate_text:
                 _tts_logger.warning(
-                    "gsv-lite retry after Japanese G2P mismatch: original_text={!r}, normalized_text={!r}",
-                    candidate_text,
-                    normalized_text,
+                    "gsv-lite retry after Japanese G2P mismatch: "
+                    f"original_text={candidate_text!r}, normalized_text={normalized_text!r}"
                 )
                 candidate_text = normalized_text
                 try:
@@ -694,9 +704,8 @@ async def synthesize_once(
             chunks = _split_gsv_lite_long_text(candidate_text)
             if len(chunks) > 1:
                 _tts_logger.warning(
-                    "gsv-lite retry by splitting long text after GPT cache overflow: text_len={}, chunks={}",
-                    len(candidate_text),
-                    len(chunks),
+                    "gsv-lite retry by splitting long text after GPT cache overflow: "
+                    f"text_len={len(candidate_text)}, chunks={len(chunks)}"
                 )
                 clips: list[Any] = []
                 for chunk in chunks:
@@ -717,6 +726,6 @@ async def synthesize_once(
                     )
                 return _wav_bytes_from_clips(clips)
 
-        raise last_exc
+        raise last_exc from None
 
     return _wav_bytes_from_clips([clip])

@@ -73,4 +73,6 @@ def test_generate_audio_uses_gsv_lite_client(tmp_path: Path, monkeypatch: pytest
     assert captured_requests[0]["text"] == "test"
     assert Path(captured_requests[0]["ref_audio_path"]) == Path("models/gptsovits/baoqiao/emotions/neutral.wav")
     assert captured_requests[0]["ref_text"] == "neutral ref"
-    assert Path(captured_requests[0]["speaker_audio_path"]) == Path("models/gptsovits/baoqiao/speaker/neutral_speaker.wav")
+    assert Path(captured_requests[0]["speaker_audio_path"]) == Path(
+        "models/gptsovits/baoqiao/speaker/neutral_speaker.wav"
+    )

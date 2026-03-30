@@ -3,12 +3,16 @@ from __future__ import annotations
 import asyncio
 import json
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import lab.api.routes.gsv_lite as gsv_lite_route
 
+if TYPE_CHECKING:
+    from pytest import MonkeyPatch
 
-def test_generate_returns_json_error_response_on_unexpected_exception(monkeypatch) -> None:
-    async def fake_synthesize_once(**_kwargs):
+
+def test_generate_returns_json_error_response_on_unexpected_exception(monkeypatch: MonkeyPatch) -> None:
+    async def fake_synthesize_once(**_kwargs: object) -> bytes:
         raise RuntimeError("boom")
 
     monkeypatch.setattr(
@@ -28,4 +32,4 @@ def test_generate_returns_json_error_response_on_unexpected_exception(monkeypatc
     )
 
     assert response.status_code == 500
-    assert json.loads(response.body) == {"error": "boom"}
+    assert json.loads(bytes(response.body)) == {"error": "boom"}

@@ -124,7 +124,11 @@ def test_resolve_gsv_lite_speaker_audio_path_prefers_matching_emotion(tmp_path: 
         tts_config=TTSConfig(
             character_name="baoqiao",
             emotions={
-                "default": {"path": "emotions/neutral.wav", "ref_text": "", "speaker_audio_path": "speaker/default.wav"},
+                "default": {
+                    "path": "emotions/neutral.wav",
+                    "ref_text": "",
+                    "speaker_audio_path": "speaker/default.wav",
+                },
                 "happy": {
                     "path": "emotions/happy.wav",
                     "ref_text": "happy ref text",
