@@ -33,7 +33,7 @@ def test_get_gsv_lite_model_raises_when_not_loaded(monkeypatch: pytest.MonkeyPat
         gsv_lite_module.get_gsv_lite_model()
 
     assert exc_info.value.status_code == 503
-    assert "not loaded" in str(exc_info.value.detail)
+    assert "not initialized" in str(exc_info.value.detail)
 
 
 def test_get_gsv_lite_model_raises_when_loaded_model_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:

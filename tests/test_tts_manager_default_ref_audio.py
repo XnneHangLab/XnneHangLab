@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from lab.config_manager.vtuber import CharacterSettings, TTSConfig
-from lab.conversations.tts_manager import _resolve_ref_audio_and_text
+from lab.conversations.tts_manager import _resolve_gsv_lite_speaker_audio_path, _resolve_ref_audio_and_text
 from lab.profile.schema import TTSConfig as ProfileTTSConfig
 
 
@@ -95,12 +95,45 @@ def test_profile_tts_config_accepts_legacy_and_structured_emotions() -> None:
             "character_name": "baoqiao",
             "emotions": {
                 "default": "emotions/neutral.wav",
-                "happy": {"path": "emotions/happy.wav", "ref_text": "happy ref text"},
+                "happy": {
+                    "path": "emotions/happy.wav",
+                    "ref_text": "happy ref text",
+                    "speaker_audio_path": "speaker/happy.wav",
+                },
             },
         }
     )
 
     assert config.emotions["default"].path == "emotions/neutral.wav"
     assert config.emotions["default"].ref_text == ""
+    assert config.emotions["default"].speaker_audio_path == ""
     assert config.emotions["happy"].path == "emotions/happy.wav"
     assert config.emotions["happy"].ref_text == "happy ref text"
+    assert config.emotions["happy"].speaker_audio_path == "speaker/happy.wav"
+
+
+def test_resolve_gsv_lite_speaker_audio_path_prefers_matching_emotion(tmp_path: Path, monkeypatch) -> None:
+    speaker_dir = tmp_path / "models" / "gptsovits" / "baoqiao" / "speaker"
+    speaker_dir.mkdir(parents=True)
+    happy_speaker = speaker_dir / "happy.wav"
+    happy_speaker.write_bytes(b"wav")
+
+    monkeypatch.chdir(tmp_path)
+
+    character = CharacterSettings(
+        tts_config=TTSConfig(
+            character_name="baoqiao",
+            emotions={
+                "default": {"path": "emotions/neutral.wav", "ref_text": "", "speaker_audio_path": "speaker/default.wav"},
+                "happy": {
+                    "path": "emotions/happy.wav",
+                    "ref_text": "happy ref text",
+                    "speaker_audio_path": "speaker/happy.wav",
+                },
+            },
+        )
+    )
+
+    speaker_audio = _resolve_gsv_lite_speaker_audio_path(character, emotion_keys=["happy"])
+
+    assert speaker_audio == str(Path("models/gptsovits/baoqiao/speaker/happy.wav"))

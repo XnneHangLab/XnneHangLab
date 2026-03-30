@@ -20,6 +20,9 @@ def test_generate_audio_uses_gsv_lite_client(tmp_path: Path, monkeypatch: pytest
     ref_audio: Path = tmp_path / "models" / "gptsovits" / "baoqiao" / "emotions" / "neutral.wav"
     ref_audio.parent.mkdir(parents=True)
     ref_audio.write_bytes(b"wav")
+    speaker_audio: Path = tmp_path / "models" / "gptsovits" / "baoqiao" / "speaker" / "neutral_speaker.wav"
+    speaker_audio.parent.mkdir(parents=True)
+    speaker_audio.write_bytes(b"wav")
     monkeypatch.chdir(tmp_path)
 
     def fake_load_settings_file(*_args: object, **_kwargs: object) -> SimpleNamespace:
@@ -55,6 +58,7 @@ def test_generate_audio_uses_gsv_lite_client(tmp_path: Path, monkeypatch: pytest
                 "default": {
                     "path": "emotions/neutral.wav",
                     "ref_text": "neutral ref",
+                    "speaker_audio_path": "speaker/neutral_speaker.wav",
                 }
             },
         )
@@ -69,3 +73,4 @@ def test_generate_audio_uses_gsv_lite_client(tmp_path: Path, monkeypatch: pytest
     assert captured_requests[0]["text"] == "test"
     assert Path(captured_requests[0]["ref_audio_path"]) == Path("models/gptsovits/baoqiao/emotions/neutral.wav")
     assert captured_requests[0]["ref_text"] == "neutral ref"
+    assert Path(captured_requests[0]["speaker_audio_path"]) == Path("models/gptsovits/baoqiao/speaker/neutral_speaker.wav")

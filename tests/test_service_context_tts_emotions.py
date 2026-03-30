@@ -23,10 +23,12 @@ def test_to_character_settings_converts_structured_tts_emotions() -> None:
                         "default": {
                             "path": "emotions/neutral/neutral_01.wav",
                             "ref_text": "",
+                            "speaker_audio_path": "speaker/default.wav",
                         },
                         "happy": {
                             "path": "emotions/happy/happy_01.wav",
                             "ref_text": "happy ref text",
+                            "speaker_audio_path": "speaker/happy.wav",
                         },
                     },
                 },
@@ -39,5 +41,7 @@ def test_to_character_settings_converts_structured_tts_emotions() -> None:
     assert settings is not None
     assert settings.tts_config.emotions["default"].path == "emotions/neutral/neutral_01.wav"
     assert settings.tts_config.emotions["default"].ref_text == ""
+    assert settings.tts_config.emotions["default"].speaker_audio_path == "speaker/default.wav"
     assert settings.tts_config.emotions["happy"].path == "emotions/happy/happy_01.wav"
     assert settings.tts_config.emotions["happy"].ref_text == "happy ref text"
+    assert settings.tts_config.emotions["happy"].speaker_audio_path == "speaker/happy.wav"

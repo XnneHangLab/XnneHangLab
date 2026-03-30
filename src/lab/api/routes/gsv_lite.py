@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import Response
 from loguru import logger
 from pydantic import BaseModel, Field
 
@@ -47,10 +47,13 @@ class GSVLiteGeneratePayload(BaseModel):
 @router.get("/health")
 async def health() -> dict[str, Any]:
     gsv_lite_logic = _get_gsv_lite_logic_module()
+    status_payload = gsv_lite_logic.get_gsv_lite_status()
+    if not status_payload.get("loaded", False):
+        raise HTTPException(status_code=503, detail="GSV-Lite is not initialized")
     return {
         "status": "ok",
         "service": "gsv-lite",
-        **gsv_lite_logic.get_gsv_lite_status(),
+        **status_payload,
     }
 
 
@@ -58,42 +61,6 @@ async def health() -> dict[str, Any]:
 async def status() -> dict[str, Any]:
     gsv_lite_logic = _get_gsv_lite_logic_module()
     return gsv_lite_logic.get_gsv_lite_status()
-
-
-@router.post("/load")
-async def load_model() -> JSONResponse:
-    try:
-        gsv_lite_logic = _get_gsv_lite_logic_module()
-        status_payload = gsv_lite_logic.load_gsv_lite_model()
-        return JSONResponse(
-            status_code=200,
-            content={
-                "code": 200,
-                "message": "GSV-Lite model loaded successfully",
-                "status": status_payload,
-            },
-        )
-    except Exception as exc:
-        _tts_logger.exception("load gsv-lite model failed")
-        return JSONResponse(status_code=500, content={"code": 500, "message": str(exc)})
-
-
-@router.post("/reload")
-async def reload_model() -> JSONResponse:
-    try:
-        gsv_lite_logic = _get_gsv_lite_logic_module()
-        status_payload = gsv_lite_logic.reload_gsv_lite_model()
-        return JSONResponse(
-            status_code=200,
-            content={
-                "code": 200,
-                "message": "GSV-Lite model reloaded successfully",
-                "status": status_payload,
-            },
-        )
-    except Exception as exc:
-        _tts_logger.exception("reload gsv-lite model failed")
-        return JSONResponse(status_code=500, content={"code": 500, "message": str(exc)})
 
 
 @router.post("/generate")

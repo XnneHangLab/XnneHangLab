@@ -67,6 +67,7 @@ class TTSEmotionConfig(BaseModel):
 
     path: str = ""
     ref_text: str = ""
+    speaker_audio_path: str = ""
 
     @model_validator(mode="before")
     @classmethod
@@ -80,9 +81,9 @@ class TTSEmotionConfig(BaseModel):
             归一化后的 emotion 配置值。
         """
         if isinstance(value, str):
-            return {"path": value, "ref_text": ""}
+            return {"path": value, "ref_text": "", "speaker_audio_path": ""}
         if value is None:
-            return {"path": "", "ref_text": ""}
+            return {"path": "", "ref_text": "", "speaker_audio_path": ""}
         return value
 
 

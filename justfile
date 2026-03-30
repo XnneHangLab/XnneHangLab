@@ -147,6 +147,20 @@ test-qwen-tts-stream server='http://localhost:12393' ref_audio='examples/congyin
 test-qwen-tts-stream-play server='http://localhost:12393' ref_audio='examples/congyin.wav' ref_text='そうそう、この間気分転換に料理したんだ。テスト勉強のモチベを上げるためにも、自分の好物を作ることにしたんだ。あれこれ考え事しちゃって、お鍋吹きこぼれちゃったんだ。けどね、味はすごく美味しくできたよ。君がご近所さんだったら届けてあげたいくらい。この作業通話アプリがもっともっと進化したら。':
   uv run python scripts/test_qwen_tts_client.py --server {{ server }} --mode stream-play --stream-chunk-size 8 --playback-buffer-ms 500 --ref-audio {{ ref_audio }} --ref-text {{ ref_text }}
 
+test-gsv-lite-health server='http://localhost:12393':
+  curl "{{ server }}/tts/gsv-lite/health"
+
+test-gsv-lite-generate server='http://localhost:12393' output='output/gsv_lite_test.wav' text='你好，这是 gsv-lite 接口测试。' ref_audio_path='models/gptsovits/baoqiao/emotions/neutral/neutral_01.wav' ref_text='你好，这是参考音频文本。' speaker_audio_path='':
+  curl -X POST "{{ server }}/tts/gsv-lite/generate" \
+    -H "Content-Type: application/json" \
+    -d '{ \
+      "text": "{{ text }}", \
+      "ref_audio_path": "{{ ref_audio_path }}", \
+      "ref_text": "{{ ref_text }}", \
+      "speaker_audio_path": "{{ speaker_audio_path }}" \
+    }' \
+    -o "{{ output }}"
+
 # deploy
 
 install-model:

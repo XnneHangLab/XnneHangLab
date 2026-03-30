@@ -38,6 +38,7 @@ class TTSEmotionConfig(BaseModel):
 
     path: Annotated[str, Field("")]
     ref_text: Annotated[str, Field("")]
+    speaker_audio_path: Annotated[str, Field("")]
 
     @model_validator(mode="before")
     @classmethod
@@ -51,9 +52,9 @@ class TTSEmotionConfig(BaseModel):
             归一化后的 emotion 配置值。
         """
         if isinstance(value, str):
-            return {"path": value, "ref_text": ""}
+            return {"path": value, "ref_text": "", "speaker_audio_path": ""}
         if value is None:
-            return {"path": "", "ref_text": ""}
+            return {"path": "", "ref_text": "", "speaker_audio_path": ""}
         return value
 
 
@@ -63,7 +64,11 @@ class TTSConfig(BaseModel):
     character_name: Annotated[str, Field("")]
     emotions: Annotated[
         dict[str, TTSEmotionConfig],
-        Field(default_factory=lambda: {"default": TTSEmotionConfig(path="emotions/neutral.wav", ref_text="")}),
+        Field(
+            default_factory=lambda: {
+                "default": TTSEmotionConfig(path="emotions/neutral.wav", ref_text="", speaker_audio_path="")
+            }
+        ),
     ]
 
 
@@ -96,7 +101,9 @@ class CharacterSettings(BaseModel):
         Field(
             default_factory=lambda: TTSConfig(
                 character_name="",
-                emotions={"default": TTSEmotionConfig(path="emotions/neutral.wav", ref_text="")},
+                emotions={
+                    "default": TTSEmotionConfig(path="emotions/neutral.wav", ref_text="", speaker_audio_path="")
+                },
             )
         ),
     ]

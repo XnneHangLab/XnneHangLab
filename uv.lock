@@ -1104,6 +1104,36 @@ wheels = [
 ]
 
 [[package]]
+name = "gsv-tts-lite"
+version = "0.3.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "einops" },
+    { name = "future" },
+    { name = "inflect" },
+    { name = "jieba" },
+    { name = "nltk" },
+    { name = "numpy" },
+    { name = "onnxruntime" },
+    { name = "py3langid" },
+    { name = "pyopenjtalk-plus" },
+    { name = "pypinyin" },
+    { name = "pysbd" },
+    { name = "requests" },
+    { name = "safetensors" },
+    { name = "sounddevice" },
+    { name = "soundfile" },
+    { name = "torchcodec" },
+    { name = "tqdm" },
+    { name = "transformers" },
+    { name = "wordsegment" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/74/c4/d93001288d6060af485c494f23f15c457ada53d393b671b9a9574f8cf676/gsv_tts_lite-0.3.8.tar.gz", hash = "sha256:010f3695fbbfe9e7e9a0db30f8016ef285e801fea4e3502aae97af48d53f2825", size = 87245 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3b/72/439c760cf620af7c6c7d708c4e8b8b92e3107c5dd1806fef296b8ab67b06/gsv_tts_lite-0.3.8-py3-none-any.whl", hash = "sha256:f94b27dda37e83eeba397ba81dc8eef981592d4c898d8ae5c619c755969243e5", size = 101075 },
+]
+
+[[package]]
 name = "h11"
 version = "0.16.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1333,6 +1363,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/7b/6f/357efd7602486741a
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b2/a3/e137168c9c44d18eff0376253da9f1e9234d0239e0ee230d2fee6cea8e55/jeepney-0.9.0-py3-none-any.whl", hash = "sha256:97e5714520c16fc0a45695e5365a2e11b81ea79bba796e26f9f1d178cb182683", size = 49010 },
 ]
+
+[[package]]
+name = "jieba"
+version = "0.42.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/c6/cb/18eeb235f833b726522d7ebed54f2278ce28ba9438e3135ab0278d9792a2/jieba-0.42.1.tar.gz", hash = "sha256:055ca12f62674fafed09427f176506079bc135638a14e23e25be909131928db2", size = 19214172 }
 
 [[package]]
 name = "jieba-fast"
@@ -2611,6 +2647,23 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/58/74/ccd31c696f047ba381f9b11a504bf1199756c3f30f3de64e3eeb83e10b4a/pyopenjtalk-0.4.1.tar.gz", hash = "sha256:d5ada46f7fc2b52c1c79c273eb9668ff6ad7ab276a8db9d8be119ef93440f0dc", size = 1397999 }
 
 [[package]]
+name = "pyopenjtalk-plus"
+version = "0.4.1.post7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "sudachidict-core" },
+    { name = "sudachipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/82/4e/1e2c165b04dd250dbcb1c270df8517681eed5c20b755c72bec2b42853851/pyopenjtalk_plus-0.4.1.post7.tar.gz", hash = "sha256:555fdf86310d6d72f4a37e92beb251cdc2114aafc133d4c77b136a07a4b17119", size = 24956244 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/99/98/3278de8a32d8df113f4daa117e8b038b94ae9102a556ee032315b4c22a8f/pyopenjtalk_plus-0.4.1.post7-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:50624f033a9b14379b043a23e7b7b1006f7b6fc5e61372a9a6908dd376a19724", size = 25462547 },
+    { url = "https://files.pythonhosted.org/packages/df/2a/c4e8fede0211950313c34007de8dcbb1e2bafce160caba04d231558da30e/pyopenjtalk_plus-0.4.1.post7-cp311-cp311-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:03fd223c565de498afd1722796c98452e1699852939426a68796fd7c3bcd8a49", size = 30764386 },
+    { url = "https://files.pythonhosted.org/packages/d0/df/3c0102c9d0b2a2fa08b9449a0b6feaa32e194244fcf70626c0aad5433616/pyopenjtalk_plus-0.4.1.post7-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:1592e9949abe631b6fd0552b6b5ea8e45f1ad401d296da47ede63b352bdb8d1d", size = 30829618 },
+    { url = "https://files.pythonhosted.org/packages/4a/52/2cdc5381dfcd01dc1d64133a67aef6bb8801691fe679121a9be6df8210bb/pyopenjtalk_plus-0.4.1.post7-cp311-cp311-win_amd64.whl", hash = "sha256:e6007a19795e7b9e07cb10e7825ec90a8abad0b6af4b2baeb6808a23563f4fac", size = 24755424 },
+]
+
+[[package]]
 name = "pyperclip"
 version = "1.11.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3513,6 +3566,29 @@ wheels = [
 ]
 
 [[package]]
+name = "sudachidict-core"
+version = "20260116"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "sudachipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8e/f9/92f818db5d18c54d9a456fdaa5cb4eb0848464fc48888f37f91b0112c2fc/sudachidict_core-20260116.tar.gz", hash = "sha256:81d3c8bbd880a58de33f9fb441663f46fb46a97b829d7ba7598f7085fedf319e", size = 9054 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/af/6a/dbf407b0a3b04ae9815e2b66997c60a9ae7c76e61ec0a2d5653745633400/sudachidict_core-20260116-py3-none-any.whl", hash = "sha256:6f0ab1d3ba074d36d487cfcb4dde9fa1aacd96d3d3559bc8691d3ed9c468b157", size = 72170257 },
+]
+
+[[package]]
+name = "sudachipy"
+version = "0.6.10"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/86/eb/ceadfb1e9178332839a75b91393765b135ab870fad9230d47c201c931607/sudachipy-0.6.10.tar.gz", hash = "sha256:b8910a4610de98b2c3cb6dc3362fea93e3ba5059f1eb445a68baa9585278f31b", size = 71518686 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8a/2e/3694b72d52ee6d3c0a55d88f84ea34536acfb6c49a089c346fee83a2f8ef/SudachiPy-0.6.10-cp311-cp311-macosx_10_12_universal2.whl", hash = "sha256:e947d907542c8086b7e6d18669f45599b3964eec4e954ad7dd85e4acdaa94793", size = 3050763 },
+    { url = "https://files.pythonhosted.org/packages/e7/df/d5d4792456441d28232655aa2494bded6942257c17d61f161af23bb6ee1b/SudachiPy-0.6.10-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5e1c1d8c579cc3af591a6511bffba9f88662eedf5ba32868ca8e3ba3c1051d60", size = 1732671 },
+    { url = "https://files.pythonhosted.org/packages/79/34/ace16ae26b067ae1a0d69e4294c18203f903739f73e6655c555be51a7884/SudachiPy-0.6.10-cp311-cp311-win_amd64.whl", hash = "sha256:8af8b3c91a9aaf0f300901967f85805d73e83297da6c56db50002dde3a4514fe", size = 1378217 },
+]
+
+[[package]]
 name = "sympy"
 version = "1.13.1"
 source = { registry = "https://pypi.org/simple" }
@@ -3715,6 +3791,17 @@ dependencies = [
 ]
 wheels = [
     { url = "https://download-r2.pytorch.org/whl/cu118/torchaudio-2.6.0%2Bcu118-cp311-cp311-win_amd64.whl", hash = "sha256:065ea2e015ef6d02ec289e0a5ecc4c8e7acd4b30a8612879637395e7e16217e4" },
+]
+
+[[package]]
+name = "torchcodec"
+version = "0.11.0"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e8/c9/2b43de18d7352be57461a80d7fbcc8107a3ca2ad389153a5b85b0f71d445/torchcodec-0.11.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:176208beb6576f673c5ef7c82bec122880041127e8c3f22186e2d961bc089317", size = 4202508 },
+    { url = "https://files.pythonhosted.org/packages/c1/c3/d131dec79beaea09f88269ebbfa7fbb99c238ba740112a87c606371c3cd7/torchcodec-0.11.0-cp311-cp311-manylinux_2_28_aarch64.whl", hash = "sha256:5562c28dce8114597116f0884908745c29ce401e4a9d0ae46853cbcd858d4f52", size = 2385509 },
+    { url = "https://files.pythonhosted.org/packages/a1/a4/7c43426ab337df4de25b33f5139a0e9affd9851b1e3a86db1c829dab71d7/torchcodec-0.11.0-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:4f1717eeb9d2c9d4b5e03c37fce90188189ad5231ca7a50c4b3299e3b9d8a106", size = 2526183 },
+    { url = "https://files.pythonhosted.org/packages/d2/e7/4575960e23cd3295c99ec417ee706f0da85ce3a8c9039fbbb8d114b27359/torchcodec-0.11.0-cp311-cp311-win_amd64.whl", hash = "sha256:0e3654fae566891273567f1eebe2baeff0b35ee71eaa8884dd7790c4faa2fe32", size = 1915260 },
 ]
 
 [[package]]
@@ -4145,6 +4232,9 @@ gpt-sovits = [
     { name = "tqdm" },
     { name = "wordsegment" },
 ]
+gsv-lite = [
+    { name = "gsv-tts-lite" },
+]
 llama-cpp = [
     { name = "llama-cpp-python" },
 ]
@@ -4249,6 +4339,7 @@ gpt-sovits = [
     { name = "tqdm", specifier = ">=4.67.1" },
     { name = "wordsegment", specifier = ">=1.3.1" },
 ]
+gsv-lite = [{ name = "gsv-tts-lite", specifier = "==0.3.8" }]
 llama-cpp = [{ name = "llama-cpp-python", specifier = ">=0.3.0", index = "https://abetlen.github.io/llama-cpp-python/whl/cpu" }]
 memory-bench = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.115.8" },

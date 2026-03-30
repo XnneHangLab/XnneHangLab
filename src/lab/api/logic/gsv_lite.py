@@ -199,7 +199,9 @@ def get_gsv_lite_status() -> dict[str, Any]:
         "loaded": _gsv_lite_engine is not None,
         "configured_character": configured_character,
         "loaded_character": _loaded_model_spec.character_name if _loaded_model_spec is not None else None,
-        "loaded_model_matches_config": _loaded_model_spec is not None and configured is not None and _loaded_model_spec == configured,
+        "loaded_model_matches_config": _loaded_model_spec is not None
+        and configured is not None
+        and _loaded_model_spec == configured,
         "configured_gpt_path": configured_gpt_path,
         "configured_sovits_path": configured_sovits_path,
         "loaded_gpt_path": str(_loaded_model_spec.gpt_path) if _loaded_model_spec is not None else None,
@@ -279,16 +281,19 @@ def get_gsv_lite_model() -> Any:
     if _gsv_lite_engine is None or _loaded_model_spec is None:
         raise HTTPException(
             status_code=503,
-            detail=f"GSV-Lite model '{configured.character_name}' is not loaded. Call /tts/gsv-lite/load first.",
+            detail=(
+                f"GSV-Lite model '{configured.character_name}' is not initialized. "
+                "It should be loaded during application startup."
+            ),
         )
 
     if _loaded_model_spec != configured:
         raise HTTPException(
             status_code=503,
             detail=(
-                f"Configured GSV-Lite character '{configured.character_name}' is not loaded. "
+                f"Configured GSV-Lite character '{configured.character_name}' does not match the loaded character. "
                 f"Currently loaded character: '{_loaded_model_spec.character_name}'. "
-                "Call /tts/gsv-lite/load or /tts/gsv-lite/reload."
+                "Restart the service to apply the new profile/model selection."
             ),
         )
 
