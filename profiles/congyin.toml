@@ -8,7 +8,7 @@ persona = "prompts/characters/satone.md"
 format = "prompts/formats/emotion_pipe.md"
 
 [plugins]
-enabled = ["pre_tool_preview", "web_fetch", "diary", "memory"]
+enabled = ["pre_tool_preview", "tool_call_integrity", "web_fetch", "diary", "memory"]
 
 [plugins.pre_tool_preview]
 preview_max_chars = 24
