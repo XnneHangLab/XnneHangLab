@@ -1,0 +1,18 @@
+[plugin]
+id = "tool_call_integrity"
+name = "Tool Call Integrity"
+version = "0.1.0"
+type = "policy"
+description = "约束模型只通过正式工具调用使用工具，避免用普通文本伪造调用或臆造结果"
+author = "XnneHangLab"
+source = "builtin"
+
+[config]
+injection_position = "before_tools"
+
+[config_schema.injection_position]
+type = "str"
+description = "提示词注入位置，可选 before_tools 或 after_tools"
+
+[type_config]
+entry = "ToolCallIntegrityPlugin"
