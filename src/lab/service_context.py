@@ -174,6 +174,7 @@ class ServiceContext:
                     name: VTuberTTSEmotionConfig(
                         path=emotion.path,
                         ref_text=emotion.ref_text,
+                        speaker_audio_path=emotion.speaker_audio_path,
                     )
                     for name, emotion in char.tts.emotions.items()
                 },

@@ -187,3 +187,14 @@ def test_validate_rejects_disabled_qwen_tts_selection(tmp_path: Path) -> None:
 
     assert any('provider = "qwen_tts"' in err for err in errors)
     assert any("package.qwen_tts = false" in err for err in errors)
+
+
+def test_validate_rejects_disabled_gsv_lite_selection(tmp_path: Path) -> None:
+    settings = _base_settings(tmp_path)
+    settings.agent.tts.provider = "gsv_lite"
+    settings.package.gsv_lite = False
+
+    errors = validate_all(settings)
+
+    assert any('provider = "gsv_lite"' in err for err in errors)
+    assert any("package.gsv_lite = false" in err for err in errors)

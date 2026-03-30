@@ -13,6 +13,7 @@ class Packages(TypedDict):
     to_do_list: bool
     yutto_uiya: bool
     gpt_sovits: bool
+    gsv_lite: bool
     qwen_tts: bool
     memory_bench: bool
 
@@ -31,6 +32,7 @@ class PackagesSettings(BaseModel):
     to_do_list: Annotated[bool, Field(True, title="Whether to enable todo_list")]
     yutto_uiya: Annotated[bool, Field(True, title="Whether to enable yutto-uiya")]
     gpt_sovits: Annotated[bool, Field(True, title="Whether to enable gpt-sovits")]
+    gsv_lite: Annotated[bool, Field(False, title="Whether to enable gsv-lite")]
     qwen_tts: Annotated[bool, Field(False, title="Whether to enable faster-qwen-tts")]
     memory_bench: Annotated[
         bool,
@@ -46,6 +48,7 @@ class PackagesSettings(BaseModel):
             "to_do_list": self.to_do_list,
             "yutto_uiya": self.yutto_uiya,
             "gpt_sovits": self.gpt_sovits,
+            "gsv_lite": self.gsv_lite,
             "qwen_tts": self.qwen_tts,
             "memory_bench": self.memory_bench,
         }

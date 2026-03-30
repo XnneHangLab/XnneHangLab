@@ -130,6 +130,57 @@ def _require_ref_audio_and_text(
     raise ValueError(f"GPT-SoVITS ref audio is not configured for character: {tts_cfg.character_name}")
 
 
+def _resolve_gsv_lite_speaker_audio_path(
+    character_config: CharacterSettings | None,
+    emotion_keys: list[str] | None,
+) -> str | None:
+    """Resolve optional speaker_audio for GSV-Lite timbre reference."""
+
+    if character_config is None:
+        return None
+
+    tts_cfg = character_config.tts_config
+    if not tts_cfg.character_name:
+        return None
+
+    base = Path("models/gptsovits") / tts_cfg.character_name
+    emotions = tts_cfg.emotions
+    if not emotions:
+        return None
+
+    candidate_keys = [key for key in emotion_keys or [] if key]
+    keys_to_try: list[str] = []
+
+    for key in candidate_keys:
+        if key in emotions and key not in keys_to_try:
+            keys_to_try.append(key)
+
+    if "default" in emotions and "default" not in keys_to_try:
+        keys_to_try.append("default")
+
+    first_key = next(iter(emotions), None)
+    if first_key is not None and first_key not in keys_to_try:
+        keys_to_try.append(first_key)
+
+    checked_paths: list[Path] = []
+    for key in keys_to_try:
+        speaker_audio_path = emotions[key].speaker_audio_path.strip()
+        if not speaker_audio_path:
+            continue
+        candidate = base / speaker_audio_path
+        checked_paths.append(candidate)
+        if candidate.is_file():
+            return str(candidate)
+
+    if checked_paths:
+        checked = ", ".join(str(path) for path in checked_paths)
+        raise FileNotFoundError(
+            f"GSV-Lite speaker audio does not exist for character '{tts_cfg.character_name}'. Checked: {checked}"
+        )
+
+    return None
+
+
 class TTSTaskManager:
     """Manages TTS tasks and ensures ordered delivery to frontend while allowing parallel TTS generation"""
 
@@ -317,6 +368,29 @@ class TTSTaskManager:
                     logger.error(
                         "Failed to get a valid response from GPT-SoVITS client: {}",
                         gpt_sovits_client.last_error or "unknown error",
+                    )
+                    return None
+            elif lab_settings.agent.tts.provider == "gsv_lite":
+                from lab.api.clients import GSVLiteClient, GSVLiteRequest
+
+                gsv_lite_client = GSVLiteClient()
+                ref_audio_path, ref_text = _require_ref_audio_and_text(character_config, emotion_keys)
+                speaker_audio_path = _resolve_gsv_lite_speaker_audio_path(character_config, emotion_keys)
+                response = await asyncio.wait_for(
+                    gsv_lite_client.asyncpost(
+                        GSVLiteRequest(
+                            text=text,
+                            ref_audio_path=ref_audio_path,
+                            ref_text=ref_text,
+                            speaker_audio_path=speaker_audio_path,
+                        )
+                    ),
+                    timeout=TTS_GENERATION_TIMEOUT_S,
+                )
+                if response is None:
+                    logger.error(
+                        "Failed to get a valid response from GSV-Lite client: {}",
+                        gsv_lite_client.last_error or "unknown error",
                     )
                     return None
             elif lab_settings.agent.tts.provider == "qwen_tts":

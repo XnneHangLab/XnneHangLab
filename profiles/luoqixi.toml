@@ -19,12 +19,12 @@ ignore_asterisks = true
 ignore_angle_brackets = true
 
 [character.tts]
-character_name = "baoqiao"
+character_name = "luoqixi"
 
 [character.tts.emotions.default]
-path = "emotions/很适合夏天哦，我之前就是在这样清爽的氛围里面录了一支舞蹈。.wav"
-ref_text = "很适合夏天哦，我之前就是在这样清爽的氛围里面录了一支舞蹈。"
-speaker_audio_path = "emotions/neutral/neutral_01.wav"
+path = "emotions/そ、そんな呼び方をして、慣れ慣れ思考はありませんか.wav"
+ref_text = "そ、そんな呼び方をして、慣れ慣れ思考はありませんか"
+speaker_audio_path = "emotions/ルディ、ちょっと背中を貸してもらっていいですか.wav"
 
 [prompt]
 persona = "prompts/characters/baoqiao.md"
@@ -33,7 +33,6 @@ format = "prompts/formats/baoqiao_emotion_bracket.md"
 [plugins]
 enabled = [
     "pre_tool_preview",
-    "tool_call_integrity",
     "web_fetch",
     "screen_shot",
     "diary",
