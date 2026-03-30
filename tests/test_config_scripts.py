@@ -96,9 +96,12 @@ api_format = "chat_completion"
     )
     monkeypatch.delenv("VISION_MODEL_PROVIDER", raising=False)
     monkeypatch.delenv("VISION_MODEL_NAME", raising=False)
+    monkeypatch.delenv("VISION_MODEL_REASONING", raising=False)
     monkeypatch.delenv("TTS_PROVIDER", raising=False)
     monkeypatch.setenv("CHAT_MODEL_PROVIDER", "custom")
     monkeypatch.setenv("CHAT_MODEL_NAME", "custom-chat")
+    monkeypatch.setenv("CHAT_MODEL_REASONING", "false")
+    monkeypatch.setenv("VISION_MODEL_REASONING", "true")
 
     module = _load_script_module("sync_apikey.py")
     module.main()
@@ -108,6 +111,8 @@ api_format = "chat_completion"
 
     assert saved["agent"]["chat_model"]["llm_provider"] == "custom"
     assert saved["agent"]["chat_model"]["llm_model_name"] == "custom-chat"
+    assert saved["agent"]["chat_model"]["reasoning"] is False
+    assert saved["agent"]["vision_model"]["reasoning"] is True
     assert saved["agent"]["llm"]["providers"] == [
         {
             "name": "openai",
