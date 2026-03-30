@@ -263,13 +263,14 @@ class MoodChatPlugin(HookPlugin):
             f"[MOOD_CHAT] proactive chat triggered: mood={mood} interval_s={interval} prompt={self._prompt}"
         )
 
-        turn_task = asyncio.create_task(self._run_proactive_turn(agent=agent, ctx=ctx))
-        self._active_turn_task = turn_task
-
         interrupt_task: asyncio.Task[dict[Any, Any] | None] | None = None
         client_uid = self._get_client_uid(ctx)
         if client_uid is not None:
+            message_handler.clear_pending_messages(client_uid, "interrupt-signal")
             interrupt_task = asyncio.create_task(message_handler.wait_for_response(client_uid, "interrupt-signal"))
+
+        turn_task = asyncio.create_task(self._run_proactive_turn(agent=agent, ctx=ctx))
+        self._active_turn_task = turn_task
 
         try:
             if interrupt_task is None:

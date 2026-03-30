@@ -18,6 +18,8 @@ class _ResponseWaiter:
 
 
 class MessageHandler:
+    _NON_REPLAYABLE_MESSAGE_TYPES = {"interrupt-signal"}
+
     def __init__(self):
         self._response_waiters: dict[str, dict[str, list[_ResponseWaiter]]] = defaultdict(lambda: defaultdict(list))
         self._pending_messages: dict[str, dict[str, deque[dict[Any, Any]]]] = defaultdict(lambda: defaultdict(deque))
@@ -91,6 +93,9 @@ class MessageHandler:
                     waiter.future.set_result(message)
                     return
 
+        if msg_type in self._NON_REPLAYABLE_MESSAGE_TYPES:
+            return
+
         self._pending_messages[client_uid][msg_type].append(message)
 
     def cleanup_client(self, client_uid: str) -> None:
@@ -107,6 +112,20 @@ class MessageHandler:
                     waiter.future.cancel()
 
         self._pending_messages.pop(client_uid, None)
+
+    def clear_pending_messages(self, client_uid: str, response_type: str | None = None) -> None:
+        """Drop pending replayable messages for a client."""
+        if response_type is None:
+            self._pending_messages.pop(client_uid, None)
+            return
+
+        client_pending = self._pending_messages.get(client_uid)
+        if client_pending is None:
+            return
+
+        client_pending.pop(response_type, None)
+        if not client_pending:
+            self._pending_messages.pop(client_uid, None)
 
     @staticmethod
     def _pop_matching_message(
