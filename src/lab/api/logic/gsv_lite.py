@@ -224,14 +224,16 @@ def _configure_gsv_lite_openjtalk(models_dir: Path) -> None:
 
     if user_dict_csv.is_file() and not user_dict_bin.is_file():
         try:
-            pyopenjtalk.mecab_dict_index(str(user_dict_csv), str(user_dict_bin))
+            mecab_dict_index = cast("Any", pyopenjtalk).mecab_dict_index
+            mecab_dict_index(str(user_dict_csv), str(user_dict_bin))
             _tts_logger.info(f"gsv-lite built OpenJTalk user dictionary: {user_dict_bin}")
         except Exception as exc:
             _tts_logger.warning(f"gsv-lite failed to build OpenJTalk user dictionary: {exc}")
 
     if user_dict_bin.is_file():
         try:
-            pyopenjtalk.update_global_jtalk_with_user_dict(str(user_dict_bin))
+            update_user_dict = cast("Any", pyopenjtalk).update_global_jtalk_with_user_dict
+            update_user_dict(str(user_dict_bin))
             _tts_logger.info(f"gsv-lite activated OpenJTalk user dictionary: {user_dict_bin}")
         except Exception as exc:
             _tts_logger.warning(f"gsv-lite failed to activate OpenJTalk user dictionary: {exc}")
