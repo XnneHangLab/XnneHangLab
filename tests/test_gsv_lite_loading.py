@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -86,3 +87,30 @@ def test_load_gsv_lite_model_uses_extended_gpt_cache(monkeypatch: pytest.MonkeyP
 
     assert status["loaded"] is True
     assert captured["gpt_cache"] == [(1, 512), (1, 1024), (1, 2048), (4, 512), (4, 1024)]
+
+
+def test_configure_gsv_lite_openjtalk_uses_local_ja_resources(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    models_dir = tmp_path / "models"
+    ja_dir = models_dir / "g2p" / "ja"
+    openjtalk_dir = ja_dir / "open_jtalk_dic_utf_8-1.11"
+    user_dict_bin = ja_dir / "user.dict"
+    openjtalk_dir.mkdir(parents=True)
+    user_dict_bin.write_bytes(b"dict")
+
+    calls: list[tuple[str, str | None]] = []
+
+    pyopenjtalk_module = ModuleType("pyopenjtalk")
+    pyopenjtalk_module.unset_user_dict = lambda: calls.append(("unset", None))
+    pyopenjtalk_module.update_global_jtalk_with_user_dict = lambda path: calls.append(("update", path))
+    pyopenjtalk_module.mecab_dict_index = lambda _src, _dst: calls.append(("build", None))
+
+    monkeypatch.setitem(sys.modules, "pyopenjtalk", pyopenjtalk_module)
+    monkeypatch.delenv("OPEN_JTALK_DICT_DIR", raising=False)
+
+    gsv_lite_module._configure_gsv_lite_openjtalk(models_dir)
+
+    assert os.environ["OPEN_JTALK_DICT_DIR"] == str(openjtalk_dir)
+    assert pyopenjtalk_module.OPEN_JTALK_DICT_DIR == str(openjtalk_dir).encode("utf-8")
+    assert calls == [("unset", None), ("update", str(user_dict_bin))]

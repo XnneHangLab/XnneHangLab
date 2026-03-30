@@ -201,6 +201,16 @@ install-gsv-model-baoqiao:
   uv sync
   uv run modelscope download --model xnnehang/luming-gsv-v2 --local_dir ./models/gptsovits/baoqiao
 
+install-gsv-g2p-resource model='xnnehang/gsv-v2proplus-g2p-resource' model_dir='./models/g2p':
+  uv lock
+  uv sync
+  uv run modelscope download --model {{ model }} --local_dir {{ model_dir }}
+
+install-gsv-sv-resource model=' xnnehang/gsv-v2proplus-sv-resource' model_dir='./models/sv':
+  uv lock
+  uv sync
+  uv run modelscope download --model {{ model }} --local_dir {{ model_dir }}
+
 install-qwen-tts:
   uv lock
   uv sync

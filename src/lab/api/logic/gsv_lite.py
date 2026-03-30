@@ -3,6 +3,7 @@ from __future__ import annotations
 import gc
 import io
 import json
+import os
 import re
 import threading
 from dataclasses import dataclass
@@ -186,6 +187,53 @@ def _release_engine() -> None:
         pass
 
 
+def _configure_gsv_lite_openjtalk(models_dir: Path) -> None:
+    ja_dir = models_dir / "g2p" / "ja"
+    openjtalk_dict_dir = ja_dir / "open_jtalk_dic_utf_8-1.11"
+    user_dict_csv = ja_dir / "userdict.csv"
+    user_dict_bin = ja_dir / "user.dict"
+
+    if not (
+        openjtalk_dict_dir.is_dir()
+        or user_dict_csv.is_file()
+        or user_dict_bin.is_file()
+    ):
+        return
+
+    if openjtalk_dict_dir.is_dir():
+        os.environ["OPEN_JTALK_DICT_DIR"] = str(openjtalk_dict_dir)
+
+    try:
+        import pyopenjtalk
+    except Exception as exc:
+        _tts_logger.warning("gsv-lite failed to import pyopenjtalk for local JA resources: {}", exc)
+        return
+
+    if openjtalk_dict_dir.is_dir():
+        try:
+            setattr(pyopenjtalk, "OPEN_JTALK_DICT_DIR", str(openjtalk_dict_dir).encode("utf-8"))
+            unset_user_dict = getattr(pyopenjtalk, "unset_user_dict", None)
+            if callable(unset_user_dict):
+                unset_user_dict()
+            _tts_logger.info("gsv-lite configured OpenJTalk dictionary: {}", openjtalk_dict_dir)
+        except Exception as exc:
+            _tts_logger.warning("gsv-lite failed to activate local OpenJTalk dictionary: {}", exc)
+
+    if user_dict_csv.is_file() and not user_dict_bin.is_file():
+        try:
+            pyopenjtalk.mecab_dict_index(str(user_dict_csv), str(user_dict_bin))
+            _tts_logger.info("gsv-lite built OpenJTalk user dictionary: {}", user_dict_bin)
+        except Exception as exc:
+            _tts_logger.warning("gsv-lite failed to build OpenJTalk user dictionary: {}", exc)
+
+    if user_dict_bin.is_file():
+        try:
+            pyopenjtalk.update_global_jtalk_with_user_dict(str(user_dict_bin))
+            _tts_logger.info("gsv-lite activated OpenJTalk user dictionary: {}", user_dict_bin)
+        except Exception as exc:
+            _tts_logger.warning("gsv-lite failed to activate OpenJTalk user dictionary: {}", exc)
+
+
 def _redistribute_japanese_word2ph(words: list[str], phone_count: int) -> dict[str, list[Any]]:
     if phone_count <= 0:
         return {"word": words[:1], "ph": [0] if words else []}
@@ -342,6 +390,8 @@ def load_gsv_lite_model(*, force_reload: bool = False) -> dict[str, Any]:
                 _loaded_model_spec.character_name if _loaded_model_spec is not None else "-",
             )
             _release_engine()
+
+        _configure_gsv_lite_openjtalk(target_spec.models_dir)
 
         try:
             from gsv_tts import TTS
