@@ -159,8 +159,7 @@ def load_qwen_tts_model(
             return get_qwen_tts_status()
         if _qwen_tts_engine is not None:
             _tts_logger.info(
-                f"releasing qwen-tts engine before loading model={target_model} "
-                f"(current={_loaded_model_name})"
+                f"releasing qwen-tts engine before loading model={target_model} (current={_loaded_model_name})"
             )
             _release_engine()
 

@@ -203,7 +203,9 @@ def _resolve_manual_ref(repo_root: Path, ref_audio_path: str, ref_text: str | No
     return resolved_ref_audio, normalized_ref_text, "manual"
 
 
-def _resolve_profile_ref(repo_root: Path, profile_path: Path, emotion: str, ref_text_override: str | None) -> tuple[Path, str, str]:
+def _resolve_profile_ref(
+    repo_root: Path, profile_path: Path, emotion: str, ref_text_override: str | None
+) -> tuple[Path, str, str]:
     profile = Profile.from_toml(profile_path)
     if profile.character is None:
         raise ValueError(f"Profile has no [character] config: {profile_path}")

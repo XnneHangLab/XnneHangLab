@@ -76,9 +76,7 @@ def validate_provider_name(value: str, available_names: set[str], env_key_name: 
     normalized = value.strip()
     if normalized in available_names:
         return normalized
-    raise ValueError(
-        f"Invalid {env_key_name}={value!r}, available providers={sorted(available_names)}"
-    )
+    raise ValueError(f"Invalid {env_key_name}={value!r}, available providers={sorted(available_names)}")
 
 
 def is_tts_provider(value: str) -> TypeGuard[TTSProvider]:
@@ -89,9 +87,7 @@ def validate_tts_provider(value: str, env_key_name: str) -> TTSProvider:
     normalized = value.strip()
     if is_tts_provider(normalized):
         return normalized
-    raise ValueError(
-        f"Invalid {env_key_name}={value!r}, available TTS providers={list(ALLOWED_TTS_PROVIDERS)}"
-    )
+    raise ValueError(f"Invalid {env_key_name}={value!r}, available TTS providers={list(ALLOWED_TTS_PROVIDERS)}")
 
 
 def mask_api_key(api_key: str) -> str:
