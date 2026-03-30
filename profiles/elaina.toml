@@ -21,8 +21,10 @@ ignore_angle_brackets = true
 [character.tts]
 character_name = "elaina"
 
-[character.tts.emotions]
-default = "elaina.wav"
+[character.tts.emotions.default]
+path = "elaina.wav"
+ref_text = ""
+speaker_audio_path = "elaina.wav"
 
 [prompt]
 persona = "prompts/characters/elaina.md"

@@ -18,7 +18,7 @@ ApiFormat = Literal["chat_completion"]
 EmbeddingPoolingType = Literal["mean", "cls", "last"]
 ALLOWED_API_FORMATS: tuple[ApiFormat, ...] = ("chat_completion",)
 ALLOWED_EMBEDDING_POOLING_TYPES: tuple[EmbeddingPoolingType, ...] = ("mean", "cls", "last")
-ALLOWED_TTS_PROVIDERS: tuple[TTSProvider, ...] = ("gpt_sovits", "qwen_tts")
+ALLOWED_TTS_PROVIDERS: tuple[TTSProvider, ...] = ("gpt_sovits", "gsv_lite", "qwen_tts")
 LLM_PROVIDERS_ENV_KEY = "LLM_PROVIDERS_JSON"
 
 
@@ -255,6 +255,8 @@ def main() -> None:
         settings.package.local_embedding = value
     if (value := _parse_bool_env("PKG_QWEN_TTS")) is not None:
         settings.package.qwen_tts = value
+    if (value := _parse_bool_env("PKG_GSV_LITE")) is not None:
+        settings.package.gsv_lite = value
     if (value := _parse_bool_env("PKG_GPT_SOVITS")) is not None:
         settings.package.gpt_sovits = value
     if (value := _parse_bool_env("PKG_SHERPA_ASR")) is not None:
@@ -287,6 +289,7 @@ def main() -> None:
     logger.info("package.llm_translate: {}", settings.package.llm_translate)
     logger.info("package.local_embedding: {}", settings.package.local_embedding)
     logger.info("package.qwen_tts: {}", settings.package.qwen_tts)
+    logger.info("package.gsv_lite: {}", settings.package.gsv_lite)
     logger.info("package.gpt_sovits: {}", settings.package.gpt_sovits)
     logger.info("package.sherpa_asr: {}", settings.package.sherpa_asr)
     logger.info("package.qwen_asr: {}", settings.package.qwen_asr)

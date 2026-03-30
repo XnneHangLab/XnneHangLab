@@ -12,7 +12,7 @@
 
 ```text
 lab.toml
-├── conf_version = "v1.6.4"
+├── conf_version = "v1.6.5"
 ├── [asr]
 │   ├── FFMPEG_PATH
 │   ├── device
@@ -123,6 +123,7 @@ root_dir = "D:\\tmp\\XnneHangLab"
 | to_do_list | true | 是否包含 to-do-list 模块 |
 | yutto_uiya | true | 是否包含 yutto-uiya 相关 UI/能力 |
 | gpt_sovits | true | 是否包含 GPT-SoVITS 能力 |
+| gsv_lite | false | 是否包含 GSV-Lite 能力 |
 | qwen_tts | false | 是否包含 Qwen-TTS 能力 |
 | llm_translate | false | 是否启用本地 LLM 翻译引擎 |
 | memory_bench | false | 是否包含 memory_bench 服务相关能力 |
@@ -178,7 +179,7 @@ provider = "gpt_sovits"
 
 | 字段 | 说明 |
 |---|---|
-| provider | 当前 TTS 提供方，支持 `gpt_sovits` / `qwen_tts` |
+| provider | 当前 TTS 提供方，支持 `gpt_sovits` / `gsv_lite` / `qwen_tts` |
 
 补充说明：
 

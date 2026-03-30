@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, overload
 
 import tomli_w as tomlw
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from lab.config_manager.abs_root import RootAbsDir
 from lab.config_manager.agent import AgentSettings
@@ -19,6 +19,7 @@ from lab.config_manager.package import PackagesSettings
 from lab.config_manager.server import ServerSettings
 
 toml_dumps = tomlw.dumps
+CURRENT_CONF_VERSION = "v1.6.5"
 
 if TYPE_CHECKING:
     from lab.config_manager.qwen_asr import QwenASRSettings, QwenASRSettingsTitle
@@ -111,7 +112,7 @@ class XnneHangLabSettings(BaseModel):
         memory_bench: memory_bench 后端配置。
     """
 
-    conf_version: Annotated[str, Field("v1.6.4", title="配置版本")]
+    conf_version: Annotated[str, Field(CURRENT_CONF_VERSION, title="配置版本")]
     asr: Annotated[ASRSettings, Field(ASRSettings())]  # pyright: ignore[reportCallIssue]
     webui: Annotated[AudioRecognizeSettings, Field(AudioRecognizeSettings())]  # pyright: ignore[reportCallIssue]
     agent: Annotated[AgentSettings, Field(AgentSettings())]  # pyright: ignore[reportCallIssue]
@@ -120,6 +121,13 @@ class XnneHangLabSettings(BaseModel):
     root: Annotated[RootAbsDir, Field(RootAbsDir())]  # pyright: ignore[reportCallIssue]
     server: Annotated[ServerSettings, Field(ServerSettings())]  # pyright: ignore[reportCallIssue]
     memory_bench: Annotated[MemoryBenchSettings, Field(MemoryBenchSettings())]  # pyright: ignore[reportCallIssue]
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_conf_version(cls, value: object) -> object:
+        if isinstance(value, dict):
+            return {**value, "conf_version": CURRENT_CONF_VERSION}
+        return value
 
 
 def load_settings_file(
