@@ -22,6 +22,7 @@ from lab.conversations.conversation_utils import (
     process_agent_output,
     send_conversation_end_signal,
     send_conversation_start_signals_for_turn,
+    wait_for_frontend_playback_completion,
 )
 from lab.conversations.tts_manager import TTSTaskManager
 from lab.message_handler import message_handler
@@ -343,16 +344,14 @@ class MoodChatPlugin(HookPlugin):
                         )
                     await tts_manager.wait_until_all_payloads_sent()
                     await runtime.websocket_send(json.dumps({"type": "backend-synth-complete", "turn_id": turn_id}))
-                    response = await message_handler.wait_for_response(
+                    response = await wait_for_frontend_playback_completion(
                         runtime.client_uid,
-                        "frontend-playback-complete",
-                        response_filter=lambda message: message.get("turn_id") == turn_id,
+                        turn_id=turn_id,
                     )
                     if not response:
                         plugin_logger.warning(
-                            f"[MOOD_CHAT] no frontend playback completion response: client_uid={runtime.client_uid}"
+                            f"[MOOD_CHAT] no frontend playback completion response: client_uid={runtime.client_uid}; continuing"
                         )
-                        return False
 
                 await runtime.websocket_send(json.dumps({"type": "force-new-message"}))
                 await send_conversation_end_signal(

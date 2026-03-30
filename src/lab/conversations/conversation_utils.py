@@ -222,15 +222,12 @@ async def finalize_conversation_turn(
         await tts_manager.wait_until_all_payloads_sent()
         await websocket_send(json.dumps({"type": "backend-synth-complete", "turn_id": turn_id}))
 
-        response = await message_handler.wait_for_response(
+        response = await wait_for_frontend_playback_completion(
             client_uid,
-            "frontend-playback-complete",
-            response_filter=(lambda message: message.get("turn_id") == turn_id) if turn_id else None,
-        )  # type: ignore
-
+            turn_id=turn_id,
+        )
         if not response:
-            logger.warning(f"No playback completion response from {client_uid}")
-            return
+            logger.warning(f"No playback completion response from {client_uid}; continuing turn finalization")
 
     await websocket_send(json.dumps({"type": "force-new-message"}))
 
@@ -272,6 +269,24 @@ async def send_conversation_end_signal(
         await service_context.send_live2d_runtime_state(websocket_send, state="listening")
 
     logger.info(f"😎👍✅ Conversation Chain {session_emoji} completed!")
+
+
+PLAYBACK_COMPLETION_TIMEOUT_S = 10.0
+
+
+async def wait_for_frontend_playback_completion(
+    client_uid: str,
+    *,
+    turn_id: str | None = None,
+    timeout: float = PLAYBACK_COMPLETION_TIMEOUT_S,
+) -> dict[Any, Any] | None:
+    """Wait briefly for the frontend playback completion ack without blocking forever."""
+    return await message_handler.wait_for_response(
+        client_uid,
+        "frontend-playback-complete",
+        timeout=timeout,
+        response_filter=(lambda message: message.get("turn_id") == turn_id) if turn_id else None,
+    )
 
 
 def cleanup_conversation(tts_manager: TTSTaskManager, session_emoji: str) -> None:
