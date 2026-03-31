@@ -138,6 +138,15 @@ def _get_configured_model_spec(settings: XnneHangLabSettings | None = None) -> G
     )
 
 
+def _get_gsv_lite_use_bert(settings: object) -> bool:
+    if not isinstance(settings, XnneHangLabSettings):
+        try:
+            return bool(cast("Any", settings).agent.tts.gsv_lite.use_bert)
+        except AttributeError:
+            return False
+    return settings.agent.tts.gsv_lite.use_bert
+
+
 def _resolve_warmup_reference(settings: XnneHangLabSettings, spec: GSVLiteModelSpec) -> tuple[Path | None, str | None]:
     try:
         profile = _resolve_active_profile(settings)
@@ -407,14 +416,20 @@ def load_gsv_lite_model(*, force_reload: bool = False) -> dict[str, Any]:
         except Exception as exc:  # pragma: no cover
             raise RuntimeError("gsv-tts-lite is not installed") from exc
         _apply_gsv_lite_monkey_patch()
+        use_bert = _get_gsv_lite_use_bert(settings)
 
         _tts_logger.info(
             "gsv-lite load start: "
             f"character={target_spec.character_name}, gpt={target_spec.gpt_path}, "
-            f"sovits={target_spec.sovits_path}, models_dir={target_spec.models_dir}"
+            f"sovits={target_spec.sovits_path}, models_dir={target_spec.models_dir}, "
+            f"use_bert={use_bert}"
         )
 
-        engine = TTS(models_dir=str(target_spec.models_dir), gpt_cache=_GSV_LITE_GPT_CACHE)
+        engine = TTS(
+            models_dir=str(target_spec.models_dir),
+            gpt_cache=_GSV_LITE_GPT_CACHE,
+            use_bert=use_bert,
+        )
         engine.load_gpt_model(str(target_spec.gpt_path))
         engine.load_sovits_model(str(target_spec.sovits_path))
 

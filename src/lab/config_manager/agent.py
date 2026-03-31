@@ -134,6 +134,17 @@ class TranslateSettings(BaseModel):
     llm: Annotated[LLMTranslateSetting, Field(LLMTranslateSetting())]  # pyright: ignore[reportCallIssue]
 
 
+class GSVLiteTTSSettings(BaseModel):
+    use_bert: Annotated[
+        bool,
+        Field(
+            False,
+            title="Enable Chinese BERT features for GSV-Lite",
+            description="Improves Chinese prosody, but may hurt non-Chinese output depending on the model and text.",
+        ),
+    ]
+
+
 class TTSSettings(BaseModel):
     provider: Annotated[
         TTSProvider,
@@ -143,6 +154,7 @@ class TTSSettings(BaseModel):
             description="Can be overridden by the TTS_PROVIDER environment variable.",
         ),
     ]
+    gsv_lite: Annotated[GSVLiteTTSSettings, Field(GSVLiteTTSSettings())]  # pyright: ignore[reportCallIssue]
 
 
 class AgentSettings(BaseModel):

@@ -187,6 +187,25 @@ provider = "gpt_sovits"
 - 也可以通过环境变量 `TTS_PROVIDER` 临时覆写该值
 - 当前 `AgentSettings.speaker_model` 只是对 `agent.tts.provider` 的兼容属性
 
+### 🧠 [agent.tts.gsv_lite]
+
+`[agent.tts.gsv_lite]` 用于配置 GSV-Lite 的额外推理选项。
+
+```toml
+[agent.tts.gsv_lite]
+use_bert = false
+```
+
+| 字段 | 说明 |
+|---|---|
+| use_bert | 是否启用中文 BERT 特征。开启后通常能显著改善中文停顿、重音和句子节奏；但对日文 / 英文或混合文本，可能会带来不自然的语气起伏。 |
+
+使用建议：
+
+- **中文推理建议开启**：不开时中文容易出现停顿、生硬重音或“大佐味”
+- **日文 / 英文推理建议关闭**：避免语气起伏异常或整体韵律不自然
+- 如果当前角色主要说中文，可以在配置中默认开启；如果主要说日文 / 英文，建议保持关闭
+
 ### 🗣️ [agent.qwen_tts]
 
 `[agent.qwen_tts]` 负责 Qwen-TTS 自身的模型、路径与加载行为设置；只有当 `package.qwen_tts = true` 且 `agent.tts.provider = "qwen_tts"` 时，这组配置才会真正参与主 TTS 链路。
