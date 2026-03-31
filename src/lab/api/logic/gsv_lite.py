@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
 
 DEFAULT_SAMPLE_RATE = 32000
+_GSV_LITE_USE_BERT = True
 _GSV_LITE_GPT_CACHE = [(1, 512), (1, 1024), (1, 2048), (4, 512), (4, 1024)]
 _GSV_LITE_SEGMENT_MAX_CHARS = 80
 _GSV_LITE_SEGMENT_SILENCE_S = 0.08
@@ -414,7 +415,11 @@ def load_gsv_lite_model(*, force_reload: bool = False) -> dict[str, Any]:
             f"sovits={target_spec.sovits_path}, models_dir={target_spec.models_dir}"
         )
 
-        engine = TTS(models_dir=str(target_spec.models_dir), gpt_cache=_GSV_LITE_GPT_CACHE)
+        engine = TTS(
+            models_dir=str(target_spec.models_dir),
+            gpt_cache=_GSV_LITE_GPT_CACHE,
+            use_bert=_GSV_LITE_USE_BERT,
+        )
         engine.load_gpt_model(str(target_spec.gpt_path))
         engine.load_sovits_model(str(target_spec.sovits_path))
 
