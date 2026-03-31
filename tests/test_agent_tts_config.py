@@ -22,3 +22,19 @@ def test_agent_settings_tts_provider_env_override(monkeypatch: pytest.MonkeyPatc
     settings = AgentSettings.model_validate({})
 
     assert settings.tts.provider == "qwen_tts"
+
+
+def test_agent_settings_gsv_lite_use_bert_is_configurable() -> None:
+    settings = AgentSettings.model_validate(
+        {
+            "tts": {
+                "provider": "gsv_lite",
+                "gsv_lite": {
+                    "use_bert": True,
+                },
+            }
+        }
+    )
+
+    assert settings.tts.provider == "gsv_lite"
+    assert settings.tts.gsv_lite.use_bert is True

@@ -14,7 +14,10 @@ import lab.api.logic.gsv_lite as gsv_lite_module
 
 
 def _fake_settings(*_args: object, **_kwargs: object) -> SimpleNamespace:
-    return SimpleNamespace(package=SimpleNamespace(gsv_lite=True))
+    return SimpleNamespace(
+        package=SimpleNamespace(gsv_lite=True),
+        agent=SimpleNamespace(tts=SimpleNamespace(gsv_lite=SimpleNamespace(use_bert=False))),
+    )
 
 
 def _spec(character_name: str) -> gsv_lite_module.GSVLiteModelSpec:
@@ -83,6 +86,7 @@ def test_load_gsv_lite_model_uses_extended_gpt_cache(monkeypatch: pytest.MonkeyP
         "_get_gsv_lite_settings",
         lambda: SimpleNamespace(
             package=SimpleNamespace(gsv_lite=True),
+            agent=SimpleNamespace(tts=SimpleNamespace(gsv_lite=SimpleNamespace(use_bert=True))),
             root=SimpleNamespace(root_dir="."),
         ),
     )
@@ -101,6 +105,12 @@ def test_load_gsv_lite_model_uses_extended_gpt_cache(monkeypatch: pytest.MonkeyP
     assert status["loaded"] is True
     assert captured["gpt_cache"] == [(1, 512), (1, 1024), (1, 2048), (4, 512), (4, 1024)]
     assert captured["use_bert"] is True
+
+
+def test_get_gsv_lite_use_bert_defaults_to_false_when_missing() -> None:
+    settings = SimpleNamespace(agent=SimpleNamespace(tts=SimpleNamespace()))
+
+    assert gsv_lite_module._get_gsv_lite_use_bert(settings) is False
 
 
 def test_configure_gsv_lite_openjtalk_uses_local_ja_resources(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
