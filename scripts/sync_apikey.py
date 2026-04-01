@@ -19,6 +19,14 @@ EmbeddingPoolingType = Literal["mean", "cls", "last"]
 ALLOWED_API_FORMATS: tuple[ApiFormat, ...] = ("chat_completion",)
 ALLOWED_EMBEDDING_POOLING_TYPES: tuple[EmbeddingPoolingType, ...] = ("mean", "cls", "last")
 ALLOWED_TTS_PROVIDERS: tuple[TTSProvider, ...] = ("gpt_sovits", "gsv_lite", "genie_tts", "qwen_tts")
+GENIE_TTS_LANGUAGE_ALIASES: dict[str, str] = {
+    "chinese": "Chinese",
+    "english": "English",
+    "japanese": "Japanese",
+    "hybrid-chinese-english": "Hybrid-Chinese-English",
+    "korean": "Korean",
+    "auto": "auto",
+}
 LLM_PROVIDERS_ENV_KEY = "LLM_PROVIDERS_JSON"
 
 
@@ -88,6 +96,19 @@ def validate_tts_provider(value: str, env_key_name: str) -> TTSProvider:
     if is_tts_provider(normalized):
         return normalized
     raise ValueError(f"Invalid {env_key_name}={value!r}, available TTS providers={list(ALLOWED_TTS_PROVIDERS)}")
+
+
+def validate_genie_tts_language(value: str, env_key_name: str) -> str:
+    normalized = value.strip()
+    if not normalized:
+        return ""
+
+    resolved = GENIE_TTS_LANGUAGE_ALIASES.get(normalized.lower())
+    if resolved is not None:
+        return resolved
+    raise ValueError(
+        f"Invalid {env_key_name}={value!r}, available Genie-TTS languages={list(GENIE_TTS_LANGUAGE_ALIASES.values())}"
+    )
 
 
 def mask_api_key(api_key: str) -> str:
@@ -238,6 +259,11 @@ def main() -> None:
         )
     if (value := _parse_bool_env("TTS_GSV_LITE_USE_BERT")) is not None:
         settings.agent.tts.gsv_lite.use_bert = value
+    if "TTS_GENIE_TTS_LANGUAGE" in os.environ:
+        settings.agent.tts.genie_tts.language = validate_genie_tts_language(
+            os.environ.get("TTS_GENIE_TTS_LANGUAGE", ""),
+            "TTS_GENIE_TTS_LANGUAGE",
+        )
     if (value := _parse_bool_env("TTS_GENIE_TTS_USE_ROBERTA")) is not None:
         settings.agent.tts.genie_tts.use_roberta = value
 

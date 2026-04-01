@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -10,6 +11,7 @@ from lab.api.clients.llm_translate_client import LLMTranslateRequest
 from lab.api.logic.llm_translate import get_llm_translate_engine, is_llm_translate_engine_loaded
 
 router = APIRouter(prefix="/translate")
+_translate_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="llm-translate")
 
 
 @router.get("/llm/health")
@@ -53,7 +55,7 @@ async def llm_translate(request: Request) -> dict[str, object]:
     try:
         loop = asyncio.get_running_loop()
         target_text = await loop.run_in_executor(
-            None,
+            _translate_executor,
             engine.translate,
             llm_request.text,
             llm_request.target_language,

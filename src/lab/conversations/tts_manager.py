@@ -395,18 +395,20 @@ class TTSTaskManager:
         emotion_keys: list[str] | None = None,
     ) -> Path | None:
         """Generate audio file from text."""
+        provider: str | None = None
         try:
             lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+            provider = lab_settings.agent.tts.provider
             cache_dir = Path("cache") / "tts"
             cache_dir.mkdir(parents=True, exist_ok=True)
-            if lab_settings.agent.tts.provider == "gpt_sovits":
+            if provider == "gpt_sovits":
                 from lab.api.clients import GPTSoVITSClient, GPTSoVITSRequest
 
                 gpt_sovits_client = GPTSoVITSClient()
                 ref_audio_path, ref_text = _require_ref_audio_and_text(
                     character_config,
                     emotion_keys,
-                    tts_provider=lab_settings.agent.tts.provider,
+                    tts_provider=provider,
                 )
                 response = await asyncio.wait_for(
                     gpt_sovits_client.asyncpost(
@@ -426,19 +428,19 @@ class TTSTaskManager:
                         gpt_sovits_client.last_error or "unknown error",
                     )
                     return None
-            elif lab_settings.agent.tts.provider == "gsv_lite":
+            elif provider == "gsv_lite":
                 from lab.api.clients import GSVLiteClient, GSVLiteRequest
 
                 gsv_lite_client = GSVLiteClient()
                 ref_audio_path, ref_text = _require_ref_audio_and_text(
                     character_config,
                     emotion_keys,
-                    tts_provider=lab_settings.agent.tts.provider,
+                    tts_provider=provider,
                 )
                 speaker_audio_path = _resolve_gsv_lite_speaker_audio_path(
                     character_config,
                     emotion_keys,
-                    tts_provider=lab_settings.agent.tts.provider,
+                    tts_provider=provider,
                 )
                 response = await asyncio.wait_for(
                     gsv_lite_client.asyncpost(
@@ -457,14 +459,14 @@ class TTSTaskManager:
                         gsv_lite_client.last_error or "unknown error",
                     )
                     return None
-            elif lab_settings.agent.tts.provider == "genie_tts":
+            elif provider == "genie_tts":
                 from lab.api.clients import GenieTTSClient, GenieTTSRequest
 
                 genie_tts_client = GenieTTSClient()
                 ref_audio_path, ref_text = _require_ref_audio_and_text(
                     character_config,
                     emotion_keys,
-                    tts_provider=lab_settings.agent.tts.provider,
+                    tts_provider=provider,
                 )
                 response = await asyncio.wait_for(
                     genie_tts_client.asyncpost(
@@ -482,14 +484,14 @@ class TTSTaskManager:
                         genie_tts_client.last_error or "unknown error",
                     )
                     return None
-            elif lab_settings.agent.tts.provider == "qwen_tts":
+            elif provider == "qwen_tts":
                 from lab.api.clients import QwenTTSClient, QwenTTSRequest
 
                 qwen_tts_client = QwenTTSClient()
                 ref_audio_path, ref_text = _require_ref_audio_and_text(
                     character_config,
                     emotion_keys,
-                    tts_provider=lab_settings.agent.tts.provider,
+                    tts_provider=provider,
                 )
                 response = await asyncio.wait_for(
                     qwen_tts_client.asyncpost(
@@ -508,7 +510,7 @@ class TTSTaskManager:
                     )
                     return None
             else:
-                logger.error(f"Unsupported TTS provider: {lab_settings.agent.tts.provider}")
+                logger.error(f"Unsupported TTS provider: {provider}")
                 return None
             audio_path = (
                 cache_dir / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid4())[:8]}.{response['audio_type']}"
@@ -517,6 +519,13 @@ class TTSTaskManager:
                 f.write(response["audio_byte"])
             return Path(audio_path)
         except TimeoutError:
+            if provider == "genie_tts":
+                try:
+                    from lab.api.logic.genie_tts import stop_genie_tts_synthesis
+
+                    stop_genie_tts_synthesis()
+                except Exception as exc:
+                    logger.warning("Failed to stop timed-out Genie-TTS synthesis: {}", exc)
             logger.warning(
                 "TTS generation timed out after {}s, degrading to silent payload: {}",
                 TTS_GENERATION_TIMEOUT_S,

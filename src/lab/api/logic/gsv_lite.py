@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 import gc
 import io
 import json
 import os
 import re
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -102,6 +104,14 @@ def _resolve_reference_dir(settings: XnneHangLabSettings, character_name: str) -
     return (Path(settings.root.root_dir) / "models" / _GPT_SOVITS_MODEL_DIRNAME / character_name).resolve()
 
 
+def _iter_reference_base_dirs(spec: GSVLiteModelSpec) -> list[Path]:
+    bases: list[Path] = []
+    for base in (spec.character_dir, spec.reference_dir):
+        if base not in bases:
+            bases.append(base)
+    return bases
+
+
 def _resolve_gsv_lite_data_dir(settings: XnneHangLabSettings) -> Path:
     models_root = (Path(settings.root.root_dir) / "models").resolve()
     preferred = (models_root / _GSV_LITE_DATA_DIRNAME).resolve()
@@ -183,7 +193,10 @@ def _get_gsv_lite_use_bert(settings: object) -> bool:
     return settings.agent.tts.gsv_lite.use_bert
 
 
-def _resolve_warmup_reference(settings: XnneHangLabSettings, spec: GSVLiteModelSpec) -> tuple[Path | None, str | None]:
+def _resolve_warmup_inputs(
+    settings: XnneHangLabSettings,
+    spec: GSVLiteModelSpec,
+) -> tuple[Path | None, str | None, Path | None]:
     try:
         profile = _resolve_active_profile(settings)
     except Exception:
@@ -193,10 +206,19 @@ def _resolve_warmup_reference(settings: XnneHangLabSettings, spec: GSVLiteModelS
         emotions = profile.character.tts.emotions
         emotion = emotions.get("default") or next(iter(emotions.values()), None)
         if emotion is not None and emotion.path:
-            ref_audio = (spec.reference_dir / emotion.path).resolve()
-            if ref_audio.is_file():
+            for base_dir in _iter_reference_base_dirs(spec):
+                ref_audio = (base_dir / emotion.path).resolve()
+                if not ref_audio.is_file():
+                    continue
                 ref_text = emotion.ref_text.strip() or None
-                return ref_audio, ref_text
+                speaker_audio: Path | None = None
+                if emotion.speaker_audio_path.strip():
+                    for speaker_base in _iter_reference_base_dirs(spec):
+                        candidate = (speaker_base / emotion.speaker_audio_path).resolve()
+                        if candidate.is_file():
+                            speaker_audio = candidate
+                            break
+                return ref_audio, ref_text, speaker_audio
 
     infer_config = _load_infer_config(spec.character_dir)
     emotion_list = infer_config.get("emotion_list")
@@ -213,9 +235,9 @@ def _resolve_warmup_reference(settings: XnneHangLabSettings, spec: GSVLiteModelS
                     ref_audio = (base_dir / ref_wav_path).resolve()
                     if ref_audio.is_file():
                         ref_text = prompt_text.strip() if isinstance(prompt_text, str) else ""
-                        return ref_audio, (ref_text or None)
+                        return ref_audio, (ref_text or None), None
 
-    return None, None
+    return None, None, None
 
 
 def _release_engine() -> None:
@@ -470,20 +492,6 @@ def load_gsv_lite_model(*, force_reload: bool = False) -> dict[str, Any]:
         engine.load_gpt_model(str(target_spec.gpt_path))
         engine.load_sovits_model(str(target_spec.sovits_path))
 
-        warmup_ref_audio, warmup_ref_text = _resolve_warmup_reference(settings, target_spec)
-        if warmup_ref_audio is not None and warmup_ref_text:
-            try:
-                infer = cast("Callable[..., Any]", cast("Any", engine).infer)
-                infer(
-                    spk_audio_path=str(warmup_ref_audio),
-                    prompt_audio_path=str(warmup_ref_audio),
-                    prompt_audio_text=warmup_ref_text,
-                    text="System warmup.",
-                )
-                _tts_logger.info(f"gsv-lite warmup finished: character={target_spec.character_name}")
-            except Exception:
-                _tts_logger.warning("gsv-lite warmup failed; continue with loaded engine")
-
         _gsv_lite_engine = engine
         _loaded_model_spec = target_spec
         _tts_logger.info(f"gsv-lite load complete: character={target_spec.character_name}")
@@ -493,6 +501,41 @@ def load_gsv_lite_model(*, force_reload: bool = False) -> dict[str, Any]:
 
 def reload_gsv_lite_model() -> dict[str, Any]:
     return load_gsv_lite_model(force_reload=True)
+
+
+async def warmup_gsv_lite_model() -> dict[str, Any]:
+    settings = _get_gsv_lite_settings()
+    configured = _get_configured_model_spec(settings)
+    ref_audio, ref_text, speaker_audio = _resolve_warmup_inputs(settings, configured)
+    if ref_audio is None or not ref_text:
+        raise RuntimeError(
+            f"gsv-lite warmup failed: no usable warmup ref_audio/ref_text for character '{configured.character_name}'"
+        )
+
+    started = time.perf_counter()
+    _tts_logger.info(
+        "gsv-lite warmup start: character={}, ref_audio={}, speaker_audio={}, text_len={}",
+        configured.character_name,
+        ref_audio,
+        speaker_audio or ref_audio,
+        len(ref_text),
+    )
+    wav_bytes = await asyncio.wait_for(
+        synthesize_once(
+            text=ref_text,
+            ref_audio=ref_audio,
+            ref_text=ref_text,
+            speaker_audio=speaker_audio,
+        ),
+        timeout=120.0,
+    )
+    _tts_logger.info(
+        "gsv-lite warmup complete: character={}, audio_bytes={}, elapsed={:.2f}s",
+        configured.character_name,
+        len(wav_bytes),
+        time.perf_counter() - started,
+    )
+    return get_gsv_lite_status()
 
 
 def get_gsv_lite_model() -> Any:

@@ -3,13 +3,14 @@ from __future__ import annotations
 import os
 from typing import Annotated, Any, Literal, cast
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from lab.config_manager.qwen_tts import QwenTTSSettings
 
 LLM_Provider = str
 TranslateProvider = Literal["llm", "deeplx"]
 TTSProvider = Literal["gpt_sovits", "gsv_lite", "genie_tts", "qwen_tts"]
+GenieTTSLanguage = Literal["Chinese", "English", "Japanese", "Hybrid-Chinese-English", "Korean", "auto"]
 
 
 class ChatModelSetting(BaseModel):
@@ -146,6 +147,17 @@ class GSVLiteTTSSettings(BaseModel):
 
 
 class GenieTTSSettings(BaseModel):
+    language: Annotated[
+        str,
+        Field(
+            "auto",
+            title="Genie-TTS Character Language Override",
+            description=(
+                "Genie-TTS model language override. "
+                "Defaults to auto; when left empty explicitly, XnneHangLab falls back to infer.json and then auto."
+            ),
+        ),
+    ]
     use_roberta: Annotated[
         bool,
         Field(
@@ -154,6 +166,32 @@ class GenieTTSSettings(BaseModel):
             description="Improves Chinese prosody when RoBERTa assets are installed, but keeps the default download unchanged.",
         ),
     ]
+
+    @field_validator("language", mode="before")
+    @classmethod
+    def normalize_language(cls, value: Any) -> str:
+        if value is None:
+            return "auto"
+
+        normalized = str(value).strip()
+        if not normalized:
+            return "auto"
+
+        alias_map: dict[str, GenieTTSLanguage] = {
+            "chinese": "Chinese",
+            "english": "English",
+            "japanese": "Japanese",
+            "hybrid-chinese-english": "Hybrid-Chinese-English",
+            "korean": "Korean",
+            "auto": "auto",
+        }
+        resolved = alias_map.get(normalized.lower())
+        if resolved is None:
+            raise ValueError(
+                "Unsupported Genie-TTS language override. "
+                "Allowed values: Chinese, English, Japanese, Hybrid-Chinese-English, Korean, auto."
+            )
+        return resolved
 
 
 class TTSSettings(BaseModel):

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 # pyright: reportPrivateUsage=false
+import asyncio
 import os
 import sys
 from pathlib import Path
@@ -79,9 +80,6 @@ def test_load_gsv_lite_model_uses_extended_gpt_cache(monkeypatch: pytest.MonkeyP
     def fake_get_configured_model_spec(*_args: object, **_kwargs: object) -> gsv_lite_module.GSVLiteModelSpec:
         return _spec("luoqixi")
 
-    def fake_resolve_warmup_reference(*_args: object, **_kwargs: object) -> tuple[None, None]:
-        return None, None
-
     monkeypatch.setattr(
         gsv_lite_module,
         "_get_gsv_lite_settings",
@@ -92,7 +90,6 @@ def test_load_gsv_lite_model_uses_extended_gpt_cache(monkeypatch: pytest.MonkeyP
         ),
     )
     monkeypatch.setattr(gsv_lite_module, "_get_configured_model_spec", fake_get_configured_model_spec)
-    monkeypatch.setattr(gsv_lite_module, "_resolve_warmup_reference", fake_resolve_warmup_reference)
     monkeypatch.setattr(gsv_lite_module, "_apply_gsv_lite_monkey_patch", lambda: None)
     monkeypatch.setattr(gsv_lite_module, "_gsv_lite_engine", None)
     monkeypatch.setattr(gsv_lite_module, "_loaded_model_spec", None)
@@ -107,6 +104,111 @@ def test_load_gsv_lite_model_uses_extended_gpt_cache(monkeypatch: pytest.MonkeyP
     assert captured["gpt_cache"] == [(1, 512), (1, 1024), (1, 2048), (4, 512), (4, 1024)]
     assert captured["use_bert"] is True
     assert Path(captured["models_dir"]) == Path("models/GSVLiteData")
+
+
+def test_resolve_warmup_inputs_prefers_character_dir_and_speaker_audio(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    ref_audio = tmp_path / "models" / "gsv-tts-lite" / "baoqiao" / "ref_audios" / "default.wav"
+    speaker_audio = tmp_path / "models" / "gsv-tts-lite" / "baoqiao" / "speaker" / "default.wav"
+    ref_audio.parent.mkdir(parents=True)
+    speaker_audio.parent.mkdir(parents=True)
+    ref_audio.write_bytes(b"wav")
+    speaker_audio.write_bytes(b"wav")
+
+    profile = SimpleNamespace(
+        character=SimpleNamespace(
+            tts=SimpleNamespace(
+                emotions={
+                    "default": SimpleNamespace(
+                        path="ref_audios/default.wav",
+                        ref_text="default ref",
+                        speaker_audio_path="speaker/default.wav",
+                    )
+                }
+            )
+        )
+    )
+    settings = SimpleNamespace(root=SimpleNamespace(root_dir=str(tmp_path)))
+    spec = gsv_lite_module.GSVLiteModelSpec(
+        character_name="baoqiao",
+        character_dir=(tmp_path / "models" / "gsv-tts-lite" / "baoqiao").resolve(),
+        reference_dir=(tmp_path / "models" / "gptsovits" / "baoqiao").resolve(),
+        gpt_path=tmp_path / "models" / "gsv-tts-lite" / "baoqiao" / "model.ckpt",
+        sovits_path=tmp_path / "models" / "gsv-tts-lite" / "baoqiao" / "model.pth",
+        models_dir=(tmp_path / "models" / "GSVLiteData").resolve(),
+    )
+
+    monkeypatch.setattr(gsv_lite_module, "_resolve_active_profile", lambda *_args, **_kwargs: profile)
+
+    resolved_ref_audio, resolved_ref_text, resolved_speaker_audio = gsv_lite_module._resolve_warmup_inputs(
+        settings,
+        spec,
+    )
+
+    assert resolved_ref_audio == ref_audio.resolve()
+    assert resolved_ref_text == "default ref"
+    assert resolved_speaker_audio == speaker_audio.resolve()
+
+
+def test_warmup_gsv_lite_model_uses_ref_text_for_real_warmup(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    settings = SimpleNamespace(
+        package=SimpleNamespace(gsv_lite=True),
+        agent=SimpleNamespace(tts=SimpleNamespace(gsv_lite=SimpleNamespace(use_bert=False))),
+        root=SimpleNamespace(root_dir=str(tmp_path)),
+    )
+    spec = gsv_lite_module.GSVLiteModelSpec(
+        character_name="baoqiao",
+        character_dir=(tmp_path / "models" / "gsv-tts-lite" / "baoqiao").resolve(),
+        reference_dir=(tmp_path / "models" / "gptsovits" / "baoqiao").resolve(),
+        gpt_path=tmp_path / "models" / "gsv-tts-lite" / "baoqiao" / "model.ckpt",
+        sovits_path=tmp_path / "models" / "gsv-tts-lite" / "baoqiao" / "model.pth",
+        models_dir=(tmp_path / "models" / "GSVLiteData").resolve(),
+    )
+    ref_audio = (tmp_path / "models" / "gsv-tts-lite" / "baoqiao" / "ref.wav").resolve()
+    speaker_audio = (tmp_path / "models" / "gsv-tts-lite" / "baoqiao" / "speaker.wav").resolve()
+    ref_audio.parent.mkdir(parents=True, exist_ok=True)
+    speaker_audio.parent.mkdir(parents=True, exist_ok=True)
+    ref_audio.write_bytes(b"wav")
+    speaker_audio.write_bytes(b"wav")
+
+    captured: dict[str, object] = {}
+
+    async def _fake_synthesize_once(
+        *,
+        text: str,
+        ref_audio: Path | None,
+        ref_text: str | None,
+        speaker_audio: Path | None = None,
+        **_kwargs: object,
+    ) -> bytes:
+        captured["text"] = text
+        captured["ref_audio"] = ref_audio
+        captured["ref_text"] = ref_text
+        captured["speaker_audio"] = speaker_audio
+        return b"RIFFfake"
+
+    monkeypatch.setattr(gsv_lite_module, "_get_gsv_lite_settings", lambda: settings)
+    monkeypatch.setattr(gsv_lite_module, "_get_configured_model_spec", lambda *_args, **_kwargs: spec)
+    monkeypatch.setattr(
+        gsv_lite_module,
+        "_resolve_warmup_inputs",
+        lambda *_args, **_kwargs: (ref_audio, "default ref", speaker_audio),
+    )
+    monkeypatch.setattr(gsv_lite_module, "synthesize_once", _fake_synthesize_once)
+    monkeypatch.setattr(gsv_lite_module, "get_gsv_lite_status", lambda: {"loaded": True})
+
+    status = asyncio.run(gsv_lite_module.warmup_gsv_lite_model())
+
+    assert status == {"loaded": True}
+    assert captured["text"] == "default ref"
+    assert captured["ref_audio"] == ref_audio
+    assert captured["ref_text"] == "default ref"
+    assert captured["speaker_audio"] == speaker_audio
 
 
 def test_get_gsv_lite_use_bert_defaults_to_false_when_missing() -> None:

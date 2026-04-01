@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import gc
 import importlib
 import io
@@ -7,6 +8,8 @@ import json
 import os
 import sys
 import threading
+import time
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -26,13 +29,15 @@ _LEGACY_GENIE_DATA_DIRNAME = "GenieData"
 _GPT_SOVITS_MODEL_DIRNAME = "gptsovits"
 _GENIE_TTS_MODEL_DIR_KEYS = ("genie_model_dir", "genie_tts_path", "onnx_model_dir", "tts_models_dir")
 _GENIE_TTS_MODEL_DIR_CANDIDATES = ("tts_models", "genie_tts", "genie", "onnx")
+_GENIE_TTS_ROOT_MODEL_MARKERS = (
+    "vits_fp32.onnx",
+    "t2s_encoder_fp32.onnx",
+    "t2s_stage_decoder_fp32.onnx",
+    "t2s_first_stage_decoder_fp32.onnx",
+    "prompt_encoder_fp32.onnx",
+)
 _GENIE_TTS_HUBERT_ONNX = "chinese-hubert-base.onnx"
 _GENIE_TTS_HUBERT_FP16 = "chinese-hubert-base_weights_fp16.bin"
-_SPEAKER_LANG_TO_GENIE = {
-    "ZH": "Chinese",
-    "EN": "English",
-    "JA": "Japanese",
-}
 
 _tts_logger = logger.bind(group="tts")
 _genie_tts_module: Any | None = None
@@ -98,6 +103,18 @@ def _resolve_active_character_name(settings: XnneHangLabSettings) -> str:
     if profile.profile.name.strip():
         return profile.profile.name.strip()
     raise RuntimeError("failed to resolve active character name for genie-tts")
+
+
+def _iter_reference_base_dirs(settings: XnneHangLabSettings, character_name: str) -> list[Path]:
+    models_dir = (Path(settings.root.root_dir) / "models").resolve()
+    bases: list[Path] = []
+    for base in (
+        (models_dir / _GENIE_TTS_MODEL_DIRNAME / character_name).resolve(),
+        (models_dir / _GPT_SOVITS_MODEL_DIRNAME / character_name).resolve(),
+    ):
+        if base not in bases:
+            bases.append(base)
+    return bases
 
 
 def _resolve_character_dir(settings: XnneHangLabSettings, character_name: str) -> Path:
@@ -219,7 +236,16 @@ def _resolve_model_dir_from_infer_config(character_dir: Path, infer_config: dict
     return None
 
 
+def _looks_like_genie_tts_model_dir(candidate: Path) -> bool:
+    if not candidate.is_dir():
+        return False
+    return any((candidate / marker).is_file() for marker in _GENIE_TTS_ROOT_MODEL_MARKERS)
+
+
 def _resolve_default_model_dir(character_dir: Path) -> Path | None:
+    if _looks_like_genie_tts_model_dir(character_dir):
+        return character_dir.resolve()
+
     for name in _GENIE_TTS_MODEL_DIR_CANDIDATES:
         candidate = (character_dir / name).resolve()
         if candidate.is_dir():
@@ -228,10 +254,59 @@ def _resolve_default_model_dir(character_dir: Path) -> Path | None:
 
 
 def _resolve_language(infer_config: dict[str, Any], settings: XnneHangLabSettings) -> str:
+    configured_language = settings.agent.tts.genie_tts.language.strip()
+    if configured_language:
+        return configured_language
+
     raw_language = infer_config.get("language")
     if isinstance(raw_language, str) and raw_language.strip():
         return raw_language.strip()
-    return _SPEAKER_LANG_TO_GENIE.get(settings.agent.speaker_lang, "auto")
+    return "auto"
+
+
+def _resolve_warmup_ref_audio_and_text(
+    settings: XnneHangLabSettings,
+    character_name: str,
+) -> tuple[Path, str]:
+    profile = _resolve_active_profile(settings)
+    if profile.character is None:
+        raise RuntimeError("active profile does not define [character]")
+
+    emotions = profile.character.tts.emotions
+    if not emotions:
+        raise RuntimeError(f"genie-tts warmup failed: no TTS emotions configured for character '{character_name}'")
+
+    keys_to_try: list[str] = []
+    if "default" in emotions:
+        keys_to_try.append("default")
+    for key in emotions:
+        if key not in keys_to_try:
+            keys_to_try.append(key)
+
+    checked_paths: list[Path] = []
+    for key in keys_to_try:
+        emotion = emotions[key]
+        if not emotion.path.strip():
+            continue
+        ref_text = emotion.ref_text.strip()
+        if not ref_text:
+            continue
+        for base in _iter_reference_base_dirs(settings, character_name):
+            candidate = (base / emotion.path).resolve()
+            checked_paths.append(candidate)
+            if candidate.is_file():
+                return candidate, ref_text
+
+    if checked_paths:
+        checked = ", ".join(str(path) for path in checked_paths)
+        raise FileNotFoundError(
+            f"genie-tts warmup failed: no configured ref audio file exists for character '{character_name}'. "
+            f"Checked: {checked}"
+        )
+
+    raise RuntimeError(
+        f"genie-tts warmup failed: no emotion with both path and ref_text is configured for character '{character_name}'"
+    )
 
 
 def _get_genie_tts_use_roberta(settings: object) -> bool:
@@ -258,7 +333,7 @@ def _get_configured_model_spec(settings: XnneHangLabSettings | None = None) -> G
         raise FileNotFoundError(
             "genie-tts ONNX model directory not found. "
             f"Checked infer config keys={list(_GENIE_TTS_MODEL_DIR_KEYS)} and default directories={list(_GENIE_TTS_MODEL_DIR_CANDIDATES)} "
-            f"under {character_dir}"
+            f"plus the character root itself under {character_dir}"
         )
 
     return GenieTTSModelSpec(
@@ -296,6 +371,15 @@ def _release_engine() -> None:
                 ipc_collect()
     except Exception:
         pass
+
+
+@asynccontextmanager
+async def _hold_model_lock_async():
+    await asyncio.to_thread(_model_lock.acquire)
+    try:
+        yield
+    finally:
+        _model_lock.release()
 
 
 def _requires_english_g2p(language: str) -> bool:
@@ -458,6 +542,36 @@ def reload_genie_tts_model() -> dict[str, Any]:
     return load_genie_tts_model(force_reload=True)
 
 
+async def warmup_genie_tts_model() -> dict[str, Any]:
+    settings = _get_genie_tts_settings()
+    configured = _get_configured_model_spec(settings)
+    ref_audio, ref_text = _resolve_warmup_ref_audio_and_text(settings, configured.character_name)
+
+    started = time.perf_counter()
+    _tts_logger.info(
+        "genie-tts warmup start: character={}, ref_audio={}, text_len={}",
+        configured.character_name,
+        ref_audio,
+        len(ref_text),
+    )
+    wav_bytes = await asyncio.wait_for(
+        synthesize_once(
+            text=ref_text,
+            ref_audio=ref_audio,
+            ref_text=ref_text,
+        ),
+        timeout=120.0,
+    )
+    _tts_logger.info(
+        "genie-tts warmup complete: character={}, audio_bytes={}, sample_rate={}, elapsed={:.2f}s",
+        configured.character_name,
+        len(wav_bytes),
+        read_wav_sample_rate(wav_bytes),
+        time.perf_counter() - started,
+    )
+    return get_genie_tts_status()
+
+
 def get_genie_tts_model() -> Any:
     settings = _get_genie_tts_settings()
     if not settings.package.genie_tts:
@@ -519,7 +633,7 @@ async def synthesize_once(*, text: str, ref_audio: Path | None, ref_text: str | 
     if not prompt_text:
         raise HTTPException(status_code=400, detail="ref_text is required for genie-tts")
 
-    with _model_lock:
+    async with _hold_model_lock_async():
         genie_tts.set_reference_audio(
             character_name=configured.character_name,
             audio_path=str(ref_audio),
@@ -530,6 +644,20 @@ async def synthesize_once(*, text: str, ref_audio: Path | None, ref_text: str | 
         chunks = [chunk async for chunk in genie_tts.tts_async(character_name=configured.character_name, text=text)]
 
     return _pcm_chunks_to_wav_bytes(chunks, DEFAULT_SAMPLE_RATE)
+
+
+def stop_genie_tts_synthesis() -> None:
+    genie_tts = _genie_tts_module
+    if genie_tts is None:
+        return
+
+    try:
+        stop = getattr(genie_tts, "stop", None)
+        if callable(stop):
+            stop()
+            _tts_logger.info("genie-tts stop requested for current synthesis")
+    except Exception as exc:
+        _tts_logger.warning(f"genie-tts stop request failed: {exc}")
 
 
 def read_wav_sample_rate(wav_bytes: bytes) -> int:

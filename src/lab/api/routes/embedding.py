@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException
@@ -9,6 +10,7 @@ from pydantic import BaseModel, Field
 from lab.api.logic.embedding import DEFAULT_EMBEDDING_MODEL_NAME, embed
 
 router = APIRouter(tags=["embedding"])
+_embedding_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="local-embedding")
 
 
 class EmbeddingRequest(BaseModel):
@@ -42,7 +44,7 @@ async def create_embeddings(request: EmbeddingRequest) -> EmbeddingResponse:
 
     try:
         loop = asyncio.get_running_loop()
-        vectors = await loop.run_in_executor(None, embed, texts)
+        vectors = await loop.run_in_executor(_embedding_executor, embed, texts)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
