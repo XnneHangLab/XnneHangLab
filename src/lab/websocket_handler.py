@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from enum import Enum
@@ -370,6 +371,12 @@ class WebSocketHandler:
             task = self.current_conversation_tasks[client_uid]  # type: ignore[return]
             if task and not task.done():  # type: ignore[return]
                 task.cancel()  # type: ignore[return]
+                try:
+                    await task  # type: ignore[misc]
+                except asyncio.CancelledError:
+                    logger.debug("Conversation task cancelled during disconnect cleanup for {}", client_uid)
+                except Exception as exc:
+                    logger.warning("Conversation task failed during disconnect cleanup for {}: {}", client_uid, exc)
             self.current_conversation_tasks.pop(client_uid, None)  # type: ignore[return]
 
         logger.info(f"Client {client_uid} disconnected")
