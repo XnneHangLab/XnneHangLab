@@ -28,6 +28,9 @@ _GSV_LITE_GPT_CACHE = [(1, 512), (1, 1024), (1, 2048), (4, 512), (4, 1024)]
 _GSV_LITE_SEGMENT_MAX_CHARS = 80
 _GSV_LITE_SEGMENT_SILENCE_S = 0.08
 _JAPANESE_CHAR_RE = re.compile(r"[\u3040-\u30ff\u4e00-\u9fff\uff66-\uff9f]")
+_GSV_LITE_DATA_DIRNAME = "GSVLiteData"
+_GSV_LITE_MODEL_DIRNAME = "gsv-tts-lite"
+_GPT_SOVITS_MODEL_DIRNAME = "gptsovits"
 _gsv_lite_monkey_patch_applied = False
 
 _tts_logger = logger.bind(group="tts")
@@ -40,6 +43,7 @@ _model_lock = threading.Lock()
 class GSVLiteModelSpec:
     character_name: str
     character_dir: Path
+    reference_dir: Path
     gpt_path: Path
     sovits_path: Path
     models_dir: Path
@@ -83,7 +87,37 @@ def _resolve_active_character_name(settings: XnneHangLabSettings) -> str:
 
 
 def _resolve_character_dir(settings: XnneHangLabSettings, character_name: str) -> Path:
-    return (Path(settings.root.root_dir) / "models" / "gptsovits" / character_name).resolve()
+    models_dir = (Path(settings.root.root_dir) / "models").resolve()
+    preferred = (models_dir / _GSV_LITE_MODEL_DIRNAME / character_name).resolve()
+    if preferred.exists():
+        return preferred
+
+    legacy = (models_dir / _GPT_SOVITS_MODEL_DIRNAME / character_name).resolve()
+    if legacy.exists():
+        return legacy
+    return preferred
+
+
+def _resolve_reference_dir(settings: XnneHangLabSettings, character_name: str) -> Path:
+    return (Path(settings.root.root_dir) / "models" / _GPT_SOVITS_MODEL_DIRNAME / character_name).resolve()
+
+
+def _resolve_gsv_lite_data_dir(settings: XnneHangLabSettings) -> Path:
+    models_root = (Path(settings.root.root_dir) / "models").resolve()
+    preferred = (models_root / _GSV_LITE_DATA_DIRNAME).resolve()
+    if preferred.exists():
+        return preferred
+
+    legacy_required = (
+        models_root / "chinese-hubert-base",
+        models_root / "g2p",
+        models_root / "sv",
+        models_root / "chinese-roberta-wwm-ext-large",
+    )
+    if any(path.exists() for path in legacy_required):
+        return models_root
+
+    return preferred
 
 
 def _resolve_infer_config_path(character_dir: Path) -> Path:
@@ -122,16 +156,18 @@ def _get_configured_model_spec(settings: XnneHangLabSettings | None = None) -> G
     resolved_settings = settings or _get_gsv_lite_settings()
     character_name = _resolve_active_character_name(resolved_settings)
     character_dir = _resolve_character_dir(resolved_settings, character_name)
+    reference_dir = _resolve_reference_dir(resolved_settings, character_name)
     if not character_dir.exists():
         raise FileNotFoundError(f"gsv-lite character directory does not exist: {character_dir}")
 
     infer_config = _load_infer_config(character_dir)
     gpt_path = _resolve_model_file(character_dir, infer_config.get("gpt_path"), "gpt_path")
     sovits_path = _resolve_model_file(character_dir, infer_config.get("sovits_path"), "sovits_path")
-    models_dir = (Path(resolved_settings.root.root_dir) / "models").resolve()
+    models_dir = _resolve_gsv_lite_data_dir(resolved_settings)
     return GSVLiteModelSpec(
         character_name=character_name,
         character_dir=character_dir,
+        reference_dir=reference_dir,
         gpt_path=gpt_path,
         sovits_path=sovits_path,
         models_dir=models_dir,
@@ -157,7 +193,7 @@ def _resolve_warmup_reference(settings: XnneHangLabSettings, spec: GSVLiteModelS
         emotions = profile.character.tts.emotions
         emotion = emotions.get("default") or next(iter(emotions.values()), None)
         if emotion is not None and emotion.path:
-            ref_audio = (spec.character_dir / emotion.path).resolve()
+            ref_audio = (spec.reference_dir / emotion.path).resolve()
             if ref_audio.is_file():
                 ref_text = emotion.ref_text.strip() or None
                 return ref_audio, ref_text
@@ -173,10 +209,11 @@ def _resolve_warmup_reference(settings: XnneHangLabSettings, spec: GSVLiteModelS
             ref_wav_path = candidate_dict.get("ref_wav_path")
             prompt_text = candidate_dict.get("prompt_text")
             if isinstance(ref_wav_path, str) and ref_wav_path.strip():
-                ref_audio = (spec.character_dir / ref_wav_path).resolve()
-                if ref_audio.is_file():
-                    ref_text = prompt_text.strip() if isinstance(prompt_text, str) else ""
-                    return ref_audio, (ref_text or None)
+                for base_dir in (spec.character_dir, spec.reference_dir):
+                    ref_audio = (base_dir / ref_wav_path).resolve()
+                    if ref_audio.is_file():
+                        ref_text = prompt_text.strip() if isinstance(prompt_text, str) else ""
+                        return ref_audio, (ref_text or None)
 
     return None, None
 

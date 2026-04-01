@@ -18,7 +18,7 @@ ApiFormat = Literal["chat_completion"]
 EmbeddingPoolingType = Literal["mean", "cls", "last"]
 ALLOWED_API_FORMATS: tuple[ApiFormat, ...] = ("chat_completion",)
 ALLOWED_EMBEDDING_POOLING_TYPES: tuple[EmbeddingPoolingType, ...] = ("mean", "cls", "last")
-ALLOWED_TTS_PROVIDERS: tuple[TTSProvider, ...] = ("gpt_sovits", "gsv_lite", "qwen_tts")
+ALLOWED_TTS_PROVIDERS: tuple[TTSProvider, ...] = ("gpt_sovits", "gsv_lite", "genie_tts", "qwen_tts")
 LLM_PROVIDERS_ENV_KEY = "LLM_PROVIDERS_JSON"
 
 
@@ -236,6 +236,10 @@ def main() -> None:
             os.environ.get("TTS_PROVIDER", ""),
             "TTS_PROVIDER",
         )
+    if (value := _parse_bool_env("TTS_GSV_LITE_USE_BERT")) is not None:
+        settings.agent.tts.gsv_lite.use_bert = value
+    if (value := _parse_bool_env("TTS_GENIE_TTS_USE_ROBERTA")) is not None:
+        settings.agent.tts.genie_tts.use_roberta = value
 
     if "LOCAL_EMBEDDING_MODEL_PATH" in os.environ:
         settings.local_embedding.model_path = os.environ.get("LOCAL_EMBEDDING_MODEL_PATH", "").strip()
@@ -257,6 +261,8 @@ def main() -> None:
         settings.package.qwen_tts = value
     if (value := _parse_bool_env("PKG_GSV_LITE")) is not None:
         settings.package.gsv_lite = value
+    if (value := _parse_bool_env("PKG_GENIE_TTS")) is not None:
+        settings.package.genie_tts = value
     if (value := _parse_bool_env("PKG_GPT_SOVITS")) is not None:
         settings.package.gpt_sovits = value
     if (value := _parse_bool_env("PKG_SHERPA_ASR")) is not None:
@@ -281,6 +287,8 @@ def main() -> None:
     logger.info("agent.vision_model.llm_model_name: {}", settings.agent.vision_model.llm_model_name)
     logger.info("agent.vision_model.reasoning: {}", settings.agent.vision_model.reasoning)
     logger.info("agent.tts.provider: {}", settings.agent.tts.provider)
+    logger.info("agent.tts.gsv_lite.use_bert: {}", settings.agent.tts.gsv_lite.use_bert)
+    logger.info("agent.tts.genie_tts.use_roberta: {}", settings.agent.tts.genie_tts.use_roberta)
     logger.info("local_embedding.model_path: {}", settings.local_embedding.model_path)
     logger.info("local_embedding.pooling_type: {}", settings.local_embedding.pooling_type)
     logger.info("local_embedding.n_gpu_layers: {}", settings.local_embedding.n_gpu_layers)
@@ -290,6 +298,7 @@ def main() -> None:
     logger.info("package.local_embedding: {}", settings.package.local_embedding)
     logger.info("package.qwen_tts: {}", settings.package.qwen_tts)
     logger.info("package.gsv_lite: {}", settings.package.gsv_lite)
+    logger.info("package.genie_tts: {}", settings.package.genie_tts)
     logger.info("package.gpt_sovits: {}", settings.package.gpt_sovits)
     logger.info("package.sherpa_asr: {}", settings.package.sherpa_asr)
     logger.info("package.qwen_asr: {}", settings.package.qwen_asr)

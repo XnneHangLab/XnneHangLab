@@ -9,7 +9,7 @@ from lab.config_manager.qwen_tts import QwenTTSSettings
 
 LLM_Provider = str
 TranslateProvider = Literal["llm", "deeplx"]
-TTSProvider = Literal["gpt_sovits", "gsv_lite", "qwen_tts"]
+TTSProvider = Literal["gpt_sovits", "gsv_lite", "genie_tts", "qwen_tts"]
 
 
 class ChatModelSetting(BaseModel):
@@ -145,6 +145,17 @@ class GSVLiteTTSSettings(BaseModel):
     ]
 
 
+class GenieTTSSettings(BaseModel):
+    use_roberta: Annotated[
+        bool,
+        Field(
+            False,
+            title="Enable Chinese RoBERTa features for Genie-TTS",
+            description="Improves Chinese prosody when RoBERTa assets are installed, but keeps the default download unchanged.",
+        ),
+    ]
+
+
 class TTSSettings(BaseModel):
     provider: Annotated[
         TTSProvider,
@@ -155,6 +166,7 @@ class TTSSettings(BaseModel):
         ),
     ]
     gsv_lite: Annotated[GSVLiteTTSSettings, Field(GSVLiteTTSSettings())]  # pyright: ignore[reportCallIssue]
+    genie_tts: Annotated[GenieTTSSettings, Field(GenieTTSSettings())]  # pyright: ignore[reportCallIssue]
 
 
 class AgentSettings(BaseModel):

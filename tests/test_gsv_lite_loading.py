@@ -23,10 +23,11 @@ def _fake_settings(*_args: object, **_kwargs: object) -> SimpleNamespace:
 def _spec(character_name: str) -> gsv_lite_module.GSVLiteModelSpec:
     return gsv_lite_module.GSVLiteModelSpec(
         character_name=character_name,
-        character_dir=Path(f"./models/gptsovits/{character_name}"),
-        gpt_path=Path(f"./models/gptsovits/{character_name}/model.ckpt"),
-        sovits_path=Path(f"./models/gptsovits/{character_name}/model.pth"),
-        models_dir=Path("./models"),
+        character_dir=Path(f"./models/gsv-tts-lite/{character_name}"),
+        reference_dir=Path(f"./models/gptsovits/{character_name}"),
+        gpt_path=Path(f"./models/gsv-tts-lite/{character_name}/model.ckpt"),
+        sovits_path=Path(f"./models/gsv-tts-lite/{character_name}/model.pth"),
+        models_dir=Path("./models/GSVLiteData"),
     )
 
 
@@ -105,6 +106,7 @@ def test_load_gsv_lite_model_uses_extended_gpt_cache(monkeypatch: pytest.MonkeyP
     assert status["loaded"] is True
     assert captured["gpt_cache"] == [(1, 512), (1, 1024), (1, 2048), (4, 512), (4, 1024)]
     assert captured["use_bert"] is True
+    assert Path(captured["models_dir"]) == Path("models/GSVLiteData")
 
 
 def test_get_gsv_lite_use_bert_defaults_to_false_when_missing() -> None:
@@ -113,8 +115,52 @@ def test_get_gsv_lite_use_bert_defaults_to_false_when_missing() -> None:
     assert gsv_lite_module._get_gsv_lite_use_bert(settings) is False
 
 
+def test_resolve_character_dir_prefers_gsv_tts_lite_root(tmp_path: Path) -> None:
+    settings = SimpleNamespace(root=SimpleNamespace(root_dir=str(tmp_path)))
+    preferred = tmp_path / "models" / "gsv-tts-lite" / "baoqiao"
+    legacy = tmp_path / "models" / "gptsovits" / "baoqiao"
+    preferred.mkdir(parents=True)
+    legacy.mkdir(parents=True)
+
+    resolved = gsv_lite_module._resolve_character_dir(settings, "baoqiao")
+
+    assert resolved == preferred.resolve()
+
+
+def test_resolve_character_dir_falls_back_to_gpt_sovits_root(tmp_path: Path) -> None:
+    settings = SimpleNamespace(root=SimpleNamespace(root_dir=str(tmp_path)))
+    legacy = tmp_path / "models" / "gptsovits" / "baoqiao"
+    legacy.mkdir(parents=True)
+
+    resolved = gsv_lite_module._resolve_character_dir(settings, "baoqiao")
+
+    assert resolved == legacy.resolve()
+
+
+def test_resolve_gsv_lite_data_dir_prefers_gsv_lite_data_root(tmp_path: Path) -> None:
+    settings = SimpleNamespace(root=SimpleNamespace(root_dir=str(tmp_path)))
+    preferred = tmp_path / "models" / "GSVLiteData"
+    legacy = tmp_path / "models" / "g2p"
+    preferred.mkdir(parents=True)
+    legacy.mkdir(parents=True)
+
+    resolved = gsv_lite_module._resolve_gsv_lite_data_dir(settings)
+
+    assert resolved == preferred.resolve()
+
+
+def test_resolve_gsv_lite_data_dir_falls_back_to_models_root(tmp_path: Path) -> None:
+    settings = SimpleNamespace(root=SimpleNamespace(root_dir=str(tmp_path)))
+    legacy = tmp_path / "models" / "g2p"
+    legacy.mkdir(parents=True)
+
+    resolved = gsv_lite_module._resolve_gsv_lite_data_dir(settings)
+
+    assert resolved == (tmp_path / "models").resolve()
+
+
 def test_configure_gsv_lite_openjtalk_uses_local_ja_resources(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    models_dir = tmp_path / "models"
+    models_dir = tmp_path / "models" / "GSVLiteData"
     ja_dir = models_dir / "g2p" / "ja"
     openjtalk_dir = ja_dir / "open_jtalk_dic_utf_8-1.11"
     user_dict_bin = ja_dir / "user.dict"

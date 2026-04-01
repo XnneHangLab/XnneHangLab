@@ -45,3 +45,26 @@ def test_agent_settings_gsv_lite_use_bert_can_be_enabled() -> None:
 
     assert settings.tts.provider == "gsv_lite"
     assert settings.tts.gsv_lite.use_bert is True
+
+
+def test_agent_settings_genie_tts_use_roberta_defaults_to_false() -> None:
+    settings = AgentSettings.model_validate({"tts": {"provider": "genie_tts"}})
+
+    assert settings.tts.provider == "genie_tts"
+    assert settings.tts.genie_tts.use_roberta is False
+
+
+def test_agent_settings_genie_tts_use_roberta_can_be_enabled() -> None:
+    settings = AgentSettings.model_validate(
+        {
+            "tts": {
+                "provider": "genie_tts",
+                "genie_tts": {
+                    "use_roberta": True,
+                },
+            }
+        }
+    )
+
+    assert settings.tts.provider == "genie_tts"
+    assert settings.tts.genie_tts.use_roberta is True

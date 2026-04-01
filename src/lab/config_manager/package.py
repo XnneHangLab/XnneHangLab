@@ -14,6 +14,7 @@ class Packages(TypedDict):
     yutto_uiya: bool
     gpt_sovits: bool
     gsv_lite: bool
+    genie_tts: bool
     qwen_tts: bool
     memory_bench: bool
 
@@ -33,6 +34,7 @@ class PackagesSettings(BaseModel):
     yutto_uiya: Annotated[bool, Field(True, title="Whether to enable yutto-uiya")]
     gpt_sovits: Annotated[bool, Field(True, title="Whether to enable gpt-sovits")]
     gsv_lite: Annotated[bool, Field(False, title="Whether to enable gsv-lite")]
+    genie_tts: Annotated[bool, Field(False, title="Whether to enable Genie-TTS")]
     qwen_tts: Annotated[bool, Field(False, title="Whether to enable faster-qwen-tts")]
     memory_bench: Annotated[
         bool,
@@ -49,6 +51,7 @@ class PackagesSettings(BaseModel):
             "yutto_uiya": self.yutto_uiya,
             "gpt_sovits": self.gpt_sovits,
             "gsv_lite": self.gsv_lite,
+            "genie_tts": self.genie_tts,
             "qwen_tts": self.qwen_tts,
             "memory_bench": self.memory_bench,
         }
