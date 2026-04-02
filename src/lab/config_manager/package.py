@@ -12,7 +12,6 @@ class Packages(TypedDict):
     local_embedding: bool
     to_do_list: bool
     yutto_uiya: bool
-    gpt_sovits: bool
     gsv_lite: bool
     genie_tts: bool
     qwen_tts: bool
@@ -32,9 +31,8 @@ class PackagesSettings(BaseModel):
     ]
     to_do_list: Annotated[bool, Field(True, title="Whether to enable todo_list")]
     yutto_uiya: Annotated[bool, Field(True, title="Whether to enable yutto-uiya")]
-    gpt_sovits: Annotated[bool, Field(True, title="Whether to enable gpt-sovits")]
     gsv_lite: Annotated[bool, Field(False, title="Whether to enable gsv-lite")]
-    genie_tts: Annotated[bool, Field(False, title="Whether to enable Genie-TTS")]
+    genie_tts: Annotated[bool, Field(True, title="Whether to enable Genie-TTS")]
     qwen_tts: Annotated[bool, Field(False, title="Whether to enable faster-qwen-tts")]
     memory_bench: Annotated[
         bool,
@@ -49,7 +47,6 @@ class PackagesSettings(BaseModel):
             "local_embedding": self.local_embedding,
             "to_do_list": self.to_do_list,
             "yutto_uiya": self.yutto_uiya,
-            "gpt_sovits": self.gpt_sovits,
             "gsv_lite": self.gsv_lite,
             "genie_tts": self.genie_tts,
             "qwen_tts": self.qwen_tts,

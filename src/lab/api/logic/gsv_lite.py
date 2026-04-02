@@ -32,7 +32,6 @@ _GSV_LITE_SEGMENT_SILENCE_S = 0.08
 _JAPANESE_CHAR_RE = re.compile(r"[\u3040-\u30ff\u4e00-\u9fff\uff66-\uff9f]")
 _GSV_LITE_DATA_DIRNAME = "GSVLiteData"
 _GSV_LITE_MODEL_DIRNAME = "gsv-tts-lite"
-_GPT_SOVITS_MODEL_DIRNAME = "gptsovits"
 _gsv_lite_monkey_patch_applied = False
 
 _tts_logger = logger.bind(group="tts")
@@ -91,17 +90,11 @@ def _resolve_active_character_name(settings: XnneHangLabSettings) -> str:
 def _resolve_character_dir(settings: XnneHangLabSettings, character_name: str) -> Path:
     models_dir = (Path(settings.root.root_dir) / "models").resolve()
     preferred = (models_dir / _GSV_LITE_MODEL_DIRNAME / character_name).resolve()
-    if preferred.exists():
-        return preferred
-
-    legacy = (models_dir / _GPT_SOVITS_MODEL_DIRNAME / character_name).resolve()
-    if legacy.exists():
-        return legacy
     return preferred
 
 
 def _resolve_reference_dir(settings: XnneHangLabSettings, character_name: str) -> Path:
-    return (Path(settings.root.root_dir) / "models" / _GPT_SOVITS_MODEL_DIRNAME / character_name).resolve()
+    return _resolve_character_dir(settings, character_name)
 
 
 def _iter_reference_base_dirs(spec: GSVLiteModelSpec) -> list[Path]:

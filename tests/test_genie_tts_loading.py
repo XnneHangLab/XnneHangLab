@@ -72,7 +72,7 @@ def test_get_genie_tts_model_raises_when_loaded_model_mismatch(monkeypatch: pyte
 
 
 def test_resolve_model_dir_prefers_infer_config_key(tmp_path: Path) -> None:
-    character_dir = tmp_path / "models" / "gptsovits" / "baoqiao"
+    character_dir = tmp_path / "models" / "genie-tts" / "baoqiao"
     model_dir = character_dir / "custom_genie"
     model_dir.mkdir(parents=True)
 
@@ -233,23 +233,11 @@ def test_resolve_genie_tts_submodule_src_dir(tmp_path: Path) -> None:
 def test_resolve_character_dir_prefers_genie_tts_root(tmp_path: Path) -> None:
     settings = SimpleNamespace(root=SimpleNamespace(root_dir=str(tmp_path)))
     preferred = tmp_path / "models" / "genie-tts" / "baoqiao"
-    legacy = tmp_path / "models" / "gptsovits" / "baoqiao"
     preferred.mkdir(parents=True)
-    legacy.mkdir(parents=True)
 
     resolved = genie_tts_module._resolve_character_dir(cast("Any", settings), "baoqiao")
 
     assert resolved == preferred.resolve()
-
-
-def test_resolve_character_dir_falls_back_to_gpt_sovits_root(tmp_path: Path) -> None:
-    settings = SimpleNamespace(root=SimpleNamespace(root_dir=str(tmp_path)))
-    legacy = tmp_path / "models" / "gptsovits" / "baoqiao"
-    legacy.mkdir(parents=True)
-
-    resolved = genie_tts_module._resolve_character_dir(cast("Any", settings), "baoqiao")
-
-    assert resolved == legacy.resolve()
 
 
 def test_resolve_genie_tts_resource_paths_prefers_geniedata_layout(tmp_path: Path) -> None:

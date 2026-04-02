@@ -66,9 +66,10 @@ debug/
 tmp.py
 wexpect_log
 
-# gpt_sovits
+# tts models
 
-gptsovits/
+gsv-tts-lite/
+genie-tts/
 output.mp3
 tmp_audio/
 .openmcp

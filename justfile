@@ -32,8 +32,6 @@ docs-build:
 docs-clean:
   rm -rf docs/.vitepress/cache docs/.vitepress/dist
 
-key:
-  uv run scripts/sync_apikey.py  # 同步 providers / model selection / reasoning
 
 list-model: # 列出配置项中填写 api_key 的模型列表
   uv run get_root
@@ -107,23 +105,6 @@ test-sherpa-vad:
 test-sherpa audio='./examples/example3.opus' model_dir='./models/sherpa-onnx-paraformer-zh-2023-09-14' vad_model='./models/silero_vad.onnx' skip_vad='':
   uv run --group sherpa-onnx src/lab/asr/sherpa/probe.py --audio {{ audio }} --model-dir {{ model_dir }} --vad-model {{ vad_model }} {{ if skip_vad != '' { '--skip-vad' } else { '' } }}
 
-test-gsv:
-	curl -X POST "http://127.0.0.1:12393/tts/gptsovits" \
-	-H "Content-Type: application/json" \
-	-d '{ \
-		"text": "それでは問題です。澄み渡った青空をゆく、そこに人がいたのなら間違いなく誰もが振り返り、ため息をこぼしてしまうほどの美貌の魔女は、いったい誰でしょう？", \
-		"character": "elaina", \
-		"text_language": "ja", \
-		"ref_audio_path": "./models/gptsovits/elaina/elaina.wav" \
-	}' \
-	-o response.json \
-	&& uv run python -c "import json, base64; data=json.load(open('response.json')); open('output.mp3', 'wb').write(base64.b64decode(data['audio_byte']))"
-	rm response.json
-
-test-gsv-v2:
-    curl -G "http://127.0.0.1:12393/tts/gptsovitsv2/tts" --data-urlencode "text=こんにちは、お元気ですか？今日も一緒に頑張りましょう！" --data-urlencode "text_lang=ja" --data-urlencode "ref_audio_path=elaina.wav" --data-urlencode "prompt_text=君が集中した時のシータ波を検出して、リンクをつなぎ直せば元通りになるはず。" --data-urlencode "prompt_lang=ja" --data-urlencode "speed_factor=1.0" -o tts.wav
-
-
 test-deeplx:
 	curl -X POST "http://127.0.0.1:12393/translate/deeplx" \
 	-H "Content-Type: application/json" \
@@ -150,7 +131,7 @@ test-qwen-tts-stream-play server='http://localhost:12393' ref_audio='examples/co
 test-gsv-lite-health server='http://localhost:12393':
   curl "{{ server }}/tts/gsv-lite/health"
 
-test-gsv-lite-generate server='http://localhost:12393' output='output/gsv_lite_test.wav' text='你好，这是 gsv-lite 接口测试。' ref_audio_path='models/gptsovits/baoqiao/emotions/neutral/neutral_01.wav' ref_text='你好，这是参考音频文本。' speaker_audio_path='':
+test-gsv-lite-generate server='http://localhost:12393' output='output/gsv_lite_test.wav' text='你好，这是 gsv-lite 接口测试。' ref_audio_path='models/gsv-tts-lite/baoqiao/emotions/neutral/neutral_01.wav' ref_text='你好，这是参考音频文本。' speaker_audio_path='':
   curl -X POST "{{ server }}/tts/gsv-lite/generate" \
     -H "Content-Type: application/json" \
     -d '{ \
@@ -166,15 +147,10 @@ test-gsv-lite-generate server='http://localhost:12393' output='output/gsv_lite_t
 install-model:
   uv lock
   uv sync
-  just install-nltk
   just install-gsv-lite-data
   just install-gsv-model-baoqiao
   just install-local-embedding
   just install-llm-translate
-
-
-install-nltk:
-  uv run python -c "import nltk; nltk.download('averaged_perceptron_tagger_eng')"
 
 install-qwen-asr model_dir='./models':
   uv lock
@@ -203,14 +179,14 @@ install-bert-model model_dir='./models/GSVLiteData':
 install-gsv-model-elaina:
   uv lock
   uv sync
-  uv run modelscope download --model xnnehang/elaina-gsv-v2 --local_dir ./models/gptsovits/elaina
+  uv run modelscope download --model xnnehang/elaina-gsv-v2 --local_dir ./models/gsv-tts-lite/elaina
 
 install-gsv-model-baoqiao:
   uv lock
   uv sync
-  uv run modelscope download --model xnnehang/luming-gsv-v2 --local_dir ./models/gptsovits/baoqiao
+  uv run modelscope download --model xnnehang/luming-gsv-v2 --local_dir ./models/gsv-tts-lite/baoqiao
 
-install-genie-tts-resource model='xnnehang/xnnehanglab-geniedata' model_dir='./models/GenieData':
+install-genie-tts-resource model='xnnehang/xnnehanglab-geniedata' model_dir='./models/geniedata':
   uv lock
   uv sync
   uv run modelscope download --model {{ model }} --local_dir {{ model_dir }}
@@ -546,15 +522,6 @@ test-embedding server='http://127.0.0.1:12393':
       "model": "bge-m3", \
       "input": ["hello world", "今天下午一起去散步吧"] \
     }'
-
-gsv-batch input='data/gsv_batch_input.txt' output_dir='output/gsv_batch' server='http://127.0.0.1:12393' character='' emotion='':
-  uv run python scripts/gsv_batch_generate.py --input {{ input }} --output-dir {{ output_dir }} --server {{ server }} {{ if character != '' { '--character ' + character } else { '' } }} {{ if emotion != '' { '--emotion ' + emotion } else { '' } }}
-
-gsv-batch-prune input='data/gsv_batch_input.txt' output_dir='output/gsv_batch' server='http://127.0.0.1:12393' character='' emotion='':
-  uv run python scripts/gsv_batch_generate.py --input {{ input }} --output-dir {{ output_dir }} --server {{ server }} --prune-stale {{ if character != '' { '--character ' + character } else { '' } }} {{ if emotion != '' { '--emotion ' + emotion } else { '' } }}
-
-gsv-batch-help:
-  uv run python scripts/gsv_batch_generate.py --help
 
 qwen-tts-batch input='data/qwen_tts_batch_input.txt' output_dir='output/qwen_tts_batch' server='http://127.0.0.1:12393' profile='' emotion='default' ref_audio_path='' ref_text='':
   uv run python scripts/qwen_tts_batch_generate.py --input {{ input }} --output-dir {{ output_dir }} --server {{ server }} {{ if profile != '' { '--profile ' + profile } else { '' } }} {{ if emotion != '' { '--emotion ' + emotion } else { '' } }} {{ if ref_audio_path != '' { '--ref-audio-path ' + ref_audio_path } else { '' } }} {{ if ref_text != '' { '--ref-text ' + ref_text } else { '' } }}

@@ -122,14 +122,14 @@ just install-gsv-model
 它包含以下内容:
 
 ```shell
-$ ls models/gptsovits/
+$ ls models/gsv-tts-lite/
 elaina
 ```
 
 或者你可以这样安装:
 
 ```shell
-uv run modelscope download --model xnnehang/elaina-gsv-v2 --local_dir ./models/gptsovits/elaina
+uv run modelscope download --model xnnehang/elaina-gsv-v2 --local_dir ./models/gsv-tts-lite/elaina
 ```
 
 ## Embedding - Memory 试验

@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import importlib
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -102,8 +101,8 @@ def _resolve_path(settings: XnneHangLabSettings, raw_path: str) -> Path | None:
     return path
 
 
-def _resolve_active_gpt_sovits_character_name(settings: XnneHangLabSettings) -> str | None:
-    """Resolve the active GPT-SoVITS character name from the current profile."""
+def _resolve_active_character_name(settings: XnneHangLabSettings) -> str | None:
+    """Resolve the active character name from the current profile."""
     profile_path = _resolve_path(settings, settings.agent.memory_agent_profile)
     if profile_path is None or not profile_path.exists():
         return None
@@ -146,7 +145,7 @@ def _resolve_preferred_character_model_path(
     preferred_dirname: str,
     fallback_dirname: str | None = None,
 ) -> Path | None:
-    character_name = _resolve_active_gpt_sovits_character_name(settings)
+    character_name = _resolve_active_character_name(settings)
     if character_name is None:
         return None
 
@@ -163,15 +162,10 @@ def _resolve_preferred_character_model_path(
     return preferred
 
 
-def _resolve_active_gpt_sovits_model_path(settings: XnneHangLabSettings) -> Path | None:
-    return _resolve_preferred_character_model_path(settings, preferred_dirname="gptsovits")
-
-
 def _resolve_active_gsv_lite_model_path(settings: XnneHangLabSettings) -> Path | None:
     return _resolve_preferred_character_model_path(
         settings,
         preferred_dirname="gsv-tts-lite",
-        fallback_dirname="gptsovits",
     )
 
 
@@ -179,7 +173,6 @@ def _resolve_active_genie_tts_model_path(settings: XnneHangLabSettings) -> Path 
     return _resolve_preferred_character_model_path(
         settings,
         preferred_dirname="genie-tts",
-        fallback_dirname="gptsovits",
     )
 
 
@@ -210,27 +203,6 @@ def _resolve_active_qwen_tts_model_path(settings: XnneHangLabSettings) -> Path |
     if model_name == "0.6b":
         return _resolve_path(settings, settings.agent.qwen_tts.model_0_6b_path)
     return _resolve_path(settings, settings.agent.qwen_tts.model_1_7b_path)
-
-
-def _check_nltk_data(settings: XnneHangLabSettings) -> str | None:
-    """校验 `gpt_sovits` 所需的 NLTK 数据是否存在。
-
-    Args:
-        settings: 完整配置对象。
-
-    Returns:
-        错误信息；若校验通过则返回 `None`。
-    """
-    del settings
-
-    try:
-        nltk = importlib.import_module("nltk")
-        nltk.data.find("taggers/averaged_perceptron_tagger_eng")
-        return None
-    except LookupError:
-        return " [gpt_sovits]\n nltk averaged_perceptron_tagger_eng 数据未下载\n -> 运行 `just install-nltk`"
-    except ImportError:
-        return None
 
 
 def _check_gsv_lite_roberta_when_enabled(settings: XnneHangLabSettings) -> str | None:
@@ -584,30 +556,6 @@ PACKAGE_RULES: list[PackageRule] = [
             ),
         ],
         extra_checks=[_check_qwen_asr_preload_models],
-    ),
-    PackageRule(
-        package_name="gpt_sovits",
-        models=[
-            ModelRequirement(
-                name="GPT-SoVITS 模型",
-                path_getter=_resolve_active_gpt_sovits_model_path,
-                install_hint="just install-gsv-model",
-                is_dir=True,
-            ),
-            ModelRequirement(
-                name="Chinese HuBERT (chinese-hubert-base)",
-                path_getter=lambda s: Path(s.root.root_dir) / "models" / "chinese-hubert-base",
-                install_hint="just install-bert-model",
-                is_dir=True,
-            ),
-            ModelRequirement(
-                name="Chinese RoBERTa (chinese-roberta-wwm-ext-large)",
-                path_getter=lambda s: Path(s.root.root_dir) / "models" / "chinese-roberta-wwm-ext-large",
-                install_hint="just install-bert-model",
-                is_dir=True,
-            ),
-        ],
-        extra_checks=[_check_nltk_data],
     ),
     PackageRule(
         package_name="gsv_lite",

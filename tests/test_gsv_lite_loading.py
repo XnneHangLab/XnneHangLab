@@ -25,7 +25,7 @@ def _spec(character_name: str) -> gsv_lite_module.GSVLiteModelSpec:
     return gsv_lite_module.GSVLiteModelSpec(
         character_name=character_name,
         character_dir=Path(f"./models/gsv-tts-lite/{character_name}"),
-        reference_dir=Path(f"./models/gptsovits/{character_name}"),
+        reference_dir=Path(f"./models/gsv-tts-lite/{character_name}"),
         gpt_path=Path(f"./models/gsv-tts-lite/{character_name}/model.ckpt"),
         sovits_path=Path(f"./models/gsv-tts-lite/{character_name}/model.pth"),
         models_dir=Path("./models/GSVLiteData"),
@@ -137,7 +137,7 @@ def test_resolve_warmup_inputs_prefers_character_dir_and_speaker_audio(
     spec = gsv_lite_module.GSVLiteModelSpec(
         character_name="baoqiao",
         character_dir=(tmp_path / "models" / "gsv-tts-lite" / "baoqiao").resolve(),
-        reference_dir=(tmp_path / "models" / "gptsovits" / "baoqiao").resolve(),
+        reference_dir=(tmp_path / "models" / "gsv-tts-lite" / "baoqiao").resolve(),
         gpt_path=tmp_path / "models" / "gsv-tts-lite" / "baoqiao" / "model.ckpt",
         sovits_path=tmp_path / "models" / "gsv-tts-lite" / "baoqiao" / "model.pth",
         models_dir=(tmp_path / "models" / "GSVLiteData").resolve(),
@@ -170,7 +170,7 @@ def test_warmup_gsv_lite_model_uses_ref_text_for_real_warmup(
     spec = gsv_lite_module.GSVLiteModelSpec(
         character_name="baoqiao",
         character_dir=(tmp_path / "models" / "gsv-tts-lite" / "baoqiao").resolve(),
-        reference_dir=(tmp_path / "models" / "gptsovits" / "baoqiao").resolve(),
+        reference_dir=(tmp_path / "models" / "gsv-tts-lite" / "baoqiao").resolve(),
         gpt_path=tmp_path / "models" / "gsv-tts-lite" / "baoqiao" / "model.ckpt",
         sovits_path=tmp_path / "models" / "gsv-tts-lite" / "baoqiao" / "model.pth",
         models_dir=(tmp_path / "models" / "GSVLiteData").resolve(),
@@ -238,23 +238,11 @@ def test_get_gsv_lite_use_bert_defaults_to_false_when_missing() -> None:
 def test_resolve_character_dir_prefers_gsv_tts_lite_root(tmp_path: Path) -> None:
     settings = SimpleNamespace(root=SimpleNamespace(root_dir=str(tmp_path)))
     preferred = tmp_path / "models" / "gsv-tts-lite" / "baoqiao"
-    legacy = tmp_path / "models" / "gptsovits" / "baoqiao"
     preferred.mkdir(parents=True)
-    legacy.mkdir(parents=True)
 
     resolved = gsv_lite_module._resolve_character_dir(cast("Any", settings), "baoqiao")
 
     assert resolved == preferred.resolve()
-
-
-def test_resolve_character_dir_falls_back_to_gpt_sovits_root(tmp_path: Path) -> None:
-    settings = SimpleNamespace(root=SimpleNamespace(root_dir=str(tmp_path)))
-    legacy = tmp_path / "models" / "gptsovits" / "baoqiao"
-    legacy.mkdir(parents=True)
-
-    resolved = gsv_lite_module._resolve_character_dir(cast("Any", settings), "baoqiao")
-
-    assert resolved == legacy.resolve()
 
 
 def test_resolve_gsv_lite_data_dir_prefers_gsv_lite_data_root(tmp_path: Path) -> None:

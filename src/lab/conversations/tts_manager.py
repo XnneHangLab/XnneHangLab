@@ -42,14 +42,13 @@ def has_audible_tts_text(tts_text: str) -> bool:
 
 
 def _normalize_tts_provider(tts_provider: str | None) -> str:
-    return (tts_provider or "gpt_sovits").strip().lower() or "gpt_sovits"
+    return (tts_provider or "genie_tts").strip().lower() or "genie_tts"
 
 
 def _get_tts_provider_label(tts_provider: str | None) -> str:
     provider = _normalize_tts_provider(tts_provider)
     labels = {
         "genie_tts": "Genie-TTS",
-        "gpt_sovits": "GPT-SoVITS",
         "gsv_lite": "GSV-Lite",
         "qwen_tts": "Qwen-TTS",
     }
@@ -59,18 +58,17 @@ def _get_tts_provider_label(tts_provider: str | None) -> str:
 def _iter_reference_base_dirs(character_name: str, tts_provider: str | None) -> list[Path]:
     provider = _normalize_tts_provider(tts_provider)
     provider_dirs = {
-        "genie_tts": Path("models/genie-tts") / character_name,
-        "gpt_sovits": Path("models/gptsovits") / character_name,
-        "gsv_lite": Path("models/gsv-tts-lite") / character_name,
-        "qwen_tts": Path("models/gptsovits") / character_name,
+        "genie_tts": [Path("models/genie-tts") / character_name],
+        "gsv_lite": [Path("models/gsv-tts-lite") / character_name],
+        "qwen_tts": [
+            Path("models/genie-tts") / character_name,
+            Path("models/gsv-tts-lite") / character_name,
+        ],
     }
 
     bases: list[Path] = []
-    for base in (
-        provider_dirs.get(provider),
-        Path("models/gptsovits") / character_name,
-    ):
-        if base is None or base in bases:
+    for base in provider_dirs.get(provider, []):
+        if base in bases:
             continue
         bases.append(base)
     return bases
@@ -401,34 +399,7 @@ class TTSTaskManager:
             provider = lab_settings.agent.tts.provider
             cache_dir = Path("cache") / "tts"
             cache_dir.mkdir(parents=True, exist_ok=True)
-            if provider == "gpt_sovits":
-                from lab.api.clients import GPTSoVITSClient, GPTSoVITSRequest
-
-                gpt_sovits_client = GPTSoVITSClient()
-                ref_audio_path, ref_text = _require_ref_audio_and_text(
-                    character_config,
-                    emotion_keys,
-                    tts_provider=provider,
-                )
-                response = await asyncio.wait_for(
-                    gpt_sovits_client.asyncpost(
-                        GPTSoVITSRequest(
-                            text=text,
-                            audio_type="mp3",
-                            ref_audio_path=ref_audio_path,
-                            prompt_text=ref_text,
-                            text_language=lab_settings.agent.speaker_lang,
-                        )
-                    ),
-                    timeout=TTS_GENERATION_TIMEOUT_S,
-                )
-                if response is None:
-                    logger.error(
-                        "Failed to get a valid response from GPT-SoVITS client: {}",
-                        gpt_sovits_client.last_error or "unknown error",
-                    )
-                    return None
-            elif provider == "gsv_lite":
+            if provider == "gsv_lite":
                 from lab.api.clients import GSVLiteClient, GSVLiteRequest
 
                 gsv_lite_client = GSVLiteClient()

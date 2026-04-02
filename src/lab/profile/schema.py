@@ -93,7 +93,7 @@ class TTSConfig(BaseModel):
     character_name: str = ""
     emotions: dict[str, TTSEmotionConfig] = Field(
         default_factory=lambda: {"default": TTSEmotionConfig(path="emotions/neutral.wav")},
-        description="情绪名到 ref_audio 路径的映射，相对于 models/gptsovits/<character_name>/。",
+        description="情绪名到 ref_audio 路径的映射，相对于 models/<tts-provider>/<character_name>/。",
     )
 
 

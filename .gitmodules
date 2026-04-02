@@ -10,9 +10,6 @@
 [submodule "static"]
 	path = static
 	url = https://github.com/XnneHangLab/VtuberLabStatic.git
-[submodule "packages/gpt_sovits"]
-	path = packages/gpt_sovits
-	url = https://github.com/XnneHangLab/GPT-SoVITS-Inference.git
 [submodule "frontend"]
 	path = frontend
 	url = https://github.com/XnneHangLab/Open-LLM-VTuber-Web.git

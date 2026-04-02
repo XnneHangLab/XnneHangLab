@@ -3,12 +3,6 @@ from __future__ import annotations
 from typing import Literal, TypedDict
 
 
-class GPTSoVITSResponse(TypedDict):
-    audio_type: Literal["mp3"]
-    audio_rate: int
-    audio_byte: bytes
-
-
 class QwenTTSResponse(TypedDict):
     audio_type: Literal["wav"]
     audio_rate: int
