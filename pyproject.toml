@@ -21,6 +21,7 @@ dependencies = [
     "fastmcp>=2.10.4",
     # "google-genai>=1.25.0",
     "typing-extensions>=4.15.0",
+    "python-dotenv>=1.1.1",
     "bs4>=0.0.2",
     "grpcio==1.78.0",
     "modelscope>=1.23.1",

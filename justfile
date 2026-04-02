@@ -32,6 +32,9 @@ docs-build:
 docs-clean:
   rm -rf docs/.vitepress/cache docs/.vitepress/dist
 
+key:
+  uv run scripts/sync_apikey.py  # 同步 providers / model selection / reasoning
+
 
 list-model: # 列出配置项中填写 api_key 的模型列表
   uv run get_root
