@@ -63,4 +63,3 @@ api_format = "chat_completion"
             "api_format": "chat_completion",
         },
     ]
-

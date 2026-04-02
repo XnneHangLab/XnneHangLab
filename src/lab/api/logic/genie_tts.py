@@ -365,7 +365,8 @@ def _release_engine() -> None:
 
 @asynccontextmanager
 async def _hold_model_lock_async():
-    await asyncio.to_thread(_model_lock.acquire)
+    while not _model_lock.acquire(blocking=False):
+        await asyncio.sleep(0.01)
     try:
         yield
     finally:

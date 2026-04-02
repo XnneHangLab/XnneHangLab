@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
@@ -325,7 +326,8 @@ def test_validate_genie_tts_resources_reports_missing_files(tmp_path: Path) -> N
     assert "Chinese HuBERT ONNX" in message
 
 
-def test_synthesize_once_waits_for_model_lock_without_blocking_event_loop(
+@pytest.mark.anyio
+async def test_synthesize_once_waits_for_model_lock_without_blocking_event_loop(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -350,27 +352,25 @@ def test_synthesize_once_waits_for_model_lock_without_blocking_event_loop(
 
     monkeypatch.setattr(genie_tts_module, "_loaded_model_spec", configured)
     monkeypatch.setattr(genie_tts_module, "get_genie_tts_model", lambda: _FakeGenie())
+    lock = threading.Lock()
+    monkeypatch.setattr(genie_tts_module, "_model_lock", lock)
 
-    lock = genie_tts_module._model_lock
     acquired = lock.acquire(timeout=1.0)
     assert acquired
 
-    async def run_test() -> None:
-        synth_task = asyncio.create_task(
-            genie_tts_module.synthesize_once(
-                text="hello",
-                ref_audio=ref_audio,
-                ref_text="ref text",
-            )
+    synth_task = asyncio.create_task(
+        genie_tts_module.synthesize_once(
+            text="hello",
+            ref_audio=ref_audio,
+            ref_text="ref text",
         )
-        try:
-            await asyncio.wait_for(asyncio.sleep(0.01), timeout=0.1)
-        finally:
-            lock.release()
-        wav_bytes = await asyncio.wait_for(synth_task, timeout=0.5)
-        assert wav_bytes
-
-    asyncio.run(run_test())
+    )
+    try:
+        await asyncio.wait_for(asyncio.sleep(0.01), timeout=0.1)
+    finally:
+        lock.release()
+    wav_bytes = await asyncio.wait_for(synth_task, timeout=0.5)
+    assert wav_bytes
 
 
 def test_stop_genie_tts_synthesis_calls_upstream_stop(monkeypatch: pytest.MonkeyPatch) -> None:

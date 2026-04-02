@@ -231,7 +231,9 @@ def _resolve_profile_ref(
             resolved_ref_audio = candidate
             break
     if resolved_ref_audio is None:
-        raise FileNotFoundError(f"Reference audio not found for emotion '{selected_emotion}' in profile: {profile_path}")
+        raise FileNotFoundError(
+            f"Reference audio not found for emotion '{selected_emotion}' in profile: {profile_path}"
+        )
 
     resolved_ref_text = (ref_text_override or emotion_config.ref_text).strip()
     if not resolved_ref_text:

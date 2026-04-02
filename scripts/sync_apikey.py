@@ -39,6 +39,7 @@ class ProviderEnvPatch(BaseModel):
 
 ProviderEnvPatch.model_rebuild()
 
+
 def is_api_format(value: str) -> TypeGuard[ApiFormat]:
     return value in ALLOWED_API_FORMATS
 
@@ -54,7 +55,9 @@ def validate_translate_provider(
     value = os.getenv(env_key_name, default).strip().lower()
     if is_translate_provider(value):
         return value
-    logger.warning("Invalid {}={!r}, allowed={}, fallback={!r}", env_key_name, value, TranslateProvider.__args__, default)
+    logger.warning(
+        "Invalid {}={!r}, allowed={}, fallback={!r}", env_key_name, value, TranslateProvider.__args__, default
+    )
     return default
 
 
@@ -233,7 +236,9 @@ def main() -> None:
     if "CHAT_MODEL_NAME" in os.environ:
         settings.agent.chat_model.llm_model_name = os.environ.get("CHAT_MODEL_NAME", "").strip()
     if "CHAT_MODEL_SUPPORT_VISION" in os.environ:
-        settings.agent.chat_model.support_vision = os.environ.get("CHAT_MODEL_SUPPORT_VISION", "false").lower() == "true"
+        settings.agent.chat_model.support_vision = (
+            os.environ.get("CHAT_MODEL_SUPPORT_VISION", "false").lower() == "true"
+        )
     if (value := _parse_bool_env("CHAT_MODEL_REASONING")) is not None:
         settings.agent.chat_model.reasoning = value
 
