@@ -15,7 +15,7 @@ def test_package_versions() -> None:
     assert uiya_version.VERSION == "1.1.4", f"UIYA 版本应为 1.1.4，实际为 {uiya_version.VERSION}"  # type: ignore[reportUnknownMemberType]
     assert todo_version.VERSION == "0.1.0", f"TODO 版本应为 0.1.0，实际为 {todo_version.VERSION}"  # type: ignore[reportUnknownMemberType]
     assert VERSION == "0.0.5", f"LAB 版本应为 0.0.5，实际为 {VERSION}"
-    assert version("sherpa-onnx") == "1.12.29"
+    assert version("sherpa-onnx") == "1.12.20"
 
 
 def test_mem0_runtime_version() -> None:

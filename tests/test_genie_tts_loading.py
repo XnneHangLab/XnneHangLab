@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-import threading
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 from fastapi import HTTPException
@@ -34,9 +34,20 @@ def _spec(character_name: str) -> genie_tts_module.GenieTTSModelSpec:
     )
 
 
+def _fake_load_settings_file(*_args: object, **_kwargs: object) -> SimpleNamespace:
+    return _fake_settings()
+
+
+def _fake_spec_for(character_name: str) -> object:
+    def _fake_get_configured_model_spec(*_args: object, **_kwargs: object) -> genie_tts_module.GenieTTSModelSpec:
+        return _spec(character_name)
+
+    return _fake_get_configured_model_spec
+
+
 def test_get_genie_tts_model_raises_when_not_loaded(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(genie_tts_module, "load_settings_file", lambda *_args, **_kwargs: _fake_settings())
-    monkeypatch.setattr(genie_tts_module, "_get_configured_model_spec", lambda *_args, **_kwargs: _spec("baoqiao"))
+    monkeypatch.setattr(genie_tts_module, "load_settings_file", _fake_load_settings_file)
+    monkeypatch.setattr(genie_tts_module, "_get_configured_model_spec", _fake_spec_for("baoqiao"))
     monkeypatch.setattr(genie_tts_module, "_genie_tts_module", None)
     monkeypatch.setattr(genie_tts_module, "_loaded_model_spec", None)
 
@@ -48,8 +59,8 @@ def test_get_genie_tts_model_raises_when_not_loaded(monkeypatch: pytest.MonkeyPa
 
 
 def test_get_genie_tts_model_raises_when_loaded_model_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(genie_tts_module, "load_settings_file", lambda *_args, **_kwargs: _fake_settings())
-    monkeypatch.setattr(genie_tts_module, "_get_configured_model_spec", lambda *_args, **_kwargs: _spec("elaina"))
+    monkeypatch.setattr(genie_tts_module, "load_settings_file", _fake_load_settings_file)
+    monkeypatch.setattr(genie_tts_module, "_get_configured_model_spec", _fake_spec_for("elaina"))
     monkeypatch.setattr(genie_tts_module, "_genie_tts_module", object())
     monkeypatch.setattr(genie_tts_module, "_loaded_model_spec", _spec("baoqiao"))
 
@@ -98,7 +109,7 @@ def test_resolve_language_prefers_lab_toml_override() -> None:
         )
     )
 
-    resolved = genie_tts_module._resolve_language({"language": "English"}, settings)
+    resolved = genie_tts_module._resolve_language({"language": "English"}, cast("Any", settings))
 
     assert resolved == "Japanese"
 
@@ -111,7 +122,7 @@ def test_resolve_language_falls_back_to_auto_without_lab_toml_or_infer_json() ->
         )
     )
 
-    resolved = genie_tts_module._resolve_language({}, settings)
+    resolved = genie_tts_module._resolve_language({}, cast("Any", settings))
 
     assert resolved == "auto"
 
@@ -135,9 +146,15 @@ def test_resolve_warmup_ref_audio_and_text_prefers_default_emotion(
             )
         )
     )
-    monkeypatch.setattr(genie_tts_module, "_resolve_active_profile", lambda *_args, **_kwargs: profile)
 
-    resolved_audio, resolved_text = genie_tts_module._resolve_warmup_ref_audio_and_text(settings, "baoqiao")
+    def fake_resolve_active_profile(*_args: object, **_kwargs: object) -> SimpleNamespace:
+        return profile
+
+    monkeypatch.setattr(genie_tts_module, "_resolve_active_profile", fake_resolve_active_profile)
+
+    resolved_audio, resolved_text = genie_tts_module._resolve_warmup_ref_audio_and_text(
+        cast("Any", settings), "baoqiao"
+    )
 
     assert resolved_audio == ref_audio.resolve()
     assert resolved_text == "default ref"
@@ -171,16 +188,31 @@ def test_warmup_genie_tts_model_uses_ref_text_for_warmup(monkeypatch: pytest.Mon
         captured["ref_text"] = ref_text
         return b"RIFFfake"
 
-    monkeypatch.setattr(genie_tts_module, "_get_genie_tts_settings", lambda: settings)
-    monkeypatch.setattr(genie_tts_module, "_get_configured_model_spec", lambda *_args, **_kwargs: spec)
+    def fake_get_genie_tts_settings() -> SimpleNamespace:
+        return settings
+
+    def fake_get_configured_model_spec(*_args: object, **_kwargs: object) -> genie_tts_module.GenieTTSModelSpec:
+        return spec
+
+    def fake_resolve_warmup_ref_audio_and_text(*_args: object, **_kwargs: object) -> tuple[Path, str]:
+        return ref_audio.resolve(), "default ref"
+
+    def fake_read_wav_sample_rate(_wav_bytes: bytes) -> int:
+        return 32000
+
+    def fake_get_genie_tts_status() -> dict[str, bool]:
+        return {"loaded": True}
+
+    monkeypatch.setattr(genie_tts_module, "_get_genie_tts_settings", fake_get_genie_tts_settings)
+    monkeypatch.setattr(genie_tts_module, "_get_configured_model_spec", fake_get_configured_model_spec)
     monkeypatch.setattr(
         genie_tts_module,
         "_resolve_warmup_ref_audio_and_text",
-        lambda *_args, **_kwargs: (ref_audio.resolve(), "default ref"),
+        fake_resolve_warmup_ref_audio_and_text,
     )
     monkeypatch.setattr(genie_tts_module, "synthesize_once", _fake_synthesize_once)
-    monkeypatch.setattr(genie_tts_module, "read_wav_sample_rate", lambda _wav_bytes: 32000)
-    monkeypatch.setattr(genie_tts_module, "get_genie_tts_status", lambda: {"loaded": True})
+    monkeypatch.setattr(genie_tts_module, "read_wav_sample_rate", fake_read_wav_sample_rate)
+    monkeypatch.setattr(genie_tts_module, "get_genie_tts_status", fake_get_genie_tts_status)
 
     status = asyncio.run(genie_tts_module.warmup_genie_tts_model())
 
@@ -193,7 +225,7 @@ def test_warmup_genie_tts_model_uses_ref_text_for_warmup(monkeypatch: pytest.Mon
 def test_resolve_genie_tts_submodule_src_dir(tmp_path: Path) -> None:
     settings = SimpleNamespace(root=SimpleNamespace(root_dir=str(tmp_path)))
 
-    resolved = genie_tts_module._resolve_genie_tts_submodule_src_dir(settings)
+    resolved = genie_tts_module._resolve_genie_tts_submodule_src_dir(cast("Any", settings))
 
     assert resolved == (tmp_path / "packages" / "Genie-TTS" / "src").resolve()
 
@@ -205,7 +237,7 @@ def test_resolve_character_dir_prefers_genie_tts_root(tmp_path: Path) -> None:
     preferred.mkdir(parents=True)
     legacy.mkdir(parents=True)
 
-    resolved = genie_tts_module._resolve_character_dir(settings, "baoqiao")
+    resolved = genie_tts_module._resolve_character_dir(cast("Any", settings), "baoqiao")
 
     assert resolved == preferred.resolve()
 
@@ -215,7 +247,7 @@ def test_resolve_character_dir_falls_back_to_gpt_sovits_root(tmp_path: Path) -> 
     legacy = tmp_path / "models" / "gptsovits" / "baoqiao"
     legacy.mkdir(parents=True)
 
-    resolved = genie_tts_module._resolve_character_dir(settings, "baoqiao")
+    resolved = genie_tts_module._resolve_character_dir(cast("Any", settings), "baoqiao")
 
     assert resolved == legacy.resolve()
 
@@ -231,7 +263,7 @@ def test_resolve_genie_tts_resource_paths_prefers_geniedata_layout(tmp_path: Pat
 
     settings = SimpleNamespace(root=SimpleNamespace(root_dir=str(tmp_path)))
 
-    resources = genie_tts_module._resolve_genie_tts_resource_paths(settings)
+    resources = genie_tts_module._resolve_genie_tts_resource_paths(cast("Any", settings))
 
     assert resources.genie_data_dir == genie_data_dir.resolve()
     assert resources.english_g2p_dir == (genie_data_dir / "G2P" / "EnglishG2P").resolve()
@@ -275,7 +307,7 @@ def test_configure_genie_tts_environment_disables_auto_download(
     monkeypatch.delenv("SV_MODEL", raising=False)
     monkeypatch.delenv("ROBERTA_MODEL_DIR", raising=False)
 
-    resources = genie_tts_module._configure_genie_tts_environment(settings, spec)
+    resources = genie_tts_module._configure_genie_tts_environment(cast("Any", settings), spec)
 
     assert resources.hubert_onnx_path == hubert_dir / "chinese-hubert-base.onnx"
     assert genie_tts_module.os.environ["GENIE_DATA_DIR"] == str(genie_data_dir)
@@ -298,7 +330,7 @@ def test_validate_genie_tts_resources_reports_missing_files(tmp_path: Path) -> N
     )
 
     with pytest.raises(FileNotFoundError) as exc_info:
-        genie_tts_module._validate_genie_tts_resources(settings, spec)
+        genie_tts_module._validate_genie_tts_resources(cast("Any", settings), spec)
 
     message = str(exc_info.value)
     assert "Automatic download is disabled here" in message

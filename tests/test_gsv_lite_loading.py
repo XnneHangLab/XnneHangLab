@@ -32,6 +32,10 @@ def _spec(character_name: str) -> gsv_lite_module.GSVLiteModelSpec:
     )
 
 
+def _fake_none() -> None:
+    return None
+
+
 def test_get_gsv_lite_model_raises_when_not_loaded(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_get_configured_model_spec(*_args: object, **_kwargs: object) -> gsv_lite_module.GSVLiteModelSpec:
         return _spec("baoqiao")
@@ -80,17 +84,16 @@ def test_load_gsv_lite_model_uses_extended_gpt_cache(monkeypatch: pytest.MonkeyP
     def fake_get_configured_model_spec(*_args: object, **_kwargs: object) -> gsv_lite_module.GSVLiteModelSpec:
         return _spec("luoqixi")
 
-    monkeypatch.setattr(
-        gsv_lite_module,
-        "_get_gsv_lite_settings",
-        lambda: SimpleNamespace(
+    def fake_get_gsv_lite_settings() -> SimpleNamespace:
+        return SimpleNamespace(
             package=SimpleNamespace(gsv_lite=True),
             agent=SimpleNamespace(tts=SimpleNamespace(gsv_lite=SimpleNamespace(use_bert=True))),
             root=SimpleNamespace(root_dir="."),
-        ),
-    )
+        )
+
+    monkeypatch.setattr(gsv_lite_module, "_get_gsv_lite_settings", fake_get_gsv_lite_settings)
     monkeypatch.setattr(gsv_lite_module, "_get_configured_model_spec", fake_get_configured_model_spec)
-    monkeypatch.setattr(gsv_lite_module, "_apply_gsv_lite_monkey_patch", lambda: None)
+    monkeypatch.setattr(gsv_lite_module, "_apply_gsv_lite_monkey_patch", _fake_none)
     monkeypatch.setattr(gsv_lite_module, "_gsv_lite_engine", None)
     monkeypatch.setattr(gsv_lite_module, "_loaded_model_spec", None)
 
@@ -103,7 +106,7 @@ def test_load_gsv_lite_model_uses_extended_gpt_cache(monkeypatch: pytest.MonkeyP
     assert status["loaded"] is True
     assert captured["gpt_cache"] == [(1, 512), (1, 1024), (1, 2048), (4, 512), (4, 1024)]
     assert captured["use_bert"] is True
-    assert Path(captured["models_dir"]) == Path("models/GSVLiteData")
+    assert Path(cast("str", captured["models_dir"])) == Path("models/GSVLiteData")
 
 
 def test_resolve_warmup_inputs_prefers_character_dir_and_speaker_audio(
@@ -140,10 +143,13 @@ def test_resolve_warmup_inputs_prefers_character_dir_and_speaker_audio(
         models_dir=(tmp_path / "models" / "GSVLiteData").resolve(),
     )
 
-    monkeypatch.setattr(gsv_lite_module, "_resolve_active_profile", lambda *_args, **_kwargs: profile)
+    def fake_resolve_active_profile(*_args: object, **_kwargs: object) -> SimpleNamespace:
+        return profile
+
+    monkeypatch.setattr(gsv_lite_module, "_resolve_active_profile", fake_resolve_active_profile)
 
     resolved_ref_audio, resolved_ref_text, resolved_speaker_audio = gsv_lite_module._resolve_warmup_inputs(
-        settings,
+        cast("Any", settings),
         spec,
     )
 
@@ -192,15 +198,27 @@ def test_warmup_gsv_lite_model_uses_ref_text_for_real_warmup(
         captured["speaker_audio"] = speaker_audio
         return b"RIFFfake"
 
-    monkeypatch.setattr(gsv_lite_module, "_get_gsv_lite_settings", lambda: settings)
-    monkeypatch.setattr(gsv_lite_module, "_get_configured_model_spec", lambda *_args, **_kwargs: spec)
+    def fake_get_gsv_lite_settings() -> SimpleNamespace:
+        return settings
+
+    def fake_get_configured_model_spec(*_args: object, **_kwargs: object) -> gsv_lite_module.GSVLiteModelSpec:
+        return spec
+
+    def fake_resolve_warmup_inputs(*_args: object, **_kwargs: object) -> tuple[Path, str, Path]:
+        return ref_audio, "default ref", speaker_audio
+
+    def fake_get_gsv_lite_status() -> dict[str, bool]:
+        return {"loaded": True}
+
+    monkeypatch.setattr(gsv_lite_module, "_get_gsv_lite_settings", fake_get_gsv_lite_settings)
+    monkeypatch.setattr(gsv_lite_module, "_get_configured_model_spec", fake_get_configured_model_spec)
     monkeypatch.setattr(
         gsv_lite_module,
         "_resolve_warmup_inputs",
-        lambda *_args, **_kwargs: (ref_audio, "default ref", speaker_audio),
+        fake_resolve_warmup_inputs,
     )
     monkeypatch.setattr(gsv_lite_module, "synthesize_once", _fake_synthesize_once)
-    monkeypatch.setattr(gsv_lite_module, "get_gsv_lite_status", lambda: {"loaded": True})
+    monkeypatch.setattr(gsv_lite_module, "get_gsv_lite_status", fake_get_gsv_lite_status)
 
     status = asyncio.run(gsv_lite_module.warmup_gsv_lite_model())
 
@@ -224,7 +242,7 @@ def test_resolve_character_dir_prefers_gsv_tts_lite_root(tmp_path: Path) -> None
     preferred.mkdir(parents=True)
     legacy.mkdir(parents=True)
 
-    resolved = gsv_lite_module._resolve_character_dir(settings, "baoqiao")
+    resolved = gsv_lite_module._resolve_character_dir(cast("Any", settings), "baoqiao")
 
     assert resolved == preferred.resolve()
 
@@ -234,7 +252,7 @@ def test_resolve_character_dir_falls_back_to_gpt_sovits_root(tmp_path: Path) -> 
     legacy = tmp_path / "models" / "gptsovits" / "baoqiao"
     legacy.mkdir(parents=True)
 
-    resolved = gsv_lite_module._resolve_character_dir(settings, "baoqiao")
+    resolved = gsv_lite_module._resolve_character_dir(cast("Any", settings), "baoqiao")
 
     assert resolved == legacy.resolve()
 
@@ -246,7 +264,7 @@ def test_resolve_gsv_lite_data_dir_prefers_gsv_lite_data_root(tmp_path: Path) ->
     preferred.mkdir(parents=True)
     legacy.mkdir(parents=True)
 
-    resolved = gsv_lite_module._resolve_gsv_lite_data_dir(settings)
+    resolved = gsv_lite_module._resolve_gsv_lite_data_dir(cast("Any", settings))
 
     assert resolved == preferred.resolve()
 
@@ -256,7 +274,7 @@ def test_resolve_gsv_lite_data_dir_falls_back_to_models_root(tmp_path: Path) -> 
     legacy = tmp_path / "models" / "g2p"
     legacy.mkdir(parents=True)
 
-    resolved = gsv_lite_module._resolve_gsv_lite_data_dir(settings)
+    resolved = gsv_lite_module._resolve_gsv_lite_data_dir(cast("Any", settings))
 
     assert resolved == (tmp_path / "models").resolve()
 

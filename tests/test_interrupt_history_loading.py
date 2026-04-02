@@ -75,7 +75,10 @@ async def test_handle_individual_interrupt_waits_for_task_cleanup(
             cleanup_finished.set()
             raise
 
-    monkeypatch.setattr("lab.conversations.conversation_handler.store_message", lambda **kwargs: None)
+    def fake_store_message(**kwargs: object) -> None:
+        del kwargs
+
+    monkeypatch.setattr("lab.conversations.conversation_handler.store_message", fake_store_message)
 
     task: asyncio.Task[None] = asyncio.create_task(fake_turn())
     context = cast(

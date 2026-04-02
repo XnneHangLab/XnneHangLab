@@ -315,7 +315,7 @@ async def lifespan(app: FastAPI):
         genie_logger.info("Loading Genie-TTS model...")
         await _run_blocking(load_genie_tts_model)
         await warmup_genie_tts_model()
-        genie_logger.info("Genie-TTS model loaded and warmed up ({:.1f}s)", time.perf_counter() - genie_started)
+        genie_logger.info(f"Genie-TTS model loaded and warmed up ({time.perf_counter() - genie_started:.1f}s)")
 
     if lab_settings.package.gsv_lite:
         from lab.api.logic.gsv_lite import load_gsv_lite_model, warmup_gsv_lite_model
@@ -325,7 +325,7 @@ async def lifespan(app: FastAPI):
         gsv_lite_logger.info("Loading GSV-Lite model...")
         await _run_blocking(load_gsv_lite_model)
         await warmup_gsv_lite_model()
-        gsv_lite_logger.info("GSV-Lite model loaded and warmed up ({:.1f}s)", time.perf_counter() - gsv_lite_started)
+        gsv_lite_logger.info(f"GSV-Lite model loaded and warmed up ({time.perf_counter() - gsv_lite_started:.1f}s)")
 
     if lab_settings.package.llm_translate:
         from lab.api.logic.llm_translate import preload_configured_llm_translate_engine

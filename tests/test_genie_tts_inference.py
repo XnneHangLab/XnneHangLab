@@ -4,22 +4,20 @@ import importlib.util
 import sys
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pytest
 
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
 
 @pytest.fixture
-def inference_module() -> ModuleType:
+def inference_module() -> Generator[ModuleType, None, None]:
     module_name = "genie_tts.Core.Inference"
     inference_path = (
-        Path(__file__).resolve().parents[1]
-        / "packages"
-        / "Genie-TTS"
-        / "src"
-        / "genie_tts"
-        / "Core"
-        / "Inference.py"
+        Path(__file__).resolve().parents[1] / "packages" / "Genie-TTS" / "src" / "genie_tts" / "Core" / "Inference.py"
     )
 
     sentinel = object()
@@ -43,7 +41,7 @@ def inference_module() -> ModuleType:
 
     onnxruntime_stub = ModuleType("onnxruntime")
 
-    class InferenceSession:  # noqa: D401 - minimal stub for type references only
+    class InferenceSession:
         """Stub inference session."""
 
     onnxruntime_stub.InferenceSession = InferenceSession  # type: ignore[attr-defined]
@@ -51,17 +49,20 @@ def inference_module() -> ModuleType:
 
     ref_audio_stub = ModuleType("genie_tts.Audio.ReferenceAudio")
 
-    class ReferenceAudio:  # noqa: D401 - minimal stub for type references only
+    class ReferenceAudio:
         """Stub reference audio."""
 
     ref_audio_stub.ReferenceAudio = ReferenceAudio  # type: ignore[attr-defined]
     _set_module("genie_tts.Audio.ReferenceAudio", ref_audio_stub)
 
     g2p_stub = ModuleType("genie_tts.GetPhonesAndBert")
-    g2p_stub.get_phones_and_bert = lambda *_args, **_kwargs: (  # type: ignore[attr-defined]
-        np.array([[1]], dtype=np.int64),
-        np.zeros((1, 1), dtype=np.float32),
-    )
+
+    def fake_get_phones_and_bert(
+        *_args: object, **_kwargs: object
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        return np.array([[1]], dtype=np.int64), np.zeros((1, 1), dtype=np.float32)
+
+    g2p_stub.get_phones_and_bert = fake_get_phones_and_bert  # type: ignore[attr-defined]
     _set_module("genie_tts.GetPhonesAndBert", g2p_stub)
 
     spec = importlib.util.spec_from_file_location(module_name, inference_path)
@@ -99,11 +100,13 @@ def test_extract_generated_semantic_tokens_rejects_zero_generated_steps(inferenc
 
 def test_t2s_cpu_does_not_return_full_prompt_when_decoder_stops_immediately(inference_module: ModuleType) -> None:
     class _FakeEncoder:
-        def run(self, *_args, **_kwargs):
+        def run(self, *_args: object, **_kwargs: object) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
             return np.array([[1.0]], dtype=np.float32), np.array([[2.0]], dtype=np.float32)
 
     class _FakeFirstStageDecoder:
-        def run(self, *_args, **_kwargs):
+        def run(
+            self, *_args: object, **_kwargs: object
+        ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
             return (
                 np.array([[10, 20, 30]], dtype=np.int64),
                 np.array([[1.0]], dtype=np.float32),
@@ -111,14 +114,16 @@ def test_t2s_cpu_does_not_return_full_prompt_when_decoder_stops_immediately(infe
             )
 
     class _FakeStageDecoder:
-        def get_inputs(self):
+        def get_inputs(self) -> list[SimpleNamespace]:
             return [
                 SimpleNamespace(name="y"),
                 SimpleNamespace(name="y_emb"),
                 SimpleNamespace(name="present"),
             ]
 
-        def run(self, *_args, **_kwargs):
+        def run(
+            self, *_args: object, **_kwargs: object
+        ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
             return (
                 np.array([[10, 20, 30, 40]], dtype=np.int64),
                 np.array([[1.0]], dtype=np.float32),

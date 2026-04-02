@@ -39,7 +39,7 @@ def _render_user_content(content: str, *, condensed: bool) -> str:
 
 
 def _normalize_assistant_storage_text(content: str) -> str:
-    return content if content else " "
+    return content or " "
 
 
 def _build_messages_with_condensing(

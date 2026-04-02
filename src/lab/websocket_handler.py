@@ -34,7 +34,6 @@ from lab.message_handler import message_handler
 from lab.service_context import ServiceContext
 
 if TYPE_CHECKING:
-    import asyncio
     from collections.abc import Callable
 
     from lab.agent.output_types import DisplayTextDict

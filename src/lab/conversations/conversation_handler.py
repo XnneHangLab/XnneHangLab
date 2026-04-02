@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeAlias
 
 import numpy as np
 from loguru import logger
@@ -17,9 +17,12 @@ if TYPE_CHECKING:
     from lab.service_context import ServiceContext
 
 
+ConversationTask: TypeAlias = asyncio.Task[str]
+
+
 async def _cancel_client_conversation_task(
     client_uid: str,
-    current_conversation_tasks: dict[str, asyncio.Task | None],
+    current_conversation_tasks: dict[str, ConversationTask | None],
     *,
     reason: str,
 ) -> None:
@@ -50,7 +53,7 @@ async def handle_conversation_trigger(
     context: ServiceContext,
     websocket: WebSocket,
     received_data_buffers: dict[str, np.ndarray[Any, Any]],
-    current_conversation_tasks: dict[str, asyncio.Task | None],  # type: ignore
+    current_conversation_tasks: dict[str, ConversationTask | None],
 ) -> None:
     """Handle triggers that start a conversation."""
     existing_task = current_conversation_tasks.get(client_uid)
@@ -96,7 +99,7 @@ async def handle_conversation_trigger(
     )
     current_conversation_tasks[client_uid] = task
 
-    def _clear_finished_task(completed_task: asyncio.Task[str], *, uid: str = client_uid) -> None:
+    def _clear_finished_task(completed_task: ConversationTask, *, uid: str = client_uid) -> None:
         current_task = current_conversation_tasks.get(uid)
         if current_task is completed_task:
             current_conversation_tasks.pop(uid, None)
@@ -106,7 +109,7 @@ async def handle_conversation_trigger(
 
 async def handle_individual_interrupt(
     client_uid: str,
-    current_conversation_tasks: dict[str, asyncio.Task | None],  # type: ignore
+    current_conversation_tasks: dict[str, ConversationTask | None],
     context: ServiceContext,
     heard_response: str,
 ) -> None:

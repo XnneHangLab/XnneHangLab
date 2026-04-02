@@ -514,11 +514,8 @@ async def warmup_gsv_lite_model() -> dict[str, Any]:
 
     started = time.perf_counter()
     _tts_logger.info(
-        "gsv-lite warmup start: character={}, ref_audio={}, speaker_audio={}, text_len={}",
-        configured.character_name,
-        ref_audio,
-        speaker_audio or ref_audio,
-        len(ref_text),
+        f"gsv-lite warmup start: character={configured.character_name}, ref_audio={ref_audio}, "
+        f"speaker_audio={speaker_audio or ref_audio}, text_len={len(ref_text)}"
     )
     wav_bytes = await asyncio.wait_for(
         synthesize_once(
@@ -530,10 +527,8 @@ async def warmup_gsv_lite_model() -> dict[str, Any]:
         timeout=120.0,
     )
     _tts_logger.info(
-        "gsv-lite warmup complete: character={}, audio_bytes={}, elapsed={:.2f}s",
-        configured.character_name,
-        len(wav_bytes),
-        time.perf_counter() - started,
+        f"gsv-lite warmup complete: character={configured.character_name}, "
+        f"audio_bytes={len(wav_bytes)}, elapsed={time.perf_counter() - started:.2f}s"
     )
     return get_gsv_lite_status()
 

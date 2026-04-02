@@ -418,8 +418,7 @@ def _validate_genie_tts_resources(settings: XnneHangLabSettings, spec: GenieTTSM
     if missing:
         raise FileNotFoundError(
             "Genie-TTS resources are not installed in XnneHangLab models/.\n"
-            "Automatic download is disabled here.\n"
-            + "\n".join(f"- {item}" for item in missing)
+            "Automatic download is disabled here.\n" + "\n".join(f"- {item}" for item in missing)
         )
 
     return resources
@@ -549,10 +548,7 @@ async def warmup_genie_tts_model() -> dict[str, Any]:
 
     started = time.perf_counter()
     _tts_logger.info(
-        "genie-tts warmup start: character={}, ref_audio={}, text_len={}",
-        configured.character_name,
-        ref_audio,
-        len(ref_text),
+        f"genie-tts warmup start: character={configured.character_name}, ref_audio={ref_audio}, text_len={len(ref_text)}"
     )
     wav_bytes = await asyncio.wait_for(
         synthesize_once(
@@ -563,11 +559,9 @@ async def warmup_genie_tts_model() -> dict[str, Any]:
         timeout=120.0,
     )
     _tts_logger.info(
-        "genie-tts warmup complete: character={}, audio_bytes={}, sample_rate={}, elapsed={:.2f}s",
-        configured.character_name,
-        len(wav_bytes),
-        read_wav_sample_rate(wav_bytes),
-        time.perf_counter() - started,
+        f"genie-tts warmup complete: character={configured.character_name}, "
+        f"audio_bytes={len(wav_bytes)}, sample_rate={read_wav_sample_rate(wav_bytes)}, "
+        f"elapsed={time.perf_counter() - started:.2f}s"
     )
     return get_genie_tts_status()
 
@@ -614,7 +608,8 @@ def _pcm_chunks_to_wav_bytes(chunks: list[bytes], sample_rate: int) -> bytes:
 
     merged = np.concatenate(arrays, axis=0)
     buf = io.BytesIO()
-    sf.write(buf, merged, sample_rate, format="WAV", subtype="PCM_16")
+    sf_write = cast("Any", sf).write
+    sf_write(buf, merged, sample_rate, format="WAV", subtype="PCM_16")
     return buf.getvalue()
 
 
