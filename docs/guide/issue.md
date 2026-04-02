@@ -44,7 +44,11 @@ LookupError:
 
 按照说明运行即可解决。
 
-你也可以运行 just install-nltk 来下载。
+如果你确实需要手动下载，可以直接运行：
+
+```shell
+python -c "import nltk; nltk.download('averaged_perceptron_tagger_eng')"
+```
 
 
 ## 网络问题：
@@ -54,6 +58,6 @@ LookupError:
 
 ## just server 失败
 
-一般由于内存不足，因为会一次运行超多模型，三个 FunASR 模型，两个 whisper 模型，一个 GPT-SoVits 模型。
+一般由于内存不足，因为会一次运行超多模型，例如多个 ASR 模型，再叠加 Genie-TTS / GSV-Lite / Qwen-TTS 等推理服务。
 
 所以如果空余内存不足 32GB 的情况下，可以尝试调整 `[package]` 中的相关模型开关，一般中英文 ASR 只用 FunASR 即可,而包含其他语言的 ASR 则需要使用 Whisper 模型。

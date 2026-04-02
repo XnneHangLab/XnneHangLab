@@ -221,11 +221,19 @@ def _resolve_profile_ref(
     if not emotion_config.path.strip():
         raise ValueError(f"Emotion '{selected_emotion}' has an empty ref path in: {profile_path}")
 
-    resolved_ref_audio = (
-        repo_root / "models" / "gptsovits" / tts_config.character_name / emotion_config.path
-    ).resolve()
-    if not resolved_ref_audio.is_file():
-        raise FileNotFoundError(f"Reference audio not found: {resolved_ref_audio}")
+    resolved_ref_audio: Path | None = None
+    for base_dir in (
+        repo_root / "models" / "genie-tts" / tts_config.character_name,
+        repo_root / "models" / "gsv-tts-lite" / tts_config.character_name,
+    ):
+        candidate = (base_dir / emotion_config.path).resolve()
+        if candidate.is_file():
+            resolved_ref_audio = candidate
+            break
+    if resolved_ref_audio is None:
+        raise FileNotFoundError(
+            f"Reference audio not found for emotion '{selected_emotion}' in profile: {profile_path}"
+        )
 
     resolved_ref_text = (ref_text_override or emotion_config.ref_text).strip()
     if not resolved_ref_text:

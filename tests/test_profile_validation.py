@@ -151,7 +151,7 @@ format = "prompts/formats/emotion_bracket.md"
 
     errors = validate_all(settings)
 
-    assert any("models" in err and "gptsovits" in err and "baoqiao" in err for err in errors)
+    assert any("models" in err and "genie-tts" in err and "baoqiao" in err for err in errors)
 
 
 def test_validate_uses_gsv_lite_engine_model_directory(tmp_path: Path) -> None:

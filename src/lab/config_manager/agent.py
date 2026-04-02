@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from typing import Annotated, Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -9,7 +8,7 @@ from lab.config_manager.qwen_tts import QwenTTSSettings
 
 LLM_Provider = str
 TranslateProvider = Literal["llm", "deeplx"]
-TTSProvider = Literal["gpt_sovits", "gsv_lite", "genie_tts", "qwen_tts"]
+TTSProvider = Literal["gsv_lite", "genie_tts", "qwen_tts"]
 GenieTTSLanguage = Literal["Chinese", "English", "Japanese", "Hybrid-Chinese-English", "Korean", "auto"]
 
 
@@ -198,9 +197,9 @@ class TTSSettings(BaseModel):
     provider: Annotated[
         TTSProvider,
         Field(
-            "gpt_sovits",
+            "genie_tts",
             title="TTS Provider",
-            description="Can be overridden by the TTS_PROVIDER environment variable.",
+            description="Active TTS backend.",
         ),
     ]
     gsv_lite: Annotated[GSVLiteTTSSettings, Field(GSVLiteTTSSettings())]  # pyright: ignore[reportCallIssue]
@@ -225,10 +224,6 @@ class AgentSettings(BaseModel):
 
         if "provider" not in raw_tts and isinstance(raw.get("speaker_model"), str):
             raw_tts = {**raw_tts, "provider": raw["speaker_model"]}
-
-        env_provider = os.environ.get("TTS_PROVIDER", "").strip()
-        if env_provider:
-            raw_tts = {**raw_tts, "provider": env_provider}
 
         if raw_tts:
             raw["tts"] = raw_tts

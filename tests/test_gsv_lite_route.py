@@ -25,7 +25,7 @@ def test_generate_returns_json_error_response_on_unexpected_exception(monkeypatc
         gsv_lite_route.generate(
             gsv_lite_route.GSVLiteGeneratePayload(
                 text="test",
-                ref_audio_path="models/gptsovits/luoqixi/emotions/そ、そんな呼び方をして、慣れ慣れ思考はありませんか.wav",
+                ref_audio_path="models/gsv-tts-lite/luoqixi/emotions/そ、そんな呼び方をして、慣れ慣れ思考はありませんか.wav",
                 ref_text="test ref",
             )
         )

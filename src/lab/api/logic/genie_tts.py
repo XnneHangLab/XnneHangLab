@@ -26,7 +26,6 @@ DEFAULT_SAMPLE_RATE = 32000
 _GENIE_TTS_MODEL_DIRNAME = "genie-tts"
 _GENIE_DATA_DIRNAME = "geniedata"
 _LEGACY_GENIE_DATA_DIRNAME = "GenieData"
-_GPT_SOVITS_MODEL_DIRNAME = "gptsovits"
 _GENIE_TTS_MODEL_DIR_KEYS = ("genie_model_dir", "genie_tts_path", "onnx_model_dir", "tts_models_dir")
 _GENIE_TTS_MODEL_DIR_CANDIDATES = ("tts_models", "genie_tts", "genie", "onnx")
 _GENIE_TTS_ROOT_MODEL_MARKERS = (
@@ -108,10 +107,7 @@ def _resolve_active_character_name(settings: XnneHangLabSettings) -> str:
 def _iter_reference_base_dirs(settings: XnneHangLabSettings, character_name: str) -> list[Path]:
     models_dir = (Path(settings.root.root_dir) / "models").resolve()
     bases: list[Path] = []
-    for base in (
-        (models_dir / _GENIE_TTS_MODEL_DIRNAME / character_name).resolve(),
-        (models_dir / _GPT_SOVITS_MODEL_DIRNAME / character_name).resolve(),
-    ):
+    for base in ((models_dir / _GENIE_TTS_MODEL_DIRNAME / character_name).resolve(),):
         if base not in bases:
             bases.append(base)
     return bases
@@ -120,12 +116,6 @@ def _iter_reference_base_dirs(settings: XnneHangLabSettings, character_name: str
 def _resolve_character_dir(settings: XnneHangLabSettings, character_name: str) -> Path:
     models_dir = (Path(settings.root.root_dir) / "models").resolve()
     preferred = (models_dir / _GENIE_TTS_MODEL_DIRNAME / character_name).resolve()
-    if preferred.exists():
-        return preferred
-
-    legacy = (models_dir / _GPT_SOVITS_MODEL_DIRNAME / character_name).resolve()
-    if legacy.exists():
-        return legacy
     return preferred
 
 
@@ -375,7 +365,8 @@ def _release_engine() -> None:
 
 @asynccontextmanager
 async def _hold_model_lock_async():
-    await asyncio.to_thread(_model_lock.acquire)
+    while not _model_lock.acquire(blocking=False):
+        await asyncio.sleep(0.01)
     try:
         yield
     finally:

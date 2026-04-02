@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 import tomllib
 from pathlib import Path
 from shutil import copytree
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, cast
 
+import httpx
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 
 from lab.api.routes.admin import router
 
@@ -29,6 +30,35 @@ def _make_app(tmp_path: Path, *, enable_tool: bool = False) -> FastAPI:
         _mcp_connected=False,
     )
     return app
+
+
+class _AppClient:
+    def __init__(self, app: FastAPI) -> None:
+        self._app = app
+
+    async def _request_async(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
+        transport = httpx.ASGITransport(app=self._app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            return await client.request(method, url, **kwargs)
+
+    def request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
+        return asyncio.run(self._request_async(method, url, **kwargs))
+
+    def get(self, url: str, **kwargs: Any) -> httpx.Response:
+        return self.request("GET", url, **kwargs)
+
+    def post(self, url: str, **kwargs: Any) -> httpx.Response:
+        return self.request("POST", url, **kwargs)
+
+    def put(self, url: str, **kwargs: Any) -> httpx.Response:
+        return self.request("PUT", url, **kwargs)
+
+    def delete(self, url: str, **kwargs: Any) -> httpx.Response:
+        return self.request("DELETE", url, **kwargs)
+
+
+def _make_client(app: FastAPI) -> _AppClient:
+    return _AppClient(app)
 
 
 def _find_schema_field(fields: list[dict[str, Any]], path: list[str]) -> dict[str, Any]:
@@ -90,7 +120,7 @@ name = "Plugin Z"
         encoding="utf-8",
     )
 
-    client = TestClient(_make_app(tmp_path))
+    client = _make_client(_make_app(tmp_path))
     response = client.get("/admin/api/plugins")
 
     assert response.status_code == 200
@@ -119,7 +149,7 @@ def test_profiles_list_get_and_put(tmp_path: Path) -> None:
     (profiles_dir / "a.toml").write_text('[profile]\nname = "a"\n', encoding="utf-8")
     (profiles_dir / "ignore.txt").write_text("x", encoding="utf-8")
 
-    client = TestClient(_make_app(tmp_path))
+    client = _make_client(_make_app(tmp_path))
 
     list_response = client.get("/admin/api/profiles")
     assert list_response.status_code == 200
@@ -170,7 +200,7 @@ def test_put_profile_rejects_invalid_live2d_appearance_presets(tmp_path: Path) -
     (tmp_path / "src" / "lab" / "plugins").mkdir(parents=True)
     copytree(Path("src/lab/plugins/live2d_control"), tmp_path / "src" / "lab" / "plugins" / "live2d_control")
 
-    client = TestClient(_make_app(tmp_path))
+    client = _make_client(_make_app(tmp_path))
     response = client.put(
         "/admin/api/profiles/a.toml",
         json={
@@ -192,7 +222,7 @@ def test_put_profile_rejects_invalid_live2d_appearance_presets(tmp_path: Path) -
 
 
 def test_profile_endpoints_reject_invalid_profile_names(tmp_path: Path) -> None:
-    client = TestClient(_make_app(tmp_path))
+    client = _make_client(_make_app(tmp_path))
 
     response = client.get("/admin/api/profiles/not-toml.txt")
 
@@ -216,7 +246,7 @@ def test_reload_default_agent_rebuilds_shared_context_in_place(monkeypatch: pyte
 
     monkeypatch.setattr(shared_ctx, "reload_runtime_from_current_settings", fake_reload, raising=False)
 
-    client = TestClient(app)
+    client = _make_client(app)
     response = client.post("/admin/api/agent/reload")
 
     assert response.status_code == 200
@@ -255,7 +285,7 @@ api_format = "chat_completion"
         encoding="utf-8",
     )
 
-    client = TestClient(_make_app(tmp_path))
+    client = _make_client(_make_app(tmp_path))
 
     list_response = client.get("/admin/api/providers")
     assert list_response.status_code == 200
@@ -351,7 +381,7 @@ api_format = "chat_completion"
         encoding="utf-8",
     )
 
-    client = TestClient(_make_app(tmp_path))
+    client = _make_client(_make_app(tmp_path))
 
     get_response = client.get("/admin/api/config/agent")
     assert get_response.status_code == 200
@@ -414,7 +444,7 @@ api_format = "chat_completion"
         encoding="utf-8",
     )
 
-    client = TestClient(_make_app(tmp_path))
+    client = _make_client(_make_app(tmp_path))
 
     get_response = client.get("/admin/api/config/lab/raw")
     assert get_response.status_code == 200
@@ -490,7 +520,7 @@ api_format = "chat_completion"
         encoding="utf-8",
     )
 
-    client = TestClient(_make_app(tmp_path))
+    client = _make_client(_make_app(tmp_path))
 
     response = client.get("/admin/api/config/lab/raw")
 
@@ -521,7 +551,7 @@ api_format = "chat_completion"
         encoding="utf-8",
     )
 
-    client = TestClient(_make_app(tmp_path))
+    client = _make_client(_make_app(tmp_path))
 
     get_response = client.get("/admin/api/config/lab/form")
     assert get_response.status_code == 200
@@ -574,7 +604,7 @@ api_format = "chat_completion"
         encoding="utf-8",
     )
 
-    client = TestClient(_make_app(tmp_path))
+    client = _make_client(_make_app(tmp_path))
 
     payload = client.get("/admin/api/config/lab/form").json()
 
@@ -631,8 +661,8 @@ api_format = "chat_completion"
             encoding="utf-8",
         )
 
-    raw_client = TestClient(_make_app(raw_root))
-    form_client = TestClient(_make_app(form_root))
+    raw_client = _make_client(_make_app(raw_root))
+    form_client = _make_client(_make_app(form_root))
 
     raw_response = raw_client.put(
         "/admin/api/config/lab/raw",

@@ -14,8 +14,8 @@ api/
 │   ├── asr_shared.py    # 共享工具（文件上传暂存、路径处理）
 │   ├── deeplx.py        # /translate — DeepLX 翻译代理
 │   ├── faster_qwen_tts.py  # /tts/qwen-tts — Qwen-TTS 合成
-│   ├── gpt_sovits.py    # /tts/gptsovits — GPT-SoVITS v1
-│   ├── gpt_sovits_v2.py # /tts/gptsovitsv2 — GPT-SoVITS v2
+│   ├── genie_tts.py    # /tts/genie-tts — Genie-TTS 合成
+│   ├── gsv_lite.py     # /tts/gsv-lite — GSV-Lite 合成
 │   └── vtuber.py        # /client-ws — VTuber WebSocket 入口
 ├── logic/               # 业务逻辑与模型封装
 │   ├── sherpa_asr.py    # Sherpa-ONNX 引擎单例管理（加载 / 热重载 / 推理封装）
@@ -24,7 +24,8 @@ api/
 └── clients/             # 外部服务客户端
     ├── base_client_interface.py  # BaseRequest / BaseResponse / BaseClientInterface
     ├── asr_client.py        # ASRClient
-    ├── gpt_sovits_client.py # GPTSoVITSClient
+    ├── genie_tts_client.py  # GenieTTSClient
+    ├── gsv_lite_client.py   # GSVLiteClient
     ├── deeplx_client.py     # DeepLXClient
     ├── reload_client.py     # ReloadClient（模型热重载）
     └── vad_client.py        # VADClient
@@ -45,8 +46,8 @@ api/
 | `deeplx.py` | `/translate/deeplx` | DeepLX 翻译代理（调用外部服务） |
 | `llm_translate.py` | `/translate/llm` | 本地 LLM 翻译（Qwen2.5-0.5B Q8 GGUF，llama-cpp-python） |
 | `faster_qwen_tts.py` | `/tts/qwen-tts` | Qwen-TTS 语音合成（非流式 + SSE 流式） |
-| `gpt_sovits.py` | `/tts/gptsovits` | GPT-SoVITS v1 TTS（JSON → base64 音频） |
-| `gpt_sovits_v2.py` | `/tts/gptsovitsv2` | GPT-SoVITS v2 TTS（GET/POST → 音频文件，支持流式） |
+| `genie_tts.py` | `/tts/genie-tts` | Genie-TTS 语音合成（POST → WAV） |
+| `gsv_lite.py` | `/tts/gsv-lite` | GSV-Lite 语音合成（POST → WAV） |
 | `vtuber.py` | `/client-ws` | Open-LLM-VTuber WebSocket 连接管理 |
 
 ### Logic — 模型封装

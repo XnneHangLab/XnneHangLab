@@ -18,7 +18,7 @@ ApiFormat = Literal["chat_completion"]
 EmbeddingPoolingType = Literal["mean", "cls", "last"]
 ALLOWED_API_FORMATS: tuple[ApiFormat, ...] = ("chat_completion",)
 ALLOWED_EMBEDDING_POOLING_TYPES: tuple[EmbeddingPoolingType, ...] = ("mean", "cls", "last")
-ALLOWED_TTS_PROVIDERS: tuple[TTSProvider, ...] = ("gpt_sovits", "gsv_lite", "genie_tts", "qwen_tts")
+ALLOWED_TTS_PROVIDERS: tuple[TTSProvider, ...] = ("gsv_lite", "genie_tts", "qwen_tts")
 GENIE_TTS_LANGUAGE_ALIASES: dict[str, str] = {
     "chinese": "Chinese",
     "english": "English",
@@ -55,7 +55,9 @@ def validate_translate_provider(
     value = os.getenv(env_key_name, default).strip().lower()
     if is_translate_provider(value):
         return value
-    logger.warning("Invalid %s=%r, allowed=%s, fallback=%r", env_key_name, value, TranslateProvider.__args__, default)
+    logger.warning(
+        "Invalid {}={!r}, allowed={}, fallback={!r}", env_key_name, value, TranslateProvider.__args__, default
+    )
     return default
 
 
@@ -71,7 +73,7 @@ def validate_embedding_pooling_type(
     if is_embedding_pooling_type(value):
         return value
     logger.warning(
-        "Invalid %s=%r, allowed=%s, fallback=%r",
+        "Invalid {}={!r}, allowed={}, fallback={!r}",
         env_key_name,
         value,
         ALLOWED_EMBEDDING_POOLING_TYPES,
@@ -80,7 +82,7 @@ def validate_embedding_pooling_type(
     return default
 
 
-def validate_provider_name(value: str, available_names: set[str], env_key_name: str, fallback: str = "") -> str:
+def validate_provider_name(value: str, available_names: set[str], env_key_name: str) -> str:
     normalized = value.strip()
     if normalized in available_names:
         return normalized
@@ -136,7 +138,7 @@ def _parse_int_env(key: str) -> int | None:
     try:
         return int(raw_value.strip())
     except ValueError:
-        logger.warning("Invalid %s=%r, expected an integer, ignoring", key, raw_value)
+        logger.warning("Invalid {}={!r}, expected an integer, ignoring", key, raw_value)
         return None
 
 
@@ -230,7 +232,6 @@ def main() -> None:
             os.environ.get("CHAT_MODEL_PROVIDER", ""),
             provider_names,
             "CHAT_MODEL_PROVIDER",
-            settings.agent.chat_model.llm_provider,
         )
     if "CHAT_MODEL_NAME" in os.environ:
         settings.agent.chat_model.llm_model_name = os.environ.get("CHAT_MODEL_NAME", "").strip()
@@ -246,17 +247,13 @@ def main() -> None:
             os.environ.get("VISION_MODEL_PROVIDER", ""),
             provider_names,
             "VISION_MODEL_PROVIDER",
-            settings.agent.vision_model.llm_provider,
         )
     if "VISION_MODEL_NAME" in os.environ:
         settings.agent.vision_model.llm_model_name = os.environ.get("VISION_MODEL_NAME", "").strip()
     if (value := _parse_bool_env("VISION_MODEL_REASONING")) is not None:
         settings.agent.vision_model.reasoning = value
     if "TTS_PROVIDER" in os.environ:
-        settings.agent.tts.provider = validate_tts_provider(
-            os.environ.get("TTS_PROVIDER", ""),
-            "TTS_PROVIDER",
-        )
+        settings.agent.tts.provider = validate_tts_provider(os.environ.get("TTS_PROVIDER", ""), "TTS_PROVIDER")
     if (value := _parse_bool_env("TTS_GSV_LITE_USE_BERT")) is not None:
         settings.agent.tts.gsv_lite.use_bert = value
     if "TTS_GENIE_TTS_LANGUAGE" in os.environ:
@@ -274,8 +271,8 @@ def main() -> None:
     if (value := _parse_int_env("LOCAL_EMBEDDING_N_GPU_LAYERS")) is not None:
         settings.local_embedding.n_gpu_layers = value
 
-    if value := os.environ.get("MEMORY_BENCH_SERVER_API_KEY"):
-        settings.memory_bench.server_api_key = value
+    if "MEMORY_BENCH_SERVER_API_KEY" in os.environ:
+        settings.memory_bench.server_api_key = os.environ.get("MEMORY_BENCH_SERVER_API_KEY", "")
 
     if (value := _parse_bool_env("PKG_MEMORY_BENCH")) is not None:
         settings.package.memory_bench = value
@@ -289,8 +286,6 @@ def main() -> None:
         settings.package.gsv_lite = value
     if (value := _parse_bool_env("PKG_GENIE_TTS")) is not None:
         settings.package.genie_tts = value
-    if (value := _parse_bool_env("PKG_GPT_SOVITS")) is not None:
-        settings.package.gpt_sovits = value
     if (value := _parse_bool_env("PKG_SHERPA_ASR")) is not None:
         settings.package.sherpa_asr = value
     if (value := _parse_bool_env("PKG_QWEN_ASR")) is not None:
@@ -314,6 +309,7 @@ def main() -> None:
     logger.info("agent.vision_model.reasoning: {}", settings.agent.vision_model.reasoning)
     logger.info("agent.tts.provider: {}", settings.agent.tts.provider)
     logger.info("agent.tts.gsv_lite.use_bert: {}", settings.agent.tts.gsv_lite.use_bert)
+    logger.info("agent.tts.genie_tts.language: {}", settings.agent.tts.genie_tts.language)
     logger.info("agent.tts.genie_tts.use_roberta: {}", settings.agent.tts.genie_tts.use_roberta)
     logger.info("local_embedding.model_path: {}", settings.local_embedding.model_path)
     logger.info("local_embedding.pooling_type: {}", settings.local_embedding.pooling_type)
@@ -325,7 +321,6 @@ def main() -> None:
     logger.info("package.qwen_tts: {}", settings.package.qwen_tts)
     logger.info("package.gsv_lite: {}", settings.package.gsv_lite)
     logger.info("package.genie_tts: {}", settings.package.genie_tts)
-    logger.info("package.gpt_sovits: {}", settings.package.gpt_sovits)
     logger.info("package.sherpa_asr: {}", settings.package.sherpa_asr)
     logger.info("package.qwen_asr: {}", settings.package.qwen_asr)
     logger.info("Sync API key done!")

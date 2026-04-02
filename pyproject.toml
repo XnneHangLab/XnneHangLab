@@ -95,27 +95,12 @@ yutto-uiya = [
   "natsort>=8.4.0",
 ]
 
-# 如果希望使用 tts 比如 gpt_sovits 均需要加入以下前置
+# 如果希望使用 tts 均需要加入以下前置
 tts_base = [
   "librosa>=0.10.2,<0.12",
   "g2p-en>=2.1.0",
   "cn2an>=0.5.23",
   "pypinyin>=0.54.0",
-]
-
-gpt_sovits = [
-  "socksio>=1.0.0",
-  "pytorch-lightning>=2.5.2",
-  "einops>=0.8.1",
-  "tqdm>=4.67.1",
-  "wordsegment>=1.3.1",
-  "langsegment",
-  "jieba-fast>=0.53",
-  "pyopenjtalk>=0.4.1",
-  "ffmpeg-python>=0.2.0",
-  "soundfile>=0.13.1",
-  "pydub>=0.25.1",
-  "scipy>=1.16.0",
 ]
 
 gsv-lite = [
@@ -170,10 +155,10 @@ qwen-tts = [
 ]
 
 [tool.uv]
-default-groups = ["base", "qwen-asr", "dev", "llama-cpp", "yutto-uiya", "tts_base", "gpt_sovits", "gsv-lite", "genie-tts", "qwen-tts", "vtuber", "memory_bench", "sherpa-onnx"]
+default-groups = ["base", "qwen-asr", "dev", "llama-cpp", "yutto-uiya", "tts_base", "gsv-lite", "genie-tts", "qwen-tts", "vtuber", "memory_bench", "sherpa-onnx"]
 
 [tool.uv.workspace]
-members = ["packages/yutto-uiya","packages/todo/","packages/gpt_sovits","packages/Qwen3-ASR"]
+members = ["packages/yutto-uiya","packages/todo/","packages/Qwen3-ASR"]
 
 [[tool.uv.index]]
 name = "pytorch-cu118"
@@ -201,7 +186,7 @@ torchaudio = [
   { index = "pytorch-cpu", marker = "sys_platform != 'win32'"}
 ]
 llama-cpp-python = [
-  { index = "llama-cpp-cpu", marker = "sys_platform != 'win32'" }
+  { index = "llama-cpp-cpu" }
 ]
 langsegment = { path = "./dist/LangSegment-0.3.5-py3-none-any.whl"}
 qwen-asr = {  workspace = true }
@@ -279,7 +264,7 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 
 [tool.hatch.build.targets.wheel]
 
-packages = ["src/lab","packages/todo/src/todo","packages/yutto-uiya/src/uiya","packages/gpt_sovits/src/gsv","memory_bench"]
+packages = ["src/lab","packages/todo/src/todo","packages/yutto-uiya/src/uiya","memory_bench"]
 
 [build-system]
 requires = ["hatchling"]

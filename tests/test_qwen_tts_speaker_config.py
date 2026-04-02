@@ -17,7 +17,7 @@ from lab.conversations.tts_manager import TTSTaskManager
 
 
 def test_generate_audio_uses_qwen_tts_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    ref_audio: Path = tmp_path / "models" / "gptsovits" / "baoqiao" / "emotions" / "neutral.wav"
+    ref_audio: Path = tmp_path / "models" / "genie-tts" / "baoqiao" / "emotions" / "neutral.wav"
     ref_audio.parent.mkdir(parents=True)
     ref_audio.write_bytes(b"wav")
     monkeypatch.chdir(tmp_path)
@@ -67,5 +67,5 @@ def test_generate_audio_uses_qwen_tts_client(tmp_path: Path, monkeypatch: pytest
     assert result.suffix == ".wav"
     assert len(captured_requests) == 1
     assert captured_requests[0]["text"] == "test"
-    assert Path(captured_requests[0]["ref_audio_path"]) == Path("models/gptsovits/baoqiao/emotions/neutral.wav")
+    assert Path(captured_requests[0]["ref_audio_path"]) == Path("models/genie-tts/baoqiao/emotions/neutral.wav")
     assert captured_requests[0]["ref_text"] == "neutral ref"

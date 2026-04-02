@@ -10,7 +10,7 @@ from lab.profile.schema import TTSConfig as ProfileTTSConfig
 
 
 def test_resolve_ref_audio_and_text_prefers_matching_emotion(tmp_path: Path, monkeypatch) -> None:
-    model_dir = tmp_path / "models" / "gptsovits" / "baoqiao" / "emotions"
+    model_dir = tmp_path / "models" / "genie-tts" / "baoqiao" / "emotions"
     model_dir.mkdir(parents=True)
     happy_ref = model_dir / "happy.wav"
     happy_ref.write_bytes(b"wav")
@@ -31,7 +31,7 @@ def test_resolve_ref_audio_and_text_prefers_matching_emotion(tmp_path: Path, mon
 
     ref_audio, ref_text = _resolve_ref_audio_and_text(character, emotion_keys=["happy"])
 
-    assert ref_audio == str(Path("models/gptsovits/baoqiao/emotions/happy.wav"))
+    assert ref_audio == str(Path("models/genie-tts/baoqiao/emotions/happy.wav"))
     assert ref_text == "happy ref text"
 
 
@@ -59,29 +59,8 @@ def test_resolve_ref_audio_and_text_uses_gsv_lite_reference_directory(tmp_path: 
     assert ref_text == "happy ref text"
 
 
-def test_resolve_ref_audio_and_text_falls_back_to_gptsovits_for_gsv_lite(tmp_path: Path, monkeypatch) -> None:
-    model_dir = tmp_path / "models" / "gptsovits" / "baoqiao" / "emotions"
-    model_dir.mkdir(parents=True)
-    default_ref = model_dir / "neutral.wav"
-    default_ref.write_bytes(b"wav")
-
-    monkeypatch.chdir(tmp_path)
-
-    character = CharacterSettings(
-        tts_config=TTSConfig(
-            character_name="baoqiao",
-            emotions={"default": {"path": "emotions/neutral.wav", "ref_text": "neutral ref"}},
-        )
-    )
-
-    ref_audio, ref_text = _resolve_ref_audio_and_text(character, emotion_keys=None, tts_provider="gsv_lite")
-
-    assert ref_audio == str(Path("models/gptsovits/baoqiao/emotions/neutral.wav"))
-    assert ref_text == "neutral ref"
-
-
 def test_resolve_ref_audio_and_text_falls_back_to_first_emotion_without_ref_text(tmp_path: Path, monkeypatch) -> None:
-    model_dir = tmp_path / "models" / "gptsovits" / "baoqiao" / "emotions"
+    model_dir = tmp_path / "models" / "genie-tts" / "baoqiao" / "emotions"
     model_dir.mkdir(parents=True)
     first_ref = model_dir / "neutral.wav"
     first_ref.write_bytes(b"wav")
@@ -100,7 +79,7 @@ def test_resolve_ref_audio_and_text_falls_back_to_first_emotion_without_ref_text
 
     ref_audio, ref_text = _resolve_ref_audio_and_text(character, emotion_keys=["happy"])
 
-    assert ref_audio == str(Path("models/gptsovits/baoqiao/emotions/neutral.wav"))
+    assert ref_audio == str(Path("models/genie-tts/baoqiao/emotions/neutral.wav"))
     assert ref_text is None
 
 

@@ -87,7 +87,7 @@ model_path = "./models/qwen2.5-0.5b-instruct-q8_0.gguf"
 n_gpu_layers = 0
 
 [agent.tts]
-provider = "gpt_sovits"
+provider = "genie_tts"
 
 [agent.tts.gsv_lite]
 use_bert = false
@@ -115,9 +115,8 @@ llm_translate = false
 local_embedding = false
 to_do_list = true
 yutto_uiya = true
-gpt_sovits = true
 gsv_lite = false
-genie_tts = false
+genie_tts = true
 qwen_tts = false
 memory_bench = false
 
