@@ -140,11 +140,69 @@ def _resolve_active_gpt_sovits_character_name(settings: XnneHangLabSettings) -> 
     return None
 
 
-def _resolve_active_gpt_sovits_model_path(settings: XnneHangLabSettings) -> Path | None:
+def _resolve_preferred_character_model_path(
+    settings: XnneHangLabSettings,
+    *,
+    preferred_dirname: str,
+    fallback_dirname: str | None = None,
+) -> Path | None:
     character_name = _resolve_active_gpt_sovits_character_name(settings)
     if character_name is None:
         return None
-    return Path(settings.root.root_dir) / "models" / "gptsovits" / character_name
+
+    models_dir = Path(settings.root.root_dir) / "models"
+    preferred = models_dir / preferred_dirname / character_name
+    if preferred.exists():
+        return preferred
+
+    if fallback_dirname is not None:
+        fallback = models_dir / fallback_dirname / character_name
+        if fallback.exists():
+            return fallback
+
+    return preferred
+
+
+def _resolve_active_gpt_sovits_model_path(settings: XnneHangLabSettings) -> Path | None:
+    return _resolve_preferred_character_model_path(settings, preferred_dirname="gptsovits")
+
+
+def _resolve_active_gsv_lite_model_path(settings: XnneHangLabSettings) -> Path | None:
+    return _resolve_preferred_character_model_path(
+        settings,
+        preferred_dirname="gsv-tts-lite",
+        fallback_dirname="gptsovits",
+    )
+
+
+def _resolve_active_genie_tts_model_path(settings: XnneHangLabSettings) -> Path | None:
+    return _resolve_preferred_character_model_path(
+        settings,
+        preferred_dirname="genie-tts",
+        fallback_dirname="gptsovits",
+    )
+
+
+def _resolve_gsv_lite_data_root(settings: XnneHangLabSettings) -> Path:
+    models_root = Path(settings.root.root_dir) / "models"
+    preferred = models_root / "GSVLiteData"
+    if preferred.exists():
+        return preferred
+
+    legacy_paths = (
+        models_root / "chinese-hubert-base",
+        models_root / "g2p",
+        models_root / "sv",
+        models_root / "chinese-roberta-wwm-ext-large",
+    )
+    if any(path.exists() for path in legacy_paths):
+        return models_root
+
+    return preferred
+
+
+def _resolve_gsv_lite_resource_path(settings: XnneHangLabSettings, *parts: str) -> Path:
+    return _resolve_gsv_lite_data_root(settings).joinpath(*parts)
 
 
 def _resolve_active_qwen_tts_model_path(settings: XnneHangLabSettings) -> Path | None:
@@ -173,6 +231,23 @@ def _check_nltk_data(settings: XnneHangLabSettings) -> str | None:
         return " [gpt_sovits]\n nltk averaged_perceptron_tagger_eng 数据未下载\n -> 运行 `just install-nltk`"
     except ImportError:
         return None
+
+
+def _check_gsv_lite_roberta_when_enabled(settings: XnneHangLabSettings) -> str | None:
+    if not settings.package.gsv_lite:
+        return None
+    if not settings.agent.tts.gsv_lite.use_bert:
+        return None
+
+    roberta_dir = _resolve_gsv_lite_resource_path(settings, "chinese-roberta-wwm-ext-large")
+    if roberta_dir.is_dir():
+        return None
+
+    return (
+        " [gsv_lite]\n"
+        f" GSV-Lite Chinese RoBERTa resource does not exist: {roberta_dir}\n"
+        " -> Run `just install-gsv-lite-data`"
+    )
 
 
 def _check_qwen_asr_preload_models(settings: XnneHangLabSettings) -> str | None:
@@ -302,6 +377,18 @@ def _check_gsv_lite_package_match(settings: XnneHangLabSettings) -> str | None:
         " [package]\n"
         ' Current [agent.tts].provider = "gsv_lite", but package.gsv_lite = false\n'
         " -> Set gsv_lite = true under [package], then run `uv sync --group gsv-lite`"
+    )
+
+
+def _check_genie_tts_package_match(settings: XnneHangLabSettings) -> str | None:
+    if settings.agent.tts.provider != "genie_tts":
+        return None
+    if settings.package.genie_tts:
+        return None
+    return (
+        " [package]\n"
+        ' Current [agent.tts].provider = "genie_tts", but package.genie_tts = false\n'
+        " -> Set genie_tts = true under [package], then run `uv sync --group genie-tts`"
     )
 
 
@@ -527,8 +614,38 @@ PACKAGE_RULES: list[PackageRule] = [
         models=[
             ModelRequirement(
                 name="GSV-Lite character model directory",
-                path_getter=_resolve_active_gpt_sovits_model_path,
+                path_getter=_resolve_active_gsv_lite_model_path,
                 install_hint="just install-gsv-model",
+                is_dir=True,
+            ),
+            ModelRequirement(
+                name="GSV-Lite Chinese HuBERT resource directory",
+                path_getter=lambda s: _resolve_gsv_lite_resource_path(s, "chinese-hubert-base"),
+                install_hint="just install-gsv-lite-data",
+                is_dir=True,
+            ),
+            ModelRequirement(
+                name="GSV-Lite G2P resource directory",
+                path_getter=lambda s: _resolve_gsv_lite_resource_path(s, "g2p"),
+                install_hint="just install-gsv-lite-data",
+                is_dir=True,
+            ),
+            ModelRequirement(
+                name="GSV-Lite speaker verification resource directory",
+                path_getter=lambda s: _resolve_gsv_lite_resource_path(s, "sv"),
+                install_hint="just install-gsv-lite-data",
+                is_dir=True,
+            ),
+        ],
+        extra_checks=[_check_gsv_lite_roberta_when_enabled],
+    ),
+    PackageRule(
+        package_name="genie_tts",
+        models=[
+            ModelRequirement(
+                name="Genie-TTS character model directory",
+                path_getter=_resolve_active_genie_tts_model_path,
+                install_hint="place exported Genie-TTS files under models/genie-tts/<character>",
                 is_dir=True,
             ),
         ],
@@ -627,6 +744,10 @@ def validate_all(settings: XnneHangLabSettings) -> list[str]:
     gsv_lite_err = _check_gsv_lite_package_match(settings)
     if gsv_lite_err:
         errors.append(gsv_lite_err)
+
+    genie_tts_err = _check_genie_tts_package_match(settings)
+    if genie_tts_err:
+        errors.append(genie_tts_err)
 
     errors += _check_profiles(settings)
     errors += validate_packages(settings)

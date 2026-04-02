@@ -19,3 +19,7 @@
 [submodule "packages/Qwen3-ASR"]
 	path = packages/Qwen3-ASR
 	url = https://github.com/XnneHangLab/Qwen3-ASR.git
+[submodule "packages/Genie-TTS"]
+	path = packages/Genie-TTS
+	url = https://github.com/XnneHangLab/Genie-TTS.git
+	branch = master

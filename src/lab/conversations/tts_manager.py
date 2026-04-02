@@ -41,9 +41,46 @@ def has_audible_tts_text(tts_text: str) -> bool:
     return len(_NON_SPOKEN_TTS_RE.sub("", normalized)) > 0
 
 
+def _normalize_tts_provider(tts_provider: str | None) -> str:
+    return (tts_provider or "gpt_sovits").strip().lower() or "gpt_sovits"
+
+
+def _get_tts_provider_label(tts_provider: str | None) -> str:
+    provider = _normalize_tts_provider(tts_provider)
+    labels = {
+        "genie_tts": "Genie-TTS",
+        "gpt_sovits": "GPT-SoVITS",
+        "gsv_lite": "GSV-Lite",
+        "qwen_tts": "Qwen-TTS",
+    }
+    return labels.get(provider, provider)
+
+
+def _iter_reference_base_dirs(character_name: str, tts_provider: str | None) -> list[Path]:
+    provider = _normalize_tts_provider(tts_provider)
+    provider_dirs = {
+        "genie_tts": Path("models/genie-tts") / character_name,
+        "gpt_sovits": Path("models/gptsovits") / character_name,
+        "gsv_lite": Path("models/gsv-tts-lite") / character_name,
+        "qwen_tts": Path("models/gptsovits") / character_name,
+    }
+
+    bases: list[Path] = []
+    for base in (
+        provider_dirs.get(provider),
+        Path("models/gptsovits") / character_name,
+    ):
+        if base is None or base in bases:
+            continue
+        bases.append(base)
+    return bases
+
+
 def _resolve_ref_audio_and_text(
     character_config: CharacterSettings | None,
     emotion_keys: list[str] | None,
+    *,
+    tts_provider: str | None = None,
 ) -> tuple[str | None, str | None]:
     """Resolve ref_audio and optional ref_text from the current character TTS config."""
 
@@ -54,10 +91,13 @@ def _resolve_ref_audio_and_text(
     if not tts_cfg.character_name:
         return None, None
 
-    base = Path("models/gptsovits") / tts_cfg.character_name
     emotions = tts_cfg.emotions
     if not emotions:
-        logger.error("No GPT-SoVITS emotions configured for character: {}", tts_cfg.character_name)
+        logger.error(
+            "No {} emotions configured for character: {}",
+            _get_tts_provider_label(tts_provider),
+            tts_cfg.character_name,
+        )
         return None, None
 
     candidates = [key for key in emotion_keys or [] if key]
@@ -66,15 +106,17 @@ def _resolve_ref_audio_and_text(
         emotion = emotions.get(key)
         if emotion is None or not emotion.path:
             continue
-        candidate = base / emotion.path
-        if candidate.is_file():
-            return str(candidate), (emotion.ref_text or None)
+        for base in _iter_reference_base_dirs(tts_cfg.character_name, tts_provider):
+            candidate = base / emotion.path
+            if candidate.is_file():
+                return str(candidate), (emotion.ref_text or None)
 
     first_emotion = next(iter(emotions.values()), None)
     if first_emotion is not None and first_emotion.path:
-        candidate = base / first_emotion.path
-        if candidate.is_file():
-            return str(candidate), (first_emotion.ref_text or None)
+        for base in _iter_reference_base_dirs(tts_cfg.character_name, tts_provider):
+            candidate = base / first_emotion.path
+            if candidate.is_file():
+                return str(candidate), (first_emotion.ref_text or None)
 
     return None, None
 
@@ -82,24 +124,30 @@ def _resolve_ref_audio_and_text(
 def _require_ref_audio_and_text(
     character_config: CharacterSettings | None,
     emotion_keys: list[str] | None,
+    *,
+    tts_provider: str | None = None,
 ) -> tuple[str, str | None]:
     """Resolve ref_audio and fail fast when the configured file is missing."""
 
-    resolved_ref_audio_path, resolved_ref_text = _resolve_ref_audio_and_text(character_config, emotion_keys)
+    provider_label = _get_tts_provider_label(tts_provider)
+    resolved_ref_audio_path, resolved_ref_text = _resolve_ref_audio_and_text(
+        character_config,
+        emotion_keys,
+        tts_provider=tts_provider,
+    )
     if resolved_ref_audio_path is not None:
         return resolved_ref_audio_path, resolved_ref_text
 
     if character_config is None:
-        raise ValueError("GPT-SoVITS ref audio is not configured: character_config is missing")
+        raise ValueError(f"{provider_label} ref audio is not configured: character_config is missing")
 
     tts_cfg = character_config.tts_config
     if not tts_cfg.character_name:
-        raise ValueError("GPT-SoVITS ref audio is not configured: character_name is empty")
+        raise ValueError(f"{provider_label} ref audio is not configured: character_name is empty")
 
-    base = Path("models/gptsovits") / tts_cfg.character_name
     emotions = tts_cfg.emotions
     if not emotions:
-        raise ValueError(f"GPT-SoVITS ref audio is not configured for character: {tts_cfg.character_name}")
+        raise ValueError(f"{provider_label} ref audio is not configured for character: {tts_cfg.character_name}")
 
     candidate_keys = [key for key in emotion_keys or [] if key]
     checked_paths: list[Path] = []
@@ -108,31 +156,35 @@ def _require_ref_audio_and_text(
         emotion = emotions.get(key)
         if emotion is None or not emotion.path:
             continue
-        candidate = base / emotion.path
-        checked_paths.append(candidate)
-        if candidate.is_file():
-            return str(candidate), (emotion.ref_text or None)
+        for base in _iter_reference_base_dirs(tts_cfg.character_name, tts_provider):
+            candidate = base / emotion.path
+            checked_paths.append(candidate)
+            if candidate.is_file():
+                return str(candidate), (emotion.ref_text or None)
 
     first_emotion = next(iter(emotions.values()), None)
     if first_emotion is not None and first_emotion.path:
-        candidate = base / first_emotion.path
-        if candidate not in checked_paths:
-            checked_paths.append(candidate)
-        if candidate.is_file():
-            return str(candidate), (first_emotion.ref_text or None)
+        for base in _iter_reference_base_dirs(tts_cfg.character_name, tts_provider):
+            candidate = base / first_emotion.path
+            if candidate not in checked_paths:
+                checked_paths.append(candidate)
+            if candidate.is_file():
+                return str(candidate), (first_emotion.ref_text or None)
 
     if checked_paths:
         checked = ", ".join(str(path) for path in checked_paths)
         raise FileNotFoundError(
-            f"GPT-SoVITS ref audio does not exist for character '{tts_cfg.character_name}'. Checked: {checked}"
+            f"{provider_label} ref audio does not exist for character '{tts_cfg.character_name}'. Checked: {checked}"
         )
 
-    raise ValueError(f"GPT-SoVITS ref audio is not configured for character: {tts_cfg.character_name}")
+    raise ValueError(f"{provider_label} ref audio is not configured for character: {tts_cfg.character_name}")
 
 
 def _resolve_gsv_lite_speaker_audio_path(
     character_config: CharacterSettings | None,
     emotion_keys: list[str] | None,
+    *,
+    tts_provider: str | None = "gsv_lite",
 ) -> str | None:
     """Resolve optional speaker_audio for GSV-Lite timbre reference."""
 
@@ -143,7 +195,6 @@ def _resolve_gsv_lite_speaker_audio_path(
     if not tts_cfg.character_name:
         return None
 
-    base = Path("models/gptsovits") / tts_cfg.character_name
     emotions = tts_cfg.emotions
     if not emotions:
         return None
@@ -167,10 +218,11 @@ def _resolve_gsv_lite_speaker_audio_path(
         speaker_audio_path = emotions[key].speaker_audio_path.strip()
         if not speaker_audio_path:
             continue
-        candidate = base / speaker_audio_path
-        checked_paths.append(candidate)
-        if candidate.is_file():
-            return str(candidate)
+        for base in _iter_reference_base_dirs(tts_cfg.character_name, tts_provider):
+            candidate = base / speaker_audio_path
+            checked_paths.append(candidate)
+            if candidate.is_file():
+                return str(candidate)
 
     if checked_paths:
         checked = ", ".join(str(path) for path in checked_paths)
@@ -343,15 +395,21 @@ class TTSTaskManager:
         emotion_keys: list[str] | None = None,
     ) -> Path | None:
         """Generate audio file from text."""
+        provider: str | None = None
         try:
             lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
+            provider = lab_settings.agent.tts.provider
             cache_dir = Path("cache") / "tts"
             cache_dir.mkdir(parents=True, exist_ok=True)
-            if lab_settings.agent.tts.provider == "gpt_sovits":
+            if provider == "gpt_sovits":
                 from lab.api.clients import GPTSoVITSClient, GPTSoVITSRequest
 
                 gpt_sovits_client = GPTSoVITSClient()
-                ref_audio_path, ref_text = _require_ref_audio_and_text(character_config, emotion_keys)
+                ref_audio_path, ref_text = _require_ref_audio_and_text(
+                    character_config,
+                    emotion_keys,
+                    tts_provider=provider,
+                )
                 response = await asyncio.wait_for(
                     gpt_sovits_client.asyncpost(
                         GPTSoVITSRequest(
@@ -370,12 +428,20 @@ class TTSTaskManager:
                         gpt_sovits_client.last_error or "unknown error",
                     )
                     return None
-            elif lab_settings.agent.tts.provider == "gsv_lite":
+            elif provider == "gsv_lite":
                 from lab.api.clients import GSVLiteClient, GSVLiteRequest
 
                 gsv_lite_client = GSVLiteClient()
-                ref_audio_path, ref_text = _require_ref_audio_and_text(character_config, emotion_keys)
-                speaker_audio_path = _resolve_gsv_lite_speaker_audio_path(character_config, emotion_keys)
+                ref_audio_path, ref_text = _require_ref_audio_and_text(
+                    character_config,
+                    emotion_keys,
+                    tts_provider=provider,
+                )
+                speaker_audio_path = _resolve_gsv_lite_speaker_audio_path(
+                    character_config,
+                    emotion_keys,
+                    tts_provider=provider,
+                )
                 response = await asyncio.wait_for(
                     gsv_lite_client.asyncpost(
                         GSVLiteRequest(
@@ -393,11 +459,40 @@ class TTSTaskManager:
                         gsv_lite_client.last_error or "unknown error",
                     )
                     return None
-            elif lab_settings.agent.tts.provider == "qwen_tts":
+            elif provider == "genie_tts":
+                from lab.api.clients import GenieTTSClient, GenieTTSRequest
+
+                genie_tts_client = GenieTTSClient()
+                ref_audio_path, ref_text = _require_ref_audio_and_text(
+                    character_config,
+                    emotion_keys,
+                    tts_provider=provider,
+                )
+                response = await asyncio.wait_for(
+                    genie_tts_client.asyncpost(
+                        GenieTTSRequest(
+                            text=text,
+                            ref_audio_path=ref_audio_path,
+                            ref_text=ref_text,
+                        )
+                    ),
+                    timeout=TTS_GENERATION_TIMEOUT_S,
+                )
+                if response is None:
+                    logger.error(
+                        "Failed to get a valid response from Genie-TTS client: {}",
+                        genie_tts_client.last_error or "unknown error",
+                    )
+                    return None
+            elif provider == "qwen_tts":
                 from lab.api.clients import QwenTTSClient, QwenTTSRequest
 
                 qwen_tts_client = QwenTTSClient()
-                ref_audio_path, ref_text = _require_ref_audio_and_text(character_config, emotion_keys)
+                ref_audio_path, ref_text = _require_ref_audio_and_text(
+                    character_config,
+                    emotion_keys,
+                    tts_provider=provider,
+                )
                 response = await asyncio.wait_for(
                     qwen_tts_client.asyncpost(
                         QwenTTSRequest(
@@ -415,7 +510,7 @@ class TTSTaskManager:
                     )
                     return None
             else:
-                logger.error(f"Unsupported TTS provider: {lab_settings.agent.tts.provider}")
+                logger.error(f"Unsupported TTS provider: {provider}")
                 return None
             audio_path = (
                 cache_dir / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid4())[:8]}.{response['audio_type']}"
@@ -424,6 +519,13 @@ class TTSTaskManager:
                 f.write(response["audio_byte"])
             return Path(audio_path)
         except TimeoutError:
+            if provider == "genie_tts":
+                try:
+                    from lab.api.logic.genie_tts import stop_genie_tts_synthesis
+
+                    stop_genie_tts_synthesis()
+                except Exception as exc:
+                    logger.warning("Failed to stop timed-out Genie-TTS synthesis: {}", exc)
             logger.warning(
                 "TTS generation timed out after {}s, degrading to silent payload: {}",
                 TTS_GENERATION_TIMEOUT_S,

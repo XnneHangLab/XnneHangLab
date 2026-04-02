@@ -154,6 +154,75 @@ format = "prompts/formats/emotion_bracket.md"
     assert any("models" in err and "gptsovits" in err and "baoqiao" in err for err in errors)
 
 
+def test_validate_uses_gsv_lite_engine_model_directory(tmp_path: Path) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+    (profiles_dir / "vtuber.toml").write_text(
+        """
+[profile]
+name = "vtuber"
+agent_name = "vtuber"
+
+[character]
+conf_name = "vtuber-local"
+conf_uid = "vtuber-local-001"
+live2d_model_name = "Baoqiao"
+character_name = "VTuber"
+avatar = "avatar.png"
+human_name = "Human"
+
+[character.tts]
+character_name = "baoqiao"
+""".strip(),
+        encoding="utf-8",
+    )
+    _write_memory_chat_profile(profiles_dir)
+
+    settings = _base_settings(tmp_path)
+    settings.agent.memory_agent_profile = "profiles/vtuber.toml"
+    settings.agent.tts.provider = "gsv_lite"
+    settings.package.gsv_lite = True
+
+    errors = validate_all(settings)
+
+    assert any("gsv-tts-lite" in err and "baoqiao" in err for err in errors)
+    assert any("GSVLiteData" in err for err in errors)
+
+
+def test_validate_uses_genie_tts_engine_model_directory(tmp_path: Path) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+    (profiles_dir / "vtuber.toml").write_text(
+        """
+[profile]
+name = "vtuber"
+agent_name = "vtuber"
+
+[character]
+conf_name = "vtuber-local"
+conf_uid = "vtuber-local-001"
+live2d_model_name = "Baoqiao"
+character_name = "VTuber"
+avatar = "avatar.png"
+human_name = "Human"
+
+[character.tts]
+character_name = "baoqiao"
+""".strip(),
+        encoding="utf-8",
+    )
+    _write_memory_chat_profile(profiles_dir)
+
+    settings = _base_settings(tmp_path)
+    settings.agent.memory_agent_profile = "profiles/vtuber.toml"
+    settings.agent.tts.provider = "genie_tts"
+    settings.package.genie_tts = True
+
+    errors = validate_all(settings)
+
+    assert any("genie-tts" in err and "baoqiao" in err for err in errors)
+
+
 def test_validate_rejects_disabled_sherpa_provider_selection(tmp_path: Path) -> None:
     settings = _base_settings(tmp_path)
     settings.asr.asr_model_provider = "sherpa"
@@ -198,3 +267,14 @@ def test_validate_rejects_disabled_gsv_lite_selection(tmp_path: Path) -> None:
 
     assert any('provider = "gsv_lite"' in err for err in errors)
     assert any("package.gsv_lite = false" in err for err in errors)
+
+
+def test_validate_rejects_disabled_genie_tts_selection(tmp_path: Path) -> None:
+    settings = _base_settings(tmp_path)
+    settings.agent.tts.provider = "genie_tts"
+    settings.package.genie_tts = False
+
+    errors = validate_all(settings)
+
+    assert any('provider = "genie_tts"' in err for err in errors)
+    assert any("package.genie_tts = false" in err for err in errors)

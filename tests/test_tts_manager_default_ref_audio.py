@@ -35,6 +35,51 @@ def test_resolve_ref_audio_and_text_prefers_matching_emotion(tmp_path: Path, mon
     assert ref_text == "happy ref text"
 
 
+def test_resolve_ref_audio_and_text_uses_gsv_lite_reference_directory(tmp_path: Path, monkeypatch) -> None:
+    model_dir = tmp_path / "models" / "gsv-tts-lite" / "baoqiao" / "emotions"
+    model_dir.mkdir(parents=True)
+    happy_ref = model_dir / "happy.wav"
+    happy_ref.write_bytes(b"wav")
+
+    monkeypatch.chdir(tmp_path)
+
+    character = CharacterSettings(
+        tts_config=TTSConfig(
+            character_name="baoqiao",
+            emotions={
+                "default": {"path": "emotions/neutral.wav", "ref_text": ""},
+                "happy": {"path": "emotions/happy.wav", "ref_text": "happy ref text"},
+            },
+        )
+    )
+
+    ref_audio, ref_text = _resolve_ref_audio_and_text(character, emotion_keys=["happy"], tts_provider="gsv_lite")
+
+    assert ref_audio == str(Path("models/gsv-tts-lite/baoqiao/emotions/happy.wav"))
+    assert ref_text == "happy ref text"
+
+
+def test_resolve_ref_audio_and_text_falls_back_to_gptsovits_for_gsv_lite(tmp_path: Path, monkeypatch) -> None:
+    model_dir = tmp_path / "models" / "gptsovits" / "baoqiao" / "emotions"
+    model_dir.mkdir(parents=True)
+    default_ref = model_dir / "neutral.wav"
+    default_ref.write_bytes(b"wav")
+
+    monkeypatch.chdir(tmp_path)
+
+    character = CharacterSettings(
+        tts_config=TTSConfig(
+            character_name="baoqiao",
+            emotions={"default": {"path": "emotions/neutral.wav", "ref_text": "neutral ref"}},
+        )
+    )
+
+    ref_audio, ref_text = _resolve_ref_audio_and_text(character, emotion_keys=None, tts_provider="gsv_lite")
+
+    assert ref_audio == str(Path("models/gptsovits/baoqiao/emotions/neutral.wav"))
+    assert ref_text == "neutral ref"
+
+
 def test_resolve_ref_audio_and_text_falls_back_to_first_emotion_without_ref_text(tmp_path: Path, monkeypatch) -> None:
     model_dir = tmp_path / "models" / "gptsovits" / "baoqiao" / "emotions"
     model_dir.mkdir(parents=True)
@@ -113,7 +158,7 @@ def test_profile_tts_config_accepts_legacy_and_structured_emotions() -> None:
 
 
 def test_resolve_gsv_lite_speaker_audio_path_prefers_matching_emotion(tmp_path: Path, monkeypatch) -> None:
-    speaker_dir = tmp_path / "models" / "gptsovits" / "baoqiao" / "speaker"
+    speaker_dir = tmp_path / "models" / "gsv-tts-lite" / "baoqiao" / "speaker"
     speaker_dir.mkdir(parents=True)
     happy_speaker = speaker_dir / "happy.wav"
     happy_speaker.write_bytes(b"wav")
@@ -138,6 +183,6 @@ def test_resolve_gsv_lite_speaker_audio_path_prefers_matching_emotion(tmp_path: 
         )
     )
 
-    speaker_audio = _resolve_gsv_lite_speaker_audio_path(character, emotion_keys=["happy"])
+    speaker_audio = _resolve_gsv_lite_speaker_audio_path(character, emotion_keys=["happy"], tts_provider="gsv_lite")
 
-    assert speaker_audio == str(Path("models/gptsovits/baoqiao/speaker/happy.wav"))
+    assert speaker_audio == str(Path("models/gsv-tts-lite/baoqiao/speaker/happy.wav"))

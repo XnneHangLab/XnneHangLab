@@ -130,3 +130,50 @@ api_format = "chat_completion"
             "api_format": "chat_completion",
         },
     ]
+
+
+def test_sync_apikey_supports_genie_tts_and_tts_feature_switches(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir(parents=True)
+    (config_dir / "lab.toml").write_text(
+        """
+[agent.chat_model]
+llm_provider = "openai"
+llm_model_name = "before"
+
+[[agent.llm.providers]]
+name = "openai"
+llm_api_key = ""
+llm_base_url = "https://api.openai.com/v1"
+api_format = "chat_completion"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(
+        "LLM_PROVIDERS_JSON",
+        '{"providers":[{"name":"openai","llm_api_key":"sk-openai"}]}',
+    )
+    monkeypatch.setenv("TTS_PROVIDER", "genie_tts")
+    monkeypatch.setenv("TTS_GSV_LITE_USE_BERT", "true")
+    monkeypatch.setenv("TTS_GENIE_TTS_LANGUAGE", "japanese")
+    monkeypatch.setenv("TTS_GENIE_TTS_USE_ROBERTA", "true")
+    monkeypatch.setenv("PKG_GSV_LITE", "false")
+    monkeypatch.setenv("PKG_GENIE_TTS", "true")
+
+    module = _load_script_module("sync_apikey.py")
+    module.main()
+
+    with (config_dir / "lab.toml").open("rb") as file:
+        saved = tomllib.load(file)
+
+    assert saved["agent"]["tts"]["provider"] == "genie_tts"
+    assert saved["agent"]["tts"]["gsv_lite"]["use_bert"] is True
+    assert saved["agent"]["tts"]["genie_tts"]["language"] == "Japanese"
+    assert saved["agent"]["tts"]["genie_tts"]["use_roberta"] is True
+    assert saved["package"]["gsv_lite"] is False
+    assert saved["package"]["genie_tts"] is True

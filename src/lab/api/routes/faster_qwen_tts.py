@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 from importlib import import_module
 from pathlib import Path
 from typing import Any
@@ -12,6 +15,7 @@ from pydantic import BaseModel
 
 router = APIRouter(prefix="/tts/qwen-tts", tags=["qwen-tts"])
 _tts_logger = logger.bind(group="tts")
+_qwen_tts_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="qwen-tts")
 
 
 def _get_qwen_tts_logic_module():
@@ -47,7 +51,11 @@ async def load_model(payload: QwenTTSLoadPayload | None = None) -> JSONResponse:
             if payload is not None and payload.model_name
             else None
         )
-        status_payload = qwen_tts_logic.load_qwen_tts_model(normalized_model)
+        loop = asyncio.get_running_loop()
+        status_payload = await loop.run_in_executor(
+            _qwen_tts_executor,
+            partial(qwen_tts_logic.load_qwen_tts_model, normalized_model),
+        )
         return JSONResponse(
             status_code=200,
             content={
@@ -70,7 +78,11 @@ async def reload_model(payload: QwenTTSLoadPayload | None = None) -> JSONRespons
             if payload is not None and payload.model_name
             else None
         )
-        status_payload = qwen_tts_logic.reload_qwen_tts_model(normalized_model)
+        loop = asyncio.get_running_loop()
+        status_payload = await loop.run_in_executor(
+            _qwen_tts_executor,
+            partial(qwen_tts_logic.reload_qwen_tts_model, normalized_model),
+        )
         return JSONResponse(
             status_code=200,
             content={
@@ -121,10 +133,15 @@ async def generate_non_stream(
         )
 
         qwen_tts_logic = _get_qwen_tts_logic_module()
-        wav_bytes = qwen_tts_logic.synthesize_once(
-            text=text,
-            ref_audio=temp_ref_path,
-            ref_text=ref_text or None,
+        loop = asyncio.get_running_loop()
+        wav_bytes = await loop.run_in_executor(
+            _qwen_tts_executor,
+            partial(
+                qwen_tts_logic.synthesize_once,
+                text=text,
+                ref_audio=temp_ref_path,
+                ref_text=ref_text or None,
+            ),
         )
 
         return Response(

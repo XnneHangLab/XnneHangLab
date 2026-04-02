@@ -61,7 +61,7 @@ base = [
 ]
 
 sherpa-onnx = [
-  "sherpa-onnx>=1.12.29",
+  "sherpa-onnx==1.12.20", # 防止 onnxruntime 的版本过高与 genie-tts 冲突
 ]
 
 qwen-asr = [
@@ -122,6 +122,21 @@ gsv-lite = [
   "gsv-tts-lite==0.3.8",
 ]
 
+genie-tts = [
+  "onnx",
+  "onnxruntime==1.22.1", # 升级 1.23 往后有 40% 点速度性能损耗。
+  "pyyaml",
+  "huggingface_hub[hf_xet]",
+  "pyopenjtalk-plus",
+  "nltk",
+  "g2pM",
+  "jamo",
+  "ko_pron",
+  "g2pk2",
+  "eunjeon; sys_platform == 'win32'",
+  "fast_langdetect",
+]
+
 vtuber = [
   "socksio>=1.0.0",
   "chardet>=5.2.0",
@@ -155,7 +170,7 @@ qwen-tts = [
 ]
 
 [tool.uv]
-default-groups = ["base", "qwen-asr", "dev", "llama-cpp", "yutto-uiya", "tts_base", "gpt_sovits", "gsv-lite", "qwen-tts", "vtuber", "memory_bench", "sherpa-onnx"]
+default-groups = ["base", "qwen-asr", "dev", "llama-cpp", "yutto-uiya", "tts_base", "gpt_sovits", "gsv-lite", "genie-tts", "qwen-tts", "vtuber", "memory_bench", "sherpa-onnx"]
 
 [tool.uv.workspace]
 members = ["packages/yutto-uiya","packages/todo/","packages/gpt_sovits","packages/Qwen3-ASR"]
@@ -185,7 +200,9 @@ torchaudio = [
   { index = "pytorch-cu118", marker = "sys_platform == 'win32'" },
   { index = "pytorch-cpu", marker = "sys_platform != 'win32'"}
 ]
-llama-cpp-python = { index = "llama-cpp-cpu" }
+llama-cpp-python = [
+  { index = "llama-cpp-cpu", marker = "sys_platform != 'win32'" }
+]
 langsegment = { path = "./dist/LangSegment-0.3.5-py3-none-any.whl"}
 qwen-asr = {  workspace = true }
 

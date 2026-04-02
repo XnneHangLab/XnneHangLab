@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 from importlib import import_module
 from typing import Any
 
@@ -12,6 +15,7 @@ from lab.api.routes.asr_shared import file_default, save_upload_to_temp
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 
 router = APIRouter(prefix="/asr/qwen-asr", tags=["asr", "qwen-asr"])
+_qwen_asr_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="qwen-asr")
 
 
 def _get_qwen_asr_logic_module():
@@ -38,9 +42,14 @@ async def _transcribe_qwen_model(file: UploadFile, model_name: str) -> dict[str,
         if not lab_settings.package.qwen_asr:
             raise RuntimeError("Qwen3-ASR is disabled in lab.toml")
         qwen_asr_logic = _get_qwen_asr_logic_module()
-        result = qwen_asr_logic.qwen_asr_transcribe(
-            input_path=temp_audio_path,
-            model_name=qwen_asr_logic.normalize_qwen_model_name(model_name),
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(
+            _qwen_asr_executor,
+            partial(
+                qwen_asr_logic.qwen_asr_transcribe,
+                input_path=temp_audio_path,
+                model_name=qwen_asr_logic.normalize_qwen_model_name(model_name),
+            ),
         )
     except Exception as exc:
         logger.exception("Qwen3-ASR route failed for model {}", model_name)

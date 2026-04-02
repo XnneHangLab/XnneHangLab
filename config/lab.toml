@@ -89,6 +89,13 @@ n_gpu_layers = 0
 [agent.tts]
 provider = "gpt_sovits"
 
+[agent.tts.gsv_lite]
+use_bert = false
+
+[agent.tts.genie_tts]
+language = "auto"
+use_roberta = false
+
 [agent.qwen_tts]
 model_name = "0.6b"
 model_0_6b_path = "./models/Qwen3-TTS-12Hz-0.6B-Base"
@@ -110,6 +117,7 @@ to_do_list = true
 yutto_uiya = true
 gpt_sovits = true
 gsv_lite = false
+genie_tts = false
 qwen_tts = false
 memory_bench = false
 

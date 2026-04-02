@@ -307,15 +307,25 @@ async def lifespan(app: FastAPI):
             step_logger=logger.bind(group="tts"),
         )
 
-    if lab_settings.package.gsv_lite:
-        from lab.api.logic.gsv_lite import load_gsv_lite_model
+    if lab_settings.package.genie_tts:
+        from lab.api.logic.genie_tts import load_genie_tts_model, warmup_genie_tts_model
 
-        await _run_startup_step(
-            "Loading GSV-Lite model...",
-            load_gsv_lite_model,
-            success_message="GSV-Lite model loaded and warmed up ({:.1f}s)",
-            step_logger=logger.bind(group="tts"),
-        )
+        genie_logger = logger.bind(group="tts")
+        genie_started = time.perf_counter()
+        genie_logger.info("Loading Genie-TTS model...")
+        await _run_blocking(load_genie_tts_model)
+        await warmup_genie_tts_model()
+        genie_logger.info(f"Genie-TTS model loaded and warmed up ({time.perf_counter() - genie_started:.1f}s)")
+
+    if lab_settings.package.gsv_lite:
+        from lab.api.logic.gsv_lite import load_gsv_lite_model, warmup_gsv_lite_model
+
+        gsv_lite_logger = logger.bind(group="tts")
+        gsv_lite_started = time.perf_counter()
+        gsv_lite_logger.info("Loading GSV-Lite model...")
+        await _run_blocking(load_gsv_lite_model)
+        await warmup_gsv_lite_model()
+        gsv_lite_logger.info(f"GSV-Lite model loaded and warmed up ({time.perf_counter() - gsv_lite_started:.1f}s)")
 
     if lab_settings.package.llm_translate:
         from lab.api.logic.llm_translate import preload_configured_llm_translate_engine
@@ -549,12 +559,17 @@ class WebSocketServer:
             )
         if lab_settings.package.qwen_tts:
             _include_router_with_log(
-                "faster-qwen-tts 端点",
+                "faster-qwen-tts route",
                 lambda: self.app.include_router(import_module("lab.api.routes.faster_qwen_tts").router),
+            )
+        if lab_settings.package.genie_tts:
+            _include_router_with_log(
+                "genie-tts route",
+                lambda: self.app.include_router(import_module("lab.api.routes.genie_tts").router),
             )
         if lab_settings.package.gsv_lite:
             _include_router_with_log(
-                "gsv-lite 端点",
+                "gsv-lite route",
                 lambda: self.app.include_router(import_module("lab.api.routes.gsv_lite").router),
             )
         if lab_settings.package.gpt_sovits:

@@ -112,3 +112,7 @@ Qwen3-ASR-0.6B-INT8-OpenVINO
 dataset
 models/g2p/
 models/sv/
+GenieData/
+genie-tts/
+gsv-tts-lite/
+GSVLiteData/

@@ -167,7 +167,7 @@ install-model:
   uv lock
   uv sync
   just install-nltk
-  just install-bert-model
+  just install-gsv-lite-data
   just install-gsv-model-baoqiao
   just install-local-embedding
   just install-llm-translate
@@ -183,11 +183,20 @@ install-qwen-asr model_dir='./models':
   uv run modelscope download --model xnnehang/Qwen3-ASR-0.6B-INT8-OpenVINO --local_dir {{ model_dir }}/Qwen3-ASR-0.6B-INT8-OpenVINO
   uv run modelscope download --model Qwen/Qwen3-ForcedAligner-0.6B --local_dir {{ model_dir }}/Qwen3-ForcedAligner-0.6B
 
-install-bert-model:
+install-gsv-lite-data model_dir='./models/GSVLiteData':
   uv lock
   uv sync
-  uv run modelscope download --model pengzhendong/chinese-hubert-base --local_dir ./models/chinese-hubert-base
-  uv run modelscope download --model dienstag/chinese-roberta-wwm-ext-large --local_dir ./models/chinese-roberta-wwm-ext-large  \
+  uv run modelscope download --model pengzhendong/chinese-hubert-base --local_dir {{ model_dir }}/chinese-hubert-base
+  uv run modelscope download --model dienstag/chinese-roberta-wwm-ext-large --local_dir {{ model_dir }}/chinese-roberta-wwm-ext-large  \
+  pytorch_model.bin added_tokens.json config.json configuration.json README.md special_tokens_map.json tokenizer_config.json tokenizer.json
+  uv run modelscope download --model xnnehang/gsv-v2proplus-g2p-resource --local_dir {{ model_dir }}/g2p
+  uv run modelscope download --model xnnehang/gsv-v2proplus-sv-resource --local_dir {{ model_dir }}/sv
+
+install-bert-model model_dir='./models/GSVLiteData':
+  uv lock
+  uv sync
+  uv run modelscope download --model pengzhendong/chinese-hubert-base --local_dir {{ model_dir }}/chinese-hubert-base
+  uv run modelscope download --model dienstag/chinese-roberta-wwm-ext-large --local_dir {{ model_dir }}/chinese-roberta-wwm-ext-large  \
   pytorch_model.bin added_tokens.json config.json configuration.json README.md special_tokens_map.json tokenizer_config.json tokenizer.json
   # 这里不能用 --exclude 同时排除 tf_model.h5 和 flax_model.msgpack，多次 exclude 只会保留最后一个，所以这里指定了所有需要的文件
 
@@ -201,12 +210,17 @@ install-gsv-model-baoqiao:
   uv sync
   uv run modelscope download --model xnnehang/luming-gsv-v2 --local_dir ./models/gptsovits/baoqiao
 
-install-gsv-g2p-resource model='xnnehang/gsv-v2proplus-g2p-resource' model_dir='./models/g2p':
+install-genie-tts-resource model='xnnehang/xnnehanglab-geniedata' model_dir='./models/GenieData':
   uv lock
   uv sync
   uv run modelscope download --model {{ model }} --local_dir {{ model_dir }}
 
-install-gsv-sv-resource model=' xnnehang/gsv-v2proplus-sv-resource' model_dir='./models/sv':
+install-gsv-g2p-resource model='xnnehang/gsv-v2proplus-g2p-resource' model_dir='./models/GSVLiteData/g2p':
+  uv lock
+  uv sync
+  uv run modelscope download --model {{ model }} --local_dir {{ model_dir }}
+
+install-gsv-sv-resource model='xnnehang/gsv-v2proplus-sv-resource' model_dir='./models/GSVLiteData/sv':
   uv lock
   uv sync
   uv run modelscope download --model {{ model }} --local_dir {{ model_dir }}
