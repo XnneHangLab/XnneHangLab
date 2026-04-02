@@ -43,7 +43,7 @@ settings = load_settings_file("lab.toml", XnneHangLabSettings)
 
 ```python
 class XnneHangLabSettings(BaseModel):
-    conf_version: str = "v1.6.4"
+    conf_version: str = "v1.6.5"
     asr: ASRSettings
     webui: AudioRecognizeSettings
     agent: AgentSettings
@@ -73,7 +73,7 @@ class AgentSettings(BaseModel):
     translate: TranslateSettings
     user_lang: Literal["ZH", "EN", "JA"] = "ZH"
     speaker_lang: Literal["ZH", "EN", "JA"] = "ZH"
-    speaker_model: Literal["gpt_sovits"] = "gpt_sovits"
+    tts: TTSSettings
     faster_first_response: bool = False
     max_vision_concurrency: int = 4
     require_detailed: bool = True
@@ -113,7 +113,7 @@ class LLMSettings(BaseModel):
 - 角色身份与前端展示字段
 - Live2D 模型名
 - TTS 文本预处理
-- GPT-SoVITS 角色名与 emotion → ref_audio 映射
+- TTS 角色名与 emotion → ref_audio 映射
 
 这些都在 Profile 系统里承接。
 
@@ -145,7 +145,8 @@ sherpa_asr = false
 qwen_asr = false
 llm_translate = false
 local_embedding = false
-gpt_sovits = true
+gsv_lite = false
+genie_tts = true
 qwen_tts = false
 memory_bench = false
 to_do_list = true

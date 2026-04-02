@@ -2,7 +2,7 @@
 
 `lab.toml` 是 **XnneHangLab** 的主配置文件。ASR、WebUI、Agent、服务端口，以及各模块开关都会从这里读取；**角色身份、Live2D、TTS 预处理、GSV 角色与情绪映射** 已迁移到 `profiles/*.toml`。
 
-> 当前配置版本：`v1.6.4`
+> 当前配置版本：`v1.6.5`
 >
 > 配置加载规则：程序会优先在项目 `config/` 下查找配置；找不到会尝试从系统配置目录读取；再找不到会初始化默认配置并写回，保证字段结构完整。
 
@@ -122,8 +122,8 @@ root_dir = "D:\\tmp\\XnneHangLab"
 | qwen_asr | false | 是否启用 Qwen3-ASR OpenVINO 服务 |
 | to_do_list | true | 是否包含 to-do-list 模块 |
 | yutto_uiya | true | 是否包含 yutto-uiya 相关 UI/能力 |
-| gpt_sovits | true | 是否包含 GPT-SoVITS 能力 |
 | gsv_lite | false | 是否包含 GSV-Lite 能力 |
+| genie_tts | true | 是否包含 Genie-TTS 能力 |
 | qwen_tts | false | 是否包含 Qwen-TTS 能力 |
 | llm_translate | false | 是否启用本地 LLM 翻译引擎 |
 | memory_bench | false | 是否包含 memory_bench 服务相关能力 |
@@ -174,12 +174,12 @@ memory_chat_profile = "profiles/congyin.toml"
 
 ```toml
 [agent.tts]
-provider = "gpt_sovits"
+provider = "genie_tts"
 ```
 
 | 字段 | 说明 |
 |---|---|
-| provider | 当前 TTS 提供方，支持 `gpt_sovits` / `gsv_lite` / `qwen_tts` |
+| provider | 当前 TTS 提供方，支持 `genie_tts` / `gsv_lite` / `qwen_tts` |
 
 补充说明：
 

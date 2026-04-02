@@ -135,7 +135,7 @@ enabled = ["web_search_ddg", "web_fetch", "screen_shot", "diary", "memory", "moo
 | `[character.tts_preprocessor]` | table | VTuber 链路的 TTS 文本预处理配置 |
 | `[character.tts]` | table | 角色 TTS 配置 |
 | `[character.tts].character_name` | str | GSV 服务使用的角色名 / 模型目录名 |
-| `[character.tts.emotions]` | map[str, str] | 情绪名到 ref_audio 路径的映射，相对于 `models/gptsovits/<character_name>/` |
+| `[character.tts.emotions]` | map[str, str] | 情绪名到 ref_audio 路径的映射，相对于 `models/<tts-provider>/<character_name>/` |
 
 ---
 

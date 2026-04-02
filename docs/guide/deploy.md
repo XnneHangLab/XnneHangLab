@@ -179,18 +179,9 @@ npm run dev
 
 #### 🎮 5.3 Chill with You Lo-Fi Story（游戏 Mod 的 TTS 服务端）
 
-它可以作为游戏 Mod 的服务端，提供 GPT-SoVITS 兼容的 TTS 服务。
+旧版 GPT-SoVITS 兼容接口已移除，当前版本不再直接提供 `/tts/gptsovits*` / `/tts/gptsovitsv2*` 这类 Mod 兼容端点。
 
-1) 先按项目说明安装 Mod：  
-[chill with you lo-fi story AI Mod](https://github.com/qzrs777/AIChat)
-
-2) 保证后端已启动（`just server` 正在运行）
-
-3) 在 Mod 的 TTS 地址中填写：
-
-```
-http://127.0.0.1:12393/tts/gptsovitsv2
-```
+如果你的接入方只能调用 GPT-SoVITS 兼容协议，需要额外加一层适配，或者固定到仍保留该兼容路由的旧版本。
 
 ---
 
