@@ -33,6 +33,8 @@ _VOICE_AUDIO_EXTENSIONS = (".wav", ".mp3", ".m4a", ".opus", ".flac", ".ogg")
 _GSV_LITE_REQUEST_PARAM_KEYS = frozenset(
     {"top_k", "top_p", "temperature", "repetition_penalty", "noise_scale", "speed"}
 )
+PLAYBACK_ACK_GRACE_S = 5.0
+PLAYBACK_ACK_MIN_TIMEOUT_S = 5.0
 
 
 @dataclass(frozen=True)
@@ -319,7 +321,9 @@ def _find_audio_file(directory: Path, stem: str) -> Path | None:
             return candidate
 
     candidates = sorted(
-        entry for entry in directory.iterdir() if entry.is_file() and entry.stem == stem and entry.suffix.lower() in _VOICE_AUDIO_EXTENSIONS
+        entry
+        for entry in directory.iterdir()
+        if entry.is_file() and entry.stem == stem and entry.suffix.lower() in _VOICE_AUDIO_EXTENSIONS
     )
     return candidates[0] if candidates else None
 
@@ -583,7 +587,9 @@ def _resolve_voice_from_config(
     return (
         _to_workspace_relative_path(ref_audio_path, voice_config.workspace_root),
         _resolve_voice_explicit_ref_text(voice_asset_dir, clip),
-        _to_workspace_relative_path(speaker_audio_path, voice_config.workspace_root) if speaker_audio_path is not None else None,
+        _to_workspace_relative_path(speaker_audio_path, voice_config.workspace_root)
+        if speaker_audio_path is not None
+        else None,
     )
 
 
@@ -669,9 +675,7 @@ def _resolve_voice_ref_audio_and_text(
     if not emotion_dirs:
         return None, None, None
 
-    emotion_candidates = _dedupe_nonempty(
-        [*(emotion_keys or []), voice_config.default_emotion, "default"]
-    )
+    emotion_candidates = _dedupe_nonempty([*(emotion_keys or []), voice_config.default_emotion, "default"])
 
     matched_emotion: str | None = None
     ref_audio_path: Path | None = None
@@ -743,9 +747,7 @@ def _require_voice_ref_audio_and_text(
         return ref_audio, ref_text, speaker_audio
 
     voice_asset_dir = voice_assets_root / voice_config.asset_bundle
-    raise FileNotFoundError(
-        f"Voice ref audio does not exist for voice '{voice_config.voice_id}': {voice_asset_dir}"
-    )
+    raise FileNotFoundError(f"Voice ref audio does not exist for voice '{voice_config.voice_id}': {voice_asset_dir}")
 
 
 def resolve_voice_assets(
@@ -869,10 +871,18 @@ class TTSTaskManager:
         self._sequence_counter = 0
         self._next_sequence_to_send = 0
         self._turn_id = turn_id
+        self._estimated_playback_seconds = 0.0
 
     def has_output(self) -> bool:
         """Return True when this turn queued any display or audio payload."""
         return self._sequence_counter > 0
+
+    def playback_completion_timeout_s(self) -> float:
+        """Return a bounded wait budget for frontend playback completion ACK."""
+        return max(
+            PLAYBACK_ACK_MIN_TIMEOUT_S,
+            self._estimated_playback_seconds + PLAYBACK_ACK_GRACE_S,
+        )
 
     async def speak(
         self,
@@ -973,6 +983,17 @@ class TTSTaskManager:
         )
         await self._payload_queue.put((audio_payload, sequence_number))
 
+    def _accumulate_expected_playback(self, payload: AudioPayload) -> None:
+        if not payload.get("audio"):
+            return
+
+        slice_length = payload.get("slice_length") or 0
+        volumes = payload.get("volumes") or []
+        if slice_length <= 0 or not volumes:
+            return
+
+        self._estimated_playback_seconds += (len(volumes) * slice_length) / 1000.0
+
     async def _process_tts(
         self,
         tts_text: str,
@@ -1005,6 +1026,7 @@ class TTSTaskManager:
                 actions=actions,
                 turn_id=self._turn_id,
             )
+            self._accumulate_expected_playback(payload)
             logger.debug(
                 "[TTS_READY] audio ready seq={} text={}",
                 sequence_number,
@@ -1112,5 +1134,6 @@ class TTSTaskManager:
             self._sender_task.cancel()
         self._sequence_counter = 0
         self._next_sequence_to_send = 0
+        self._estimated_playback_seconds = 0.0
         logger.debug("Clearing TTS payload queue...")
         self._payload_queue = asyncio.Queue()

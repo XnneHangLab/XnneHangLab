@@ -669,13 +669,12 @@ class SentenceDivider:
             control_value = match.group(2).strip()
             if control_type == "tts":
                 if controls.tts_emotion_key is not None and controls.tts_emotion_key != control_value:
-                    logger.warning("Duplicate leading tts control tag detected, overriding with latest value: {}", control_value)
+                    logger.warning(
+                        "Duplicate leading tts control tag detected, overriding with latest value: {}", control_value
+                    )
                 controls.tts_emotion_key = control_value
             else:
-                if (
-                    controls.expression_emotion_key is not None
-                    and controls.expression_emotion_key != control_value
-                ):
+                if controls.expression_emotion_key is not None and controls.expression_emotion_key != control_value:
                     logger.warning(
                         "Duplicate leading expression control tag detected, overriding with latest value: {}",
                         control_value,

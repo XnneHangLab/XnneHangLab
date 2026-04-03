@@ -333,7 +333,7 @@ voice = "missing-voice"
 
     errors = validate_all(settings)
 
-    assert any('[character.tts.voice]' in err for err in errors)
+    assert any("[character.tts.voice]" in err for err in errors)
     assert any('voice = "missing-voice"' in err for err in errors)
 
 

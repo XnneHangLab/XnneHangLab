@@ -59,7 +59,7 @@ def test_finalize_waits_for_all_audio_payloads_before_backend_complete(monkeypat
         timeout: float | None = None,
         response_filter: object | None = None,
     ) -> dict[str, str]:
-        assert timeout is None
+        assert timeout is not None
         del response_filter
         assert client_uid == "client-1"
         assert message_type == "frontend-playback-complete"
@@ -164,6 +164,79 @@ def test_finalize_continues_when_frontend_playback_ack_is_missing(monkeypatch: p
         "force-new-message",
         "control",
     ]
+
+
+def test_finalize_uses_dynamic_playback_ack_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured_timeout: float | None = None
+
+    async def websocket_send(payload: str) -> None:
+        del payload
+
+    async def fake_generate_audio(
+        self: TTSTaskManager,
+        text: str,
+        character_config: object | None = None,
+        emotion_keys: list[str] | None = None,
+    ) -> Path:
+        del self, character_config, emotion_keys
+        return Path(f"{text}.wav")
+
+    def fake_prepare_audio_payload(
+        audio_path: str | None,
+        display_text: DisplayText,
+        actions: Actions | None = None,
+        chunk_length_ms: int = 20,
+        forwarded: bool = False,
+        turn_id: str | None = None,
+        tts_error: bool = False,
+    ) -> dict[str, object]:
+        del audio_path, actions, forwarded, turn_id, tts_error
+        chunk_count = 600 if display_text.text == "Long sentence." else 200
+        return {
+            "type": "audio",
+            "audio": display_text.text,
+            "volumes": [1.0] * chunk_count,
+            "slice_length": chunk_length_ms,
+            "display_text": display_text.to_dict(),
+            "actions": None,
+            "forwarded": False,
+            "tts_error": False,
+        }
+
+    async def fake_wait_for_response(
+        client_uid: str,
+        message_type: str,
+        timeout: float | None = None,
+        response_filter: object | None = None,
+    ) -> dict[str, str]:
+        nonlocal captured_timeout
+        del response_filter
+        assert client_uid == "client-1"
+        assert message_type == "frontend-playback-complete"
+        captured_timeout = timeout
+        return {"type": message_type}
+
+    monkeypatch.setattr(TTSTaskManager, "_generate_audio", fake_generate_audio)
+    monkeypatch.setattr(tts_manager_module, "prepare_audio_payload", fake_prepare_audio_payload)
+    monkeypatch.setattr(conversation_utils_module.message_handler, "wait_for_response", fake_wait_for_response)
+
+    async def run_test() -> None:
+        manager = TTSTaskManager(turn_id="turn-1")
+        try:
+            await manager.speak("first", DisplayText("Long sentence."), Actions(), None, websocket_send)
+            await manager.speak("second", DisplayText("Short sentence."), Actions(), None, websocket_send)
+            await finalize_conversation_turn(manager, websocket_send, "client-1", turn_id="turn-1")
+        finally:
+            manager.clear()
+
+    asyncio.run(run_test())
+
+    expected_timeout = max(
+        tts_manager_module.PLAYBACK_ACK_MIN_TIMEOUT_S,
+        ((600 + 200) * 20 / 1000.0) + tts_manager_module.PLAYBACK_ACK_GRACE_S,
+    )
+    assert captured_timeout is not None
+    assert abs(captured_timeout - expected_timeout) < 1e-9
 
 
 def test_tts_timeout_degrades_to_silent_payload(monkeypatch: pytest.MonkeyPatch) -> None:

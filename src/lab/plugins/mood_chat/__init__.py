@@ -345,13 +345,16 @@ class MoodChatPlugin(HookPlugin):
                         )
                     await tts_manager.wait_until_all_payloads_sent()
                     await runtime.websocket_send(json.dumps({"type": "backend-synth-complete", "turn_id": turn_id}))
+                    playback_timeout = tts_manager.playback_completion_timeout_s()
                     response = await wait_for_frontend_playback_completion(
                         runtime.client_uid,
                         turn_id=turn_id,
+                        timeout=playback_timeout,
                     )
                     if not response:
                         plugin_logger.warning(
-                            f"[MOOD_CHAT] no frontend playback completion response: client_uid={runtime.client_uid}; continuing"
+                            f"[MOOD_CHAT] no frontend playback completion response: "
+                            f"client_uid={runtime.client_uid} timeout_s={playback_timeout:.2f}; continuing"
                         )
 
                 await runtime.websocket_send(json.dumps({"type": "force-new-message"}))
