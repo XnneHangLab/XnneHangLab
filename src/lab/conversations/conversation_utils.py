@@ -195,7 +195,7 @@ async def process_user_input(
             asr_client = ASRClient()
             response = await asr_client.asyncpost(ASRRequest(file_path=audio_file_path))
             if response is None:
-                raise ValueError("ASR response is None")
+                raise RuntimeError(asr_client.last_error or "ASR is unavailable. Use text input or enable an ASR service.")
             await websocket_send(json.dumps({"type": "user-input-transcription", "text": response["text"]}))
         finally:
             # 删除临时音频文件
