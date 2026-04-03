@@ -292,6 +292,34 @@ def _configure_gsv_lite_openjtalk(models_dir: Path) -> None:
             _tts_logger.warning(f"gsv-lite failed to activate OpenJTalk user dictionary: {exc}")
 
 
+def _prepend_env_path(var_name: str, path: Path) -> None:
+    path_str = str(path)
+    current = os.environ.get(var_name, "")
+    parts = [part for part in current.split(os.pathsep) if part]
+    normalized = [path_str, *[part for part in parts if part != path_str]]
+    os.environ[var_name] = os.pathsep.join(normalized)
+
+
+def _configure_gsv_lite_nltk(models_dir: Path) -> None:
+    nltk_dir = models_dir / "g2p" / "en" / "nltk"
+    if not nltk_dir.is_dir():
+        return
+
+    _prepend_env_path("NLTK_DATA", nltk_dir)
+
+    try:
+        import nltk
+    except Exception as exc:
+        _tts_logger.warning(f"gsv-lite failed to import nltk for local EN resources: {exc}")
+        return
+
+    nltk_dir_str = str(nltk_dir)
+    raw_nltk_paths = cast("list[object]", getattr(nltk.data, "path", []))
+    current_paths = [str(path) for path in raw_nltk_paths]
+    nltk.data.path = [nltk_dir_str, *[path for path in current_paths if path != nltk_dir_str]]
+    _tts_logger.info(f"gsv-lite configured local NLTK data directory: {nltk_dir_str}")
+
+
 def _redistribute_japanese_word2ph(words: list[str], phone_count: int) -> dict[str, list[Any]]:
     if phone_count <= 0:
         return {"word": words[:1], "ph": [0] if words else []}
@@ -454,6 +482,7 @@ def load_gsv_lite_model(*, force_reload: bool = False) -> dict[str, Any]:
             _release_engine()
 
         _configure_gsv_lite_openjtalk(target_spec.models_dir)
+        _configure_gsv_lite_nltk(target_spec.models_dir)
 
         try:
             from gsv_tts import TTS

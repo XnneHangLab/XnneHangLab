@@ -109,6 +109,69 @@ def test_load_gsv_lite_model_uses_extended_gpt_cache(monkeypatch: pytest.MonkeyP
     assert Path(cast("str", captured["models_dir"])) == Path("models/GSVLiteData")
 
 
+def test_load_gsv_lite_model_configures_local_english_nltk_resources(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    models_dir = (tmp_path / "models" / "GSVLiteData").resolve()
+    nltk_dir = models_dir / "g2p" / "en" / "nltk"
+    nltk_dir.mkdir(parents=True)
+
+    captured: dict[str, object] = {}
+
+    class FakeTTS:
+        def __init__(self, **kwargs: object) -> None:
+            captured.update(kwargs)
+            fake_nltk = cast("Any", sys.modules["nltk"])
+            captured["nltk_data_path"] = list(fake_nltk.data.path)
+            captured["nltk_data_env"] = os.environ.get("NLTK_DATA")
+
+        def load_gpt_model(self, *_args: object) -> None:
+            return None
+
+        def load_sovits_model(self, *_args: object) -> None:
+            return None
+
+    def fake_get_gsv_lite_settings() -> SimpleNamespace:
+        return SimpleNamespace(
+            package=SimpleNamespace(gsv_lite=True),
+            agent=SimpleNamespace(tts=SimpleNamespace(gsv_lite=SimpleNamespace(use_bert=False))),
+            root=SimpleNamespace(root_dir=str(tmp_path)),
+        )
+
+    spec = gsv_lite_module.GSVLiteModelSpec(
+        character_name="baoqiao",
+        character_dir=(tmp_path / "models" / "gsv-tts-lite" / "baoqiao").resolve(),
+        reference_dir=(tmp_path / "models" / "gsv-tts-lite" / "baoqiao").resolve(),
+        gpt_path=(tmp_path / "models" / "gsv-tts-lite" / "baoqiao" / "model.ckpt").resolve(),
+        sovits_path=(tmp_path / "models" / "gsv-tts-lite" / "baoqiao" / "model.pth").resolve(),
+        models_dir=models_dir,
+    )
+
+    def fake_get_configured_model_spec(*_args: object, **_kwargs: object) -> gsv_lite_module.GSVLiteModelSpec:
+        return spec
+
+    fake_nltk = ModuleType("nltk")
+    cast("Any", fake_nltk).data = SimpleNamespace(path=["/existing/nltk"])
+
+    gsv_tts_module = ModuleType("gsv_tts")
+    cast("Any", gsv_tts_module).TTS = FakeTTS
+
+    monkeypatch.setattr(gsv_lite_module, "_get_gsv_lite_settings", fake_get_gsv_lite_settings)
+    monkeypatch.setattr(gsv_lite_module, "_get_configured_model_spec", fake_get_configured_model_spec)
+    monkeypatch.setattr(gsv_lite_module, "_apply_gsv_lite_monkey_patch", _fake_none)
+    monkeypatch.setattr(gsv_lite_module, "_gsv_lite_engine", None)
+    monkeypatch.setattr(gsv_lite_module, "_loaded_model_spec", None)
+    monkeypatch.setitem(sys.modules, "nltk", fake_nltk)
+    monkeypatch.setitem(sys.modules, "gsv_tts", gsv_tts_module)
+    monkeypatch.setenv("NLTK_DATA", "/existing/nltk")
+
+    gsv_lite_module.load_gsv_lite_model(force_reload=True)
+
+    assert captured["nltk_data_path"] == [str(nltk_dir), "/existing/nltk"]
+    assert captured["nltk_data_env"] == os.pathsep.join([str(nltk_dir), "/existing/nltk"])
+
+
 def test_resolve_warmup_inputs_prefers_character_dir_and_speaker_audio(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
