@@ -5,10 +5,11 @@ import json
 import random
 import re
 import tomllib
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
 from loguru import logger
@@ -43,7 +44,7 @@ class VoiceConfigData:
     default_emotion: str = "default"
     selection: str | None = None
     preferred_engine: str | None = None
-    engine_params: dict[str, dict[str, Any]] | None = None
+    engine_params: dict[str, dict[str, object]] | None = None
     emotions: dict[str, VoiceEmotionData] | None = None
 
 
@@ -414,28 +415,43 @@ def _normalize_optional_selection(value: object) -> str | None:
     return resolved
 
 
-def _parse_voice_emotions(payload: dict[str, Any]) -> dict[str, VoiceEmotionData] | None:
-    emotions_section = payload.get("emotions", {})
-    if not isinstance(emotions_section, dict):
+def _normalize_string_object_dict(value: object) -> dict[str, object] | None:
+    if not isinstance(value, Mapping):
+        return None
+
+    raw_mapping = cast(Mapping[object, object], value)
+    return {str(key): item for key, item in raw_mapping.items()}
+
+
+def _normalize_object_list(value: object) -> list[object] | None:
+    if not isinstance(value, list):
+        return None
+
+    return cast(list[object], value)
+
+
+def _parse_voice_emotions(payload: Mapping[str, object]) -> dict[str, VoiceEmotionData] | None:
+    emotions_section = _normalize_string_object_dict(payload.get("emotions"))
+    if emotions_section is None:
         return None
 
     parsed: dict[str, VoiceEmotionData] = {}
     for raw_emotion_name, raw_emotion_value in emotions_section.items():
-        emotion_name = str(raw_emotion_name).strip()
-        if not emotion_name or not isinstance(raw_emotion_value, dict):
+        emotion_name = raw_emotion_name.strip()
+        emotion_payload = _normalize_string_object_dict(raw_emotion_value)
+        if not emotion_name or emotion_payload is None:
             continue
 
-        emotion_payload = {str(key): value for key, value in raw_emotion_value.items()}
         default_clip = _normalize_optional_string(emotion_payload.get("default_clip"))
         speaker_audio = _normalize_optional_string(emotion_payload.get("speaker_audio"))
         clips: list[VoiceClipData] = []
 
-        raw_clips = emotion_payload.get("clips")
-        if isinstance(raw_clips, list):
+        raw_clips = _normalize_object_list(emotion_payload.get("clips"))
+        if raw_clips is not None:
             for index, raw_clip in enumerate(raw_clips, start=1):
-                if not isinstance(raw_clip, dict):
+                clip_payload = _normalize_string_object_dict(raw_clip)
+                if clip_payload is None:
                     continue
-                clip_payload = {str(key): value for key, value in raw_clip.items()}
                 ref_audio = _normalize_optional_string(clip_payload.get("ref_audio"))
                 if ref_audio is None:
                     continue
@@ -583,14 +599,14 @@ def _load_voice_config(voice_id: str, workspace_root: Path) -> VoiceConfigData |
     default_emotion = "default"
     selection: str | None = None
     preferred_engine: str | None = None
-    engine_params: dict[str, dict[str, Any]] = {}
+    engine_params: dict[str, dict[str, object]] = {}
     asset_bundle = voice_id
 
     with voice_config_path.open("rb") as file:
-        payload = tomllib.load(file)
+        payload = cast(dict[str, object], tomllib.load(file))
 
-    voice_section = payload.get("voice", {})
-    if isinstance(voice_section, dict):
+    voice_section = _normalize_string_object_dict(payload.get("voice"))
+    if voice_section is not None:
         raw_asset_bundle = voice_section.get("asset_bundle")
         if isinstance(raw_asset_bundle, str) and raw_asset_bundle.strip():
             asset_bundle = raw_asset_bundle.strip()
@@ -605,13 +621,14 @@ def _load_voice_config(voice_id: str, workspace_root: Path) -> VoiceConfigData |
         if raw_preferred_engine is not None:
             preferred_engine = _normalize_optional_tts_provider(str(raw_preferred_engine))
 
-    engine_params_section = payload.get("engine_params", {})
-    if isinstance(engine_params_section, dict):
+    engine_params_section = _normalize_string_object_dict(payload.get("engine_params"))
+    if engine_params_section is not None:
         for raw_engine, params in engine_params_section.items():
-            normalized_engine = _normalize_optional_tts_provider(str(raw_engine))
-            if normalized_engine is None or not isinstance(params, dict):
+            normalized_engine = _normalize_optional_tts_provider(raw_engine)
+            params_payload = _normalize_string_object_dict(params)
+            if normalized_engine is None or params_payload is None:
                 continue
-            engine_params[normalized_engine] = {str(key): value for key, value in params.items()}
+            engine_params[normalized_engine] = params_payload
 
     emotions = _parse_voice_emotions(payload)
 
@@ -786,9 +803,6 @@ class TTSDispatcher:
             return {}
 
         raw_params = self._voice_config.engine_params.get("gsv_lite", {})
-        if not isinstance(raw_params, dict):
-            return {}
-
         return {key: value for key, value in raw_params.items() if key in _GSV_LITE_REQUEST_PARAM_KEYS}
 
 

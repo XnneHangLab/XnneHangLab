@@ -253,7 +253,11 @@ ref_text_file = "愉快/2.txt"
 """.strip(),
         encoding="utf-8",
     )
-    monkeypatch.setattr(tts_manager_module.random, "choice", lambda items: items[-1])
+
+    def choose_last(items: list[object]) -> object:
+        return items[-1]
+
+    monkeypatch.setattr(tts_manager_module.random, "choice", choose_last)
 
     voice_config = _load_voice_config("luming", tmp_path.resolve())
     ref_audio, ref_text, speaker_audio = _resolve_voice_ref_audio_and_text(
