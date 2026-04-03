@@ -1,0 +1,79 @@
+[voice]
+name = "luming"
+asset_bundle = "luming"
+default_emotion = "平静"
+selection = "random"
+
+[emotions."平静"]
+
+[[emotions."平静".clips]]
+id = "1"
+ref_audio = "平静/1.wav"
+ref_text_file = "平静/1.txt"
+
+[emotions."愉快"]
+
+[[emotions."愉快".clips]]
+id = "1"
+ref_audio = "愉快/1.wav"
+ref_text_file = "愉快/1.txt"
+
+[[emotions."愉快".clips]]
+id = "2"
+ref_audio = "愉快/2.wav"
+ref_text_file = "愉快/2.txt"
+
+[emotions."自信"]
+
+[[emotions."自信".clips]]
+id = "1"
+ref_audio = "自信/1.wav"
+ref_text_file = "自信/1.txt"
+
+[[emotions."自信".clips]]
+id = "2"
+ref_audio = "自信/2.wav"
+ref_text_file = "自信/2.txt"
+
+[emotions."兴奋"]
+
+[[emotions."兴奋".clips]]
+id = "1"
+ref_audio = "兴奋/1.wav"
+ref_text_file = "兴奋/1.txt"
+
+[[emotions."兴奋".clips]]
+id = "2"
+ref_audio = "兴奋/2.wav"
+ref_text_file = "兴奋/2.txt"
+
+[emotions."撒娇"]
+
+[[emotions."撒娇".clips]]
+id = "1"
+ref_audio = "撒娇/1.wav"
+ref_text_file = "撒娇/1.txt"
+
+[[emotions."撒娇".clips]]
+id = "2"
+ref_audio = "撒娇/2.wav"
+ref_text_file = "撒娇/2.txt"
+
+[emotions."不安"]
+
+[[emotions."不安".clips]]
+id = "1"
+ref_audio = "不安/1.wav"
+ref_text_file = "不安/1.txt"
+
+[[emotions."不安".clips]]
+id = "2"
+ref_audio = "不安/2.wav"
+ref_text_file = "不安/2.txt"
+
+[emotions."急促"]
+
+[[emotions."急促".clips]]
+id = "1"
+ref_audio = "急促/1.wav"
+ref_text_file = "急促/1.txt"

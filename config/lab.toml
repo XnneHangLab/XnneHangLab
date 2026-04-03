@@ -88,6 +88,7 @@ n_gpu_layers = 0
 
 [agent.tts]
 provider = "genie_tts"
+voice_assets_root = "./voices"
 
 [agent.tts.gsv_lite]
 use_bert = false

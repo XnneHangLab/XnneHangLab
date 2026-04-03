@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from typing import Annotated
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class TTSPreprocessorConfig(BaseModel):
@@ -62,6 +62,8 @@ class TTSConfig(BaseModel):
     """运行时使用的角色 TTS 配置。"""
 
     character_name: Annotated[str, Field("")]
+    engine: Annotated[str | None, Field(None)]
+    voice: Annotated[str | None, Field(None)]
     emotions: Annotated[
         dict[str, TTSEmotionConfig],
         Field(
@@ -70,6 +72,34 @@ class TTSConfig(BaseModel):
             }
         ),
     ]
+
+    @field_validator("engine", mode="before")
+    @classmethod
+    def _normalize_engine(cls, value: object) -> str | None:
+        if value is None:
+            return None
+
+        normalized = str(value).strip().lower()
+        if not normalized:
+            return None
+
+        allowed = {"gsv_lite", "genie_tts", "qwen_tts"}
+        if normalized not in allowed:
+            raise ValueError("Unsupported TTS engine. Allowed values: gsv_lite, genie_tts, qwen_tts.")
+
+        return normalized
+
+    @field_validator("voice", mode="before")
+    @classmethod
+    def _normalize_voice(cls, value: object) -> str | None:
+        if value is None:
+            return None
+
+        normalized = str(value).strip()
+        if not normalized:
+            return None
+
+        return normalized
 
 
 class CharacterSettings(BaseModel):
@@ -95,12 +125,15 @@ class CharacterSettings(BaseModel):
     character_name: Annotated[str, Field("")]
     avatar: Annotated[str, Field("")]
     human_name: Annotated[str, Field("Human")]
+    default_expression_emotion: Annotated[str | None, Field(None)]
     tts_preprocessor_config: Annotated[TTSPreprocessorConfig, Field(TTSPreprocessorConfig())]  # pyright: ignore[reportCallIssue]
     tts_config: Annotated[
         TTSConfig,
         Field(
             default_factory=lambda: TTSConfig(
                 character_name="",
+                engine=None,
+                voice=None,
                 emotions={"default": TTSEmotionConfig(path="emotions/neutral.wav", ref_text="", speaker_audio_path="")},
             )
         ),
