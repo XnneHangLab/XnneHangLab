@@ -63,4 +63,4 @@ class VADClient(BaseClientInterface):
 
 
 # vad_client = VADClient()
-# result = vad_client.post(VADRequest(file_path=Path("examples/example1.wav")))
+# result = vad_client.post(VADRequest(file_path=Path("voices/example1.wav")))

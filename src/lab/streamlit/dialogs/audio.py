@@ -81,14 +81,14 @@ def upload_audio():
     )
     if st.button("**使用示例文件**", use_container_width=True, type="primary"):
         if audio_name == "example1.wav":
-            st.session_state[audio_keys["audio_file"]] = "examples/example1.wav"
+            st.session_state[audio_keys["audio_file"]] = "voices/example1.wav"
             st.session_state[audio_keys["audio_name"]] = audio_name
             st.session_state[audio_keys["use_example"]] = True
             st.session_state[audio_keys["use_bilibili"]] = False
             st.session_state[audio_keys["use_upload"]] = False
             st.rerun()
         elif audio_name == "example2.m4a":
-            st.session_state[audio_keys["audio_file"]] = "examples/example2.m4a"
+            st.session_state[audio_keys["audio_file"]] = "voices/example2.m4a"
             st.session_state[audio_keys["audio_name"]] = audio_name
             st.session_state[audio_keys["use_example"]] = True
             st.session_state[audio_keys["use_bilibili"]] = False

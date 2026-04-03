@@ -196,7 +196,7 @@ with working_tab:
                     cache_dir = Path(asr_setting.cache_dir) / audio_first_name / current_time
                     cache_dir.mkdir(parents=True, exist_ok=True)
                     shutil.copy(
-                        Path(f"examples/{st.session_state[audio_keys['audio_name']]}"),
+                        Path(f"voices/{st.session_state[audio_keys['audio_name']]}"),
                         cache_dir / st.session_state[audio_keys["audio_name"]],
                     )
 

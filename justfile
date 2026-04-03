@@ -88,24 +88,24 @@ test-proxy-health:
   curl http://localhost:12393/health
 
 test-asr:
-  curl -X POST "http://localhost:12393/asr/sherpa/transcribe" -F "file=@./examples/example1.wav"
+  curl -X POST "http://localhost:12393/asr/sherpa/transcribe" -F "file=@./voices/example1.wav"
 
 test-sherpa-asr:
-  curl -X POST "http://localhost:12393/asr/sherpa/transcribe" -F "file=@./examples/example1.wav"
+  curl -X POST "http://localhost:12393/asr/sherpa/transcribe" -F "file=@./voices/example1.wav"
 
 test-qwen-asr-0-6b:
-  curl -X POST "http://localhost:12393/asr/qwen-asr/0.6B/transcribe" -F "file=@./examples/example1.wav"
+  curl -X POST "http://localhost:12393/asr/qwen-asr/0.6B/transcribe" -F "file=@./voices/example1.wav"
 
 test-qwen-asr-1-7b:
-  curl -X POST "http://localhost:12393/asr/qwen-asr/1.7B/transcribe" -F "file=@./examples/example1.wav"
+  curl -X POST "http://localhost:12393/asr/qwen-asr/1.7B/transcribe" -F "file=@./voices/example1.wav"
   
 test-vad:
-  curl -X POST "http://localhost:12393/asr/sherpa/vad" -F "file=@./examples/example3.opus"
+  curl -X POST "http://localhost:12393/asr/sherpa/vad" -F "file=@./voices/example3.opus"
 
 test-sherpa-vad:
-  curl -X POST "http://localhost:12393/asr/sherpa/vad" -F "file=@./examples/example3.opus"
+  curl -X POST "http://localhost:12393/asr/sherpa/vad" -F "file=@./voices/example3.opus"
 
-test-sherpa audio='./examples/example3.opus' model_dir='./models/sherpa-onnx-paraformer-zh-2023-09-14' vad_model='./models/silero_vad.onnx' skip_vad='':
+test-sherpa audio='./voices/example3.opus' model_dir='./models/sherpa-onnx-paraformer-zh-2023-09-14' vad_model='./models/silero_vad.onnx' skip_vad='':
   uv run --group sherpa-onnx src/lab/asr/sherpa/probe.py --audio {{ audio }} --model-dir {{ model_dir }} --vad-model {{ vad_model }} {{ if skip_vad != '' { '--skip-vad' } else { '' } }}
 
 test-deeplx:
@@ -122,13 +122,13 @@ test-deeplx:
 test-qwen-tts-health server='http://localhost:12393':
   uv run python scripts/test_qwen_tts_client.py --server {{ server }} --mode health
 
-test-qwen-tts-non-stream server='http://localhost:12393' ref_audio='examples/congyin.wav' ref_text='そうそう、この間気分転換に料理したんだ。テスト勉強のモチベを上げるためにも、自分の好物を作ることにしたんだ。あれこれ考え事しちゃって、お鍋吹きこぼれちゃったんだ。けどね、味はすごく美味しくできたよ。君がご近所さんだったら届けてあげたいくらい。この作業通話アプリがもっともっと進化したら。':
+test-qwen-tts-non-stream server='http://localhost:12393' ref_audio='voices/congyin.wav' ref_text='そうそう、この間気分転換に料理したんだ。テスト勉強のモチベを上げるためにも、自分の好物を作ることにしたんだ。あれこれ考え事しちゃって、お鍋吹きこぼれちゃったんだ。けどね、味はすごく美味しくできたよ。君がご近所さんだったら届けてあげたいくらい。この作業通話アプリがもっともっと進化したら。':
   uv run python scripts/test_qwen_tts_client.py --server {{ server }} --mode non-stream --ref-audio {{ ref_audio }} --ref-text {{ ref_text }}
 
-test-qwen-tts-stream server='http://localhost:12393' ref_audio='examples/congyin.wav' ref_text='そうそう、この間気分転換に料理したんだ。テスト勉強のモチベを上げるためにも、自分の好物を作ることにしたんだ。あれこれ考え事しちゃって、お鍋吹きこぼれちゃったんだ。けどね、味はすごく美味しくできたよ。君がご近所さんだったら届けてあげたいくらい。この作業通話アプリがもっともっと進化したら。':
+test-qwen-tts-stream server='http://localhost:12393' ref_audio='voices/congyin.wav' ref_text='そうそう、この間気分転換に料理したんだ。テスト勉強のモチベを上げるためにも、自分の好物を作ることにしたんだ。あれこれ考え事しちゃって、お鍋吹きこぼれちゃったんだ。けどね、味はすごく美味しくできたよ。君がご近所さんだったら届けてあげたいくらい。この作業通話アプリがもっともっと進化したら。':
   uv run python scripts/test_qwen_tts_client.py --server {{ server }} --mode stream --ref-audio {{ ref_audio }} --ref-text {{ ref_text }}
 
-test-qwen-tts-stream-play server='http://localhost:12393' ref_audio='examples/congyin.wav' ref_text='そうそう、この間気分転換に料理したんだ。テスト勉強のモチベを上げるためにも、自分の好物を作ることにしたんだ。あれこれ考え事しちゃって、お鍋吹きこぼれちゃったんだ。けどね、味はすごく美味しくできたよ。君がご近所さんだったら届けてあげたいくらい。この作業通話アプリがもっともっと進化したら。':
+test-qwen-tts-stream-play server='http://localhost:12393' ref_audio='voices/congyin.wav' ref_text='そうそう、この間気分転換に料理したんだ。テスト勉強のモチベを上げるためにも、自分の好物を作ることにしたんだ。あれこれ考え事しちゃって、お鍋吹きこぼれちゃったんだ。けどね、味はすごく美味しくできたよ。君がご近所さんだったら届けてあげたいくらい。この作業通話アプリがもっともっと進化したら。':
   uv run python scripts/test_qwen_tts_client.py --server {{ server }} --mode stream-play --stream-chunk-size 8 --playback-buffer-ms 500 --ref-audio {{ ref_audio }} --ref-text {{ ref_text }}
 
 test-gsv-lite-health server='http://localhost:12393':
