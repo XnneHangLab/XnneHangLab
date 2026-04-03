@@ -202,6 +202,14 @@ class TTSSettings(BaseModel):
             description="Active TTS backend.",
         ),
     ]
+    voice_assets_root: Annotated[
+        str,
+        Field(
+            "./voices",
+            title="Voice Assets Root",
+            description="Root directory for engine-agnostic voice assets such as emotions/*.wav and speaker/*.wav.",
+        ),
+    ]
     gsv_lite: Annotated[GSVLiteTTSSettings, Field(GSVLiteTTSSettings())]  # pyright: ignore[reportCallIssue]
     genie_tts: Annotated[GenieTTSSettings, Field(GenieTTSSettings())]  # pyright: ignore[reportCallIssue]
 

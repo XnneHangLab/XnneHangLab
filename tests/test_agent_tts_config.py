@@ -15,6 +15,7 @@ def test_agent_settings_defaults_to_genie_tts() -> None:
     settings = AgentSettings.model_validate({})
 
     assert settings.tts.provider == "genie_tts"
+    assert settings.tts.voice_assets_root == "./voices"
 
 
 def test_agent_settings_gsv_lite_use_bert_defaults_to_false() -> None:
@@ -61,3 +62,11 @@ def test_agent_settings_genie_tts_use_roberta_can_be_enabled() -> None:
 
     assert settings.tts.provider == "genie_tts"
     assert settings.tts.genie_tts.use_roberta is True
+
+
+def test_profile_tts_engine_accepts_known_engine_names() -> None:
+    from lab.profile.schema import TTSConfig
+
+    config = TTSConfig.model_validate({"character_name": "baoqiao", "engine": "QWEN_TTS"})
+
+    assert config.engine == "qwen_tts"

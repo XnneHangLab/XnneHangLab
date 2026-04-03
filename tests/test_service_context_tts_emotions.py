@@ -19,6 +19,8 @@ def test_to_character_settings_converts_structured_tts_emotions() -> None:
                 "human_name": "Human",
                 "tts": {
                     "character_name": "baoqiao",
+                    "engine": "qwen_tts",
+                    "voice": "baoqiao-soft",
                     "emotions": {
                         "default": {
                             "path": "emotions/neutral/neutral_01.wav",
@@ -39,6 +41,8 @@ def test_to_character_settings_converts_structured_tts_emotions() -> None:
     settings = ServiceContext._to_character_settings(profile)
 
     assert settings is not None
+    assert settings.tts_config.engine == "qwen_tts"
+    assert settings.tts_config.voice == "baoqiao-soft"
     assert settings.tts_config.emotions["default"].path == "emotions/neutral/neutral_01.wav"
     assert settings.tts_config.emotions["default"].ref_text == ""
     assert settings.tts_config.emotions["default"].speaker_audio_path == "speaker/default.wav"

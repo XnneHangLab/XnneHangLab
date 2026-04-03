@@ -223,6 +223,122 @@ character_name = "baoqiao"
     assert any("genie-tts" in err and "baoqiao" in err for err in errors)
 
 
+def test_validate_prefers_profile_tts_engine_over_global_provider(tmp_path: Path) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+    (profiles_dir / "vtuber.toml").write_text(
+        """
+[profile]
+name = "vtuber"
+agent_name = "vtuber"
+
+[character]
+conf_name = "vtuber-local"
+conf_uid = "vtuber-local-001"
+live2d_model_name = "Baoqiao"
+character_name = "VTuber"
+avatar = "avatar.png"
+human_name = "Human"
+
+[character.tts]
+character_name = "baoqiao"
+engine = "qwen_tts"
+""".strip(),
+        encoding="utf-8",
+    )
+    _write_memory_chat_profile(profiles_dir)
+
+    settings = _base_settings(tmp_path)
+    settings.agent.memory_agent_profile = "profiles/vtuber.toml"
+    settings.package.qwen_tts = False
+
+    errors = validate_all(settings)
+
+    assert any('provider = "qwen_tts"' in err for err in errors)
+    assert any("package.qwen_tts = false" in err for err in errors)
+
+
+def test_validate_prefers_voice_toml_engine_over_global_provider(tmp_path: Path) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+    (profiles_dir / "vtuber.toml").write_text(
+        """
+[profile]
+name = "vtuber"
+agent_name = "vtuber"
+
+[character]
+conf_name = "vtuber-local"
+conf_uid = "vtuber-local-001"
+live2d_model_name = "Baoqiao"
+character_name = "VTuber"
+avatar = "avatar.png"
+human_name = "Human"
+
+[character.tts]
+character_name = "baoqiao"
+voice = "baoqiao-soft"
+""".strip(),
+        encoding="utf-8",
+    )
+    _write_memory_chat_profile(profiles_dir)
+    voice_config_dir = tmp_path / "config" / "voices"
+    voice_config_dir.mkdir(parents=True)
+    (voice_config_dir / "baoqiao-soft.toml").write_text(
+        """
+[voice]
+name = "baoqiao-soft"
+preferred_engine = "gsv_lite"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    settings = _base_settings(tmp_path)
+    settings.agent.memory_agent_profile = "profiles/vtuber.toml"
+    settings.package.gsv_lite = False
+
+    errors = validate_all(settings)
+
+    assert any('provider = "gsv_lite"' in err for err in errors)
+    assert any("package.gsv_lite = false" in err for err in errors)
+
+
+def test_validate_skips_inactive_tts_package_model_checks_when_profile_engine_overrides(tmp_path: Path) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+    (profiles_dir / "vtuber.toml").write_text(
+        """
+[profile]
+name = "vtuber"
+agent_name = "vtuber"
+
+[character]
+conf_name = "vtuber-local"
+conf_uid = "vtuber-local-001"
+live2d_model_name = "Baoqiao"
+character_name = "VTuber"
+avatar = "avatar.png"
+human_name = "Human"
+
+[character.tts]
+character_name = "baoqiao"
+engine = "qwen_tts"
+""".strip(),
+        encoding="utf-8",
+    )
+    _write_memory_chat_profile(profiles_dir)
+    (tmp_path / "models" / "Qwen3-TTS-12Hz-0.6B-Base").mkdir(parents=True)
+
+    settings = _base_settings(tmp_path)
+    settings.agent.memory_agent_profile = "profiles/vtuber.toml"
+    settings.package.qwen_tts = True
+    settings.package.genie_tts = True
+
+    errors = validate_all(settings)
+
+    assert not any("Genie-TTS character model directory" in err and "baoqiao" in err for err in errors)
+
+
 def test_validate_rejects_disabled_sherpa_provider_selection(tmp_path: Path) -> None:
     settings = _base_settings(tmp_path)
     settings.asr.asr_model_provider = "sherpa"

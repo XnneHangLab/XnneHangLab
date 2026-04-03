@@ -170,6 +170,8 @@ class ServiceContext:
             ),
             tts_config=VTuberTTSConfig(
                 character_name=char.tts.character_name,
+                engine=char.tts.engine,
+                voice=char.tts.voice,
                 emotions={
                     name: VTuberTTSEmotionConfig(
                         path=emotion.path,

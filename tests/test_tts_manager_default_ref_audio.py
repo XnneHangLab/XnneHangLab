@@ -3,9 +3,17 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
+import lab.conversations.tts_manager as tts_manager_module
 from lab.config_manager.vtuber import CharacterSettings, TTSConfig
-from lab.conversations.tts_manager import _resolve_gsv_lite_speaker_audio_path, _resolve_ref_audio_and_text
+from lab.conversations.tts_manager import (
+    TTSDispatcher,
+    _load_voice_config,
+    _resolve_gsv_lite_speaker_audio_path,
+    _resolve_ref_audio_and_text,
+    _resolve_voice_ref_audio_and_text,
+)
 from lab.profile.schema import TTSConfig as ProfileTTSConfig
 
 
@@ -117,6 +125,7 @@ def test_profile_tts_config_accepts_legacy_and_structured_emotions() -> None:
     config = ProfileTTSConfig.model_validate(
         {
             "character_name": "baoqiao",
+            "voice": "baoqiao-soft",
             "emotions": {
                 "default": "emotions/neutral.wav",
                 "happy": {
@@ -128,6 +137,7 @@ def test_profile_tts_config_accepts_legacy_and_structured_emotions() -> None:
         }
     )
 
+    assert config.voice == "baoqiao-soft"
     assert config.emotions["default"].path == "emotions/neutral.wav"
     assert config.emotions["default"].ref_text == ""
     assert config.emotions["default"].speaker_audio_path == ""
@@ -165,3 +175,175 @@ def test_resolve_gsv_lite_speaker_audio_path_prefers_matching_emotion(tmp_path: 
     speaker_audio = _resolve_gsv_lite_speaker_audio_path(character, emotion_keys=["happy"], tts_provider="gsv_lite")
 
     assert speaker_audio == str(Path("models/gsv-tts-lite/baoqiao/speaker/happy.wav"))
+
+
+def test_resolve_voice_ref_audio_and_text_uses_voice_directory_default_emotion(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config" / "voices"
+    voice_assets_root = tmp_path / "voice-assets"
+    voice_dir = voice_assets_root / "baoqiao-assets"
+    emotions_dir = voice_dir / "emotions"
+    speaker_dir = voice_dir / "speaker"
+    config_dir.mkdir(parents=True)
+    emotions_dir.mkdir(parents=True)
+    speaker_dir.mkdir(parents=True)
+    (emotions_dir / "calm.wav").write_bytes(b"wav")
+    (emotions_dir / "calm.txt").write_text("calm ref text", encoding="utf-8")
+    (speaker_dir / "default.wav").write_bytes(b"wav")
+    (config_dir / "baoqiao.toml").write_text(
+        """
+[voice]
+name = "baoqiao"
+asset_bundle = "baoqiao-assets"
+default_emotion = "calm"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    voice_config = _load_voice_config("baoqiao", tmp_path.resolve())
+    ref_audio, ref_text, speaker_audio = _resolve_voice_ref_audio_and_text(
+        voice_config,
+        voice_assets_root.resolve(),
+        emotion_keys=["happy"],
+    )
+
+    assert ref_audio == "voice-assets/baoqiao-assets/emotions/calm.wav"
+    assert ref_text == "calm ref text"
+    assert speaker_audio == "voice-assets/baoqiao-assets/speaker/default.wav"
+
+
+def test_resolve_voice_ref_audio_and_text_supports_explicit_emotion_clips_in_voice_toml(
+    tmp_path: Path, monkeypatch
+) -> None:
+    config_dir = tmp_path / "config" / "voices"
+    voice_assets_root = tmp_path / "voices"
+    calm_dir = voice_assets_root / "luming" / "平静"
+    happy_dir = voice_assets_root / "luming" / "愉快"
+    speaker_dir = voice_assets_root / "luming" / "speaker"
+    config_dir.mkdir(parents=True)
+    calm_dir.mkdir(parents=True)
+    happy_dir.mkdir(parents=True)
+    speaker_dir.mkdir(parents=True)
+    (calm_dir / "1.wav").write_bytes(b"wav")
+    (calm_dir / "1.txt").write_text("平静 ref text", encoding="utf-8")
+    (happy_dir / "1.wav").write_bytes(b"wav")
+    (happy_dir / "1.txt").write_text("愉快 ref text 1", encoding="utf-8")
+    (happy_dir / "2.wav").write_bytes(b"wav")
+    (happy_dir / "2.txt").write_text("愉快 ref text 2", encoding="utf-8")
+    (speaker_dir / "happy.wav").write_bytes(b"wav")
+    (config_dir / "luming.toml").write_text(
+        """
+[voice]
+name = "luming"
+asset_bundle = "luming"
+default_emotion = "平静"
+selection = "random"
+
+[emotions."愉快"]
+speaker_audio = "speaker/happy.wav"
+
+[[emotions."愉快".clips]]
+id = "1"
+ref_audio = "愉快/1.wav"
+ref_text_file = "愉快/1.txt"
+
+[[emotions."愉快".clips]]
+id = "2"
+ref_audio = "愉快/2.wav"
+ref_text_file = "愉快/2.txt"
+""".strip(),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(tts_manager_module.random, "choice", lambda items: items[-1])
+
+    voice_config = _load_voice_config("luming", tmp_path.resolve())
+    ref_audio, ref_text, speaker_audio = _resolve_voice_ref_audio_and_text(
+        voice_config,
+        voice_assets_root.resolve(),
+        emotion_keys=["愉快"],
+    )
+
+    assert ref_audio == "voices/luming/愉快/2.wav"
+    assert ref_text == "愉快 ref text 2"
+    assert speaker_audio == "voices/luming/speaker/happy.wav"
+
+
+def test_tts_dispatcher_prefers_profile_engine_over_voice_toml_and_lab_provider(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config" / "voices"
+    voice_assets_root = tmp_path / "voice-assets"
+    voice_dir = voice_assets_root / "baoqiao-assets"
+    emotions_dir = voice_dir / "emotions"
+    config_dir.mkdir(parents=True)
+    emotions_dir.mkdir(parents=True)
+    (emotions_dir / "happy.wav").write_bytes(b"wav")
+    (emotions_dir / "happy.txt").write_text("happy ref text", encoding="utf-8")
+    (config_dir / "baoqiao-soft.toml").write_text(
+        """
+[voice]
+name = "baoqiao-soft"
+asset_bundle = "baoqiao-assets"
+preferred_engine = "gsv_lite"
+default_emotion = "default"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    settings = SimpleNamespace(
+        agent=SimpleNamespace(tts=SimpleNamespace(provider="genie_tts", voice_assets_root="./voice-assets")),
+        root=SimpleNamespace(root_dir=str(tmp_path)),
+    )
+    character = CharacterSettings(
+        tts_config=TTSConfig(
+            character_name="baoqiao",
+            engine="qwen_tts",
+            voice="baoqiao-soft",
+        )
+    )
+
+    dispatch = TTSDispatcher(settings, character).resolve("hello", emotion_keys=["happy"])
+
+    assert dispatch.engine == "qwen_tts"
+    assert dispatch.request_payload["ref_audio_path"] == "voice-assets/baoqiao-assets/emotions/happy.wav"
+    assert dispatch.request_payload["ref_text"] == "happy ref text"
+
+
+def test_tts_dispatcher_uses_nested_luming_layout(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config" / "voices"
+    voice_assets_root = tmp_path / "voices"
+    calm_dir = voice_assets_root / "luming" / "平静"
+    config_dir.mkdir(parents=True)
+    calm_dir.mkdir(parents=True)
+    (calm_dir / "1.wav").write_bytes(b"wav")
+    (calm_dir / "1.txt").write_text("平静 ref text", encoding="utf-8")
+    (config_dir / "luming.toml").write_text(
+        """
+[voice]
+name = "luming"
+asset_bundle = "luming"
+default_emotion = "平静"
+
+[emotions."平静"]
+
+[[emotions."平静".clips]]
+id = "1"
+ref_audio = "平静/1.wav"
+ref_text_file = "平静/1.txt"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    settings = SimpleNamespace(
+        agent=SimpleNamespace(tts=SimpleNamespace(provider="genie_tts", voice_assets_root="./voices")),
+        root=SimpleNamespace(root_dir=str(tmp_path)),
+    )
+    character = CharacterSettings(
+        tts_config=TTSConfig(
+            character_name="luming",
+            voice="luming",
+        )
+    )
+
+    dispatch = TTSDispatcher(settings, character).resolve("hello")
+
+    assert dispatch.engine == "genie_tts"
+    assert dispatch.request_payload["ref_audio_path"] == "voices/luming/平静/1.wav"
+    assert dispatch.request_payload["ref_text"] == "平静 ref text"

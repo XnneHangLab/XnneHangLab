@@ -139,6 +139,104 @@ def _resolve_active_character_name(settings: XnneHangLabSettings) -> str | None:
     return None
 
 
+def _normalize_optional_tts_provider(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+
+    normalized = value.strip().lower()
+    if not normalized:
+        return None
+
+    if normalized not in {"gsv_lite", "genie_tts", "qwen_tts"}:
+        return None
+
+    return normalized
+
+
+def _resolve_active_voice_id(settings: XnneHangLabSettings) -> str | None:
+    profile_path = _resolve_path(settings, settings.agent.memory_agent_profile)
+    if profile_path is None or not profile_path.exists():
+        return None
+
+    try:
+        with profile_path.open("rb") as file:
+            profile_data: dict[str, object] = tomllib.load(file)
+    except Exception:
+        return None
+
+    character_obj = profile_data.get("character")
+    if not isinstance(character_obj, dict):
+        return None
+    character_data = cast("dict[str, object]", character_obj)
+
+    tts_obj = character_data.get("tts")
+    if isinstance(tts_obj, dict):
+        tts_data = cast("dict[str, object]", tts_obj)
+        voice_id = tts_data.get("voice")
+        if isinstance(voice_id, str) and voice_id.strip():
+            return voice_id.strip()
+
+    return _resolve_active_character_name(settings)
+
+
+def _resolve_active_profile_tts_engine(settings: XnneHangLabSettings) -> str | None:
+    profile_path = _resolve_path(settings, settings.agent.memory_agent_profile)
+    if profile_path is None or not profile_path.exists():
+        return None
+
+    try:
+        with profile_path.open("rb") as file:
+            profile_data: dict[str, object] = tomllib.load(file)
+    except Exception:
+        return None
+
+    character_obj = profile_data.get("character")
+    if not isinstance(character_obj, dict):
+        return None
+    character_data = cast("dict[str, object]", character_obj)
+
+    tts_obj = character_data.get("tts")
+    if not isinstance(tts_obj, dict):
+        return None
+    tts_data = cast("dict[str, object]", tts_obj)
+
+    return _normalize_optional_tts_provider(tts_data.get("engine"))
+
+
+def _resolve_voice_preferred_engine(settings: XnneHangLabSettings, voice_id: str | None) -> str | None:
+    if voice_id is None or not voice_id.strip():
+        return None
+
+    voice_toml_path = Path(settings.root.root_dir) / "config" / "voices" / f"{voice_id.strip()}.toml"
+    if not voice_toml_path.exists():
+        return None
+
+    try:
+        with voice_toml_path.open("rb") as file:
+            voice_data: dict[str, object] = tomllib.load(file)
+    except Exception:
+        return None
+
+    voice_obj = voice_data.get("voice")
+    if not isinstance(voice_obj, dict):
+        return None
+
+    voice_section = cast("dict[str, object]", voice_obj)
+    return _normalize_optional_tts_provider(voice_section.get("preferred_engine"))
+
+
+def _resolve_active_tts_provider(settings: XnneHangLabSettings) -> str:
+    profile_engine = _resolve_active_profile_tts_engine(settings)
+    if profile_engine is not None:
+        return profile_engine
+
+    voice_engine = _resolve_voice_preferred_engine(settings, _resolve_active_voice_id(settings))
+    if voice_engine is not None:
+        return voice_engine
+
+    return settings.agent.tts.provider
+
+
 def _resolve_preferred_character_model_path(
     settings: XnneHangLabSettings,
     *,
@@ -329,37 +427,40 @@ def _check_asr_provider_package_match(settings: XnneHangLabSettings) -> str | No
 
 
 def _check_qwen_tts_package_match(settings: XnneHangLabSettings) -> str | None:
-    if settings.agent.tts.provider != "qwen_tts":
+    provider = _resolve_active_tts_provider(settings)
+    if provider != "qwen_tts":
         return None
     if settings.package.qwen_tts:
         return None
     return (
         " [package]\n"
-        ' Current [agent.tts].provider = "qwen_tts", but package.qwen_tts = false\n'
+        f' Current effective TTS provider = "{provider}", but package.qwen_tts = false\n'
         " -> Set qwen_tts = true under [package], then run `just install-qwen-tts`"
     )
 
 
 def _check_gsv_lite_package_match(settings: XnneHangLabSettings) -> str | None:
-    if settings.agent.tts.provider != "gsv_lite":
+    provider = _resolve_active_tts_provider(settings)
+    if provider != "gsv_lite":
         return None
     if settings.package.gsv_lite:
         return None
     return (
         " [package]\n"
-        ' Current [agent.tts].provider = "gsv_lite", but package.gsv_lite = false\n'
+        f' Current effective TTS provider = "{provider}", but package.gsv_lite = false\n'
         " -> Set gsv_lite = true under [package], then run `uv sync --group gsv-lite`"
     )
 
 
 def _check_genie_tts_package_match(settings: XnneHangLabSettings) -> str | None:
-    if settings.agent.tts.provider != "genie_tts":
+    provider = _resolve_active_tts_provider(settings)
+    if provider != "genie_tts":
         return None
     if settings.package.genie_tts:
         return None
     return (
         " [package]\n"
-        ' Current [agent.tts].provider = "genie_tts", but package.genie_tts = false\n'
+        f' Current effective TTS provider = "{provider}", but package.genie_tts = false\n'
         " -> Set genie_tts = true under [package], then run `uv sync --group genie-tts`"
     )
 
@@ -622,10 +723,13 @@ def validate_packages(settings: XnneHangLabSettings) -> list[str]:
         错误信息列表；空列表表示全部通过。
     """
     errors: list[str] = []
+    active_tts_provider = _resolve_active_tts_provider(settings)
 
     for rule in PACKAGE_RULES:
         enabled = getattr(settings.package, rule.package_name, False)
         if not enabled:
+            continue
+        if rule.package_name in {"gsv_lite", "genie_tts", "qwen_tts"} and rule.package_name != active_tts_provider:
             continue
 
         for dep in rule.depends_on:
