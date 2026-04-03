@@ -92,7 +92,7 @@ uv run run_server.py --port 8080
 
 ```bash
 just test-asr
-# curl -X POST "http://localhost:12393/asr/sherpa/transcribe" -F "file=@./examples/example3.opus"
+# curl -X POST "http://localhost:12393/asr/sherpa/transcribe" -F "file=@./voices/example3.opus"
 ```
 
 **响应示例**：
@@ -136,7 +136,7 @@ just test-vad
 使用 Qwen3-ASR 0.6B 模型识别。
 
 ```bash
-curl -X POST "http://localhost:12393/asr/qwen-asr/0.6B/transcribe" -F "file=@./examples/example3.opus"
+curl -X POST "http://localhost:12393/asr/qwen-asr/0.6B/transcribe" -F "file=@./voices/example3.opus"
 ```
 
 #### POST `/asr/qwen-asr/1.7B/transcribe`
@@ -144,7 +144,7 @@ curl -X POST "http://localhost:12393/asr/qwen-asr/0.6B/transcribe" -F "file=@./e
 使用 Qwen3-ASR 1.7B 模型识别，精度更高。
 
 ```bash
-curl -X POST "http://localhost:12393/asr/qwen-asr/1.7B/transcribe" -F "file=@./examples/example3.opus"
+curl -X POST "http://localhost:12393/asr/qwen-asr/1.7B/transcribe" -F "file=@./voices/example3.opus"
 ```
 
 **响应示例**（两个端点格式相同）：

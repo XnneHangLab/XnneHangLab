@@ -102,12 +102,12 @@ git clone https://github.com/XnneHangLab/XnneHangLab.git --recurse-submodules
 cd XnneHangLab
 ```
 
-> 🔍 请确保子模块克隆完整：`packages/*/`、`static/`、`examples/`、`frontend/` 这些目录都不应为空。
+> 🔍 请确保子模块克隆完整：`packages/*/`、`static/`、`voices/`、`frontend/` 这些目录都不应为空。
 
 如果发现某些目录为空，可以手动补齐：
 
 ```bash
-git submodule update --init --recursive examples static packages/* frontend
+git submodule update --init --recursive voices static packages/* frontend
 ```
 
 ---

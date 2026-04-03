@@ -4,8 +4,8 @@
 [submodule "packages/yutto-uiya"]
 	path = packages/yutto-uiya
 	url = https://github.com/XnneHangLab/yutto-uiya.git
-[submodule "examples"]
-	path = examples
+[submodule "voices"]
+	path = voices
 	url = https://github.com/MrXnneHang/Subtitle-Generator-Examples.git
 [submodule "static"]
 	path = static

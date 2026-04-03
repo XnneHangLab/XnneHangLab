@@ -10,7 +10,7 @@ from lab.config_manager import XnneHangLabSettings, load_settings_file
 class TestLabComponents:
     """测试Lab组件的各项功能"""
 
-    testing_file = Path("./examples/example1.wav")
+    testing_file = Path("./voices/example1.wav")
     # 简化后的setup - 只注入依赖项
 
     def test_audio_file_exists(self):
