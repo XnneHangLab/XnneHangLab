@@ -47,7 +47,9 @@ def _resolve_expression_actions(
 
     resolved_default = live2d_model.emo_map.get(default_expression_emotion.lower())
     if resolved_default is None:
-        logger.warning("Configured default expression emotion '{}' is not in the Live2D emotion map.", default_expression_emotion)
+        logger.warning(
+            "Configured default expression emotion '{}' is not in the Live2D emotion map.", default_expression_emotion
+        )
         return None, None
 
     return [resolved_default], inv_emo_map.get(resolved_default, default_expression_emotion)
@@ -121,7 +123,9 @@ def actions_extractor(
                             actions.expressions = expressions
                         actions.expression_emotion_key = expression_emotion_key
                         actions.tts_emotion_key = chunk.control_tags.tts_emotion_key
-                        actions.emotion_keys = [chunk.control_tags.tts_emotion_key] if chunk.control_tags.tts_emotion_key else None
+                        actions.emotion_keys = (
+                            [chunk.control_tags.tts_emotion_key] if chunk.control_tags.tts_emotion_key else None
+                        )
                     yield chunk, actions
 
         return wrapper

@@ -195,7 +195,9 @@ async def process_user_input(
             asr_client = ASRClient()
             response = await asr_client.asyncpost(ASRRequest(file_path=audio_file_path))
             if response is None:
-                raise RuntimeError(asr_client.last_error or "ASR is unavailable. Use text input or enable an ASR service.")
+                raise RuntimeError(
+                    asr_client.last_error or "ASR is unavailable. Use text input or enable an ASR service."
+                )
             await websocket_send(json.dumps({"type": "user-input-transcription", "text": response["text"]}))
         finally:
             # 删除临时音频文件
@@ -222,12 +224,18 @@ async def finalize_conversation_turn(
         await tts_manager.wait_until_all_payloads_sent()
         await websocket_send(json.dumps({"type": "backend-synth-complete", "turn_id": turn_id}))
 
+        playback_timeout = tts_manager.playback_completion_timeout_s()
         response = await wait_for_frontend_playback_completion(
             client_uid,
             turn_id=turn_id,
+            timeout=playback_timeout,
         )
         if not response:
-            logger.warning(f"No playback completion response from {client_uid}; continuing turn finalization")
+            logger.warning(
+                "No playback completion response from {} within {:.2f}s; continuing turn finalization",
+                client_uid,
+                playback_timeout,
+            )
 
     await websocket_send(json.dumps({"type": "force-new-message"}))
 
@@ -271,14 +279,11 @@ async def send_conversation_end_signal(
     logger.info(f"😎👍✅ Conversation Chain {session_emoji} completed!")
 
 
-PLAYBACK_COMPLETION_TIMEOUT_S: float | None = None
-
-
 async def wait_for_frontend_playback_completion(
     client_uid: str,
     *,
     turn_id: str | None = None,
-    timeout: float | None = PLAYBACK_COMPLETION_TIMEOUT_S,
+    timeout: float | None = None,
 ) -> dict[Any, Any] | None:
     """Wait for the frontend playback completion ack for the current turn."""
     return await message_handler.wait_for_response(

@@ -72,7 +72,9 @@ async def test_process_user_input_surfaces_asr_error(tmp_path: Path, monkeypatch
 
     class FakeASRClient:
         def __init__(self) -> None:
-            self.last_error = "ASR is disabled in lab.toml. Enable [package].sherpa_asr or [package].qwen_asr, or use text input."
+            self.last_error = (
+                "ASR is disabled in lab.toml. Enable [package].sherpa_asr or [package].qwen_asr, or use text input."
+            )
 
         async def asyncpost(self, _request: object) -> None:
             return None
