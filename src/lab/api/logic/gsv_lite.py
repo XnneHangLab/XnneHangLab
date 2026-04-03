@@ -5,6 +5,7 @@ import gc
 import io
 import json
 import os
+import pickle
 import re
 import threading
 import time
@@ -300,6 +301,98 @@ def _prepend_env_path(var_name: str, path: Path) -> None:
     os.environ[var_name] = os.pathsep.join(normalized)
 
 
+def _read_gsv_lite_cmu_dict(file_path: Path) -> dict[str, list[list[str]]]:
+    g2p_dict: dict[str, list[list[str]]] = {}
+    with file_path.open("r", encoding="utf-8") as file:
+        for raw_line in file:
+            line = raw_line.strip()
+            if not line or line.startswith(";;;"):
+                continue
+
+            parts = re.split(r"\s+", line, maxsplit=1)
+            if len(parts) < 2:
+                continue
+
+            word, pron_str = parts[0].lower(), parts[1]
+            pron = pron_str.split(" ")
+            normalized_word = re.sub(r"\(\d+\)$", "", word)
+            g2p_dict.setdefault(normalized_word, []).append(pron)
+    return g2p_dict
+
+
+def _normalize_gsv_lite_cached_dict(raw_dict: object) -> dict[str, list[list[str]]]:
+    if not isinstance(raw_dict, dict):
+        return {}
+
+    typed_dict = cast("dict[object, object]", raw_dict)
+    normalized: dict[str, list[list[str]]] = {}
+    for raw_word, raw_prons in typed_dict.items():
+        if not isinstance(raw_prons, list):
+            continue
+
+        typed_prons = cast("list[object]", raw_prons)
+        pronunciations: list[list[str]] = []
+        for raw_pron in typed_prons:
+            if isinstance(raw_pron, list):
+                typed_pron = cast("list[object]", raw_pron)
+                pronunciations.append([str(phone) for phone in typed_pron])
+            elif isinstance(raw_pron, tuple):
+                typed_pron = cast("tuple[object, ...]", raw_pron)
+                pronunciations.append([str(phone) for phone in typed_pron])
+
+        if pronunciations:
+            normalized[str(raw_word).lower()] = pronunciations
+
+    return normalized
+
+
+def _load_gsv_lite_english_dict(models_dir: Path) -> dict[str, list[list[str]]]:
+    en_dir = models_dir / "g2p" / "en"
+    cache_path = en_dir / "engdict_cache.pickle"
+    cmu_dict_path = en_dir / "cmudict.rep"
+    cmu_fast_path = en_dir / "cmudict-fast.rep"
+    hot_dict_path = en_dir / "engdict-hot.rep"
+
+    if cache_path.is_file():
+        try:
+            with cache_path.open("rb") as file:
+                cached = pickle.load(file)
+            g2p_dict = _normalize_gsv_lite_cached_dict(cached)
+        except Exception as exc:
+            _tts_logger.warning(f"gsv-lite failed to load cached English CMU dictionary: {exc}")
+            g2p_dict = {}
+    else:
+        g2p_dict = {}
+
+    if not g2p_dict and cmu_dict_path.is_file():
+        g2p_dict.update(_read_gsv_lite_cmu_dict(cmu_dict_path))
+    if cmu_fast_path.is_file():
+        for word, prons in _read_gsv_lite_cmu_dict(cmu_fast_path).items():
+            g2p_dict.setdefault(word, prons)
+    if hot_dict_path.is_file():
+        g2p_dict.update(_read_gsv_lite_cmu_dict(hot_dict_path))
+
+    return g2p_dict
+
+
+def _configure_gsv_lite_cmudict(models_dir: Path) -> None:
+    cmu_dict = _load_gsv_lite_english_dict(models_dir)
+    if not cmu_dict:
+        return
+
+    try:
+        from nltk.corpus import cmudict as nltk_cmudict
+    except Exception as exc:
+        _tts_logger.warning(f"gsv-lite failed to import nltk.corpus.cmudict for local EN resources: {exc}")
+        return
+
+    def local_dict() -> dict[str, list[list[str]]]:
+        return cmu_dict
+
+    cast("Any", nltk_cmudict).dict = local_dict
+    _tts_logger.info(f"gsv-lite configured local CMU dictionary cache: {models_dir / 'g2p' / 'en'}")
+
+
 def _configure_gsv_lite_nltk(models_dir: Path) -> None:
     nltk_dir = models_dir / "g2p" / "en" / "nltk"
     if not nltk_dir.is_dir():
@@ -317,6 +410,7 @@ def _configure_gsv_lite_nltk(models_dir: Path) -> None:
     raw_nltk_paths = cast("list[object]", getattr(nltk.data, "path", []))
     current_paths = [str(path) for path in raw_nltk_paths]
     nltk.data.path = [nltk_dir_str, *[path for path in current_paths if path != nltk_dir_str]]
+    _configure_gsv_lite_cmudict(models_dir)
     _tts_logger.info(f"gsv-lite configured local NLTK data directory: {nltk_dir_str}")
 
 
