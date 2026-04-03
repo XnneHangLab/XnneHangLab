@@ -18,12 +18,7 @@ from fastapi import HTTPException
 from loguru import logger
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
-from lab.conversations.tts_manager import (
-    _load_voice_config,
-    _require_voice_ref_audio_and_text,
-    _resolve_voice_assets_root,
-    _resolve_workspace_root,
-)
+from lab.conversations.tts_manager import resolve_voice_assets
 from lab.profile.schema import Profile
 
 if TYPE_CHECKING:
@@ -101,13 +96,6 @@ def _resolve_character_dir(settings: XnneHangLabSettings, character_name: str) -
 
 def _resolve_reference_dir(settings: XnneHangLabSettings, character_name: str) -> Path:
     return _resolve_character_dir(settings, character_name)
-
-
-def _resolve_workspace_path(workspace_root: Path, raw_path: str) -> Path:
-    path = Path(raw_path)
-    if not path.is_absolute():
-        path = workspace_root / path
-    return path.resolve()
 
 
 def _resolve_gsv_lite_data_dir(settings: XnneHangLabSettings) -> Path:
@@ -203,20 +191,7 @@ def _resolve_warmup_inputs(
     if profile is not None and profile.character is not None:
         voice_id = (profile.character.tts.voice or "").strip()
         if voice_id:
-            workspace_root = _resolve_workspace_root(settings)
-            voice_assets_root = _resolve_voice_assets_root(settings, workspace_root)
-            voice_config = _load_voice_config(voice_id, workspace_root)
-            if voice_config is None:
-                raise FileNotFoundError(
-                    f"gsv-lite warmup failed: voice config does not exist for '{voice_id}': "
-                    f"{workspace_root / 'config' / 'voices' / f'{voice_id}.toml'}"
-                )
-
-            ref_audio_path, ref_text, speaker_audio_path = _require_voice_ref_audio_and_text(
-                voice_config,
-                voice_assets_root,
-                None,
-            )
+            ref_audio_path, ref_text, speaker_audio_path = resolve_voice_assets(settings, voice_id)
             normalized_ref_text = (ref_text or "").strip()
             if not normalized_ref_text:
                 raise RuntimeError(
@@ -225,9 +200,9 @@ def _resolve_warmup_inputs(
                 )
 
             return (
-                _resolve_workspace_path(workspace_root, ref_audio_path),
+                ref_audio_path,
                 normalized_ref_text,
-                _resolve_workspace_path(workspace_root, speaker_audio_path) if speaker_audio_path else None,
+                speaker_audio_path,
             )
 
     infer_config = _load_infer_config(spec.character_dir)
