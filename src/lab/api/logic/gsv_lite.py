@@ -18,6 +18,7 @@ from fastapi import HTTPException
 from loguru import logger
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
+from lab.conversations.tts_manager import resolve_voice_assets
 from lab.profile.schema import Profile
 
 if TYPE_CHECKING:
@@ -95,14 +96,6 @@ def _resolve_character_dir(settings: XnneHangLabSettings, character_name: str) -
 
 def _resolve_reference_dir(settings: XnneHangLabSettings, character_name: str) -> Path:
     return _resolve_character_dir(settings, character_name)
-
-
-def _iter_reference_base_dirs(spec: GSVLiteModelSpec) -> list[Path]:
-    bases: list[Path] = []
-    for base in (spec.character_dir, spec.reference_dir):
-        if base not in bases:
-            bases.append(base)
-    return bases
 
 
 def _resolve_gsv_lite_data_dir(settings: XnneHangLabSettings) -> Path:
@@ -196,22 +189,21 @@ def _resolve_warmup_inputs(
         profile = None
 
     if profile is not None and profile.character is not None:
-        emotions = profile.character.tts.emotions
-        emotion = emotions.get("default") or next(iter(emotions.values()), None)
-        if emotion is not None and emotion.path:
-            for base_dir in _iter_reference_base_dirs(spec):
-                ref_audio = (base_dir / emotion.path).resolve()
-                if not ref_audio.is_file():
-                    continue
-                ref_text = emotion.ref_text.strip() or None
-                speaker_audio: Path | None = None
-                if emotion.speaker_audio_path.strip():
-                    for speaker_base in _iter_reference_base_dirs(spec):
-                        candidate = (speaker_base / emotion.speaker_audio_path).resolve()
-                        if candidate.is_file():
-                            speaker_audio = candidate
-                            break
-                return ref_audio, ref_text, speaker_audio
+        voice_id = (profile.character.tts.voice or "").strip()
+        if voice_id:
+            ref_audio_path, ref_text, speaker_audio_path = resolve_voice_assets(settings, voice_id)
+            normalized_ref_text = (ref_text or "").strip()
+            if not normalized_ref_text:
+                raise RuntimeError(
+                    f"gsv-lite warmup failed: voice '{voice_id}' has no usable ref_text for character "
+                    f"'{spec.character_name}'"
+                )
+
+            return (
+                ref_audio_path,
+                normalized_ref_text,
+                speaker_audio_path,
+            )
 
     infer_config = _load_infer_config(spec.character_dir)
     emotion_list = infer_config.get("emotion_list")

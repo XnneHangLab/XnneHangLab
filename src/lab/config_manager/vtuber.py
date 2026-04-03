@@ -66,11 +66,7 @@ class TTSConfig(BaseModel):
     voice: Annotated[str | None, Field(None)]
     emotions: Annotated[
         dict[str, TTSEmotionConfig],
-        Field(
-            default_factory=lambda: {
-                "default": TTSEmotionConfig(path="emotions/neutral.wav", ref_text="", speaker_audio_path="")
-            }
-        ),
+        Field(default_factory=dict),
     ]
 
     @field_validator("engine", mode="before")
@@ -134,7 +130,7 @@ class CharacterSettings(BaseModel):
                 character_name="",
                 engine=None,
                 voice=None,
-                emotions={"default": TTSEmotionConfig(path="emotions/neutral.wav", ref_text="", speaker_audio_path="")},
+                emotions={},
             )
         ),
     ]

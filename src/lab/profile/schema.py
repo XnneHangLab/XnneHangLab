@@ -107,7 +107,7 @@ class TTSConfig(BaseModel):
     engine: str | None = None
     voice: str | None = None
     emotions: dict[str, TTSEmotionConfig] = Field(
-        default_factory=lambda: {"default": TTSEmotionConfig(path="emotions/neutral.wav")},
+        default_factory=dict,
         description="情绪名到 ref_audio 路径的映射，相对于 models/<tts-provider>/<character_name>/。",
     )
 

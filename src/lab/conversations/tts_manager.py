@@ -724,6 +724,55 @@ def _resolve_voice_ref_audio_and_text(
     )
 
 
+def _require_voice_ref_audio_and_text(
+    voice_config: VoiceConfigData | None,
+    voice_assets_root: Path,
+    emotion_keys: list[str] | None,
+) -> tuple[str, str | None, str | None]:
+    """Resolve voice assets and fail fast instead of falling back to profile emotions."""
+
+    if voice_config is None:
+        raise ValueError("TTS voice is not configured")
+
+    ref_audio, ref_text, speaker_audio = _resolve_voice_ref_audio_and_text(
+        voice_config,
+        voice_assets_root,
+        emotion_keys,
+    )
+    if ref_audio is not None:
+        return ref_audio, ref_text, speaker_audio
+
+    voice_asset_dir = voice_assets_root / voice_config.asset_bundle
+    raise FileNotFoundError(
+        f"Voice ref audio does not exist for voice '{voice_config.voice_id}': {voice_asset_dir}"
+    )
+
+
+def resolve_voice_assets(
+    lab_settings: object | None,
+    voice_id: str,
+    emotion_keys: list[str] | None = None,
+) -> tuple[Path, str | None, Path | None]:
+    """Resolve voice ref/speaker audio to absolute workspace paths."""
+
+    workspace_root = _resolve_workspace_root(lab_settings)
+    voice_assets_root = _resolve_voice_assets_root(lab_settings, workspace_root)
+    voice_config = _load_voice_config(voice_id, workspace_root)
+    if voice_config is None:
+        raise FileNotFoundError(
+            f"Voice config does not exist for '{voice_id}': {workspace_root / 'config' / 'voices' / f'{voice_id}.toml'}"
+        )
+
+    ref_audio_path, ref_text, speaker_audio_path = _require_voice_ref_audio_and_text(
+        voice_config,
+        voice_assets_root,
+        emotion_keys,
+    )
+    resolved_ref_audio = (workspace_root / ref_audio_path).resolve()
+    resolved_speaker_audio = (workspace_root / speaker_audio_path).resolve() if speaker_audio_path else None
+    return resolved_ref_audio, ref_text, resolved_speaker_audio
+
+
 class TTSDispatcher:
     """Resolve engine and voice resources before calling concrete TTS clients."""
 
@@ -779,13 +828,12 @@ class TTSDispatcher:
         return _normalize_tts_provider(getattr(agent_tts_settings, "provider", None))
 
     def _resolve_resources(self, engine: str, emotion_keys: list[str] | None) -> tuple[str, str | None, str | None]:
-        voice_ref_audio_path, voice_ref_text, voice_speaker_audio_path = _resolve_voice_ref_audio_and_text(
-            self._voice_config,
-            self._voice_assets_root,
-            emotion_keys,
-        )
-        if voice_ref_audio_path is not None:
-            return voice_ref_audio_path, voice_ref_text, voice_speaker_audio_path
+        if self._voice_config is not None:
+            return _require_voice_ref_audio_and_text(
+                self._voice_config,
+                self._voice_assets_root,
+                emotion_keys,
+            )
 
         ref_audio_path, ref_text = _require_ref_audio_and_text(
             self._character_config,
