@@ -351,3 +351,24 @@ ref_text_file = "平静/1.txt"
     assert dispatch.engine == "genie_tts"
     assert dispatch.request_payload["ref_audio_path"] == "voices/luming/平静/1.wav"
     assert dispatch.request_payload["ref_text"] == "平静 ref text"
+
+
+def test_tts_dispatcher_requires_explicit_voice_config_to_exist(tmp_path: Path) -> None:
+    settings = SimpleNamespace(
+        agent=SimpleNamespace(tts=SimpleNamespace(provider="genie_tts", voice_assets_root="./voices")),
+        root=SimpleNamespace(root_dir=str(tmp_path)),
+    )
+    character = CharacterSettings(
+        tts_config=TTSConfig(
+            character_name="baoqiao",
+            voice="missing-voice",
+            emotions={"default": {"path": "emotions/neutral.wav", "ref_text": ""}},
+        )
+    )
+
+    try:
+        TTSDispatcher(settings, character)
+    except FileNotFoundError as exc:
+        assert "missing-voice" in str(exc)
+    else:
+        raise AssertionError("expected FileNotFoundError for missing explicit voice config")

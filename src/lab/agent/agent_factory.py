@@ -203,6 +203,7 @@ class AgentFactory:
             profile_path = ws_root / profile_path_str
         if not profile_path.exists():
             raise FileNotFoundError(f"memory_agent_profile not found: {profile_path}")
+        profile = Profile.from_toml(profile_path)
 
         memory_store = MemoryStore()
         storage = MemoryStoreAdapter(
@@ -224,6 +225,10 @@ class AgentFactory:
             core=core,
             live2d_model=live2d_model,
             tts_preprocessor_config=tts_preprocessor_config,
+            show_control_tags=profile.prompt.show_control_tags,
+            default_expression_emotion=(
+                profile.character.default_expression_emotion if profile.character is not None else None
+            ),
             faster_first_response=lab_setting.agent.faster_first_response,
             segment_method=lab_setting.agent.segment_method,
             interrupt_method=lab_setting.agent.interrupt_method,

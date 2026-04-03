@@ -176,7 +176,34 @@ def _resolve_active_voice_id(settings: XnneHangLabSettings) -> str | None:
         if isinstance(voice_id, str) and voice_id.strip():
             return voice_id.strip()
 
-    return _resolve_active_character_name(settings)
+    return None
+
+
+def _check_profile_voice_config(
+    *,
+    ws_root: Path,
+    profile_label: str,
+    character_obj: dict[str, object],
+) -> str | None:
+    tts_obj = character_obj.get("tts")
+    if not isinstance(tts_obj, dict):
+        return None
+
+    tts_data = cast("dict[str, object]", tts_obj)
+    raw_voice = tts_data.get("voice")
+    if not isinstance(raw_voice, str) or not raw_voice.strip():
+        return None
+
+    voice_id = raw_voice.strip()
+    voice_toml_path = ws_root / "config" / "voices" / f"{voice_id}.toml"
+    if voice_toml_path.is_file():
+        return None
+
+    return (
+        f" [character.tts.voice]\n"
+        f" profile '{profile_label}' 指定了 voice = \"{voice_id}\"，但配置文件不存在: {voice_toml_path}\n"
+        f" -> 创建 config/voices/{voice_id}.toml，或删除 profile 里的 voice 字段"
+    )
 
 
 def _resolve_active_profile_tts_engine(settings: XnneHangLabSettings) -> str | None:
@@ -512,6 +539,14 @@ def _check_profiles(settings: XnneHangLabSettings) -> list[str]:
                         f" profile '{memory_agent_profile}' 缺少 [character] 配置\n"
                         " -> VTuber 主链路的 active profile 必须在 profile 中声明 [character]"
                     )
+                else:
+                    voice_config_err = _check_profile_voice_config(
+                        ws_root=ws_root,
+                        profile_label=memory_agent_profile,
+                        character_obj=cast("dict[str, object]", character_obj),
+                    )
+                    if voice_config_err:
+                        errors.append(voice_config_err)
 
                 plugins_obj = profile_data.get("plugins")
                 if isinstance(plugins_obj, dict):

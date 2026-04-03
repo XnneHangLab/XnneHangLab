@@ -10,6 +10,7 @@ def test_to_character_settings_converts_structured_tts_emotions() -> None:
     profile = Profile.model_validate(
         {
             "profile": {"name": "baoqiao", "agent_name": "baoqiao"},
+            "prompt": {"show_control_tags": True},
             "character": {
                 "conf_name": "baoqiao-local",
                 "conf_uid": "baoqiao-local-001",
@@ -17,6 +18,7 @@ def test_to_character_settings_converts_structured_tts_emotions() -> None:
                 "character_name": "Baoqiao",
                 "avatar": "baoqiao.png",
                 "human_name": "Human",
+                "default_expression_emotion": "中性",
                 "tts": {
                     "character_name": "baoqiao",
                     "engine": "qwen_tts",
@@ -41,6 +43,8 @@ def test_to_character_settings_converts_structured_tts_emotions() -> None:
     settings = ServiceContext._to_character_settings(profile)
 
     assert settings is not None
+    assert profile.prompt.show_control_tags is True
+    assert settings.default_expression_emotion == "中性"
     assert settings.tts_config.engine == "qwen_tts"
     assert settings.tts_config.voice == "baoqiao-soft"
     assert settings.tts_config.emotions["default"].path == "emotions/neutral/neutral_01.wav"

@@ -125,6 +125,7 @@ class CharacterSettings(BaseModel):
     character_name: Annotated[str, Field("")]
     avatar: Annotated[str, Field("")]
     human_name: Annotated[str, Field("Human")]
+    default_expression_emotion: Annotated[str | None, Field(None)]
     tts_preprocessor_config: Annotated[TTSPreprocessorConfig, Field(TTSPreprocessorConfig())]  # pyright: ignore[reportCallIssue]
     tts_config: Annotated[
         TTSConfig,

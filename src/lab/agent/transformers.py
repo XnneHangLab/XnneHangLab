@@ -21,6 +21,38 @@ SILENT_TAGS = {"think", "tool"}
 TOOL_MARKER_TEXT = {"<tool>", "</tool>", "<tool/>"}
 
 
+def _resolve_expression_actions(
+    chunk: SentenceWithTags,
+    live2d_model: Live2dModel | None,
+    default_expression_emotion: str | None,
+) -> tuple[list[str] | list[int] | None, str | None]:
+    if live2d_model is None:
+        return None, None
+
+    inv_emo_map = {value: key for key, value in live2d_model.emo_map.items()}
+    explicit_key = chunk.control_tags.expression_emotion_key
+    if explicit_key is not None:
+        resolved_expression = live2d_model.emo_map.get(explicit_key.lower())
+        if resolved_expression is not None:
+            return [resolved_expression], inv_emo_map.get(resolved_expression, explicit_key)
+        logger.warning("Unknown expression control tag '{}', falling back to default expression.", explicit_key)
+
+    legacy_expressions = live2d_model.extract_emotion(chunk.text)
+    if legacy_expressions:
+        first_expression = legacy_expressions[0]
+        return legacy_expressions, inv_emo_map.get(first_expression)
+
+    if default_expression_emotion is None:
+        return None, None
+
+    resolved_default = live2d_model.emo_map.get(default_expression_emotion.lower())
+    if resolved_default is None:
+        logger.warning("Configured default expression emotion '{}' is not in the Live2D emotion map.", default_expression_emotion)
+        return None, None
+
+    return [resolved_default], inv_emo_map.get(resolved_default, default_expression_emotion)
+
+
 def sentence_divider(
     faster_first_response: bool = True,
     segment_method: str = "pysbd",
@@ -56,7 +88,11 @@ def sentence_divider(
     return decorator
 
 
-def actions_extractor(live2d_model: Live2dModel | None):
+def actions_extractor(
+    live2d_model: Live2dModel | None,
+    *,
+    default_expression_emotion: str | None = None,
+):
     """
     Decorator that extracts actions from sentences
     """
@@ -76,12 +112,16 @@ def actions_extractor(live2d_model: Live2dModel | None):
                     if not any(tag.name in SILENT_TAGS for tag in chunk.tags) and not any(
                         tag.state in [TagState.START, TagState.END] for tag in chunk.tags
                     ):
-                        if live2d_model is not None:
-                            expressions = live2d_model.extract_emotion(chunk.text)
-                            if expressions:
-                                actions.expressions = expressions
-                                inv_emo_map = {value: key for key, value in live2d_model.emo_map.items()}
-                                actions.emotion_keys = [inv_emo_map.get(expression, "") for expression in expressions]
+                        expressions, expression_emotion_key = _resolve_expression_actions(
+                            chunk,
+                            live2d_model,
+                            default_expression_emotion,
+                        )
+                        if expressions:
+                            actions.expressions = expressions
+                        actions.expression_emotion_key = expression_emotion_key
+                        actions.tts_emotion_key = chunk.control_tags.tts_emotion_key
+                        actions.emotion_keys = [chunk.control_tags.tts_emotion_key] if chunk.control_tags.tts_emotion_key else None
                     yield chunk, actions
 
         return wrapper
@@ -89,7 +129,7 @@ def actions_extractor(live2d_model: Live2dModel | None):
     return decorator
 
 
-def display_processor():
+def display_processor(*, show_control_tags: bool = False):
     """
     Decorator that processes text for display.
     """
@@ -120,6 +160,11 @@ def display_processor():
                                 text = "("
                             elif tag.state == TagState.END:
                                 text = ")"
+
+                    if show_control_tags:
+                        prefix = sentence.control_tags.render_prefix()
+                        if prefix:
+                            text = f"{prefix} {text}" if text else prefix
 
                     display = DisplayText(text=text)  # Simplified DisplayText creation
                     yield sentence, display, actions
@@ -155,7 +200,7 @@ def tts_filter(
                         tts = ""
                     else:
                         tts = filter_text(
-                            text=display.text,
+                            text=sentence.text,
                             remove_special_char=config.remove_special_char,
                             ignore_brackets=config.ignore_brackets,
                             ignore_parentheses=config.ignore_parentheses,

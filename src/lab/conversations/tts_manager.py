@@ -419,7 +419,7 @@ def _normalize_string_object_dict(value: object) -> dict[str, object] | None:
     if not isinstance(value, Mapping):
         return None
 
-    raw_mapping = cast(Mapping[object, object], value)
+    raw_mapping = cast("Mapping[object, object]", value)
     return {str(key): item for key, item in raw_mapping.items()}
 
 
@@ -427,7 +427,7 @@ def _normalize_object_list(value: object) -> list[object] | None:
     if not isinstance(value, list):
         return None
 
-    return cast(list[object], value)
+    return cast("list[object]", value)
 
 
 def _parse_voice_emotions(payload: Mapping[str, object]) -> dict[str, VoiceEmotionData] | None:
@@ -603,7 +603,7 @@ def _load_voice_config(voice_id: str, workspace_root: Path) -> VoiceConfigData |
     asset_bundle = voice_id
 
     with voice_config_path.open("rb") as file:
-        payload = cast(dict[str, object], tomllib.load(file))
+        payload = cast("dict[str, object]", tomllib.load(file))
 
     voice_section = _normalize_string_object_dict(payload.get("voice"))
     if voice_section is not None:
@@ -732,7 +732,12 @@ class TTSDispatcher:
         self._character_config = character_config
         self._workspace_root = _resolve_workspace_root(lab_settings)
         self._voice_assets_root = _resolve_voice_assets_root(lab_settings, self._workspace_root)
-        self._voice_config = _load_voice_config(self._voice_id, self._workspace_root)
+        self._voice_config = _load_voice_config(self._configured_voice_id, self._workspace_root)
+        if self._configured_voice_id and self._voice_config is None:
+            raise FileNotFoundError(
+                f"Voice config does not exist for configured voice '{self._configured_voice_id}': "
+                f"{self._workspace_root / 'config' / 'voices' / f'{self._configured_voice_id}.toml'}"
+            )
 
     @property
     def _character_name(self) -> str:
@@ -741,14 +746,12 @@ class TTSDispatcher:
         return self._character_config.tts_config.character_name.strip()
 
     @property
-    def _voice_id(self) -> str:
+    def _configured_voice_id(self) -> str:
         if self._character_config is None:
             return ""
 
         voice = (self._character_config.tts_config.voice or "").strip()
-        if voice:
-            return voice
-        return self._character_name
+        return voice
 
     def resolve(self, text: str, emotion_keys: list[str] | None = None) -> ResolvedTTSDispatch:
         engine = self._resolve_engine()
@@ -934,11 +937,11 @@ class TTSTaskManager:
         """Process TTS generation and queue the result for ordered delivery."""
         del live2d_model
         async with self._tts_semaphore:
-            emotion_keys = actions.emotion_keys if actions is not None else None
+            tts_emotion_keys = [actions.tts_emotion_key] if actions is not None and actions.tts_emotion_key else None
             audio_file_path = await self._generate_audio(
                 tts_text,
                 character_config=character_config,
-                emotion_keys=emotion_keys,
+                emotion_keys=tts_emotion_keys,
             )
             if not audio_file_path:
                 logger.warning(

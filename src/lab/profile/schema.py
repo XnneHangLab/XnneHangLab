@@ -35,6 +35,19 @@ class PromptConfig(BaseModel):
 
     persona: str | None = None
     format: str | None = None
+    show_control_tags: bool = False
+
+    @field_validator("persona", "format", mode="before")
+    @classmethod
+    def _normalize_optional_path(cls, value: Any) -> str | None:
+        if value is None:
+            return None
+
+        normalized = str(value).strip()
+        if not normalized:
+            return None
+
+        return normalized
 
 
 class TTSPreprocessorConfig(BaseModel):
@@ -150,8 +163,21 @@ class CharacterConfig(BaseModel):
     character_name: str = ""
     avatar: str = ""
     human_name: str = "Human"
+    default_expression_emotion: str | None = None
     tts_preprocessor: TTSPreprocessorConfig = Field(default_factory=TTSPreprocessorConfig)
     tts: TTSConfig = Field(default_factory=TTSConfig)
+
+    @field_validator("default_expression_emotion", mode="before")
+    @classmethod
+    def _normalize_default_expression_emotion(cls, value: Any) -> str | None:
+        if value is None:
+            return None
+
+        normalized = str(value).strip()
+        if not normalized:
+            return None
+
+        return normalized
 
 
 class PluginsConfig(BaseModel):

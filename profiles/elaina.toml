@@ -10,6 +10,7 @@ live2d_model_name = "Elaina"
 character_name = "Elaina"
 avatar = "ico_lss.png"
 human_name = "Human"
+default_expression_emotion = "平静"
 
 [character.tts_preprocessor]
 remove_special_char = true
@@ -29,6 +30,7 @@ speaker_audio_path = "elaina.wav"
 [prompt]
 persona = "prompts/characters/elaina.md"
 format = "prompts/formats/emotion_bracket.md"
+show_control_tags = false
 
 [plugins]
 enabled = [

@@ -107,6 +107,8 @@ class ActionsDict(TypedDict):
     pictures: list[str] | None
     sounds: list[str] | None
     emotion_keys: list[str] | None
+    expression_emotion_key: str | None
+    tts_emotion_key: str | None
     pose: dict[str, float] | None
     pose_patch: dict[str, float] | None
     pose_mode: str | None
@@ -127,6 +129,8 @@ class Actions:
     pictures: list[str] | None = None
     sounds: list[str] | None = None
     emotion_keys: list[str] | None = None
+    expression_emotion_key: str | None = None
+    tts_emotion_key: str | None = None
     pose: dict[str, float] | None = None
     pose_patch: dict[str, float] | None = None
     pose_mode: str | None = None
@@ -149,6 +153,8 @@ class Actions:
             pictures=self.pictures,
             sounds=self.sounds,
             emotion_keys=self.emotion_keys,
+            expression_emotion_key=self.expression_emotion_key,
+            tts_emotion_key=self.tts_emotion_key,
             pose=self.pose,
             pose_patch=self.pose_patch,
             pose_mode=self.pose_mode,

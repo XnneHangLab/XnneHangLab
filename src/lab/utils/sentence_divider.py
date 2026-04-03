@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, overload
 
@@ -49,6 +49,8 @@ PARAGRAPH_BREAK_RE = re.compile(r"(?:\r?\n\s*){2,}")
 ACTION_LINE_BREAK_RE = re.compile(r"\r?\n\s*(?:\[[^\]\r\n]+\]|\([^)]+\))")
 FULL_BLOCK_BREAK_RE = re.compile(r"\r?\n+")
 URL_TEXT_RE = re.compile(r"(?i)\b(?:https?://|www\.)[^\s<>\u3000]+")
+CONTROL_TAG_RE = re.compile(r"\[\s*(tts|expression)\s*:\s*([^\]\r\n]+?)\s*\]", re.IGNORECASE)
+CONTROL_TAG_PREFIXES = ("[tts", "[expression")
 DEFAULT_STREAMING_CLEANER = TextCleaner(
     CleanerConfig(
         clean_emoji=False,
@@ -521,9 +523,33 @@ class TagInfo:
 
 
 @dataclass
+class ControlTags:
+    tts_emotion_key: str | None = None
+    expression_emotion_key: str | None = None
+
+    def is_empty(self) -> bool:
+        return self.tts_emotion_key is None and self.expression_emotion_key is None
+
+    def copy(self) -> ControlTags:
+        return ControlTags(
+            tts_emotion_key=self.tts_emotion_key,
+            expression_emotion_key=self.expression_emotion_key,
+        )
+
+    def render_prefix(self) -> str:
+        parts: list[str] = []
+        if self.tts_emotion_key is not None:
+            parts.append(f"[tts:{self.tts_emotion_key}]")
+        if self.expression_emotion_key is not None:
+            parts.append(f"[expression:{self.expression_emotion_key}]")
+        return "".join(parts)
+
+
+@dataclass
 class SentenceWithTags:
     text: str
     tags: list[TagInfo]
+    control_tags: ControlTags = field(default_factory=ControlTags)
 
 
 class SentenceDivider:
@@ -545,6 +571,7 @@ class SentenceDivider:
         self._is_first_sentence = True
         self._buffer = ""
         self._tag_stack: list[TagInfo] = []
+        self._pending_control_tags = ControlTags()
         self._full_response: list[str] = []
 
     def _get_current_tags(self) -> list[TagInfo]:
@@ -608,6 +635,60 @@ class SentenceDivider:
     def _default_tags(self) -> list[TagInfo]:
         return self._get_current_tags() or [TagInfo("", TagState.NONE)]
 
+    def _merge_pending_control_tags(self, controls: ControlTags) -> None:
+        if controls.tts_emotion_key is not None:
+            self._pending_control_tags.tts_emotion_key = controls.tts_emotion_key
+        if controls.expression_emotion_key is not None:
+            self._pending_control_tags.expression_emotion_key = controls.expression_emotion_key
+
+    def _take_pending_control_tags(self) -> ControlTags:
+        controls = self._pending_control_tags.copy()
+        self._pending_control_tags = ControlTags()
+        return controls
+
+    def _extract_leading_control_tags(self, text: str) -> tuple[ControlTags | None, str, bool]:
+        index = 0
+        consumed_any = False
+        controls = ControlTags()
+
+        while True:
+            while index < len(text) and text[index].isspace():
+                index += 1
+
+            if index >= len(text) or text[index] != "[":
+                break
+
+            match = CONTROL_TAG_RE.match(text, index)
+            if match is None:
+                remainder = text[index:].lower()
+                if remainder.startswith(CONTROL_TAG_PREFIXES):
+                    return controls if consumed_any else None, text, True
+                break
+
+            control_type = match.group(1).lower()
+            control_value = match.group(2).strip()
+            if control_type == "tts":
+                if controls.tts_emotion_key is not None and controls.tts_emotion_key != control_value:
+                    logger.warning("Duplicate leading tts control tag detected, overriding with latest value: {}", control_value)
+                controls.tts_emotion_key = control_value
+            else:
+                if (
+                    controls.expression_emotion_key is not None
+                    and controls.expression_emotion_key != control_value
+                ):
+                    logger.warning(
+                        "Duplicate leading expression control tag detected, overriding with latest value: {}",
+                        control_value,
+                    )
+                controls.expression_emotion_key = control_value
+            index = match.end()
+            consumed_any = True
+
+        if not consumed_any:
+            return None, text, False
+
+        return controls, text[index:].lstrip(), False
+
     def _clean_stream_text(self, text: str) -> str:
         cleaned = self.cleaner.clean(text)
         return cleaned.strip()
@@ -618,10 +699,13 @@ class SentenceDivider:
         merged_texts, trailing_short = _merge_short_sentence_texts(texts, max_sentence_len=self.max_sentence_len)
         if trailing_short:
             merged_texts.append(trailing_short)
+        attach_pending_controls = not self._pending_control_tags.is_empty()
         for text in merged_texts:
             cleaned = self._clean_stream_text(text)
             if cleaned:
-                result.append(SentenceWithTags(text=cleaned, tags=sentence_tags))
+                control_tags = self._take_pending_control_tags() if attach_pending_controls else ControlTags()
+                attach_pending_controls = False
+                result.append(SentenceWithTags(text=cleaned, tags=sentence_tags, control_tags=control_tags))
         return result
 
     def _flush_plain_buffer(self, *, force: bool = False, final: bool = False) -> list[SentenceWithTags]:
@@ -685,6 +769,17 @@ class SentenceDivider:
         result: list[SentenceWithTags] = []
 
         while self._buffer.strip():
+            if not self._tag_stack:
+                controls, remaining, incomplete = self._extract_leading_control_tags(self._buffer)
+                if incomplete and not final:
+                    break
+                if controls is not None and not incomplete:
+                    self._merge_pending_control_tags(controls)
+                    self._buffer = remaining
+                    if not self._buffer.strip():
+                        break
+                    continue
+
             next_tag_pos = self._find_next_tag_pos()
 
             if next_tag_pos == 0:
@@ -818,4 +913,5 @@ class SentenceDivider:
         self._is_first_sentence = True
         self._buffer = ""
         self._tag_stack = []
+        self._pending_control_tags = ControlTags()
         self._full_response = []

@@ -160,6 +160,7 @@ class ServiceContext:
             character_name=char.character_name,
             avatar=char.avatar,
             human_name=char.human_name,
+            default_expression_emotion=char.default_expression_emotion,
             tts_preprocessor_config=VTuberTTSPreprocessorConfig(
                 remove_special_char=char.tts_preprocessor.remove_special_char,
                 ignore_brackets=char.tts_preprocessor.ignore_brackets,

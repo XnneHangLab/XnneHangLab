@@ -303,6 +303,40 @@ preferred_engine = "gsv_lite"
     assert any("package.gsv_lite = false" in err for err in errors)
 
 
+def test_validate_reports_missing_explicit_voice_config(tmp_path: Path) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+    (profiles_dir / "vtuber.toml").write_text(
+        """
+[profile]
+name = "vtuber"
+agent_name = "vtuber"
+
+[character]
+conf_name = "vtuber-local"
+conf_uid = "vtuber-local-001"
+live2d_model_name = "Baoqiao"
+character_name = "VTuber"
+avatar = "avatar.png"
+human_name = "Human"
+
+[character.tts]
+character_name = "baoqiao"
+voice = "missing-voice"
+""".strip(),
+        encoding="utf-8",
+    )
+    _write_memory_chat_profile(profiles_dir)
+
+    settings = _base_settings(tmp_path)
+    settings.agent.memory_agent_profile = "profiles/vtuber.toml"
+
+    errors = validate_all(settings)
+
+    assert any('[character.tts.voice]' in err for err in errors)
+    assert any('voice = "missing-voice"' in err for err in errors)
+
+
 def test_validate_skips_inactive_tts_package_model_checks_when_profile_engine_overrides(tmp_path: Path) -> None:
     profiles_dir = tmp_path / "profiles"
     profiles_dir.mkdir()

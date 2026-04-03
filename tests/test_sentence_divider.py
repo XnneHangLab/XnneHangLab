@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from lab.utils.sentence_divider import (
     SentenceDivider,
+    SentenceWithTags,
     contains_end_punctuation,
     segment_full,
     segment_text_by_pysbd,
@@ -192,3 +193,50 @@ def test_sentence_divider_stream_merges_short_interjection_before_emitting() -> 
         return chunks
 
     assert asyncio.run(_collect()) == ["[欸。]我刚刚看错了。然后继续。"]
+
+
+def test_sentence_divider_extracts_control_tags_for_first_sentence_only() -> None:
+    async def _collect() -> list[SentenceWithTags]:
+        divider = SentenceDivider(
+            faster_first_response=False,
+            segment_method="regex",
+            valid_tags=["think", "tool"],
+        )
+
+        async def _source() -> AsyncIterator[str]:
+            yield "[tts:愉快][expression:脸红] 你好，我先说明一下。接下来继续处理这个问题。"
+
+        chunks: list[SentenceWithTags] = []
+        async for chunk in divider.process_stream(_source()):
+            chunks.append(chunk)
+        return chunks
+
+    chunks = asyncio.run(_collect())
+    assert [chunk.text for chunk in chunks] == ["你好，我先说明一下。", "接下来继续处理这个问题。"]
+    assert chunks[0].control_tags.tts_emotion_key == "愉快"
+    assert chunks[0].control_tags.expression_emotion_key == "脸红"
+    assert chunks[1].control_tags.is_empty()
+
+
+def test_sentence_divider_handles_control_tags_split_across_segments() -> None:
+    async def _collect() -> list[SentenceWithTags]:
+        divider = SentenceDivider(
+            faster_first_response=False,
+            segment_method="regex",
+            valid_tags=["think", "tool"],
+        )
+
+        async def _source() -> AsyncIterator[str]:
+            yield "[tts:愉"
+            yield "快][expression:脸红] 你好。"
+
+        chunks: list[SentenceWithTags] = []
+        async for chunk in divider.process_stream(_source()):
+            chunks.append(chunk)
+        return chunks
+
+    chunks = asyncio.run(_collect())
+    assert len(chunks) == 1
+    assert chunks[0].text == "你好。"
+    assert chunks[0].control_tags.tts_emotion_key == "愉快"
+    assert chunks[0].control_tags.expression_emotion_key == "脸红"
