@@ -10,6 +10,7 @@ from lab.config_manager.vtuber import CharacterSettings, TTSConfig
 from lab.conversations.tts_manager import (
     TTSDispatcher,
     _load_voice_config,
+    _require_voice_ref_audio_and_text,
     _resolve_gsv_lite_speaker_audio_path,
     _resolve_ref_audio_and_text,
     _resolve_voice_ref_audio_and_text,
@@ -144,6 +145,18 @@ def test_profile_tts_config_accepts_legacy_and_structured_emotions() -> None:
     assert config.emotions["happy"].path == "emotions/happy.wav"
     assert config.emotions["happy"].ref_text == "happy ref text"
     assert config.emotions["happy"].speaker_audio_path == "speaker/happy.wav"
+
+
+def test_profile_tts_config_defaults_emotions_to_empty_dict() -> None:
+    config = ProfileTTSConfig.model_validate(
+        {
+            "character_name": "baoqiao",
+            "voice": "baoqiao-soft",
+        }
+    )
+
+    assert config.voice == "baoqiao-soft"
+    assert config.emotions == {}
 
 
 def test_resolve_gsv_lite_speaker_audio_path_prefers_matching_emotion(tmp_path: Path, monkeypatch) -> None:
@@ -362,7 +375,6 @@ def test_tts_dispatcher_requires_explicit_voice_config_to_exist(tmp_path: Path) 
         tts_config=TTSConfig(
             character_name="baoqiao",
             voice="missing-voice",
-            emotions={"default": {"path": "emotions/neutral.wav", "ref_text": ""}},
         )
     )
 
@@ -372,3 +384,64 @@ def test_tts_dispatcher_requires_explicit_voice_config_to_exist(tmp_path: Path) 
         assert "missing-voice" in str(exc)
     else:
         raise AssertionError("expected FileNotFoundError for missing explicit voice config")
+
+
+def test_require_voice_ref_audio_and_text_does_not_fall_back_to_profile_emotions(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config" / "voices"
+    voice_assets_root = tmp_path / "voice-assets"
+    config_dir.mkdir(parents=True)
+    (config_dir / "baoqiao-soft.toml").write_text(
+        """
+[voice]
+name = "baoqiao-soft"
+asset_bundle = "baoqiao-assets"
+default_emotion = "default"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    voice_config = _load_voice_config("baoqiao-soft", tmp_path.resolve())
+
+    try:
+        _require_voice_ref_audio_and_text(
+            voice_config,
+            voice_assets_root.resolve(),
+            emotion_keys=["happy"],
+        )
+    except FileNotFoundError as exc:
+        assert "baoqiao-soft" in str(exc)
+    else:
+        raise AssertionError("expected FileNotFoundError when voice assets are missing")
+
+
+def test_tts_dispatcher_does_not_fall_back_to_profile_emotions_when_voice_is_configured(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config" / "voices"
+    config_dir.mkdir(parents=True)
+    (config_dir / "baoqiao-soft.toml").write_text(
+        """
+[voice]
+name = "baoqiao-soft"
+asset_bundle = "baoqiao-assets"
+default_emotion = "default"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    settings = SimpleNamespace(
+        agent=SimpleNamespace(tts=SimpleNamespace(provider="genie_tts", voice_assets_root="./voice-assets")),
+        root=SimpleNamespace(root_dir=str(tmp_path)),
+    )
+    character = CharacterSettings(
+        tts_config=TTSConfig(
+            character_name="baoqiao",
+            voice="baoqiao-soft",
+            emotions={"default": {"path": "emotions/neutral.wav", "ref_text": "legacy ref text"}},
+        )
+    )
+
+    try:
+        TTSDispatcher(settings, character).resolve("hello")
+    except FileNotFoundError as exc:
+        assert "baoqiao-soft" in str(exc)
+    else:
+        raise AssertionError("expected voice resolution to fail instead of falling back to profile emotions")

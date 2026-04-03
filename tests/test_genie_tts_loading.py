@@ -132,18 +132,39 @@ def test_resolve_warmup_ref_audio_and_text_prefers_default_emotion(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    settings = SimpleNamespace(root=SimpleNamespace(root_dir=str(tmp_path)))
-    ref_audio = tmp_path / "models" / "genie-tts" / "baoqiao" / "ref_audios" / "default.wav"
+    settings = SimpleNamespace(
+        agent=SimpleNamespace(tts=SimpleNamespace(voice_assets_root="./voices")),
+        root=SimpleNamespace(root_dir=str(tmp_path)),
+    )
+    config_dir = tmp_path / "config" / "voices"
+    ref_audio = tmp_path / "voices" / "luming" / "平静" / "1.wav"
+    ref_text = tmp_path / "voices" / "luming" / "平静" / "1.txt"
+    config_dir.mkdir(parents=True)
     ref_audio.parent.mkdir(parents=True)
     ref_audio.write_bytes(b"wav")
+    ref_text.write_text("default ref", encoding="utf-8")
+    (config_dir / "luming.toml").write_text(
+        """
+[voice]
+name = "luming"
+asset_bundle = "luming"
+default_emotion = "平静"
+
+[emotions."平静"]
+
+[[emotions."平静".clips]]
+id = "1"
+ref_audio = "平静/1.wav"
+ref_text_file = "平静/1.txt"
+""".strip(),
+        encoding="utf-8",
+    )
 
     profile = SimpleNamespace(
         character=SimpleNamespace(
             tts=SimpleNamespace(
-                emotions={
-                    "default": SimpleNamespace(path="ref_audios/default.wav", ref_text="default ref"),
-                    "happy": SimpleNamespace(path="ref_audios/happy.wav", ref_text="happy ref"),
-                }
+                voice="luming",
+                emotions={},
             )
         )
     )

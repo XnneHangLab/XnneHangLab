@@ -23,11 +23,6 @@ ignore_angle_brackets = true
 character_name = "luming"
 voice = "luming"
 
-[character.tts.emotions.default]
-path = "ref_audios/中间是个很漂亮的大姐姐哦，头发长长的。.wav"
-ref_text = "中间是个很漂亮的大姐姐哦，头发长长的。"
-speaker_audio_path = "ref_audios/你就想象一下嘛，像熊猫,哦不对，是反色的熊猫。.wav"
-
 [prompt]
 persona = "prompts/characters/baoqiao.md"
 format = "prompts/formats/baoqiao_emotion_bracket.md"

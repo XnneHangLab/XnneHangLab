@@ -20,6 +20,12 @@ from fastapi import HTTPException
 from loguru import logger
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
+from lab.conversations.tts_manager import (
+    _load_voice_config,
+    _require_voice_ref_audio_and_text,
+    _resolve_voice_assets_root,
+    _resolve_workspace_root,
+)
 from lab.profile.schema import Profile
 
 DEFAULT_SAMPLE_RATE = 32000
@@ -104,13 +110,11 @@ def _resolve_active_character_name(settings: XnneHangLabSettings) -> str:
     raise RuntimeError("failed to resolve active character name for genie-tts")
 
 
-def _iter_reference_base_dirs(settings: XnneHangLabSettings, character_name: str) -> list[Path]:
-    models_dir = (Path(settings.root.root_dir) / "models").resolve()
-    bases: list[Path] = []
-    for base in ((models_dir / _GENIE_TTS_MODEL_DIRNAME / character_name).resolve(),):
-        if base not in bases:
-            bases.append(base)
-    return bases
+def _resolve_workspace_path(workspace_root: Path, raw_path: str) -> Path:
+    path = Path(raw_path)
+    if not path.is_absolute():
+        path = workspace_root / path
+    return path.resolve()
 
 
 def _resolve_character_dir(settings: XnneHangLabSettings, character_name: str) -> Path:
@@ -262,41 +266,34 @@ def _resolve_warmup_ref_audio_and_text(
     if profile.character is None:
         raise RuntimeError("active profile does not define [character]")
 
-    emotions = profile.character.tts.emotions
-    if not emotions:
-        raise RuntimeError(f"genie-tts warmup failed: no TTS emotions configured for character '{character_name}'")
-
-    keys_to_try: list[str] = []
-    if "default" in emotions:
-        keys_to_try.append("default")
-    for key in emotions:
-        if key not in keys_to_try:
-            keys_to_try.append(key)
-
-    checked_paths: list[Path] = []
-    for key in keys_to_try:
-        emotion = emotions[key]
-        if not emotion.path.strip():
-            continue
-        ref_text = emotion.ref_text.strip()
-        if not ref_text:
-            continue
-        for base in _iter_reference_base_dirs(settings, character_name):
-            candidate = (base / emotion.path).resolve()
-            checked_paths.append(candidate)
-            if candidate.is_file():
-                return candidate, ref_text
-
-    if checked_paths:
-        checked = ", ".join(str(path) for path in checked_paths)
-        raise FileNotFoundError(
-            f"genie-tts warmup failed: no configured ref audio file exists for character '{character_name}'. "
-            f"Checked: {checked}"
+    voice_id = (profile.character.tts.voice or "").strip()
+    if not voice_id:
+        raise RuntimeError(
+            f"genie-tts warmup failed: active profile does not define [character.tts].voice for character "
+            f"'{character_name}'"
         )
 
-    raise RuntimeError(
-        f"genie-tts warmup failed: no emotion with both path and ref_text is configured for character '{character_name}'"
+    workspace_root = _resolve_workspace_root(settings)
+    voice_assets_root = _resolve_voice_assets_root(settings, workspace_root)
+    voice_config = _load_voice_config(voice_id, workspace_root)
+    if voice_config is None:
+        raise FileNotFoundError(
+            f"genie-tts warmup failed: voice config does not exist for '{voice_id}': "
+            f"{workspace_root / 'config' / 'voices' / f'{voice_id}.toml'}"
+        )
+
+    ref_audio_path, ref_text, _speaker_audio_path = _require_voice_ref_audio_and_text(
+        voice_config,
+        voice_assets_root,
+        None,
     )
+    normalized_ref_text = (ref_text or "").strip()
+    if not normalized_ref_text:
+        raise RuntimeError(
+            f"genie-tts warmup failed: voice '{voice_id}' has no usable ref_text for character '{character_name}'"
+        )
+
+    return _resolve_workspace_path(workspace_root, ref_audio_path), normalized_ref_text
 
 
 def _get_genie_tts_use_roberta(settings: object) -> bool:

@@ -113,27 +113,46 @@ def test_resolve_warmup_inputs_prefers_character_dir_and_speaker_audio(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    ref_audio = tmp_path / "models" / "gsv-tts-lite" / "baoqiao" / "ref_audios" / "default.wav"
-    speaker_audio = tmp_path / "models" / "gsv-tts-lite" / "baoqiao" / "speaker" / "default.wav"
+    config_dir = tmp_path / "config" / "voices"
+    ref_audio = tmp_path / "voices" / "luming" / "平静" / "1.wav"
+    speaker_audio = tmp_path / "voices" / "luming" / "speaker" / "default.wav"
+    ref_text = tmp_path / "voices" / "luming" / "平静" / "1.txt"
+    config_dir.mkdir(parents=True)
     ref_audio.parent.mkdir(parents=True)
     speaker_audio.parent.mkdir(parents=True)
     ref_audio.write_bytes(b"wav")
     speaker_audio.write_bytes(b"wav")
+    ref_text.write_text("default ref", encoding="utf-8")
+    (config_dir / "luming.toml").write_text(
+        """
+[voice]
+name = "luming"
+asset_bundle = "luming"
+default_emotion = "平静"
+
+[emotions."平静"]
+speaker_audio = "speaker/default.wav"
+
+[[emotions."平静".clips]]
+id = "1"
+ref_audio = "平静/1.wav"
+ref_text_file = "平静/1.txt"
+""".strip(),
+        encoding="utf-8",
+    )
 
     profile = SimpleNamespace(
         character=SimpleNamespace(
             tts=SimpleNamespace(
-                emotions={
-                    "default": SimpleNamespace(
-                        path="ref_audios/default.wav",
-                        ref_text="default ref",
-                        speaker_audio_path="speaker/default.wav",
-                    )
-                }
+                voice="luming",
+                emotions={},
             )
         )
     )
-    settings = SimpleNamespace(root=SimpleNamespace(root_dir=str(tmp_path)))
+    settings = SimpleNamespace(
+        agent=SimpleNamespace(tts=SimpleNamespace(voice_assets_root="./voices")),
+        root=SimpleNamespace(root_dir=str(tmp_path)),
+    )
     spec = gsv_lite_module.GSVLiteModelSpec(
         character_name="baoqiao",
         character_dir=(tmp_path / "models" / "gsv-tts-lite" / "baoqiao").resolve(),
