@@ -98,6 +98,42 @@ class ASRClient(BaseClientInterface):
         self.base_url = self.base_url
         self.last_error: str | None = None
 
+    @staticmethod
+    def _is_provider_enabled(settings: XnneHangLabSettings, provider: str) -> bool:
+        normalized = provider.strip().lower()
+        if normalized == "qwen":
+            return settings.package.qwen_asr
+        if normalized == "sherpa":
+            return settings.package.sherpa_asr
+        return False
+
+    def _resolve_effective_provider(self, settings: XnneHangLabSettings) -> str:
+        """解析当前请求实际使用的 ASR provider。
+
+        优先使用配置中的 provider；若该 provider 未启用，则回退到任一已启用的引擎。
+        """
+        configured_provider = settings.asr.asr_model_provider.strip().lower()
+        if self._is_provider_enabled(settings, configured_provider):
+            return configured_provider
+
+        if settings.package.sherpa_asr:
+            _asr_logger.warning(
+                f"Configured ASR provider '{configured_provider or '<empty>'}' is unavailable; "
+                "falling back to Sherpa-ONNX."
+            )
+            return "sherpa"
+
+        if settings.package.qwen_asr:
+            _asr_logger.warning(
+                f"Configured ASR provider '{configured_provider or '<empty>'}' is unavailable; "
+                "falling back to Qwen3-ASR."
+            )
+            return "qwen"
+
+        raise RuntimeError(
+            "ASR is disabled in lab.toml. Enable [package].sherpa_asr or [package].qwen_asr, or use text input."
+        )
+
     def _resolve_qwen_route_model(self, request: ASRRequest) -> str:
         """解析 Qwen3-ASR 调用使用的端点模型名。
 
@@ -135,12 +171,11 @@ class ASRClient(BaseClientInterface):
             RuntimeError: 目标服务未启用时抛出。
         """
         settings = load_settings_file("lab.toml", XnneHangLabSettings)
-        if settings.asr.asr_model_provider == "qwen":
+        effective_provider = self._resolve_effective_provider(settings)
+        if effective_provider == "qwen":
             model_name = self._resolve_qwen_route_model(request)
             return f"{self.base_url}/asr/qwen-asr/{model_name}/transcribe"
 
-        if not settings.package.sherpa_asr:
-            raise RuntimeError("Sherpa-ONNX is disabled in lab.toml")
         return f"{self.base_url}/asr/sherpa/transcribe"
 
     def post(self, request: ASRRequest) -> list[Sentence] | None:  # type: ignore[override]
@@ -216,6 +251,8 @@ class ASRClient(BaseClientInterface):
             self.last_error = f"File not found: {request.file_path}"
             _asr_logger.error(self.last_error)
             return None
+
+        self.last_error = None
 
         try:
             base_url = self._resolve_base_url(request)

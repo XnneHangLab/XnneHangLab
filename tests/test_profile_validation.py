@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from lab.config_manager import XnneHangLabSettings
-from lab.config_manager.validators import validate_all
+from lab.config_manager.validators import validate_all, validate_startup
 
 
 def _base_settings(tmp_path: Path) -> XnneHangLabSettings:
@@ -395,6 +395,18 @@ def test_validate_rejects_disabled_qwen_provider_selection(tmp_path: Path) -> No
 
     assert any('asr_model_provider = "qwen"' in err for err in errors)
     assert any("package.qwen_asr = false" in err for err in errors)
+
+
+def test_validate_startup_warns_for_disabled_asr_provider_selection(tmp_path: Path) -> None:
+    settings = _base_settings(tmp_path)
+    settings.asr.asr_model_provider = "sherpa"
+    settings.package.sherpa_asr = False
+    settings.package.qwen_asr = False
+
+    errors, warnings = validate_startup(settings)
+
+    assert not any('asr_model_provider = "sherpa"' in err for err in errors)
+    assert any('asr_model_provider = "sherpa"' in warning for warning in warnings)
 
 
 def test_validate_rejects_disabled_qwen_tts_selection(tmp_path: Path) -> None:

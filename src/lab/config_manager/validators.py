@@ -809,8 +809,34 @@ def validate_all(settings: XnneHangLabSettings) -> list[str]:
         错误信息列表；空列表表示全部通过。
     """
     logger.debug("Running declarative configuration validation")
+    errors, _ = _collect_validation_issues(settings, asr_provider_mismatch_is_fatal=True)
+    return errors
 
+
+def validate_startup(settings: XnneHangLabSettings) -> tuple[list[str], list[str]]:
+    """执行启动阶段配置校验。
+
+    ASR provider 与 package 开关不一致时仅作为警告处理，
+    允许服务在“仅文本输入”模式下继续启动。
+
+    Args:
+        settings: 完整配置对象。
+
+    Returns:
+        tuple[list[str], list[str]]: `(errors, warnings)`。
+    """
+    logger.debug("Running startup configuration validation")
+    return _collect_validation_issues(settings, asr_provider_mismatch_is_fatal=False)
+
+
+def _collect_validation_issues(
+    settings: XnneHangLabSettings,
+    *,
+    asr_provider_mismatch_is_fatal: bool,
+) -> tuple[list[str], list[str]]:
+    """汇总配置校验中的错误与警告。"""
     errors: list[str] = []
+    warnings: list[str] = []
 
     api_err = _check_chat_api_key(settings)
     if api_err:
@@ -820,9 +846,10 @@ def validate_all(settings: XnneHangLabSettings) -> list[str]:
     if translate_err:
         errors.append(translate_err)
 
-    asr_provider_err = _check_asr_provider_package_match(settings)
-    if asr_provider_err:
-        errors.append(asr_provider_err)
+    asr_provider_issue = _check_asr_provider_package_match(settings)
+    if asr_provider_issue:
+        target = errors if asr_provider_mismatch_is_fatal else warnings
+        target.append(asr_provider_issue)
 
     qwen_tts_err = _check_qwen_tts_package_match(settings)
     if qwen_tts_err:
@@ -839,4 +866,4 @@ def validate_all(settings: XnneHangLabSettings) -> list[str]:
     errors += _check_profiles(settings)
     errors += validate_packages(settings)
 
-    return errors
+    return errors, warnings

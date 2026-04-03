@@ -30,9 +30,12 @@ def parse_args(lab_settings: XnneHangLabSettings):
 
 def validate_config(settings: XnneHangLabSettings) -> None:
     """Validate critical runtime configuration before starting the server."""
-    from lab.config_manager.validators import validate_all
+    from lab.config_manager.validators import validate_startup
 
-    errors = validate_all(settings)
+    errors, warnings = validate_startup(settings)
+
+    if warnings:
+        logger.warning("⚠️ 配置存在非阻断问题，本次启动将跳过相关 ASR 能力并继续：\n\n{}", "\n\n".join(warnings))
 
     if errors:
         logger.error("❌ 配置校验失败，请修复以下问题后重启：\n\n{}", "\n\n".join(errors))
