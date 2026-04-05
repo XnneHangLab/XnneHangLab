@@ -6,7 +6,7 @@
 	url = https://github.com/XnneHangLab/yutto-uiya.git
 [submodule "voices"]
 	path = voices
-	url = https://github.com/MrXnneHang/Subtitle-Generator-Examples.git
+	url = https://github.com/XnneHangLab/Static-Voices.git
 [submodule "static"]
 	path = static
 	url = https://github.com/XnneHangLab/VtuberLabStatic.git
