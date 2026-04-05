@@ -12,11 +12,11 @@
 	url = https://github.com/XnneHangLab/VtuberLabStatic.git
 [submodule "frontend"]
 	path = frontend
-	url = https://github.com/XnneHangLab/Open-LLM-VTuber-Web.git
+	url = https://github.com/XnneHangLab-Mirror/Open-LLM-VTuber-Web.git
 [submodule "packages/Qwen3-ASR"]
 	path = packages/Qwen3-ASR
-	url = https://github.com/XnneHangLab/Qwen3-ASR.git
+	url = https://github.com/XnneHangLab-Mirror/Qwen3-ASR.git
 [submodule "packages/Genie-TTS"]
 	path = packages/Genie-TTS
-	url = https://github.com/XnneHangLab/Genie-TTS.git
+	url = https://github.com/XnneHangLab-Mirror/Genie-TTS.git
 	branch = master
