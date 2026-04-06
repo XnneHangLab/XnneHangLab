@@ -81,7 +81,7 @@ dev = [
 ]
 
 llama-cpp = [
-  "llama-cpp-python>=0.3.0",
+  "llama-cpp-python",
 ]
 
 
@@ -170,6 +170,12 @@ name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
+[[tool.uv.index]]
+name = "llama-cpp-cpu"
+url = "https://abetlen.github.io/llama-cpp-python/whl/cpu"
+format = "flat"
+explicit = true
+
 [tool.uv.sources]
 torch = [
   { index = "pytorch-cu118", marker = "sys_platform == 'win32'" }, # sys_platform : 'win32' , 'linux' , 'Darwin'
@@ -180,6 +186,10 @@ torchaudio = [
   { index = "pytorch-cpu", marker = "sys_platform != 'win32'"}
 ]
 langsegment = { path = "./dist/LangSegment-0.3.5-py3-none-any.whl"}
+llama-cpp-python = [
+  { path = "./dist/llama_cpp_python-0.3.18-cp311-cp311-win_amd64.whl", marker = "sys_platform == 'win32'" },
+  { index = "llama-cpp-cpu", marker = "sys_platform != 'win32'" },
+]
 qwen-asr = {  workspace = true }
 
 # 这个源要与 yutto-uiya 保持一致, 要改, 得同时改
