@@ -81,7 +81,7 @@ dev = [
 ]
 
 llama-cpp = [
-  "llama-cpp-python>=0.3.0",
+  "llama-cpp-python",
 ]
 
 
@@ -185,10 +185,11 @@ torchaudio = [
   { index = "pytorch-cu118", marker = "sys_platform == 'win32'" },
   { index = "pytorch-cpu", marker = "sys_platform != 'win32'"}
 ]
-llama-cpp-python = [
-  { index = "llama-cpp-cpu" }
-]
 langsegment = { path = "./dist/LangSegment-0.3.5-py3-none-any.whl"}
+llama-cpp-python = [
+  { path = "./dist/llama_cpp_python-0.3.18-cp311-cp311-win_amd64.whl", marker = "sys_platform == 'win32'" },
+  { index = "llama-cpp-cpu", marker = "sys_platform != 'win32'" },
+]
 qwen-asr = {  workspace = true }
 
 # 这个源要与 yutto-uiya 保持一致, 要改, 得同时改
