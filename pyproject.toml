@@ -173,7 +173,6 @@ explicit = true
 [[tool.uv.index]]
 name = "llama-cpp-cpu"
 url = "https://abetlen.github.io/llama-cpp-python/whl/cpu"
-format = "flat"
 explicit = true
 
 [tool.uv.sources]
