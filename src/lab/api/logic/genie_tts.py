@@ -397,6 +397,7 @@ def _configure_genie_tts_environment(settings: XnneHangLabSettings, spec: GenieT
     os.environ["HUBERT_MODEL_DIR"] = str(resources.hubert_model_dir)
     os.environ["SV_MODEL"] = str(resources.sv_model_path)
     os.environ["ROBERTA_MODEL_DIR"] = str(resources.roberta_model_dir)
+    os.environ["XH_ONNX_INTRA_THREADS"] = str(settings.agent.tts.genie_tts.onnx_intra_threads)
     return resources
 
 

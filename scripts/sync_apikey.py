@@ -263,6 +263,8 @@ def main() -> None:
         )
     if (value := _parse_bool_env("TTS_GENIE_TTS_USE_ROBERTA")) is not None:
         settings.agent.tts.genie_tts.use_roberta = value
+    if (value := _parse_int_env("TTS_GENIE_TTS_ONNX_INTRA_THREADS")) is not None:
+        settings.agent.tts.genie_tts.onnx_intra_threads = value
 
     if "LOCAL_EMBEDDING_MODEL_PATH" in os.environ:
         settings.local_embedding.model_path = os.environ.get("LOCAL_EMBEDDING_MODEL_PATH", "").strip()
@@ -311,6 +313,7 @@ def main() -> None:
     logger.info("agent.tts.gsv_lite.use_bert: {}", settings.agent.tts.gsv_lite.use_bert)
     logger.info("agent.tts.genie_tts.language: {}", settings.agent.tts.genie_tts.language)
     logger.info("agent.tts.genie_tts.use_roberta: {}", settings.agent.tts.genie_tts.use_roberta)
+    logger.info("agent.tts.genie_tts.onnx_intra_threads: {}", settings.agent.tts.genie_tts.onnx_intra_threads)
     logger.info("local_embedding.model_path: {}", settings.local_embedding.model_path)
     logger.info("local_embedding.pooling_type: {}", settings.local_embedding.pooling_type)
     logger.info("local_embedding.n_gpu_layers: {}", settings.local_embedding.n_gpu_layers)
