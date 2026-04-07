@@ -165,6 +165,20 @@ class GenieTTSSettings(BaseModel):
             description="Improves Chinese prosody when RoBERTa assets are installed, but keeps the default download unchanged.",
         ),
     ]
+    onnx_intra_threads: Annotated[
+        int,
+        Field(
+            4,
+            ge=0,
+            title="Genie-TTS ONNX Intra-Op Thread Count",
+            description=(
+                "Number of CPU threads allocated to each ONNX session (intra_op_num_threads). "
+                "Set to 0 to let ONNX Runtime decide automatically. "
+                "A non-zero value keeps CPU resources allocated between inferences, "
+                "preventing cold-inference latency spikes."
+            ),
+        ),
+    ]
 
     @field_validator("language", mode="before")
     @classmethod

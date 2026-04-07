@@ -300,7 +300,10 @@ def test_configure_genie_tts_environment_disables_auto_download(
     (roberta_dir / "model.onnx").write_bytes(b"onnx")
     (roberta_dir / "tokenizer.json").write_text("{}", encoding="utf-8")
 
-    settings = SimpleNamespace(root=SimpleNamespace(root_dir=str(tmp_path)))
+    settings = SimpleNamespace(
+        root=SimpleNamespace(root_dir=str(tmp_path)),
+        agent=SimpleNamespace(tts=SimpleNamespace(genie_tts=SimpleNamespace(onnx_intra_threads=4))),
+    )
     spec = genie_tts_module.GenieTTSModelSpec(
         character_name="baoqiao",
         character_dir=tmp_path / "models" / "genie-tts" / "baoqiao",
@@ -316,6 +319,7 @@ def test_configure_genie_tts_environment_disables_auto_download(
     monkeypatch.delenv("HUBERT_MODEL_DIR", raising=False)
     monkeypatch.delenv("SV_MODEL", raising=False)
     monkeypatch.delenv("ROBERTA_MODEL_DIR", raising=False)
+    monkeypatch.delenv("XH_ONNX_INTRA_THREADS", raising=False)
 
     resources = genie_tts_module._configure_genie_tts_environment(cast("Any", settings), spec)
 
@@ -327,6 +331,7 @@ def test_configure_genie_tts_environment_disables_auto_download(
     assert genie_tts_module.os.environ["HUBERT_MODEL_DIR"] == str(hubert_dir)
     assert genie_tts_module.os.environ["SV_MODEL"] == str(sv_model)
     assert genie_tts_module.os.environ["ROBERTA_MODEL_DIR"] == str(roberta_dir)
+    assert genie_tts_module.os.environ["XH_ONNX_INTRA_THREADS"] == "4"
 
 
 def test_validate_genie_tts_resources_reports_missing_files(tmp_path: Path) -> None:

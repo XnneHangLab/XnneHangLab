@@ -65,7 +65,14 @@ lab.toml
 │   │   └── [[agent.llm.providers]]
 │   ├── [agent.translate.*]
 │   ├── [agent.tts]
-│   │   └── provider
+│   │   ├── provider
+│   │   ├── voice_assets_root
+│   │   ├── [agent.tts.gsv_lite]
+│   │   │   └── use_bert
+│   │   └── [agent.tts.genie_tts]
+│   │       ├── language
+│   │       ├── use_roberta
+│   │       └── onnx_intra_threads
 │   └── [agent.qwen_tts]
 │       ├── model_name
 │       ├── model_0_6b_path
@@ -205,6 +212,29 @@ use_bert = false
 - **中文推理建议开启**：不开时中文容易出现停顿、生硬重音或“大佐味”
 - **日文 / 英文推理建议关闭**：避免语气起伏异常或整体韵律不自然
 - 如果当前角色主要说中文，可以在配置中默认开启；如果主要说日文 / 英文，建议保持关闭
+
+### 🗣️ [agent.tts.genie_tts]
+
+`[agent.tts.genie_tts]` 用于配置 Genie-TTS 的语言、RoBERTa 与 ONNX 推理线程数。只有当 `package.genie_tts = true` 且 `agent.tts.provider = "genie_tts"` 时，这组配置才会真正参与主 TTS 链路。
+
+```toml
+[agent.tts.genie_tts]
+language = "auto"
+use_roberta = false
+onnx_intra_threads = 4
+```
+
+| 字段 | 说明 |
+|---|---|
+| language | 语言覆写。支持 `Chinese` / `English` / `Japanese` / `Hybrid-Chinese-English` / `Korean` / `auto`；`auto` 时优先读取角色目录的 `infer.json` |
+| use_roberta | 是否启用中文 RoBERTa 特征，改善中文停顿与语气。需要在 `models/geniedata/` 下安装对应资源 |
+| onnx_intra_threads | 分配给每个 ONNX 会话的 CPU 线程数（`intra_op_num_threads`）。设为 `0` 由 ONNX Runtime 自行决定；推荐设为 `4` 保持 CPU 资源常驻，避免冷推理导致首帧延迟突增。对应环境变量 `TTS_GENIE_TTS_ONNX_INTRA_THREADS` |
+
+使用建议：
+
+- **建议保持 `onnx_intra_threads = 4`**：设为 0 时 ONNX Runtime 可能在空闲后释放 CPU 资源，导致偶发单次推理超过 10s 的冷推理现象
+- **中文角色建议开启 `use_roberta`**：前提是已安装 RoBERTa 资源（运行 `just install-genie-data`）
+- **`language` 大多数情况保持 `auto`**：有需要时再显式指定语言，以匹配角色模型的训练语言
 
 ### 🗣️ [agent.qwen_tts]
 

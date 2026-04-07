@@ -96,6 +96,7 @@ use_bert = false
 [agent.tts.genie_tts]
 language = "auto"
 use_roberta = false
+onnx_intra_threads = 4
 
 [agent.qwen_tts]
 model_name = "0.6b"
