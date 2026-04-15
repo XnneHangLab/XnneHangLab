@@ -486,8 +486,8 @@ def _apply_gsv_lite_monkey_patch() -> None:
     if _gsv_lite_monkey_patch_applied:
         return
 
-    from gsv_tts.GPT_SoVITS.G2P.Japanese.japanese import (
-        JapaneseG2P,  # pyright: ignore[reportMissingImports,reportUnknownVariableType]
+    from gsv_tts.GPT_SoVITS.G2P.Japanese.japanese import (  # pyright: ignore[reportMissingImports]
+        JapaneseG2P,
     )
 
     current_g2p = cast(
@@ -594,7 +594,7 @@ def load_gsv_lite_model(*, force_reload: bool = False) -> dict[str, Any]:
             f"use_bert={use_bert}"
         )
 
-        engine: Any = TTS(
+        engine: Any = cast("Any", TTS)(
             models_dir=str(target_spec.models_dir),
             gpt_cache=_GSV_LITE_GPT_CACHE,
             use_bert=use_bert,
