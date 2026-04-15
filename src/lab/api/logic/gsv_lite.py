@@ -486,7 +486,9 @@ def _apply_gsv_lite_monkey_patch() -> None:
     if _gsv_lite_monkey_patch_applied:
         return
 
-    from gsv_tts.GPT_SoVITS.G2P.Japanese.japanese import JapaneseG2P
+    from gsv_tts.GPT_SoVITS.G2P.Japanese.japanese import (  # pyright: ignore[reportMissingImports]
+        JapaneseG2P,  # pyright: ignore[reportUnknownVariableType]
+    )
 
     current_g2p = cast(
         "Callable[[Any, str, bool], tuple[list[str], dict[str, list[Any]]]]",
@@ -579,7 +581,7 @@ def load_gsv_lite_model(*, force_reload: bool = False) -> dict[str, Any]:
         _configure_gsv_lite_nltk(target_spec.models_dir)
 
         try:
-            from gsv_tts import TTS
+            from gsv_tts import TTS  # pyright: ignore[reportMissingImports,reportUnknownVariableType]
         except Exception as exc:  # pragma: no cover
             raise RuntimeError("gsv-tts-lite is not installed") from exc
         _apply_gsv_lite_monkey_patch()
@@ -592,7 +594,7 @@ def load_gsv_lite_model(*, force_reload: bool = False) -> dict[str, Any]:
             f"use_bert={use_bert}"
         )
 
-        engine = TTS(
+        engine: Any = cast("Any", TTS)(
             models_dir=str(target_spec.models_dir),
             gpt_cache=_GSV_LITE_GPT_CACHE,
             use_bert=use_bert,
