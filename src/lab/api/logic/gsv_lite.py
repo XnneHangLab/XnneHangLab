@@ -487,7 +487,7 @@ def _apply_gsv_lite_monkey_patch() -> None:
         return
 
     from gsv_tts.GPT_SoVITS.G2P.Japanese.japanese import (  # pyright: ignore[reportMissingImports]
-        JapaneseG2P,
+        JapaneseG2P,  # pyright: ignore[reportUnknownVariableType]
     )
 
     current_g2p = cast(
