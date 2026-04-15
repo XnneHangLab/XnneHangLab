@@ -5,6 +5,7 @@ from typing import Annotated
 from pydantic import BaseModel, Field
 
 from lab.config_manager.abs_root import RootAbsDir
+
 from .agent import AgentSettings, LLM_Provider, TranslateProvider
 from .asr import ASRSettings
 from .config import XnneHangLabSettings, get_setting_title, load_settings_file, write_settings_file
