@@ -61,7 +61,7 @@ base = [
 ]
 
 sherpa-onnx = [
-  "sherpa-onnx==1.12.20", # 防止 onnxruntime 的版本过高与 genie-tts 冲突
+  "sherpa-onnx==1.12.26", # 防止 onnxruntime 的版本过高与 genie-tts 冲突
 ]
 
 qwen-asr = [
@@ -84,16 +84,6 @@ llama-cpp = [
   "llama-cpp-python",
 ]
 
-
-yutto-uiya = [
-  "uiya-yutto==0.0.2-rc.2",
-  # "yutto==2.0.3",
-  "httpx[http2,socks]>=0.28.1",
-  "pexpect==4.9.0;sys_platform!='win32'",
-  "wexpect-uv==0.0.6;sys_platform=='win32'",
-  # "wexpect-uv;sys_platform=='win32'",
-  "natsort>=8.4.0",
-]
 
 # 如果希望使用 tts 均需要加入以下前置
 tts_base = [
@@ -155,10 +145,10 @@ qwen-tts = [
 ]
 
 [tool.uv]
-default-groups = ["base", "qwen-asr", "dev", "llama-cpp", "yutto-uiya", "tts_base", "gsv-lite", "genie-tts", "qwen-tts", "vtuber", "memory_bench", "sherpa-onnx"]
+default-groups = ["base", "qwen-asr", "dev", "llama-cpp", "tts_base", "gsv-lite", "genie-tts", "qwen-tts", "vtuber", "memory_bench", "sherpa-onnx"]
 
 [tool.uv.workspace]
-members = ["packages/yutto-uiya","packages/todo/","packages/Qwen3-ASR"]
+members = ["packages/Qwen3-ASR"]
 
 [[tool.uv.index]]
 name = "pytorch-cu118"
@@ -190,11 +180,6 @@ llama-cpp-python = [
   { index = "llama-cpp-cpu", marker = "sys_platform != 'win32'" },
 ]
 qwen-asr = {  workspace = true }
-
-# 这个源要与 yutto-uiya 保持一致, 要改, 得同时改
-# yutto = { git = "https://github.com/MrXnneHang/yutto.git", rev = "parse" }
-# yutto = { path = "./packages/yutto/dist/yutto-2.0.3-py3-none-any.whl"}
-# wexpect-uv = {path="./packages/wexpect-uv/dist/wexpect_uv-0.0.4-py3-none-any.whl"}
 
 [tool.pyright]
 include = ["src/lab","tests"]
@@ -264,7 +249,7 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 
 [tool.hatch.build.targets.wheel]
 
-packages = ["src/lab","packages/todo/src/todo","packages/yutto-uiya/src/uiya","memory_bench"]
+packages = ["src/lab","memory_bench"]
 
 [build-system]
 requires = ["hatchling"]

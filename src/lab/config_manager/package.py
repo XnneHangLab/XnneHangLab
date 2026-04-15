@@ -10,8 +10,6 @@ class Packages(TypedDict):
     qwen_asr: bool
     llm_translate: bool
     local_embedding: bool
-    to_do_list: bool
-    yutto_uiya: bool
     gsv_lite: bool
     genie_tts: bool
     qwen_tts: bool
@@ -29,8 +27,6 @@ class PackagesSettings(BaseModel):
         bool,
         Field(False, title="Whether to enable local GGUF embedding service"),
     ]
-    to_do_list: Annotated[bool, Field(True, title="Whether to enable todo_list")]
-    yutto_uiya: Annotated[bool, Field(True, title="Whether to enable yutto-uiya")]
     gsv_lite: Annotated[bool, Field(False, title="Whether to enable gsv-lite")]
     genie_tts: Annotated[bool, Field(True, title="Whether to enable Genie-TTS")]
     qwen_tts: Annotated[bool, Field(False, title="Whether to enable faster-qwen-tts")]
@@ -45,8 +41,6 @@ class PackagesSettings(BaseModel):
             "qwen_asr": self.qwen_asr,
             "llm_translate": self.llm_translate,
             "local_embedding": self.local_embedding,
-            "to_do_list": self.to_do_list,
-            "yutto_uiya": self.yutto_uiya,
             "gsv_lite": self.gsv_lite,
             "genie_tts": self.genie_tts,
             "qwen_tts": self.qwen_tts,

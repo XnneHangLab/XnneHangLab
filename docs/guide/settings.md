@@ -127,8 +127,6 @@ root_dir = "D:\\tmp\\XnneHangLab"
 |---|---:|---|
 | sherpa_asr | false | 是否启用 Sherpa-ONNX Paraformer ASR 服务 |
 | qwen_asr | false | 是否启用 Qwen3-ASR OpenVINO 服务 |
-| to_do_list | true | 是否包含 to-do-list 模块 |
-| yutto_uiya | true | 是否包含 yutto-uiya 相关 UI/能力 |
 | gsv_lite | false | 是否包含 GSV-Lite 能力 |
 | genie_tts | true | 是否包含 Genie-TTS 能力 |
 | qwen_tts | false | 是否包含 Qwen-TTS 能力 |
