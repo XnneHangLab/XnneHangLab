@@ -4,7 +4,7 @@ from enum import StrEnum
 
 
 class I18nEnum(StrEnum):
-    """为 Streamlit 配置项提供中英文映射。"""
+    """配置项中英文映射枚举基类。"""
 
     @classmethod
     def names(cls) -> list[str]:
@@ -72,17 +72,6 @@ class I18nEnum(StrEnum):
 class Device(I18nEnum):
     cpu = "cpu"
     cuda = "gpu"
-
-
-class Guide(I18nEnum):
-    open = "开启"
-    close = "关闭"
-
-
-class SubtitleSpeed(I18nEnum):
-    slow = "慢"
-    normal = "正常"
-    fast = "快"
 
 
 class ASRModelProvider(I18nEnum):

@@ -2,12 +2,11 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
+from lab.config_manager.i18n import ASRModelProvider, Device
 from lab.config_manager.qwen_asr import QwenASRSettings
 from lab.config_manager.sherpa_asr import SherpaASRSettings
-from lab.config_manager.webui_i18n_model import WebUIi18nSettings
-from lab.streamlit.i18n import ASRModelProvider, Device
 
 ASRSettingsTitle = Literal[
     "device",
@@ -23,7 +22,7 @@ ASRSettingsTitle = Literal[
 ]
 
 
-class ASRSettings(WebUIi18nSettings):
+class ASRSettings(BaseModel):
     FFMPEG_PATH: Annotated[str, Field("ffmpeg", title="FFMPEG path")]
     device: Annotated[Literal["cpu", "cuda"], Field("cpu", title="Device")]
     custom_output_dir: Annotated[bool, Field(False, title="Use custom output directory")]
