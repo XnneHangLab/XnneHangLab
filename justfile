@@ -55,15 +55,9 @@ dev:
     rm -rf packages/*/dist
     rm -rf packages/*/__pycache__
     rm -rf packages/*/*.egg-info
-    uv build packages/yutto
-    uv build packages/wexpect-uv
     uv lock --no-cache
     uv run get_root
     uv run streamlit run src/lab/streamlit/app.py --server.port 8000
-
-dev-clean:
-  rm packages/yutto/dist -rf
-  rm packages/wexpect-uv/dist -rf
 
 # Server Start
 
