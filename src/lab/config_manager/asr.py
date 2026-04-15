@@ -7,7 +7,7 @@ from pydantic import Field
 from lab.config_manager.qwen_asr import QwenASRSettings
 from lab.config_manager.sherpa_asr import SherpaASRSettings
 from lab.config_manager.webui_i18n_model import WebUIi18nSettings
-from lab.streamlit.i18n import ASRModelProvider, Device
+from lab.config_manager.i18n import ASRModelProvider, Device
 
 ASRSettingsTitle = Literal[
     "device",

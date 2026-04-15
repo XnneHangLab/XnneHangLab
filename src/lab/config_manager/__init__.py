@@ -4,7 +4,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field
 
-from lab.streamlit.i18n import Device
+from lab.config_manager.i18n import Device
 
 from .abs_root import RootAbsDir
 from .agent import AgentSettings, LLM_Provider, TranslateProvider

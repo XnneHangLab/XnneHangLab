@@ -4,7 +4,7 @@ import pytest
 
 from lab.config_manager.asr import ASRSettings
 from lab.config_manager.audio_recognize import AudioRecognizeSettings
-from lab.streamlit.i18n import ASRModelProvider, Device, Guide, I18nEnum, SubtitleSpeed
+from lab.config_manager.i18n import ASRModelProvider, Device, Guide, I18nEnum, SubtitleSpeed
 
 
 def test_labels_returns_display_values() -> None:

@@ -8,8 +8,6 @@ dependencies = [
     "tomli_w>=1.2.0",
     "tomli>=2.2.1",
     "pydantic>=2.10.6",
-    "streamlit>=1.43.2",
-    "streamlit-antd-components>=0.3.2",
     "pandas==2.2.3",
     # special for fastapi
     "fastapi[standard]>=0.115.8",
@@ -47,7 +45,7 @@ Issues = "https://github.com/XnneHangLab/XnneHangLab/issues"
 
 [project.scripts]
 test = "lab.test:main"
-get_root = "lab.config_manager.abs_root:main" # 获取项目所在根目录绝对路径, 防止 streamlit UI 中默认以 `.` 作为根目录而找不到一些文件.
+get_root = "lab.config_manager.abs_root:main" # 获取项目所在根目录绝对路径
 package = "lab.config_manager.package:main"
 agent_setting = "lab.config_manager.agent:main"
 tmp = "lab.tmp:main" # debug 时随意写的一些脚本

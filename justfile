@@ -44,7 +44,7 @@ start:
   uv lock
   uv sync
   uv run get_root
-  uv run streamlit run src/lab/streamlit/app.py --server.port 8051
+  uv run run_server.py
 
 clean-venv:
   # 如果在 windows 上删不干净，可以运行 `FileLocksmithCLI.exe --kill "D:\tmp\XnneHangLab\.venv"`
@@ -57,7 +57,7 @@ dev:
     rm -rf packages/*/*.egg-info
     uv lock --no-cache
     uv run get_root
-    uv run streamlit run src/lab/streamlit/app.py --server.port 8000
+    uv run run_server.py
 
 # Server Start
 

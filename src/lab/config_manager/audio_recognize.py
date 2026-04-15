@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from lab.config_manager.webui_i18n_model import WebUIi18nSettings
-from lab.streamlit.i18n import Guide, SubtitleSpeed
+from lab.config_manager.i18n import Guide, SubtitleSpeed
 
 # 开放的配置项
 AudioRecognizeSettingsTitle = Literal[

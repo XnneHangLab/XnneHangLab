@@ -1,6 +1,6 @@
-"""可在 Streamlit WebUI 中展示和修改的配置基类。
+"""配置项 i18n 辅助基类。
 
-每个字段若需要在 selectbox 中展示，应在子类中声明
+每个字段若需要在选择控件中展示，应在子类中声明
 `_I18N_FIELDS: dict[str, type[I18nEnum]]`，
 key 为字段名，value 为对应的 I18nEnum 子类。
 """
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from lab.streamlit.i18n import I18nEnum
+from lab.config_manager.i18n import I18nEnum
 
 
 class WebUIi18nSettings(BaseModel):

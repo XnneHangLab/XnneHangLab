@@ -4,7 +4,7 @@ from enum import StrEnum
 
 
 class I18nEnum(StrEnum):
-    """为 Streamlit 配置项提供中英文映射。"""
+    """配置项中英文映射枚举基类。"""
 
     @classmethod
     def names(cls) -> list[str]:

@@ -17,7 +17,7 @@
 <a href="https://github.com/astral-sh/ruff"><img alt="ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=flat-square"></a>
 <a href="https://gitmoji.dev"><img alt="Gitmoji" src="https://img.shields.io/badge/gitmoji-%20😜%20😍-FFDD67?style=flat-square"></a>
 <a href="https://pytorch.org/" target="_blank"><img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=flat-square&logo=pytorch&logoColor=white"></a>
-<a href="https://github.com/modelscope/FunASR" target="_blank"><img alt="FunASR" src="https://img.shields.io/badge/FunASR-%23F0A4A0.svg?style=flat-square&logo=github&logoColor=white"></a><a href="https://streamlit.io/" target="_blank"><img alt="Streamlit" src="https://img.shields.io/badge/Streamlit-%23FF4B4B.svg?style=flat-square&logo=streamlit&logoColor=white"></a>
+<a href="https://github.com/modelscope/FunASR" target="_blank"><img alt="FunASR" src="https://img.shields.io/badge/FunASR-%23F0A4A0.svg?style=flat-square&logo=github&logoColor=white"></a>
 <br/>
 </div>
 
@@ -70,7 +70,6 @@
 
 - [**Open-LLM-VTuber-Web**:The Web/Electron frontend for Open-LLM-VTuber Project](https://github.com/Open-LLM-VTuber/Open-LLM-VTuber-Web)
 - [**FunASR:** A Fundamental End-to-End Speech Recognition Toolkit and Open Source SOTA Pretrained Models, Supporting Speech Recognition, Voice Activity Detection, Text Post-processing etc.](https://github.com/modelscope/FunASR?tab=readme-ov-file)
-- [**Streamlit** — A faster way to build and share data apps.](https://github.com/streamlit/streamlit)
 - [**Chenyme-AAVT:** 这是一个全自动（音频）视频翻译项目。利用Whisper识别声音，AI大模型翻译字幕，最后合并字幕视频，生成翻译后的视频。](https://github.com/Chenyme/Chenyme-AAVT)
 - [**qzrs777/AIChat:** 为《Chill with You Lo-Fi Story》添加基于 LLM + VITS + ASR 的 AI 全语音对话（BepInEx 插件），让游戏角色支持实时语音与表情动作联动。](https://github.com/qzrs777/AIChat)
 

@@ -9,8 +9,7 @@
 ```text
 src/lab/
 ├── 入口层
-│   ├── server.py                 # FastAPI 服务入口
-│   └── streamlit/app.py          # Streamlit WebUI 入口
+│   └── server.py                 # FastAPI 服务入口
 ├── 通信层
 │   ├── websocket_handler.py      # WebSocket 协议处理
 │   └── message_handler.py        # 消息事件总线
@@ -24,11 +23,6 @@ src/lab/
     ├── asr/                      # FunASR / Whisper
     ├── config_manager/           # TOML 配置加载与校验
     ├── logger/                   # 分组日志
-    ├── plugin/                   # 插件框架层
-    ├── plugins/                  # 内置插件
-    ├── profile/                  # Profile 与 system prompt 拼装
-    ├── streamlit/                # Streamlit UI 页面与样式
-    ├── tools/                    # BuiltinTool 与 ToolManager
     ├── utils/                    # 文本/音频工具函数
     └── cli/                      # CLI 工具
 ```
