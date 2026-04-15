@@ -146,6 +146,7 @@ qwen-tts = [
 
 [tool.uv]
 default-groups = ["base", "qwen-asr", "dev", "llama-cpp", "tts_base", "gsv-lite", "genie-tts", "qwen-tts", "vtuber", "memory_bench", "sherpa-onnx"]
+environments = ["sys_platform == 'linux'", "sys_platform == 'darwin'"]
 
 [tool.uv.workspace]
 members = ["packages/Qwen3-ASR"]
