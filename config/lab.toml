@@ -35,10 +35,6 @@ gpu_cache_dir = ""
 forced_aligner_path = "./models/Qwen3-ForcedAligner-0.6B"
 forced_aligner_device = "cuda"
 
-[webui]
-guide = "open"
-subtitle_speed = "normal"
-
 [agent]
 enable_tool = true
 translate_provider = "llm"

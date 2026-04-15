@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from lab.config_manager.i18n import ASRModelProvider, Device, Guide, I18nEnum, SubtitleSpeed
+from lab.config_manager.i18n import ASRModelProvider, Device, I18nEnum
 
 
 def test_labels_returns_display_values() -> None:
@@ -28,22 +28,11 @@ def test_get_index_returns_position() -> None:
     assert Device.cuda.get_index() == 1
 
 
-def test_get_index_three_members() -> None:
-    assert SubtitleSpeed.slow.get_index() == 0
-    assert SubtitleSpeed.normal.get_index() == 1
-    assert SubtitleSpeed.fast.get_index() == 2
-
-
 @pytest.mark.parametrize(
     ("member", "expected_name", "expected_label"),
     [
         (Device.cpu, "cpu", "cpu"),
         (Device.cuda, "cuda", "gpu"),
-        (Guide.open, "open", "开启"),
-        (Guide.close, "close", "关闭"),
-        (SubtitleSpeed.slow, "slow", "慢"),
-        (SubtitleSpeed.normal, "normal", "正常"),
-        (SubtitleSpeed.fast, "fast", "快"),
         (ASRModelProvider.qwen, "qwen", "Qwen3-ASR"),
         (ASRModelProvider.sherpa, "sherpa", "Sherpa-ONNX Paraformer"),
     ],

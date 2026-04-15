@@ -12,7 +12,6 @@ from pydantic import BaseModel, Field, model_validator
 from lab.config_manager.abs_root import RootAbsDir
 from lab.config_manager.agent import AgentSettings
 from lab.config_manager.asr import ASRSettings, ASRSettingsTitle
-from lab.config_manager.audio_recognize import AudioRecognizeSettings, AudioRecognizeSettingsTitle
 from lab.config_manager.embedding import LocalEmbeddingSetting
 from lab.config_manager.memory_bench import MemoryBenchSettings
 from lab.config_manager.package import PackagesSettings
@@ -70,10 +69,6 @@ def load_settings_file(setting_name: str, setting: type[QwenASRSettings]) -> Qwe
 
 
 @overload
-def load_settings_file(setting_name: str, setting: type[AudioRecognizeSettings]) -> AudioRecognizeSettings: ...
-
-
-@overload
 def load_settings_file(setting_name: str, setting: type[RootAbsDir]) -> RootAbsDir: ...
 
 
@@ -103,7 +98,6 @@ class XnneHangLabSettings(BaseModel):
     Attributes:
         conf_version: 配置版本号。
         asr: ASR 相关配置。
-        webui: WebUI 与音频识别配置。
         agent: Agent 相关配置。
         local_embedding: 本地向量模型配置。
         package: 可选后端服务开关。
@@ -114,7 +108,6 @@ class XnneHangLabSettings(BaseModel):
 
     conf_version: Annotated[str, Field(CURRENT_CONF_VERSION, title="配置版本")]
     asr: Annotated[ASRSettings, Field(ASRSettings())]  # pyright: ignore[reportCallIssue]
-    webui: Annotated[AudioRecognizeSettings, Field(AudioRecognizeSettings())]  # pyright: ignore[reportCallIssue]
     agent: Annotated[AgentSettings, Field(AgentSettings())]  # pyright: ignore[reportCallIssue]
     local_embedding: Annotated[LocalEmbeddingSetting, Field(LocalEmbeddingSetting())]  # pyright: ignore[reportCallIssue]
     package: Annotated[PackagesSettings, Field(PackagesSettings())]  # pyright: ignore[reportCallIssue]
@@ -136,7 +129,6 @@ def load_settings_file(
     setting: type[
         SherpaASRSettings
         | QwenASRSettings
-        | AudioRecognizeSettings
         | RootAbsDir
         | AgentSettings
         | PackagesSettings
@@ -147,7 +139,6 @@ def load_settings_file(
 ) -> (
     SherpaASRSettings
     | QwenASRSettings
-    | AudioRecognizeSettings
     | RootAbsDir
     | AgentSettings
     | PackagesSettings
@@ -186,7 +177,6 @@ def write_settings_file(
     settings_name: str,
     settings: SherpaASRSettings
     | QwenASRSettings
-    | AudioRecognizeSettings
     | RootAbsDir
     | AgentSettings
     | PackagesSettings
@@ -218,16 +208,12 @@ def get_setting_title(name: QwenASRSettingsTitle, setting: type[QwenASRSettings]
 
 
 @overload
-def get_setting_title(name: AudioRecognizeSettingsTitle, setting: type[AudioRecognizeSettings]) -> str: ...
-
-
-@overload
 def get_setting_title(name: ASRSettingsTitle, setting: type[ASRSettings]) -> str: ...
 
 
 def get_setting_title(
-    name: SherpaASRSettingsTitle | QwenASRSettingsTitle | AudioRecognizeSettingsTitle | ASRSettingsTitle,
-    setting: type[SherpaASRSettings | QwenASRSettings | AudioRecognizeSettings | ASRSettings],
+    name: SherpaASRSettingsTitle | QwenASRSettingsTitle | ASRSettingsTitle,
+    setting: type[SherpaASRSettings | QwenASRSettings | ASRSettings],
 ) -> str:
     """读取配置字段的展示标题。
 

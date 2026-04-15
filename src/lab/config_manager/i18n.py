@@ -74,17 +74,6 @@ class Device(I18nEnum):
     cuda = "gpu"
 
 
-class Guide(I18nEnum):
-    open = "开启"
-    close = "关闭"
-
-
-class SubtitleSpeed(I18nEnum):
-    slow = "慢"
-    normal = "正常"
-    fast = "快"
-
-
 class ASRModelProvider(I18nEnum):
     qwen = "Qwen3-ASR"
     sherpa = "Sherpa-ONNX Paraformer"
