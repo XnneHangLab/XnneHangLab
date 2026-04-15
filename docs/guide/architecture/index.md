@@ -23,6 +23,10 @@ src/lab/
     ├── asr/                      # FunASR / Whisper
     ├── config_manager/           # TOML 配置加载与校验
     ├── logger/                   # 分组日志
+    ├── plugin/                   # 插件框架层
+    ├── plugins/                  # 内置插件
+    ├── profile/                  # Profile 与 system prompt 拼装
+    ├── tools/                    # BuiltinTool 与 ToolManager
     ├── utils/                    # 文本/音频工具函数
     └── cli/                      # CLI 工具
 ```

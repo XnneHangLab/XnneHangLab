@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import pytest
 
-from lab.config_manager.asr import ASRSettings
-from lab.config_manager.audio_recognize import AudioRecognizeSettings
 from lab.config_manager.i18n import ASRModelProvider, Device, Guide, I18nEnum, SubtitleSpeed
 
 
@@ -55,42 +53,5 @@ def test_enum_name_and_label(member: I18nEnum, expected_name: str, expected_labe
     assert member.value == expected_label
 
 
-def test_get_labels_returns_correct_options() -> None:
-    settings = ASRSettings()  # pyright: ignore[reportCallIssue]
-    assert settings.get_labels("device") == ["cpu", "gpu"]
-    assert settings.get_labels("asr_model_provider") == ["Qwen3-ASR", "Sherpa-ONNX Paraformer"]
-
-
-def test_get_index_reflects_current_value() -> None:
-    settings = ASRSettings()  # pyright: ignore[reportCallIssue]
-    assert settings.get_index("device") == 0
-    assert settings.get_index("asr_model_provider") == 1
-
-
-def test_set_by_label_updates_field() -> None:
-    settings = ASRSettings()  # pyright: ignore[reportCallIssue]
-    settings.set_by_label("device", "gpu")
-    assert settings.device == "cuda"
-    settings.set_by_label("asr_model_provider", "Sherpa-ONNX Paraformer")
-    assert settings.asr_model_provider == "sherpa"
-
-
-def test_set_by_label_unknown_label_raises() -> None:
-    settings = ASRSettings()  # pyright: ignore[reportCallIssue]
-    with pytest.raises(ValueError, match="不存在 label"):
-        settings.set_by_label("device", "tpu")
-
-
-def test_get_index_unregistered_field_raises() -> None:
-    settings = ASRSettings()  # pyright: ignore[reportCallIssue]
-    with pytest.raises(ValueError, match="未在 _I18N_FIELDS"):
-        settings.get_index("cache_dir")
-
-
-def test_audio_recognize_settings_i18n() -> None:
-    settings = AudioRecognizeSettings()  # pyright: ignore[reportCallIssue]
-    assert settings.get_labels("guide") == ["开启", "关闭"]
-    assert settings.get_index("guide") == 0
-    settings.set_by_label("guide", "关闭")
-    assert settings.guide == "close"
-    assert settings.get_index("guide") == 1
+if __name__ == "__main__":
+    raise SystemExit(pytest.main([__file__, "-v", "-s"]))

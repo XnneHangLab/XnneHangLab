@@ -4,9 +4,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field
 
-from lab.config_manager.i18n import Device
-
-from .abs_root import RootAbsDir
+from lab.config_manager.abs_root import RootAbsDir
 from .agent import AgentSettings, LLM_Provider, TranslateProvider
 from .asr import ASRSettings
 from .audio_recognize import AudioRecognizeSettings
@@ -32,7 +30,6 @@ __all__ = [
     "load_settings_file",
     "write_settings_file",
     "get_setting_title",
-    "Device",
     "AgentSettings",
     "LLM_Provider",
     "TranslateProvider",
