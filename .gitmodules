@@ -14,3 +14,6 @@
 	path = packages/Genie-TTS
 	url = https://github.com/XnneHangLab-Mirror/Genie-TTS.git
 	branch = master
+[submodule "packages/GSV-TTS-Lite"]
+	path = packages/GSV-TTS-Lite
+	url = https://github.com/XnneHangLab-Mirror/GSV-TTS-Lite.git

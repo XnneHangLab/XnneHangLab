@@ -92,7 +92,7 @@ tts_base = [
 ]
 
 gsv-lite = [
-  "gsv-tts-lite==0.3.8",
+  "gsv-tts-lite",
 ]
 
 genie-tts = [
@@ -146,7 +146,7 @@ qwen-tts = [
 default-groups = ["base", "qwen-asr", "dev", "llama-cpp", "tts_base", "gsv-lite", "genie-tts", "qwen-tts", "vtuber", "memory_bench", "sherpa-onnx"]
 
 [tool.uv.workspace]
-members = ["packages/Qwen3-ASR"]
+members = ["packages/Qwen3-ASR", "packages/GSV-TTS-Lite"]
 
 [[tool.uv.index]]
 name = "pytorch-cu118"
@@ -178,6 +178,7 @@ llama-cpp-python = [
   { index = "llama-cpp-cpu", marker = "sys_platform != 'win32'" },
 ]
 qwen-asr = {  workspace = true }
+gsv-tts-lite = { workspace = true }
 
 [tool.pyright]
 include = ["src/lab","tests"]
