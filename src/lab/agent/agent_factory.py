@@ -155,11 +155,11 @@ class AgentFactory:
             skills=skill_descriptors,
             tool_manager=tool_manager,
             tool_prompt_segments=tool_prompt_segments,
-            agent_name=profile.profile.agent_name.lower(),
+            character_name=profile.character.character_name if profile.character else "",
         )
         logger.info(
             "===== Chat System Prompt Preview ({}) =====\n{}\n===== End Chat System Prompt Preview =====",
-            profile.profile.agent_name,
+            profile.character.character_name if profile.character else "",
             chat_system_prompt,
         )
 

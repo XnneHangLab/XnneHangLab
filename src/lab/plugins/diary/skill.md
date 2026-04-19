@@ -2,11 +2,11 @@
 
 ## 工作区路径
 
-你的数据根目录是 `/data/{agent_name}/`。
+你的数据根目录是 `/data/{character_name}/`。
 
-- 日记目录：`/data/{agent_name}/diary/`
-- 长期记忆：`/data/{agent_name}/memory/MEMORY.md`
-- 当日流水：`/data/{agent_name}/memory/YYYY-MM-DD.md`
+- 日记目录：`/data/{character_name}/diary/`
+- 长期记忆：`/data/{character_name}/memory/MEMORY.md`
+- 当日流水：`/data/{character_name}/memory/YYYY-MM-DD.md`
 
 ## 日记规范
 

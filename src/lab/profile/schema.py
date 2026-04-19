@@ -16,11 +16,9 @@ class ProfileConfig(BaseModel):
 
     Attributes:
         description: Profile 的简要说明。
-        agent_name: 注入到系统提示词中的角色名。
     """
 
     description: str = ""
-    agent_name: str = ""
 
 
 class PromptConfig(BaseModel):

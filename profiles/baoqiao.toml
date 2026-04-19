@@ -1,6 +1,5 @@
 [profile]
 description = "VTuber 主链路 - 薄巧"
-agent_name = "baoqiao"
 
 [character]
 conf_name = "baoqiao-local"
