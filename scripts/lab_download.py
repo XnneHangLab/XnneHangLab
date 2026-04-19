@@ -27,16 +27,7 @@ class _MsStep:
     files: list[str] = field(default_factory=list)
 
 
-@dataclass
-class _HfStep:
-    repo_id: str
-    local_dir: str
-    filename: str | None = None
-
-
-_Step = _MsStep | _HfStep
-
-_TARGETS: dict[str, list[_Step]] = {
+_TARGETS: dict[str, list[_MsStep]] = {
     "genie-base": [
         _MsStep("xnnehang/xnnehanglab-geniedata", "models/GenieData"),
         _MsStep("xnnehang/fast-langdetect-lid176", "models/GenieData"),
@@ -73,10 +64,10 @@ _TARGETS: dict[str, list[_Step]] = {
         _MsStep("Qwen/Qwen3-TTS-12Hz-1.7B-Base", "models/Qwen3-TTS-12Hz-1.7B-Base"),
     ],
     "sherpa-paraformer": [
-        _HfStep("xnnehang/sherpa-onnx-paraformer-zh-2023-09-14", "models/sherpa-onnx-paraformer-zh-2023-09-14"),
+        _MsStep("xnnehang/sherpa-onnx-paraformer-zh-2023-09-14", "models/sherpa-onnx-paraformer-zh-2023-09-14"),
     ],
     "silero-vad": [
-        _HfStep("xnnehang/k2-fsa-silero-vad", "models", filename="silero_vad.onnx"),
+        _MsStep("xnnehang/k2-fsa-silero-vad", "models", files=["silero_vad.onnx"]),
     ],
     "local-embedding": [
         _MsStep("ggml-org/bge-m3-Q8_0-GGUF", "models", files=["bge-m3-q8_0.gguf"]),
@@ -87,7 +78,7 @@ _TARGETS: dict[str, list[_Step]] = {
 }
 
 
-def _run_ms_step(step: _MsStep, workspace_root: Path) -> None:
+def _run_step(step: _MsStep, workspace_root: Path) -> None:
     local_dir = workspace_root / step.local_dir
     local_dir.mkdir(parents=True, exist_ok=True)
 
@@ -100,17 +91,6 @@ def _run_ms_step(step: _MsStep, workspace_root: Path) -> None:
         from modelscope.hub.snapshot_download import snapshot_download  # type: ignore[import]
 
         snapshot_download(model_id=step.model_id, local_dir=str(local_dir))
-
-
-def _run_hf_step(step: _HfStep, workspace_root: Path) -> None:
-    from huggingface_hub import hf_hub_download, snapshot_download  # type: ignore[import]
-
-    local_dir = workspace_root / step.local_dir
-    local_dir.mkdir(parents=True, exist_ok=True)
-    if step.filename:
-        hf_hub_download(repo_id=step.repo_id, filename=step.filename, local_dir=str(local_dir))
-    else:
-        snapshot_download(repo_id=step.repo_id, local_dir=str(local_dir))
 
 
 def main() -> None:
@@ -132,13 +112,9 @@ def main() -> None:
     _emit("download.started", target, "queued", f"准备下载 {target}", 0, total)
 
     for i, step in enumerate(steps, start=1):
-        label = step.model_id if isinstance(step, _MsStep) else step.repo_id
-        _emit("download.progress", target, "downloading", label, i - 1, total)
+        _emit("download.progress", target, "downloading", step.model_id, i - 1, total)
         try:
-            if isinstance(step, _MsStep):
-                _run_ms_step(step, workspace_root)
-            else:
-                _run_hf_step(step, workspace_root)
+            _run_step(step, workspace_root)
         except Exception as exc:
             _emit("download.failed", target, "failed", str(exc), i - 1, total)
             sys.exit(1)
