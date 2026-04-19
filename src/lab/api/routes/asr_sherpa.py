@@ -31,7 +31,7 @@ async def sherpa_transcribe(file: UploadFile = file_default) -> dict[str, Any]:
     temp_audio_path = save_upload_to_temp(file)
     try:
         lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
-        if not lab_settings.package.sherpa_asr:
+        if lab_settings.asr.asr_model_provider != "sherpa":
             raise RuntimeError("Sherpa-ONNX is disabled in lab.toml")
         loop = asyncio.get_running_loop()
         result = await loop.run_in_executor(
@@ -64,7 +64,7 @@ async def sherpa_vad_audio_activity(file: UploadFile = file_default) -> dict[str
     temp_audio_path = save_upload_to_temp(file)
     try:
         lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
-        if not lab_settings.package.sherpa_asr:
+        if lab_settings.asr.asr_model_provider != "sherpa":
             raise RuntimeError("Sherpa-ONNX is disabled in lab.toml")
         loop = asyncio.get_running_loop()
         result = await loop.run_in_executor(

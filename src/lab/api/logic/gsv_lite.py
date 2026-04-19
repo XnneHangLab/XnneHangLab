@@ -560,7 +560,7 @@ def load_gsv_lite_model(*, force_reload: bool = False) -> dict[str, Any]:
     global _gsv_lite_engine, _loaded_model_spec
 
     settings = _get_gsv_lite_settings()
-    if not settings.package.gsv_lite:
+    if settings.agent.tts.provider != "gsv_lite":
         raise RuntimeError("GSV-Lite is disabled in lab.toml")
 
     target_spec = _get_configured_model_spec(settings)
@@ -643,7 +643,7 @@ async def warmup_gsv_lite_model() -> dict[str, Any]:
 
 def get_gsv_lite_model() -> Any:
     settings = _get_gsv_lite_settings()
-    if not settings.package.gsv_lite:
+    if settings.agent.tts.provider != "gsv_lite":
         raise HTTPException(status_code=503, detail="GSV-Lite is disabled in lab.toml")
 
     configured = _get_configured_model_spec(settings)

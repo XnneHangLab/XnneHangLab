@@ -146,7 +146,7 @@ async def lifespan(app: FastAPI):
     Raises:
         ValueError: memory_bench 或 `/memory/chat` 缺少关键配置时抛出。
     """
-    if lab_settings.package.sherpa_asr:
+    if lab_settings.asr.asr_model_provider == "sherpa":
         from lab.api.logic.sherpa_asr import load_sherpa_asr
 
         await _run_startup_step(
@@ -155,7 +155,7 @@ async def lifespan(app: FastAPI):
             success_message="Sherpa-ONNX ASR/VAD preload finished ({:.1f}s)",
         )
 
-    if lab_settings.package.qwen_asr:
+    if lab_settings.asr.asr_model_provider == "qwen":
         from lab.api.logic.qwen_asr import preload_configured_qwen_asr_engines
 
         await _run_startup_step(
@@ -164,7 +164,7 @@ async def lifespan(app: FastAPI):
             success_handler=_log_qwen_asr_startup_result,
         )
 
-    if lab_settings.package.qwen_tts:
+    if lab_settings.agent.tts.provider == "qwen_tts":
         from lab.api.logic.faster_qwen_tts import load_qwen_tts_model
 
         await _run_startup_step(
@@ -174,7 +174,7 @@ async def lifespan(app: FastAPI):
             step_logger=logger.bind(group="tts"),
         )
 
-    if lab_settings.package.genie_tts:
+    if lab_settings.agent.tts.provider == "genie_tts":
         from lab.api.logic.genie_tts import load_genie_tts_model, warmup_genie_tts_model
 
         genie_logger = logger.bind(group="tts")
@@ -184,7 +184,7 @@ async def lifespan(app: FastAPI):
         await warmup_genie_tts_model()
         genie_logger.info(f"Genie-TTS model loaded and warmed up ({time.perf_counter() - genie_started:.1f}s)")
 
-    if lab_settings.package.gsv_lite:
+    if lab_settings.agent.tts.provider == "gsv_lite":
         from lab.api.logic.gsv_lite import load_gsv_lite_model, warmup_gsv_lite_model
 
         gsv_lite_logger = logger.bind(group="tts")
@@ -402,32 +402,32 @@ class WebSocketServer:
                 "本地 Embedding 端点",
                 lambda: self.app.include_router(import_module("lab.api.routes.embedding").router),
             )
-        if lab_settings.package.sherpa_asr or lab_settings.package.qwen_asr:
+        if lab_settings.asr.asr_model_provider in ("sherpa", "qwen"):
             _include_router_with_log(
                 "ASR reload 端点",
                 lambda: self.app.include_router(import_module("lab.api.routes.asr_reload").router),
             )
-        if lab_settings.package.sherpa_asr:
+        if lab_settings.asr.asr_model_provider == "sherpa":
             _include_router_with_log(
                 "Sherpa-ONNX ASR 端点",
                 lambda: self.app.include_router(import_module("lab.api.routes.asr_sherpa").router),
             )
-        if lab_settings.package.qwen_asr:
+        if lab_settings.asr.asr_model_provider == "qwen":
             _include_router_with_log(
                 "Qwen3-ASR 端点",
                 lambda: self.app.include_router(import_module("lab.api.routes.asr_qwen").router),
             )
-        if lab_settings.package.qwen_tts:
+        if lab_settings.agent.tts.provider == "qwen_tts":
             _include_router_with_log(
                 "faster-qwen-tts route",
                 lambda: self.app.include_router(import_module("lab.api.routes.faster_qwen_tts").router),
             )
-        if lab_settings.package.genie_tts:
+        if lab_settings.agent.tts.provider == "genie_tts":
             _include_router_with_log(
                 "genie-tts route",
                 lambda: self.app.include_router(import_module("lab.api.routes.genie_tts").router),
             )
-        if lab_settings.package.gsv_lite:
+        if lab_settings.agent.tts.provider == "gsv_lite":
             _include_router_with_log(
                 "gsv-lite route",
                 lambda: self.app.include_router(import_module("lab.api.routes.gsv_lite").router),

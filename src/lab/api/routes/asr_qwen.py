@@ -39,7 +39,7 @@ async def _transcribe_qwen_model(file: UploadFile, model_name: str) -> dict[str,
     temp_audio_path = save_upload_to_temp(file)
     try:
         lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
-        if not lab_settings.package.qwen_asr:
+        if lab_settings.asr.asr_model_provider != "qwen":
             raise RuntimeError("Qwen3-ASR is disabled in lab.toml")
         qwen_asr_logic = _get_qwen_asr_logic_module()
         loop = asyncio.get_running_loop()
