@@ -9,13 +9,26 @@ source = "builtin"
 
 [config]
 appearance_presets = []
-idle_clips = []
-idle_assignments = { listening = { mode = "random_no_repeat", clip_ids = [] }, speaking = { mode = "random_no_repeat", clip_ids = [] } }
-mixer_weights_by_state = { listening = { idle_layer = 1.0, speech_layer = 1.0, backend_pose_layer = 1.0, mouse_attention_layer = 0.35 }, speaking = { idle_layer = 1.0, speech_layer = 1.0, backend_pose_layer = 1.0, mouse_attention_layer = 0.35 } }
+
+[config.states.listening]
+mode = "random_no_repeat"
+clips = []
+idle_layer = 1.0
+speech_layer = 1.0
+backend_pose_layer = 1.0
+mouse_attention_layer = 0.35
+
+[config.states.speaking]
+mode = "random_no_repeat"
+clips = []
+idle_layer = 1.0
+speech_layer = 1.0
+backend_pose_layer = 1.0
+mouse_attention_layer = 0.35
 
 [config_schema.appearance_presets]
 type = "list"
-description = "可切换的 Live2D 外观预设列表。按当前顺序保存为对象列表。需要根据 model_dict 的 emotion map 实际情况写 key name。"
+description = "可切换的 Live2D 外观预设列表。key 须与模型 emotion map 中的名称一致。"
 
 [config_schema.appearance_presets.items]
 type = "object"
@@ -28,110 +41,84 @@ description = "可切换的外观 key"
 type = "str"
 description = "该外观的说明文案"
 
-[config_schema.idle_clips]
-type = "list"
-description = "所有可用的待机动作片段。先在这里添加动作，再按 listening / speaking 状态分配。"
+[config_schema.states]
+type = "object"
+description = "按状态配置待机动作与 Pose Mixer 权重。"
 
-[config_schema.idle_clips.items]
+[config_schema.states.properties.listening]
+type = "object"
+description = "listening 状态配置。"
+
+[config_schema.states.properties.listening.properties.mode]
+type = "str"
+description = "播放方式：random 或 random_no_repeat。"
+
+[config_schema.states.properties.listening.properties.clips]
+type = "list"
+description = "该状态使用的待机动作片段列表。"
+
+[config_schema.states.properties.listening.properties.clips.items]
 type = "object"
 
-[config_schema.idle_clips.items.properties.id]
-type = "str"
-description = "待机动作的唯一 ID，供状态分配引用。"
-
-[config_schema.idle_clips.items.properties.url]
+[config_schema.states.properties.listening.properties.clips.items.properties.url]
 type = "str"
 description = "motion3.json 的相对路径或 URL。"
 
-[config_schema.idle_clips.items.properties.weight]
-type = "float"
-description = "随机抽取权重，可选，需大于等于 0。"
-min = 0
-
-[config_schema.idle_assignments]
-type = "object"
-description = "不同运行状态下使用哪些待机动作，以及播放方式。"
-
-[config_schema.idle_assignments.properties.listening]
-type = "object"
-description = "角色处于 listening 状态时的待机动作配置。"
-
-[config_schema.idle_assignments.properties.listening.properties.mode]
-type = "str"
-description = "播放方式：`random` 或 `random_no_repeat`。"
-
-[config_schema.idle_assignments.properties.listening.properties.clip_ids]
-type = "list"
-description = "listening 状态可用的动作 ID 列表，引用上方 idle_clips 中的 id。"
-
-[config_schema.idle_assignments.properties.listening.properties.clip_ids.items]
-type = "str"
-description = "动作 ID。"
-
-[config_schema.idle_assignments.properties.speaking]
-type = "object"
-description = "角色处于 speaking 状态时的待机动作配置。"
-
-[config_schema.idle_assignments.properties.speaking.properties.mode]
-type = "str"
-description = "播放方式：`random` 或 `random_no_repeat`。"
-
-[config_schema.idle_assignments.properties.speaking.properties.clip_ids]
-type = "list"
-description = "speaking 状态可用的动作 ID 列表，引用上方 idle_clips 中的 id。"
-
-[config_schema.idle_assignments.properties.speaking.properties.clip_ids.items]
-type = "str"
-description = "动作 ID。"
-
-[config_schema.mixer_weights_by_state]
-type = "object"
-description = "前端 Pose Mixer 在不同状态下的各层权重。"
-
-[config_schema.mixer_weights_by_state.properties.listening]
-type = "object"
-description = "listening 状态下的 mixer 权重。"
-
-[config_schema.mixer_weights_by_state.properties.listening.properties.idle_layer]
+[config_schema.states.properties.listening.properties.idle_layer]
 type = "float"
 description = "待机层权重。"
 min = 0
 
-[config_schema.mixer_weights_by_state.properties.listening.properties.speech_layer]
+[config_schema.states.properties.listening.properties.speech_layer]
 type = "float"
 description = "说话层权重。"
 min = 0
 
-[config_schema.mixer_weights_by_state.properties.listening.properties.backend_pose_layer]
+[config_schema.states.properties.listening.properties.backend_pose_layer]
 type = "float"
-description = "后端姿态层权重。用于 actions.pose / pose_patch 等后端姿态输入。"
+description = "后端姿态层权重。"
 min = 0
 
-[config_schema.mixer_weights_by_state.properties.listening.properties.mouse_attention_layer]
+[config_schema.states.properties.listening.properties.mouse_attention_layer]
 type = "float"
 description = "鼠标注意力层权重。"
 min = 0
 
-[config_schema.mixer_weights_by_state.properties.speaking]
+[config_schema.states.properties.speaking]
 type = "object"
-description = "speaking 状态下的 mixer 权重。"
+description = "speaking 状态配置。"
 
-[config_schema.mixer_weights_by_state.properties.speaking.properties.idle_layer]
+[config_schema.states.properties.speaking.properties.mode]
+type = "str"
+description = "播放方式：random 或 random_no_repeat。"
+
+[config_schema.states.properties.speaking.properties.clips]
+type = "list"
+description = "该状态使用的待机动作片段列表。"
+
+[config_schema.states.properties.speaking.properties.clips.items]
+type = "object"
+
+[config_schema.states.properties.speaking.properties.clips.items.properties.url]
+type = "str"
+description = "motion3.json 的相对路径或 URL。"
+
+[config_schema.states.properties.speaking.properties.idle_layer]
 type = "float"
 description = "待机层权重。"
 min = 0
 
-[config_schema.mixer_weights_by_state.properties.speaking.properties.speech_layer]
+[config_schema.states.properties.speaking.properties.speech_layer]
 type = "float"
 description = "说话层权重。"
 min = 0
 
-[config_schema.mixer_weights_by_state.properties.speaking.properties.backend_pose_layer]
+[config_schema.states.properties.speaking.properties.backend_pose_layer]
 type = "float"
-description = "后端姿态层权重。用于 actions.pose / pose_patch 等后端姿态输入。"
+description = "后端姿态层权重。"
 min = 0
 
-[config_schema.mixer_weights_by_state.properties.speaking.properties.mouse_attention_layer]
+[config_schema.states.properties.speaking.properties.mouse_attention_layer]
 type = "float"
 description = "鼠标注意力层权重。"
 min = 0
