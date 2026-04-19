@@ -15,12 +15,10 @@ class ProfileConfig(BaseModel):
     """Profile 元信息配置。
 
     Attributes:
-        name: Profile 的唯一名称。
         description: Profile 的简要说明。
         agent_name: 注入到系统提示词中的角色名。
     """
 
-    name: str
     description: str = ""
     agent_name: str = ""
 

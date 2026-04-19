@@ -1,5 +1,4 @@
 [profile]
-name = "congyin"
 description = "聪音聊天链路 — /memory/chat，读写日记为主"
 agent_name = "congyin"
 

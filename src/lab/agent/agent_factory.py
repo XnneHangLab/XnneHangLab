@@ -159,7 +159,7 @@ class AgentFactory:
         )
         logger.info(
             "===== Chat System Prompt Preview ({}) =====\n{}\n===== End Chat System Prompt Preview =====",
-            profile.profile.name,
+            profile.profile.agent_name,
             chat_system_prompt,
         )
 

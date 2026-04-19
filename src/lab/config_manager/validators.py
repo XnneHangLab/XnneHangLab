@@ -129,13 +129,6 @@ def _resolve_active_character_name(settings: XnneHangLabSettings) -> str | None:
     if isinstance(character_name, str) and character_name.strip():
         return character_name.strip()
 
-    profile_obj = profile_data.get("profile")
-    if isinstance(profile_obj, dict):
-        profile_data_dict = cast("dict[str, object]", profile_obj)
-        profile_name = profile_data_dict.get("name")
-        if isinstance(profile_name, str) and profile_name.strip():
-            return profile_name.strip()
-
     return None
 
 

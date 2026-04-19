@@ -100,8 +100,6 @@ def _resolve_active_character_name(settings: XnneHangLabSettings) -> str:
         return profile.character.tts.character_name.strip()
     if profile.character.character_name.strip():
         return profile.character.character_name.strip()
-    if profile.profile.name.strip():
-        return profile.profile.name.strip()
     raise RuntimeError("failed to resolve active character name for genie-tts")
 
 
