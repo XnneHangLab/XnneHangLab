@@ -146,8 +146,6 @@ install-model:
   uv sync
   just install-gsv-lite-data
   just install-gsv-model-baoqiao
-  just install-local-embedding
-  just install-llm-translate
 
 install-qwen-asr model_dir='./models':
   uv lock
