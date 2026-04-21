@@ -128,7 +128,7 @@ test-qwen-tts-stream-play server='http://localhost:12393' ref_audio='voices/cong
 test-gsv-lite-health server='http://localhost:12393':
   curl "{{ server }}/tts/gsv-lite/health"
 
-test-gsv-lite-generate server='http://localhost:12393' output='output/gsv_lite_test.wav' text='你好，这是 gsv-lite 接口测试。' ref_audio_path='models/gsv-tts-lite/baoqiao/emotions/neutral/neutral_01.wav' ref_text='你好，这是参考音频文本。' speaker_audio_path='':
+test-gsv-lite-generate server='http://localhost:12393' output='output/gsv_lite_test.wav' text='你好，这是 gsv-lite 接口测试。' ref_audio_path='models/gsv-tts-lite/luming/emotions/neutral/neutral_01.wav' ref_text='你好，这是参考音频文本。' speaker_audio_path='':
   curl -X POST "{{ server }}/tts/gsv-lite/generate" \
     -H "Content-Type: application/json" \
     -d '{ \
@@ -179,7 +179,7 @@ install-gsv-model-elaina:
 install-gsv-model-baoqiao:
   uv lock
   uv sync
-  uv run modelscope download --model xnnehang/luming-gsv-v2 --local_dir ./models/gsv-tts-lite/baoqiao
+  uv run modelscope download --model xnnehang/luming-gsv-v2 --local_dir ./models/gsv-tts-lite/luming
 
 install-genie-tts-resource model='xnnehang/xnnehanglab-geniedata' model_dir='./models/geniedata':
   uv lock
