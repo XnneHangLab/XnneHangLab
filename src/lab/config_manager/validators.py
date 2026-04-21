@@ -753,15 +753,15 @@ def validate_all(settings: XnneHangLabSettings) -> list[str]:
 
 
 def validate_startup(settings: XnneHangLabSettings) -> tuple[list[str], list[str]]:
-    “””执行启动阶段配置校验。
+    """执行启动阶段配置校验。
 
     Args:
         settings: 完整配置对象。
 
     Returns:
         tuple[list[str], list[str]]: `(errors, warnings)`。
-    “””
-    logger.debug(“Running startup configuration validation”)
+    """
+    logger.debug("Running startup configuration validation")
     return _collect_validation_issues(settings)
 
 
