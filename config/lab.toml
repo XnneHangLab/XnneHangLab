@@ -107,14 +107,14 @@ pooling_type = "mean"
 n_gpu_layers = 0
 
 [package]
-sherpa_asr = false
-qwen_asr = false
 llm_translate = false
 local_embedding = false
+memory_bench = false
+sherpa_asr = false
+qwen_asr = false
 gsv_lite = false
 genie_tts = true
 qwen_tts = false
-memory_bench = false
 
 [root]
 root_dir = ""

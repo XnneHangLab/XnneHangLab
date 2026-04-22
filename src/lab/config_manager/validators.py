@@ -690,7 +690,7 @@ def _check_provider_package_compatibility(settings: XnneHangLabSettings) -> list
         if not getattr(settings.package, active_tts, True):
             issues.append(
                 f" [package]\n"
-                f" provider = \"{active_tts}\", 但 package.{active_tts} = false\n"
+                f' provider = "{active_tts}", 但 package.{active_tts} = false\n'
                 f" -> 在 [package] 下设置 {active_tts} = true"
             )
 
@@ -698,13 +698,13 @@ def _check_provider_package_compatibility(settings: XnneHangLabSettings) -> list
     if active_asr == "sherpa" and not settings.package.sherpa_asr:
         issues.append(
             f" [package]\n"
-            f" asr_model_provider = \"sherpa\", 但 package.sherpa_asr = false\n"
+            f' asr_model_provider = "sherpa", 但 package.sherpa_asr = false\n'
             f" -> 在 [package] 下设置 sherpa_asr = true"
         )
     elif active_asr == "qwen" and not settings.package.qwen_asr:
         issues.append(
             f" [package]\n"
-            f" asr_model_provider = \"qwen\", 但 package.qwen_asr = false\n"
+            f' asr_model_provider = "qwen", 但 package.qwen_asr = false\n'
             f" -> 在 [package] 下设置 qwen_asr = true"
         )
 

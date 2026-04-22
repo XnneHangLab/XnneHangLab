@@ -15,13 +15,14 @@ def _fake_settings(*, configured_model: str = "0.6b") -> SimpleNamespace:
         package=SimpleNamespace(qwen_tts=True),
         root=SimpleNamespace(root_dir="."),
         agent=SimpleNamespace(
+            tts=SimpleNamespace(provider="qwen_tts"),
             qwen_tts=SimpleNamespace(
                 model_name=configured_model,
                 model_0_6b_path="./models/Qwen3-TTS-12Hz-0.6B-Base",
                 model_1_7b_path="./models/Qwen3-TTS-12Hz-1.7B-Base",
                 device="cpu",
                 warmup_cuda_graphs=False,
-            )
+            ),
         ),
     )
 
