@@ -24,7 +24,7 @@ def _emit(event: str, target: str, status: str, message: str, current: int, tota
 class _MsStep:
     model_id: str
     local_dir: str
-    files: list[str] = field(default_factory=list)
+    files: list[str] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
 
 
 _TARGETS: dict[str, list[_MsStep]] = {
@@ -93,7 +93,7 @@ def _run_step(step: _MsStep, workspace_root: Path) -> None:
 
 
 def main() -> None:
-    import argparse  # noqa: PLC0415
+    import argparse
 
     parser = argparse.ArgumentParser(description="XnneHangLab model downloader")
     parser.add_argument("target", help="Download target key")

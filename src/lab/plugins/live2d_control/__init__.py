@@ -175,22 +175,18 @@ class StateConfig(PluginConfigModel):
     ]
     idle_layer: Annotated[float, Field(default=1.0, ge=0, description="待机层权重。")]
     speech_layer: Annotated[float, Field(default=1.0, ge=0, description="说话层权重。")]
-    backend_pose_layer: Annotated[
-        float, Field(default=1.0, ge=0, description="后端姿态层权重。")
-    ]
-    mouse_attention_layer: Annotated[
-        float, Field(default=0.35, ge=0, description="鼠标注意力层权重。")
-    ]
+    backend_pose_layer: Annotated[float, Field(default=1.0, ge=0, description="后端姿态层权重。")]
+    mouse_attention_layer: Annotated[float, Field(default=0.35, ge=0, description="鼠标注意力层权重。")]
 
 
 class StatesConfig(PluginConfigModel):
     listening: Annotated[
         StateConfig,
-        Field(default_factory=StateConfig, description="listening 状态配置。"),
+        Field(default_factory=StateConfig, description="listening 状态配置。"),  # pyright: ignore[reportArgumentType]
     ]
     speaking: Annotated[
         StateConfig,
-        Field(default_factory=StateConfig, description="speaking 状态配置。"),
+        Field(default_factory=StateConfig, description="speaking 状态配置。"),  # pyright: ignore[reportArgumentType]
     ]
 
 
@@ -256,7 +252,7 @@ class Live2DControlPluginConfig(PluginConfigModel):
     states: Annotated[
         StatesConfig,
         Field(
-            default_factory=StatesConfig,
+            default_factory=StatesConfig,  # pyright: ignore[reportArgumentType]
             description="按状态配置待机动作与 Pose Mixer 权重（推荐方式）。",
         ),
     ]
@@ -499,10 +495,7 @@ class Live2DControlPlugin(ToolPlugin):
             return False
         if isinstance(states, StatesConfig):
             return bool(states.listening.clips or states.speaking.clips)
-        return any(
-            (v.get("clips") if isinstance(v, dict) else getattr(v, "clips", None))
-            for v in states.values()
-        )
+        return any((v.get("clips") if isinstance(v, dict) else getattr(v, "clips", None)) for v in states.values())  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
 
     @classmethod
     def _normalize_idle_clips(cls, raw_idle_clips: list[dict[str, Any]] | list[IdleClip]) -> dict[str, dict[str, Any]]:

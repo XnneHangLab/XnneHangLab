@@ -62,7 +62,7 @@ def test_system_prompt_builder_uses_current_tool_prompt_chain(tmp_path: Path) ->
         skills=[],
         tool_manager=tool_manager,
         tool_prompt_segments=tool_prompt_segments,
-        agent_name="tester",
+        character_name="tester",
     )
 
     assert "persona block" in prompt
