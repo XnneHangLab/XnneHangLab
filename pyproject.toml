@@ -59,7 +59,7 @@ base = [
 ]
 
 sherpa-onnx = [
-  "sherpa-onnx==1.12.26", # 防止 onnxruntime 的版本过高与 genie-tts 冲突
+  "sherpa-onnx==1.10.46", # 防止 onnxruntime 的版本过高与 genie-tts 冲突
 ]
 
 qwen-asr = [
