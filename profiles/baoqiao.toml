@@ -18,7 +18,7 @@ ignore_asterisks = true
 ignore_angle_brackets = true
 
 [character.tts]
-character_name = "luming"
+character_name = "luming-v2-pro-plus"
 voice = "luming"
 
 [prompt]
