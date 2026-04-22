@@ -30,7 +30,6 @@ class _MsStep:
 _TARGETS: dict[str, list[_MsStep]] = {
     "genie-base": [
         _MsStep("xnnehang/xnnehanglab-geniedata", "models/GenieData"),
-        _MsStep("xnnehang/fast-langdetect-lid176", "models/GenieData"),
     ],
     "gsv-lite": [
         _MsStep("pengzhendong/chinese-hubert-base", "models/GSVLiteData/chinese-hubert-base"),
