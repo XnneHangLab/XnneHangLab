@@ -697,15 +697,15 @@ def _check_provider_package_compatibility(settings: XnneHangLabSettings) -> list
     active_asr = settings.asr.asr_model_provider
     if active_asr == "sherpa" and not settings.package.sherpa_asr:
         issues.append(
-            f" [package]\n"
-            f' asr_model_provider = "sherpa", 但 package.sherpa_asr = false\n'
-            f" -> 在 [package] 下设置 sherpa_asr = true"
+            " [package]\n"
+            ' asr_model_provider = "sherpa", 但 package.sherpa_asr = false\n'
+            " -> 在 [package] 下设置 sherpa_asr = true"
         )
     elif active_asr == "qwen" and not settings.package.qwen_asr:
         issues.append(
-            f" [package]\n"
-            f' asr_model_provider = "qwen", 但 package.qwen_asr = false\n'
-            f" -> 在 [package] 下设置 qwen_asr = true"
+            " [package]\n"
+            ' asr_model_provider = "qwen", 但 package.qwen_asr = false\n'
+            " -> 在 [package] 下设置 qwen_asr = true"
         )
 
     return issues
