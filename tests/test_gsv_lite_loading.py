@@ -18,7 +18,7 @@ import lab.api.logic.gsv_lite as gsv_lite_module
 def _fake_settings(*_args: object, **_kwargs: object) -> SimpleNamespace:
     return SimpleNamespace(
         package=SimpleNamespace(gsv_lite=True),
-        agent=SimpleNamespace(tts=SimpleNamespace(gsv_lite=SimpleNamespace(use_bert=False))),
+        agent=SimpleNamespace(tts=SimpleNamespace(provider="gsv_lite", gsv_lite=SimpleNamespace(use_bert=False))),
     )
 
 
@@ -88,7 +88,7 @@ def test_load_gsv_lite_model_uses_extended_gpt_cache(monkeypatch: pytest.MonkeyP
     def fake_get_gsv_lite_settings() -> SimpleNamespace:
         return SimpleNamespace(
             package=SimpleNamespace(gsv_lite=True),
-            agent=SimpleNamespace(tts=SimpleNamespace(gsv_lite=SimpleNamespace(use_bert=True))),
+            agent=SimpleNamespace(tts=SimpleNamespace(provider="gsv_lite", gsv_lite=SimpleNamespace(use_bert=True))),
             root=SimpleNamespace(root_dir="."),
         )
 
@@ -141,7 +141,7 @@ def test_load_gsv_lite_model_configures_local_english_nltk_resources(
     def fake_get_gsv_lite_settings() -> SimpleNamespace:
         return SimpleNamespace(
             package=SimpleNamespace(gsv_lite=True),
-            agent=SimpleNamespace(tts=SimpleNamespace(gsv_lite=SimpleNamespace(use_bert=False))),
+            agent=SimpleNamespace(tts=SimpleNamespace(provider="gsv_lite", gsv_lite=SimpleNamespace(use_bert=False))),
             root=SimpleNamespace(root_dir=str(tmp_path)),
         )
 
@@ -257,7 +257,7 @@ def test_warmup_gsv_lite_model_uses_ref_text_for_real_warmup(
 ) -> None:
     settings = SimpleNamespace(
         package=SimpleNamespace(gsv_lite=True),
-        agent=SimpleNamespace(tts=SimpleNamespace(gsv_lite=SimpleNamespace(use_bert=False))),
+        agent=SimpleNamespace(tts=SimpleNamespace(provider="gsv_lite", gsv_lite=SimpleNamespace(use_bert=False))),
         root=SimpleNamespace(root_dir=str(tmp_path)),
     )
     spec = gsv_lite_module.GSVLiteModelSpec(

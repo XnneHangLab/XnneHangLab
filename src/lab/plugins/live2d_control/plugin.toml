@@ -28,7 +28,7 @@ mouse_attention_layer = 0.35
 
 [config_schema.appearance_presets]
 type = "list"
-description = "可切换的 Live2D 外观预设列表。key 须与模型 emotion map 中的名称一致。"
+description = "可切换的 Live2D 外观预设列表。按当前顺序保存为对象列表。需要根据 model_dict 的 emotion map 实际情况写 key name。"
 
 [config_schema.appearance_presets.items]
 type = "object"
@@ -43,7 +43,7 @@ description = "该外观的说明文案"
 
 [config_schema.states]
 type = "object"
-description = "按状态配置待机动作与 Pose Mixer 权重。"
+description = "按状态配置待机动作与 Pose Mixer 权重（推荐方式）。"
 
 [config_schema.states.properties.listening]
 type = "object"

@@ -681,6 +681,36 @@ PACKAGE_RULES: list[PackageRule] = [
 ]
 
 
+def _check_provider_package_compatibility(settings: XnneHangLabSettings) -> list[str]:
+    """检查已选择的 provider 是否与 package 安装状态一致。"""
+    issues: list[str] = []
+
+    active_tts = _resolve_active_tts_provider(settings)
+    if active_tts in {"gsv_lite", "genie_tts", "qwen_tts"}:
+        if not getattr(settings.package, active_tts, True):
+            issues.append(
+                f" [package]\n"
+                f" provider = \"{active_tts}\", 但 package.{active_tts} = false\n"
+                f" -> 在 [package] 下设置 {active_tts} = true"
+            )
+
+    active_asr = settings.asr.asr_model_provider
+    if active_asr == "sherpa" and not settings.package.sherpa_asr:
+        issues.append(
+            f" [package]\n"
+            f" asr_model_provider = \"sherpa\", 但 package.sherpa_asr = false\n"
+            f" -> 在 [package] 下设置 sherpa_asr = true"
+        )
+    elif active_asr == "qwen" and not settings.package.qwen_asr:
+        issues.append(
+            f" [package]\n"
+            f" asr_model_provider = \"qwen\", 但 package.qwen_asr = false\n"
+            f" -> 在 [package] 下设置 qwen_asr = true"
+        )
+
+    return issues
+
+
 def validate_packages(settings: XnneHangLabSettings) -> list[str]:
     """校验已启用 package 的依赖与模型文件。
 
@@ -749,6 +779,7 @@ def validate_all(settings: XnneHangLabSettings) -> list[str]:
     """
     logger.debug("Running declarative configuration validation")
     errors, _ = _collect_validation_issues(settings)
+    errors += _check_provider_package_compatibility(settings)
     return errors
 
 
@@ -782,5 +813,6 @@ def _collect_validation_issues(
 
     errors += _check_profiles(settings)
     errors += validate_packages(settings)
+    warnings += _check_provider_package_compatibility(settings)
 
     return errors, warnings

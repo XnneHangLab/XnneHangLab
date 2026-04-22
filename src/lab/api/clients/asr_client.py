@@ -101,10 +101,20 @@ class ASRClient(BaseClientInterface):
     def _resolve_effective_provider(self, settings: XnneHangLabSettings) -> str:
         """解析当前请求实际使用的 ASR provider。"""
         provider = settings.asr.asr_model_provider
-        if provider in ("sherpa", "qwen"):
-            return provider
+        sherpa_ok = getattr(settings.package, "sherpa_asr", True)
+        qwen_ok = getattr(settings.package, "qwen_asr", True)
+
+        if provider == "sherpa" and sherpa_ok:
+            return "sherpa"
+        if provider == "qwen" and qwen_ok:
+            return "qwen"
+        # Fallback to any still-enabled provider
+        if sherpa_ok:
+            return "sherpa"
+        if qwen_ok:
+            return "qwen"
         raise RuntimeError(
-            "ASR is disabled in lab.toml. Set [asr].asr_model_provider to 'sherpa' or 'qwen', or use text input."
+            "ASR is disabled in lab.toml. Enable [package].sherpa_asr or [package].qwen_asr, or use text input."
         )
 
     def _resolve_qwen_route_model(self, request: ASRRequest) -> str:
