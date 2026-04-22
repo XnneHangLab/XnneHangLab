@@ -108,6 +108,7 @@ genie-tts = [
   "g2pk2",
   "eunjeon; sys_platform == 'win32'",
   "fast_langdetect",
+  "jieba_fast",
 ]
 
 vtuber = [
