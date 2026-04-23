@@ -32,30 +32,6 @@ if not ROOT_DIR.exists():
     raise FileNotFoundError(f"Static root directory {ROOT_DIR} does not exist.")
 
 
-class CustomStaticFiles(StaticFiles):
-    async def get_response(self, path, scope):  # type: ignore[override]
-        """为 JavaScript 静态资源补充内容类型。
-
-        Args:
-            path: 请求的相对路径。
-            scope: Starlette 请求作用域。
-
-        Returns:
-            Response: 处理后的响应对象。
-
-        Raises:
-            None.
-        """
-        response = await super().get_response(path, scope)
-        if path.endswith(".js"):
-            response.headers["Content-Type"] = "application/javascript"
-        if path.endswith((".html", ".js", ".css")):
-            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
-            response.headers["Pragma"] = "no-cache"
-            response.headers["Expires"] = "0"
-        return response
-
-
 class AvatarStaticFiles(StaticFiles):
     async def get_response(self, path: str, scope):  # type: ignore[override]
         """限制头像目录只允许访问图片资源。
@@ -448,14 +424,6 @@ class WebSocketServer:
                 ),
             )
 
-        _include_router_with_log(
-            "Admin 管理端点",
-            lambda: self.app.include_router(
-                import_module("lab.api.routes.admin").router,
-                prefix="/admin",
-            ),
-        )
-
         logger.info("Mounting static files from {}", ROOT_DIR)
         self.app.mount(
             "/live2d-models",
@@ -472,12 +440,6 @@ class WebSocketServer:
             AvatarStaticFiles(directory=str(ROOT_DIR / "avatars")),
             name="avatars",
         )
-        self.app.mount(
-            "/web-tool",
-            CustomStaticFiles(directory=str(ROOT_DIR / "web_tool"), html=True),
-            name="web_tool",
-        )
-
         self.app.state.default_context_cache = default_context_cache
         self.app.state.ws_handler = getattr(client_ws_router, "ws_handler", None)
 
