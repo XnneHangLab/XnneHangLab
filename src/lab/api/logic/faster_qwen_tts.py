@@ -149,7 +149,7 @@ def load_qwen_tts_model(
     global _qwen_tts_engine, _loaded_model_name, _loaded_model_source, _sample_rate
 
     settings = _get_qwen_tts_settings()
-    if not settings.package.qwen_tts:
+    if settings.agent.tts.provider != "qwen_tts":
         raise RuntimeError("Qwen-TTS is disabled in lab.toml")
 
     target_model = model_name or get_configured_qwen_tts_model_name(settings)
@@ -210,7 +210,7 @@ def reload_qwen_tts_model(model_name: QwenTTSModelName | None = None) -> dict[st
 
 def get_qwen_tts_model() -> Any:
     settings = _get_qwen_tts_settings()
-    if not settings.package.qwen_tts:
+    if settings.agent.tts.provider != "qwen_tts":
         raise HTTPException(status_code=503, detail="Qwen-TTS is disabled in lab.toml")
 
     configured_model = get_configured_qwen_tts_model_name(settings)

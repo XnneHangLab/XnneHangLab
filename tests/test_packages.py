@@ -10,7 +10,7 @@ def test_package_versions() -> None:
     from lab.__version__ import VERSION
 
     assert VERSION == "0.0.5", f"LAB 版本应为 0.0.5，实际为 {VERSION}"
-    assert version("sherpa-onnx") == "1.12.26"
+    assert version("sherpa-onnx") == "1.10.46"
 
 
 def test_mem0_runtime_version() -> None:

@@ -45,7 +45,7 @@ class SystemPromptBuilder:
         skills: list[SkillDescriptor],
         tool_manager: ToolManager | None,
         tool_prompt_segments: list[PromptSegment] | None = None,
-        agent_name: str = "",
+        character_name: str = "",
     ) -> str:
         parts: list[str] = []
 
@@ -63,7 +63,7 @@ class SystemPromptBuilder:
         for skill in sorted(inline_skills, key=lambda item: item.priority):
             for file_path in skill.files:
                 content = (skill.plugin_dir / file_path).read_text(encoding="utf-8").strip()
-                content = content.replace("{agent_name}", agent_name)
+                content = content.replace("{character_name}", character_name)
                 parts.append(content)
 
         outline_skills = [skill for skill in skills if not skill.inline]

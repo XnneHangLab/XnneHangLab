@@ -18,7 +18,7 @@ ApiFormat = Literal["chat_completion"]
 EmbeddingPoolingType = Literal["mean", "cls", "last"]
 ALLOWED_API_FORMATS: tuple[ApiFormat, ...] = ("chat_completion",)
 ALLOWED_EMBEDDING_POOLING_TYPES: tuple[EmbeddingPoolingType, ...] = ("mean", "cls", "last")
-ALLOWED_TTS_PROVIDERS: tuple[TTSProvider, ...] = ("gsv_lite", "genie_tts", "qwen_tts")
+ALLOWED_TTS_PROVIDERS: tuple[TTSProvider, ...] = ("none", "gsv_lite", "genie_tts", "qwen_tts")
 GENIE_TTS_LANGUAGE_ALIASES: dict[str, str] = {
     "chinese": "Chinese",
     "english": "English",
@@ -254,6 +254,11 @@ def main() -> None:
         settings.agent.vision_model.reasoning = value
     if "TTS_PROVIDER" in os.environ:
         settings.agent.tts.provider = validate_tts_provider(os.environ.get("TTS_PROVIDER", ""), "TTS_PROVIDER")
+    if "ASR_MODEL_PROVIDER" in os.environ:
+        v = os.environ.get("ASR_MODEL_PROVIDER", "").strip()
+        if v not in ("none", "sherpa", "qwen"):
+            raise ValueError(f"Invalid ASR_MODEL_PROVIDER={v!r}, must be one of: none, sherpa, qwen")
+        settings.asr.asr_model_provider = v  # type: ignore[assignment]
     if (value := _parse_bool_env("TTS_GSV_LITE_USE_BERT")) is not None:
         settings.agent.tts.gsv_lite.use_bert = value
     if "TTS_GENIE_TTS_LANGUAGE" in os.environ:
@@ -282,16 +287,6 @@ def main() -> None:
         settings.package.llm_translate = value
     if (value := _parse_bool_env("PKG_LOCAL_EMBEDDING")) is not None:
         settings.package.local_embedding = value
-    if (value := _parse_bool_env("PKG_QWEN_TTS")) is not None:
-        settings.package.qwen_tts = value
-    if (value := _parse_bool_env("PKG_GSV_LITE")) is not None:
-        settings.package.gsv_lite = value
-    if (value := _parse_bool_env("PKG_GENIE_TTS")) is not None:
-        settings.package.genie_tts = value
-    if (value := _parse_bool_env("PKG_SHERPA_ASR")) is not None:
-        settings.package.sherpa_asr = value
-    if (value := _parse_bool_env("PKG_QWEN_ASR")) is not None:
-        settings.package.qwen_asr = value
 
     for provider in settings.agent.llm.providers:
         logger.info("llm.providers[{}].llm_api_key: {}", provider.name, mask_api_key(provider.llm_api_key))

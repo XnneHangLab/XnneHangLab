@@ -152,6 +152,44 @@ class IdleAssignmentsByState(PluginConfigModel):
     ]
 
 
+class StateClip(PluginConfigModel):
+    url: Annotated[str, Field(description="motion3.json 的相对路径或 URL。")]
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("states[].clips[].url must not be empty")
+        return normalized
+
+
+class StateConfig(PluginConfigModel):
+    mode: Annotated[
+        IdleMode,
+        Field(default="random_no_repeat", description="播放方式：random 或 random_no_repeat。"),
+    ]
+    clips: Annotated[
+        list[StateClip],
+        Field(default_factory=list, description="该状态使用的待机动作片段列表。"),
+    ]
+    idle_layer: Annotated[float, Field(default=1.0, ge=0, description="待机层权重。")]
+    speech_layer: Annotated[float, Field(default=1.0, ge=0, description="说话层权重。")]
+    backend_pose_layer: Annotated[float, Field(default=1.0, ge=0, description="后端姿态层权重。")]
+    mouse_attention_layer: Annotated[float, Field(default=0.35, ge=0, description="鼠标注意力层权重。")]
+
+
+class StatesConfig(PluginConfigModel):
+    listening: Annotated[
+        StateConfig,
+        Field(default_factory=StateConfig, description="listening 状态配置。"),  # pyright: ignore[reportArgumentType]
+    ]
+    speaking: Annotated[
+        StateConfig,
+        Field(default_factory=StateConfig, description="speaking 状态配置。"),  # pyright: ignore[reportArgumentType]
+    ]
+
+
 class MixerWeightsByStateConfig(PluginConfigModel):
     listening: Annotated[
         MixerStateWeights,
@@ -211,25 +249,35 @@ class Live2DControlPluginConfig(PluginConfigModel):
             description="可切换的 Live2D 外观预设列表。按当前顺序保存为对象列表。需要根据 model_dict 的 emotion map 实际情况写 key name。",
         ),
     ]
+    states: Annotated[
+        StatesConfig,
+        Field(
+            default_factory=StatesConfig,  # pyright: ignore[reportArgumentType]
+            description="按状态配置待机动作与 Pose Mixer 权重（推荐方式）。",
+        ),
+    ]
+    # ── Legacy fields kept for backward compatibility ──────────────────────────
     idle_clips: Annotated[
         list[IdleClip],
         Field(
             default_factory=list,
-            description="所有可用的待机动作片段。先在这里添加动作，再按 listening / speaking 状态分配。",
+            description="Legacy: 所有可用的待机动作片段。请改用 states。",
+            json_schema_extra={"plugin_meta_hidden": True},
         ),
     ]
     idle_assignments: Annotated[
         IdleAssignmentsByState,
         Field(
             default_factory=_default_idle_assignments,
-            description="不同运行状态下使用哪些待机动作，以及播放方式。",
+            description="Legacy: 不同运行状态下使用哪些待机动作。请改用 states。",
+            json_schema_extra={"plugin_meta_hidden": True},
         ),
     ]
     idle_banks: Annotated[
         dict[str, dict[str, Any]],
         Field(
             default_factory=dict,
-            description="Legacy: recorded idle banks keyed by state name. Prefer idle_clips + idle_assignments.",
+            description="Legacy: recorded idle banks keyed by state name. Prefer states.",
             json_schema_extra={"plugin_meta_hidden": True},
         ),
     ]
@@ -237,7 +285,8 @@ class Live2DControlPluginConfig(PluginConfigModel):
         MixerWeightsByStateConfig,
         Field(
             default_factory=_default_mixer_weights_by_state,
-            description="前端 Pose Mixer 在不同状态下的各层权重。",
+            description="Legacy: 前端 Pose Mixer 在不同状态下的各层权重。请改用 states。",
+            json_schema_extra={"plugin_meta_hidden": True},
         ),
     ]
 
@@ -359,6 +408,7 @@ class Live2DControlPlugin(ToolPlugin):
     def __init__(
         self,
         appearance_presets: list[dict[str, str]] | list[AppearancePreset] | None = None,
+        states: dict[str, Any] | StatesConfig | None = None,
         idle_clips: list[dict[str, Any]] | list[IdleClip] | None = None,
         idle_assignments: dict[str, dict[str, Any]] | IdleAssignmentsByState | None = None,
         idle_banks: dict[str, dict[str, Any]] | None = None,
@@ -366,12 +416,18 @@ class Live2DControlPlugin(ToolPlugin):
     ) -> None:
         self._appearance_presets = [self._coerce_preset(preset) for preset in appearance_presets or []]
         self._appearance_options: dict[str, AppearanceOption] = {}
-        self._idle_banks = self._build_idle_banks_from_idle_catalog(
-            idle_clips=idle_clips or [],
-            idle_assignments=idle_assignments or {},
-            legacy_idle_banks=idle_banks or {},
-        )
-        self._mixer_weights_by_state = self._normalize_mixer_weights_by_state(mixer_weights_by_state or {})
+
+        if self._states_has_clips(states):
+            self._idle_banks, self._mixer_weights_by_state = self._build_from_states(states)  # type: ignore[arg-type]
+            for s in DEFAULT_IDLE_STATES:
+                self._mixer_weights_by_state.setdefault(s, dict(DEFAULT_MIXER_LAYER_WEIGHTS))
+        else:
+            self._idle_banks = self._build_idle_banks_from_idle_catalog(
+                idle_clips=idle_clips or [],
+                idle_assignments=idle_assignments or {},
+                legacy_idle_banks=idle_banks or {},
+            )
+            self._mixer_weights_by_state = self._normalize_mixer_weights_by_state(mixer_weights_by_state or {})
 
     @staticmethod
     def _coerce_preset(raw_preset: dict[str, str] | AppearancePreset) -> AppearancePreset:
@@ -400,6 +456,46 @@ class Live2DControlPlugin(ToolPlugin):
         if isinstance(raw_weights, MixerStateWeights):
             return raw_weights
         return MixerStateWeights.model_validate(raw_weights)
+
+    @classmethod
+    def _build_from_states(
+        cls,
+        states: StatesConfig | dict[str, Any],
+    ) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, float]]]:
+        if isinstance(states, StatesConfig):
+            states_items: dict[str, StateConfig] = {
+                "listening": states.listening,
+                "speaking": states.speaking,
+            }
+        else:
+            states_items = {k: StateConfig.model_validate(v) for k, v in states.items()}
+
+        idle_banks: dict[str, dict[str, Any]] = {}
+        mixer_weights: dict[str, dict[str, float]] = {}
+
+        for state_name, sc in states_items.items():
+            clips = [{"url": c.url} for c in sc.clips]
+            if clips:
+                idle_banks[state_name] = {
+                    "mode": cls._normalize_idle_mode(sc.mode),
+                    "clips": clips,
+                }
+            mixer_weights[state_name] = {
+                "idle_layer": float(sc.idle_layer),
+                "speech_layer": float(sc.speech_layer),
+                "backend_pose_layer": float(sc.backend_pose_layer),
+                "mouse_attention_layer": float(sc.mouse_attention_layer),
+            }
+
+        return idle_banks, mixer_weights
+
+    @classmethod
+    def _states_has_clips(cls, states: StatesConfig | dict[str, Any] | None) -> bool:
+        if states is None:
+            return False
+        if isinstance(states, StatesConfig):
+            return bool(states.listening.clips or states.speaking.clips)
+        return any((v.get("clips") if isinstance(v, dict) else getattr(v, "clips", None)) for v in states.values())  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
 
     @classmethod
     def _normalize_idle_clips(cls, raw_idle_clips: list[dict[str, Any]] | list[IdleClip]) -> dict[str, dict[str, Any]]:

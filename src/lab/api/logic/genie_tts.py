@@ -100,8 +100,6 @@ def _resolve_active_character_name(settings: XnneHangLabSettings) -> str:
         return profile.character.tts.character_name.strip()
     if profile.character.character_name.strip():
         return profile.character.character_name.strip()
-    if profile.profile.name.strip():
-        return profile.profile.name.strip()
     raise RuntimeError("failed to resolve active character name for genie-tts")
 
 
@@ -461,7 +459,7 @@ def load_genie_tts_model(*, force_reload: bool = False) -> dict[str, Any]:
     global _genie_tts_module, _loaded_model_spec
 
     settings = _get_genie_tts_settings()
-    if not settings.package.genie_tts:
+    if settings.agent.tts.provider != "genie_tts":
         raise RuntimeError("Genie-TTS is disabled in lab.toml")
 
     target_spec = _get_configured_model_spec(settings)
@@ -532,7 +530,7 @@ async def warmup_genie_tts_model() -> dict[str, Any]:
 
 def get_genie_tts_model() -> Any:
     settings = _get_genie_tts_settings()
-    if not settings.package.genie_tts:
+    if settings.agent.tts.provider != "genie_tts":
         raise HTTPException(status_code=503, detail="Genie-TTS is disabled in lab.toml")
 
     configured = _get_configured_model_spec(settings)

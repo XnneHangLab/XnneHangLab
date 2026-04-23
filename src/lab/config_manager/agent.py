@@ -8,7 +8,7 @@ from lab.config_manager.qwen_tts import QwenTTSSettings
 
 LLM_Provider = str
 TranslateProvider = Literal["llm", "deeplx"]
-TTSProvider = Literal["gsv_lite", "genie_tts", "qwen_tts"]
+TTSProvider = Literal["none", "gsv_lite", "genie_tts", "qwen_tts"]
 GenieTTSLanguage = Literal["Chinese", "English", "Japanese", "Hybrid-Chinese-English", "Korean", "auto"]
 
 

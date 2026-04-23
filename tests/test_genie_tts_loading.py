@@ -19,7 +19,7 @@ def _fake_settings() -> SimpleNamespace:
         package=SimpleNamespace(genie_tts=True),
         agent=SimpleNamespace(
             speaker_lang="ZH",
-            tts=SimpleNamespace(genie_tts=SimpleNamespace(use_roberta=False, language="")),
+            tts=SimpleNamespace(provider="genie_tts", genie_tts=SimpleNamespace(use_roberta=False, language="")),
         ),
         root=SimpleNamespace(root_dir="."),
     )

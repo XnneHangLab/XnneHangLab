@@ -129,13 +129,6 @@ def _resolve_active_character_name(settings: XnneHangLabSettings) -> str | None:
     if isinstance(character_name, str) and character_name.strip():
         return character_name.strip()
 
-    profile_obj = profile_data.get("profile")
-    if isinstance(profile_obj, dict):
-        profile_data_dict = cast("dict[str, object]", profile_obj)
-        profile_name = profile_data_dict.get("name")
-        if isinstance(profile_name, str) and profile_name.strip():
-            return profile_name.strip()
-
     return None
 
 
@@ -331,7 +324,7 @@ def _resolve_active_qwen_tts_model_path(settings: XnneHangLabSettings) -> Path |
 
 
 def _check_gsv_lite_roberta_when_enabled(settings: XnneHangLabSettings) -> str | None:
-    if not settings.package.gsv_lite:
+    if settings.agent.tts.provider != "gsv_lite":
         return None
     if not settings.agent.tts.gsv_lite.use_bert:
         return None
@@ -430,66 +423,6 @@ def _check_translate_config(settings: XnneHangLabSettings) -> str | None:
         )
 
     return None
-
-
-def _check_asr_provider_package_match(settings: XnneHangLabSettings) -> str | None:
-    """校验当前 ASR provider 与 package 开关是否一致。"""
-    provider = settings.asr.asr_model_provider.strip().lower()
-
-    if provider == "sherpa" and not settings.package.sherpa_asr:
-        return (
-            " [package]\n"
-            ' 当前 [asr].asr_model_provider = "sherpa"，但 package.sherpa_asr = false\n'
-            ' -> 在 [package] 下设置 sherpa_asr = true，或将 [asr].asr_model_provider 改为 "qwen"'
-        )
-
-    if provider == "qwen" and not settings.package.qwen_asr:
-        return (
-            " [package]\n"
-            ' 当前 [asr].asr_model_provider = "qwen"，但 package.qwen_asr = false\n'
-            ' -> 在 [package] 下设置 qwen_asr = true，或将 [asr].asr_model_provider 改为 "sherpa"'
-        )
-
-    return None
-
-
-def _check_qwen_tts_package_match(settings: XnneHangLabSettings) -> str | None:
-    provider = _resolve_active_tts_provider(settings)
-    if provider != "qwen_tts":
-        return None
-    if settings.package.qwen_tts:
-        return None
-    return (
-        " [package]\n"
-        f' Current effective TTS provider = "{provider}", but package.qwen_tts = false\n'
-        " -> Set qwen_tts = true under [package], then run `just install-qwen-tts`"
-    )
-
-
-def _check_gsv_lite_package_match(settings: XnneHangLabSettings) -> str | None:
-    provider = _resolve_active_tts_provider(settings)
-    if provider != "gsv_lite":
-        return None
-    if settings.package.gsv_lite:
-        return None
-    return (
-        " [package]\n"
-        f' Current effective TTS provider = "{provider}", but package.gsv_lite = false\n'
-        " -> Set gsv_lite = true under [package], then run `uv sync --group gsv-lite`"
-    )
-
-
-def _check_genie_tts_package_match(settings: XnneHangLabSettings) -> str | None:
-    provider = _resolve_active_tts_provider(settings)
-    if provider != "genie_tts":
-        return None
-    if settings.package.genie_tts:
-        return None
-    return (
-        " [package]\n"
-        f' Current effective TTS provider = "{provider}", but package.genie_tts = false\n'
-        " -> Set genie_tts = true under [package], then run `uv sync --group genie-tts`"
-    )
 
 
 def _check_profiles(settings: XnneHangLabSettings) -> list[str]:
@@ -748,6 +681,36 @@ PACKAGE_RULES: list[PackageRule] = [
 ]
 
 
+def _check_provider_package_compatibility(settings: XnneHangLabSettings) -> list[str]:
+    """检查已选择的 provider 是否与 package 安装状态一致。"""
+    issues: list[str] = []
+
+    active_tts = _resolve_active_tts_provider(settings)
+    if active_tts in {"gsv_lite", "genie_tts", "qwen_tts"}:
+        if not getattr(settings.package, active_tts, True):
+            issues.append(
+                f" [package]\n"
+                f' provider = "{active_tts}", 但 package.{active_tts} = false\n'
+                f" -> 在 [package] 下设置 {active_tts} = true"
+            )
+
+    active_asr = settings.asr.asr_model_provider
+    if active_asr == "sherpa" and not settings.package.sherpa_asr:
+        issues.append(
+            " [package]\n"
+            ' asr_model_provider = "sherpa", 但 package.sherpa_asr = false\n'
+            " -> 在 [package] 下设置 sherpa_asr = true"
+        )
+    elif active_asr == "qwen" and not settings.package.qwen_asr:
+        issues.append(
+            " [package]\n"
+            ' asr_model_provider = "qwen", 但 package.qwen_asr = false\n'
+            " -> 在 [package] 下设置 qwen_asr = true"
+        )
+
+    return issues
+
+
 def validate_packages(settings: XnneHangLabSettings) -> list[str]:
     """校验已启用 package 的依赖与模型文件。
 
@@ -759,12 +722,18 @@ def validate_packages(settings: XnneHangLabSettings) -> list[str]:
     """
     errors: list[str] = []
     active_tts_provider = _resolve_active_tts_provider(settings)
+    active_asr_provider = settings.asr.asr_model_provider
 
     for rule in PACKAGE_RULES:
-        enabled = getattr(settings.package, rule.package_name, False)
+        if rule.package_name in {"gsv_lite", "genie_tts", "qwen_tts"}:
+            enabled = rule.package_name == active_tts_provider
+        elif rule.package_name == "sherpa_asr":
+            enabled = active_asr_provider == "sherpa"
+        elif rule.package_name == "qwen_asr":
+            enabled = active_asr_provider == "qwen"
+        else:
+            enabled = getattr(settings.package, rule.package_name, False)
         if not enabled:
-            continue
-        if rule.package_name in {"gsv_lite", "genie_tts", "qwen_tts"} and rule.package_name != active_tts_provider:
             continue
 
         for dep in rule.depends_on:
@@ -809,15 +778,13 @@ def validate_all(settings: XnneHangLabSettings) -> list[str]:
         错误信息列表；空列表表示全部通过。
     """
     logger.debug("Running declarative configuration validation")
-    errors, _ = _collect_validation_issues(settings, asr_provider_mismatch_is_fatal=True)
+    errors, _ = _collect_validation_issues(settings)
+    errors += _check_provider_package_compatibility(settings)
     return errors
 
 
 def validate_startup(settings: XnneHangLabSettings) -> tuple[list[str], list[str]]:
     """执行启动阶段配置校验。
-
-    ASR provider 与 package 开关不一致时仅作为警告处理，
-    允许服务在“仅文本输入”模式下继续启动。
 
     Args:
         settings: 完整配置对象。
@@ -826,13 +793,11 @@ def validate_startup(settings: XnneHangLabSettings) -> tuple[list[str], list[str
         tuple[list[str], list[str]]: `(errors, warnings)`。
     """
     logger.debug("Running startup configuration validation")
-    return _collect_validation_issues(settings, asr_provider_mismatch_is_fatal=False)
+    return _collect_validation_issues(settings)
 
 
 def _collect_validation_issues(
     settings: XnneHangLabSettings,
-    *,
-    asr_provider_mismatch_is_fatal: bool,
 ) -> tuple[list[str], list[str]]:
     """汇总配置校验中的错误与警告。"""
     errors: list[str] = []
@@ -846,24 +811,8 @@ def _collect_validation_issues(
     if translate_err:
         errors.append(translate_err)
 
-    asr_provider_issue = _check_asr_provider_package_match(settings)
-    if asr_provider_issue:
-        target = errors if asr_provider_mismatch_is_fatal else warnings
-        target.append(asr_provider_issue)
-
-    qwen_tts_err = _check_qwen_tts_package_match(settings)
-    if qwen_tts_err:
-        errors.append(qwen_tts_err)
-
-    gsv_lite_err = _check_gsv_lite_package_match(settings)
-    if gsv_lite_err:
-        errors.append(gsv_lite_err)
-
-    genie_tts_err = _check_genie_tts_package_match(settings)
-    if genie_tts_err:
-        errors.append(genie_tts_err)
-
     errors += _check_profiles(settings)
     errors += validate_packages(settings)
+    warnings += _check_provider_package_compatibility(settings)
 
     return errors, warnings

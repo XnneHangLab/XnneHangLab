@@ -21,16 +21,17 @@ async def reload_all_asr() -> dict[str, object]:
         None.
     """
     settings = load_settings_file("lab.toml", XnneHangLabSettings)
-    if not settings.package.sherpa_asr and not settings.package.qwen_asr:
+    asr_provider = settings.asr.asr_model_provider
+    if asr_provider not in ("sherpa", "qwen"):
         return {"code": 404, "message": "ASR services are disabled in lab.toml"}
 
     try:
-        if settings.package.sherpa_asr:
+        if asr_provider == "sherpa":
             from lab.api.logic.sherpa_asr import reload_sherpa_asr
 
             reload_sherpa_asr()
 
-        if settings.package.qwen_asr:
+        if asr_provider == "qwen":
             from lab.api.logic.qwen_asr import get_preload_qwen_models, reload_qwen_asr_engine
 
             for model_name in get_preload_qwen_models(settings):
@@ -55,7 +56,7 @@ async def reload_sherpa_route() -> dict[str, object]:
         None.
     """
     settings = load_settings_file("lab.toml", XnneHangLabSettings)
-    if not settings.package.sherpa_asr:
+    if settings.asr.asr_model_provider != "sherpa":
         return {"code": 404, "message": "Sherpa-ONNX is disabled in lab.toml"}
 
     try:

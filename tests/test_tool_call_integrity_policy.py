@@ -33,7 +33,7 @@ def test_tool_call_integrity_segment_is_included_in_system_prompt(tmp_path: Path
         skills=[],
         tool_manager=tool_manager,
         tool_prompt_segments=plugin.get_prompt_segments(),
-        agent_name="tester",
+        character_name="tester",
     )
 
     assert "工具调用完整性" in prompt

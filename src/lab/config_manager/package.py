@@ -6,19 +6,12 @@ from pydantic import BaseModel, Field
 
 
 class Packages(TypedDict):
-    sherpa_asr: bool
-    qwen_asr: bool
     llm_translate: bool
     local_embedding: bool
-    gsv_lite: bool
-    genie_tts: bool
-    qwen_tts: bool
     memory_bench: bool
 
 
 class PackagesSettings(BaseModel):
-    sherpa_asr: Annotated[bool, Field(False, title="Whether to enable sherpa-onnx paraformer ASR service")]
-    qwen_asr: Annotated[bool, Field(False, title="Whether to enable Qwen3-ASR service")]
     llm_translate: Annotated[
         bool,
         Field(False, title="LLM Translate", description="启用本地 LLM 翻译引擎"),
@@ -27,23 +20,35 @@ class PackagesSettings(BaseModel):
         bool,
         Field(False, title="Whether to enable local GGUF embedding service"),
     ]
-    gsv_lite: Annotated[bool, Field(False, title="Whether to enable gsv-lite")]
-    genie_tts: Annotated[bool, Field(True, title="Whether to enable Genie-TTS")]
-    qwen_tts: Annotated[bool, Field(False, title="Whether to enable faster-qwen-tts")]
     memory_bench: Annotated[
         bool,
         Field(False, title="Whether to mount memory_bench service (route prefix: /memory)"),
     ]
+    sherpa_asr: Annotated[
+        bool,
+        Field(True, title="Sherpa ASR", description="是否安装了 sherpa-onnx ASR 引擎"),
+    ]
+    qwen_asr: Annotated[
+        bool,
+        Field(True, title="Qwen ASR", description="是否安装了 Qwen ASR 引擎"),
+    ]
+    gsv_lite: Annotated[
+        bool,
+        Field(True, title="GSV-Lite", description="是否安装了 GSV-Lite TTS 引擎"),
+    ]
+    genie_tts: Annotated[
+        bool,
+        Field(True, title="Genie TTS", description="是否安装了 Genie-TTS 引擎"),
+    ]
+    qwen_tts: Annotated[
+        bool,
+        Field(True, title="Qwen TTS", description="是否安装了 Qwen TTS 引擎"),
+    ]
 
     def to_dict(self) -> Packages:
         return {
-            "sherpa_asr": self.sherpa_asr,
-            "qwen_asr": self.qwen_asr,
             "llm_translate": self.llm_translate,
             "local_embedding": self.local_embedding,
-            "gsv_lite": self.gsv_lite,
-            "genie_tts": self.genie_tts,
-            "qwen_tts": self.qwen_tts,
             "memory_bench": self.memory_bench,
         }
 

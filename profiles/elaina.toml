@@ -1,7 +1,5 @@
 [profile]
-name = "elaina"
 description = "VTuber 主链路 - 多工具，memory agent"
-agent_name = "elaina"
 
 [character]
 conf_name = "elaina-local"

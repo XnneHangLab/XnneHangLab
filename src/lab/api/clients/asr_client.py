@@ -98,38 +98,21 @@ class ASRClient(BaseClientInterface):
         self.base_url = self.base_url
         self.last_error: str | None = None
 
-    @staticmethod
-    def _is_provider_enabled(settings: XnneHangLabSettings, provider: str) -> bool:
-        normalized = provider.strip().lower()
-        if normalized == "qwen":
-            return settings.package.qwen_asr
-        if normalized == "sherpa":
-            return settings.package.sherpa_asr
-        return False
-
     def _resolve_effective_provider(self, settings: XnneHangLabSettings) -> str:
-        """解析当前请求实际使用的 ASR provider。
+        """解析当前请求实际使用的 ASR provider。"""
+        provider = settings.asr.asr_model_provider
+        sherpa_ok = getattr(settings.package, "sherpa_asr", True)
+        qwen_ok = getattr(settings.package, "qwen_asr", True)
 
-        优先使用配置中的 provider；若该 provider 未启用，则回退到任一已启用的引擎。
-        """
-        configured_provider = settings.asr.asr_model_provider.strip().lower()
-        if self._is_provider_enabled(settings, configured_provider):
-            return configured_provider
-
-        if settings.package.sherpa_asr:
-            _asr_logger.warning(
-                f"Configured ASR provider '{configured_provider or '<empty>'}' is unavailable; "
-                "falling back to Sherpa-ONNX."
-            )
+        if provider == "sherpa" and sherpa_ok:
             return "sherpa"
-
-        if settings.package.qwen_asr:
-            _asr_logger.warning(
-                f"Configured ASR provider '{configured_provider or '<empty>'}' is unavailable; "
-                "falling back to Qwen3-ASR."
-            )
+        if provider == "qwen" and qwen_ok:
             return "qwen"
-
+        # Fallback to any still-enabled provider
+        if sherpa_ok:
+            return "sherpa"
+        if qwen_ok:
+            return "qwen"
         raise RuntimeError(
             "ASR is disabled in lab.toml. Enable [package].sherpa_asr or [package].qwen_asr, or use text input."
         )
@@ -147,7 +130,7 @@ class ASRClient(BaseClientInterface):
             RuntimeError: Qwen3-ASR 服务未启用时抛出。
         """
         settings = load_settings_file("lab.toml", XnneHangLabSettings)
-        if not settings.package.qwen_asr:
+        if settings.asr.asr_model_provider != "qwen":
             raise RuntimeError("Qwen3-ASR is disabled in lab.toml")
 
         if request.model_name:
