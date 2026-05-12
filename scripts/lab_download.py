@@ -54,7 +54,7 @@ _TARGETS: dict[str, list[_MsStep]] = {
         _MsStep("xnnehang/luming-genie-tts-v2-pro-plus", "models/genie-tts/luming-v2-pro-plus"),
     ],
     "gsv-baoqiao": [
-        _MsStep("xnnehang/luming-gsv-v2", "models/gsv-tts-lite/luming-v2-pro-plus"),
+        _MsStep("xnnehang/luming-gpt-sovits-v2-pro-plus", "models/gsv-tts-lite/luming-v2-pro-plus"),
     ],
     "qwen-tts-0.6b": [
         _MsStep("Qwen/Qwen3-TTS-12Hz-0.6B-Base", "models/Qwen3-TTS-12Hz-0.6B-Base"),
