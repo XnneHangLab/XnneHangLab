@@ -93,6 +93,7 @@ tts_base = [
 
 gsv-lite = [
   "gsv-tts-lite",
+  "av", # required by gsv-tts-lite 0.4.x for FFmpeg-free audio loading
 ]
 
 genie-tts = [
