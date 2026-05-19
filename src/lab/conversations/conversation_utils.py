@@ -120,7 +120,7 @@ async def handle_sentence_output(
         full_response += display_text.text
         actions, service_context.live2d_startup_expression_applied = inject_startup_expression_once(
             actions=actions,
-            model_name=live2d_model.live2d_model_name if live2d_model else "",
+            live2d_model=live2d_model,
             already_applied=service_context.live2d_startup_expression_applied,
         )
         await tts_manager.speak(

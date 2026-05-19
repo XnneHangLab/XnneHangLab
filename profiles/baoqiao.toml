@@ -45,12 +45,6 @@ agent_id = "baoqiao"
 search_limit = 3
 
 [plugins.live2d_control]
-appearance_presets = [
-    { key = "默认", description = "厚刘海、披肩长发、麻花辫和发饰都保留的完整造型，整体更精致隆重，适合正式感更强的场合，但是看起来有点热。" },
-    { key = "预设发型1", description = "短刘海露出额头，没有披发，保留单侧马尾，整体更轻盈清爽，像很适合夏天的可爱清凉发型。" },
-    { key = "预设发型2", description = "长刘海遮住一侧眼睛，没有双马尾，保留披发，整体更有神秘感，像带一点小心机。" },
-    { key = "隐藏披发", description = "去掉披发部分后，双马尾会显得更完整突出，整体更利落。" },
-]
 
 [plugins.live2d_control.states.listening]
 mode = "random_no_repeat"

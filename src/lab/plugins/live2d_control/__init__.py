@@ -656,14 +656,29 @@ class Live2DControlPlugin(ToolPlugin):
             key: value for key, value in typed_emo_map.items() if isinstance(key, str) and isinstance(value, str)
         }
 
-        self._appearance_options = {
-            preset.key: AppearanceOption(
-                expression=emo_map[preset.key],
-                description=preset.description,
-            )
-            for preset in self._appearance_presets
-            if preset.key in emo_map
-        }
+        preset_appearance_presets = ctx.extra.get("live2d_appearance_presets")
+        if isinstance(preset_appearance_presets, list) and preset_appearance_presets:
+            self._appearance_options = {}
+            for raw_preset in preset_appearance_presets:
+                if not isinstance(raw_preset, dict):
+                    continue
+                key = raw_preset.get("key", "")
+                expression = raw_preset.get("expression", "")
+                description = raw_preset.get("description", "")
+                if isinstance(key, str) and isinstance(expression, str) and key and expression in emo_map:
+                    self._appearance_options[key] = AppearanceOption(
+                        expression=emo_map[expression],
+                        description=description or "",
+                    )
+        else:
+            self._appearance_options = {
+                preset.key: AppearanceOption(
+                    expression=emo_map[preset.key],
+                    description=preset.description,
+                )
+                for preset in self._appearance_presets
+                if preset.key in emo_map
+            }
         return bool(self._appearance_options or self._idle_banks or self._mixer_weights_by_state)
 
     def get_tools(self) -> list[BuiltinTool]:

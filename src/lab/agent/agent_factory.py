@@ -65,9 +65,19 @@ class AgentFactory:
 
         ws_root = workspace_root or Path.cwd()
         profile = Profile.from_toml(profile_path)
+
+        live2d_appearance_presets: list[dict[str, str]] = []
+        if live2d_model is not None:
+            raw_appearance_presets = live2d_model.model_info.get("appearancePresets")
+            if isinstance(raw_appearance_presets, list):
+                live2d_appearance_presets = list(raw_appearance_presets)
+
         agent_context = AgentContext(
             workspace_root=ws_root,
-            extra={"live2d_emo_map": live2d_model.emo_map if live2d_model else {}},
+            extra={
+                "live2d_emo_map": live2d_model.emo_map if live2d_model else {},
+                "live2d_appearance_presets": live2d_appearance_presets,
+            },
         )
 
         def _read_prompt(path_str: str) -> str:
