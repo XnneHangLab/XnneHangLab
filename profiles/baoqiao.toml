@@ -48,14 +48,7 @@ search_limit = 3
 
 [plugins.live2d_control.states.listening]
 mode = "random_no_repeat"
-clips = [
-    { url = "idle1.motion3.json" },
-    { url = "idle2.motion3.json" },
-    { url = "idle3.motion3.json" },
-    { url = "idle4.motion3.json" },
-    { url = "idle5.motion3.json" },
-    { url = "idle6.motion3.json" },
-]
+clips = []
 idle_layer = 1
 speech_layer = 0
 backend_pose_layer = 0
@@ -63,14 +56,7 @@ mouse_attention_layer = 1
 
 [plugins.live2d_control.states.speaking]
 mode = "random_no_repeat"
-clips = [
-    { url = "idle1.motion3.json" },
-    { url = "idle2.motion3.json" },
-    { url = "idle3.motion3.json" },
-    { url = "idle4.motion3.json" },
-    { url = "idle5.motion3.json" },
-    { url = "idle6.motion3.json" },
-]
+clips = []
 idle_layer = 1
 speech_layer = 0
 backend_pose_layer = 0
