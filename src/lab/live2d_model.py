@@ -250,6 +250,12 @@ class Live2dModel:
         if "tapMotions" in preset:
             info["tapMotions"] = preset["tapMotions"]
 
+        if "motionAssets" in preset:
+            info["motionAssets"] = preset["motionAssets"]
+
+        if "expressions" in preset:
+            info["_preset_expressions"] = preset["expressions"]
+
         return info
 
     def extract_emotion(self, str_to_check: str) -> list:

@@ -246,7 +246,7 @@ class Live2DControlPluginConfig(PluginConfigModel):
         list[AppearancePreset],
         Field(
             default_factory=list,
-            description="可切换的 Live2D 外观预设列表。按当前顺序保存为对象列表。需要根据 model_dict 的 emotion map 实际情况写 key name。",
+            description="可切换的 Live2D 外观预设列表。需要根据 live2d_presets.json 的 emotionMap 实际情况写 key name。",
         ),
     ]
     states: Annotated[
@@ -643,43 +643,137 @@ class Live2DControlPlugin(ToolPlugin):
         return normalized
 
     async def on_register(self, ctx: AgentContext) -> bool:
+        # ── Resolve motion assets (name -> url lookup) ────────────────────────
+        motion_assets = ctx.extra.get("live2d_motion_assets", [])
+        motion_asset_map: dict[str, str] = {}
+        if isinstance(motion_assets, list):
+            for asset in motion_assets:
+                if isinstance(asset, dict):
+                    asset_name = asset.get("name", "")
+                    asset_file = asset.get("file", "")
+                    if asset_name and asset_file:
+                        motion_asset_map[asset_name] = asset_file
+
+        # Rebuild idle banks: resolve name references in clips against motion assets
+        if motion_asset_map:
+            self._idle_banks = self._resolve_idle_banks_with_assets(
+                self._idle_banks, motion_asset_map
+            )
+
         ctx.extra["live2d_idle_banks"] = self._idle_banks
         ctx.extra["live2d_mixer_weights_by_state"] = self._mixer_weights_by_state
 
-        raw_emo_map = ctx.extra.get("live2d_emo_map", {})
-        if not isinstance(raw_emo_map, dict):
-            self._appearance_options = {}
-            return bool(self._idle_banks or self._mixer_weights_by_state)
-
-        typed_emo_map = cast("dict[object, object]", raw_emo_map)
-        emo_map = {
-            key: value for key, value in typed_emo_map.items() if isinstance(key, str) and isinstance(value, str)
-        }
-
-        preset_appearance_presets = ctx.extra.get("live2d_appearance_presets")
-        if isinstance(preset_appearance_presets, list) and preset_appearance_presets:
-            self._appearance_options = {}
-            for raw_preset in preset_appearance_presets:
-                if not isinstance(raw_preset, dict):
+        # ── Four-layer management from preset expressions ─────────────────────
+        preset_expressions = ctx.extra.get("live2d_preset_expressions", [])
+        if isinstance(preset_expressions, list) and preset_expressions:
+            # Layer 1: emotionMap (role=expression) — label -> name
+            emo_map: dict[str, str] = {}
+            for exp in preset_expressions:
+                if not isinstance(exp, dict) or exp.get("role") != "expression":
                     continue
-                key = raw_preset.get("key", "")
-                expression = raw_preset.get("expression", "")
-                description = raw_preset.get("description", "")
-                if isinstance(key, str) and isinstance(expression, str) and key and expression in emo_map:
-                    self._appearance_options[key] = AppearanceOption(
-                        expression=emo_map[expression],
+                name = exp.get("name", "")
+                label = exp.get("label", name)
+                if name:
+                    emo_map[label.lower()] = name
+            if emo_map:
+                ctx.extra["live2d_emo_map"] = emo_map
+
+            # Layer 2: appearancePresets (role=appearance)
+            self._appearance_options = {}
+            for exp in preset_expressions:
+                if not isinstance(exp, dict) or exp.get("role") != "appearance":
+                    continue
+                name = exp.get("name", "")
+                label = exp.get("label", name)
+                description = exp.get("description", "")
+                if name and label:
+                    self._appearance_options[label] = AppearanceOption(
+                        expression=name,
                         description=description or "",
                     )
+
+            # Layer 3: watermark (role=watermark)
+            watermark_exp = next(
+                (e for e in preset_expressions
+                 if isinstance(e, dict) and (e.get("isWatermarkControl") or e.get("role") == "watermark")),
+                None,
+            )
+            if watermark_exp is not None:
+                ctx.extra["live2d_watermark_expression"] = watermark_exp.get("name", "")
+
+            # Layer 4: default expression (role=system + isDefaultStartup)
+            default_exp = next(
+                (e for e in preset_expressions
+                 if isinstance(e, dict) and e.get("isDefaultStartup")),
+                None,
+            )
+            if default_exp is not None:
+                ctx.extra["live2d_default_expression"] = default_exp.get("name", "")
+
         else:
-            self._appearance_options = {
-                preset.key: AppearanceOption(
-                    expression=emo_map[preset.key],
-                    description=preset.description,
-                )
-                for preset in self._appearance_presets
-                if preset.key in emo_map
-            }
+            # Fallback: legacy path using ctx.extra["live2d_emo_map"] from Live2dModel
+            raw_emo_map = ctx.extra.get("live2d_emo_map", {})
+            if isinstance(raw_emo_map, dict):
+                typed_emo_map = cast("dict[object, object]", raw_emo_map)
+                emo_map_str = {
+                    key: value for key, value in typed_emo_map.items()
+                    if isinstance(key, str) and isinstance(value, str)
+                }
+
+                preset_appearance_presets = ctx.extra.get("live2d_appearance_presets")
+                if isinstance(preset_appearance_presets, list) and preset_appearance_presets:
+                    self._appearance_options = {}
+                    for raw_preset in preset_appearance_presets:
+                        if not isinstance(raw_preset, dict):
+                            continue
+                        key = raw_preset.get("key", "")
+                        expression = raw_preset.get("expression", "")
+                        description = raw_preset.get("description", "")
+                        if isinstance(key, str) and isinstance(expression, str) and key and expression in emo_map_str:
+                            self._appearance_options[key] = AppearanceOption(
+                                expression=emo_map_str[expression],
+                                description=description or "",
+                            )
+                else:
+                    self._appearance_options = {
+                        preset.key: AppearanceOption(
+                            expression=emo_map_str[preset.key],
+                            description=preset.description,
+                        )
+                        for preset in self._appearance_presets
+                        if preset.key in emo_map_str
+                    }
+            else:
+                self._appearance_options = {}
+
         return bool(self._appearance_options or self._idle_banks or self._mixer_weights_by_state)
+
+    @staticmethod
+    def _resolve_idle_banks_with_assets(
+        idle_banks: dict[str, dict[str, Any]],
+        motion_asset_map: dict[str, str],
+    ) -> dict[str, dict[str, Any]]:
+        """Resolve name-only clip references in idle banks against motion assets."""
+        resolved: dict[str, dict[str, Any]] = {}
+        for state_name, bank in idle_banks.items():
+            clips = bank.get("clips", [])
+            resolved_clips = []
+            for clip in clips:
+                if isinstance(clip, dict) and "url" in clip:
+                    url = clip["url"]
+                    # If the url has no path separator, treat it as a name reference
+                    if "/" not in url and "\\" not in url and "." not in url:
+                        actual_url = motion_asset_map.get(url, url)
+                        resolved_clips.append({"url": actual_url})
+                    else:
+                        resolved_clips.append(clip)
+                elif isinstance(clip, str):
+                    actual_url = motion_asset_map.get(clip, clip)
+                    resolved_clips.append({"url": actual_url})
+                else:
+                    resolved_clips.append(clip)
+            resolved[state_name] = {**bank, "clips": resolved_clips}
+        return resolved
 
     def get_tools(self) -> list[BuiltinTool]:
         return [
