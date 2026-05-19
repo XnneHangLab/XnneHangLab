@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from loguru import logger
 
@@ -72,13 +72,13 @@ class AgentFactory:
         if live2d_model is not None:
             raw_appearance_presets = live2d_model.model_info.get("appearancePresets")
             if isinstance(raw_appearance_presets, list):
-                live2d_appearance_presets = list(raw_appearance_presets)
+                live2d_appearance_presets = cast("list[dict[str, str]]", raw_appearance_presets)
             raw_expressions = live2d_model.model_info.get("_preset_expressions")
             if isinstance(raw_expressions, list):
-                live2d_preset_expressions = list(raw_expressions)
+                live2d_preset_expressions = cast("list[dict[str, Any]]", raw_expressions)
             raw_motion_assets = live2d_model.model_info.get("motionAssets")
             if isinstance(raw_motion_assets, list):
-                live2d_motion_assets = list(raw_motion_assets)
+                live2d_motion_assets = cast("list[dict[str, Any]]", raw_motion_assets)
 
         agent_context = AgentContext(
             workspace_root=ws_root,

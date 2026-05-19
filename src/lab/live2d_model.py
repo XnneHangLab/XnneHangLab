@@ -148,13 +148,19 @@ class Live2dModel:
 
         model_obj = preset.get("model", {})
         if isinstance(model_obj, dict):
-            for key in ("url", "kScale", "initialXshift", "initialYshift",
-                        "kXOffset", "kYOffset", "idleMotionGroupName"):
+            for key in (
+                "url",
+                "kScale",
+                "initialXshift",
+                "initialYshift",
+                "kXOffset",
+                "kYOffset",
+                "idleMotionGroupName",
+            ):
                 if key in model_obj:
                     info[key] = model_obj[key]
 
-        for key in ("url", "kScale", "initialXshift", "initialYshift",
-                    "kXOffset", "kYOffset", "idleMotionGroupName"):
+        for key in ("url", "kScale", "initialXshift", "initialYshift", "kXOffset", "kYOffset", "idleMotionGroupName"):
             if key not in info and key in preset:
                 info[key] = preset[key]
 
@@ -163,9 +169,7 @@ class Live2dModel:
             if model_path_relative:
                 # Strip "static/" prefix to get the serve path, e.g.
                 # "static/live2d-models/X/X.model3.json" -> "/live2d-models/X/X.model3.json"
-                path = model_path_relative
-                if path.startswith("static/"):
-                    path = path[len("static/"):]
+                path = model_path_relative.removeprefix("static/")
                 info["url"] = "/" + path
 
         expressions = preset.get("expressions")
@@ -236,11 +240,13 @@ class Live2dModel:
                 name = exp.get("name", "")
                 label = exp.get("label", name)
                 if name:
-                    appearance_presets.append({
-                        "key": label,
-                        "expression": name,
-                        "description": exp.get("description", ""),
-                    })
+                    appearance_presets.append(
+                        {
+                            "key": label,
+                            "expression": name,
+                            "description": exp.get("description", ""),
+                        }
+                    )
             if appearance_presets:
                 info["appearancePresets"] = appearance_presets
 
