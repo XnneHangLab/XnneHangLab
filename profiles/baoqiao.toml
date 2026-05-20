@@ -1,30 +1,22 @@
-[profile]
-description = "VTuber 主链路 - 薄巧"
-
 [character]
+avatar = "baoqiao.png"
+character_name = "薄巧"
 conf_name = "baoqiao-local"
 conf_uid = "baoqiao-local-001"
-live2d_model_name = "薄巧_完整版_调用版"
-character_name = "薄巧"
-avatar = "baoqiao.png"
-human_name = "Human"
 default_expression_emotion = "中性"
-
-[character.tts_preprocessor]
-remove_special_char = true
-ignore_brackets = true
-ignore_parentheses = true
-ignore_asterisks = true
-ignore_angle_brackets = true
+human_name = "Human"
+live2d_model_name = "baoqiao"
 
 [character.tts]
 character_name = "luming-v2-pro-plus"
 voice = "luming"
 
-[prompt]
-persona = "prompts/characters/baoqiao.md"
-format = "prompts/formats/baoqiao_emotion_bracket.md"
-show_control_tags = false
+[character.tts_preprocessor]
+ignore_angle_brackets = true
+ignore_asterisks = true
+ignore_brackets = true
+ignore_parentheses = true
+remove_special_char = true
 
 [plugins]
 enabled = [
@@ -39,28 +31,74 @@ enabled = [
     "mood_chat",
 ]
 
-[plugins.memory]
-user_id = "xnne"
-agent_id = "baoqiao"
-search_limit = 3
-
-[plugins.live2d_control]
-
 [plugins.live2d_control.states.listening]
-mode = "random_no_repeat"
-clips = []
-idle_layer = 1
-speech_layer = 0
 backend_pose_layer = 0
+idle_layer = 1
+mode = "random_no_repeat"
 mouse_attention_layer = 1
+speech_layer = 0
+
+[[plugins.live2d_control.states.listening.clips]]
+url = "idle"
+
+[[plugins.live2d_control.states.listening.clips]]
+url = "idle1"
+
+[[plugins.live2d_control.states.listening.clips]]
+url = "idle2"
+
+[[plugins.live2d_control.states.listening.clips]]
+url = "idle3"
+
+[[plugins.live2d_control.states.listening.clips]]
+url = "idle4"
+
+[[plugins.live2d_control.states.listening.clips]]
+url = "idle5"
+
+[[plugins.live2d_control.states.listening.clips]]
+url = "idle6"
 
 [plugins.live2d_control.states.speaking]
-mode = "random_no_repeat"
-clips = []
-idle_layer = 1
-speech_layer = 0
 backend_pose_layer = 0
+idle_layer = 1
+mode = "random_no_repeat"
 mouse_attention_layer = 1.5
+speech_layer = 0
+
+[[plugins.live2d_control.states.speaking.clips]]
+url = "idle6"
+
+[[plugins.live2d_control.states.speaking.clips]]
+url = "idle4"
+
+[[plugins.live2d_control.states.speaking.clips]]
+url = "idle5"
+
+[[plugins.live2d_control.states.speaking.clips]]
+url = "idle3"
+
+[[plugins.live2d_control.states.speaking.clips]]
+url = "idle2"
+
+[[plugins.live2d_control.states.speaking.clips]]
+url = "idle1"
+
+[[plugins.live2d_control.states.speaking.clips]]
+url = "idle"
+
+[plugins.memory]
+agent_id = "baoqiao"
+search_limit = 3
+user_id = "xnne"
 
 [plugins.mood_chat]
 prompt = "请根据上下文，主动说些什么，如果上下文较少，或者最近正在做一些视觉上的工作，比如逛 pixiv 插画网站，或者玩 galgame，你可以调用截图能力（如果开启了的话），参与其中。"
+
+[profile]
+description = "VTuber 主链路 - 薄巧"
+
+[prompt]
+format = "prompts/formats/baoqiao_emotion_bracket.md"
+persona = "prompts/characters/baoqiao.md"
+show_control_tags = false
