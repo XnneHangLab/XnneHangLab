@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from loguru import logger
 
@@ -65,9 +65,29 @@ class AgentFactory:
 
         ws_root = workspace_root or Path.cwd()
         profile = Profile.from_toml(profile_path)
+
+        live2d_appearance_presets: list[dict[str, str]] = []
+        live2d_preset_expressions: list[dict[str, Any]] = []
+        live2d_motion_assets: list[dict[str, Any]] = []
+        if live2d_model is not None:
+            raw_appearance_presets = live2d_model.model_info.get("appearancePresets")
+            if isinstance(raw_appearance_presets, list):
+                live2d_appearance_presets = cast("list[dict[str, str]]", raw_appearance_presets)
+            raw_expressions = live2d_model.model_info.get("_preset_expressions")
+            if isinstance(raw_expressions, list):
+                live2d_preset_expressions = cast("list[dict[str, Any]]", raw_expressions)
+            raw_motion_assets = live2d_model.model_info.get("motionAssets")
+            if isinstance(raw_motion_assets, list):
+                live2d_motion_assets = cast("list[dict[str, Any]]", raw_motion_assets)
+
         agent_context = AgentContext(
             workspace_root=ws_root,
-            extra={"live2d_emo_map": live2d_model.emo_map if live2d_model else {}},
+            extra={
+                "live2d_emo_map": live2d_model.emo_map if live2d_model else {},
+                "live2d_appearance_presets": live2d_appearance_presets,
+                "live2d_preset_expressions": live2d_preset_expressions,
+                "live2d_motion_assets": live2d_motion_assets,
+            },
         )
 
         def _read_prompt(path_str: str) -> str:

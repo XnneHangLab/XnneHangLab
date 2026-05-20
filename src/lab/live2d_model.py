@@ -33,7 +33,7 @@ class Live2dModel:
     emo_map: dict[str, Any]
     emo_str: str
 
-    def __init__(self, live2d_model_name: str, model_dict_path: str = "static/model_dict.json"):
+    def __init__(self, live2d_model_name: str, model_dict_path: str = "config/live2d_presets.json"):
         self.model_dict_path: str = model_dict_path
         self.live2d_model_name: str = live2d_model_name
         self.set_model(live2d_model_name)
@@ -130,11 +130,139 @@ class Live2dModel:
             logger.critical(f"Unable to find {model_name} in {self.model_dict_path}.")
             raise KeyError(f"{model_name} not found in model dictionary {self.model_dict_path}.")
 
-        # The feature: "translate model url to full url if it starts with '/' " is no longer implemented here
+        if "model" in matched_model or "modelPathRelative" in matched_model:
+            matched_model = self._adapt_preset_to_model_info(matched_model)
 
         logger.info("Model Information Loaded.")
 
         return matched_model
+
+    @staticmethod
+    def _adapt_preset_to_model_info(preset: dict[str, Any]) -> dict[str, Any]:
+        """Convert a live2d_presets.json entry to the legacy model_info dict shape."""
+        info: dict[str, Any] = {}
+
+        info["name"] = preset.get("name", "")
+        if "description" in preset:
+            info["description"] = preset["description"]
+
+        model_obj = preset.get("model", {})
+        if isinstance(model_obj, dict):
+            for key in (
+                "url",
+                "kScale",
+                "initialXshift",
+                "initialYshift",
+                "kXOffset",
+                "kYOffset",
+                "idleMotionGroupName",
+            ):
+                if key in model_obj:
+                    info[key] = model_obj[key]
+
+        for key in ("url", "kScale", "initialXshift", "initialYshift", "kXOffset", "kYOffset", "idleMotionGroupName"):
+            if key not in info and key in preset:
+                info[key] = preset[key]
+
+        if "url" not in info:
+            model_path_relative = preset.get("modelPathRelative", "")
+            if model_path_relative:
+                # Strip "static/" prefix to get the serve path, e.g.
+                # "static/live2d-models/X/X.model3.json" -> "/live2d-models/X/X.model3.json"
+                path = model_path_relative.removeprefix("static/")
+                info["url"] = "/" + path
+
+        expressions = preset.get("expressions")
+
+        # Build emotionMap from expressions with role=expression (label -> name).
+        # This makes the preset self-describing: no need to maintain a separate map.
+        if isinstance(expressions, list):
+            generated_emo_map: dict[str, str] = {}
+            for exp in expressions:
+                if exp.get("role") != "expression":
+                    continue
+                name = exp.get("name", "")
+                label = exp.get("label", name)
+                if name:
+                    generated_emo_map[label] = name
+            if generated_emo_map:
+                info["emotionMap"] = generated_emo_map
+
+        if "emotionMap" not in info and "emotionMap" in preset:
+            info["emotionMap"] = preset["emotionMap"]
+
+        if isinstance(expressions, list):
+            catalog = []
+            for exp in expressions:
+                exp_file = exp.get("file", "")
+                if not exp_file:
+                    continue
+                entry: dict[str, Any] = {
+                    "name": exp["name"],
+                    "label": exp.get("label", exp["name"]),
+                    "file": exp_file,
+                }
+                if exp.get("hotkey"):
+                    entry["hotkey"] = exp["hotkey"]
+                catalog.append(entry)
+            if catalog:
+                info["expressionCatalog"] = catalog
+
+        if "excludedExpressions" in preset:
+            info["excludedExpressions"] = preset["excludedExpressions"]
+
+        if isinstance(expressions, list):
+            watermark_exp = next(
+                (e for e in expressions if e.get("isWatermarkControl") or e.get("role") == "watermark"),
+                None,
+            )
+            if watermark_exp is not None:
+                info["defaultEmotion"] = watermark_exp["name"]
+                info["_watermark_expression_name"] = watermark_exp["name"]
+
+        if "defaultEmotion" not in info and isinstance(expressions, list):
+            default_exp = next(
+                (e for e in expressions if e.get("isDefaultStartup")),
+                None,
+            )
+            if default_exp is not None:
+                info["defaultEmotion"] = default_exp["name"]
+
+        if "defaultEmotion" not in info and "defaultEmotion" in preset:
+            info["defaultEmotion"] = preset["defaultEmotion"]
+
+        # Build appearancePresets from expressions with role=appearance.
+        if isinstance(expressions, list):
+            appearance_presets = []
+            for exp in expressions:
+                if exp.get("role") != "appearance":
+                    continue
+                name = exp.get("name", "")
+                label = exp.get("label", name)
+                if name:
+                    appearance_presets.append(
+                        {
+                            "key": label,
+                            "expression": name,
+                            "description": exp.get("description", ""),
+                        }
+                    )
+            if appearance_presets:
+                info["appearancePresets"] = appearance_presets
+
+        if "appearancePresets" not in info and "appearancePresets" in preset:
+            info["appearancePresets"] = preset["appearancePresets"]
+
+        if "tapMotions" in preset:
+            info["tapMotions"] = preset["tapMotions"]
+
+        if "motionAssets" in preset:
+            info["motionAssets"] = preset["motionAssets"]
+
+        if "expressions" in preset:
+            info["_preset_expressions"] = preset["expressions"]
+
+        return info
 
     def extract_emotion(self, str_to_check: str) -> list:
         """
