@@ -315,6 +315,10 @@ class AppearanceOption:
     description: str = ""
 
 
+_DEFAULT_APPEARANCE_KEY = "默认造型"
+_DEFAULT_APPEARANCE_EXPRESSION = "__reset__"
+
+
 class _ListLive2DAppearancesTool(BuiltinTool):
     name = "list_live2d_appearances"
     description = "列出当前 Live2D 模型可用的持久形态/外观选项（发型预设、部件显隐等）"
@@ -385,17 +389,16 @@ class _SetLive2DAppearanceTool(BuiltinTool):
             available = list(self._appearance_options.keys())
             return ToolResult(ok=False, text="", error=f"无效的形态 key: {key}，可用: {available}")
 
+        expression_value = self._appearance_options[key].expression
         ws_send = ctx.extra.get("websocket_send")
         if callable(ws_send):
             websocket_send = cast("Callable[[str], Awaitable[None]]", ws_send)
-            await websocket_send(
-                json.dumps(
-                    {
-                        "type": "set-live2d-appearance",
-                        "expression": self._appearance_options[key].expression,
-                    }
-                )
-            )
+            payload: dict[str, Any] = {"type": "set-live2d-appearance"}
+            if expression_value == _DEFAULT_APPEARANCE_EXPRESSION:
+                payload["expression"] = None
+            else:
+                payload["expression"] = expression_value
+            await websocket_send(json.dumps(payload))
 
         return ToolResult(ok=True, text=f"已切换形态: {key}")
 
@@ -691,6 +694,13 @@ class Live2DControlPlugin(ToolPlugin):
                         description=description,
                     )
 
+            # Inject "默认造型" reset option when there are appearance presets
+            if self._appearance_options:
+                self._appearance_options[_DEFAULT_APPEARANCE_KEY] = AppearanceOption(
+                    expression=_DEFAULT_APPEARANCE_EXPRESSION,
+                    description="恢复模型启动时的初始造型，清除所有持久外观切换",
+                )
+
             # Layer 3: watermark (role=watermark)
             watermark_exp = next(
                 (e for e in preset_expressions if e.get("isWatermarkControl") or e.get("role") == "watermark"),
@@ -742,6 +752,13 @@ class Live2DControlPlugin(ToolPlugin):
                     }
             else:
                 self._appearance_options = {}
+
+        # Inject default appearance reset for legacy path as well
+        if self._appearance_options and _DEFAULT_APPEARANCE_KEY not in self._appearance_options:
+            self._appearance_options[_DEFAULT_APPEARANCE_KEY] = AppearanceOption(
+                expression=_DEFAULT_APPEARANCE_EXPRESSION,
+                description="恢复模型启动时的初始造型，清除所有持久外观切换",
+            )
 
         return bool(self._appearance_options or self._idle_banks or self._mixer_weights_by_state)
 
