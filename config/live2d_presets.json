@@ -5,32 +5,19 @@
     "clipKeys": [],
     "appearancePresets": [
       {
-        "expression": "05侧麻花隐藏",
-        "key": "05侧麻花隐藏"
-      },
-      {
-        "expression": "01双马尾隐藏",
-        "key": "01双马尾隐藏"
-      },
-      {
-        "expression": "02左马尾隐藏",
-        "key": "02左马尾隐藏"
-      },
-      {
-        "expression": "04批发隐藏",
-        "key": "04批发隐藏"
-      },
-      {
-        "expression": "发型组合预设2",
-        "key": "发型组合预设2"
-      },
-      {
-        "expression": "03右马尾隐藏",
-        "key": "03右马尾隐藏"
-      },
-      {
+        "description": "一侧马尾，短刘海，很上去很清凉。是那种很适合夏天的发型",
         "expression": "发型组合预设1",
-        "key": "发型组合预设1"
+        "key": "清凉发型"
+      },
+      {
+        "description": "双马尾，灵动俏皮，少了正式感多了亲近感",
+        "expression": "04批发隐藏",
+        "key": "双马尾"
+      },
+      {
+        "description": "长刘海遮住一侧眼睛看上去有些神秘，让人猜不出在想什么",
+        "expression": "发型组合预设2",
+        "key": "神秘感发型"
       }
     ],
     "defaultAppearance": "00水印",
@@ -38,7 +25,6 @@
       "06叼面包": "06叼面包",
       "07宕机": "07宕机",
       "08脸黑": "08脸黑",
-      "09脸红": "09脸红",
       "10委屈": "10委屈",
       "11左手比耶": "11左手比耶",
       "12右手比耶": "12右手比耶",
@@ -46,9 +32,10 @@
       "14抚脸": "14抚脸",
       "15指脸": "15指脸",
       "16反手比耶": "16反手比耶",
-      "17猫猫贴纸": "17猫猫贴纸",
       "18生气符号": "18生气符号",
-      "19问号": "19问号"
+      "猫猫贴纸": "17猫猫贴纸",
+      "疑问": "19问号",
+      "脸红": "09脸红"
     },
     "endExpressionKeys": [
       "17猫猫贴纸",
@@ -56,20 +43,44 @@
     ],
     "excludedExpressions": [
       {
-        "file": "exp/21飞头2.exp3.json",
-        "label": "21飞头2",
-        "name": "21飞头2",
-        "reason": "测试/危险表达式，不作为运行时能力"
-      },
-      {
         "file": "exp/20飞头1.exp3.json",
         "label": "20飞头1",
         "name": "20飞头1",
         "reason": "测试/危险表达式，不作为运行时能力"
       },
       {
+        "file": "exp/21飞头2.exp3.json",
+        "label": "21飞头2",
+        "name": "21飞头2",
+        "reason": "测试/危险表达式，不作为运行时能力"
+      },
+      {
+        "file": "exp/03右马尾隐藏.exp3.json",
+        "label": "03右马尾隐藏",
+        "name": "03右马尾隐藏",
+        "reason": "测试/危险表达式，不作为运行时能力"
+      },
+      {
+        "file": "exp/02左马尾隐藏.exp3.json",
+        "label": "02左马尾隐藏",
+        "name": "02左马尾隐藏",
+        "reason": "测试/危险表达式，不作为运行时能力"
+      },
+      {
+        "file": "exp/01双马尾隐藏.exp3.json",
+        "label": "01双马尾隐藏",
+        "name": "01双马尾隐藏",
+        "reason": "测试/危险表达式，不作为运行时能力"
+      },
+      {
+        "file": "exp/05侧麻花隐藏.exp3.json",
+        "label": "05侧麻花隐藏",
+        "name": "05侧麻花隐藏",
+        "reason": "测试/危险表达式，不作为运行时能力"
+      },
+      {
         "file": "exp/00水印.exp3.json",
-        "label": "00水印",
+        "label": "水印",
         "name": "00水印",
         "reason": "默认启动/水印版权控制，不作为普通表情或持久外观"
       }
@@ -87,34 +98,37 @@
     "expressions": [
       {
         "applyMode": "persistent",
-        "description": "",
-        "file": "exp/05侧麻花隐藏.exp3.json",
+        "description": "一侧马尾，短刘海，很上去很清凉。是那种很适合夏天的发型",
+        "file": "exp/发型组合预设1.exp3.json",
         "isDefaultStartup": false,
         "isWatermarkControl": false,
-        "label": "05侧麻花隐藏",
-        "name": "05侧麻花隐藏",
+        "label": "清凉发型",
+        "name": "发型组合预设1",
         "parameters": [
+          {
+            "blend": "Add",
+            "id": "Param152",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "Param132",
+            "value": 1
+          },
           {
             "blend": "Add",
             "id": "Param142",
             "value": 1
-          }
-        ],
-        "role": "appearance"
-      },
-      {
-        "applyMode": "persistent",
-        "description": "",
-        "file": "exp/01双马尾隐藏.exp3.json",
-        "isDefaultStartup": false,
-        "isWatermarkControl": false,
-        "label": "01双马尾隐藏",
-        "name": "01双马尾隐藏",
-        "parameters": [
+          },
           {
             "blend": "Add",
-            "id": "Param125",
-            "value": 1
+            "id": "Param144",
+            "value": -7.858970165252685
+          },
+          {
+            "blend": "Add",
+            "id": "Param138",
+            "value": -10
           }
         ],
         "role": "appearance"
@@ -122,42 +136,15 @@
       {
         "applyMode": "transient",
         "description": "",
-        "file": "exp/14抚脸.exp3.json",
+        "file": "exp/20飞头1.exp3.json",
         "isDefaultStartup": false,
         "isWatermarkControl": false,
-        "label": "14抚脸",
-        "name": "14抚脸",
+        "label": "20飞头1",
+        "name": "20飞头1",
         "parameters": [
           {
             "blend": "Add",
-            "id": "Param158",
-            "value": 1
-          },
-          {
-            "blend": "Add",
-            "id": "Param159",
-            "value": 1
-          },
-          {
-            "blend": "Add",
-            "id": "Param139",
-            "value": 1
-          }
-        ],
-        "role": "expression"
-      },
-      {
-        "applyMode": "transient",
-        "description": "",
-        "file": "exp/21飞头2.exp3.json",
-        "isDefaultStartup": false,
-        "isWatermarkControl": false,
-        "label": "21飞头2",
-        "name": "21飞头2",
-        "parameters": [
-          {
-            "blend": "Add",
-            "id": "Param131",
+            "id": "Param127",
             "value": 1
           }
         ],
@@ -166,88 +153,42 @@
       {
         "applyMode": "transient",
         "description": "",
-        "file": "exp/06叼面包.exp3.json",
+        "file": "exp/11左手比耶.exp3.json",
         "isDefaultStartup": false,
         "isWatermarkControl": false,
-        "label": "06叼面包",
-        "name": "06叼面包",
+        "label": "11左手比耶",
+        "name": "11左手比耶",
         "parameters": [
           {
             "blend": "Add",
-            "id": "Param137",
-            "value": 1
-          }
-        ],
-        "role": "expression"
-      },
-      {
-        "applyMode": "persistent",
-        "description": "",
-        "file": "exp/02左马尾隐藏.exp3.json",
-        "isDefaultStartup": false,
-        "isWatermarkControl": false,
-        "label": "02左马尾隐藏",
-        "name": "02左马尾隐藏",
-        "parameters": [
-          {
-            "blend": "Add",
-            "id": "Param145",
-            "value": 1
-          }
-        ],
-        "role": "appearance"
-      },
-      {
-        "applyMode": "transient",
-        "description": "",
-        "file": "exp/12右手比耶.exp3.json",
-        "isDefaultStartup": false,
-        "isWatermarkControl": false,
-        "label": "12右手比耶",
-        "name": "12右手比耶",
-        "parameters": [
-          {
-            "blend": "Add",
-            "id": "Param155",
+            "id": "Param139",
             "value": 1
           },
           {
             "blend": "Add",
-            "id": "Param157",
+            "id": "Param156",
             "value": 1
           }
         ],
         "role": "expression"
       },
       {
-        "applyMode": "persistent",
-        "description": "",
-        "file": "exp/04批发隐藏.exp3.json",
-        "isDefaultStartup": false,
-        "isWatermarkControl": false,
-        "label": "04批发隐藏",
-        "name": "04批发隐藏",
-        "parameters": [
-          {
-            "blend": "Add",
-            "id": "Param132",
-            "value": 1
-          }
-        ],
-        "role": "appearance"
-      },
-      {
         "applyMode": "transient",
         "description": "",
-        "file": "exp/09脸红.exp3.json",
+        "file": "exp/07宕机.exp3.json",
         "isDefaultStartup": false,
         "isWatermarkControl": false,
-        "label": "09脸红",
-        "name": "09脸红",
+        "label": "07宕机",
+        "name": "07宕机",
         "parameters": [
           {
             "blend": "Add",
-            "id": "Param146",
+            "id": "Param126",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "Param153",
             "value": 1
           }
         ],
@@ -283,15 +224,15 @@
       {
         "applyMode": "transient",
         "description": "",
-        "file": "exp/20飞头1.exp3.json",
+        "file": "exp/21飞头2.exp3.json",
         "isDefaultStartup": false,
         "isWatermarkControl": false,
-        "label": "20飞头1",
-        "name": "20飞头1",
+        "label": "21飞头2",
+        "name": "21飞头2",
         "parameters": [
           {
             "blend": "Add",
-            "id": "Param127",
+            "id": "Param131",
             "value": 1
           }
         ],
@@ -300,113 +241,20 @@
       {
         "applyMode": "transient",
         "description": "",
-        "file": "exp/16反手比耶.exp3.json",
+        "file": "exp/12右手比耶.exp3.json",
         "isDefaultStartup": false,
         "isWatermarkControl": false,
-        "label": "16反手比耶",
-        "name": "16反手比耶",
+        "label": "12右手比耶",
+        "name": "12右手比耶",
         "parameters": [
           {
             "blend": "Add",
-            "id": "Param158",
+            "id": "Param155",
             "value": 1
           },
           {
             "blend": "Add",
-            "id": "Param161",
-            "value": 1
-          },
-          {
-            "blend": "Add",
-            "id": "Param139",
-            "value": 1
-          }
-        ],
-        "role": "expression"
-      },
-      {
-        "applyMode": "persistent",
-        "description": "",
-        "file": "exp/发型组合预设2.exp3.json",
-        "isDefaultStartup": false,
-        "isWatermarkControl": false,
-        "label": "发型组合预设2",
-        "name": "发型组合预设2",
-        "parameters": [
-          {
-            "blend": "Add",
-            "id": "Param125",
-            "value": 1
-          },
-          {
-            "blend": "Add",
-            "id": "Param134",
-            "value": -7.949829578399658
-          },
-          {
-            "blend": "Add",
-            "id": "Param138",
-            "value": 10
-          }
-        ],
-        "role": "appearance"
-      },
-      {
-        "applyMode": "transient",
-        "description": "",
-        "file": "exp/07宕机.exp3.json",
-        "isDefaultStartup": false,
-        "isWatermarkControl": false,
-        "label": "07宕机",
-        "name": "07宕机",
-        "parameters": [
-          {
-            "blend": "Add",
-            "id": "Param126",
-            "value": 1
-          },
-          {
-            "blend": "Add",
-            "id": "Param153",
-            "value": 1
-          }
-        ],
-        "role": "expression"
-      },
-      {
-        "applyMode": "transient",
-        "description": "",
-        "file": "exp/19问号.exp3.json",
-        "isDefaultStartup": false,
-        "isWatermarkControl": false,
-        "label": "19问号",
-        "name": "19问号",
-        "parameters": [
-          {
-            "blend": "Add",
-            "id": "Param136",
-            "value": 1
-          }
-        ],
-        "role": "expression"
-      },
-      {
-        "applyMode": "transient",
-        "description": "",
-        "file": "exp/11左手比耶.exp3.json",
-        "isDefaultStartup": false,
-        "isWatermarkControl": false,
-        "label": "11左手比耶",
-        "name": "11左手比耶",
-        "parameters": [
-          {
-            "blend": "Add",
-            "id": "Param139",
-            "value": 1
-          },
-          {
-            "blend": "Add",
-            "id": "Param156",
+            "id": "Param157",
             "value": 1
           }
         ],
@@ -437,15 +285,110 @@
       {
         "applyMode": "transient",
         "description": "",
-        "file": "exp/17猫猫贴纸.exp3.json",
+        "file": "exp/14抚脸.exp3.json",
         "isDefaultStartup": false,
         "isWatermarkControl": false,
-        "label": "17猫猫贴纸",
-        "name": "17猫猫贴纸",
+        "label": "14抚脸",
+        "name": "14抚脸",
         "parameters": [
           {
             "blend": "Add",
-            "id": "Param135",
+            "id": "Param158",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "Param159",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "Param139",
+            "value": 1
+          }
+        ],
+        "role": "expression"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "exp/03右马尾隐藏.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "03右马尾隐藏",
+        "name": "03右马尾隐藏",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "Param152",
+            "value": 1
+          }
+        ],
+        "role": "test"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "exp/02左马尾隐藏.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "02左马尾隐藏",
+        "name": "02左马尾隐藏",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "Param145",
+            "value": 1
+          }
+        ],
+        "role": "test"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "exp/01双马尾隐藏.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "01双马尾隐藏",
+        "name": "01双马尾隐藏",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "Param125",
+            "value": 1
+          }
+        ],
+        "role": "test"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "exp/05侧麻花隐藏.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "05侧麻花隐藏",
+        "name": "05侧麻花隐藏",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "Param142",
+            "value": 1
+          }
+        ],
+        "role": "test"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "exp/19问号.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "疑问",
+        "name": "19问号",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "Param136",
             "value": 1
           }
         ],
@@ -474,21 +417,65 @@
         "role": "expression"
       },
       {
-        "applyMode": "persistent",
+        "applyMode": "base",
         "description": "",
-        "file": "exp/03右马尾隐藏.exp3.json",
-        "isDefaultStartup": false,
-        "isWatermarkControl": false,
-        "label": "03右马尾隐藏",
-        "name": "03右马尾隐藏",
+        "file": "exp/00水印.exp3.json",
+        "isDefaultStartup": true,
+        "isWatermarkControl": true,
+        "label": "水印",
+        "name": "00水印",
         "parameters": [
           {
             "blend": "Add",
-            "id": "Param152",
+            "id": "Param123",
             "value": 1
           }
         ],
-        "role": "appearance"
+        "role": "watermark"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "exp/06叼面包.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "06叼面包",
+        "name": "06叼面包",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "Param137",
+            "value": 1
+          }
+        ],
+        "role": "expression"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "exp/16反手比耶.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "16反手比耶",
+        "name": "16反手比耶",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "Param158",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "Param161",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "Param139",
+            "value": 1
+          }
+        ],
+        "role": "expression"
       },
       {
         "applyMode": "transient",
@@ -523,43 +510,6 @@
         "role": "expression"
       },
       {
-        "applyMode": "persistent",
-        "description": "",
-        "file": "exp/发型组合预设1.exp3.json",
-        "isDefaultStartup": false,
-        "isWatermarkControl": false,
-        "label": "发型组合预设1",
-        "name": "发型组合预设1",
-        "parameters": [
-          {
-            "blend": "Add",
-            "id": "Param152",
-            "value": 1
-          },
-          {
-            "blend": "Add",
-            "id": "Param132",
-            "value": 1
-          },
-          {
-            "blend": "Add",
-            "id": "Param142",
-            "value": 1
-          },
-          {
-            "blend": "Add",
-            "id": "Param144",
-            "value": -7.858970165252685
-          },
-          {
-            "blend": "Add",
-            "id": "Param138",
-            "value": -10
-          }
-        ],
-        "role": "appearance"
-      },
-      {
         "applyMode": "transient",
         "description": "",
         "file": "exp/18生气符号.exp3.json",
@@ -577,21 +527,82 @@
         "role": "expression"
       },
       {
-        "applyMode": "base",
-        "description": "",
-        "file": "exp/00水印.exp3.json",
-        "isDefaultStartup": true,
-        "isWatermarkControl": true,
-        "label": "00水印",
-        "name": "00水印",
+        "applyMode": "persistent",
+        "description": "双马尾，灵动俏皮，少了正式感多了亲近感",
+        "file": "exp/04批发隐藏.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "双马尾",
+        "name": "04批发隐藏",
         "parameters": [
           {
             "blend": "Add",
-            "id": "Param123",
+            "id": "Param132",
             "value": 1
           }
         ],
-        "role": "watermark"
+        "role": "appearance"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "exp/17猫猫贴纸.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "猫猫贴纸",
+        "name": "17猫猫贴纸",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "Param135",
+            "value": 1
+          }
+        ],
+        "role": "expression"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "exp/09脸红.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "脸红",
+        "name": "09脸红",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "Param146",
+            "value": 1
+          }
+        ],
+        "role": "expression"
+      },
+      {
+        "applyMode": "persistent",
+        "description": "长刘海遮住一侧眼睛看上去有些神秘，让人猜不出在想什么",
+        "file": "exp/发型组合预设2.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "神秘感发型",
+        "name": "发型组合预设2",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "Param125",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "Param134",
+            "value": -7.949829578399658
+          },
+          {
+            "blend": "Add",
+            "id": "Param138",
+            "value": 10
+          }
+        ],
+        "role": "appearance"
       }
     ],
     "importedMotions": [
