@@ -2,8 +2,6 @@
 description = "VTuber 主链路 - 多工具，memory agent"
 
 [character]
-conf_name = "elaina-local"
-conf_uid = "elaina-local-001"
 live2d_model_name = "Elaina"
 character_name = "Elaina"
 avatar = "ico_lss.png"

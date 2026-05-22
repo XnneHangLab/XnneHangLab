@@ -143,8 +143,6 @@ class CharacterConfig(BaseModel):
     这类不经过 websocket_handler 的链路可以不提供此块。
 
     Attributes:
-        conf_name: 前端使用的角色配置名。
-        conf_uid: 历史记录与会话使用的角色唯一标识。
         live2d_model_name: Live2D 模型名；为空或 `None` 表示不加载。
         character_name: 对话展示使用的角色名。
         avatar: 前端头像文件名。
@@ -153,8 +151,6 @@ class CharacterConfig(BaseModel):
         tts: 角色 TTS 配置。
     """
 
-    conf_name: str = ""
-    conf_uid: str = ""
     live2d_model_name: str | None = None
     character_name: str = ""
     avatar: str = ""

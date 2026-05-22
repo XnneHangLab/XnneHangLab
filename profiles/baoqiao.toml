@@ -1,8 +1,6 @@
 [character]
 avatar = "baoqiao.png"
 character_name = "薄巧"
-conf_name = "baoqiao-local"
-conf_uid = "baoqiao-local-001"
 default_expression_emotion = "中性"
 human_name = "Human"
 live2d_model_name = "baoqiao"

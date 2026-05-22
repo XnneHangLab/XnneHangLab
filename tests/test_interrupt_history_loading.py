@@ -33,7 +33,7 @@ async def test_handle_individual_interrupt_does_not_store_empty_assistant_messag
         SimpleNamespace(
             history_uid="history-1",
             character_config=SimpleNamespace(
-                conf_uid="conf-1",
+                profile_id="conf-1",
                 character_name="Baoqiao",
                 avatar="baoqiao.png",
             ),
@@ -86,7 +86,7 @@ async def test_handle_individual_interrupt_waits_for_task_cleanup(
         SimpleNamespace(
             history_uid="history-1",
             character_config=SimpleNamespace(
-                conf_uid="conf-1",
+                profile_id="conf-1",
                 character_name="Baoqiao",
                 avatar="baoqiao.png",
             ),

@@ -125,7 +125,7 @@ async def handle_individual_interrupt(
             raise ValueError("character_config cannot be None")
         if heard_response.strip():
             store_message(
-                conf_uid=context.character_config.conf_uid,
+                conf_uid=context.character_config.profile_id,
                 history_uid=context.history_uid,
                 role="assistant",
                 content=heard_response,
@@ -133,7 +133,7 @@ async def handle_individual_interrupt(
                 avatar=context.character_config.avatar,
             )
         store_message(
-            conf_uid=context.character_config.conf_uid,
+            conf_uid=context.character_config.profile_id,
             history_uid=context.history_uid,
             role="system",
             content="[Interrupted by user]",
