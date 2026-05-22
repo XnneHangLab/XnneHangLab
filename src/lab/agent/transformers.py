@@ -20,6 +20,10 @@ if TYPE_CHECKING:
 SILENT_TAGS = {"think", "tool"}
 TOOL_MARKER_TEXT = {"<tool>", "</tool>", "<tool/>"}
 
+# Sentinel value sent to the frontend to clear the transient expression layer.
+# The frontend detects this value and resets to the base appearance.
+NEUTRAL_EXPRESSION_SENTINEL = "__neutral__"
+
 
 def _resolve_expression_actions(
     chunk: SentenceWithTags,
@@ -35,6 +39,9 @@ def _resolve_expression_actions(
         resolved_expression = live2d_model.emo_map.get(explicit_key.lower())
         if resolved_expression is not None:
             return [resolved_expression], inv_emo_map.get(resolved_expression, explicit_key)
+        # Explicit tag not in emo_map — treat as neutral reset if it matches default
+        if default_expression_emotion and explicit_key.lower() == default_expression_emotion.lower():
+            return [NEUTRAL_EXPRESSION_SENTINEL], explicit_key
         logger.warning("Unknown expression control tag '{}', falling back to default expression.", explicit_key)
 
     legacy_expressions = live2d_model.extract_emotion(chunk.text)
@@ -47,10 +54,8 @@ def _resolve_expression_actions(
 
     resolved_default = live2d_model.emo_map.get(default_expression_emotion.lower())
     if resolved_default is None:
-        logger.warning(
-            "Configured default expression emotion '{}' is not in the Live2D emotion map.", default_expression_emotion
-        )
-        return None, None
+        # Default expression not in emo_map — send neutral reset sentinel
+        return [NEUTRAL_EXPRESSION_SENTINEL], default_expression_emotion
 
     return [resolved_default], inv_emo_map.get(resolved_default, default_expression_emotion)
 
