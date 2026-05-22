@@ -140,11 +140,12 @@ class ServiceContext:
             return None
 
     @staticmethod
-    def _to_character_settings(profile: Profile | None) -> CharacterSettings | None:
+    def _to_character_settings(profile: Profile | None, profile_id: str = "") -> CharacterSettings | None:
         """将 profile 中的 `[character]` 转成内部运行时结构。
 
         Args:
             profile: 已加载的 profile。
+            profile_id: 从 profile 文件名派生的标识符。
 
         Returns:
             内部 `CharacterSettings`；若 profile 未定义 `[character]` 则返回 `None`。
@@ -154,8 +155,7 @@ class ServiceContext:
 
         char = profile.character
         return CharacterSettings(
-            conf_name=char.conf_name,
-            conf_uid=char.conf_uid,
+            profile_id=profile_id,
             live2d_model_name=char.live2d_model_name or "",
             character_name=char.character_name,
             avatar=char.avatar,
@@ -209,7 +209,8 @@ class ServiceContext:
         if profile is None:
             raise ValueError(f"Failed to load active profile: {profile_path_str}")
 
-        self.character_config = self._to_character_settings(profile)
+        profile_id = Path(profile_path_str).stem
+        self.character_config = self._to_character_settings(profile, profile_id=profile_id)
         if self.character_config is None:
             raise ValueError(f"Active memory_agent_profile must define [character]: {profile_path_str}")
 
@@ -554,8 +555,8 @@ class ServiceContext:
                     {
                         "type": "set-model-and-conf",
                         "model_info": self.live2d_model.model_info if self.live2d_model else None,
-                        "conf_name": self.character_config.conf_name if self.character_config else "",
-                        "conf_uid": self.character_config.conf_uid if self.character_config else "",
+                        "conf_name": self.character_config.character_name if self.character_config else "",
+                        "conf_uid": self.character_config.profile_id if self.character_config else "",
                     }
                 )
             )

@@ -105,8 +105,7 @@ class CharacterSettings(BaseModel):
     配置，供 websocket、显示层与 TTS 链路复用。
 
     Attributes:
-        conf_name: 前端角色配置名。
-        conf_uid: 角色唯一标识。
+        profile_id: 从 profile 文件名派生的唯一标识，用于聊天历史目录。
         live2d_model_name: Live2D 模型名。
         character_name: 展示用角色名。
         avatar: 展示用头像。
@@ -115,8 +114,7 @@ class CharacterSettings(BaseModel):
         tts_config: 角色 TTS 配置。
     """
 
-    conf_name: Annotated[str, Field("")]
-    conf_uid: Annotated[str, Field("")]
+    profile_id: Annotated[str, Field("")]
     live2d_model_name: Annotated[str, Field("")]
     character_name: Annotated[str, Field("")]
     avatar: Annotated[str, Field("")]

@@ -12,8 +12,6 @@ def test_to_character_settings_converts_structured_tts_emotions() -> None:
             "profile": {"name": "baoqiao", "agent_name": "baoqiao"},
             "prompt": {"show_control_tags": True},
             "character": {
-                "conf_name": "baoqiao-local",
-                "conf_uid": "baoqiao-local-001",
                 "live2d_model_name": "Baoqiao",
                 "character_name": "Baoqiao",
                 "avatar": "baoqiao.png",

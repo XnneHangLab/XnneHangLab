@@ -211,12 +211,12 @@ class WebSocketHandler:
                         else None
                     ),
                     "conf_name": (
-                        session_service_context.character_config.conf_name
+                        session_service_context.character_config.character_name
                         if session_service_context.character_config is not None
                         else ""
                     ),
                     "conf_uid": (
-                        session_service_context.character_config.conf_uid
+                        session_service_context.character_config.profile_id
                         if session_service_context.character_config is not None
                         else ""
                     ),
@@ -430,7 +430,7 @@ class WebSocketHandler:
         if context.character_config is None:
             logger.error("character_config is None, cannot create new history")
             raise ValueError("character_config cannot be None")
-        raw_histories = get_history_list(context.character_config.conf_uid)  # type: ignore[return]
+        raw_histories = get_history_list(context.character_config.profile_id)  # type: ignore[return]
         histories: list[dict[str, Any]] = []
         for item in raw_histories:
             history = dict(item)
@@ -457,14 +457,14 @@ class WebSocketHandler:
             logger.error("character_config is None, cannot set memory from history")
             raise ValueError("character_config cannot be None")
         context.agent_engine.set_memory_from_history(
-            conf_uid=context.character_config.conf_uid,
+            conf_uid=context.character_config.profile_id,
             history_uid=history_uid,
         )
         # if context.character_config is None:
         #     logger.error("character_config is None, cannot create new history")
         #     raise ValueError("character_config cannot be None")
         msgs = get_history(
-            context.character_config.conf_uid,
+            context.character_config.profile_id,
             history_uid,  # type: ignore[return]
         )
         messages = [_format_history_message_for_display(msg) for msg in msgs if msg["role"] != "system"]
@@ -479,11 +479,11 @@ class WebSocketHandler:
         if context.agent_engine is None:
             logger.error("agent_engine is None, cannot create new history")
             raise ValueError("agent_engine cannot be None")
-        history_uid = create_new_history(context.character_config.conf_uid)
+        history_uid = create_new_history(context.character_config.profile_id)
         if history_uid:
             context.history_uid = history_uid
             context.agent_engine.set_memory_from_history(
-                conf_uid=context.character_config.conf_uid,
+                conf_uid=context.character_config.profile_id,
                 history_uid=history_uid,
             )
             await websocket.send_text(
@@ -505,7 +505,7 @@ class WebSocketHandler:
             logger.error("character_config is None, cannot create new history")
             raise ValueError("character_config cannot be None")
         success = delete_history(
-            context.character_config.conf_uid,
+            context.character_config.profile_id,
             history_uid,  # type: ignore[return]
         )
         await websocket.send_text(
@@ -566,7 +566,7 @@ class WebSocketHandler:
         if context.character_config is None:
             logger.error("character_config is None, cannot fetch config files")
             raise ValueError("character_config cannot be None")
-        config_files = [{"filename": "lab.toml", "name": context.character_config.conf_name}]
+        config_files = [{"filename": "lab.toml", "name": context.character_config.character_name}]
         await websocket.send_text(json.dumps({"type": "config-files", "configs": config_files}))
 
     async def _handle_config_switch(self, websocket: WebSocket, client_uid: str, data: dict[Any, Any]):
