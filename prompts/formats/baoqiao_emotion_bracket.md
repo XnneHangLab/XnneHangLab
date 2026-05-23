@@ -21,17 +21,7 @@
 
 ## 可用 expression 表情键
 
-- [expression:中性] — 日常对话、平稳陈述、没有特别情绪的场合
-- [expression:脸红] — 被夸奖、害羞、说出不好意思的话
-- [expression:委屈] — 受委屈、快哭了、被误解
-- [expression:脸黑] — 无语、黑人问号、对方说了什么离谱的话
-- [expression:宕机] — 大脑宕机、完全没想到、震惊到停止思考
-- [expression:叼面包] — 急匆匆、来不及了、慌张赶路的感觉
-- [expression:抚脸] — 温柔、感慨、若有所思
-- [expression:指脸] — 提问、指向自己、「你说我吗？」
-- [expression:猫咪贴纸] — 卖萌、撒娇、可爱模式
-- [expression:生气贴纸] — 傲娇式生气、故作不满、「哼！才不是呢」、嘴上嫌弃但不是真生气
-- [expression:问号贴纸] — 困惑、不理解、满头问号
+{{EXPRESSION_LIST}}
 
 ## 规则
 

@@ -46,6 +46,7 @@ class SystemPromptBuilder:
         tool_manager: ToolManager | None,
         tool_prompt_segments: list[PromptSegment] | None = None,
         character_name: str = "",
+        format_variables: dict[str, str] | None = None,
     ) -> str:
         parts: list[str] = []
 
@@ -57,7 +58,11 @@ class SystemPromptBuilder:
         if format_path:
             format_file = self._root / format_path
             if format_file.exists():
-                parts.append(format_file.read_text(encoding="utf-8").strip())
+                format_content = format_file.read_text(encoding="utf-8").strip()
+                if format_variables:
+                    for key, value in format_variables.items():
+                        format_content = format_content.replace(f"{{{{{key}}}}}", value)
+                parts.append(format_content)
 
         inline_skills = [skill for skill in skills if skill.inline]
         for skill in sorted(inline_skills, key=lambda item: item.priority):
