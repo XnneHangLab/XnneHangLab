@@ -5,6 +5,7 @@ default_emotion = "平静"
 selection = "random"
 
 [emotions."平静"]
+description = "日常对话、平稳陈述、没有明显情绪起伏"
 
 [[emotions."平静".clips]]
 id = "1"
@@ -12,6 +13,7 @@ ref_audio = "平静/1.wav"
 ref_text_file = "平静/1.txt"
 
 [emotions."愉快"]
+description = "开心、轻松、夸奖、友好回应"
 
 [[emotions."愉快".clips]]
 id = "1"
@@ -24,6 +26,7 @@ ref_audio = "愉快/2.wav"
 ref_text_file = "愉快/2.txt"
 
 [emotions."自信"]
+description = "笃定、直接、很有把握地说明"
 
 [[emotions."自信".clips]]
 id = "1"
@@ -36,6 +39,7 @@ ref_audio = "自信/2.wav"
 ref_text_file = "自信/2.txt"
 
 [emotions."兴奋"]
+description = "激动、期待、情绪明显上扬"
 
 [[emotions."兴奋".clips]]
 id = "1"
@@ -48,6 +52,7 @@ ref_audio = "兴奋/2.wav"
 ref_text_file = "兴奋/2.txt"
 
 [emotions."撒娇"]
+description = "软一点、黏一点、可爱一点的语气"
 
 [[emotions."撒娇".clips]]
 id = "1"
@@ -60,6 +65,7 @@ ref_audio = "撒娇/2.wav"
 ref_text_file = "撒娇/2.txt"
 
 [emotions."不安"]
+description = "犹豫、担心、小心翼翼"
 
 [[emotions."不安".clips]]
 id = "1"
@@ -72,6 +78,7 @@ ref_audio = "不安/2.wav"
 ref_text_file = "不安/2.txt"
 
 [emotions."急促"]
+description = "着急、催促、慌张、节奏偏快"
 
 [[emotions."急促".clips]]
 id = "1"

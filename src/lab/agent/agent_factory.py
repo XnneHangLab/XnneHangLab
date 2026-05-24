@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -197,6 +198,31 @@ class AgentFactory:
             expression_list_str = "\n".join(expression_lines)
             format_variables["EXPRESSION_LIST"] = expression_list_str
             logger.info("===== Expression List =====\n{}\n===== End Expression List =====", expression_list_str)
+
+        # Generate TTS emotion list from voice config
+        voice_id = (
+            profile.character.tts.voice if profile.character is not None and profile.character.tts.voice else None
+        )
+        if voice_id:
+            voice_config_path = ws_root / "config" / "voices" / f"{voice_id}.toml"
+            if voice_config_path.is_file():
+                with voice_config_path.open("rb") as vf:
+                    voice_payload = tomllib.load(vf)
+                emotions_section = voice_payload.get("emotions")
+                if isinstance(emotions_section, dict) and emotions_section:
+                    tts_lines: list[str] = []
+                    for emotion_key in emotions_section:
+                        emotion_data = emotions_section[emotion_key]
+                        description = ""
+                        if isinstance(emotion_data, dict):
+                            description = emotion_data.get("description", "")
+                        if description:
+                            tts_lines.append(f"- [tts:{emotion_key}] — {description}")
+                        else:
+                            tts_lines.append(f"- [tts:{emotion_key}]")
+                    tts_list_str = "\n".join(tts_lines)
+                    format_variables["TTS_EMOTION_LIST"] = tts_list_str
+                    logger.info("===== TTS Emotion List =====\n{}\n===== End TTS Emotion List =====", tts_list_str)
 
         chat_system_prompt = SystemPromptBuilder(ws_root).build(
             persona_path=profile.prompt.persona,
