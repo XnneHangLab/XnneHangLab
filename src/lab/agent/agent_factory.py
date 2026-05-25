@@ -172,9 +172,6 @@ class AgentFactory:
 
         # Generate expression list for format prompt injection
         format_variables: dict[str, str] = {}
-        default_expression_emotion = (
-            profile.character.default_expression_emotion if profile.character is not None else None
-        )
         if live2d_preset_expressions:
             expression_lines: list[str] = []
             for exp in live2d_preset_expressions:
@@ -186,17 +183,8 @@ class AgentFactory:
                     expression_lines.append(f"- [expression:{label}] — {description}")
                 else:
                     expression_lines.append(f"- [expression:{label}]")
-            # Add default/neutral expression if not already in the list
-            if default_expression_emotion:
-                has_default = any(
-                    exp.get("label", exp.get("name", "")).lower() == default_expression_emotion.lower()
-                    for exp in live2d_preset_expressions
-                    if exp.get("role") == "expression"
-                )
-                if not has_default:
-                    expression_lines.insert(
-                        0, f"- [expression:{default_expression_emotion}] — 日常对话、平稳陈述、没有特别情绪的场合"
-                    )
+            # Always include a neutral/reset entry at the top
+            expression_lines.insert(0, "- [expression:平静] — 日常对话、平稳陈述、没有特别情绪的场合（清除当前表情）")
             expression_list_str = "\n".join(expression_lines)
             format_variables["EXPRESSION_LIST"] = expression_list_str
             logger.info("===== Expression List =====\n{}\n===== End Expression List =====", expression_list_str)
@@ -304,9 +292,6 @@ class AgentFactory:
             live2d_model=live2d_model,
             tts_preprocessor_config=tts_preprocessor_config,
             show_control_tags=profile.prompt.show_control_tags,
-            default_expression_emotion=(
-                profile.character.default_expression_emotion if profile.character is not None else None
-            ),
             faster_first_response=lab_setting.agent.faster_first_response,
             segment_method=lab_setting.agent.segment_method,
             interrupt_method=lab_setting.agent.interrupt_method,

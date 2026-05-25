@@ -28,7 +28,7 @@ def test_actions_extractor_uses_separate_expression_and_tts_control_tags() -> No
     )
 
     async def _collect() -> Actions:
-        @actions_extractor(cast("Any", live2d_model), default_expression_emotion="中性")
+        @actions_extractor(cast("Any", live2d_model))
         async def _source() -> AsyncIterator[SentenceWithTags]:
             yield sentence
 
@@ -53,7 +53,7 @@ def test_actions_extractor_falls_back_to_default_expression_when_missing() -> No
     )
 
     async def _collect() -> Actions:
-        @actions_extractor(cast("Any", live2d_model), default_expression_emotion="中性")
+        @actions_extractor(cast("Any", live2d_model))
         async def _source() -> AsyncIterator[SentenceWithTags]:
             yield sentence
 
