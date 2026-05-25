@@ -45,7 +45,6 @@ class MemoryAgent(AgentInterface):
         live2d_model: Live2dModel | None,
         tts_preprocessor_config: TTSPreprocessorConfig | None,
         show_control_tags: bool = False,
-        default_expression_emotion: str | None = None,
         faster_first_response: bool = True,
         segment_method: str = "pysbd",
         interrupt_method: Literal["system", "user"] = "user",
@@ -63,7 +62,6 @@ class MemoryAgent(AgentInterface):
         self._live2d_model = live2d_model
         self.tts_preprocessor_config = tts_preprocessor_config
         self.show_control_tags = show_control_tags
-        self.default_expression_emotion = default_expression_emotion
         self.faster_first_response = faster_first_response
         self.segment_method = segment_method
 
@@ -110,7 +108,6 @@ class MemoryAgent(AgentInterface):
         @display_processor(show_control_tags=self.show_control_tags)
         @actions_extractor(
             self._live2d_model,
-            default_expression_emotion=self.default_expression_emotion,
         )
         @sentence_divider(
             faster_first_response=self.faster_first_response,

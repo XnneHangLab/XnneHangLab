@@ -28,7 +28,7 @@ def test_actions_extractor_uses_separate_expression_and_tts_control_tags() -> No
     )
 
     async def _collect() -> Actions:
-        @actions_extractor(cast("Any", live2d_model), default_expression_emotion="中性")
+        @actions_extractor(cast("Any", live2d_model))
         async def _source() -> AsyncIterator[SentenceWithTags]:
             yield sentence
 
@@ -45,7 +45,7 @@ def test_actions_extractor_uses_separate_expression_and_tts_control_tags() -> No
     assert actions.emotion_keys == ["愉快"]
 
 
-def test_actions_extractor_falls_back_to_default_expression_when_missing() -> None:
+def test_actions_extractor_falls_back_to_neutral_when_no_expression_tag() -> None:
     live2d_model = _FakeLive2DModel()
     sentence = SentenceWithTags(
         text="你好。",
@@ -53,7 +53,7 @@ def test_actions_extractor_falls_back_to_default_expression_when_missing() -> No
     )
 
     async def _collect() -> Actions:
-        @actions_extractor(cast("Any", live2d_model), default_expression_emotion="中性")
+        @actions_extractor(cast("Any", live2d_model))
         async def _source() -> AsyncIterator[SentenceWithTags]:
             yield sentence
 
@@ -64,8 +64,8 @@ def test_actions_extractor_falls_back_to_default_expression_when_missing() -> No
         raise AssertionError("expected actions output")
 
     actions = asyncio.run(_collect())
-    assert actions.expressions == [0]
-    assert actions.expression_emotion_key == "中性"
+    assert actions.expressions == ["__neutral__"]
+    assert actions.expression_emotion_key is None
     assert actions.tts_emotion_key is None
 
 

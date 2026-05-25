@@ -28,7 +28,6 @@ NEUTRAL_EXPRESSION_SENTINEL = "__neutral__"
 def _resolve_expression_actions(
     chunk: SentenceWithTags,
     live2d_model: Live2dModel | None,
-    default_expression_emotion: str | None,
 ) -> tuple[list[str] | list[int] | None, str | None]:
     if live2d_model is None:
         return None, None
@@ -39,25 +38,17 @@ def _resolve_expression_actions(
         resolved_expression = live2d_model.emo_map.get(explicit_key.lower())
         if resolved_expression is not None:
             return [resolved_expression], inv_emo_map.get(resolved_expression, explicit_key)
-        # Explicit tag not in emo_map — treat as neutral reset if it matches default
-        if default_expression_emotion and explicit_key.lower() == default_expression_emotion.lower():
-            return [NEUTRAL_EXPRESSION_SENTINEL], explicit_key
-        logger.warning("Unknown expression control tag '{}', falling back to default expression.", explicit_key)
+        # Explicit tag not in emo_map — treat as neutral reset
+        logger.debug("Expression tag '{}' not in emo_map, treating as neutral reset.", explicit_key)
+        return [NEUTRAL_EXPRESSION_SENTINEL], explicit_key
 
     legacy_expressions = live2d_model.extract_emotion(chunk.text)
     if legacy_expressions:
         first_expression = legacy_expressions[0]
         return legacy_expressions, inv_emo_map.get(first_expression)
 
-    if default_expression_emotion is None:
-        return None, None
-
-    resolved_default = live2d_model.emo_map.get(default_expression_emotion.lower())
-    if resolved_default is None:
-        # Default expression not in emo_map — send neutral reset sentinel
-        return [NEUTRAL_EXPRESSION_SENTINEL], default_expression_emotion
-
-    return [resolved_default], inv_emo_map.get(resolved_default, default_expression_emotion)
+    # No expression tag and no bracket match — send neutral reset
+    return [NEUTRAL_EXPRESSION_SENTINEL], None
 
 
 def sentence_divider(
@@ -97,8 +88,6 @@ def sentence_divider(
 
 def actions_extractor(
     live2d_model: Live2dModel | None,
-    *,
-    default_expression_emotion: str | None = None,
 ):
     """
     Decorator that extracts actions from sentences
@@ -122,7 +111,6 @@ def actions_extractor(
                         expressions, expression_emotion_key = _resolve_expression_actions(
                             chunk,
                             live2d_model,
-                            default_expression_emotion,
                         )
                         if expressions:
                             actions.expressions = expressions
