@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -169,6 +170,62 @@ class AgentFactory:
             except Exception as exc:
                 logger.warning("[VISION] vision analysis unavailable: failed to initialize vision model: {}", exc)
 
+        # Generate expression list for format prompt injection
+        format_variables: dict[str, str] = {}
+        default_expression_emotion = (
+            profile.character.default_expression_emotion if profile.character is not None else None
+        )
+        if live2d_preset_expressions:
+            expression_lines: list[str] = []
+            for exp in live2d_preset_expressions:
+                if exp.get("role") != "expression":
+                    continue
+                label = exp.get("label", exp.get("name", ""))
+                description = exp.get("description", "")
+                if description:
+                    expression_lines.append(f"- [expression:{label}] — {description}")
+                else:
+                    expression_lines.append(f"- [expression:{label}]")
+            # Add default/neutral expression if not already in the list
+            if default_expression_emotion:
+                has_default = any(
+                    exp.get("label", exp.get("name", "")).lower() == default_expression_emotion.lower()
+                    for exp in live2d_preset_expressions
+                    if exp.get("role") == "expression"
+                )
+                if not has_default:
+                    expression_lines.insert(
+                        0, f"- [expression:{default_expression_emotion}] — 日常对话、平稳陈述、没有特别情绪的场合"
+                    )
+            expression_list_str = "\n".join(expression_lines)
+            format_variables["EXPRESSION_LIST"] = expression_list_str
+            logger.info("===== Expression List =====\n{}\n===== End Expression List =====", expression_list_str)
+
+        # Generate TTS emotion list from voice config
+        voice_id = (
+            profile.character.tts.voice if profile.character is not None and profile.character.tts.voice else None
+        )
+        if voice_id:
+            voice_config_path = ws_root / "config" / "voices" / f"{voice_id}.toml"
+            if voice_config_path.is_file():
+                with voice_config_path.open("rb") as vf:
+                    voice_payload: dict[str, Any] = tomllib.load(vf)
+                emotions_section = voice_payload.get("emotions")
+                if isinstance(emotions_section, dict) and emotions_section:
+                    tts_lines: list[str] = []
+                    for emotion_key, emotion_data in cast("dict[str, Any]", emotions_section).items():
+                        description = ""
+                        if isinstance(emotion_data, dict):
+                            raw_desc = cast("dict[str, Any]", emotion_data).get("description")
+                            description = str(raw_desc) if raw_desc else ""
+                        if description:
+                            tts_lines.append(f"- [tts:{emotion_key}] — {description}")
+                        else:
+                            tts_lines.append(f"- [tts:{emotion_key}]")
+                    tts_list_str = "\n".join(tts_lines)
+                    format_variables["TTS_EMOTION_LIST"] = tts_list_str
+                    logger.info("===== TTS Emotion List =====\n{}\n===== End TTS Emotion List =====", tts_list_str)
+
         chat_system_prompt = SystemPromptBuilder(ws_root).build(
             persona_path=profile.prompt.persona,
             format_path=profile.prompt.format,
@@ -176,6 +233,7 @@ class AgentFactory:
             tool_manager=tool_manager,
             tool_prompt_segments=tool_prompt_segments,
             character_name=profile.character.character_name if profile.character else "",
+            format_variables=format_variables or None,
         )
         logger.info(
             "===== Chat System Prompt Preview ({}) =====\n{}\n===== End Chat System Prompt Preview =====",
