@@ -39,6 +39,7 @@ def _resolve_expression_actions(
         if resolved_expression is not None:
             return [resolved_expression], inv_emo_map.get(resolved_expression, explicit_key)
         # Explicit tag not in emo_map — treat as neutral reset
+        logger.debug("Expression tag '{}' not in emo_map, treating as neutral reset.", explicit_key)
         return [NEUTRAL_EXPRESSION_SENTINEL], explicit_key
 
     legacy_expressions = live2d_model.extract_emotion(chunk.text)

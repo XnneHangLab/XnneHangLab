@@ -183,8 +183,12 @@ class AgentFactory:
                     expression_lines.append(f"- [expression:{label}] — {description}")
                 else:
                     expression_lines.append(f"- [expression:{label}]")
-            # Always include a neutral/reset entry at the top
-            expression_lines.insert(0, "- [expression:平静] — 日常对话、平稳陈述、没有特别情绪的场合（清除当前表情）")
+            # Always include a neutral/reset entry at the top (if not already present)
+            has_neutral = any("平静" in line for line in expression_lines)
+            if not has_neutral:
+                expression_lines.insert(
+                    0, "- [expression:平静] — 日常对话、平稳陈述、没有特别情绪的场合（清除当前表情）"
+                )
             expression_list_str = "\n".join(expression_lines)
             format_variables["EXPRESSION_LIST"] = expression_list_str
             logger.info("===== Expression List =====\n{}\n===== End Expression List =====", expression_list_str)
