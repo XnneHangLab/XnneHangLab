@@ -194,7 +194,9 @@ class AgentFactory:
                     if exp.get("role") == "expression"
                 )
                 if not has_default:
-                    expression_lines.insert(0, f"- [expression:{default_expression_emotion}] — 日常对话、平稳陈述、没有特别情绪的场合")
+                    expression_lines.insert(
+                        0, f"- [expression:{default_expression_emotion}] — 日常对话、平稳陈述、没有特别情绪的场合"
+                    )
             expression_list_str = "\n".join(expression_lines)
             format_variables["EXPRESSION_LIST"] = expression_list_str
             logger.info("===== Expression List =====\n{}\n===== End Expression List =====", expression_list_str)
@@ -207,15 +209,15 @@ class AgentFactory:
             voice_config_path = ws_root / "config" / "voices" / f"{voice_id}.toml"
             if voice_config_path.is_file():
                 with voice_config_path.open("rb") as vf:
-                    voice_payload = tomllib.load(vf)
+                    voice_payload: dict[str, Any] = tomllib.load(vf)
                 emotions_section = voice_payload.get("emotions")
                 if isinstance(emotions_section, dict) and emotions_section:
                     tts_lines: list[str] = []
-                    for emotion_key in emotions_section:
-                        emotion_data = emotions_section[emotion_key]
+                    for emotion_key, emotion_data in cast("dict[str, Any]", emotions_section).items():
                         description = ""
                         if isinstance(emotion_data, dict):
-                            description = emotion_data.get("description", "")
+                            raw_desc = cast("dict[str, Any]", emotion_data).get("description")
+                            description = str(raw_desc) if raw_desc else ""
                         if description:
                             tts_lines.append(f"- [tts:{emotion_key}] — {description}")
                         else:

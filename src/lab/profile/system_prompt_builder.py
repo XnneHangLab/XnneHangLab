@@ -64,6 +64,7 @@ class SystemPromptBuilder:
                         format_content = format_content.replace(f"{{{{{key}}}}}", value)
                 # Remove any unreplaced placeholders (lines containing {{...}})
                 import re
+
                 format_content = re.sub(r"^.*\{\{[A-Z_]+\}\}.*$", "", format_content, flags=re.MULTILINE)
                 format_content = re.sub(r"\n{3,}", "\n\n", format_content)
                 parts.append(format_content.strip())
