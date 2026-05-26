@@ -228,6 +228,7 @@ class OpenAIMessage(BaseModel):
     name: str | None = None
     tool_calls: list[ToolCall] | None = None
     annotations: list[Any] | None = None
+    reasoning_content: str | None = None
 
     model_config = ConfigDict(extra="forbid")
 
@@ -272,6 +273,9 @@ class OpenAIMessage(BaseModel):
 
         if self.role == "assistant" and getattr(self, "tool_calls", None):
             d["tool_calls"] = [tc.model_dump(mode="json") for tc in self.tool_calls]  # type: ignore[attr-defined]
+
+        if self.role == "assistant" and self.reasoning_content:
+            d["reasoning_content"] = self.reasoning_content
 
         return d
 
