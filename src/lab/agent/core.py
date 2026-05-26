@@ -503,6 +503,7 @@ class AgentCore:
 
         for _ in range(max_rounds):
             text_buf = ""
+            reasoning_buf = ""
             tool_calls_buf: dict[int, dict[str, str]] = {}
             finish_reason: str | None = None
 
@@ -516,8 +517,11 @@ class AgentCore:
                     continue
                 delta = choice.delta
 
-                # Some backends emit reasoning/thinking chunks before user-visible content.
-                # We intentionally ignore them here and only stream visible content.
+                # Capture reasoning/thinking content for pass-back to API on next round.
+                reasoning_content = getattr(delta, "reasoning_content", None)
+                if reasoning_content:
+                    reasoning_buf += reasoning_content
+
                 if delta.content:
                     text_buf += delta.content
                     complete_response += delta.content
@@ -556,9 +560,15 @@ class AgentCore:
                         for tc in ordered_tool_calls
                     ],
                 }
+                if reasoning_buf:
+                    assistant_payload["reasoning_content"] = reasoning_buf
                 assistant_msg = OpenAIMessage.model_validate(assistant_payload)
             else:
-                assistant_msg = OpenAIMessage(role="assistant", content=text_buf or " ")
+                assistant_msg = OpenAIMessage(
+                    role="assistant",
+                    content=text_buf or " ",
+                    reasoning_content=reasoning_buf or None,
+                )
             final_messages.append(assistant_msg)
 
             if not _should_execute_tool_calls(finish_reason, ordered_tool_calls):
