@@ -221,6 +221,10 @@ class WebSocketHandler:
                         else ""
                     ),
                     "client_uid": client_uid,
+                    "asr_enabled": bool(
+                        session_service_context.lab_setting.asr.asr_model_provider
+                        and session_service_context.lab_setting.asr.asr_model_provider != "none"
+                    ),
                 }
             )
         )
@@ -230,8 +234,6 @@ class WebSocketHandler:
 
         await session_service_context.send_current_mood(websocket.send_text)
 
-        # Start microphone
-        await websocket.send_text(json.dumps({"type": "control", "text": "start-mic"}))
         await session_service_context.send_live2d_runtime_state(websocket.send_text, state="listening")
 
     async def _init_service_context(self) -> ServiceContext:
