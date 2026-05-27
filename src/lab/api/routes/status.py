@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 from pathlib import Path
 from typing import Any
@@ -15,7 +16,7 @@ from lab.profile.schema import Profile
 router = APIRouter(prefix="/status", tags=["status"])
 
 # Shared HTTP client (avoids creating a new connection per request)
-_http_client = httpx.AsyncClient(timeout=5.0)
+_http_client = httpx.AsyncClient(timeout=3.0)
 
 # Weather cache (10-minute TTL)
 _weather_cache: dict[str, Any] | None = None
@@ -108,6 +109,10 @@ def _get_location_cached(ctx: Any) -> tuple[float, float] | None:
             _location_cache = (profile.character.location_lat, profile.character.location_lng)
             _location_cache_time = now
             return _location_cache
+        logger.debug(
+            "[status] Profile loaded but no location: city={}",
+            profile.character.location_city if profile.character else "no character",
+        )
     except Exception as e:
         logger.debug("Failed to load profile for location: {}", e)
     return None
@@ -133,11 +138,22 @@ async def get_runtime_status(request: Request) -> dict[str, Any]:
             proactive_interval = interval_fn(mood_score)
             break
 
-    # Get weather (cached)
+    # Get weather (cached, non-blocking — don't let network issues delay the response)
     weather: dict[str, Any] | None = None
+    weather_error: str | None = None
     location = _get_location_cached(ctx)
     if location:
-        weather = await _fetch_weather_cached(location[0], location[1])
+        try:
+            weather = await asyncio.wait_for(
+                _fetch_weather_cached(location[0], location[1]),
+                timeout=2.0,
+            )
+        except TimeoutError:
+            weather = _weather_cache  # Use stale cache if available
+            if weather is None:
+                weather_error = "请求超时，无法访问天气 API"
+    else:
+        weather_error = "未配置位置"
 
     result: dict[str, Any] = {
         "online": True,
@@ -146,5 +162,7 @@ async def get_runtime_status(request: Request) -> dict[str, Any]:
     }
     if weather:
         result["weather"] = weather
+    if weather_error:
+        result["weather_error"] = weather_error
 
     return result

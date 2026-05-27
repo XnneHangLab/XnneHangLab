@@ -369,6 +369,10 @@ class WebSocketServer:
             lambda: self.app.include_router(import_module("lab.api.routes.status").router),
         )
         _include_router_with_log(
+            "MBTI 测试端点",
+            lambda: self.app.include_router(import_module("lab.api.routes.mbti").router),
+        )
+        _include_router_with_log(
             "DeepLX 端点",
             lambda: self.app.include_router(import_module("lab.api.routes.deeplx").router),
         )
