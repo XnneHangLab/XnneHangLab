@@ -155,6 +155,9 @@ class CharacterConfig(BaseModel):
     character_name: str = ""
     avatar: str = ""
     human_name: str = "Human"
+    location_city: str = ""
+    location_lat: float | None = None
+    location_lng: float | None = None
     tts_preprocessor: TTSPreprocessorConfig = Field(default_factory=TTSPreprocessorConfig)
     tts: TTSConfig = Field(default_factory=TTSConfig)
 
