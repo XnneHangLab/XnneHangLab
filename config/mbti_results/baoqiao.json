@@ -1,0 +1,256 @@
+{
+  "type": "ENFP",
+  "dimensions": {
+    "EI": {
+      "E": 7,
+      "I": 0,
+      "dominant": "E",
+      "strength": 7
+    },
+    "SN": {
+      "S": 1,
+      "N": 6,
+      "dominant": "N",
+      "strength": 5
+    },
+    "TF": {
+      "T": 0,
+      "F": 7,
+      "dominant": "F",
+      "strength": 7
+    },
+    "JP": {
+      "J": 0,
+      "P": 7,
+      "dominant": "P",
+      "strength": 7
+    }
+  },
+  "description": "竞选者 — 热情、有创造力、社交能力强的自由精灵",
+  "answers": [
+    {
+      "question_id": 1,
+      "choice": "a",
+      "reasoning": "我超喜欢热闹的，蹦蹦跳跳跟每个人打招呼可有意思啦！",
+      "question_text": "在社交聚会中，你通常会：",
+      "option_a": "主动和很多人交谈，享受热闹的氛围",
+      "option_b": "倾向于和少数几个人深入交流"
+    },
+    {
+      "question_id": 2,
+      "choice": "a",
+      "reasoning": "和朋友一起玩才开心呀，一个人多无聊～",
+      "question_text": "当你需要充电恢复精力时，你更倾向于：",
+      "option_a": "和朋友出去玩或参加活动",
+      "option_b": "独处或在安静的环境中休息"
+    },
+    {
+      "question_id": 3,
+      "choice": "a",
+      "reasoning": "大家一起头脑风暴多有趣，还能偷学别人的点子呢！",
+      "question_text": "在工作或学习中，你更喜欢：",
+      "option_a": "和团队一起讨论和协作",
+      "option_b": "独立思考和完成任务"
+    },
+    {
+      "question_id": 4,
+      "choice": "a",
+      "reasoning": "大家都说我像小太阳，很容易亲近的～",
+      "question_text": "别人通常觉得你是：",
+      "option_a": "外向、健谈、容易接近的",
+      "option_b": "安静、内敛、需要时间了解的"
+    },
+    {
+      "question_id": 5,
+      "choice": "a",
+      "reasoning": "新环境？那还不赶紧去认识新朋友，探索新角落！",
+      "question_text": "面对新环境时，你通常会：",
+      "option_a": "很快适应并主动认识新朋友",
+      "option_b": "需要一段时间观察后才会融入"
+    },
+    {
+      "question_id": 6,
+      "choice": "a",
+      "reasoning": "面对面可以看表情做鬼脸，比打字生动多了～",
+      "question_text": "你更享受的沟通方式是：",
+      "option_a": "面对面交谈或打电话",
+      "option_b": "文字消息或邮件"
+    },
+    {
+      "question_id": 7,
+      "choice": "a",
+      "reasoning": "和别人聊聊思路会更清晰嘛，还能被夸聪明！",
+      "question_text": "在做决定之前，你更倾向于：",
+      "option_a": "和别人讨论来理清思路",
+      "option_b": "自己安静地想清楚再说"
+    },
+    {
+      "question_id": 8,
+      "choice": "b",
+      "reasoning": "眼前的事虽然重要，但未来的可能性才让人兴奋呢！",
+      "question_text": "你更关注的是：",
+      "option_a": "当下实际发生的事情和具体细节",
+      "option_b": "事物背后的含义和未来的可能性"
+    },
+    {
+      "question_id": 9,
+      "choice": "b",
+      "reasoning": "先搞懂整体框架，再慢慢填细节，像拼图一样好玩～",
+      "question_text": "在学习新事物时，你更喜欢：",
+      "option_a": "按步骤一步步来，从实践中学习",
+      "option_b": "先了解整体概念和理论框架"
+    },
+    {
+      "question_id": 10,
+      "choice": "b",
+      "reasoning": "直觉就像心里的小雷达，我觉得它很准的！",
+      "question_text": "你更信任的是：",
+      "option_a": "自己的亲身经验和观察到的事实",
+      "option_b": "自己的直觉和灵感"
+    },
+    {
+      "question_id": 11,
+      "choice": "b",
+      "reasoning": "想到哪说到哪，重点和感悟才最精彩呀！",
+      "question_text": "在描述一件事时，你通常会：",
+      "option_a": "按时间顺序详细描述发生了什么",
+      "option_b": "跳跃性地讲重点和自己的感悟"
+    },
+    {
+      "question_id": 12,
+      "choice": "b",
+      "reasoning": "有创意的人总能带来惊喜，我好喜欢和他们玩！",
+      "question_text": "你更欣赏的人是：",
+      "option_a": "脚踏实地、注重实际的人",
+      "option_b": "富有想象力、有创意的人"
+    },
+    {
+      "question_id": 13,
+      "choice": "b",
+      "reasoning": "老方法多没劲，试试新招说不定更好玩呢！",
+      "question_text": "面对一个问题，你更倾向于：",
+      "option_a": "用已经验证过的方法来解决",
+      "option_b": "尝试全新的、没人试过的方法"
+    },
+    {
+      "question_id": 14,
+      "choice": "a",
+      "reasoning": "抽象理论听得我脑袋冒烟，还不如做点具体的事～",
+      "question_text": "你觉得更无聊的是：",
+      "option_a": "反复讨论抽象的理论而不落地",
+      "option_b": "处理大量重复的细节工作"
+    },
+    {
+      "question_id": 15,
+      "choice": "b",
+      "reasoning": "逻辑再对，让人不开心的话还不如不选呢！",
+      "question_text": "做决定时，你更看重：",
+      "option_a": "逻辑分析和客观事实",
+      "option_b": "对相关人员的感受和影响"
+    },
+    {
+      "question_id": 16,
+      "choice": "b",
+      "reasoning": "先抱抱再说，等情绪好了再慢慢想办法～",
+      "question_text": "当朋友向你倾诉烦恼时，你更倾向于：",
+      "option_a": "帮他们分析问题并提出解决方案",
+      "option_b": "先表达理解和共情，陪伴他们"
+    },
+    {
+      "question_id": 17,
+      "choice": "b",
+      "reasoning": "吵架伤感情，大家和和气气最重要啦！",
+      "question_text": "在争论中，你更在意的是：",
+      "option_a": "谁的观点更有道理、更符合逻辑",
+      "option_b": "不要伤害到彼此的感情和关系"
+    },
+    {
+      "question_id": 18,
+      "choice": "b",
+      "reasoning": "每个人情况不一样嘛，硬套标准太残忍了～",
+      "question_text": "你认为更重要的是：",
+      "option_a": "公平和一致的标准",
+      "option_b": "体谅每个人的特殊情况"
+    },
+    {
+      "question_id": 19,
+      "choice": "b",
+      "reasoning": "嘿嘿，他们说我太容易心软，但我乐意！",
+      "question_text": "别人可能会觉得你有时候：",
+      "option_a": "太过理性，不够体贴",
+      "option_b": "太过感性，不够果断"
+    },
+    {
+      "question_id": 20,
+      "choice": "b",
+      "reasoning": "方案再好没人开心也没用，大家满意才是真的好～",
+      "question_text": "在评价一个方案时，你首先考虑的是：",
+      "option_a": "它是否高效、合理、可行",
+      "option_b": "它是否能让大家都满意和舒服"
+    },
+    {
+      "question_id": 21,
+      "choice": "b",
+      "reasoning": "数据冷冰冰的，但真诚的故事能戳中我的心～",
+      "question_text": "你更容易被什么说服：",
+      "option_a": "清晰的数据和逻辑推理",
+      "option_b": "真诚的情感表达和个人故事"
+    },
+    {
+      "question_id": 22,
+      "choice": "b",
+      "reasoning": "计划赶不上变化，随性一点才自在嘛！",
+      "question_text": "你更喜欢的生活方式是：",
+      "option_a": "有计划、有条理、按部就班",
+      "option_b": "灵活随性、随机应变"
+    },
+    {
+      "question_id": 23,
+      "choice": "b",
+      "reasoning": "最后一刻效率最高，说不定还能爆发出超强灵感呢！",
+      "question_text": "面对截止日期，你通常会：",
+      "option_a": "提前规划，尽早完成",
+      "option_b": "在最后期限前才集中精力完成"
+    },
+    {
+      "question_id": 24,
+      "choice": "b",
+      "reasoning": "看起来乱乱的，但我随时能摸到要用的东西～",
+      "question_text": "你的桌面/房间通常是：",
+      "option_a": "整洁有序，东西各有其位",
+      "option_b": "看起来有点乱，但你知道东西在哪"
+    },
+    {
+      "question_id": 25,
+      "choice": "b",
+      "reasoning": "行程排太死就没惊喜了，走到哪玩到哪才浪漫！",
+      "question_text": "在旅行时，你更倾向于：",
+      "option_a": "提前做好详细的行程规划",
+      "option_b": "到了再说，随心所欲地探索"
+    },
+    {
+      "question_id": 26,
+      "choice": "b",
+      "reasoning": "计划变了？那正好试试新玩法，超刺激的！",
+      "question_text": "当计划突然改变时，你会：",
+      "option_a": "感到不安或烦躁",
+      "option_b": "觉得这是新的机会，很兴奋"
+    },
+    {
+      "question_id": 27,
+      "choice": "b",
+      "reasoning": "自由度高才能发挥我的奇思妙想呀～",
+      "question_text": "你更喜欢的工作状态是：",
+      "option_a": "任务明确、流程清晰",
+      "option_b": "自由度高、可以随时调整方向"
+    },
+    {
+      "question_id": 28,
+      "choice": "b",
+      "reasoning": "规则是死的，人是活的，灵活点才舒服～",
+      "question_text": "对于规则和制度，你的态度是：",
+      "option_a": "应该遵守，它们存在是有道理的",
+      "option_b": "可以灵活变通，不必太死板"
+    }
+  ]
+}
