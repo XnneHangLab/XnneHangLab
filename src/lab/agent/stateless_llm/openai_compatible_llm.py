@@ -22,11 +22,6 @@ if TYPE_CHECKING:
     from openai.types.chat import ChatCompletion, ChatCompletionChunk
 
 
-def build_reasoning_extra_body(reasoning_enabled: bool) -> dict[str, str] | None:
-    if reasoning_enabled:
-        return None
-    return {"reasoning_effort": "none"}
-
 
 def normalize_messages(
     messages: Sequence[OpenAIMessage | dict[str, Any]],
@@ -58,12 +53,10 @@ class AsyncLLM:
         organization_id: str = "z",
         project_id: str = "z",
         temperature: float = 1.0,
-        reasoning_enabled: bool = True,
     ) -> None:
         self.base_url = base_url
         self.model = model
         self.temperature = temperature
-        self.extra_body = build_reasoning_extra_body(reasoning_enabled)
 
         # localhost/127.0.0.1 绕过系统代理（Clash 等会拦截本地请求导致 502）
         # trust_env=False 阻止 httpx 读取 HTTP_PROXY/HTTPS_PROXY 等环境变量
@@ -102,8 +95,6 @@ class AsyncLLM:
             "stream": stream,
             "temperature": temperature,
         }
-        if self.extra_body is not None:
-            kwargs["extra_body"] = dict(self.extra_body)
         if tools:
             kwargs["tools"] = tools
             kwargs["tool_choice"] = tool_choice or "auto"

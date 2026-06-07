@@ -14,7 +14,6 @@ from loguru import logger
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 
-from lab.agent.stateless_llm.openai_compatible_llm import build_reasoning_extra_body
 from lab.config_manager import XnneHangLabSettings, load_settings_file
 from lab.service_context import ServiceContext
 
@@ -236,9 +235,9 @@ async def lifespan(app: FastAPI):
                 "llm_api_key": chat_llm.llm_api_key,
                 "llm_base_url": chat_llm.llm_base_url,
                 "llm_model": chat_model_cfg.llm_model_name,
-                "chat_extra_body": build_reasoning_extra_body(chat_model_cfg.reasoning),
-                "llm_extra_body": build_reasoning_extra_body(chat_model_cfg.reasoning),
-                "claim_extra_body": build_reasoning_extra_body(chat_model_cfg.reasoning),
+                "chat_extra_body": None,
+                "llm_extra_body": None,
+                "claim_extra_body": None,
                 "embedding_api_key": "no-key",
                 "embedding_base_url": embedding_base_url,
                 "embedding_model": "bge-m3",
