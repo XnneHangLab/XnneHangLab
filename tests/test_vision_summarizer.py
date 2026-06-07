@@ -58,3 +58,27 @@ def test_parse_single_summary_json_rejects_overlong_summary() -> None:
     parsed = VisionSummarizer._parse_single_summary_json(raw)  # pyright: ignore[reportPrivateUsage]
 
     assert parsed is None
+
+
+def test_parse_single_summary_json_strips_markdown_fence() -> None:
+    """验证模型输出被 markdown fence 包裹时仍能正确解析。"""
+    inner = json.dumps(
+        {"scene": "桌面截图", "brief": "用户在浏览网页", "ocr": ["pixiv"]},
+        ensure_ascii=False,
+    )
+
+    # ```json ... ```
+    wrapped = f"```json\n{inner}\n```"
+    parsed = VisionSummarizer._parse_single_summary_json(wrapped)  # pyright: ignore[reportPrivateUsage]
+    assert parsed is not None
+    assert parsed[1] == "用户在浏览网页"
+
+    # ```` (4 backticks)
+    wrapped4 = f"````json\n{inner}\n````"
+    parsed4 = VisionSummarizer._parse_single_summary_json(wrapped4)  # pyright: ignore[reportPrivateUsage]
+    assert parsed4 is not None
+
+    # bare ``` without language tag
+    bare = f"```\n{inner}\n```"
+    parsed_bare = VisionSummarizer._parse_single_summary_json(bare)  # pyright: ignore[reportPrivateUsage]
+    assert parsed_bare is not None
