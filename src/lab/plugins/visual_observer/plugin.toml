@@ -1,0 +1,27 @@
+[plugin]
+id = "visual_observer"
+name = "Visual Observer"
+version = "0.1.0"
+type = "hook"
+description = "游戏陪伴模式下的后台视觉轮询与摘要"
+author = "XnneHangLab"
+source = "builtin"
+
+[config]
+poll_interval_s = 8.0
+diff_ocr_threshold = 5
+
+[config_schema.poll_interval_s]
+type = "float"
+description = "截图轮询间隔（秒）"
+min = 3.0
+max = 30.0
+
+[config_schema.diff_ocr_threshold]
+type = "int"
+description = "累积多少条新 OCR 后触发摘要"
+min = 2
+max = 20
+
+[type_config]
+entry = "VisualObserverPlugin"

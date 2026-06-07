@@ -17,6 +17,11 @@ interval_normal_s = 30.0
 interval_low_s = 120.0
 mood_increase = 5
 mood_decrease = 10
+game_companion_mode = false
+game_mood_decrease = 2
+game_interval_s = 1.0
+game_prompt_suffix = "\u6839\u636e\u89c6\u89c9\u6458\u8981\u7b80\u77ed\u8bc4\u8bba\uff0c\u4e0d\u8d85\u8fc7\u4e24\u53e5\u8bdd\u3002\u4e0d\u8981\u63d0\u95ee\u3002"
+game_require_visual_change = true
 
 [config_schema.prompt]
 type = "str"
@@ -65,6 +70,29 @@ type = "int"
 description = "\u4e3b\u52a8\u53d1\u8a00\u540e\u8d85\u65f6\u672a\u56de\u5e94\u65f6\u6263\u9664\u7684\u5fc3\u60c5\u5206"
 min = 0
 max = 100
+
+[config_schema.game_companion_mode]
+type = "bool"
+description = "\u542f\u7528\u6e38\u620f\u966a\u4f34\u6a21\u5f0f"
+
+[config_schema.game_mood_decrease]
+type = "int"
+description = "\u6e38\u620f\u6a21\u5f0f\u4e0b\u8d85\u65f6\u6263\u9664\u7684\u5fc3\u60c5\u5206"
+min = 0
+max = 100
+
+[config_schema.game_interval_s]
+type = "float"
+description = "\u6e38\u620f\u6a21\u5f0f\u4e0b\u68c0\u67e5\u89c6\u89c9\u6458\u8981\u7684\u95f4\u9694\uff08\u79d2\uff09\uff0c\u6709\u6458\u8981\u624d\u53d1\u8a00"
+min = 0.5
+
+[config_schema.game_prompt_suffix]
+type = "str"
+description = "\u6e38\u620f\u6a21\u5f0f\u4e0b\u8ffd\u52a0\u5230 prompt \u7684\u540e\u7f00"
+
+[config_schema.game_require_visual_change]
+type = "bool"
+description = "\u6e38\u620f\u6a21\u5f0f\u4e0b\u662f\u5426\u8981\u6c42\u6709\u89c6\u89c9\u53d8\u5316\u624d\u53d1\u8a00"
 
 [type_config]
 entry = "MoodChatPlugin"
