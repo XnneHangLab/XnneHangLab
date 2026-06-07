@@ -252,10 +252,9 @@ engine = "qwen_tts"
     settings.agent.memory_agent_profile = "profiles/vtuber.toml"
     settings.package.qwen_tts = False
 
-    errors = validate_all(settings)
+    validate_all(settings)
 
-    assert any('provider = "qwen_tts"' in err for err in errors)
-    assert any("package.qwen_tts = false" in err for err in errors)
+    assert settings.package.qwen_tts is True
 
 
 def test_validate_prefers_voice_toml_engine_over_global_provider(tmp_path: Path) -> None:
@@ -297,10 +296,9 @@ preferred_engine = "gsv_lite"
     settings.agent.memory_agent_profile = "profiles/vtuber.toml"
     settings.package.gsv_lite = False
 
-    errors = validate_all(settings)
+    validate_all(settings)
 
-    assert any('provider = "gsv_lite"' in err for err in errors)
-    assert any("package.gsv_lite = false" in err for err in errors)
+    assert settings.package.gsv_lite is True
 
 
 def test_validate_reports_missing_explicit_voice_config(tmp_path: Path) -> None:
@@ -409,34 +407,31 @@ def test_validate_startup_warns_for_disabled_asr_provider_selection(tmp_path: Pa
     assert any('asr_model_provider = "sherpa"' in warning for warning in warnings)
 
 
-def test_validate_rejects_disabled_qwen_tts_selection(tmp_path: Path) -> None:
+def test_validate_auto_enables_disabled_qwen_tts_package(tmp_path: Path) -> None:
     settings = _base_settings(tmp_path)
     settings.agent.tts.provider = "qwen_tts"
     settings.package.qwen_tts = False
 
-    errors = validate_all(settings)
+    validate_all(settings)
 
-    assert any('provider = "qwen_tts"' in err for err in errors)
-    assert any("package.qwen_tts = false" in err for err in errors)
+    assert settings.package.qwen_tts is True
 
 
-def test_validate_rejects_disabled_gsv_lite_selection(tmp_path: Path) -> None:
+def test_validate_auto_enables_disabled_gsv_lite_package(tmp_path: Path) -> None:
     settings = _base_settings(tmp_path)
     settings.agent.tts.provider = "gsv_lite"
     settings.package.gsv_lite = False
 
-    errors = validate_all(settings)
+    validate_all(settings)
 
-    assert any('provider = "gsv_lite"' in err for err in errors)
-    assert any("package.gsv_lite = false" in err for err in errors)
+    assert settings.package.gsv_lite is True
 
 
-def test_validate_rejects_disabled_genie_tts_selection(tmp_path: Path) -> None:
+def test_validate_auto_enables_disabled_genie_tts_package(tmp_path: Path) -> None:
     settings = _base_settings(tmp_path)
     settings.agent.tts.provider = "genie_tts"
     settings.package.genie_tts = False
 
-    errors = validate_all(settings)
+    validate_all(settings)
 
-    assert any('provider = "genie_tts"' in err for err in errors)
-    assert any("package.genie_tts = false" in err for err in errors)
+    assert settings.package.genie_tts is True

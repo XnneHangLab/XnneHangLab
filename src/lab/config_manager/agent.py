@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from lab.config_manager.qwen_tts import QwenTTSSettings
 
 LLM_Provider = str
-TranslateProvider = Literal["llm", "deeplx"]
+TranslateProvider = Literal["none", "llm", "deeplx"]
 TTSProvider = Literal["none", "gsv_lite", "genie_tts", "qwen_tts"]
 GenieTTSLanguage = Literal["Chinese", "English", "Japanese", "Hybrid-Chinese-English", "Korean", "auto"]
 
@@ -255,7 +255,7 @@ class AgentSettings(BaseModel):
     enable_tool: Annotated[bool, Field(True, title="Enable Tool Calling (BuiltinTool)")]
     prompts: Annotated[PromptSettings, Field(PromptSettings())]  # pyright: ignore[reportCallIssue]
     llm: Annotated[LLMSettings, Field(LLMSettings())]  # pyright: ignore[reportCallIssue]
-    translate_provider: Annotated[TranslateProvider, Field("llm", title="Translation Provider")]
+    translate_provider: Annotated[TranslateProvider, Field("none", title="Translation Provider")]
     translate: Annotated[TranslateSettings, Field(TranslateSettings())]  # pyright: ignore[reportCallIssue]
     user_lang: Annotated[Literal["ZH", "EN", "JA"], Field("ZH", title="User Language")]
     speaker_lang: Annotated[Literal["ZH", "EN", "JA"], Field("ZH", title="Speaker Language")]

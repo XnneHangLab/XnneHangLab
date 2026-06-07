@@ -407,6 +407,8 @@ def _check_translate_config(settings: XnneHangLabSettings) -> str | None:
         错误信息；若校验通过则返回 `None`。
     """
     translate_provider = settings.agent.translate_provider
+    if translate_provider == "none":
+        return None
     if translate_provider == "deeplx" and not settings.agent.translate.deeplx.api_key.strip():
         return (
             " [agent.translate.deeplx]\n"
@@ -682,17 +684,17 @@ PACKAGE_RULES: list[PackageRule] = [
 
 
 def _check_provider_package_compatibility(settings: XnneHangLabSettings) -> list[str]:
-    """检查已选择的 provider 是否与 package 安装状态一致。"""
+    """检查已选择的 provider 是否与 package 安装状态一致。
+
+    TTS provider 选择后自动联动 package 开关（用户在 UI 选了就是想用）。
+    """
     issues: list[str] = []
 
     active_tts = _resolve_active_tts_provider(settings)
     if active_tts in {"gsv_lite", "genie_tts", "qwen_tts"}:
         if not getattr(settings.package, active_tts, True):
-            issues.append(
-                f" [package]\n"
-                f' provider = "{active_tts}", 但 package.{active_tts} = false\n'
-                f" -> 在 [package] 下设置 {active_tts} = true"
-            )
+            setattr(settings.package, active_tts, True)
+            logger.info("[VALIDATOR] 自动启用 package.{} (因 tts.provider = {})", active_tts, active_tts)
 
     active_asr = settings.asr.asr_model_provider
     if active_asr == "sherpa" and not settings.package.sherpa_asr:
