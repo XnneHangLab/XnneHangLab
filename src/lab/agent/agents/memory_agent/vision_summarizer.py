@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import re
 from typing import TYPE_CHECKING, Any, cast
 
 import httpx
@@ -75,6 +76,11 @@ class VisionSummarizer:
         s = (raw or "").strip()
         if not s:
             return None
+
+        if s.startswith("`"):
+            s = re.sub(r"^`{3,}(?:json|JSON)?\s*\n?", "", s)
+            s = re.sub(r"\n?`{3,}\s*$", "", s)
+            s = s.strip()
 
         try:
             obj: dict[str, Any] = json.loads(s)
