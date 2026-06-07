@@ -3,6 +3,8 @@ from __future__ import annotations
 import base64
 import io
 import math
+from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import pydantic
@@ -13,6 +15,8 @@ from lab.plugin.config import PluginConfigModel
 from lab.tools.base import BuiltinTool
 from lab.tools.plugin import PromptSegment, ToolPlugin
 from lab.tools.types import AgentContext, ToolResult
+
+_SCREENSHOT_DEBUG_DIR = Path("data/screenshots")
 
 
 class ScreenShotPluginConfig(PluginConfigModel):
@@ -115,5 +119,17 @@ class ScreenShotPlugin(ToolPlugin):
 
         buffer = io.BytesIO()
         screenshot.save(buffer, "JPEG", quality=85)
-        image_b64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+        jpeg_bytes = buffer.getvalue()
+
+        # Save to debug directory
+        try:
+            _SCREENSHOT_DEBUG_DIR.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            debug_path = _SCREENSHOT_DEBUG_DIR / f"{timestamp}.jpg"
+            debug_path.write_bytes(jpeg_bytes)
+            logger.debug("[SCREENSHOT] saved debug copy: {}", debug_path)
+        except Exception as exc:
+            logger.warning("[SCREENSHOT] failed to save debug copy: {}", exc)
+
+        image_b64 = base64.b64encode(jpeg_bytes).decode("utf-8")
         return ScreenShotResult(image_b64=image_b64)

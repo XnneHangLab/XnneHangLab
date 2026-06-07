@@ -83,7 +83,6 @@ async def run_test(request: Request) -> dict[str, Any]:
         model=chat_model.llm_model_name,
         base_url=chat_llm_config.llm_base_url,
         llm_api_key=chat_llm_config.llm_api_key,
-        reasoning_enabled=False,
     )
 
     messages: list[dict[str, str]] = []

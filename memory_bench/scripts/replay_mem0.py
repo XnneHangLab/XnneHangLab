@@ -1275,6 +1275,7 @@ def build_mem0_config(
                 "api_key": embedding_api_key,
                 "openai_base_url": embedding_base_url,
                 "model": embedding_model,
+                "embedding_dims": 1024,
             },
         },
         "vector_store": {
@@ -1282,6 +1283,7 @@ def build_mem0_config(
             "config": {
                 "collection_name": f"memory_bench_{isolation}",
                 "path": str(qdrant_path),
+                "embedding_model_dims": 1024,
                 # CRITICAL: mem0 的 qdrant 本地模式默认 on_disk=False，
                 # 此时每次 Memory() 初始化都会 shutil.rmtree 清空存储目录，
                 # 导致跨进程（ingest→export/probe）时数据丢失。

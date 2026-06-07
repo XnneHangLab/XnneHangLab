@@ -82,13 +82,17 @@ class VisionSummarizer:
             return None
 
         scene = obj.get("scene")
-        summary = obj.get("summary")
         if not isinstance(scene, str) or not scene.strip():
             return None
-        if not isinstance(summary, str) or not summary.strip():
-            return None
-        if len(summary.strip()) > _MAX_SINGLE_SUMMARY_LEN:
-            return None
+
+        # New compact format has no "summary" field; accept if scene + brief exist
+        summary = obj.get("summary")
+        if summary is not None:
+            if not isinstance(summary, str) or not summary.strip():
+                return None
+            if len(summary.strip()) > _MAX_SINGLE_SUMMARY_LEN:
+                return None
+
         brief = cls._normalize_brief(obj.get("brief"))
         if brief is None:
             brief = cls._normalize_brief(scene)

@@ -11,10 +11,9 @@ It returns `AsyncLLM` directly (no extra stateless interface layer).
 
 class LLMFactory:
     @staticmethod
-    def create_llm(*, model: str, base_url: str, llm_api_key: str, reasoning_enabled: bool = True) -> AsyncLLM:
+    def create_llm(*, model: str, base_url: str, llm_api_key: str) -> AsyncLLM:
         return AsyncLLM(
             model=model,
             base_url=base_url,
             llm_api_key=llm_api_key,
-            reasoning_enabled=reasoning_enabled,
         )
