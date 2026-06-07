@@ -239,8 +239,6 @@ def main() -> None:
         settings.agent.chat_model.support_vision = (
             os.environ.get("CHAT_MODEL_SUPPORT_VISION", "false").lower() == "true"
         )
-    if (value := _parse_bool_env("CHAT_MODEL_REASONING")) is not None:
-        settings.agent.chat_model.reasoning = value
 
     if "VISION_MODEL_PROVIDER" in os.environ:
         settings.agent.vision_model.llm_provider = validate_provider_name(
@@ -250,8 +248,6 @@ def main() -> None:
         )
     if "VISION_MODEL_NAME" in os.environ:
         settings.agent.vision_model.llm_model_name = os.environ.get("VISION_MODEL_NAME", "").strip()
-    if (value := _parse_bool_env("VISION_MODEL_REASONING")) is not None:
-        settings.agent.vision_model.reasoning = value
     if "TTS_PROVIDER" in os.environ:
         settings.agent.tts.provider = validate_tts_provider(os.environ.get("TTS_PROVIDER", ""), "TTS_PROVIDER")
     if "ASR_MODEL_PROVIDER" in os.environ:
@@ -300,10 +296,8 @@ def main() -> None:
     logger.info("agent.chat_model.llm_provider: {}", settings.agent.chat_model.llm_provider)
     logger.info("agent.chat_model.llm_model_name: {}", settings.agent.chat_model.llm_model_name)
     logger.info("agent.chat_model.support_vision: {}", settings.agent.chat_model.support_vision)
-    logger.info("agent.chat_model.reasoning: {}", settings.agent.chat_model.reasoning)
     logger.info("agent.vision_model.llm_provider: {}", settings.agent.vision_model.llm_provider)
     logger.info("agent.vision_model.llm_model_name: {}", settings.agent.vision_model.llm_model_name)
-    logger.info("agent.vision_model.reasoning: {}", settings.agent.vision_model.reasoning)
     logger.info("agent.tts.provider: {}", settings.agent.tts.provider)
     logger.info("agent.tts.gsv_lite.use_bert: {}", settings.agent.tts.gsv_lite.use_bert)
     logger.info("agent.tts.genie_tts.language: {}", settings.agent.tts.genie_tts.language)
