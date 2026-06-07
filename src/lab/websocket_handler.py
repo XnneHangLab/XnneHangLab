@@ -206,7 +206,10 @@ class WebSocketHandler:
                 {
                     "type": "set-model-and-conf",
                     "model_info": (
-                        session_service_context.live2d_model.model_info
+                        {
+                            **session_service_context.live2d_model.model_info,
+                            "renderScale": session_service_context.lab_setting.server.live2d_render_scale,
+                        }
                         if session_service_context.live2d_model is not None
                         else None
                     ),
