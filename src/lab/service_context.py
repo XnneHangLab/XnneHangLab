@@ -553,7 +553,14 @@ class ServiceContext:
                 json.dumps(
                     {
                         "type": "set-model-and-conf",
-                        "model_info": self.live2d_model.model_info if self.live2d_model else None,
+                        "model_info": (
+                            {
+                                **self.live2d_model.model_info,
+                                "renderScale": self.lab_setting.server.live2d_render_scale,
+                            }
+                            if self.live2d_model
+                            else None
+                        ),
                         "conf_name": self.character_config.character_name if self.character_config else "",
                         "conf_uid": self.character_config.profile_id if self.character_config else "",
                     }

@@ -15,3 +15,4 @@ class ServerSettings(BaseModel):
     port: Annotated[int, Field(12393, ge=1, le=65535, title="监听端口")]
     config_alts_dir: Annotated[str, Field("characters", title="角色替代配置目录")]
     uvicorn_log_level: Annotated[str, Field("warning", title="Uvicorn 日志等级")]
+    live2d_render_scale: Annotated[float, Field(1.0, ge=0.25, le=1.0, title="Live2D 渲染分辨率比例")]

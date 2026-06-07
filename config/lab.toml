@@ -124,6 +124,7 @@ host = "localhost"
 port = 12393
 config_alts_dir = "characters"
 uvicorn_log_level = "warning"
+live2d_render_scale = 1.0
 
 [memory_bench]
 search_limit = 10
