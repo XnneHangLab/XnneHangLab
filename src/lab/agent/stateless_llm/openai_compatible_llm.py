@@ -68,9 +68,15 @@ class AsyncLLM:
         # localhost/127.0.0.1 绕过系统代理（Clash 等会拦截本地请求导致 502）
         # trust_env=False 阻止 httpx 读取 HTTP_PROXY/HTTPS_PROXY 等环境变量
         _no_proxy = "localhost" in base_url or "127.0.0.1" in base_url
-        _http_client = httpx.AsyncClient(trust_env=False) if _no_proxy else None
         if _no_proxy:
             logger.info(f"AsyncLLM: {base_url} is local, bypassing system proxy")
+            _http_client = httpx.AsyncClient(trust_env=False)
+        else:
+            # 远程代理可能 keep-alive 超时较短，禁用连接复用避免 stale connection
+            _http_client = httpx.AsyncClient(
+                http2=True,
+                limits=httpx.Limits(keepalive_expiry=10),
+            )
 
         self.client = AsyncOpenAI(
             base_url=base_url,

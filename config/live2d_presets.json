@@ -728,5 +728,2468 @@
       "clips": [],
       "items": []
     }
+  },
+  {
+    "name": "elaina",
+    "modelPathRelative": "static/live2d-models/LSS/LSS.model3.json",
+    "clipKeys": [],
+    "appearancePresets": [],
+    "emotionMap": {
+      "f00": "f00",
+      "f01": "f01",
+      "f02": "f02",
+      "f03": "f03",
+      "f04": "f04",
+      "f05": "f05",
+      "f06": "f06",
+      "f07": "f07",
+      "f08": "f08",
+      "f09": "f09",
+      "f10": "f10",
+      "f11": "f11",
+      "f12": "f12",
+      "f13": "f13"
+    },
+    "endExpressionKeys": [
+      "17猫猫贴纸",
+      "14抚脸"
+    ],
+    "excludedExpressions": [],
+    "expressionSegmentMarkers": [
+      {
+        "expressionKey": "09脸红",
+        "expressionKeys": [
+          "09脸红"
+        ],
+        "time": 3.8287579788377895,
+        "uid": "expmarker_1777833876211"
+      }
+    ],
+    "expressions": [
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "f00.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "f00",
+        "name": "f00",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "Param6",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "Param13",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "Param12",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "Param10",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "Param11",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "Param",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "Param2",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "Param5",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "Param3",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "Param7",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleZ",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLOpen",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeROpen",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "Param9",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "Param8",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBodyAngleX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBodyAngleZ",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBodyAngleY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBreath",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeRSmile",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLSmile",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRAngle",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLAngle",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamCheek",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamHairFront",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamHairSide",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamHairBack",
+            "value": 0
+          }
+        ],
+        "role": "expression"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "f01.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "f01",
+        "name": "f01",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "ParamEyeLOpen",
+            "value": -0.308
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeROpen",
+            "value": -0.341
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallX",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLY",
+            "value": -0.846
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRY",
+            "value": -0.78
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLForm",
+            "value": 0.077
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRForm",
+            "value": 0.385
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleX",
+            "value": 14.494
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleY",
+            "value": -1.011
+          }
+        ],
+        "role": "expression"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "f02.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "f02",
+        "name": "f02",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "ParamMouthForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLOpen",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeROpen",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallY",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleZ",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLY",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLForm",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRY",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRForm",
+            "value": -1
+          }
+        ],
+        "role": "expression"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "f03.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "f03",
+        "name": "f03",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "ParamMouthForm",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "Param5",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLOpen",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeROpen",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallY",
+            "value": -0.5
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleZ",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLY",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLForm",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRY",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRForm",
+            "value": -1
+          }
+        ],
+        "role": "expression"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "f04.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "f04",
+        "name": "f04",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "ParamMouthForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLOpen",
+            "value": -0.5
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeROpen",
+            "value": -0.5
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleY",
+            "value": -10
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleZ",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLY",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLForm",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRY",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRForm",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLAngle",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRAngle",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamCheek",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "Param8",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "Param9",
+            "value": -1
+          }
+        ],
+        "role": "expression"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "f05.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "f05",
+        "name": "f05",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "ParamMouthForm",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLSmile",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeRSmile",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamCheek",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLOpen",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeROpen",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLY",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRY",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLForm",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRForm",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleZ",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallY",
+            "value": 0
+          }
+        ],
+        "role": "expression"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "f06.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "f06",
+        "name": "f06",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "ParamMouthForm",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "Param5",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLOpen",
+            "value": 0.5
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeROpen",
+            "value": 0.5
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallX",
+            "value": -0.5
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallY",
+            "value": -0.5
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleY",
+            "value": -10
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleZ",
+            "value": 5
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLForm",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRForm",
+            "value": 1
+          }
+        ],
+        "role": "expression"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "f07.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "f07",
+        "name": "f07",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "ParamMouthForm",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleY",
+            "value": -10
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleZ",
+            "value": 5
+          },
+          {
+            "blend": "Add",
+            "id": "Param3",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "Param7",
+            "value": 1
+          }
+        ],
+        "role": "expression"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "f08.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "f08",
+        "name": "f08",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "ParamEyeLOpen",
+            "value": 0.2
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeROpen",
+            "value": 0.2
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallX",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLY",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLForm",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRForm",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleY",
+            "value": -15
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleZ",
+            "value": 6.923
+          },
+          {
+            "blend": "Add",
+            "id": "ParamCheek",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeRSmile",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLSmile",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthForm",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallY",
+            "value": 1
+          }
+        ],
+        "role": "expression"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "f09.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "f09",
+        "name": "f09",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "ParamMouthForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLOpen",
+            "value": -0.5
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeROpen",
+            "value": -0.5
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallX",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallY",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleY",
+            "value": -15
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleX",
+            "value": -15
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleZ",
+            "value": 10
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLY",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLForm",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRY",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRForm",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "Param4",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamCheek",
+            "value": 1
+          }
+        ],
+        "role": "expression"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "f10.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "f10",
+        "name": "f10",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "Param2",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "Param7",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLY",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRY",
+            "value": 1
+          }
+        ],
+        "role": "expression"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "f11.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "f11",
+        "name": "f11",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "ParamMouthForm",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "Param5",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLOpen",
+            "value": 0.7
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeROpen",
+            "value": 0.7
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallX",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallY",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleY",
+            "value": -10
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleX",
+            "value": -10
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleZ",
+            "value": 5
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLY",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLForm",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRY",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRForm",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamCheek",
+            "value": 1
+          }
+        ],
+        "role": "expression"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "f12.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "f12",
+        "name": "f12",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "Param",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthForm",
+            "value": 1
+          },
+          {
+            "blend": "Multiply",
+            "id": "ParamEyeLOpen",
+            "value": -0.5
+          },
+          {
+            "blend": "Multiply",
+            "id": "ParamEyeROpen",
+            "value": -0.5
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleX",
+            "value": -15
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleY",
+            "value": 10
+          },
+          {
+            "blend": "Add",
+            "id": "ParamAngleZ",
+            "value": 5
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLY",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLForm",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRY",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRForm",
+            "value": -1
+          }
+        ],
+        "role": "expression"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "f13.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "f13",
+        "name": "f13",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "ParamMouthForm",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLOpen",
+            "value": -0.231
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeROpen",
+            "value": -0.198
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallX",
+            "value": -0.143
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallY",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLY",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLForm",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRY",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRForm",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLSmile",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeRSmile",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamCheek",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "Param6",
+            "value": 1
+          }
+        ],
+        "role": "expression"
+      }
+    ],
+    "importedMotions": [],
+    "manualOverrides": {},
+    "model": {
+      "initialXshift": 0,
+      "initialYshift": 0,
+      "kScale": 0.75,
+      "modelPath": "D:\\lab\\XnneHangLab\\static\\live2d-models\\LSS\\LSS.model3.json",
+      "name": "elaina"
+    },
+    "motionAssets": [],
+    "schemaVersion": 1,
+    "timeline": {
+      "clipKeys": [],
+      "clips": [],
+      "items": []
+    }
+  },
+  {
+    "name": "mao_pro",
+    "modelPathRelative": "static/live2d-models/mao_pro/mao_pro.model3.json",
+    "clipKeys": [],
+    "appearancePresets": [],
+    "emotionMap": {
+      "exp_01": "exp_01",
+      "exp_02": "exp_02",
+      "exp_03": "exp_03",
+      "exp_04": "exp_04",
+      "exp_05": "exp_05",
+      "exp_06": "exp_06",
+      "exp_07": "exp_07",
+      "exp_08": "exp_08"
+    },
+    "endExpressionKeys": [
+      "17猫猫贴纸",
+      "14抚脸"
+    ],
+    "excludedExpressions": [],
+    "expressionSegmentMarkers": [
+      {
+        "expressionKey": "09脸红",
+        "expressionKeys": [
+          "09脸红"
+        ],
+        "time": 3.8287579788377895,
+        "uid": "expmarker_1777833876211"
+      }
+    ],
+    "expressions": [
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "expressions/exp_01.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "exp_01",
+        "name": "exp_01",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "ParamCheek",
+            "value": 0
+          },
+          {
+            "blend": "Multiply",
+            "id": "ParamEyeLOpen",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLSmile",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLForm",
+            "value": 0
+          },
+          {
+            "blend": "Multiply",
+            "id": "ParamEyeROpen",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeRSmile",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeRForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeEffect",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLAngle",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRAngle",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamA",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamI",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamU",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamE",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamO",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthUp",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthDown",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthAngry",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthAngryLine",
+            "value": 0
+          }
+        ],
+        "role": "expression"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "expressions/exp_02.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "exp_02",
+        "name": "exp_02",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "ParamCheek",
+            "value": 0
+          },
+          {
+            "blend": "Multiply",
+            "id": "ParamEyeLOpen",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLSmile",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLForm",
+            "value": 0
+          },
+          {
+            "blend": "Multiply",
+            "id": "ParamEyeROpen",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeRSmile",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeRForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeEffect",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLAngle",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRAngle",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamA",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamI",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamU",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamE",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamO",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthUp",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthDown",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthAngry",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthAngryLine",
+            "value": 0
+          }
+        ],
+        "role": "expression"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "expressions/exp_03.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "exp_03",
+        "name": "exp_03",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "ParamCheek",
+            "value": 0
+          },
+          {
+            "blend": "Multiply",
+            "id": "ParamEyeLOpen",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLSmile",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLForm",
+            "value": 0
+          },
+          {
+            "blend": "Multiply",
+            "id": "ParamEyeROpen",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeRSmile",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeRForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeEffect",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLAngle",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRAngle",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamA",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamI",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamU",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamE",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamO",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthUp",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthDown",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthAngry",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthAngryLine",
+            "value": 0
+          }
+        ],
+        "role": "expression"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "expressions/exp_04.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "exp_04",
+        "name": "exp_04",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "ParamCheek",
+            "value": 0
+          },
+          {
+            "blend": "Multiply",
+            "id": "ParamEyeLOpen",
+            "value": 1.2
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLSmile",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLForm",
+            "value": 0
+          },
+          {
+            "blend": "Multiply",
+            "id": "ParamEyeROpen",
+            "value": 1.2
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeRSmile",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeRForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeEffect",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLAngle",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRAngle",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamA",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamI",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamU",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamE",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamO",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthUp",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthDown",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthAngry",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthAngryLine",
+            "value": 0
+          }
+        ],
+        "role": "expression"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "expressions/exp_05.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "exp_05",
+        "name": "exp_05",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "ParamCheek",
+            "value": 0
+          },
+          {
+            "blend": "Multiply",
+            "id": "ParamEyeLOpen",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLSmile",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLForm",
+            "value": 0
+          },
+          {
+            "blend": "Multiply",
+            "id": "ParamEyeROpen",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeRSmile",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeRForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeEffect",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLAngle",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRAngle",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLForm",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRForm",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamA",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamI",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamU",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamE",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamO",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthUp",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthDown",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthAngry",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthAngryLine",
+            "value": 0
+          }
+        ],
+        "role": "expression"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "expressions/exp_06.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "exp_06",
+        "name": "exp_06",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "ParamCheek",
+            "value": 1
+          },
+          {
+            "blend": "Multiply",
+            "id": "ParamEyeLOpen",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLSmile",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLForm",
+            "value": 0
+          },
+          {
+            "blend": "Multiply",
+            "id": "ParamEyeROpen",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeRSmile",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeRForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeEffect",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLAngle",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRAngle",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLForm",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRForm",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamA",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamI",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamU",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamE",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamO",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthUp",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthDown",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthAngry",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthAngryLine",
+            "value": 0
+          }
+        ],
+        "role": "expression"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "expressions/exp_07.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "exp_07",
+        "name": "exp_07",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "ParamCheek",
+            "value": 0
+          },
+          {
+            "blend": "Multiply",
+            "id": "ParamEyeLOpen",
+            "value": 1.2
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLSmile",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLForm",
+            "value": 0
+          },
+          {
+            "blend": "Multiply",
+            "id": "ParamEyeROpen",
+            "value": 1.2
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeRSmile",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeRForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallForm",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeEffect",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLAngle",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRAngle",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLForm",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRForm",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamA",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamI",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamU",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamE",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamO",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthUp",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthDown",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthAngry",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthAngryLine",
+            "value": 0
+          }
+        ],
+        "role": "expression"
+      },
+      {
+        "applyMode": "transient",
+        "description": "",
+        "file": "expressions/exp_08.exp3.json",
+        "isDefaultStartup": false,
+        "isWatermarkControl": false,
+        "label": "exp_08",
+        "name": "exp_08",
+        "parameters": [
+          {
+            "blend": "Add",
+            "id": "ParamCheek",
+            "value": 0
+          },
+          {
+            "blend": "Multiply",
+            "id": "ParamEyeLOpen",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLSmile",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeLForm",
+            "value": 1
+          },
+          {
+            "blend": "Multiply",
+            "id": "ParamEyeROpen",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeRSmile",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeRForm",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeBallForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamEyeEffect",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRY",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRX",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLAngle",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRAngle",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowLForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamBrowRForm",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamA",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamI",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamU",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamE",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamO",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthUp",
+            "value": -1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthDown",
+            "value": 0
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthAngry",
+            "value": 1
+          },
+          {
+            "blend": "Add",
+            "id": "ParamMouthAngryLine",
+            "value": 1
+          }
+        ],
+        "role": "expression"
+      }
+    ],
+    "importedMotions": [],
+    "manualOverrides": {},
+    "model": {
+      "initialXshift": 0,
+      "initialYshift": 0,
+      "kScale": 0.75,
+      "modelPath": "D:\\lab\\XnneHangLab\\static\\live2d-models\\mao_pro\\mao_pro.model3.json",
+      "name": "mao_pro"
+    },
+    "motionAssets": [],
+    "schemaVersion": 1,
+    "timeline": {
+      "clipKeys": [],
+      "clips": [],
+      "items": []
+    }
   }
 ]
