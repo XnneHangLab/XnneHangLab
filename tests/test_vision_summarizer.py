@@ -35,13 +35,14 @@ def test_parse_single_summary_json_accepts_rich_schema_with_scene_and_summary() 
     assert parsed == (raw, "编辑器与终端同屏")
 
 
-def test_parse_single_summary_json_rejects_missing_summary() -> None:
-    """验证缺少顶层 summary 时会被视为无效输出。"""
+def test_parse_single_summary_json_accepts_missing_summary() -> None:
+    """验证缺少 summary 时仍可解析（新精简 prompt 不要求 summary 字段）。"""
     raw = json.dumps({"scene": "编辑器与终端同屏"}, ensure_ascii=False)
 
     parsed = VisionSummarizer._parse_single_summary_json(raw)  # pyright: ignore[reportPrivateUsage]
 
-    assert parsed is None
+    assert parsed is not None
+    assert parsed[1] == "编辑器与终端同屏"
 
 
 def test_parse_single_summary_json_rejects_overlong_summary() -> None:
