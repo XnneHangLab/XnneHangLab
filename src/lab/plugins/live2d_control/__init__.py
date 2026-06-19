@@ -647,15 +647,31 @@ class Live2DControlPlugin(ToolPlugin):
 
     async def on_register(self, ctx: AgentContext) -> bool:
         # ── Resolve motion assets (name -> url lookup) ────────────────────────
-        raw_motion_assets = ctx.extra.get("live2d_motion_assets", [])
         motion_asset_map: dict[str, str] = {}
+
+        # Step 1: motionAssets provides bare filenames as baseline
+        raw_motion_assets = ctx.extra.get("live2d_motion_assets", [])
         if isinstance(raw_motion_assets, list):
-            motion_assets = cast("list[dict[str, Any]]", raw_motion_assets)
-            for asset in motion_assets:
+            for asset in cast("list[dict[str, Any]]", raw_motion_assets):
                 asset_name = str(asset.get("name", ""))
                 asset_file = str(asset.get("file", ""))
                 if asset_name and asset_file:
                     motion_asset_map[asset_name] = asset_file
+
+        # Step 2: importedMotions overrides with full repo-relative paths
+        raw_imported = ctx.extra.get("live2d_imported_motions", [])
+        if isinstance(raw_imported, list):
+            for entry in cast("list[dict[str, Any]]", raw_imported):
+                name = str(entry.get("name", ""))
+                path = str(entry.get("path", ""))
+                if name and path:
+                    # Convert repo-relative path to server-relative URL:
+                    #   "static/live2d-models/调用版/idle1.motion3.json"
+                    #   → "/live2d-models/调用版/idle1.motion3.json"
+                    url_path = path.replace("\\", "/")
+                    if url_path.startswith("static/"):
+                        url_path = "/" + url_path[len("static/") :]
+                    motion_asset_map[name] = url_path
 
         # Rebuild idle banks: resolve name references in clips against motion assets
         if motion_asset_map:
