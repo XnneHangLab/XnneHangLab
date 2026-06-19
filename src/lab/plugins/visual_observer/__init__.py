@@ -80,6 +80,7 @@ class VisualObserverPlugin(HookPlugin):
         # Summary / output
         self._summary_llm: AsyncLLM | None = None
         self._vision_llm: AsyncLLM | None = None
+        self._chat_supports_vision: bool = False
         self._ctx: AgentContext | None = None
         self._agent_bound = False
         self._latest_summary: str | None = None
@@ -123,6 +124,7 @@ class VisualObserverPlugin(HookPlugin):
                 # 摘要是纯文本调用，优先用 chat LLM；vision LLM 作为 fallback
                 self._summary_llm = getattr(agent.core, "chat_llm", None) or getattr(agent.core, "vision_llm", None)
                 self._vision_llm = getattr(agent.core, "vision_llm", None)
+                self._chat_supports_vision = getattr(agent.core, "chat_supports_vision", False)
                 self._agent_bound = True
 
         if not ctx.extra.get("_mood_chat_internal_turn"):
@@ -301,11 +303,14 @@ class VisualObserverPlugin(HookPlugin):
     # ------------------------------------------------------------------
 
     async def _trigger_summary(self) -> None:
-        # Try vision boost first if enabled and available
-        if self._vision_boost and self._vision_llm is not None and self._latest_frame is not None:
-            summary = await self._call_vision_summary()
-        else:
-            summary = None
+        summary = None
+        if self._vision_boost and self._latest_frame is not None:
+            if self._chat_supports_vision and self._summary_llm is not None:
+                # chat_llm 自带视觉 → 直接用它，快（~2s），失败不 fallback
+                summary = await self._call_vision_summary(self._summary_llm)
+            elif self._vision_llm is not None:
+                # chat_llm 纯文本 → 走 vision_llm，失败回退纯文本
+                summary = await self._call_vision_summary(self._vision_llm)
         if summary is None:
             summary = await self._call_summary()
         if summary and self._ctx is not None:
@@ -368,9 +373,9 @@ class VisualObserverPlugin(HookPlugin):
 
         return raw.strip() if raw else None
 
-    async def _call_vision_summary(self) -> str | None:
-        """尝试用 VLM 做图文结合摘要，失败返回 None 由调用方回退纯文本。"""
-        assert self._vision_llm is not None and self._latest_frame is not None
+    async def _call_vision_summary(self, llm: AsyncLLM) -> str | None:
+        """用指定的 LLM 做图文结合摘要。llm 应为支持视觉的模型。"""
+        assert self._latest_frame is not None
         if not self._accumulated_new_ocr:
             return None
 
@@ -399,7 +404,7 @@ class VisualObserverPlugin(HookPlugin):
         ]
 
         try:
-            raw = await self._vision_llm.vision_completion_once(messages=msgs, system=SUMMARY_SYSTEM_PROMPT)
+            raw = await llm.vision_completion_once(messages=msgs, system=SUMMARY_SYSTEM_PROMPT)
         except Exception as exc:
             plugin_logger.warning("[VISUAL_OBSERVER] vision summary call failed, fallback to text: {}", exc)
             return None
