@@ -198,13 +198,16 @@ async def process_user_input(
                 raise RuntimeError(
                     asr_client.last_error or "ASR is unavailable. Use text input or enable an ASR service."
                 )
-            await websocket_send(json.dumps({"type": "user-input-transcription", "text": response["text"]}))
+
+            # Sherpa-ONNX Paraformer 在字符级别做 tokenize，返回的文本中每个字符间都有空格
+            cleaned_text = response["text"].replace(" ", "")
+            await websocket_send(json.dumps({"type": "user-input-transcription", "text": cleaned_text}))
         finally:
             # 删除临时音频文件
             if audio_file_path.exists():
                 audio_file_path.unlink()
 
-        return response["text"]  # TODO, 规范化我们的 routes 输出，以 TypedDict 约束
+        return cleaned_text  # TODO, 规范化我们的 routes 输出，以 TypedDict 约束
     else:
         logger.debug(f"User input: {user_input}")
         # await websocket_send(json.dumps({"type": "user-input-text", "text": user_input}))
