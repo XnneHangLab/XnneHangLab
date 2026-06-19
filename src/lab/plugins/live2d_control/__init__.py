@@ -647,9 +647,18 @@ class Live2DControlPlugin(ToolPlugin):
 
     async def on_register(self, ctx: AgentContext) -> bool:
         # ── Resolve motion assets (name -> url lookup) ────────────────────────
-        # Prefer importedMotions (has full repo-relative path) over motionAssets
-        # (bare filename), so clips resolve to paths the static server can serve.
         motion_asset_map: dict[str, str] = {}
+
+        # Step 1: motionAssets provides bare filenames as baseline
+        raw_motion_assets = ctx.extra.get("live2d_motion_assets", [])
+        if isinstance(raw_motion_assets, list):
+            for asset in cast("list[dict[str, Any]]", raw_motion_assets):
+                asset_name = str(asset.get("name", ""))
+                asset_file = str(asset.get("file", ""))
+                if asset_name and asset_file:
+                    motion_asset_map[asset_name] = asset_file
+
+        # Step 2: importedMotions overrides with full repo-relative paths
         raw_imported = ctx.extra.get("live2d_imported_motions", [])
         if isinstance(raw_imported, list):
             for entry in cast("list[dict[str, Any]]", raw_imported):
@@ -663,15 +672,6 @@ class Live2DControlPlugin(ToolPlugin):
                     if url_path.startswith("static/"):
                         url_path = "/" + url_path[len("static/") :]
                     motion_asset_map[name] = url_path
-        if not motion_asset_map:
-            raw_motion_assets = ctx.extra.get("live2d_motion_assets", [])
-            if isinstance(raw_motion_assets, list):
-                motion_assets = cast("list[dict[str, Any]]", raw_motion_assets)
-                for asset in motion_assets:
-                    asset_name = str(asset.get("name", ""))
-                    asset_file = str(asset.get("file", ""))
-                    if asset_name and asset_file:
-                        motion_asset_map[asset_name] = asset_file
 
         # Rebuild idle banks: resolve name references in clips against motion assets
         if motion_asset_map:
