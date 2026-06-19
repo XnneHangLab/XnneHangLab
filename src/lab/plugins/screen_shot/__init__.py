@@ -33,6 +33,9 @@ class ScreenShotArgs(BaseModel):
 class ScreenShotResult(BaseModel):
     image_b64: str = Field(..., description="Current screen screenshot in base64 encoded JPEG.")
     mime: str = Field(default="image/jpeg", description="Screenshot MIME type.")
+    pil_image: Any = Field(default=None, exclude=True, description="PIL Image for local processing (not serialized).")
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class _ScreenShotTool(BuiltinTool):
@@ -132,4 +135,4 @@ class ScreenShotPlugin(ToolPlugin):
             logger.warning("[SCREENSHOT] failed to save debug copy: {}", exc)
 
         image_b64 = base64.b64encode(jpeg_bytes).decode("utf-8")
-        return ScreenShotResult(image_b64=image_b64)
+        return ScreenShotResult(image_b64=image_b64, pil_image=screenshot)

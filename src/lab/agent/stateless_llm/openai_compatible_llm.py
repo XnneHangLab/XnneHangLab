@@ -22,7 +22,6 @@ if TYPE_CHECKING:
     from openai.types.chat import ChatCompletion, ChatCompletionChunk
 
 
-
 def normalize_messages(
     messages: Sequence[OpenAIMessage | dict[str, Any]],
     *,
