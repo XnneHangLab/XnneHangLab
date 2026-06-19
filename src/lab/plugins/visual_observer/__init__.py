@@ -36,6 +36,7 @@ class VisualObserverPluginConfig(PluginConfigModel):
     ocr_max_items: Annotated[int, Field(10, ge=5, le=50, description="每帧保留面积最大的前 N 条 OCR")]
     ocr_min_confidence: Annotated[float, Field(0.6, ge=0.1, le=1.0, description="OCR 置信度过滤阈值")]
     ocr_min_length: Annotated[int, Field(2, ge=1, le=10, description="OCR 最短文字长度")]
+    vision_boost: Annotated[bool, Field(False, description="触发摘要时同时发送最新截图给 VLM")]
 
 
 PLUGIN_CONFIG_MODEL = VisualObserverPluginConfig
@@ -51,12 +52,14 @@ class VisualObserverPlugin(HookPlugin):
         ocr_max_items: int = 10,
         ocr_min_confidence: float = 0.6,
         ocr_min_length: int = 2,
+        vision_boost: bool = False,
     ) -> None:
         self._poll_interval_s = poll_interval_s
         self._diff_ocr_threshold = diff_ocr_threshold
         self._ocr_max_items = ocr_max_items
         self._ocr_min_confidence = ocr_min_confidence
         self._ocr_min_length = ocr_min_length
+        self._vision_boost = vision_boost
 
         # OCR state
         self._ocr_engine: Any = None
@@ -72,9 +75,11 @@ class VisualObserverPlugin(HookPlugin):
         self._stopped = False
         self._total_captures = 0
         self._speaking = False
+        self._latest_frame: Any = None
 
         # Summary / output
         self._summary_llm: AsyncLLM | None = None
+        self._vision_llm: AsyncLLM | None = None
         self._ctx: AgentContext | None = None
         self._agent_bound = False
         self._latest_summary: str | None = None
@@ -117,6 +122,7 @@ class VisualObserverPlugin(HookPlugin):
             if agent is not None:
                 # 摘要是纯文本调用，优先用 chat LLM；vision LLM 作为 fallback
                 self._summary_llm = getattr(agent.core, "chat_llm", None) or getattr(agent.core, "vision_llm", None)
+                self._vision_llm = getattr(agent.core, "vision_llm", None)
                 self._agent_bound = True
 
         if not ctx.extra.get("_mood_chat_internal_turn"):
@@ -188,6 +194,8 @@ class VisualObserverPlugin(HookPlugin):
                 return
 
             self._total_captures += 1
+            if self._vision_boost:
+                self._latest_frame = frame.pil_image
 
             if frame.pil_image is None:
                 plugin_logger.debug("[VISUAL_OBSERVER] frame has no pil_image, skip OCR")
@@ -293,7 +301,13 @@ class VisualObserverPlugin(HookPlugin):
     # ------------------------------------------------------------------
 
     async def _trigger_summary(self) -> None:
-        summary = await self._call_summary()
+        # Try vision boost first if enabled and available
+        if self._vision_boost and self._vision_llm is not None and self._latest_frame is not None:
+            summary = await self._call_vision_summary()
+        else:
+            summary = None
+        if summary is None:
+            summary = await self._call_summary()
         if summary and self._ctx is not None:
             now = time.time()
             self._latest_summary = summary
@@ -350,6 +364,44 @@ class VisualObserverPlugin(HookPlugin):
             raw = await self._summary_llm.vision_completion_once(messages=msgs, system=SUMMARY_SYSTEM_PROMPT)
         except Exception as exc:
             plugin_logger.warning("[VISUAL_OBSERVER] summary call failed: {}", exc)
+            return None
+
+        return raw.strip() if raw else None
+
+    async def _call_vision_summary(self) -> str | None:
+        """尝试用 VLM 做图文结合摘要，失败返回 None 由调用方回退纯文本。"""
+        assert self._vision_llm is not None and self._latest_frame is not None
+        if not self._accumulated_new_ocr:
+            return None
+
+        import base64
+        import io
+
+        from lab.agent.agents.memory_agent.message_factory import MessageFactory
+        from lab.agent.types import OpenAIMessage
+
+        # Convert latest frame to base64 JPEG
+        buffer = io.BytesIO()
+        self._latest_frame.save(buffer, "JPEG", quality=85)
+        b64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+        ocr_text = "\n".join(f"- {line}" for line in self._accumulated_new_ocr)
+        user_prompt = (
+            f"以下是本轮从游戏画面中 OCR 提取的文字：\n{ocr_text}\n\n"
+            "请结合实际截图画面，概括最近发生了什么。"
+            '过滤掉 UI 按钮文字（如"设置""返回""确认"等），'
+            "保留剧情对话和关键信息。1-3句话，像在给朋友描述游戏里发生了什么。"
+        )
+        user_msg = MessageFactory.user_msg_with_image_from_screen_shoot(text=user_prompt, b64=b64)
+        msgs = [
+            OpenAIMessage(role="system", content=SUMMARY_SYSTEM_PROMPT),
+            user_msg,
+        ]
+
+        try:
+            raw = await self._vision_llm.vision_completion_once(messages=msgs, system=SUMMARY_SYSTEM_PROMPT)
+        except Exception as exc:
+            plugin_logger.warning("[VISUAL_OBSERVER] vision summary call failed, fallback to text: {}", exc)
             return None
 
         return raw.strip() if raw else None

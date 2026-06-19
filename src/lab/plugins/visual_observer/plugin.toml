@@ -13,6 +13,7 @@ diff_ocr_threshold = 20
 ocr_max_items = 10
 ocr_min_confidence = 0.6
 ocr_min_length = 2
+vision_boost = false
 
 [config_schema.poll_interval_s]
 type = "float"
@@ -43,6 +44,10 @@ type = "int"
 description = "OCR 最短文字长度（过滤噪音）"
 min = 1
 max = 10
+
+[config_schema.vision_boost]
+type = "bool"
+description = "触发摘要时同时发送最新截图给 VLM，进行图文结合分析（需要可用的视觉模型）"
 
 [type_config]
 entry = "VisualObserverPlugin"
