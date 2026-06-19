@@ -5,7 +5,7 @@ import io
 import math
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import pydantic
 from loguru import logger
@@ -15,9 +15,6 @@ from lab.plugin.config import PluginConfigModel
 from lab.tools.base import BuiltinTool
 from lab.tools.plugin import PromptSegment, ToolPlugin
 from lab.tools.types import AgentContext, ToolResult
-
-if TYPE_CHECKING:
-    from PIL import Image as PILImage
 
 _SCREENSHOT_DEBUG_DIR = Path("data/screenshots")
 

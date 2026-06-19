@@ -4,6 +4,8 @@
 输出 ctx.extra["visual_digest"] 供 mood_chat 使用。
 """
 
+# ruff: noqa: PLE1205 — loguru {} 格式与标准 logging %s 冲突，属误报
+
 from __future__ import annotations
 
 import asyncio
@@ -86,7 +88,9 @@ class VisualObserverPlugin(HookPlugin):
     @property
     def observer_status(self) -> dict[str, Any]:
         digest = self._ctx.extra.get("visual_digest") if self._ctx else None
-        seen = set().union(*self._ocr_history) if self._ocr_history else set()
+        seen: set[str] = set()
+        for s in self._ocr_history:
+            seen.update(s)
         return {
             "active": self._poll_task is not None and not self._poll_task.done(),
             "total_captures": self._total_captures,
@@ -196,7 +200,9 @@ class VisualObserverPlugin(HookPlugin):
                 plugin_logger.info("[VISUAL_OBSERVER] initial frame: {} OCR items", len(curr_ocr))
                 return
 
-            seen = set().union(*self._ocr_history)
+            seen: set[str] = set()
+            for s in self._ocr_history:
+                seen.update(s)
             new_texts = curr_ocr - seen
             self._ocr_history.append(curr_ocr)
 
@@ -224,7 +230,9 @@ class VisualObserverPlugin(HookPlugin):
 
             plugin_logger.debug(
                 "[VISUAL_OBSERVER] frame #{}: +{} new OCR, accumulated={}",
-                self._total_captures, len(new_texts), self._new_ocr_count,
+                self._total_captures,
+                len(new_texts),
+                self._new_ocr_count,
             )
 
             if self._new_ocr_count >= self._active_threshold:
@@ -297,21 +305,25 @@ class VisualObserverPlugin(HookPlugin):
                 "frame_count": self._total_captures,
                 "timestamp": now,
             }
-            self._session_history.append({
-                "summary": summary,
-                "accumulated_ocr": list(self._accumulated_new_ocr),
-                "ocr_count": self._new_ocr_count,
-                "timestamp": now,
-            })
+            self._session_history.append(
+                {
+                    "summary": summary,
+                    "accumulated_ocr": list(self._accumulated_new_ocr),
+                    "ocr_count": self._new_ocr_count,
+                    "timestamp": now,
+                }
+            )
             if len(self._session_history) > self._max_session_history:
-                self._session_history = self._session_history[-self._max_session_history:]
+                self._session_history = self._session_history[-self._max_session_history :]
             plugin_logger.info(
                 "[VISUAL_OBSERVER] summary triggered: ocr_count={} summary={}",
-                self._new_ocr_count, summary[:80],
+                self._new_ocr_count,
+                summary[:80],
             )
             wake = self._ctx.extra.get("_game_proactive_wake")
-            if wake and callable(wake):
-                asyncio.create_task(wake())
+            if wake is not None:
+                assert callable(wake)
+                asyncio.create_task(wake())  # pyright: ignore[reportArgumentType]
 
         self._new_ocr_count = 0
         self._accumulated_new_ocr.clear()

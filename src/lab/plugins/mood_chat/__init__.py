@@ -70,11 +70,16 @@ class MoodChatPluginConfig(PluginConfigModel):
     mood_decrease: Annotated[int, Field(10, ge=0, le=100, description="主动发言后超时未回应时扣除的心情分")]
     game_companion_mode: Annotated[bool, Field(False, description="启用游戏陪伴模式")]
     game_mood_decrease: Annotated[int, Field(2, ge=0, le=100, description="游戏模式下超时扣除的心情分")]
-    game_interval_s: Annotated[float, Field(1.0, ge=0.5, description="游戏模式下检查视觉摘要的间隔（秒），有摘要才发言")]
-    game_prompt_suffix: Annotated[str, Field(
-        "根据视觉摘要简短评论，不超过两句话。不要提问。",
-        description="游戏模式下追加到 prompt 的后缀",
-    )]
+    game_interval_s: Annotated[
+        float, Field(1.0, ge=0.5, description="游戏模式下检查视觉摘要的间隔（秒），有摘要才发言")
+    ]
+    game_prompt_suffix: Annotated[
+        str,
+        Field(
+            "根据视觉摘要简短评论，不超过两句话。不要提问。",
+            description="游戏模式下追加到 prompt 的后缀",
+        ),
+    ]
     game_require_visual_change: Annotated[bool, Field(True, description="游戏模式下是否要求有视觉变化才发言")]
 
 
@@ -327,7 +332,7 @@ class MoodChatPlugin(HookPlugin):
                 plugin_logger.debug("[MOOD_CHAT] game mode: no visual change, skipping proactive turn")
                 return False
             digest_text = visual_digest.get("text", "") if visual_digest else ""
-            digest_ocr = visual_digest.get("accumulated_ocr", []) if visual_digest else []
+            digest_ocr: list[str] = visual_digest.get("accumulated_ocr", []) if visual_digest else []
             digest_count = visual_digest.get("ocr_count", 0) if visual_digest else 0
             digest_threshold = visual_digest.get("ocr_threshold", 0) if visual_digest else 0
             if digest_ocr:
@@ -335,11 +340,15 @@ class MoodChatPlugin(HookPlugin):
             else:
                 ocr_preview = ""
             prompt_text = (
-                f"[视觉轮询 - {digest_count}/{digest_threshold}]\n"
-                f"摘要：{digest_text}\n"
-                f"{ocr_preview}\n\n"
-                f"{self._game_prompt_suffix}"
-            ) if digest_text else self._game_prompt_suffix
+                (
+                    f"[视觉轮询 - {digest_count}/{digest_threshold}]\n"
+                    f"摘要：{digest_text}\n"
+                    f"{ocr_preview}\n\n"
+                    f"{self._game_prompt_suffix}"
+                )
+                if digest_text
+                else self._game_prompt_suffix
+            )
             ctx.extra.pop("visual_digest", None)
         else:
             prompt_text = self._prompt
