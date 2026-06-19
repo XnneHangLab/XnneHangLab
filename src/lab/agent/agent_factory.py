@@ -70,6 +70,7 @@ class AgentFactory:
         live2d_appearance_presets: list[dict[str, str]] = []
         live2d_preset_expressions: list[dict[str, Any]] = []
         live2d_motion_assets: list[dict[str, Any]] = []
+        live2d_imported_motions: list[dict[str, Any]] = []
         if live2d_model is not None:
             raw_appearance_presets = live2d_model.model_info.get("appearancePresets")
             if isinstance(raw_appearance_presets, list):
@@ -80,6 +81,9 @@ class AgentFactory:
             raw_motion_assets = live2d_model.model_info.get("motionAssets")
             if isinstance(raw_motion_assets, list):
                 live2d_motion_assets = cast("list[dict[str, Any]]", raw_motion_assets)
+            raw_imported_motions = live2d_model.model_info.get("importedMotions")
+            if isinstance(raw_imported_motions, list):
+                live2d_imported_motions = cast("list[dict[str, Any]]", raw_imported_motions)
 
         agent_context = AgentContext(
             workspace_root=ws_root,
@@ -88,6 +92,7 @@ class AgentFactory:
                 "live2d_appearance_presets": live2d_appearance_presets,
                 "live2d_preset_expressions": live2d_preset_expressions,
                 "live2d_motion_assets": live2d_motion_assets,
+                "live2d_imported_motions": live2d_imported_motions,
             },
         )
 
