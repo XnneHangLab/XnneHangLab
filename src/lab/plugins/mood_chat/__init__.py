@@ -327,7 +327,19 @@ class MoodChatPlugin(HookPlugin):
                 plugin_logger.debug("[MOOD_CHAT] game mode: no visual change, skipping proactive turn")
                 return False
             digest_text = visual_digest.get("text", "") if visual_digest else ""
-            prompt_text = f"[当前画面摘要] {digest_text}\n\n{self._game_prompt_suffix}" if digest_text else self._game_prompt_suffix
+            digest_ocr = visual_digest.get("accumulated_ocr", []) if visual_digest else []
+            digest_count = visual_digest.get("ocr_count", 0) if visual_digest else 0
+            digest_threshold = visual_digest.get("ocr_threshold", 0) if visual_digest else 0
+            if digest_ocr:
+                ocr_preview = "原文片段：\n" + "\n".join(f"  · {line}" for line in digest_ocr[-3:])
+            else:
+                ocr_preview = ""
+            prompt_text = (
+                f"[视觉轮询 - {digest_count}/{digest_threshold}]\n"
+                f"摘要：{digest_text}\n"
+                f"{ocr_preview}\n\n"
+                f"{self._game_prompt_suffix}"
+            ) if digest_text else self._game_prompt_suffix
             ctx.extra.pop("visual_digest", None)
         else:
             prompt_text = self._prompt

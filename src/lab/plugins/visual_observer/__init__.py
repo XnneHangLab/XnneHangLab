@@ -292,6 +292,8 @@ class VisualObserverPlugin(HookPlugin):
             self._ctx.extra["visual_digest"] = {
                 "text": summary,
                 "accumulated_ocr": list(self._accumulated_new_ocr),
+                "ocr_count": self._new_ocr_count,
+                "ocr_threshold": self._active_threshold,
                 "frame_count": self._total_captures,
                 "timestamp": now,
             }
