@@ -806,6 +806,8 @@ class TTSDispatcher:
 
     def resolve(self, text: str, emotion_keys: list[str] | None = None) -> ResolvedTTSDispatch:
         engine = self._resolve_engine()
+        if engine == "none":
+            return ResolvedTTSDispatch(engine="none", request_payload={})
         ref_audio_path, ref_text, speaker_audio_path = self._resolve_resources(engine, emotion_keys)
         request_payload: dict[str, Any] = {
             "text": text,
@@ -1045,6 +1047,8 @@ class TTSTaskManager:
         try:
             lab_settings = load_settings_file("lab.toml", XnneHangLabSettings)
             dispatch = TTSDispatcher(lab_settings, character_config).resolve(text, emotion_keys)
+            if dispatch.engine == "none":
+                return None
             provider = dispatch.engine
             cache_dir = _resolve_workspace_root(lab_settings) / "cache" / "tts"
             cache_dir.mkdir(parents=True, exist_ok=True)
