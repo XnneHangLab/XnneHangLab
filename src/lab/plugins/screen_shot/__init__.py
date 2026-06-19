@@ -5,7 +5,7 @@ import io
 import math
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pydantic
 from loguru import logger
@@ -15,6 +15,9 @@ from lab.plugin.config import PluginConfigModel
 from lab.tools.base import BuiltinTool
 from lab.tools.plugin import PromptSegment, ToolPlugin
 from lab.tools.types import AgentContext, ToolResult
+
+if TYPE_CHECKING:
+    from PIL import Image as PILImage
 
 _SCREENSHOT_DEBUG_DIR = Path("data/screenshots")
 
@@ -33,6 +36,9 @@ class ScreenShotArgs(BaseModel):
 class ScreenShotResult(BaseModel):
     image_b64: str = Field(..., description="Current screen screenshot in base64 encoded JPEG.")
     mime: str = Field(default="image/jpeg", description="Screenshot MIME type.")
+    pil_image: Any = Field(default=None, exclude=True, description="PIL Image for local processing (not serialized).")
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class _ScreenShotTool(BuiltinTool):
@@ -132,4 +138,4 @@ class ScreenShotPlugin(ToolPlugin):
             logger.warning("[SCREENSHOT] failed to save debug copy: {}", exc)
 
         image_b64 = base64.b64encode(jpeg_bytes).decode("utf-8")
-        return ScreenShotResult(image_b64=image_b64)
+        return ScreenShotResult(image_b64=image_b64, pil_image=screenshot)

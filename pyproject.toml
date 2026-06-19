@@ -96,6 +96,10 @@ gsv-lite = [
   "av", # required by gsv-tts-lite 0.4.x for FFmpeg-free audio loading
 ]
 
+ocr = [
+  "rapidocr-onnxruntime>=1.4.0",
+]
+
 genie-tts = [
   "onnx",
   "onnxruntime==1.22.1", # 升级 1.23 往后有 40% 点速度性能损耗。
@@ -145,7 +149,7 @@ qwen-tts = [
 ]
 
 [tool.uv]
-default-groups = ["base", "qwen-asr", "dev", "llama-cpp", "tts_base", "gsv-lite", "genie-tts", "qwen-tts", "vtuber", "memory_bench", "sherpa-onnx"]
+default-groups = ["base", "ocr", "qwen-asr", "dev", "llama-cpp", "tts_base", "gsv-lite", "genie-tts", "qwen-tts", "vtuber", "memory_bench", "sherpa-onnx"]
 
 [tool.uv.workspace]
 members = ["packages/Qwen3-ASR", "packages/GSV-TTS-Lite"]

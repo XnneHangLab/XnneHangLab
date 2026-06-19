@@ -1,27 +1,48 @@
 [plugin]
 id = "visual_observer"
 name = "Visual Observer"
-version = "0.1.0"
+version = "0.3.0"
 type = "hook"
-description = "游戏陪伴模式下的后台视觉轮询与摘要"
+description = "游戏陪伴模式下的后台 OCR 轮询与摘要"
 author = "XnneHangLab"
 source = "builtin"
 
 [config]
-poll_interval_s = 8.0
-diff_ocr_threshold = 5
+poll_interval_s = 1.0
+diff_ocr_threshold = 20
+ocr_max_items = 10
+ocr_min_confidence = 0.6
+ocr_min_length = 2
 
 [config_schema.poll_interval_s]
 type = "float"
 description = "截图轮询间隔（秒）"
-min = 3.0
+min = 0.5
 max = 30.0
 
 [config_schema.diff_ocr_threshold]
 type = "int"
-description = "累积多少条新 OCR 后触发摘要"
+description = "累积多少条新 OCR 文字后触发摘要"
 min = 2
-max = 20
+max = 100
+
+[config_schema.ocr_max_items]
+type = "int"
+description = "每帧保留面积最大的前 N 条 OCR 结果（过滤 UI 噪音）"
+min = 5
+max = 50
+
+[config_schema.ocr_min_confidence]
+type = "float"
+description = "OCR 置信度过滤阈值"
+min = 0.1
+max = 1.0
+
+[config_schema.ocr_min_length]
+type = "int"
+description = "OCR 最短文字长度（过滤噪音）"
+min = 1
+max = 10
 
 [type_config]
 entry = "VisualObserverPlugin"
