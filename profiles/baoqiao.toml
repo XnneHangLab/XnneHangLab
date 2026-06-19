@@ -25,7 +25,6 @@ enabled = [
     "web_fetch",
     "screen_shot",
     "diary",
-    "memory",
     "live2d_control",
     "web_search_ddg",
     "mood_chat",
@@ -87,6 +86,7 @@ search_limit = 3
 user_id = "xnne"
 
 [plugins.mood_chat]
+game_prompt_suffix = "根据视觉轮询结果自然地回应。如果你发现 OCR 原文片段和摘要对不上，或者文字看起来怪怪的，可以吐槽自己的眼睛。保持角色语气，不超过两句话。"
 prompt = "请根据上下文，主动说些什么，如果上下文较少，或者最近正在做一些视觉上的工作，比如逛 pixiv 插画网站，或者玩 galgame，你可以调用截图能力（如果开启了的话），参与其中。"
 
 [profile]
