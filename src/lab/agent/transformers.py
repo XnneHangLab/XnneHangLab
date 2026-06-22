@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from loguru import logger
 
-from lab.agent.output_types import Actions, AudioOutput, DisplayText, SentenceOutput
+from lab.agent.output_types import Actions, AudioOutput, DisplayText, SentenceOutput, ToolCallEvent
 from lab.config_manager.vtuber import TTSPreprocessorConfig
 from lab.utils.sentence_divider import SentenceDivider, SentenceWithTags, TagState
 from lab.utils.tts_preprocessor import tts_filter as filter_text
@@ -100,7 +100,7 @@ def actions_extractor(
         async def wrapper(*args, **kwargs) -> AsyncIterator[tuple[SentenceWithTags, Actions] | AudioOutput]:
             stream = func(*args, **kwargs)
             async for chunk in stream:
-                if isinstance(chunk, AudioOutput):
+                if isinstance(chunk, (AudioOutput, ToolCallEvent)):
                     yield chunk
                 else:
                     actions = Actions()
@@ -141,7 +141,7 @@ def display_processor(*, show_control_tags: bool = False):
             stream = func(*args, **kwargs)
 
             async for chunk in stream:
-                if isinstance(chunk, AudioOutput):
+                if isinstance(chunk, (AudioOutput, ToolCallEvent)):
                     yield chunk
                 else:
                     sentence, actions = chunk
@@ -189,7 +189,7 @@ def tts_filter(
 
             # async for sentence, display, actions in sentence_stream:
             async for chunk in stream:
-                if isinstance(chunk, AudioOutput):
+                if isinstance(chunk, (AudioOutput, ToolCallEvent)):
                     yield chunk
                 else:
                     sentence, display, actions = chunk

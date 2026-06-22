@@ -12,7 +12,7 @@ import pysbd
 from langdetect import detect
 from loguru import logger
 
-from lab.agent.output_types import AudioOutput
+from lab.agent.output_types import AudioOutput, ToolCallEvent
 from lab.utils.text_cleaner import CleanerConfig, TextCleaner
 
 if TYPE_CHECKING:
@@ -49,8 +49,8 @@ PARAGRAPH_BREAK_RE = re.compile(r"(?:\r?\n\s*){2,}")
 ACTION_LINE_BREAK_RE = re.compile(r"\r?\n\s*(?:\[[^\]\r\n]+\]|\([^)]+\))")
 FULL_BLOCK_BREAK_RE = re.compile(r"\r?\n+")
 URL_TEXT_RE = re.compile(r"(?i)\b(?:https?://|www\.)[^\s<>\u3000]+")
-CONTROL_TAG_RE = re.compile(r"\[\s*(tts|expression)\s*:\s*([^\]\r\n]+?)\s*\]", re.IGNORECASE)
-CONTROL_TAG_PREFIXES = ("[tts", "[expression")
+CONTROL_TAG_RE = re.compile(r"\[\s*(tts|ts|expression)\s*:\s*([^\]\r\n]+?)\s*\]", re.IGNORECASE)
+CONTROL_TAG_PREFIXES = ("[tts", "[ts", "[expression")
 DEFAULT_STREAMING_CLEANER = TextCleaner(
     CleanerConfig(
         clean_emoji=False,
@@ -666,6 +666,8 @@ class SentenceDivider:
                 break
 
             control_type = match.group(1).lower()
+            if control_type == "ts":
+                control_type = "tts"
             control_value = match.group(2).strip()
             if control_type == "tts":
                 if controls.tts_emotion_key is not None and controls.tts_emotion_key != control_value:
@@ -880,7 +882,7 @@ class SentenceDivider:
         self._full_response = []
         logger.info("Starting sentence processing stream...")
         async for segment in segment_stream:
-            if isinstance(segment, AudioOutput):
+            if isinstance(segment, (AudioOutput, ToolCallEvent)):
                 yield segment
                 continue
 

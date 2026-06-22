@@ -8,6 +8,7 @@ import numpy as np
 from loguru import logger
 
 from lab.agent.core import AgentCore
+from lab.agent.output_types import ToolCallEvent
 from lab.conversations.conversation_utils import (
     EMOJI_LIST,
     cleanup_conversation,
@@ -15,6 +16,7 @@ from lab.conversations.conversation_utils import (
     create_turn_id,
     finalize_conversation_turn,
     process_agent_output,
+    send_tool_call_event,
     process_user_input,
     send_conversation_start_signals_for_turn,
 )
@@ -152,6 +154,9 @@ async def process_agent_response(
             agent_core.agent_context.extra["service_context"] = context
         agent_output = context.agent_engine.chat(batch_input)  # type: ignore
         async for output in agent_output:  # type: ignore
+            if isinstance(output, ToolCallEvent):
+                await send_tool_call_event(output, websocket_send, context)
+                continue
             logger.debug(output)  # type: ignore
             response_part = await process_agent_output(
                 output=output,  # type: ignore

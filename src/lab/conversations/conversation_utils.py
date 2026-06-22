@@ -18,7 +18,7 @@ from lab.live2d_startup import inject_startup_expression_once
 from lab.message_handler import message_handler
 
 if TYPE_CHECKING:
-    from lab.agent.output_types import SentenceOutput
+    from lab.agent.output_types import SentenceOutput, ToolCallEvent
     from lab.api.logic.translate import TranslateEngineRouter
     from lab.config_manager import XnneHangLabSettings
     from lab.conversations.tts_manager import TTSTaskManager
@@ -84,6 +84,25 @@ async def process_agent_output(
         await websocket_send(json.dumps({"type": "error", "message": f"Error processing response: {str(e)}"}))
 
     return full_response
+
+
+async def send_tool_call_event(
+    event: ToolCallEvent,
+    websocket_send: WebSocketSend,
+    service_context: ServiceContext | None = None,
+) -> None:
+    char_name = "AI"
+    if service_context and service_context.character_config:
+        char_name = service_context.character_config.character_name
+    await websocket_send(json.dumps({
+        "type": "tool_call_status",
+        "tool_id": event.tool_id,
+        "tool_name": event.tool_name,
+        "name": char_name,
+        "status": event.status,
+        "content": event.result if event.result is not None else event.args,
+        "timestamp": datetime.now().isoformat(),
+    }))
 
 
 async def handle_sentence_output(
