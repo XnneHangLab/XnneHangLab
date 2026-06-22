@@ -8,7 +8,7 @@ from loguru import logger
 
 from lab.agent.output_types import Actions, AudioOutput, DisplayText, SentenceOutput, ToolCallEvent
 from lab.config_manager.vtuber import TTSPreprocessorConfig
-from lab.utils.sentence_divider import SentenceDivider, SentenceWithTags, TagState
+from lab.utils.sentence_divider import CONTROL_TAG_RE, SentenceDivider, SentenceWithTags, TagState
 from lab.utils.tts_preprocessor import tts_filter as filter_text
 
 if TYPE_CHECKING:
@@ -162,6 +162,8 @@ def display_processor(*, show_control_tags: bool = False):
                         prefix = sentence.control_tags.render_prefix()
                         if prefix:
                             text = f"{prefix} {text}" if text else prefix
+                    else:
+                        text = CONTROL_TAG_RE.sub("", text).strip()
 
                     display = DisplayText(text=text)  # Simplified DisplayText creation
                     yield sentence, display, actions
