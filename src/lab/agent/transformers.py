@@ -1,6 +1,7 @@
 # type: ignore
 from __future__ import annotations
 
+import re
 from functools import wraps
 from typing import TYPE_CHECKING
 
@@ -10,6 +11,11 @@ from lab.agent.output_types import Actions, AudioOutput, DisplayText, SentenceOu
 from lab.config_manager.vtuber import TTSPreprocessorConfig
 from lab.utils.sentence_divider import CONTROL_TAG_RE, SentenceDivider, SentenceWithTags, TagState
 from lab.utils.tts_preprocessor import tts_filter as filter_text
+
+_TRAILING_INCOMPLETE_TAG_RE = re.compile(
+    r"\[\s*(tts|ts|expression)\s*:?[^\]]*$", re.IGNORECASE
+)
+_ORPHANED_TAG_CLOSE_RE = re.compile(r"^[^\[\]]{0,20}\]\s*")
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable
@@ -163,7 +169,10 @@ def display_processor(*, show_control_tags: bool = False):
                         if prefix:
                             text = f"{prefix} {text}" if text else prefix
                     else:
-                        text = CONTROL_TAG_RE.sub("", text).strip()
+                        text = CONTROL_TAG_RE.sub("", text)
+                        text = _TRAILING_INCOMPLETE_TAG_RE.sub("", text)
+                        text = _ORPHANED_TAG_CLOSE_RE.sub("", text)
+                        text = text.strip()
 
                     display = DisplayText(text=text)  # Simplified DisplayText creation
                     yield sentence, display, actions
