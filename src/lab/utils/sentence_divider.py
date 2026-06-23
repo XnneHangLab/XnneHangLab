@@ -857,12 +857,12 @@ class SentenceDivider:
         return result
 
     @overload
+    def process_stream(self, segment_stream: AsyncIterator[str]) -> AsyncIterator[SentenceWithTags]: ...
+
+    @overload
     def process_stream(
         self, segment_stream: AsyncIterator[str | AudioOutput | ToolCallEvent]
     ) -> AsyncIterator[SentenceWithTags | AudioOutput | ToolCallEvent]: ...
-
-    @overload
-    def process_stream(self, segment_stream: AsyncIterator[str]) -> AsyncIterator[SentenceWithTags]: ...
 
     async def process_stream(
         self, segment_stream: AsyncIterator[str | AudioOutput | ToolCallEvent]
