@@ -12,9 +12,7 @@ from lab.config_manager.vtuber import TTSPreprocessorConfig
 from lab.utils.sentence_divider import CONTROL_TAG_RE, SentenceDivider, SentenceWithTags, TagState
 from lab.utils.tts_preprocessor import tts_filter as filter_text
 
-_TRAILING_INCOMPLETE_TAG_RE = re.compile(
-    r"\[\s*(tts|ts|expression)\s*:?[^\]]*$", re.IGNORECASE
-)
+_TRAILING_INCOMPLETE_TAG_RE = re.compile(r"\[\s*(tts|ts|expression)\s*:?[^\]]*$", re.IGNORECASE)
 _ORPHANED_TAG_CLOSE_RE = re.compile(r"^[^\[\]]{0,20}\]\s*")
 
 if TYPE_CHECKING:

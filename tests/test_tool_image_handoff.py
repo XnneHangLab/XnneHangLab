@@ -11,6 +11,7 @@ from loguru import logger
 from lab.agent.agents.memory_agent.types import VisionAnalysisOutcome
 from lab.agent.agents.memory_agent.user_prompt_block import UserPromptBlock
 from lab.agent.core import AgentCore, extract_tool_image_payload
+from lab.agent.output_types import ToolCallEvent
 from lab.agent.storage import ConversationStorage
 from lab.agent.types import ImagePart, OpenAIMessage, TextPart
 from lab.tools import AgentContext
@@ -332,6 +333,8 @@ class FakeInvalidJsonToolCallLLM(FakeChatLLM):
 async def _collect_tokens(core: AgentCore) -> str:
     chunks: list[str] = []
     async for token in core.run_turn(user_text="what is on the screen?"):
+        if isinstance(token, ToolCallEvent):
+            continue
         chunks.append(token)
     return "".join(chunks)
 
