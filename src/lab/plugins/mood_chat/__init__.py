@@ -16,12 +16,13 @@ from loguru import logger
 from pydantic import Field
 
 from lab.agent.input_types import BatchInput, TextData, TextSource
-from lab.agent.output_types import SentenceOutput
+from lab.agent.output_types import SentenceOutput, ToolCallEvent
 from lab.conversations.conversation_utils import (
     create_turn_id,
     process_agent_output,
     send_conversation_end_signal,
     send_conversation_start_signals_for_turn,
+    send_tool_call_event,
     wait_for_frontend_playback_completion,
 )
 from lab.conversations.tts_manager import TTSTaskManager
@@ -374,6 +375,9 @@ class MoodChatPlugin(HookPlugin):
             )
             try:
                 async for output in agent.chat(fake_input):
+                    if isinstance(output, ToolCallEvent):
+                        await send_tool_call_event(output, runtime.websocket_send, runtime.service_context)
+                        continue
                     if not isinstance(output, SentenceOutput):
                         continue
                     await process_agent_output(

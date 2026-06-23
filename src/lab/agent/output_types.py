@@ -222,6 +222,17 @@ class SentenceOutput(BaseOutput):
 
 
 @dataclass
+class ToolCallEvent:
+    """Structured tool call event that passes through the transformer pipeline unchanged."""
+
+    tool_id: str
+    tool_name: str
+    args: str
+    status: str
+    result: str | None = None
+
+
+@dataclass
 class AudioOutput(BaseOutput):
     """Output type for audio-based responses"""
 

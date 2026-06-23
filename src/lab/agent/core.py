@@ -10,6 +10,7 @@ from lab.agent.agents.memory_agent.message_factory import MessageFactory
 from lab.agent.agents.memory_agent.prompt_builder import PromptBuilder
 from lab.agent.agents.memory_agent.types import DEFAULT_TOOL_IMAGE_LABEL, ImagePayload, VisionAnalysisOutcome
 from lab.agent.agents.memory_agent.vision_summarizer import VisionSummarizer
+from lab.agent.output_types import ToolCallEvent
 from lab.agent.types import ConversationState, OpenAIMessage, ScreenShotResult
 from lab.tools.types import ToolResult
 
@@ -385,7 +386,7 @@ class AgentCore:
         user_text: str,
         user_images: list[ImagePayload] | None = None,
         memory_context: str | None = None,
-    ) -> AsyncIterator[str]:
+    ) -> AsyncIterator[str | ToolCallEvent]:
         """运行一轮完整的 Agent 对话流程。
 
         Args:
@@ -394,7 +395,7 @@ class AgentCore:
             memory_context: 外部检索到的记忆上下文，由调用方负责检索后传入。
 
         Returns:
-            流式输出的回复 token。
+            流式输出的回复 token 和 tool call 事件（ToolCallEvent）。
         """
         history = self.storage.load()
         user_images = user_images or []
@@ -582,7 +583,12 @@ class AgentCore:
             active_agent_context = agent_context
 
             for tc in ordered_tool_calls:
-                yield _format_tool_status_token(tc["name"], tc["arguments"])
+                yield ToolCallEvent(
+                    tool_id=tc["id"],
+                    tool_name=tc["name"],
+                    args=tc["arguments"],
+                    status="running",
+                )
 
             async def _exec_tool(
                 tc_info: dict[str, str],
@@ -612,6 +618,14 @@ class AgentCore:
                     }
                 )
                 final_messages.append(tool_msg)
+
+                yield ToolCallEvent(
+                    tool_id=tc_info["id"],
+                    tool_name=tool_name,
+                    args=tc_info["arguments"],
+                    status="completed" if result.ok else "error",
+                    result=result_text,
+                )
 
                 extracted_tool_image = extract_tool_image_payload(tool_name, result)
                 if extracted_tool_image is not None:

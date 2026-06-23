@@ -12,7 +12,7 @@ import pysbd
 from langdetect import detect
 from loguru import logger
 
-from lab.agent.output_types import AudioOutput
+from lab.agent.output_types import AudioOutput, ToolCallEvent
 from lab.utils.text_cleaner import CleanerConfig, TextCleaner
 
 if TYPE_CHECKING:
@@ -49,8 +49,8 @@ PARAGRAPH_BREAK_RE = re.compile(r"(?:\r?\n\s*){2,}")
 ACTION_LINE_BREAK_RE = re.compile(r"\r?\n\s*(?:\[[^\]\r\n]+\]|\([^)]+\))")
 FULL_BLOCK_BREAK_RE = re.compile(r"\r?\n+")
 URL_TEXT_RE = re.compile(r"(?i)\b(?:https?://|www\.)[^\s<>\u3000]+")
-CONTROL_TAG_RE = re.compile(r"\[\s*(tts|expression)\s*:\s*([^\]\r\n]+?)\s*\]", re.IGNORECASE)
-CONTROL_TAG_PREFIXES = ("[tts", "[expression")
+CONTROL_TAG_RE = re.compile(r"\[\s*(tts|ts|expression)\s*:\s*([^\]\r\n]+?)\s*\]", re.IGNORECASE)
+CONTROL_TAG_PREFIXES = ("[tts", "[ts", "[expression")
 DEFAULT_STREAMING_CLEANER = TextCleaner(
     CleanerConfig(
         clean_emoji=False,
@@ -666,6 +666,8 @@ class SentenceDivider:
                 break
 
             control_type = match.group(1).lower()
+            if control_type == "ts":
+                control_type = "tts"
             control_value = match.group(2).strip()
             if control_type == "tts":
                 if controls.tts_emotion_key is not None and controls.tts_emotion_key != control_value:
@@ -859,12 +861,12 @@ class SentenceDivider:
 
     @overload
     def process_stream(
-        self, segment_stream: AsyncIterator[str | AudioOutput]
-    ) -> AsyncIterator[SentenceWithTags | AudioOutput]: ...
+        self, segment_stream: AsyncIterator[str | AudioOutput | ToolCallEvent]
+    ) -> AsyncIterator[SentenceWithTags | AudioOutput | ToolCallEvent]: ...
 
     async def process_stream(
-        self, segment_stream: AsyncIterator[str | AudioOutput]
-    ) -> AsyncIterator[SentenceWithTags | AudioOutput]:
+        self, segment_stream: AsyncIterator[str | AudioOutput | ToolCallEvent]
+    ) -> AsyncIterator[SentenceWithTags | AudioOutput | ToolCallEvent]:
         """处理流式输出，并在内部复用统一的分句与缓冲逻辑。
 
         该入口主要负责持续积攒 stream 片段、维护 tag 状态，并在检测到
@@ -872,7 +874,7 @@ class SentenceDivider:
         统一交给 divider 内部的共享路径处理，避免维护两套平行规则。
 
         Args:
-            segment_stream: 上游返回的流式文本或音频输出迭代器。
+            segment_stream: 上游返回的流式文本、音频输出或 tool call 事件迭代器。
 
         Yields:
             SentenceWithTags | AudioOutput: 处理后的句子或原样透传的音频输出。
@@ -880,7 +882,7 @@ class SentenceDivider:
         self._full_response = []
         logger.info("Starting sentence processing stream...")
         async for segment in segment_stream:
-            if isinstance(segment, AudioOutput):
+            if isinstance(segment, (AudioOutput, ToolCallEvent)):
                 yield segment
                 continue
 

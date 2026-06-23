@@ -1,15 +1,19 @@
 # type: ignore
 from __future__ import annotations
 
+import re
 from functools import wraps
 from typing import TYPE_CHECKING
 
 from loguru import logger
 
-from lab.agent.output_types import Actions, AudioOutput, DisplayText, SentenceOutput
+from lab.agent.output_types import Actions, AudioOutput, DisplayText, SentenceOutput, ToolCallEvent
 from lab.config_manager.vtuber import TTSPreprocessorConfig
-from lab.utils.sentence_divider import SentenceDivider, SentenceWithTags, TagState
+from lab.utils.sentence_divider import CONTROL_TAG_RE, SentenceDivider, SentenceWithTags, TagState
 from lab.utils.tts_preprocessor import tts_filter as filter_text
+
+_TRAILING_INCOMPLETE_TAG_RE = re.compile(r"\[\s*(tts|ts|expression)\s*:?[^\]]*$", re.IGNORECASE)
+_ORPHANED_TAG_CLOSE_RE = re.compile(r"^[^\[\]]{0,20}\]\s*")
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable
@@ -66,10 +70,10 @@ def sentence_divider(
     """
 
     def decorator(
-        func: Callable[..., AsyncIterator[str | AudioOutput]],
-    ) -> Callable[..., AsyncIterator[SentenceWithTags | AudioOutput]]:
+        func: Callable[..., AsyncIterator[str | ToolCallEvent | AudioOutput]],
+    ) -> Callable[..., AsyncIterator[SentenceWithTags | AudioOutput | ToolCallEvent]]:
         @wraps(func)
-        async def wrapper(*args, **kwargs) -> AsyncIterator[SentenceWithTags | AudioOutput]:
+        async def wrapper(*args, **kwargs) -> AsyncIterator[SentenceWithTags | AudioOutput | ToolCallEvent]:
             divider = SentenceDivider(
                 faster_first_response=faster_first_response,
                 segment_method=segment_method,
@@ -94,13 +98,15 @@ def actions_extractor(
     """
 
     def decorator(
-        func: Callable[..., AsyncIterator[SentenceWithTags | AudioOutput]],
-    ) -> Callable[..., AsyncIterator[tuple[SentenceWithTags, Actions] | AudioOutput]]:
+        func: Callable[..., AsyncIterator[SentenceWithTags | AudioOutput | ToolCallEvent]],
+    ) -> Callable[..., AsyncIterator[tuple[SentenceWithTags, Actions] | AudioOutput | ToolCallEvent]]:
         @wraps(func)
-        async def wrapper(*args, **kwargs) -> AsyncIterator[tuple[SentenceWithTags, Actions] | AudioOutput]:
+        async def wrapper(
+            *args, **kwargs
+        ) -> AsyncIterator[tuple[SentenceWithTags, Actions] | AudioOutput | ToolCallEvent]:
             stream = func(*args, **kwargs)
             async for chunk in stream:
-                if isinstance(chunk, AudioOutput):
+                if isinstance(chunk, (AudioOutput, ToolCallEvent)):
                     yield chunk
                 else:
                     actions = Actions()
@@ -132,16 +138,16 @@ def display_processor(*, show_control_tags: bool = False):
     """
 
     def decorator(
-        func: Callable[..., AsyncIterator[tuple[SentenceWithTags, Actions] | AudioOutput]],
-    ) -> Callable[..., AsyncIterator[tuple[SentenceWithTags, DisplayText, Actions] | AudioOutput]]:
+        func: Callable[..., AsyncIterator[tuple[SentenceWithTags, Actions] | AudioOutput | ToolCallEvent]],
+    ) -> Callable[..., AsyncIterator[tuple[SentenceWithTags, DisplayText, Actions] | AudioOutput | ToolCallEvent]]:
         @wraps(func)
         async def wrapper(
             *args, **kwargs
-        ) -> AsyncIterator[tuple[SentenceWithTags, DisplayText, Actions] | AudioOutput]:
+        ) -> AsyncIterator[tuple[SentenceWithTags, DisplayText, Actions] | AudioOutput | ToolCallEvent]:
             stream = func(*args, **kwargs)
 
             async for chunk in stream:
-                if isinstance(chunk, AudioOutput):
+                if isinstance(chunk, (AudioOutput, ToolCallEvent)):
                     yield chunk
                 else:
                     sentence, actions = chunk
@@ -162,6 +168,11 @@ def display_processor(*, show_control_tags: bool = False):
                         prefix = sentence.control_tags.render_prefix()
                         if prefix:
                             text = f"{prefix} {text}" if text else prefix
+                    else:
+                        text = CONTROL_TAG_RE.sub("", text)
+                        text = _TRAILING_INCOMPLETE_TAG_RE.sub("", text)
+                        text = _ORPHANED_TAG_CLOSE_RE.sub("", text)
+                        text = text.strip()
 
                     display = DisplayText(text=text)  # Simplified DisplayText creation
                     yield sentence, display, actions
@@ -180,16 +191,16 @@ def tts_filter(
     """
 
     def decorator(
-        func: Callable[..., AsyncIterator[tuple[SentenceWithTags, DisplayText, Actions] | AudioOutput]],
-    ) -> Callable[..., AsyncIterator[SentenceOutput | AudioOutput]]:
+        func: Callable[..., AsyncIterator[tuple[SentenceWithTags, DisplayText, Actions] | AudioOutput | ToolCallEvent]],
+    ) -> Callable[..., AsyncIterator[SentenceOutput | AudioOutput | ToolCallEvent]]:
         @wraps(func)
-        async def wrapper(*args, **kwargs) -> AsyncIterator[SentenceOutput | AudioOutput]:
+        async def wrapper(*args, **kwargs) -> AsyncIterator[SentenceOutput | AudioOutput | ToolCallEvent]:
             stream = func(*args, **kwargs)
             config = tts_preprocessor_config or TTSPreprocessorConfig()
 
             # async for sentence, display, actions in sentence_stream:
             async for chunk in stream:
-                if isinstance(chunk, AudioOutput):
+                if isinstance(chunk, (AudioOutput, ToolCallEvent)):
                     yield chunk
                 else:
                     sentence, display, actions = chunk
