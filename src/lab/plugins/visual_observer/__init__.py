@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import time
 from collections import deque
+from difflib import SequenceMatcher
 from typing import TYPE_CHECKING, Annotated, Any
 
 from loguru import logger
@@ -86,6 +87,7 @@ class VisualObserverPlugin(HookPlugin):
         self._latest_summary: str | None = None
         self._session_history: list[dict[str, Any]] = []
         self._max_session_history = 5
+        self._last_assistant_text: str = ""
 
     # ------------------------------------------------------------------
     # Public status
@@ -139,7 +141,7 @@ class VisualObserverPlugin(HookPlugin):
         return None
 
     async def on_after_turn(self, user_text: str, assistant_text: str, ctx: AgentContext) -> None:
-        pass
+        self._last_assistant_text = assistant_text or ""
 
     async def on_after_playback(self, user_text: str, assistant_text: str, ctx: AgentContext) -> None:
         self._speaking = False
@@ -234,6 +236,25 @@ class VisualObserverPlugin(HookPlugin):
             if self._speaking:
                 return
 
+            if self._last_assistant_text:
+                # Filter OCR text that overlaps the last assistant reply (>threshold).
+                # Filtered items are NOT backfilled: Top-N already selects the
+                # largest-area texts; N+1+ are small-area noise (buttons, clutter)
+                # with little value. The accumulator reaches threshold (default 20)
+                # a few frames later, which doesn't affect trigger frequency.
+                filtered = {
+                    t for t in new_texts
+                    if not self._is_similar_to_assistant_reply(t, self._last_assistant_text)
+                }
+                if len(filtered) < len(new_texts):
+                    plugin_logger.debug(
+                        "[VISUAL_OBSERVER] filtered {} OCR items similar to assistant reply",
+                        len(new_texts) - len(filtered),
+                    )
+                new_texts = filtered
+                if not new_texts:
+                    return
+
             for text in sorted(new_texts):
                 self._accumulated_new_ocr.append(text)
                 self._new_ocr_count += 1
@@ -297,6 +318,25 @@ class VisualObserverPlugin(HookPlugin):
             if text and score >= self._ocr_min_confidence and len(text) >= self._ocr_min_length:
                 texts.add(text)
         return texts
+
+    @staticmethod
+    def _is_similar_to_assistant_reply(ocr_text: str, assistant_text: str, threshold: float = 0.5) -> bool:
+        """Return True if OCR text largely overlaps the last assistant reply.
+
+        Overlap ratio = matched_chars / len(normalized_ocr_text).
+        Using per-OCR-text denominator avoids dilution when assistant_text
+        is much longer than the OCR fragment.
+        """
+        ocr = "".join(ocr_text.split())
+        assistant = "".join(assistant_text.split())
+        if not ocr or not assistant:
+            return False
+        # Truncate long replies to avoid O(n*m) in the polling hot path.
+        if len(assistant) > 2000:
+            assistant = assistant[-2000:]
+        matcher = SequenceMatcher(None, ocr, assistant, autojunk=False)
+        matched = sum(block.size for block in matcher.get_matching_blocks())
+        return (matched / len(ocr)) >= threshold
 
     # ------------------------------------------------------------------
     # Summary (LLM call)
