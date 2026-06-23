@@ -94,6 +94,28 @@ def test_display_processor_hides_control_tags_by_default() -> None:
     assert asyncio.run(_collect(show_control_tags=True)) == "[tts:愉快][expression:脸红] 你好。"
 
 
+def test_display_processor_strips_ts_alias_tags_from_mid_sentence() -> None:
+    """[ts:] alias should be stripped same as [tts:] even when mid-sentence."""
+    sentence = SentenceWithTags(
+        text="可以选的~[ts:愉快] 还真有一个！",
+        tags=[TagInfo("", TagState.NONE)],
+    )
+
+    async def _collect() -> str:
+        @display_processor(show_control_tags=False)
+        async def _source() -> AsyncIterator[tuple[SentenceWithTags, Actions] | AudioOutput]:
+            yield sentence, Actions()
+
+        async for item in _source():
+            if isinstance(item, (AudioOutput, ToolCallEvent)):
+                continue
+            _s, display, _a = item
+            return display.text
+        raise AssertionError("expected display output")
+
+    assert asyncio.run(_collect()) == "可以选的~ 还真有一个！"
+
+
 def test_tts_filter_uses_clean_sentence_text_when_debug_tags_are_shown() -> None:
     sentence = SentenceWithTags(
         text="你好。",

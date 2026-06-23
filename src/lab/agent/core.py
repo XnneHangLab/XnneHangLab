@@ -395,7 +395,7 @@ class AgentCore:
             memory_context: 外部检索到的记忆上下文，由调用方负责检索后传入。
 
         Returns:
-            流式输出的回复 token。
+            流式输出的回复 token 和 tool call 事件（ToolCallEvent）。
         """
         history = self.storage.load()
         user_images = user_images or []

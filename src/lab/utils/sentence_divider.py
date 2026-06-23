@@ -857,16 +857,16 @@ class SentenceDivider:
         return result
 
     @overload
-    def process_stream(self, segment_stream: AsyncIterator[str]) -> AsyncIterator[SentenceWithTags]: ...
+    def process_stream(
+        self, segment_stream: AsyncIterator[str | AudioOutput | ToolCallEvent]
+    ) -> AsyncIterator[SentenceWithTags | AudioOutput | ToolCallEvent]: ...
 
     @overload
-    def process_stream(
-        self, segment_stream: AsyncIterator[str | AudioOutput]
-    ) -> AsyncIterator[SentenceWithTags | AudioOutput]: ...
+    def process_stream(self, segment_stream: AsyncIterator[str]) -> AsyncIterator[SentenceWithTags]: ...
 
     async def process_stream(
-        self, segment_stream: AsyncIterator[str | AudioOutput]
-    ) -> AsyncIterator[SentenceWithTags | AudioOutput]:
+        self, segment_stream: AsyncIterator[str | AudioOutput | ToolCallEvent]
+    ) -> AsyncIterator[SentenceWithTags | AudioOutput | ToolCallEvent]:
         """处理流式输出，并在内部复用统一的分句与缓冲逻辑。
 
         该入口主要负责持续积攒 stream 片段、维护 tag 状态，并在检测到
@@ -874,7 +874,7 @@ class SentenceDivider:
         统一交给 divider 内部的共享路径处理，避免维护两套平行规则。
 
         Args:
-            segment_stream: 上游返回的流式文本或音频输出迭代器。
+            segment_stream: 上游返回的流式文本、音频输出或 tool call 事件迭代器。
 
         Yields:
             SentenceWithTags | AudioOutput: 处理后的句子或原样透传的音频输出。
