@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse  # type: ignore[reportMissingImports]
 from loguru import logger
 from pydantic import BaseModel  # type: ignore[reportMissingImports]
 
+from lab.agent.output_types import ToolCallEvent
 from lab.history_storage.store import HistoryStorage
 
 if TYPE_CHECKING:
@@ -75,6 +76,8 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> JSONResp
 
     try:
         async for token in chat_state.agent_core.run_turn(user_text=request.message):
+            if isinstance(token, ToolCallEvent):
+                continue
             assistant_content += token
     except Exception as exc:
         import traceback

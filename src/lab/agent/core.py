@@ -386,7 +386,7 @@ class AgentCore:
         user_text: str,
         user_images: list[ImagePayload] | None = None,
         memory_context: str | None = None,
-    ) -> AsyncIterator[str]:
+    ) -> AsyncIterator[str | ToolCallEvent]:
         """运行一轮完整的 Agent 对话流程。
 
         Args:
@@ -584,7 +584,10 @@ class AgentCore:
 
             for tc in ordered_tool_calls:
                 yield ToolCallEvent(
-                    tool_id=tc["id"], tool_name=tc["name"], args=tc["arguments"], status="running",
+                    tool_id=tc["id"],
+                    tool_name=tc["name"],
+                    args=tc["arguments"],
+                    status="running",
                 )
 
             async def _exec_tool(
@@ -617,8 +620,11 @@ class AgentCore:
                 final_messages.append(tool_msg)
 
                 yield ToolCallEvent(
-                    tool_id=tc_info["id"], tool_name=tool_name, args=tc_info["arguments"],
-                    status="completed" if result.ok else "error", result=result_text,
+                    tool_id=tc_info["id"],
+                    tool_name=tool_name,
+                    args=tc_info["arguments"],
+                    status="completed" if result.ok else "error",
+                    result=result_text,
                 )
 
                 extracted_tool_image = extract_tool_image_payload(tool_name, result)

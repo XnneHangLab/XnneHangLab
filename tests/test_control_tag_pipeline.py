@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any, cast
 
-from lab.agent.output_types import Actions, AudioOutput, SentenceOutput
+from lab.agent.output_types import Actions, AudioOutput, SentenceOutput, ToolCallEvent
 from lab.agent.transformers import actions_extractor, display_processor, tts_filter
 from lab.utils.sentence_divider import ControlTags, SentenceWithTags, TagInfo, TagState
 
@@ -29,11 +29,12 @@ def test_actions_extractor_uses_separate_expression_and_tts_control_tags() -> No
 
     async def _collect() -> Actions:
         @actions_extractor(cast("Any", live2d_model))
-        async def _source() -> AsyncIterator[SentenceWithTags]:
+        async def _source() -> AsyncIterator[SentenceWithTags | AudioOutput]:
             yield sentence
 
         async for item in _source():
-            assert not isinstance(item, AudioOutput)
+            if isinstance(item, (AudioOutput, ToolCallEvent)):
+                continue
             _chunk, actions = item
             return actions
         raise AssertionError("expected actions output")
@@ -54,11 +55,12 @@ def test_actions_extractor_falls_back_to_neutral_when_no_expression_tag() -> Non
 
     async def _collect() -> Actions:
         @actions_extractor(cast("Any", live2d_model))
-        async def _source() -> AsyncIterator[SentenceWithTags]:
+        async def _source() -> AsyncIterator[SentenceWithTags | AudioOutput]:
             yield sentence
 
         async for item in _source():
-            assert not isinstance(item, AudioOutput)
+            if isinstance(item, (AudioOutput, ToolCallEvent)):
+                continue
             _chunk, actions = item
             return actions
         raise AssertionError("expected actions output")
@@ -78,11 +80,12 @@ def test_display_processor_hides_control_tags_by_default() -> None:
 
     async def _collect(show_control_tags: bool) -> str:
         @display_processor(show_control_tags=show_control_tags)
-        async def _source() -> AsyncIterator[tuple[SentenceWithTags, Actions]]:
+        async def _source() -> AsyncIterator[tuple[SentenceWithTags, Actions] | AudioOutput]:
             yield sentence, Actions()
 
         async for item in _source():
-            assert not isinstance(item, AudioOutput)
+            if isinstance(item, (AudioOutput, ToolCallEvent)):
+                continue
             _sentence, display, _actions = item
             return display.text
         raise AssertionError("expected display output")
@@ -101,10 +104,12 @@ def test_tts_filter_uses_clean_sentence_text_when_debug_tags_are_shown() -> None
     async def _collect() -> SentenceOutput:
         @tts_filter()
         @display_processor(show_control_tags=True)
-        async def _source() -> AsyncIterator[tuple[SentenceWithTags, Actions]]:
+        async def _source() -> AsyncIterator[tuple[SentenceWithTags, Actions] | AudioOutput]:
             yield sentence, Actions()
 
         async for output in _source():
+            if isinstance(output, (AudioOutput, ToolCallEvent)):
+                continue
             assert isinstance(output, SentenceOutput)
             return output
         raise AssertionError("expected sentence output")

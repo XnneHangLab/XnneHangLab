@@ -70,10 +70,10 @@ def sentence_divider(
     """
 
     def decorator(
-        func: Callable[..., AsyncIterator[str | AudioOutput]],
-    ) -> Callable[..., AsyncIterator[SentenceWithTags | AudioOutput]]:
+        func: Callable[..., AsyncIterator[str | ToolCallEvent | AudioOutput]],
+    ) -> Callable[..., AsyncIterator[SentenceWithTags | AudioOutput | ToolCallEvent]]:
         @wraps(func)
-        async def wrapper(*args, **kwargs) -> AsyncIterator[SentenceWithTags | AudioOutput]:
+        async def wrapper(*args, **kwargs) -> AsyncIterator[SentenceWithTags | AudioOutput | ToolCallEvent]:
             divider = SentenceDivider(
                 faster_first_response=faster_first_response,
                 segment_method=segment_method,
@@ -98,10 +98,12 @@ def actions_extractor(
     """
 
     def decorator(
-        func: Callable[..., AsyncIterator[SentenceWithTags | AudioOutput]],
-    ) -> Callable[..., AsyncIterator[tuple[SentenceWithTags, Actions] | AudioOutput]]:
+        func: Callable[..., AsyncIterator[SentenceWithTags | AudioOutput | ToolCallEvent]],
+    ) -> Callable[..., AsyncIterator[tuple[SentenceWithTags, Actions] | AudioOutput | ToolCallEvent]]:
         @wraps(func)
-        async def wrapper(*args, **kwargs) -> AsyncIterator[tuple[SentenceWithTags, Actions] | AudioOutput]:
+        async def wrapper(
+            *args, **kwargs
+        ) -> AsyncIterator[tuple[SentenceWithTags, Actions] | AudioOutput | ToolCallEvent]:
             stream = func(*args, **kwargs)
             async for chunk in stream:
                 if isinstance(chunk, (AudioOutput, ToolCallEvent)):
@@ -136,12 +138,12 @@ def display_processor(*, show_control_tags: bool = False):
     """
 
     def decorator(
-        func: Callable[..., AsyncIterator[tuple[SentenceWithTags, Actions] | AudioOutput]],
-    ) -> Callable[..., AsyncIterator[tuple[SentenceWithTags, DisplayText, Actions] | AudioOutput]]:
+        func: Callable[..., AsyncIterator[tuple[SentenceWithTags, Actions] | AudioOutput | ToolCallEvent]],
+    ) -> Callable[..., AsyncIterator[tuple[SentenceWithTags, DisplayText, Actions] | AudioOutput | ToolCallEvent]]:
         @wraps(func)
         async def wrapper(
             *args, **kwargs
-        ) -> AsyncIterator[tuple[SentenceWithTags, DisplayText, Actions] | AudioOutput]:
+        ) -> AsyncIterator[tuple[SentenceWithTags, DisplayText, Actions] | AudioOutput | ToolCallEvent]:
             stream = func(*args, **kwargs)
 
             async for chunk in stream:
@@ -189,10 +191,10 @@ def tts_filter(
     """
 
     def decorator(
-        func: Callable[..., AsyncIterator[tuple[SentenceWithTags, DisplayText, Actions] | AudioOutput]],
-    ) -> Callable[..., AsyncIterator[SentenceOutput | AudioOutput]]:
+        func: Callable[..., AsyncIterator[tuple[SentenceWithTags, DisplayText, Actions] | AudioOutput | ToolCallEvent]],
+    ) -> Callable[..., AsyncIterator[SentenceOutput | AudioOutput | ToolCallEvent]]:
         @wraps(func)
-        async def wrapper(*args, **kwargs) -> AsyncIterator[SentenceOutput | AudioOutput]:
+        async def wrapper(*args, **kwargs) -> AsyncIterator[SentenceOutput | AudioOutput | ToolCallEvent]:
             stream = func(*args, **kwargs)
             config = tts_preprocessor_config or TTSPreprocessorConfig()
 

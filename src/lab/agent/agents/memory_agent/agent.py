@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
     from lab.agent.core import AgentCore
     from lab.agent.input_types import BatchInput
-    from lab.agent.output_types import AudioOutput, SentenceOutput
+    from lab.agent.output_types import AudioOutput, SentenceOutput, ToolCallEvent
     from lab.agent.types import OpenAIMessage
     from lab.config_manager.config import XnneHangLabSettings
     from lab.config_manager.vtuber import TTSPreprocessorConfig
@@ -65,7 +65,7 @@ class MemoryAgent(AgentInterface):
         self.faster_first_response = faster_first_response
         self.segment_method = segment_method
 
-        self._bound_chat: Callable[[BatchInput], AsyncIterator[SentenceOutput | AudioOutput]] = (
+        self._bound_chat: Callable[[BatchInput], AsyncIterator[SentenceOutput | AudioOutput | ToolCallEvent]] = (
             self._chat_function_factory(self._core_stream)
         )
         logger.info("MemoryAgent initialized (AgentCore mode).")
@@ -87,7 +87,7 @@ class MemoryAgent(AgentInterface):
     def reset_interrupt(self) -> None:
         self.memory.reset_interrupt()
 
-    async def _core_stream(self, messages: list[OpenAIMessage]) -> AsyncIterator[str]:
+    async def _core_stream(self, messages: list[OpenAIMessage]) -> AsyncIterator[str | ToolCallEvent]:
         assert messages and messages[-1].role == "user", "last message must be user"
         user_text, user_up_images = self.msg.extract_text_and_data_images(messages[-1])
         user_images = [
@@ -102,8 +102,8 @@ class MemoryAgent(AgentInterface):
 
     def _chat_function_factory(
         self,
-        chat_func: Callable[[list[OpenAIMessage]], AsyncIterator[str]],
-    ) -> Callable[..., AsyncIterator[SentenceOutput | AudioOutput]]:
+        chat_func: Callable[[list[OpenAIMessage]], AsyncIterator[str | ToolCallEvent]],
+    ) -> Callable[..., AsyncIterator[SentenceOutput | AudioOutput | ToolCallEvent]]:
         @tts_filter(self.tts_preprocessor_config)
         @display_processor(show_control_tags=self.show_control_tags)
         @actions_extractor(
@@ -114,7 +114,7 @@ class MemoryAgent(AgentInterface):
             segment_method=self.segment_method,
             valid_tags=["think", "tool"],
         )
-        async def chat_with_memory(input_data: BatchInput) -> AsyncIterator[str | AudioOutput]:
+        async def chat_with_memory(input_data: BatchInput) -> AsyncIterator[str | ToolCallEvent | AudioOutput]:
             user_msg = self.msg.build_user_message_from_batch(input_data)
             messages: list[OpenAIMessage] = [*self.memory.messages, user_msg]
 
@@ -125,6 +125,6 @@ class MemoryAgent(AgentInterface):
 
         return chat_with_memory
 
-    async def chat(self, input_data: BatchInput) -> AsyncIterator[SentenceOutput | AudioOutput]:  # type: ignore[override]
+    async def chat(self, input_data: BatchInput) -> AsyncIterator[SentenceOutput | AudioOutput | ToolCallEvent]:  # type: ignore[override]
         async for chunk in self._bound_chat(input_data):
             yield chunk
