@@ -119,18 +119,7 @@
 - 本项目要求 **Python 3.11** 且使用 **uv** 进行包和依赖管理。
 - 大量使用了 Lazy-import（以 `# Lazy-import` 标注），在修改或引入大库（如 `torch`, `pandas` 等）时，必须保持 Lazy-import，防止拖慢 UI 响应。
 
-# 常用命令 (Common Commands)
-使用 `just` 运行常用指令：
-```bash
-just start              # 安装依赖并运行服务器
-just dev                # 清理构建产物与缓存，并重新运行服务器
-just sync-dev           # 切换至 dev 分支，拉取最新代码并更新子模块
-just reload-lab-setting # 重新生成或重置 config/lab.toml 配置文件
-just key                # 同步 API Key 和模型配置
-pytest                  # 运行单元测试
-```
 
----
 
 # 发送前
 能立刻知道下一步做什么？
