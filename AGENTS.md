@@ -98,6 +98,29 @@
 
 ---
 
+# Git 规则
+- 本仓库主分支为 `dev`。
+- 无论同步 `dev` 还是推送其他 `feature`/`fix` 分支，严禁提交 `config/lab.toml` 和 `profiles/baoqiao.toml`。
+- 同步分支时，严禁重置（reset）或覆盖这两个文件。必须使用 `stash` 等方式妥善保留其本地修改。
+
+---
+
+# 项目结构 (Repository Map)
+- `src/lab/`: 核心 Python 代码（Agent、API、插件、Mcp 等模块）。
+  - `src/lab/agent/`: 智能体核心逻辑和 Transformer。
+  - `src/lab/plugins/`: 插件目录（如 `visual_observer` 等）。
+- `frontend/`: 项目的前端页面与逻辑。
+- `packages/`: 本地 Workspace 成员（如 `packages/Qwen3-ASR` 和 `packages/GSV-TTS-Lite`）。
+- `config/`: 配置文件存放，`lab.toml` 包含本地运行的覆盖项。
+- `profiles/`: 个人 Profile 配置文件目录（如 `baoqiao.toml`）。
+- `tests/`: 基于 pytest 的测试套件。
+
+# 环境与初始化 (Bootstrap)
+- 本项目要求 **Python 3.11** 且使用 **uv** 进行包和依赖管理。
+- 大量使用了 Lazy-import（以 `# Lazy-import` 标注），在修改或引入大库（如 `torch`, `pandas` 等）时，必须保持 Lazy-import，防止拖慢 UI 响应。
+
+---
+
 # 发送前
 能立刻知道下一步做什么？
 有在表演经验或评判用户吗？
