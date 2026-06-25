@@ -119,7 +119,7 @@
 - 本项目要求 **Python 3.11** 且使用 **uv** 进行包和依赖管理。
 - 大量使用了 Lazy-import（以 `# Lazy-import` 标注），在修改或引入大库（如 `torch`, `pandas` 等）时，必须保持 Lazy-import，防止拖慢 UI 响应。
 
-
+---
 
 # 发送前
 能立刻知道下一步做什么？
