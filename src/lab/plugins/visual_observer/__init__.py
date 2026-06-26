@@ -168,9 +168,7 @@ class VisualObserverPlugin(HookPlugin):
             plugin_logger.info("[VISUAL_OBSERVER] polling stopped")
         self._poll_task = None
         self._ocr_history.clear()
-        self._accumulated_new_ocr.clear()
-        self._accumulated_normalized.clear()
-        self._new_ocr_count = 0
+        self._clear_accumulated()
         self._active_threshold = self._diff_ocr_threshold
 
     async def _run_poll_loop(self) -> None:
@@ -228,9 +226,7 @@ class VisualObserverPlugin(HookPlugin):
                         "[VISUAL_OBSERVER] scene change detected: overlap={:.0%}, clearing accumulated OCR",
                         overlap,
                     )
-                    self._accumulated_new_ocr.clear()
-                    self._accumulated_normalized.clear()
-                    self._new_ocr_count = 0
+                    self._clear_accumulated()
                     self._active_threshold = self._scene_change_threshold
 
             if not new_texts:
@@ -259,7 +255,7 @@ class VisualObserverPlugin(HookPlugin):
                     return
 
             for text in sorted(new_texts):
-                norm = self._normalize(text)
+                norm = self._strip_whitespace(text)
                 if norm in self._accumulated_normalized:
                     continue
                 self._accumulated_normalized.add(norm)
@@ -326,8 +322,13 @@ class VisualObserverPlugin(HookPlugin):
                 texts.add(text)
         return texts
 
+    def _clear_accumulated(self) -> None:
+        self._accumulated_new_ocr.clear()
+        self._accumulated_normalized.clear()
+        self._new_ocr_count = 0
+
     @staticmethod
-    def _normalize(text: str) -> str:
+    def _strip_whitespace(text: str) -> str:
         return "".join(text.split())
 
     @staticmethod
@@ -395,9 +396,7 @@ class VisualObserverPlugin(HookPlugin):
                 assert callable(wake)
                 asyncio.create_task(wake())  # pyright: ignore[reportArgumentType]
 
-        self._new_ocr_count = 0
-        self._accumulated_new_ocr.clear()
-        self._accumulated_normalized.clear()
+        self._clear_accumulated()
         self._active_threshold = self._diff_ocr_threshold
 
     async def _call_summary(self) -> str | None:
