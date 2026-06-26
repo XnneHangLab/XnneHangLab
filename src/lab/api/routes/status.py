@@ -185,6 +185,6 @@ async def get_visual_observer_status(request: Request) -> dict[str, Any]:
             agent_ctx = getattr(hook, "_ctx", None)
             if agent_ctx is not None:
                 game_active = agent_ctx.extra.get("game_companion_active", False)
-            return {"online": True, "game_companion_active": game_active, **status}
+            return {"online": True, "loaded": True, "game_companion_active": game_active, **status}
 
-    return {"online": True, "active": False}
+    return {"online": True, "loaded": False, "active": False}
