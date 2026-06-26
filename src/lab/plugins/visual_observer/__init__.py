@@ -132,16 +132,16 @@ class VisualObserverPlugin(HookPlugin):
         if not ctx.extra.get("_mood_chat_internal_turn"):
             self._speaking = True
 
+        return None
+
+    async def on_after_turn(self, user_text: str, assistant_text: str, ctx: AgentContext) -> None:
+        self._last_assistant_text = assistant_text or ""
+
         game_active = ctx.extra.get("game_companion_active", False)
         if game_active:
             self._start_polling()
         else:
             self._stop_polling()
-
-        return None
-
-    async def on_after_turn(self, user_text: str, assistant_text: str, ctx: AgentContext) -> None:
-        self._last_assistant_text = assistant_text or ""
 
     async def on_after_playback(self, user_text: str, assistant_text: str, ctx: AgentContext) -> None:
         self._speaking = False
