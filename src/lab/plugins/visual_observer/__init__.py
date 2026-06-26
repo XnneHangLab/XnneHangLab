@@ -66,6 +66,7 @@ class VisualObserverPlugin(HookPlugin):
         self._ocr_engine: Any = None
         self._ocr_history: deque[set[str]] = deque(maxlen=3)
         self._accumulated_new_ocr: list[str] = []
+        self._accumulated_normalized: set[str] = set()
         self._new_ocr_count: int = 0
         self._scene_change_threshold = 5
         self._active_threshold = diff_ocr_threshold
@@ -167,8 +168,7 @@ class VisualObserverPlugin(HookPlugin):
             plugin_logger.info("[VISUAL_OBSERVER] polling stopped")
         self._poll_task = None
         self._ocr_history.clear()
-        self._accumulated_new_ocr.clear()
-        self._new_ocr_count = 0
+        self._clear_accumulated()
         self._active_threshold = self._diff_ocr_threshold
 
     async def _run_poll_loop(self) -> None:
@@ -226,8 +226,7 @@ class VisualObserverPlugin(HookPlugin):
                         "[VISUAL_OBSERVER] scene change detected: overlap={:.0%}, clearing accumulated OCR",
                         overlap,
                     )
-                    self._accumulated_new_ocr.clear()
-                    self._new_ocr_count = 0
+                    self._clear_accumulated()
                     self._active_threshold = self._scene_change_threshold
 
             if not new_texts:
@@ -256,6 +255,10 @@ class VisualObserverPlugin(HookPlugin):
                     return
 
             for text in sorted(new_texts):
+                norm = self._strip_whitespace(text)
+                if norm in self._accumulated_normalized:
+                    continue
+                self._accumulated_normalized.add(norm)
                 self._accumulated_new_ocr.append(text)
                 self._new_ocr_count += 1
 
@@ -318,6 +321,15 @@ class VisualObserverPlugin(HookPlugin):
             if text and score >= self._ocr_min_confidence and len(text) >= self._ocr_min_length:
                 texts.add(text)
         return texts
+
+    def _clear_accumulated(self) -> None:
+        self._accumulated_new_ocr.clear()
+        self._accumulated_normalized.clear()
+        self._new_ocr_count = 0
+
+    @staticmethod
+    def _strip_whitespace(text: str) -> str:
+        return "".join(text.split())
 
     @staticmethod
     def _is_similar_to_assistant_reply(ocr_text: str, assistant_text: str, threshold: float = 0.5) -> bool:
@@ -384,8 +396,7 @@ class VisualObserverPlugin(HookPlugin):
                 assert callable(wake)
                 asyncio.create_task(wake())  # pyright: ignore[reportArgumentType]
 
-        self._new_ocr_count = 0
-        self._accumulated_new_ocr.clear()
+        self._clear_accumulated()
         self._active_threshold = self._diff_ocr_threshold
 
     async def _call_summary(self) -> str | None:
