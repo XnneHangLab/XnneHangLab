@@ -102,6 +102,7 @@
 - 本仓库主分支为 `dev`。
 - 无论同步 `dev` 还是推送其他 `feature`/`fix` 分支，严禁提交 `config/lab.toml` 和 `profiles/baoqiao.toml`。
 - 同步分支时，严禁重置（reset）或覆盖这两个文件。必须使用 `stash` 等方式妥善保留其本地修改。
+- 严禁 `force push`，除非存在真实冲突且经用户明确同意后方可执行。
 
 ---
 
