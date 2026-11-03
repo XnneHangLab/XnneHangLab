@@ -46,7 +46,7 @@ def download_file_with_path(url: str, output_dir: Path, filename: str | None = N
 
         # 6. 执行下载
         # 使用 requests 库进行流式下载，处理大文件
-        with requests.get(url, stream=True) as r:
+        with requests.get(url, stream=True, timeout=60) as r:
             r.raise_for_status()  # 检查 HTTP 状态码，非 200 则抛出异常
 
             total_size = int(r.headers.get("content-length", 0))
