@@ -92,7 +92,6 @@ game_prompt_suffix = "根据视觉轮询结果自然地回应。如果你发现 
 prompt = "请根据上下文，主动说些什么，如果上下文较少，或者最近正在做一些视觉上的工作，比如逛 pixiv 插画网站，或者玩 galgame，你可以调用截图能力（如果开启了的话），参与其中。"
 
 [plugins.visual_observer]
-vision_boost = false
 
 [profile]
 description = "VTuber 主链路 - 辉夜"

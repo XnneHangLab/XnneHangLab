@@ -36,7 +36,6 @@ def main() -> None:
     settings.agent.chat_model.llm_model_name = "deepseek-v4-flash-vision-exp"
     settings.agent.chat_model.support_vision = True
     settings.agent.chat_model.thinking_mode = "disabled"
-    settings.agent.require_detailed = False
     write_settings_file("lab.toml", settings)
     config_logger.info(
         f"lab.toml reset successfully with seeded providers "

@@ -14,12 +14,12 @@ import httpx
 from loguru import logger
 from openai import APIConnectionError, APIError, AsyncOpenAI, AsyncStream, RateLimitError
 
-from lab.agent.types import OpenAIMessage, call_with_short_retry
+from lab.agent.types import OpenAIMessage
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Sequence
 
-    from openai.types.chat import ChatCompletion, ChatCompletionChunk
+    from openai.types.chat import ChatCompletionChunk
 
     from lab.config_manager.agent import ThinkingMode
 
@@ -227,28 +227,3 @@ class AsyncLLM:
                     await stream.close()
                 except Exception:
                     pass
-
-    async def vision_completion_once(
-        self,
-        messages: list[OpenAIMessage],
-        system: str | None = None,
-        *,
-        temperature: float | None = None,
-    ) -> str:
-        messages_with_system = normalize_messages(messages, system=system)
-        temp = self.temperature if temperature is None else temperature
-
-        resp = cast(
-            "ChatCompletion",
-            await call_with_short_retry(
-                lambda: self.client.chat.completions.create(
-                    **self._build_request_kwargs(
-                        messages=messages_with_system,
-                        stream=False,
-                        temperature=temp,
-                    )
-                ),
-                max_retries=2,
-            ),
-        )
-        return (resp.choices[0].message.content or "").strip()

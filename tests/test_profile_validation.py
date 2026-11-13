@@ -26,7 +26,7 @@ def test_kaguya_profile_reuses_baoqiao_runtime_assets() -> None:
     assert kaguya.prompt.show_control_tags == baoqiao.prompt.show_control_tags
     assert "visual_observer" in kaguya.plugins.enabled
     assert "mood_chat" in kaguya.plugins.enabled
-    assert kaguya.plugins.overrides["visual_observer"]["vision_boost"] is False
+    assert "vision_boost" not in kaguya.plugins.overrides["visual_observer"]
     assert kaguya.plugins.overrides["mood_chat"]["game_companion_mode"] is True
     assert Path(kaguya.prompt.persona or "").is_file()
 

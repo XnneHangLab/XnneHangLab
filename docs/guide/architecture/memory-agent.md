@@ -10,7 +10,6 @@
 - LLM 调用（委托给 AgentCore）
 - 工具调用（委托给 AgentCore + ToolManager）
 - Prompt 拼装（委托给 AgentCore → PromptBuilder）
-- Vision 摘要（委托给 AgentCore → VisionSummarizer）
 
 它**只做**：
 - 从 `AgentCore.run_turn()` 消费 token 流
@@ -25,7 +24,6 @@
 MemoryAgent (agent.py)                ← 编排器
 ├── AgentCore (core.py)               ← 共享核心（tool / vision / prompt / LLM）
 │   ├── AsyncLLM.stream_with_tools()  ← 统一流式 tool calling
-│   ├── VisionSummarizer              ← 图片摘要
 │   ├── PromptBuilder                 ← UserPromptBlock 拼装
 │   └── ConversationStorage           ← MemoryStoreAdapter（写回由 MemoryAgent 接管）
 ├── MemoryStore (memory_store.py)     ← memory / history / interrupt
@@ -47,7 +45,7 @@ MemoryAgent (agent.py)                ← 编排器
     ↓
 💬 AgentCore.run_turn(user_text, user_images)
     ─────────────────────────────────────────
-    │  [vision 预处理] VisionSummarizer
+    │  [图片输入]     原图直接附加到聊天消息
     │  [prompt 拼装]   PromptBuilder
     │
     │  chat_llm.stream_with_tools(messages, tools=schema)
@@ -81,12 +79,12 @@ MemoryAgent (agent.py)                ← 编排器
 
 `chat_supports_vision`（来自 `lab.toml` 的 `[agent.chat_model]`）决定图片处理方式：
 
-| chat_supports_vision | require_detailed | 行为 |
-|---|---|---|
-| False | False | 兼容路径：视觉模型一次处理多图，摘要后交给纯文本 chat |
-| False | True | 兼容路径：视觉模型逐图并发生成详细摘要，再交给纯文本 chat |
-| True | False | 快速路径：图片直接喂 chat，不调用独立视觉摘要模型（正常视觉输入为 1 LLM delay） |
-| True | True | 图片直接喂 chat，同时由视觉模型逐图生成详细摘要 |
+| chat_supports_vision | 行为 |
+|---|---|
+| True | 原图与文本直接交给 chat；工具截图在工具返回后附加到下一次 chat 请求 |
+| False | 不发送图片，注入无法分析图片的明确提示；游戏陪伴观察不启动 |
+
+后台观察达到 OCR 变化阈值后，将最新截图和累积 OCR 直接交给主动聊天。屏幕内容作为不可信输入处理。
 
 ### History 不存 base64
 
@@ -97,7 +95,7 @@ MemoryAgent (agent.py)                ← 编排器
 - 工具回调图：标签 `tool1`，来源 `source="tool"`
 - 用户上传图：标签 `p1`/`p2`/...，来源 `source="upload"`
 
-两类图片在 vision 摘要和 prompt 注入时分开处理，不混用标签。
+两类图片以不同标签直接附加到聊天消息。
 
 ## 扩展点
 

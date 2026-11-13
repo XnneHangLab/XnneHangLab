@@ -20,7 +20,7 @@ mood_decrease = 10
 game_companion_mode = false
 game_mood_decrease = 2
 game_interval_s = 1.0
-game_prompt_suffix = "根据画面摘要，自然地评论或感叹当前正在发生的事。保持角色语气，不超过两句话。"
+game_prompt_suffix = "根据截图和 OCR 文字简短评论，不超过两句话。不要提问。"
 game_require_visual_change = true
 
 [config_schema.prompt]
@@ -83,7 +83,7 @@ max = 100
 
 [config_schema.game_interval_s]
 type = "float"
-description = "\u6e38\u620f\u6a21\u5f0f\u4e0b\u68c0\u67e5\u89c6\u89c9\u6458\u8981\u7684\u95f4\u9694\uff08\u79d2\uff09\uff0c\u6709\u6458\u8981\u624d\u53d1\u8a00"
+description = "游戏模式下检查视觉变化的间隔（秒），有变化才发言"
 min = 0.5
 
 [config_schema.game_prompt_suffix]

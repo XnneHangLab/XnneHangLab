@@ -54,7 +54,8 @@ api_format = "chat_completion"
         "support_vision": True,
         "thinking_mode": "disabled",
     }
-    assert saved["agent"]["require_detailed"] is False
+    assert "vision_model" not in saved["agent"]
+    assert "require_detailed" not in saved["agent"]
     assert saved["agent"]["llm"]["providers"] == [
         {
             "name": "deepseek",
@@ -91,7 +92,7 @@ llm_model_name = "old-model"
 support_vision = false
 
 [agent.vision_model]
-llm_provider = "custom"
+llm_provider = "removed-provider"
 llm_model_name = "vision-model"
 
 [[agent.llm.providers]]

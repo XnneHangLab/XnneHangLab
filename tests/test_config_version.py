@@ -23,6 +23,6 @@ def test_load_lab_settings_normalizes_conf_version(monkeypatch: MonkeyPatch, tmp
 
     assert settings.conf_version == CURRENT_CONF_VERSION
     assert settings.agent.chat_model.thinking_mode == "default"
-    assert settings.agent.require_detailed is False
+    assert "require_detailed" not in settings.agent.model_dump()
 
     assert lab_toml.read_text(encoding="utf-8") == 'conf_version = "v0.0.1"\n'
