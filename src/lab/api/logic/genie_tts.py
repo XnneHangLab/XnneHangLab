@@ -20,7 +20,7 @@ from fastapi import HTTPException
 from loguru import logger
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
-from lab.conversations.tts_manager import resolve_voice_assets
+from lab.conversations.tts_manager import resolve_all_voice_assets, resolve_voice_assets
 from lab.profile.schema import Profile
 
 DEFAULT_SAMPLE_RATE = 32000
@@ -492,6 +492,7 @@ def load_genie_tts_model(*, force_reload: bool = False) -> dict[str, Any]:
             use_roberta=target_spec.use_roberta,
         )
 
+        genie_tts.clear_reference_audio_cache()
         _genie_tts_module = genie_tts
         _loaded_model_spec = target_spec
         _tts_logger.info(f"genie-tts load complete: character={target_spec.character_name}")
@@ -503,6 +504,38 @@ def reload_genie_tts_model() -> dict[str, Any]:
     return load_genie_tts_model(force_reload=True)
 
 
+def _warmup_genie_voice_references(settings: XnneHangLabSettings, spec: GenieTTSModelSpec) -> None:
+    profile = _resolve_active_profile(settings)
+    voice_id = (profile.character.tts.voice or "").strip() if profile.character is not None else ""
+    references: dict[str, str] = {}
+    for audio, text, _speaker in resolve_all_voice_assets(settings, voice_id):
+        prompt_text = (text or "").strip()
+        if not prompt_text:
+            raise ValueError(f"genie-tts warmup failed: missing ref_text for {audio}")
+        path = str(audio)
+        if path in references and references[path] != prompt_text:
+            raise ValueError(f"genie-tts warmup failed: conflicting ref_text for {audio}")
+        references[path] = prompt_text
+
+    reference_type = importlib.import_module("genie_tts.Audio.ReferenceAudio").ReferenceAudio
+    model_manager = importlib.import_module("genie_tts.ModelManager").model_manager
+    with _model_lock:
+        capacity = reference_type._prompt_cache.capacity
+        if len(references) > capacity:
+            raise ValueError(
+                f"Genie-TTS voice '{voice_id}' has {len(references)} references, but cache capacity is {capacity}. "
+                "Select fewer voice clips or increase Max_Cached_Reference_Audio before startup."
+            )
+        model = model_manager.get(spec.character_name)
+        for path, text in references.items():
+            reference = reference_type(path, text, spec.language, use_roberta=spec.use_roberta)
+            if model.PROMPT_ENCODER is not None:
+                reference.update_global_emb(model.PROMPT_ENCODER)
+                if reference.global_emb is None or reference.global_emb_advanced is None:
+                    raise RuntimeError(f"Genie-TTS speaker embedding warmup failed: {path}")
+    _tts_logger.info(f"genie-tts reference warmup complete: voice={voice_id}, prompts={len(references)}")
+
+
 async def warmup_genie_tts_model() -> dict[str, Any]:
     settings = _get_genie_tts_settings()
     configured = _get_configured_model_spec(settings)
@@ -512,6 +545,7 @@ async def warmup_genie_tts_model() -> dict[str, Any]:
     _tts_logger.info(
         f"genie-tts warmup start: character={configured.character_name}, ref_audio={ref_audio}, text_len={len(ref_text)}"
     )
+    await asyncio.to_thread(_warmup_genie_voice_references, settings, configured)
     wav_bytes = await asyncio.wait_for(
         synthesize_once(
             text=ref_text,
