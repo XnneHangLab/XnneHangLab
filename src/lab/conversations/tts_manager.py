@@ -6,7 +6,7 @@ import random
 import re
 import tomllib
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -773,6 +773,44 @@ def resolve_voice_assets(
     resolved_ref_audio = (workspace_root / ref_audio_path).resolve()
     resolved_speaker_audio = (workspace_root / speaker_audio_path).resolve() if speaker_audio_path else None
     return resolved_ref_audio, ref_text, resolved_speaker_audio
+
+
+def resolve_all_voice_assets(
+    lab_settings: object | None,
+    voice_id: str,
+) -> list[tuple[Path, str | None, Path | None]]:
+    """Resolve every configured clip, including clips hidden by random/default selection."""
+    workspace_root = _resolve_workspace_root(lab_settings)
+    voice_assets_root = _resolve_voice_assets_root(lab_settings, workspace_root)
+    voice_config = _load_voice_config(voice_id, workspace_root)
+    if voice_config is None:
+        raise FileNotFoundError(f"Voice config does not exist for '{voice_id}'")
+
+    selections: list[tuple[VoiceConfigData, str]] = []
+    if voice_config.emotions:
+        for name, emotion in voice_config.emotions.items():
+            for clip in emotion.clips or []:
+                selections.append(
+                    (replace(voice_config, emotions={name: replace(emotion, clips=[clip], default_clip=None)}), name)
+                )
+    else:
+        asset_dir = voice_assets_root / voice_config.asset_bundle
+        names = _dedupe_nonempty(
+            [name for directory in (asset_dir / "emotions", asset_dir) for name in _list_named_audio_keys(directory)]
+        )
+        selections = [(voice_config, name) for name in names]
+
+    assets: list[tuple[Path, str | None, Path | None]] = []
+    for selection, name in selections:
+        ref_audio, ref_text, speaker_audio = _require_voice_ref_audio_and_text(selection, voice_assets_root, [name])
+        asset = (
+            (workspace_root / ref_audio).resolve(),
+            ref_text,
+            (workspace_root / speaker_audio).resolve() if speaker_audio else None,
+        )
+        if asset not in assets:
+            assets.append(asset)
+    return assets
 
 
 class TTSDispatcher:
