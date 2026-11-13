@@ -33,11 +33,6 @@ id = "1"
 ref_audio = "自信/1.wav"
 ref_text_file = "自信/1.txt"
 
-[[emotions."自信".clips]]
-id = "2"
-ref_audio = "自信/2.wav"
-ref_text_file = "自信/2.txt"
-
 [emotions."兴奋"]
 description = "激动、期待、情绪明显上扬"
 
@@ -71,11 +66,6 @@ description = "犹豫、担心、小心翼翼"
 id = "1"
 ref_audio = "不安/1.wav"
 ref_text_file = "不安/1.txt"
-
-[[emotions."不安".clips]]
-id = "2"
-ref_audio = "不安/2.wav"
-ref_text_file = "不安/2.txt"
 
 [emotions."急促"]
 description = "着急、催促、慌张、节奏偏快"

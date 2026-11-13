@@ -203,6 +203,7 @@ def test_warmup_genie_tts_model_uses_ref_text_for_warmup(monkeypatch: pytest.Mon
     captured: dict[str, object] = {}
 
     async def _fake_synthesize_once(*, text: str, ref_audio: Path | None, ref_text: str | None) -> bytes:
+        assert captured.get("references_warmed") is True
         captured["text"] = text
         captured["ref_audio"] = ref_audio
         captured["ref_text"] = ref_text
@@ -230,6 +231,9 @@ def test_warmup_genie_tts_model_uses_ref_text_for_warmup(monkeypatch: pytest.Mon
         "_resolve_warmup_ref_audio_and_text",
         fake_resolve_warmup_ref_audio_and_text,
     )
+    monkeypatch.setattr(
+        genie_tts_module, "_warmup_genie_voice_references", lambda *_args: captured.update(references_warmed=True)
+    )
     monkeypatch.setattr(genie_tts_module, "synthesize_once", _fake_synthesize_once)
     monkeypatch.setattr(genie_tts_module, "read_wav_sample_rate", fake_read_wav_sample_rate)
     monkeypatch.setattr(genie_tts_module, "get_genie_tts_status", fake_get_genie_tts_status)
@@ -237,6 +241,7 @@ def test_warmup_genie_tts_model_uses_ref_text_for_warmup(monkeypatch: pytest.Mon
     status = asyncio.run(genie_tts_module.warmup_genie_tts_model())
 
     assert status == {"loaded": True}
+    assert captured["references_warmed"] is True
     assert captured["text"] == "default ref"
     assert captured["ref_audio"] == ref_audio.resolve()
     assert captured["ref_text"] == "default ref"
