@@ -4,6 +4,7 @@ import asyncio
 import os
 import pickle
 import sys
+import threading
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from typing import Any, cast
@@ -319,6 +320,113 @@ def test_warmup_gsv_lite_model_uses_ref_text_for_real_warmup(
     assert captured["ref_audio"] == ref_audio
     assert captured["ref_text"] == "default ref"
     assert captured["speaker_audio"] == speaker_audio
+
+
+def test_warmup_caches_all_voice_clips_and_reuses_existing_features(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config_dir = tmp_path / "config" / "voices"
+    asset_dir = tmp_path / "voices" / "test"
+    config_dir.mkdir(parents=True)
+    asset_dir.mkdir(parents=True)
+    for name in ("default.wav", "first.wav", "second.wav", "speaker.wav", "alternate.wav"):
+        (asset_dir / name).write_bytes(b"wav")
+    (asset_dir / "second.txt").write_text("second ref", encoding="utf-8")
+    (config_dir / "test.toml").write_text(
+        """
+[voice]
+default_emotion = "neutral"
+selection = "random"
+[emotions.neutral]
+speaker_audio = "speaker.wav"
+[[emotions.neutral.clips]]
+id = "default"
+ref_audio = "default.wav"
+ref_text = "default ref"
+[emotions.happy]
+default_clip = "first"
+speaker_audio = "speaker.wav"
+[[emotions.happy.clips]]
+id = "first"
+ref_audio = "first.wav"
+ref_text = "first ref"
+speaker_audio = "alternate.wav"
+[[emotions.happy.clips]]
+id = "second"
+ref_audio = "second.wav"
+ref_text_file = "second.txt"
+""",
+        encoding="utf-8",
+    )
+    settings = SimpleNamespace(
+        root=SimpleNamespace(root_dir=str(tmp_path)),
+        agent=SimpleNamespace(tts=SimpleNamespace(voice_assets_root="./voices")),
+    )
+    profile = SimpleNamespace(character=SimpleNamespace(tts=SimpleNamespace(voice="test")))
+    calls: list[str] = []
+    speakers: dict[str, object] = {}
+    prompts: dict[str, object] = {}
+
+    async def synthesize(**kwargs: Any) -> bytes:
+        calls.append("synthesis")
+        speakers[str(kwargs["speaker_audio"])] = object()
+        prompts[str(kwargs["ref_audio"])] = object()
+        return b"RIFFfake"
+
+    def cache_speakers(*paths: str) -> None:
+        calls.append("speakers")
+        assert paths == (str(asset_dir / "alternate.wav"),)
+        speakers.update(dict.fromkeys(paths))
+
+    def cache_prompts(paths: list[str], texts: list[str]) -> None:
+        calls.append("prompts")
+        assert dict(zip(paths, texts, strict=True)) == {
+            str(asset_dir / "first.wav"): "first ref",
+            str(asset_dir / "second.wav"): "second ref",
+        }
+        prompts.update(dict.fromkeys(paths))
+
+    engine = SimpleNamespace(
+        _infer_lock=threading.Lock(),
+        spk_audio_cache=speakers,
+        prompt_audio_cache=prompts,
+        cache_spk_audio=cache_speakers,
+        cache_prompt_audio=cache_prompts,
+    )
+    monkeypatch.setattr(gsv_lite_module, "_get_gsv_lite_settings", lambda: settings)
+    monkeypatch.setattr(gsv_lite_module, "_get_configured_model_spec", lambda _: _spec("test"))
+    monkeypatch.setattr(gsv_lite_module, "_resolve_active_profile", lambda _: profile)
+    monkeypatch.setattr(gsv_lite_module, "get_gsv_lite_model", lambda: engine)
+    monkeypatch.setattr(gsv_lite_module, "get_gsv_lite_status", lambda: {"loaded": True})
+    monkeypatch.setattr(gsv_lite_module, "synthesize_once", synthesize)
+    asyncio.run(gsv_lite_module.warmup_gsv_lite_model())
+    assert calls == ["synthesis", "speakers", "prompts"]
+    assert len(speakers) == 2 and len(prompts) == 3
+    asyncio.run(gsv_lite_module.warmup_gsv_lite_model())
+    assert calls == ["synthesis", "speakers", "prompts", "synthesis"]
+
+    (asset_dir / "second.txt").write_text("", encoding="utf-8")
+    with pytest.raises(ValueError, match="missing ref_text"):
+        asyncio.run(gsv_lite_module.warmup_gsv_lite_model())
+
+
+def test_resolve_all_voice_assets_includes_legacy_named_audio(tmp_path: Path) -> None:
+    from lab.conversations.tts_manager import resolve_all_voice_assets
+
+    config_dir = tmp_path / "config" / "voices"
+    asset_dir = tmp_path / "voices" / "legacy"
+    config_dir.mkdir(parents=True)
+    (asset_dir / "emotions").mkdir(parents=True)
+    (config_dir / "legacy.toml").write_text('[voice]\ndefault_emotion = "neutral"\n', encoding="utf-8")
+    expected = []
+    for name in ("neutral", "happy"):
+        ref_audio = asset_dir / "emotions" / f"{name}.wav"
+        ref_audio.write_bytes(b"wav")
+        ref_audio.with_suffix(".txt").write_text(f"{name} ref", encoding="utf-8")
+        expected.append((ref_audio.resolve(), f"{name} ref", None))
+    settings = SimpleNamespace(root=SimpleNamespace(root_dir=str(tmp_path)))
+    assets = resolve_all_voice_assets(settings, "legacy")
+    assert set(assets) == set(expected)
 
 
 def test_get_gsv_lite_use_bert_defaults_to_false_when_missing() -> None:

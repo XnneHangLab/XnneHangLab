@@ -19,7 +19,7 @@ from fastapi import HTTPException
 from loguru import logger
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
-from lab.conversations.tts_manager import resolve_voice_assets
+from lab.conversations.tts_manager import resolve_all_voice_assets, resolve_voice_assets
 from lab.profile.schema import Profile
 
 if TYPE_CHECKING:
@@ -610,6 +610,41 @@ def reload_gsv_lite_model() -> dict[str, Any]:
     return load_gsv_lite_model(force_reload=True)
 
 
+def _warmup_gsv_lite_voice_references(settings: XnneHangLabSettings) -> None:
+    try:
+        profile = _resolve_active_profile(settings)
+    except Exception:
+        return  # Legacy model-directory references are covered by the synthesis warmup.
+    voice_id = (profile.character.tts.voice or "").strip() if profile.character is not None else ""
+    if not voice_id:
+        return
+
+    started = time.perf_counter()
+    prompts: dict[str, str] = {}
+    speakers: set[str] = set()
+    for ref_audio, ref_text, speaker_audio in resolve_all_voice_assets(settings, voice_id):
+        if not ref_text or not ref_text.strip():
+            raise ValueError(f"gsv-lite warmup failed: missing ref_text for {ref_audio}")
+        path = str(ref_audio)
+        if path in prompts and prompts[path] != ref_text:
+            raise ValueError(f"gsv-lite warmup failed: conflicting ref_text for {ref_audio}")
+        prompts[path] = ref_text
+        speakers.add(str(speaker_audio or ref_audio))
+
+    model = get_gsv_lite_model()
+    with model._infer_lock:
+        missing_speakers = sorted(speakers - model.spk_audio_cache.keys())
+        missing_prompts = {path: text for path, text in prompts.items() if path not in model.prompt_audio_cache}
+        if missing_speakers:
+            model.cache_spk_audio(*missing_speakers)
+        if missing_prompts:
+            model.cache_prompt_audio(list(missing_prompts), list(missing_prompts.values()))
+    _tts_logger.info(
+        f"gsv-lite reference warmup complete: voice={voice_id}, speakers={len(speakers)}, "
+        f"prompts={len(prompts)}, elapsed={time.perf_counter() - started:.2f}s"
+    )
+
+
 async def warmup_gsv_lite_model() -> dict[str, Any]:
     settings = _get_gsv_lite_settings()
     configured = _get_configured_model_spec(settings)
@@ -633,6 +668,7 @@ async def warmup_gsv_lite_model() -> dict[str, Any]:
         ),
         timeout=120.0,
     )
+    await asyncio.to_thread(_warmup_gsv_lite_voice_references, settings)
     _tts_logger.info(
         f"gsv-lite warmup complete: character={configured.character_name}, "
         f"audio_bytes={len(wav_bytes)}, elapsed={time.perf_counter() - started:.2f}s"
