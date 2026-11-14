@@ -78,6 +78,10 @@ class BuiltinTool(ABC):
     示例：'当用户询问当前时间、日期时调用此工具。'
     """
 
+    async def stop(self) -> None:
+        """Release session-owned resources; safe to call repeatedly."""
+        return None
+
     def get_schema(self) -> dict[str, Any]:
         """
         根据 execute() 的参数类型注解自动生成 OpenAI function schema。

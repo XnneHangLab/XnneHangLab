@@ -27,6 +27,7 @@ class ToolManager:
 
     def __init__(self) -> None:
         self._builtin: dict[str, BuiltinTool] = {}
+        self._closed = False
 
     def register_builtin(self, tool: BuiltinTool) -> None:
         """Register or replace a builtin tool."""
@@ -60,6 +61,19 @@ class ToolManager:
 
         return "\n\n".join(sections)
 
+    async def stop(self) -> None:
+        """Release all builtin tool resources when a session changes or closes."""
+        for tool in self._builtin.values():
+            try:
+                await tool.stop()
+            except Exception:
+                logger.exception("[ToolManager] failed to stop {}", tool.name)
+
+    async def close(self) -> None:
+        """Permanently prevent new calls before shutting down the agent's resources."""
+        self._closed = True
+        await self.stop()
+
     def has_builtin(self, name: str) -> bool:
         return name in self._builtin
 
@@ -67,6 +81,8 @@ class ToolManager:
         return [tool.get_schema() for tool in self._builtin.values()]
 
     async def call_tool(self, name: str, args: dict[str, Any] | str | None, ctx: AgentContext) -> ToolResult:
+        if self._closed:
+            return ToolResult(ok=False, text="", error="Agent tools are closed.")
         if isinstance(args, str):
             try:
                 parsed_args: dict[str, Any] = json.loads(args) if args.strip() else {}

@@ -82,7 +82,7 @@ def test_screenshot_is_fresh_and_never_calls_ocr(monkeypatch: pytest.MonkeyPatch
 
         monkeypatch.setattr(plugin._ocr_tool, "_read_screen", fail_if_called)
     assert [tool.name for tool in plugin.get_tools()] == (
-        ["screen_shot", "screen_ocr"] if enable_ocr else ["screen_shot"]
+        ["screen_shot", "screen_record", "screen_ocr"] if enable_ocr else ["screen_shot", "screen_record"]
     )
     ctx = AgentContext(workspace_root=Path.cwd())
 

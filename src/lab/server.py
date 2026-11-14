@@ -249,6 +249,14 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    # Release tool-owned capture processes, including the default shared agent.
+    if ctx is not None and ctx.agent_engine is not None:
+        await ctx.agent_engine.close()
+    from lab.api.routes.chat import chat_state
+
+    if chat_state.agent_core is not None and chat_state.agent_core.tool_manager is not None:
+        await chat_state.agent_core.tool_manager.close()
+
     if settings.package.llm_translate:
         from lab.api.logic.llm_translate import unload_llm_translate_engine
 

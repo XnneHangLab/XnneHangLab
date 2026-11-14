@@ -515,7 +515,11 @@ class AgentCore:
                 except Exception as exc:  # pragma: no cover - defensive path
                     return ToolResult(ok=False, text="", error=f"tool_error: {type(exc).__name__}: {exc}")
 
-            screenshot_requested = any(tc["name"] == "screen_shot" for tc in ordered_tool_calls)
+            screenshot_requested = any(
+                tc["name"] == "screen_shot"
+                or (tc["name"] == "screen_record" and json.loads(tc["arguments"]).get("action") == "review")
+                for tc in ordered_tool_calls
+            )
             results = await asyncio.gather(
                 *(
                     _exec_tool(tc, active_tool_manager, active_agent_context, screenshot_requested)

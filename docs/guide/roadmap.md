@@ -43,7 +43,7 @@ XnneHangLab 项目的开发路线图与技术债务清理计划。（更新于 2
 ## 插件与感知
 
 - **AudioTriggerPlugin**（[#368](https://github.com/XnneHangLab/XnneHangLab/issues/368)）— 预制音频库 + 大模型触发 + Live2D 联动
-- **异步 Screen Observation / Vision Input 插件架构**（[#380](https://github.com/XnneHangLab/XnneHangLab/issues/380)）— 当前提供按需截图和可选独立 OCR；持续观察与视觉事件主动发言暂缓，通用异步视觉输入架构仍在设计
+- **异步 Screen Observation / Vision Input 插件架构**（[#380](https://github.com/XnneHangLab/XnneHangLab/issues/380)）— 当前提供按需截图、可选独立 OCR，以及 Windows WebSocket 会话中用户显式开启的短时关键帧记录与回顾；视觉事件主动发言与通用异步输入架构仍待设计
 - **统一 vision pipeline**（[#353](https://github.com/XnneHangLab/XnneHangLab/issues/353)）— 将更多 tool callback image 接入统一视觉管线
 
 ## 功能开发
