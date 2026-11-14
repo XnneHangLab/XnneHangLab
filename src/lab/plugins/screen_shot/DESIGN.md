@@ -4,8 +4,9 @@
 
 ## 状态与决策
 
-- **已实现**：用户按需截图、独立可选 OCR、图片直送视觉聊天模型、旧视觉观察配置兼容。
-- **待实现**：用户显式开启的短时画面采集、关键帧筛选、按需回顾拼图。
+- **已实现**：用户按需截图、独立可选 OCR、图片直送视觉聊天模型、旧视觉观察配置兼容，以及用户显式开启的 Windows 短时采集、关键帧筛选和按需回顾拼图。
+- **首版范围**：仅 WebSocket 会话可开启记录；Windows 使用 FFmpeg gdigrab。其他平台仍可使用原有 `screen_shot`，持续采集尚未验证。
+- **后续方向**：按真实样本评估更精细的评分与采集引擎，不承诺上游全部能力。
 - **技术路线**：使用 Lab 现有 Python、NumPy、Pillow；短时采集由 Python 管理 FFmpeg。不新增 Node 运行时，不新增 dsh-see-now submodule，不整份复制其源码。
 - **上游关系**：参考并按需移植算法，由 Lab 负责 Python 实现；不承诺与上游逐版本、逐行或逐像素一致。
 - **交互边界**：采集画面不自动发起聊天。普通 mood_chat 的心情与定时调度独立运行，不消费视觉事件。
@@ -34,7 +35,8 @@ flowchart TD
 | 配置 | [plugin.toml](./plugin.toml) | `enable_ocr=false`；`ocr_threads=2`，范围 1–32 的整数 |
 | 工具图片交付 | [AgentCore](../../agent/core.py) | `ToolResult.data.image_b64` 或 `b64` 加 MIME，转换为带标签的用户图片消息 |
 | 聊天历史 | [storage.py](../../agent/storage.py) | 保存结构化文本和回复，不保存原图；下一轮不能重新查看上一轮原图 |
-| 资源清理 | [AgentFactory](../../agent/agent_factory.py) | 目前关闭流程调用 hook 插件的 `stop()`，并不会自动清理 tool 插件资源 |
+| 短时采集与回顾 | [recording.py](./recording.py) | `screen_record` 工具，Windows FFmpeg gdigrab、有界 RGB24 缓存、JPEG 回顾拼图 |
+| 资源清理 | [AgentFactory](../../agent/agent_factory.py)、[ToolManager](../../tools/manager.py) | Agent 关闭、WebSocket 断开/切换历史、应用退出时调用工具 `stop()`；记录停止会回收 FFmpeg 并清空缓存 |
 
 截图与 OCR 同批调用时，AgentCore 拒绝该批 OCR 并提示另行调用，避免工具循环等待 OCR 后才交付图片。原生 OCR 无法随 Python 请求取消立即终止，但结果只返回原请求，没有跨请求补发；同一 OCR 工具实例在识别未结束前拒绝并发请求。
 
@@ -42,9 +44,9 @@ flowchart TD
 
 截图会在 `data/screenshots/` 写调试副本，目前没有自动保留上限。短时采集不得沿用“每帧写调试图”的方式；其磁盘保留策略应与内存帧缓存分别处理。
 
-## 目标交互契约
+## 工具交互契约
 
-以下为待实现契约，工具名称和配置字段尚未发布，实施时在本文补齐最终名称及默认值。
+`screen_shot` 和 `screen_ocr` 沿用原有接口，`screen_record` 提供 `start/stop/status/review` 四个动作。记录只有在实际 WebSocket 会话中才可开启；HTTP 共享聊天上下文不能开启记录，避免跨请求共用屏幕缓存。
 
 | 用户意图 | 行为与结果 |
 |---|---|
@@ -57,11 +59,31 @@ flowchart TD
 
 首次回顾只输出一张拼图，复用现有单图片工具结果。暂不增加多图片附件协议，也不修改跨轮历史图片策略。屏幕图片、OCR 文字及上游产生的文字均视为不可信数据，不能成为系统指令。
 
+### 记录参数与默认值
+
+参数来自 `screen_record` 的 JSON Schema / `RecordArgs`，由工具调用提供，不增加 Launcher 设置或插件配置字段。每次 `start` 都停止旧实例、清空旧缓存后按新参数开始。
+
+| 参数 | 默认值 | 范围 / 语义 |
+|---|---:|---|
+| `action` | 必填 | `start` / `stop` / `status` / `review` |
+| `seconds` | 30 | 1–120 秒；start 为缓存保留时长，review 为已有缓存中的回看窗口 |
+| `fps` | 2 | 1–12；仅 start 生效 |
+| `width` / `height` | 640 / 360 | 160–1280 / 90–720；按比例缩放并补黑边 |
+| `max_frames` | 24 | 2–120，包含最近采样帧 |
+| `max_bytes` | 33554432 | 1–128 MiB，至少容纳两张请求尺寸的 RGB 帧 |
+| `threshold` | 12 | 0–255，与上一张保留帧的 64×36 RGB 平均绝对差 |
+| `min_gap` / `max_gap` | 0.5 / 5 | 0–10 / 0.5–30 秒；max 不得小于 min |
+| `review_frames` | 4 | 1–8；均匀选择时间窗内关键帧并保留最新帧，1 表示只取最新帧 |
+
+`seconds` 限制缓存年龄，不是自动停止采集的倒计时；采集持续到用户停止、会话结束或故障。首帧启动超时为 10 秒，后续单帧读取超时为 5 秒。status 返回运行状态、缓存帧数/字节数与最后错误。review 无缓存时明确失败，不启动采集。
+
+缓存字节预算针对持有的 RGB24 帧；另有一帧管道接收缓冲、64×36 评分参考图，以及最多一份回顾快照和合成任务。回顾原生编码在取消后可能继续完成，后续并发回顾会被拒绝直到完成；结果不会迟到补发。回顾不消费缓存，用户可重复请求。
+
 ## Python 实现分工
 
 保持现有 `screen_shot` 为工具和配置入口；持续采集与筛帧落入本目录的少量内部模块，按实现需要拆分，不先建通用框架。
 
-下图为待实现流程：记录只更新本地缓存，只有用户请求回顾才会把拼图交给聊天模型。
+下图为当前短时采集与回顾流程：记录只更新本地缓存，只有用户请求回顾才会把拼图交给聊天模型。
 
 ```mermaid
 flowchart TD
@@ -81,7 +103,7 @@ flowchart TD
 
 ### 采集与生命周期
 
-以下是待实现的单个采集实例状态机。切换来源或尺寸时先清理旧实例，再按新参数启动；切换会话时旧缓存不能转交新实例。
+以下是当前单个采集实例状态机。切换尺寸或采集参数时先清理旧实例，再按新参数启动；切换会话时旧缓存不能转交新实例。首版采集来源固定为当前桌面。
 
 ```mermaid
 stateDiagram-v2
@@ -95,7 +117,7 @@ stateDiagram-v2
     Starting --> Stopping: 启动失败或取消
     Recording --> Recording: 请求回顾，读取快照
     Recording --> Stopping: 停止、会话切换、应用退出或采集故障
-    Recording --> Stopping: 切换来源或尺寸
+    Recording --> Stopping: 重新 start 或切换尺寸
     Stopping --> Idle: 关闭管道与任务，清空帧缓存
     Idle --> Idle: 重复停止
 ```
@@ -105,15 +127,15 @@ stateDiagram-v2
 - 采集会话绑定实际运行会话的身份，不能只按 profile 名称或“最后一次说话的会话”索引；同 profile 的不同会话不得共用画面。
 - 开启、停止、来源/尺寸切换、进程退出和应用关闭须走同一套清理路径；停止要等待进程退出并在限时后强制回收，同时关闭管道、任务和帧引用。
 - 回顾请求取消时不交付迟到结果；是否保留采集由记录会话的生命周期决定。切换会话必须停止旧实例或显式隔离，不能把旧缓冲转交新会话。
-- 实施前补齐工具资源的关闭入口，不能仅定义 tool 插件 `stop()` 就假定 AgentFactory 会调用它。优先扩展已有关闭流程。
+- 已补齐工具资源关闭入口：`BuiltinTool.stop()` 默认无操作，`ToolManager.stop()` 遍历清理工具，永久关闭 Agent 时 `close()` 先拒绝新工具调用再清理；AgentFactory、WebSocket 历史操作/断连及服务退出调用对应入口。记录循环还会校验当前会话身份，防止异常归属变化继续留下画面。
 
 ### 筛帧与拼图
 
-- 用 NumPy 对缩小画面的颜色变化打分；首版先覆盖静止去重、明显切换和连续运动的有限采样，必要时参考上游 HSV 加权差和累计变化方案。
+- 首版用 NumPy 对 64×36 RGB 缩略图计算平均绝对差，对比上一张保留的关键帧；首帧必留，间隔超过 max_gap 也保留，最近采样帧始终可用于回顾。静止去重之外还保留稀疏的时间采样，不等同于上游 HSV 切点算法。
 - 不将完整检测、复杂装箱或音轨绘制作为第一版前置条件。默认参数须用 Lab 场景验证，不直接沿用上游常量。
 - 原始画面与评分缩略图用途分开，避免用极小评分图生成不可读的结果。拼图用 Pillow，按时间顺序排列并给每格稳定编号；文字清单提供相同编号与采集时间。
 - 单调时钟用于间隔、窗口与过期判断，UTC 用于展示；帧携带会话归属、序号、采集时间和尺寸。上游按 `i/fps` 推算的时间不能直接当作真实采集墙钟时间。
-- 配置至少覆盖采样帧率、保留时长、缓存帧数、缩放尺寸、变化阈值及拼图帧数上限；有界校验后再启动进程。默认数值在实现及基准完成时确定。
+- 采样帧率、保留时长、缓存帧数、缩放尺寸、变化阈值及拼图帧数上限由上方工具参数表约束，启动前通过 `RecordArgs` 校验；后续调整默认值须附测量依据并同步此表。
 - 时长、帧数和像素/字节预算共同限制内存，忙碌时淘汰旧帧，不排队补发旧画面。回顾读取快照后合成，不能持有全局锁阻塞采集。
 
 ## DSH 依赖与本地策略
@@ -130,9 +152,9 @@ stateDiagram-v2
 
 ## 测试与验收
 
-现有基线是 [test_on_demand_vision.py](../../../../tests/test_on_demand_vision.py)、[test_tool_image_handoff.py](../../../../tests/test_tool_image_handoff.py)、[test_mood_chat_timing.py](../../../../tests/test_mood_chat_timing.py) 和 [test_structured_history_condensing.py](../../../../tests/test_structured_history_condensing.py)。
+现有基线是 [test_on_demand_vision.py](../../../../tests/test_on_demand_vision.py)、[test_tool_image_handoff.py](../../../../tests/test_tool_image_handoff.py)、[test_mood_chat_timing.py](../../../../tests/test_mood_chat_timing.py) 和 [test_structured_history_condensing.py](../../../../tests/test_structured_history_condensing.py)。短时采集回归位于 [test_screen_recording.py](../../../../tests/test_screen_recording.py)。
 
-新增短时采集时，使用确定性的合成帧和假采集进程覆盖：
+短时采集使用确定性的合成帧和假采集进程覆盖：
 
 1. 静止去重、切换保留、持续运动有界选帧，拼图顺序与时间一致。
 2. 看现在不会返回缓存旧帧；没有记录时回顾明确为空。
@@ -143,15 +165,31 @@ stateDiagram-v2
 
 基准对比必须标记机器、画面/视频、尺寸、帧率、模型、冷热启动和采样次数。合成边界测试不代替真实采集验证；不预设低于两秒，也不把上游机器的测量写成本地结果。
 
+### 首版本机冒烟记录（2026-11-14）
+
+Windows build 26100、Intel Family 6 Model 154，本机真实桌面、FFmpeg 实际可执行文件、640×360 / 2 fps。一次冷启动后采样约 5 秒，未调用聊天模型或 TTS：
+
+| 指标 | 实测 |
+|---|---:|
+| 启动到首帧工具返回 | 1153 ms |
+| FFmpeg 平均 CPU（单核为 1） | 0.103 核 |
+| Python 平均 CPU（不含回顾编码） | 0.006 核 |
+| FFmpeg 工作集 | 78.4 MiB |
+| Python 整个测试进程工作集 | 49.4 MiB |
+| 缓存 RGB 帧 | 2 帧 / 1382400 字节 |
+| 两帧回顾合成及交付 | 59.5 ms |
+
+停止后确认采集进程已回收；Windows 停止先使用 `taskkill /T /F` 回收整个启动进程树，覆盖 FFmpeg 经启动垫片运行的情况。先前对 Scoop 垫片进程的 CPU/内存采样不代表 FFmpeg，故不采用。此表只是一次冒烟，不是运动场景、长时间运行或端到端性能保证。
+
 ## 上游同步与维护规则
 
 上游：[SAOS-3624/dsh-see-now](https://github.com/SAOS-3624/dsh-see-now)。本次检查基线为 [`1d98dd5bf1fdcad58fbf27b6906bb8c525ccccb3`](https://github.com/SAOS-3624/dsh-see-now/tree/1d98dd5bf1fdcad58fbf27b6906bb8c525ccccb3)。该提交是**阅读评估基线，不是已移植版本**。
 
 | 上游路径 | 参考内容 | Lab 当前对应情况 |
 |---|---|---|
-| `src/capture.js` | RGB 管道、引擎探测、进程失败处理 | 待实现；当前仍为 Pillow 单帧 |
-| `src/cuts.js`、`src/pipeline.js` | 变化评分、筛帧、有界队列 | 待实现 |
-| `src/pack.js`、`src/sheet.js`、`src/png.js` | 布局与图片输出 | 首版计划用 Pillow 简单布局，不移植完整装箱 |
+| `src/capture.js` | RGB 管道、引擎探测、进程失败处理 | `recording.py` 独立 Python 实现 RGB24 短读与退出处理，仅 gdigrab；单帧仍为 Pillow |
+| `src/cuts.js`、`src/pipeline.js` | 变化评分、筛帧、有界队列 | `FrameBuffer` 使用独立 RGB 平均差、最小/最大间隔与最新帧；未移植上游 HSV/完整切点算法 |
+| `src/pack.js`、`src/sheet.js`、`src/png.js` | 布局与图片输出 | `compose_review` 使用 Pillow 两列简单布局、最多八帧，不移植完整装箱 |
 | `src/runner.js` | 生命周期、新鲜帧与队列取图的区别 | 仅参考行为，重新适配 Lab 会话归属 |
 | `src/offload.js`、`src/tuning.js` | 历史图片触发线与留底策略 | 当前无需采用；评估基线默认 300 张触发、保留 100 张 |
 | `src/index.js`、`src/loop.js`、`src/timer.js` | DSH 注册、附件、省略事件、主动唤醒 | 当前范围不移植 |
@@ -189,5 +227,6 @@ flowchart TD
 | 日期 | 上游 commit / 路径 | 决策与本地落点 | 验证、差异及 PR |
 |---|---|---|---|
 | 2026-11-14 | `1d98dd5`，上述模块 | 仅源码评估；确定 Python 本地实现路线，尚未移植采集/筛帧 | 设计文档初稿；不是完整 See Now 接入 |
+| 2026-11-14 | 同一评估基线的 `capture.js` / `pipeline.js` 思路 | #514 部分采用设计思想；`recording.py` 为独立 Python 实现，未复制或翻译上游代码 | 新增 `test_screen_recording.py`；gdigrab + RGB 平均差，与上游引擎探测、HSV 判据和装箱保持显式差异。无 Launcher 变更 |
 
 后续记录应填写完整 commit 链接、上游特性或修复、本地文件及对应测试、采用范围、未采用部分和原因、性能结果（若适用）、Lab PR 与配套 Launcher PR。迁移完成后，把本文相应能力从“待实现”改为“已实现”，并记录实际配置和生命周期入口。

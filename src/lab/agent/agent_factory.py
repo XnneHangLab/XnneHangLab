@@ -86,6 +86,7 @@ class AgentFactory:
         agent_context = AgentContext(
             workspace_root=ws_root,
             extra={
+                "ffmpeg_path": lab_setting.asr.FFMPEG_PATH,
                 "live2d_emo_map": live2d_model.emo_map if live2d_model else {},
                 "live2d_appearance_presets": live2d_appearance_presets,
                 "live2d_preset_expressions": live2d_preset_expressions,
@@ -280,6 +281,8 @@ class AgentFactory:
         original_close = agent.close
 
         async def _close_with_hooks() -> None:
+            if core.tool_manager is not None:
+                await core.tool_manager.close()
             hook_manager = getattr(core, "_hook_manager", None)
             hooks = getattr(hook_manager, "_hooks", []) if hook_manager is not None else []
             stop_awaitables: list[tuple[object, Awaitable[Any]]] = []

@@ -40,6 +40,17 @@ if TYPE_CHECKING:
     from lab.agent.output_types import DisplayTextDict
 
 
+async def _stop_session_tools(context: ServiceContext | None, task: asyncio.Task[Any] | None = None) -> None:
+    # Stop the old turn before releasing tools so it cannot restart capture during cleanup.
+    if task is not None and not task.done():
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+    core = getattr(getattr(context, "agent_engine", None), "core", None)
+    manager = getattr(core, "tool_manager", None)
+    if manager is not None:
+        await manager.stop()
+
+
 class MessageType(Enum):
     """Enum for WebSocket message types"""
 
@@ -360,6 +371,7 @@ class WebSocketHandler:
         )
 
         session_context = self.client_contexts.get(client_uid)
+        await _stop_session_tools(session_context, self.current_conversation_tasks.pop(client_uid, None))
         if (
             session_context is not None
             and session_context.agent_engine is not None
@@ -376,17 +388,6 @@ class WebSocketHandler:
         self.client_connections.pop(client_uid, None)
         self.client_contexts.pop(client_uid, None)
         self.received_data_buffers.pop(client_uid, None)
-        if client_uid in self.current_conversation_tasks:
-            task = self.current_conversation_tasks[client_uid]
-            if task and not task.done():
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    logger.debug("Conversation task cancelled during disconnect cleanup for {}", client_uid)
-                except Exception as exc:
-                    logger.warning("Conversation task failed during disconnect cleanup for {}: {}", client_uid, exc)
-            self.current_conversation_tasks.pop(client_uid, None)
 
         logger.info(f"Client {client_uid} disconnected")
         message_handler.cleanup_client(client_uid)
@@ -457,6 +458,8 @@ class WebSocketHandler:
             return
 
         context = self.client_contexts[client_uid]
+        # Clear session-owned captures before rebinding history.
+        await _stop_session_tools(context, self.current_conversation_tasks.pop(client_uid, None))
         # Update history_uid in service context
         context.history_uid = history_uid
         # print(context.history_uid)
@@ -491,6 +494,7 @@ class WebSocketHandler:
             raise ValueError("agent_engine cannot be None")
         history_uid = create_new_history(context.character_config.profile_id)
         if history_uid:
+            await _stop_session_tools(context, self.current_conversation_tasks.pop(client_uid, None))
             context.history_uid = history_uid
             context.agent_engine.set_memory_from_history(
                 conf_uid=context.character_config.profile_id,
@@ -527,7 +531,8 @@ class WebSocketHandler:
                 }
             )
         )
-        if history_uid == context.history_uid:
+        if success and history_uid == context.history_uid:
+            await _stop_session_tools(context, self.current_conversation_tasks.pop(client_uid, None))
             context.history_uid = ""
 
     async def _handle_audio_data(self, websocket: WebSocket, client_uid: str, data: WSMessage) -> None:

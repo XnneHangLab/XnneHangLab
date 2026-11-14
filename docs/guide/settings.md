@@ -311,6 +311,18 @@ ocr_threads = 2
 
 默认关闭 OCR；截图交付始终不等待 OCR。`screen_ocr` 会单独采集一帧并返回采集标识、UTC 时间和识别文字，不能将其文字当作先前截图的内容。OCR 在本次工具请求中执行，取消后不会补发结果；原生识别可能继续计算到返回，其间同一工具拒绝重复 OCR 请求。没有后台采样、待处理帧队列或视觉主动发言。旧 profile 中的 `visual_observer` 和 mood_chat 的游戏模式字段加载时兼容忽略；普通 mood_chat 保持独立运行。
 
+### 按需回顾最近画面
+
+在 Windows 的 WebSocket 会话中启用 `screen_shot` 插件后，可按用户明确要求调用 `screen_record`，无需新增 Launcher 设置。工具参数示例：
+
+```json
+{"action": "start", "seconds": 30, "fps": 2, "max_frames": 24}
+```
+
+这会在内存中记录最近画面，不自动发言。之后用 `{"action":"review","seconds":15,"review_frames":4}` 获取已有时间窗中的关键帧拼图，用 `status` 查询、`stop` 停止并清空。没有提前开启记录就没有过去的画面；看当前画面仍使用新鲜的 `screen_shot`。采集使用 `[asr].FFMPEG_PATH`，缺失或不支持时明确失败，不影响 Pillow 截图。
+
+完整参数、缓存预算、会话清理和上游维护约定见源码旁的 `src/lab/plugins/screen_shot/DESIGN.md`。首版仅支持 Windows WebSocket 会话的记录，HTTP 共享聊天上下文不启动采集。
+
 ### 🌍 [agent.translate]
 
 ```toml
