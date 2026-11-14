@@ -3,11 +3,13 @@ from __future__ import annotations
 import asyncio
 import base64
 import gc
+import hashlib
 import io
 import json
 import os
 import threading
 import time
+from collections import OrderedDict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -18,6 +20,8 @@ from loguru import logger
 from numpy.typing import NDArray
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
+from lab.conversations.tts_manager import resolve_all_voice_assets, resolve_voice_assets
+from lab.profile.schema import Profile
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -38,6 +42,8 @@ _loaded_model_name: QwenTTSModelName | None = None
 _loaded_model_source: str | None = None
 _sample_rate: int = DEFAULT_SAMPLE_RATE
 _model_lock = threading.Lock()
+_MAX_CACHED_VOICE_PROMPTS = 10
+_voice_prompt_cache: OrderedDict[tuple[bytes, str], Any] = OrderedDict()
 
 
 def _get_qwen_tts_settings() -> XnneHangLabSettings:
@@ -107,6 +113,7 @@ def _resolve_device(settings: XnneHangLabSettings | None = None) -> str:
 def _release_engine() -> None:
     global _qwen_tts_engine, _loaded_model_name, _loaded_model_source
 
+    _voice_prompt_cache.clear()
     old_engine = _qwen_tts_engine
     _qwen_tts_engine = None
     _loaded_model_name = None
@@ -191,6 +198,12 @@ def load_qwen_tts_model(
                 _tts_logger.info("qwen-tts warmup done")
             except Exception:
                 _tts_logger.warning("qwen-tts warmup failed, continue without warmup")
+
+        try:
+            _warmup_qwen_voice_references(_qwen_tts_engine, settings)
+        except Exception:
+            _release_engine()
+            raise
 
         _sample_rate = DEFAULT_SAMPLE_RATE
         _loaded_model_name = target_model
@@ -282,20 +295,87 @@ def _to_wav_bytes(pcm: Float32Array, sample_rate: int) -> bytes:
     return _to_wav_chunk(pcm, sample_rate)
 
 
-def _resolve_ref(ref_audio: Path | None, ref_text: str | None) -> tuple[str | None, str]:
-    ref_audio_str = str(ref_audio) if ref_audio is not None else None
-    return ref_audio_str, ref_text or ""
+def _voice_prompt_key(ref_audio: Path | None, ref_text: str) -> tuple[bytes, str]:
+    if ref_audio is None:
+        raise HTTPException(status_code=400, detail="ref_audio is required")
+    if not ref_audio.is_file():
+        raise HTTPException(status_code=404, detail="Reference audio file not found")
+    if not ref_text:
+        raise HTTPException(status_code=400, detail="ref_text is required")
+    with ref_audio.open("rb") as audio_file:
+        return hashlib.file_digest(audio_file, "sha256").digest(), ref_text
+
+
+def _get_voice_clone_prompt(model: Any, ref_audio: Path | None, ref_text: str) -> Any:
+    """Called under _model_lock; local references and uploads share content keys."""
+    key = _voice_prompt_key(ref_audio, ref_text)
+    if key not in _voice_prompt_cache:
+        # Preserve faster-qwen3-tts's default trailing silence for ICL cloning.
+        audio = model._load_ref_audio_with_silence(ref_audio)
+        prompt = model.model.create_voice_clone_prompt(ref_audio=audio, ref_text=ref_text)
+        _voice_prompt_cache[key] = prompt
+        if len(_voice_prompt_cache) > _MAX_CACHED_VOICE_PROMPTS:
+            _voice_prompt_cache.popitem(last=False)
+    _voice_prompt_cache.move_to_end(key)
+    return _voice_prompt_cache[key]
+
+
+def _warmup_qwen_voice_references(model: Any, settings: XnneHangLabSettings) -> None:
+    """Called under _model_lock, before marking the loaded engine ready."""
+    profile_path = settings.agent.memory_agent_profile
+    if not profile_path:
+        return  # Standalone API mode has no configured voice to prewarm.
+    profile = Profile.from_toml(Path(settings.root.root_dir) / profile_path)
+    voice_id = (profile.character.tts.voice or "").strip() if profile.character is not None else ""
+    if not voice_id:
+        return
+
+    started = time.perf_counter()
+    references: dict[tuple[bytes, str], Path] = {}
+    for audio, text, _speaker in resolve_all_voice_assets(settings, voice_id):
+        references[_voice_prompt_key(audio, (text or "").strip())] = audio
+    default_audio, default_text, _speaker = resolve_voice_assets(settings, voice_id)
+    default_text = (default_text or "").strip()
+    default_key = _voice_prompt_key(default_audio, default_text)
+    references[default_key] = default_audio
+    if len(references) > _MAX_CACHED_VOICE_PROMPTS:
+        raise ValueError(
+            f"Qwen-TTS voice '{voice_id}' has {len(references)} references, but cache capacity is "
+            f"{_MAX_CACHED_VOICE_PROMPTS}. Select fewer voice clips before startup."
+        )
+    keys = list(references)
+    audios = [model._load_ref_audio_with_silence(references[key]) for key in keys]
+    prompts = model.model.create_voice_clone_prompt(ref_audio=audios, ref_text=[key[1] for key in keys])
+    if len(prompts) != len(keys):
+        raise RuntimeError("Qwen-TTS batch prompt count does not match reference count")
+    _voice_prompt_cache.update((key, [prompt]) for key, prompt in zip(keys, prompts, strict=True))
+    _tts_logger.info(
+        f"qwen-tts reference warmup complete: voice={voice_id}, prompts={len(keys)}, "
+        f"elapsed={time.perf_counter() - started:.2f}s"
+    )
+
+    started = time.perf_counter()
+    audio_arrays, _sample_rate = model.generate_voice_clone(
+        text="今天过得怎么样？要不要一起出去走走？",
+        language="Auto",
+        voice_clone_prompt=_voice_prompt_cache[default_key],
+        ref_text=default_text,
+    )
+    if _concat_audio(audio_arrays).size == 0:
+        raise RuntimeError("Qwen-TTS synthesis warmup returned no audio")
+    _tts_logger.info(f"qwen-tts synthesis warmup complete: elapsed={time.perf_counter() - started:.2f}s")
 
 
 def synthesize_once(*, text: str, ref_audio: Path | None, ref_text: str | None) -> bytes:
-    model = get_qwen_tts_model()
-    ref_audio_str, ref_text_str = _resolve_ref(ref_audio, ref_text)
+    ref_text_str = (ref_text or "").strip()
 
     with _model_lock:
+        model = get_qwen_tts_model()
+        prompt = _get_voice_clone_prompt(model, ref_audio, ref_text_str)
         result: Any = model.generate_voice_clone(
             text=text,
             language="Auto",
-            ref_audio=ref_audio_str,
+            voice_clone_prompt=prompt,
             ref_text=ref_text_str,
         )
 
@@ -316,8 +396,7 @@ async def synthesize_stream(
     ref_text: str | None,
     chunk_size: int = 8,
 ) -> AsyncIterator[str]:
-    model = get_qwen_tts_model()
-    ref_audio_str, ref_text_str = _resolve_ref(ref_audio, ref_text)
+    ref_text_str = (ref_text or "").strip()
 
     queue: asyncio.Queue[str | None] = asyncio.Queue()
     loop = asyncio.get_running_loop()
@@ -331,10 +410,12 @@ async def synthesize_stream(
             voice_clone_ms = 0.0
 
             with _model_lock:
+                model = get_qwen_tts_model()
+                prompt = _get_voice_clone_prompt(model, ref_audio, ref_text_str)
                 gen: Any = model.generate_voice_clone_streaming(
                     text=text,
                     language="Auto",
-                    ref_audio=ref_audio_str,
+                    voice_clone_prompt=prompt,
                     ref_text=ref_text_str,
                     chunk_size=chunk_size,
                     non_streaming_mode=False,
