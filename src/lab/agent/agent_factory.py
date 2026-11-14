@@ -56,13 +56,11 @@ class AgentFactory:
         lab_setting: XnneHangLabSettings,
         profile_path: Path,
         storage: ConversationStorage,
-        vision_system_prompt: str = "",
         workspace_root: Path | None = None,
         packages: Packages | None = None,
         live2d_model: Live2dModel | None = None,
     ) -> AgentCore:
         chat_model = lab_setting.agent.chat_model
-        vision_model = lab_setting.agent.vision_model
 
         ws_root = workspace_root or Path.cwd()
         profile = Profile.from_toml(profile_path)
@@ -95,14 +93,6 @@ class AgentFactory:
                 "live2d_imported_motions": live2d_imported_motions,
             },
         )
-
-        def _read_prompt(path_str: str) -> str:
-            path = Path(path_str)
-            if not path.is_absolute():
-                path = ws_root / path_str
-            return path.read_text(encoding="utf-8").strip() if path.exists() else ""
-
-        resolved_vision_prompt = vision_system_prompt or _read_prompt(lab_setting.agent.prompts.vision_prompt)
 
         plugin_loader = PluginLoader()
         tool_plugins, skill_descriptors, hook_plugins, policy_plugins = await plugin_loader.load_many(
@@ -148,7 +138,6 @@ class AgentFactory:
             hook_manager.register(hook)
 
         chat_llm = lab_setting.agent.llm.get_provider_config(chat_model.llm_provider)
-        vision_llm = lab_setting.agent.llm.get_provider_config(vision_model.llm_provider)
 
         chat_llm_interface = LLMFactory.create_llm(
             model=chat_model.llm_model_name,
@@ -156,24 +145,6 @@ class AgentFactory:
             llm_api_key=chat_llm.llm_api_key,
             thinking_mode=chat_model.thinking_mode,
         )
-        vision_llm_interface = None
-        if not vision_model.llm_model_name.strip() or not vision_llm.llm_base_url.strip():
-            logger.warning(
-                "[VISION] vision analysis unavailable: vision model configuration is incomplete. "
-                "model='{}' base_url='{}'",
-                vision_model.llm_model_name,
-                vision_llm.llm_base_url,
-            )
-        else:
-            try:
-                vision_llm_interface = LLMFactory.create_llm(
-                    model=vision_model.llm_model_name,
-                    base_url=vision_llm.llm_base_url,
-                    llm_api_key=vision_llm.llm_api_key,
-                )
-            except Exception as exc:
-                logger.warning("[VISION] vision analysis unavailable: failed to initialize vision model: {}", exc)
-
         # Generate expression list for format prompt injection
         format_variables: dict[str, str] = {}
         if live2d_preset_expressions:
@@ -239,16 +210,12 @@ class AgentFactory:
 
         core = AgentCore(
             chat_llm=chat_llm_interface,
-            vision_llm=vision_llm_interface,
             tool_manager=tool_manager,
             agent_context=agent_context,
             context_injector=ContextInjector(),
             storage=storage,
             chat_system_prompt=chat_system_prompt,
-            vision_system_prompt=resolved_vision_prompt,
             enable_tool=lab_setting.agent.enable_tool,
-            max_vision_concurrency=lab_setting.agent.max_vision_concurrency,
-            require_detailed=lab_setting.agent.require_detailed,
             hook_manager=hook_manager,
         )
         core.chat_supports_vision = lab_setting.agent.chat_model.support_vision

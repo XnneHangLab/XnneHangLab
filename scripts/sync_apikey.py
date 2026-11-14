@@ -251,14 +251,6 @@ def main() -> None:
             "CHAT_MODEL_THINKING_MODE",
         )
 
-    if "VISION_MODEL_PROVIDER" in os.environ:
-        settings.agent.vision_model.llm_provider = validate_provider_name(
-            os.environ.get("VISION_MODEL_PROVIDER", ""),
-            provider_names,
-            "VISION_MODEL_PROVIDER",
-        )
-    if "VISION_MODEL_NAME" in os.environ:
-        settings.agent.vision_model.llm_model_name = os.environ.get("VISION_MODEL_NAME", "").strip()
     if "TTS_PROVIDER" in os.environ:
         settings.agent.tts.provider = validate_tts_provider(os.environ.get("TTS_PROVIDER", ""), "TTS_PROVIDER")
     if "ASR_MODEL_PROVIDER" in os.environ:
@@ -303,8 +295,6 @@ def main() -> None:
     logger.info("agent.chat_model.llm_model_name: {}", settings.agent.chat_model.llm_model_name)
     logger.info("agent.chat_model.support_vision: {}", settings.agent.chat_model.support_vision)
     logger.info("agent.chat_model.thinking_mode: {}", settings.agent.chat_model.thinking_mode)
-    logger.info("agent.vision_model.llm_provider: {}", settings.agent.vision_model.llm_provider)
-    logger.info("agent.vision_model.llm_model_name: {}", settings.agent.vision_model.llm_model_name)
     logger.info("agent.tts.provider: {}", settings.agent.tts.provider)
     logger.info("agent.tts.gsv_lite.use_bert: {}", settings.agent.tts.gsv_lite.use_bert)
     logger.info("agent.tts.genie_tts.language: {}", settings.agent.tts.genie_tts.language)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from lab.config_manager import XnneHangLabSettings, load_settings_file
-from lab.config_manager.agent import PromptSettings
+from lab.config_manager.agent import AgentSettings
 from lab.profile.system_prompt_builder import SystemPromptBuilder
 from lab.tools import GetDatetimeTool, ToolManager
 from lab.tools.plugin import PromptSegment
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 def test_prompt_settings_no_longer_exposes_legacy_tool_prompt() -> None:
-    assert "tool_prompt" not in PromptSettings.model_fields
+    assert "prompts" not in AgentSettings.model_fields
 
 
 def test_load_settings_file_parses_legacy_tool_prompt_without_rewriting(
@@ -36,8 +36,7 @@ tool_prompt = "./prompts/tool_prompt.txt"
 
     settings = load_settings_file("lab.toml", XnneHangLabSettings)
 
-    assert settings.agent.prompts.vision_prompt == "./prompts/vision_prompt.txt"
-    assert not hasattr(settings.agent.prompts, "tool_prompt")
+    assert not hasattr(settings.agent, "prompts")
     assert (
         (config_dir / "lab.toml")
         .read_text(encoding="utf-8")

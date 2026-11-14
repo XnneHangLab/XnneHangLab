@@ -27,11 +27,6 @@ class ChatModelSetting(BaseModel):
     ]
 
 
-class VisionModelSetting(BaseModel):
-    llm_provider: Annotated[str, Field("", title="LLM Provider for Vision Model")]
-    llm_model_name: Annotated[str, Field("", title="Vision Model Name")]
-
-
 class LLMProviderSetting(BaseModel):
     name: Annotated[str, Field(..., title="Provider Name")]
     llm_api_key: Annotated[str, Field("", title="LLM API Key")]
@@ -102,15 +97,6 @@ class LLMSettings(BaseModel):
     def has_provider(self, provider: str) -> bool:
         provider_name = str(provider).strip()
         return any(item.name == provider_name for item in self.providers)
-
-
-class PromptSettings(BaseModel):
-    """Paths to agent-side prompt files."""
-
-    vision_prompt: Annotated[
-        str,
-        Field("./prompts/vision_prompt.txt", title="Vision Prompt"),
-    ]
 
 
 class DeepLXTranslateSetting(BaseModel):
@@ -260,9 +246,7 @@ class AgentSettings(BaseModel):
         return raw
 
     chat_model: Annotated[ChatModelSetting, Field(ChatModelSetting())]  # ty: ignore[missing-argument]
-    vision_model: Annotated[VisionModelSetting, Field(VisionModelSetting())]  # ty: ignore[missing-argument]
     enable_tool: Annotated[bool, Field(True, title="Enable Tool Calling (BuiltinTool)")]
-    prompts: Annotated[PromptSettings, Field(PromptSettings())]  # ty: ignore[missing-argument]
     llm: Annotated[LLMSettings, Field(LLMSettings())]  # ty: ignore[missing-argument]
     translate_provider: Annotated[TranslateProvider, Field("none", title="Translation Provider")]
     translate: Annotated[TranslateSettings, Field(TranslateSettings())]  # ty: ignore[missing-argument]
@@ -271,15 +255,6 @@ class AgentSettings(BaseModel):
     tts: Annotated[TTSSettings, Field(TTSSettings())]  # ty: ignore[missing-argument]
     qwen_tts: Annotated[QwenTTSSettings, Field(QwenTTSSettings())]  # ty: ignore[missing-argument]
     faster_first_response: Annotated[bool, Field(False, title="Faster First Response")]
-    max_vision_concurrency: Annotated[
-        int,
-        Field(
-            default=4,
-            ge=1,
-            title="Maximum concurrent vision requests",
-        ),
-    ]
-    require_detailed: Annotated[bool, Field(False, title="Require Detailed Vision Summary")]
     structured_history_full_turns: Annotated[
         int,
         Field(
@@ -310,13 +285,10 @@ class AgentSettings(BaseModel):
 
     @model_validator(mode="after")
     def validate_model_providers(self) -> AgentSettings:
-        for field_name, provider_name in (
-            ("chat_model", self.chat_model.llm_provider),
-            ("vision_model", self.vision_model.llm_provider),
-        ):
-            normalized = provider_name.strip()
-            if normalized and not self.llm.has_provider(normalized):
-                raise ValueError(f"Unknown LLM provider reference: {field_name}.llm_provider={provider_name}")
+        provider_name = self.chat_model.llm_provider
+        normalized = provider_name.strip()
+        if normalized and not self.llm.has_provider(normalized):
+            raise ValueError(f"Unknown LLM provider reference: chat_model.llm_provider={provider_name}")
         return self
 
     @property

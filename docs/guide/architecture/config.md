@@ -64,9 +64,7 @@ class XnneHangLabSettings(BaseModel):
 ```python
 class AgentSettings(BaseModel):
     chat_model: ChatModelSetting
-    vision_model: VisionModelSetting
     enable_tool: bool = True
-    prompts: PromptSettings
     llm: LLMSettings
     translate_provider: TranslateProvider = "llm"
     translate: TranslateSettings
@@ -74,8 +72,6 @@ class AgentSettings(BaseModel):
     speaker_lang: Literal["ZH", "EN", "JA"] = "ZH"
     tts: TTSSettings
     faster_first_response: bool = False
-    max_vision_concurrency: int = 4
-    require_detailed: bool = True
     structured_history_full_turns: int = 5
     segment_method: Literal["regex", "pysbd"] = "pysbd"
     interrupt_method: Literal["system", "user"] = "user"
@@ -97,7 +93,7 @@ class LLMSettings(BaseModel):
     providers: list[LLMProviderSetting] = []
 ```
 
-`chat_model.llm_provider` 和 `vision_model.llm_provider` 会在校验阶段检查：如果填写了 provider 名称，那么它必须能在 `agent.llm.providers` 中找到同名条目。
+`chat_model.llm_provider` 会在校验阶段检查：如果填写了 provider 名称，那么它必须能在 `agent.llm.providers` 中找到同名条目。
 
 ### 一个重要变化
 

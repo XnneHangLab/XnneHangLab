@@ -49,7 +49,6 @@ class ServiceContext:
         self.translate_engine: TranslateEngineRouter | None = None
 
         self.chat_system_prompt: str | None = None
-        self.vision_system_prompt: str | None = None
         self.history_uid: str = ""
         self.live2d_startup_expression_applied: bool = False
 
@@ -65,7 +64,6 @@ class ServiceContext:
             f"    Details: {json.dumps(self.server_config.model_dump(), indent=6) if self.server_config else 'None'}\n"
             f"  Live2D Model: {self.live2d_model.model_info if self.live2d_model else 'Not Loaded'}\n"
             f"  Chat System Prompt: {self.chat_system_prompt or 'Not Set'}\n"
-            f"  Vision System Prompt: {self.vision_system_prompt or 'Not Set'}"
         )
 
     def load_cache(
@@ -305,7 +303,6 @@ class ServiceContext:
         )
         self._mcp_connected = new_context._mcp_connected
         self.chat_system_prompt = new_context.chat_system_prompt
-        self.vision_system_prompt = new_context.vision_system_prompt
         self.history_uid = ""
         self.live2d_startup_expression_applied = new_context.live2d_startup_expression_applied
 

@@ -75,9 +75,7 @@ class MessageFactory:
     def user_msg_with_labeled_images(text: str, labeled_images: list[ImagePayload]) -> OpenAIMessage:
         """构造：文本 + 多张图片，每张图片前插入标签文本（例如 [p1]）。
 
-        目的：
-        - 多图输入时提供稳定锚点，降低串台/漏图风险
-        - 与 vision summary 的标签对齐（p1/p2/..., tool1...）
+        目的：多图输入时提供稳定锚点，降低串台/漏图风险。
         """
         parts: list[ContentPart] = [TextPart(type="text", text=text)]
         for img in labeled_images:
@@ -90,14 +88,6 @@ class MessageFactory:
         return (
             "A tool callback image is attached below. "
             f"Use image [{label}] together with the preceding tool result to answer the current user request."
-        )
-
-    @staticmethod
-    def tool_image_summary_handoff_text(label: str, summary: str) -> str:
-        return (
-            "The tool callback image was routed through the vision summarizer. "
-            f"Use the summary for image [{label}] together with the preceding tool result.\n\n"
-            f"[Tool Call Image Summary]\n{summary}"
         )
 
     @staticmethod

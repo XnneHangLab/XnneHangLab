@@ -24,7 +24,6 @@ agent/
         ├── message_factory.py # OpenAI Message 构造
         ├── prompt_builder.py  # UserPromptBlock 拼装
         ├── user_prompt_block.py # UserPromptBlock 数据结构
-        ├── vision_summarizer.py # 图片摘要生成
         └── types.py           # 内部类型（ImagePayload 等）
 ```
 
@@ -52,7 +51,7 @@ Agent 层的公共类型与工具函数，被整个 `agent/` 及 `tools/` 广泛
 | `normalize_jsonlike` | 将类 JSON 对象规范化为标准 dict |
 
 - 流式 Tool Calling（`chat_llm` 原生，多轮循环，无独立 tool model）
-- Vision 预处理（`VisionSummarizer`）
+- 图片直接附加到聊天消息
 - Prompt 拼装（`PromptBuilder`）
 - 历史存储（`ConversationStorage`）
 
@@ -87,7 +86,6 @@ MemoryAgent 本身**不做 LLM 调用**，所有生成逻辑委托给 `AgentCore
 |------|------|
 | `chat_completion()` | 普通流式/非流式文本生成（不带工具） |
 | `stream_with_tools()` | 返回原始 `ChatCompletionChunk`，支持 text/tool_call delta 混合解析 |
-| `vision_completion_once()` | 单次 vision 调用（图片摘要） |
 
 ## 数据流
 
@@ -99,9 +97,6 @@ MemoryAgent 本身**不做 LLM 调用**，所有生成逻辑委托给 `AgentCore
 ✉️ MessageFactory.extract_text_and_data_images()
     → user_text + user_images
     ↓ AgentCore.run_turn()
-👁️ [has_images?] VisionSummarizer
-    → vision_summaries（tool / upload 分开处理）
-    ↓
 📝 PromptBuilder.build()
     → UserPromptBlock（memory / diary / vision context 组合）
     ↓
@@ -121,7 +116,7 @@ MemoryAgent 本身**不做 LLM 调用**，所有生成逻辑委托给 `AgentCore
 ```
 
 **关键节点：**
-- 👁️ 图片摘要根据模型能力决定（`chat_supports_vision=False` 时必须生成）
+- 👁️ 支持视觉时原图直接交给聊天模型；不支持时明确提示无法分析图片
 - 🤖 工具调用与文本生成同在一个 `chat_llm` 中，无独立 tool model
 - 🔄 tool 执行期间 yield `[🔧 name]` 标签，保证用户不会看到空白等待
 - 📤 输出是流式的，逐句 yield
@@ -133,10 +128,9 @@ MemoryAgent 本身**不做 LLM 调用**，所有生成逻辑委托给 `AgentCore
 | 配置项 | 说明 |
 |--------|------|
 | `enable_tool` | 是否启用工具调用（`tools=schema` 传入 LLM） |
-| `chat_supports_vision` | chat_llm 是否支持图片输入；支持时原图直接进入 chat，否则走独立视觉摘要兼容路径 |
-| `require_detailed` | 是否为上传图片生成逐图详细摘要；视觉 chat 仍接收原图，纯文本 chat 接收摘要 |
+| `chat_supports_vision` | chat_llm 是否支持图片输入；支持时原图直接进入 chat，否则提示无法分析图片 |
 
-支持视觉的 chat 模型在 `require_detailed=false` 时不会预先调用 `vision_model`，因此用户随消息上传或捕获的图片会与文本一起进入同一次主模型请求。开启详细摘要时，原图仍直接进入 chat，并额外生成可写入结构化历史的逐图摘要。截图工具仍需先由主模型发起工具调用，但工具图片返回后会直接交给同一个视觉 chat 模型，不增加独立视觉转写步骤。
+用户上传或捕获的图片与文本一起进入主模型请求。截图工具仍需由主模型发起工具调用，工具图片返回后直接交给同一个视觉 chat 模型。后台观察达到 OCR 变化阈值后，将最新截图和累积 OCR 直接交给 mood_chat 发起的聊天回合。
 
 ## 不变量
 

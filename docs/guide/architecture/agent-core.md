@@ -3,7 +3,7 @@
 `AgentCore` 是 `MemoryAgent`（VTuber 链路）和 `/memory/chat`（HTTP 端点）的共享核心，统一管理以下逻辑：
 
 - 统一流式 Tool Calling（`chat_llm` 原生驱动，无独立 tool model）
-- Vision summary（`VisionSummarizer`，`vision_llm` 驱动）
+- 图片直接交给支持视觉的 `chat_llm`
 - Prompt 拼装（`PromptBuilder` + `UserPromptBlock`）
 - Memory / Diary context 注入
 - 流式对话生成与历史存储（`ConversationStorage`）
@@ -22,8 +22,8 @@
 ┌─────────────────────────────────────────────────────┐
 │                     AgentCore                       │
 │                                                     │
-│  vision 预处理 ──────────────────────────┐          │
-│  prompt 拼装（memory / diary / vision）  │          │
+│  图片直接附加到聊天消息                            │
+│  prompt 拼装（memory / diary）                      │
 │                                          ↓          │
 │  ┌──────────────────────────────────────────────┐  │
 │  │  chat_llm.stream_with_tools(tools=schema)    │  │
@@ -111,7 +111,6 @@ ConversationStorage (Protocol)
 | 参数 | 说明 |
 |------|------|
 | `chat_llm` | 用于对话生成和工具调用的 LLM 实例 |
-| `vision_llm` | 可选，用于图片摘要的视觉模型 |
 | `tool_manager` | 可选，工具注册表；为 None 时禁用工具调用 |
 | `agent_context` | 工具执行上下文（workspace_root 等） |
 | `context_injector` | Profile 中的 context 注入配置 |

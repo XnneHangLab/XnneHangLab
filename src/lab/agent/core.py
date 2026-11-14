@@ -8,10 +8,9 @@ from loguru import logger
 
 from lab.agent.agents.memory_agent.message_factory import MessageFactory
 from lab.agent.agents.memory_agent.prompt_builder import PromptBuilder
-from lab.agent.agents.memory_agent.types import DEFAULT_TOOL_IMAGE_LABEL, ImagePayload, VisionAnalysisOutcome
-from lab.agent.agents.memory_agent.vision_summarizer import VisionSummarizer
+from lab.agent.agents.memory_agent.types import DEFAULT_TOOL_IMAGE_LABEL, ImagePayload
 from lab.agent.output_types import ToolCallEvent
-from lab.agent.types import ConversationState, OpenAIMessage, ScreenShotResult
+from lab.agent.types import OpenAIMessage, ScreenShotResult
 from lab.tools.types import ToolResult
 
 if TYPE_CHECKING:
@@ -228,64 +227,41 @@ class AgentCore:
         self,
         *,
         chat_llm: AsyncLLM,
-        vision_llm: AsyncLLM | None,
         tool_manager: ToolManager | None,
         agent_context: AgentContext | None,
         context_injector: ContextInjector | None,
         storage: ConversationStorage,
         chat_system_prompt: str,
-        vision_system_prompt: str = "",
         enable_tool: bool = False,
-        max_vision_concurrency: int = 4,
-        require_detailed: bool = True,
         hook_manager: HookManager | None = None,
     ) -> None:
         """初始化 AgentCore。
 
         Args:
             chat_llm: 最终回复使用的聊天模型。
-            vision_llm: 图片摘要使用的视觉模型。
             tool_manager: 工具管理器。
             agent_context: 工具运行上下文。
             context_injector: 上下文注入器。
             storage: 会话存储抽象。
             chat_system_prompt: Chat 模型系统提示词。
-            vision_system_prompt: Vision 模型系统提示词。
             enable_tool: 是否启用工具调用。
-            max_vision_concurrency: Vision 摘要最大并发数。
-            require_detailed: 是否启用逐图详细摘要。
 
         Returns:
             None。
         """
         self.chat_llm = chat_llm
-        self.vision_llm = vision_llm
         self.tool_manager = tool_manager
         self.agent_context = agent_context
         self.context_injector = context_injector
         self.storage = storage
         self.chat_system_prompt = chat_system_prompt
-        self.vision_system_prompt = vision_system_prompt
         self.enable_tool = enable_tool
-        self.max_vision_concurrency = max_vision_concurrency
-        self.require_detailed = require_detailed
         self._hook_manager = hook_manager
         self.chat_supports_vision = False
         self.write_back = True  # 设为 False 时 run_turn 不写回 storage（由外层调用方负责）
 
-        self.state = ConversationState()
         self.msg = MessageFactory()
         self.prompt = PromptBuilder()
-        self.vision = (
-            VisionSummarizer(
-                vision_llm=vision_llm,
-                vision_system_prompt=vision_system_prompt,
-                state=self.state,
-                max_concurrency=max_vision_concurrency,
-            )
-            if vision_llm is not None
-            else None
-        )
 
     def _append_context_entry(self, base: ContextEntry | None, extra: ContextEntry) -> ContextEntry:
         if base is None:
@@ -350,36 +326,6 @@ class AgentCore:
             ),
         )
 
-    @staticmethod
-    def _split_vision_outcomes(
-        outcomes: dict[str, VisionAnalysisOutcome],
-    ) -> tuple[dict[str, str], dict[str, str | None], dict[str, VisionAnalysisOutcome]]:
-        successes = {label: outcome.summary for label, outcome in outcomes.items() if outcome.succeeded}
-        briefs = {label: outcome.brief for label, outcome in outcomes.items() if outcome.succeeded}
-        failures = {label: outcome for label, outcome in outcomes.items() if not outcome.succeeded}
-        return successes, briefs, failures
-
-    def _make_grouped_failure_entry(
-        self,
-        *,
-        source_kind: str,
-        outcomes: dict[str, VisionAnalysisOutcome],
-    ) -> ContextEntry | None:
-        if not outcomes:
-            return None
-
-        labels = ",".join(sorted(outcomes))
-        statuses = ",".join(sorted({outcome.status for outcome in outcomes.values()}))
-        detail = " | ".join(
-            f"{label}:{outcome.status}:{outcome.detail or 'no_detail'}" for label, outcome in sorted(outcomes.items())
-        )
-        return self._make_vision_failure_entry(
-            source_kind=source_kind,
-            source_label=labels,
-            status=statuses,
-            detail=detail,
-        )
-
     async def run_turn(
         self,
         *,
@@ -409,76 +355,23 @@ class AgentCore:
         # —— 背景上下文 ContextEntry（brief 由调用方提供；暂无则为 None）——
         mem_entry = self.prompt.make_context_entry(memory_context, brief=None) if memory_context else None
 
-        # —— Vision summary ContextEntry ——
+        # Unsupported image input is recorded explicitly in the user context.
         vision_tool_entry: ContextEntry | None = None
-        vision_upload_entry: ContextEntry | None = None
 
-        if not self.chat_supports_vision:
-            has_images = bool(user_images)
-            if has_images and self.vision is None:
-                logger.warning(
-                    "[VISION] vision analysis unavailable: chat_supports_vision=false and no vision summarizer is available for uploaded images."
-                )
-                mem_entry = self._inject_vision_failure_entry(
-                    mem_entry,
-                    source_kind="uploaded image",
-                    source_label="user_upload",
-                    status="unavailable",
-                    detail="chat_supports_vision=false and no vision summarizer is available for uploaded images.",
-                )
-            elif self.vision is not None and has_images:
-                upload_outcomes = await self.vision.summarize_upload_images_by_mode(
-                    user_input_text=user_text,
-                    upload_images=[(img.b64, img.mime) for img in user_images],
-                    require_detailed=self.require_detailed,
-                )
-                upload_summaries, upload_briefs, upload_failures = self._split_vision_outcomes(upload_outcomes)
-                if upload_summaries:
-                    vision_upload_entry = self.prompt.make_vision_upload_summary(
-                        upload_summaries,
-                        upload_briefs,
-                    )
-                grouped_failure = self._make_grouped_failure_entry(
-                    source_kind="uploaded image",
-                    outcomes=upload_failures,
-                )
-                if grouped_failure is not None:
-                    logger.warning(
-                        "[VISION] anti-hallucination fallback injected: source=uploaded image label={} status={}",
-                        ",".join(sorted(upload_failures)),
-                        ",".join(sorted({outcome.status for outcome in upload_failures.values()})),
-                    )
-                    mem_entry = self._append_context_entry(mem_entry, grouped_failure)
-        elif self.require_detailed and self.vision is not None and user_images:
-            upload_outcomes = await self.vision.summarize_upload_images_by_mode(
-                user_input_text=user_text,
-                upload_images=[(img.b64, img.mime) for img in user_images],
-                require_detailed=True,
-            )
-            upload_summaries, upload_briefs, upload_failures = self._split_vision_outcomes(upload_outcomes)
-            if upload_summaries:
-                vision_upload_entry = self.prompt.make_vision_upload_summary(
-                    upload_summaries,
-                    upload_briefs,
-                )
-            grouped_failure = self._make_grouped_failure_entry(
+        if user_images and not self.chat_supports_vision:
+            mem_entry = self._inject_vision_failure_entry(
+                mem_entry,
                 source_kind="uploaded image",
-                outcomes=upload_failures,
+                source_label="user_upload",
+                status="unavailable",
+                detail="The chat model does not support image input. Select a vision-capable chat model.",
             )
-            if grouped_failure is not None:
-                logger.warning(
-                    "[VISION] anti-hallucination fallback injected: source=uploaded image label={} status={}",
-                    ",".join(sorted(upload_failures)),
-                    ",".join(sorted({outcome.status for outcome in upload_failures.values()})),
-                )
-                mem_entry = self._append_context_entry(mem_entry, grouped_failure)
 
         # —— 组装 UserPromptBlock ——
         user_block = self.prompt.build(
             user_text=user_text,
             memory_context=mem_entry,
             vision_tool_summary=vision_tool_entry,
-            vision_upload_summary=vision_upload_entry,
         )
 
         # —— 构建发往 LLM 的消息列表 ——
@@ -644,67 +537,13 @@ class AgentCore:
                         tool_image.mime,
                         tool_image.source,
                     )
-                elif self.vision is not None:
-                    logger.info(
-                        "[TOOL_IMAGE] tool_image sent to vision summarizer: label={} mime={} source={}",
-                        tool_image.label,
-                        tool_image.mime,
-                        tool_image.source,
-                    )
-                    tool_outcome = await self.vision.summarize_tool_image(
-                        user_input_text=user_text,
-                        tool_image=tool_image,
-                    )
-                    if tool_outcome.succeeded:
-                        tool_entry = self.prompt.make_vision_tool_summary(
-                            tool_outcome.summary,
-                            brief=tool_outcome.brief,
-                        )
-                        vision_tool_entry = self._append_context_entry(vision_tool_entry, tool_entry)
-                        summary_text = tool_entry.render(condensed=False)
-                        if summary_text is not None:
-                            final_messages.append(
-                                OpenAIMessage(
-                                    role="user",
-                                    content=self.msg.tool_image_summary_handoff_text(tool_image.label, summary_text),
-                                )
-                            )
-                            last_tool_image_handoff_b64 = tool_image.b64
-                    else:
-                        failure_entry = self._make_vision_failure_entry(
-                            source_kind="screenshot",
-                            source_label=tool_image.label,
-                            status=tool_outcome.status,
-                            detail=tool_outcome.detail,
-                        )
-                        vision_tool_entry = self._append_context_entry(vision_tool_entry, failure_entry)
-                        failure_notice = failure_entry.render(condensed=False)
-                        final_messages.append(
-                            OpenAIMessage(
-                                role="user",
-                                content=self.msg.tool_image_failure_handoff_text(
-                                    tool_image.label, failure_notice or ""
-                                ),
-                            )
-                        )
-                        last_tool_image_handoff_b64 = tool_image.b64
-                        logger.warning(
-                            "[VISION] anti-hallucination fallback injected: source=screenshot label={} status={}",
-                            tool_image.label,
-                            tool_outcome.status,
-                        )
                 else:
-                    logger.warning(
-                        "[VISION] vision analysis unavailable: chat_supports_vision=false and no vision summarizer is available for tool callback images."
-                    )
-                    logger.warning(
-                        "[TOOL_IMAGE] tool image handoff blocked: chat_supports_vision=false and no vision summarizer"
-                    )
+                    logger.warning("[VISION] vision analysis unavailable: chat model does not support image input.")
                     failure_entry = self._make_vision_failure_entry(
                         source_kind="screenshot",
                         source_label=tool_image.label,
                         status="unavailable",
-                        detail="chat_supports_vision=false and no vision summarizer is available for tool callback images.",
+                        detail="The chat model does not support image input. Select a vision-capable chat model.",
                     )
                     vision_tool_entry = self._append_context_entry(vision_tool_entry, failure_entry)
                     failure_notice = failure_entry.render(condensed=False)

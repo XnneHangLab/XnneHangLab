@@ -50,17 +50,12 @@ lab.toml
 │   ├── user_lang
 │   ├── speaker_lang
 │   ├── faster_first_response
-│   ├── max_vision_concurrency
-│   ├── require_detailed
 │   ├── structured_history_full_turns
 │   ├── segment_method
 │   ├── interrupt_method
 │   ├── memory_agent_profile
 │   ├── memory_chat_profile
 │   ├── [agent.chat_model]
-│   ├── [agent.vision_model]
-│   ├── [agent.prompts]
-│   │   └── vision_prompt
 │   ├── [agent.llm]
 │   │   └── [[agent.llm.providers]]
 │   ├── [agent.translate.*]
@@ -133,7 +128,7 @@ root_dir = "D:\\tmp\\XnneHangLab"
 
 ## 🤖 [agent] LLM Agent
 
-`[agent]` 负责模型选择、工具调用开关、视觉并发、结构化历史策略，以及不同运行场景使用哪个 profile。
+`[agent]` 负责模型选择、工具调用开关、结构化历史策略，以及不同运行场景使用哪个 profile。
 
 ### 核心字段
 
@@ -144,8 +139,6 @@ root_dir = "D:\\tmp\\XnneHangLab"
 | user_lang | 用户输入语言 |
 | speaker_lang | 语音输出语言 |
 | faster_first_response | 是否偏向更快首响 |
-| max_vision_concurrency | 最大视觉请求并发数 |
-| require_detailed | 是否为上传图片生成逐图详细摘要；`false` 时视觉对话模型直接接收原图，纯文本对话模型使用一次多图摘要 |
 | structured_history_full_turns | 最近保留完整结构化历史的轮数 |
 | segment_method | 分句方式：`regex` / `pysbd` |
 | interrupt_method | 中断信号写入方式：`system` / `user` |
@@ -159,8 +152,6 @@ translate_provider = "llm"
 user_lang = "ZH"
 speaker_lang = "ZH"
 faster_first_response = false
-max_vision_concurrency = 4
-require_detailed = false
 structured_history_full_turns = 5
 segment_method = "pysbd"
 interrupt_method = "user"
@@ -258,7 +249,7 @@ warmup_cuda_graphs = true
 
 ### 💬 [agent.chat_model]
 
-`llm_provider` 不是固定枚举，而是**引用 `[[agent.llm.providers]]` 中某个 `name`**。聊天模型和视觉模型可以共用同一个 provider，也可以分开配置。
+`llm_provider` 不是固定枚举，而是**引用 `[[agent.llm.providers]]` 中某个 `name`**。需要看图或游戏陪伴时，请选择支持视觉的聊天模型并开启 `support_vision`。
 
 ```toml
 [agent.chat_model]
@@ -270,20 +261,12 @@ thinking_mode = "disabled"
 
 | 字段 | 说明 |
 |---|---|
-| support_vision | 开启时，文本与图片直接进入同一次主模型请求；关闭时，图片先由 `[agent.vision_model]` 摘要，以兼容纯文本模型 |
+| support_vision | 开启时，文本与原图直接进入主模型请求；关闭时明确提示无法分析图片，后台游戏观察不启动 |
 | thinking_mode | `default` 不发送提供商扩展参数；`enabled` / `disabled` 显式开关支持 thinking 参数的模型。DeepSeek 实时视觉交互建议使用 `disabled` |
-
-### 👁️ [agent.vision_model]
-
-```toml
-[agent.vision_model]
-llm_provider = "google"
-llm_model_name = "gemini-2.0-flash"
-```
 
 ### 🔌 [agent.llm]
 
-`[agent.llm]` 现在维护的是 provider 注册表，正式结构是 `[[agent.llm.providers]]`。`[agent.chat_model]` 和 `[agent.vision_model]` 只保存“引用哪个 provider”和“使用哪个模型名”。
+`[agent.llm]` 维护 provider 注册表，正式结构是 `[[agent.llm.providers]]`。`[agent.chat_model]` 保存 provider 引用和模型名。
 
 ```toml
 [[agent.llm.providers]]
@@ -312,16 +295,9 @@ api_format = "chat_completion"
 - `llm_provider` 负责选择 provider，`llm_model_name` 负责选择模型
 - 旧版 `[agent.llm.openai]` / `[agent.llm.google]` 写法仍可被读取，但重新保存后会归一化成 `[[agent.llm.providers]]`
 
-### 🧠 [agent.prompts]
+角色 persona / format 位于 `profiles/*.toml` 的 `[prompt]`；角色相关 TTS 与显示配置位于 `[character]`。
 
-现在 `lab.toml` 里只保留 **全局视觉提示词**：
-
-```toml
-[agent.prompts]
-vision_prompt = "./prompts/vision_prompt.txt"
-```
-
-角色 persona / format 已迁移到 `profiles/*.toml` 的 `[prompt]`；角色相关 TTS 与显示配置也迁移到 `profiles/*.toml` 的 `[character]`。
+旧配置中的 `agent.vision_model`、`agent.prompts`、`max_vision_concurrency` 和 `require_detailed` 已移除。加载时会忽略这些字段，读取不会改写本地文件，显式保存后将清除这些字段。
 
 ### 🌍 [agent.translate]
 
