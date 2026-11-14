@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-
 from lab.agent.agents.memory_agent.user_prompt_block import ContextEntry, UserPromptBlock
 
 
@@ -40,48 +38,6 @@ class PromptBuilder:
         )
         block.validate()
         return block
-
-    @staticmethod
-    def make_vision_tool_summary(summary: str, *, brief: str | None) -> ContextEntry:
-        """将工具截图的视觉摘要包装为可衰减的 ContextEntry。
-
-        Args:
-            summary: 视觉模型输出的完整摘要文本。
-            brief: 一句话摘要（来自 scene 字段）；None 表示提取失败，condensed 时整条忽略。
-
-        Returns:
-            ContextEntry 实例。
-        """
-        return ContextEntry(full=summary, brief=brief)
-
-    @staticmethod
-    def make_vision_upload_summary(
-        labeled: dict[str, str], briefs: dict[str, str | None], *, prefix: str = "p"
-    ) -> ContextEntry:
-        """将用户上传图片的多图摘要包装为可衰减的 ContextEntry。
-
-        brief 取第一张有效 brief + 图片总数；单图直接用 scene；全 None 则 brief 为 None。
-
-        Args:
-            labeled: 标签到完整摘要的映射，格式为 {"p1": "...", "p2": "..."}。
-            briefs: 标签到一句话摘要的映射，None 值表示该张解析失败。
-            prefix: 标签前缀，用于排序（默认 "p"）。
-
-        Returns:
-            ContextEntry 实例。
-        """
-        if not labeled:
-            return ContextEntry(full="无上传图片。", brief=None)
-        lines = [json.dumps({"id": k, "summary": labeled[k]}, ensure_ascii=False) for k in sorted(labeled)]
-        full = "\n".join(lines)
-        brief_parts = [briefs.get(k) for k in sorted(labeled) if briefs.get(k)]
-        if len(brief_parts) > 1:
-            brief = f"{brief_parts[0]}（共{len(labeled)}张图）"
-        elif brief_parts:
-            brief = brief_parts[0]
-        else:
-            brief = None
-        return ContextEntry(full=full, brief=brief)
 
     @staticmethod
     def make_context_entry(full: str, *, brief: str | None) -> ContextEntry:

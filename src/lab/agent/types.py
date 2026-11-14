@@ -1,16 +1,12 @@
 from __future__ import annotations
 
-import asyncio
-import random
-from collections.abc import Awaitable, Callable, Mapping, Sequence
-from typing import Annotated, Any, Literal, Protocol, TypeAlias, TypeGuard, TypeVar, cast
+from collections.abc import Mapping, Sequence
+from typing import Annotated, Any, Literal, Protocol, TypeAlias, TypeGuard, cast
 
-from openai import APIError, RateLimitError
 from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator, model_validator
 
 JsonPrimitive: TypeAlias = str | int | float | bool | None
 JsonLike: TypeAlias = JsonPrimitive | dict[str, "JsonLike"] | list["JsonLike"]
-_T = TypeVar("_T")
 
 
 def _is_jsonlike(value: object) -> TypeGuard[JsonLike]:
@@ -50,29 +46,6 @@ def prompt_result_to_text(prompt_result: object) -> str:
             text = str(content)
         lines.append(f"{role}: {text}")
     return "\n".join(lines).strip()
-
-
-async def call_with_short_retry(
-    awaitable_factory: Callable[[], Awaitable[_T]],
-    *,
-    max_retries: int = 2,
-) -> _T:
-    last: Exception | None = None
-    for i in range(max_retries + 1):
-        try:
-            return await awaitable_factory()
-        except (RateLimitError, APIError) as e:
-            last = e
-            msg = str(e)
-            if "429" not in msg or "queue_exceeded" not in msg:
-                raise
-            if i == max_retries:
-                raise
-            sleep_s = (0.25 * (2**i)) + random.uniform(0.0, 0.2)
-            await asyncio.sleep(sleep_s)
-    if last is not None:
-        raise last  # pragma: no cover
-    raise RuntimeError("call_with_short_retry exited without result or captured exception")
 
 
 def normalize_jsonlike(x: object, strict: bool = False) -> JsonLike | object:
@@ -327,34 +300,9 @@ class TolerantOpenAIChatMessage(BaseModel):
     content: Any = ""
 
 
-class ConversationState(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    user_prefs: dict[str, Any] = Field(default_factory=dict)
-    active_task: str | None = None
-    refs: dict[str, Any] = Field(default_factory=dict)
-    slots: dict[str, Any] = Field(default_factory=dict)
-    summary: str = ""
-
-    @field_validator("summary")
-    @classmethod
-    def _summary_not_too_long(cls, v: str) -> str:
-        return (v or "").strip()[:4000]
-
-    def to_tool_pinned_json(self) -> dict[str, JsonLike]:
-        return {
-            "user_prefs": cast("dict[str, JsonLike]", normalize_jsonlike(self.user_prefs)),
-            "active_task": self.active_task,
-            "refs": cast("dict[str, JsonLike]", normalize_jsonlike(self.refs)),
-            "slots": cast("dict[str, JsonLike]", normalize_jsonlike(self.slots)),
-            "summary": (self.summary or "")[:1000],
-        }
-
-
 __all__ = [
     "AudioPart",
     "ContentPart",
-    "ConversationState",
     "FilePart",
     "ImagePart",
     "ImageRefResult",
@@ -365,7 +313,6 @@ __all__ = [
     "TextPart",
     "ToolCallLike",
     "ToolTraceItem",
-    "call_with_short_retry",
     "dump_openai_msg",
     "normalize_jsonlike",
     "prompt_result_to_text",
