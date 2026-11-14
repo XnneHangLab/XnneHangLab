@@ -12,6 +12,21 @@
 
 ## 当前实现与约束
 
+以下流程已实现。截图与 OCR 是独立工具调用；图中的两条分支不表示并行执行。
+
+```mermaid
+flowchart TD
+    Request["用户请求"] --> Agent["AgentCore：聊天模型选择工具"]
+    Agent -->|"看屏幕"| Capture["screen_shot：Pillow 新鲜截图"]
+    Capture --> Image["采集 ID / UTC / JPEG + base64"]
+    Image --> Handoff["AgentCore 附加图片到本轮消息"]
+    Handoff --> Reply["聊天模型回复 → TTS / Live2D"]
+    Agent -->|"准确读取文字，且 OCR 已启用"| OCR["screen_ocr：独立截图并识别"]
+    OCR --> Text["采集 ID / UTC / 不可信文字"]
+    Text --> Reply
+    Reply --> History["历史仅保存结构化文本与回复"]
+```
+
 | 能力 | 代码入口 | 当前行为 |
 |---|---|---|
 | 新鲜截图 | [ScreenShotPlugin](./__init__.py) | Pillow 采集，长边最多 1280，JPEG/base64；在线程中执行 |
@@ -46,20 +61,44 @@
 
 保持现有 `screen_shot` 为工具和配置入口；持续采集与筛帧落入本目录的少量内部模块，按实现需要拆分，不先建通用框架。
 
-```text
-用户显式开启记录
-  → Python 启动 FFmpeg，持续读取 RGB24
-  → 缩小画面、计算变化、选择关键帧
-  → 当前会话的有界内存缓存
+下图为待实现流程：记录只更新本地缓存，只有用户请求回顾才会把拼图交给聊天模型。
 
-用户请求回顾
-  → 限定已有时间窗、挑选少量关键帧
-  → Pillow 拼接并标记时间
-  → ToolResult（文字清单 + 一张图片）
-  → 现有 AgentCore / 聊天模型 / TTS
+```mermaid
+flowchart TD
+    Start["用户显式开启记录"] --> Owner["绑定实际会话身份"]
+    Owner --> Capture["Python 管理 FFmpeg：读取完整 RGB24 帧"]
+    Capture --> Score["NumPy：缩略图评分与关键帧筛选"]
+    Score --> Cache["会话内存缓存：限制时长 / 帧数 / 字节"]
+    Cache --> Evict["超过预算时淘汰最旧帧"]
+    Review["用户请求回顾"] --> Snapshot["读取本会话指定时间窗快照"]
+    Cache -.->|"提供已有关键帧"| Snapshot
+    Snapshot --> Available{"有可用画面？"}
+    Available -->|"否"| Empty["明确返回无可回顾画面"]
+    Available -->|"是"| Compose["Pillow：时间排序、编号、合成一张拼图"]
+    Compose --> Result["ToolResult：图片 + 时间清单"]
+    Result --> Chat["现有 AgentCore / 聊天模型 / TTS"]
 ```
 
 ### 采集与生命周期
+
+以下是待实现的单个采集实例状态机。切换来源或尺寸时先清理旧实例，再按新参数启动；切换会话时旧缓存不能转交新实例。
+
+```mermaid
+stateDiagram-v2
+    state "未记录：无进程、无帧缓存" as Idle
+    state "启动中：校验配置并打开管道" as Starting
+    state "记录中：只采集与更新有界缓存" as Recording
+    state "清理中：等待退出，超时强制回收" as Stopping
+    [*] --> Idle
+    Idle --> Starting: 用户明确开启
+    Starting --> Recording: 进程启动且可读取帧
+    Starting --> Stopping: 启动失败或取消
+    Recording --> Recording: 请求回顾，读取快照
+    Recording --> Stopping: 停止、会话切换、应用退出或采集故障
+    Recording --> Stopping: 切换来源或尺寸
+    Stopping --> Idle: 关闭管道与任务，清空帧缓存
+    Idle --> Idle: 重复停止
+```
 
 - 首版验证 Windows，显式使用 Lab 配置的 FFmpeg 路径并探测所需能力；缺失时给出错误，不影响现有 Pillow 单帧截图。其他平台未验证前不能宣称支持。
 - FFmpeg stdout 为固定尺寸 RGB24；按字节累积完整一帧，处理短读，不能将一个 pipe chunk 当一帧。stderr 单独持续读取并限制错误尾部大小，避免阻塞。
@@ -117,7 +156,25 @@
 | `src/offload.js`、`src/tuning.js` | 历史图片触发线与留底策略 | 当前无需采用；评估基线默认 300 张触发、保留 100 张 |
 | `src/index.js`、`src/loop.js`、`src/timer.js` | DSH 注册、附件、省略事件、主动唤醒 | 当前范围不移植 |
 
-上游更新采用按需审查，不自动拉取或覆盖 Python 文件。发现采集兼容、误判、漏帧、资源泄漏或新能力的实际需求时：
+上游更新采用按需审查，不自动拉取或覆盖 Python 文件。流程中的文档与同步记录更新是同一个 PR 的组成部分：
+
+```mermaid
+flowchart TD
+    Need["实际需求或上游修复"] --> Pin["固定上游 commit，比较相关代码与测试"]
+    Pin --> Decision{"是否适合 Lab？"}
+    Decision -->|"暂缓或不采用"| Record["同步记录：原因与再次评估条件"]
+    Decision -->|"采用或部分采用"| Test["明确行为差异，补充回归测试"]
+    Test --> Port["Python 实现及适用授权声明"]
+    Port --> Align["对齐设计、配置元数据及相关文档"]
+    Align --> UI{"涉及用户设置？"}
+    UI -->|"是"| Launcher["同步 Launcher 配套变更"]
+    UI -->|"否"| Verify["行为回归与必要的性能对照"]
+    Launcher --> Verify
+    Verify --> PR["PR：记录来源、采用范围、差异与验证"]
+    PR --> Baseline["合入后更新已核对模块的参考基线"]
+```
+
+发现采集兼容、误判、漏帧、资源泄漏或新能力的实际需求时：
 
 1. 固定候选 commit，比较相关文件及测试；区分算法改进、DSH 宿主变化和仅适用于某模型的优化。
 2. 在下方记录采用/部分采用/暂缓/不采用及理由；为准备采用的行为补失败回归，明确本地实现差异。
