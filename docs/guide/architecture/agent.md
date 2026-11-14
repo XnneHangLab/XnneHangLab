@@ -9,7 +9,7 @@ agent/
 ├── agent_factory.py          # AgentFactory：根据配置创建 AgentCore / Agent 实例
 ├── core.py                   # AgentCore：共享核心逻辑（tool calling / vision / prompt / storage）
 ├── storage.py                # ConversationStorage Protocol + 两种实现
-├── types.py                  # 核心类型定义（OpenAIMessage / ContentPart / ConversationState 等）
+├── types.py                  # 核心类型定义（OpenAIMessage / ContentPart 等）
 ├── stateless_llm_factory.py  # LLMFactory：创建 OpenAI Compatible LLM 实例
 ├── stateless_llm/
 │   └── openai_compatible_llm.py  # AsyncLLM：异步流式 LLM 调用（含 stream_with_tools）
@@ -42,11 +42,9 @@ Agent 层的公共类型与工具函数，被整个 `agent/` 及 `tools/` 广泛
 | `OpenAIMessage` | OpenAI messages 格式（role / content / tool_call_id / name） |
 | `TextPart` / `ImagePart` / `AudioPart` / `FilePart` | 多模态 content 类型 |
 | `ContentPart` | 上述类型的 Union |
-| `ConversationState` | 对话状态容器（messages / refs / slots / active_task） |
 | `ToolCallLike` | OpenAI tool_call Protocol（id / function.name / function.arguments） |
 | `ToolTraceItem` | 工具调用 trace（server / name / args / raw_result / ok / error） |
 | `ScreenShotResult` / `ImageRefResult` | 截图工具返回类型 |
-| `call_with_short_retry` | 带短暂重试的异步调用包装（LLM API 调用） |
 | `dump_openai_msg` | 将 `OpenAIMessage` 序列化为可读 dict（调试用） |
 | `normalize_jsonlike` | 将类 JSON 对象规范化为标准 dict |
 
