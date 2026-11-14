@@ -88,7 +88,7 @@ XnneHangLab 是支撑这两个实验的引擎——提供 Agent 框架、MCP 工
 XnneHangLab/
 ├── src/lab/              # 主项目（VTuber 引擎）
 │   ├── agent/            # 🤖 Agent 引擎与 LLM 适配
-│   ├── plugins/          # 🧩 插件实现（wikimem / mood_chat / visual_observer ...)
+│   ├── plugins/          # 🧩 插件实现（wikimem / mood_chat / screen_shot ...)
 │   ├── api/              # 🌐 HTTP 路由与客户端
 │   ├── asr/              # 🎙️ 语音识别
 │   └── conversations/    # 💬 对话编排

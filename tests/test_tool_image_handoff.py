@@ -716,3 +716,39 @@ def test_invalid_json_tool_call_is_not_executed_on_stop_finish_reason(agent_ctx:
     assert output == ""
     assert len(tool_manager.calls) == 0
     assert len(chat_llm.calls) == 1
+
+
+def test_parallel_screenshot_and_ocr_batch_delivers_image_without_running_ocr(agent_ctx: AgentContext) -> None:
+    class ParallelChatLLM(FakeChatLLM):
+        async def stream_with_tools(self, messages: list[OpenAIMessage], **kwargs: object):
+            self.calls.append([message.model_copy(deep=True) for message in messages])
+            if len(self.calls) == 1:
+                chunk = cast("Any", _tool_call_chunk())
+                chunk.choices[0].delta.tool_calls.append(
+                    SimpleNamespace(index=1, id="call_ocr", function=SimpleNamespace(name="screen_ocr", arguments="{}"))
+                )
+                yield chunk
+            else:
+                yield _text_chunk("image reply")
+
+    chat_llm = ParallelChatLLM()
+    tools = FakeToolManager(ToolResult(ok=True, text="captured", data={"image_b64": "ZmFrZQ==", "mime": "image/jpeg"}))
+    core = AgentCore(
+        chat_llm=cast("Any", chat_llm),
+        tool_manager=cast("Any", tools),
+        agent_context=agent_ctx,
+        context_injector=None,
+        storage=DummyStorage(),
+        chat_system_prompt="system",
+        enable_tool=True,
+    )
+    core.chat_supports_vision = True
+    assert asyncio.run(_collect_tokens(core)) == "image reply"
+    assert [name for name, _ in tools.calls] == ["screen_shot"]
+    messages = chat_llm.calls[1]
+    assert any(
+        message.role == "tool" and message.name == "screen_ocr" and "Call screen_ocr separately" in str(message.content)
+        for message in messages
+    )
+    assert isinstance(messages[-1].content, list)
+    assert isinstance(messages[-1].content[-1], ImagePart)

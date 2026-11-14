@@ -8,8 +8,18 @@ author = "XnneHangLab"
 source = "builtin"
 
 [config]
+enable_ocr = false
+ocr_threads = 2
 
-[config_schema]
+[config_schema.enable_ocr]
+type = "bool"
+description = "注册独立的按需屏幕 OCR 工具；截图不等待 OCR"
+
+[config_schema.ocr_threads]
+type = "int"
+description = "按需 OCR 的 ONNX 线程数，避免默认占满 CPU"
+min = 1
+max = 32
 
 [type_config]
 entry = "ScreenShotPlugin"

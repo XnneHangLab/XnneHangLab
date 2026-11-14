@@ -176,25 +176,3 @@ async def get_runtime_capabilities(request: Request) -> dict[str, Any]:
     if capabilities is None:
         return {"schema_version": 1, "voice": {}}
     return capabilities.model_dump(mode="json")
-
-
-@router.get("/visual-observer")
-async def get_visual_observer_status(request: Request) -> dict[str, Any]:
-    ctx = getattr(request.app.state, "default_context_cache", None)
-    if ctx is None:
-        return {"online": False}
-
-    agent_core = getattr(ctx.agent_engine, "core", None)
-    hook_manager = getattr(agent_core, "_hook_manager", None)
-    hooks = getattr(hook_manager, "_hooks", [])
-
-    for hook in hooks:
-        status = getattr(hook, "observer_status", None)
-        if status is not None:
-            game_active = False
-            agent_ctx = getattr(hook, "_ctx", None)
-            if agent_ctx is not None:
-                game_active = agent_ctx.extra.get("game_companion_active", False)
-            return {"online": True, "loaded": True, "game_companion_active": game_active, **status}
-
-    return {"online": True, "loaded": False, "active": False}
