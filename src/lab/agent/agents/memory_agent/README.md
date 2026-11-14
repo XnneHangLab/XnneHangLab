@@ -13,3 +13,5 @@
 按需看屏幕通过 `screen_shot` 将新鲜截图直接交给聊天模型；启用 `[plugins.screen_shot].enable_ocr` 后，可另行调用 `screen_ocr` 读取台词或字幕。OCR 使用独立截图，并返回采集标识和 UTC 时间。普通 `mood_chat` 按心情和时间调度，不消费视觉事件。
 
 详见 [MemoryAgent 架构](../../../../../docs/guide/architecture/memory-agent.md)。
+
+视觉采集、关键帧回顾的设计与上游同步记录见 [screen_shot/DESIGN.md](../../../plugins/screen_shot/DESIGN.md)。

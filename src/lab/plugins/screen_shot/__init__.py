@@ -1,3 +1,5 @@
+"""On-demand screen tools. Keep behavior and upstream ports aligned with DESIGN.md."""
+
 from __future__ import annotations
 
 import asyncio
