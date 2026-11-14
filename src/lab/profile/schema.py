@@ -205,9 +205,11 @@ class Profile(BaseModel):
             raw = tomllib.load(file)
 
         plugins_raw = raw.get("plugins", {})
-        enabled = plugins_raw.get("enabled", [])
+        enabled = [plugin_id for plugin_id in plugins_raw.get("enabled", []) if plugin_id != "visual_observer"]
         overrides: dict[str, dict[str, Any]] = {
-            key: value for key, value in plugins_raw.items() if key != "enabled" and isinstance(value, dict)
+            key: value
+            for key, value in plugins_raw.items()
+            if key not in {"enabled", "visual_observer"} and isinstance(value, dict)
         }
         raw["plugins"] = {"enabled": enabled, "overrides": overrides}
         return cls.model_validate(raw)

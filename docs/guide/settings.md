@@ -249,7 +249,7 @@ warmup_cuda_graphs = true
 
 ### 💬 [agent.chat_model]
 
-`llm_provider` 不是固定枚举，而是**引用 `[[agent.llm.providers]]` 中某个 `name`**。需要看图或游戏陪伴时，请选择支持视觉的聊天模型并开启 `support_vision`。
+`llm_provider` 不是固定枚举，而是**引用 `[[agent.llm.providers]]` 中某个 `name`**。需要看图时，请选择支持视觉的聊天模型并开启 `support_vision`。
 
 ```toml
 [agent.chat_model]
@@ -298,6 +298,18 @@ api_format = "chat_completion"
 角色 persona / format 位于 `profiles/*.toml` 的 `[prompt]`；角色相关 TTS 与显示配置位于 `[character]`。
 
 旧配置中的 `agent.vision_model`、`agent.prompts`、`max_vision_concurrency` 和 `require_detailed` 已移除。加载时会忽略这些字段，读取不会改写本地文件，显式保存后将清除这些字段。
+
+### 按需看屏幕与 OCR
+
+角色 profile 启用 `screen_shot` 后，用户可请求新鲜截图。需要准确读取字幕、台词时，可在该 profile 中启用独立 OCR 工具：
+
+```toml
+[plugins.screen_shot]
+enable_ocr = true
+ocr_threads = 2
+```
+
+默认关闭 OCR；截图交付始终不等待 OCR。`screen_ocr` 会单独采集一帧并返回采集标识、UTC 时间和识别文字，不能将其文字当作先前截图的内容。OCR 在本次工具请求中执行，取消后不会补发结果；原生识别可能继续计算到返回，其间同一工具拒绝重复 OCR 请求。没有后台采样、待处理帧队列或视觉主动发言。旧 profile 中的 `visual_observer` 和 mood_chat 的游戏模式字段加载时兼容忽略；普通 mood_chat 保持独立运行。
 
 ### 🌍 [agent.translate]
 

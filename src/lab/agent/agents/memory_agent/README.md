@@ -10,6 +10,6 @@
 
 图片直接交给支持视觉的聊天模型；纯文本模型收到图片时得到无法分析图片的提示。工具截图使用 `tool1` 标签，上传图片使用 `p1/p2/...` 标签。历史只保存文本，不保存图片 base64。
 
-后台游戏陪伴通过 `visual_observer` 收集截图和 OCR 变化，由 `mood_chat` 将图片和文字一起交给聊天模型。
+按需看屏幕通过 `screen_shot` 将新鲜截图直接交给聊天模型；启用 `[plugins.screen_shot].enable_ocr` 后，可另行调用 `screen_ocr` 读取台词或字幕。OCR 使用独立截图，并返回采集标识和 UTC 时间。普通 `mood_chat` 按心情和时间调度，不消费视觉事件。
 
 详见 [MemoryAgent 架构](../../../../../docs/guide/architecture/memory-agent.md)。

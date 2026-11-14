@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from time import perf_counter
 from typing import TYPE_CHECKING, Any
 
 from loguru import logger
@@ -393,12 +394,19 @@ class AgentCore:
         complete_response = ""
         max_rounds = 6
 
-        for _ in range(max_rounds):
+        for round_index in range(max_rounds):
             text_buf = ""
             reasoning_buf = ""
             tool_calls_buf: dict[int, dict[str, str]] = {}
             finish_reason: str | None = None
 
+            request_started = perf_counter()
+            first_content = True
+            logger.info(
+                "[CHAT_TIMING] request_start round={} images_attached={}",
+                round_index,
+                self.chat_supports_vision and bool(user_images or tool_image),
+            )
             async for chunk in self.chat_llm.stream_with_tools(
                 final_messages,
                 system=self.chat_system_prompt,
@@ -415,6 +423,13 @@ class AgentCore:
                     reasoning_buf += reasoning_content
 
                 if delta.content:
+                    if first_content:
+                        logger.info(
+                            "[CHAT_TIMING] first_text round={} elapsed_ms={:.1f}",
+                            round_index,
+                            (perf_counter() - request_started) * 1000,
+                        )
+                        first_content = False
                     text_buf += delta.content
                     complete_response += delta.content
                     yield delta.content
@@ -485,16 +500,27 @@ class AgentCore:
                 tc_info: dict[str, str],
                 bound_tool_manager: ToolManager,
                 bound_agent_context: AgentContext,
+                defer_ocr: bool,
             ) -> ToolResult:
                 name = tc_info["name"]
                 args_json = tc_info["arguments"]
+                if name == "screen_ocr" and defer_ocr:
+                    return ToolResult(
+                        ok=False,
+                        text="",
+                        error="Call screen_ocr separately after the screenshot is delivered; OCR must not delay image input.",
+                    )
                 try:
                     return await bound_tool_manager.call_tool(name, args_json, bound_agent_context)
                 except Exception as exc:  # pragma: no cover - defensive path
                     return ToolResult(ok=False, text="", error=f"tool_error: {type(exc).__name__}: {exc}")
 
+            screenshot_requested = any(tc["name"] == "screen_shot" for tc in ordered_tool_calls)
             results = await asyncio.gather(
-                *(_exec_tool(tc, active_tool_manager, active_agent_context) for tc in ordered_tool_calls)
+                *(
+                    _exec_tool(tc, active_tool_manager, active_agent_context, screenshot_requested)
+                    for tc in ordered_tool_calls
+                )
             )
 
             for tc_info, result in zip(ordered_tool_calls, results, strict=False):
