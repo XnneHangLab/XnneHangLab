@@ -58,7 +58,7 @@ flowchart TD
 
 ## 工具交互契约
 
-`screen_shot` 和 `screen_ocr` 沿用原有接口，`screen_record` 提供 `start/stop/status/review` 四个动作。前端屏幕面板提供开始/停止按钮和状态倒计时，通过 `screen-record-control` WebSocket 消息直接控制工具，不发起 LLM 请求；上方浏览器屏幕共享与后端记录是独立状态。记录只有在实际 WebSocket 会话中才可开启；HTTP 共享聊天上下文不能开启记录，避免跨请求共用屏幕缓存。
+`screen_shot` 和 `screen_ocr` 沿用原有接口，`screen_record` 提供 `start/stop/status/review` 四个动作。前端普通窗口屏幕面板、pet_mode 输入条的屏幕图标均提供开始/停止按钮和状态倒计时；pet_mode 右键菜单及托盘菜单也提供记录状态和开始/停止入口，隐藏输入条或鼠标穿透时仍可通过托盘操作。全局 `ScreenRecordProvider` 只建立一份 WebSocket 订阅和轮询，跨模式共享状态。通过 `screen-record-control` WebSocket 消息直接控制工具，不发起 LLM 请求；浏览器屏幕共享与后端记录是独立状态。记录只有在实际 WebSocket 会话中才可开启；HTTP 共享聊天上下文不能开启记录，避免跨请求共用屏幕缓存。
 
 | 用户意图 | 行为与结果 |
 |---|---|
