@@ -42,6 +42,8 @@ class RecordArgs(BaseModel):
     min_gap: float = Field(0.5, ge=0, le=10)
     max_gap: float = Field(5, ge=0.5, le=30)
     review_frames: int = Field(4, ge=1, le=8)
+    max_duration_seconds: float = Field(600, ge=1, le=1800)
+    idle_stop_seconds: float = Field(120, ge=1, le=600)
 
     @model_validator(mode="after")
     def validate_budget(self) -> RecordArgs:
@@ -167,6 +169,7 @@ class ScreenRecordTool(BuiltinTool):
     description = (
         "Explicitly start/stop bounded local screen recording, inspect status, or review recent key frames. "
         "Only start when the user asks to record/watch recent activity. Recording never starts chat. "
+        "Automatically stops after 10 minutes or 2 minutes without a review by default; status polling does not extend it. "
         "Review needs earlier recording; screen_shot is for a fresh current image. Windows only. "
         "Start options: seconds retention, fps, dimensions, max_frames/max_bytes, threshold, min_gap/max_gap. "
         "Review options: seconds lookback and review_frames (1–8)."
@@ -185,6 +188,34 @@ class ScreenRecordTool(BuiltinTool):
         self._review_task: asyncio.Task[ToolResult] | None = None
         self._error: str | None = None
         self._stderr = ""
+        self._started_at = 0.0
+        self._last_review_at = 0.0
+        self._stop_reason: str | None = None
+
+    def status(self) -> dict[str, Any]:
+        now = time.monotonic()
+        running = self._task is not None and not self._task.done()
+        options = self._buffer.options if self._buffer is not None else None
+        return {
+            "recording": running,
+            "frames": len(self._buffer.snapshot()) if self._buffer else 0,
+            "bytes": self._buffer.bytes_used if self._buffer else 0,
+            "remaining_seconds": max(0, math.ceil(self._started_at + options.max_duration_seconds - now))
+            if running and options
+            else 0,
+            "idle_remaining_seconds": max(0, math.ceil(self._last_review_at + options.idle_stop_seconds - now))
+            if running and options
+            else 0,
+            "stop_reason": self._stop_reason,
+            "error": self._error,
+        }
+
+    def _deadline_reason(self, options: RecordArgs, now: float) -> str | None:
+        if now - self._started_at >= options.max_duration_seconds:
+            return "duration-limit"
+        if now - self._last_review_at >= options.idle_stop_seconds:
+            return "idle-timeout"
+        return None
 
     def get_schema(self) -> dict[str, Any]:
         return {
@@ -224,17 +255,8 @@ class ScreenRecordTool(BuiltinTool):
             if self._buffer is not None:
                 self._buffer.prune(time.monotonic())
             if options.action == "status":
-                return ToolResult(
-                    ok=True,
-                    text=str(
-                        {
-                            "recording": self._task is not None and not self._task.done(),
-                            "frames": len(self._buffer.snapshot()) if self._buffer else 0,
-                            "bytes": self._buffer.bytes_used if self._buffer else 0,
-                            "error": self._error,
-                        }
-                    ),
-                )
+                status = self.status()
+                return ToolResult(ok=True, text=str(status), data=status)
             frames = (
                 self._buffer.review(options.seconds, options.review_frames, time.monotonic()) if self._buffer else []
             )
@@ -249,6 +271,7 @@ class ScreenRecordTool(BuiltinTool):
                 return ToolResult(
                     ok=False, text="", error="A screen review is still being composed; try again shortly."
                 )
+            self._last_review_at = time.monotonic()
             width, height = self._buffer.options.width, self._buffer.options.height
             generation = self._generation
             started = time.perf_counter()
@@ -287,6 +310,8 @@ class ScreenRecordTool(BuiltinTool):
         self._owner = owner_of(ctx)
         self._owner_current = lambda: owner_of(ctx)
         self._buffer = FrameBuffer(options)
+        self._started_at = self._last_review_at = time.monotonic()
+        self._stop_reason = None
         self._process = await asyncio.create_subprocess_exec(
             ffmpeg,
             "-hide_banner",
@@ -327,6 +352,12 @@ class ScreenRecordTool(BuiltinTool):
         started = time.monotonic()
         try:
             while True:
+                reason = self._deadline_reason(buffer.options, time.monotonic())
+                if reason is not None:
+                    self._stop_reason = reason
+                    self._buffer = None
+                    self._generation += 1
+                    break
                 rgb = await asyncio.wait_for(
                     process.stdout.readexactly(buffer.options.width * buffer.options.height * 3), timeout=5
                 )
@@ -398,6 +429,7 @@ class ScreenRecordTool(BuiltinTool):
 
     async def _stop(self) -> None:
         self._generation += 1
+        self._stop_reason = "stopped"
         task, stderr_task, process = self._task, self._stderr_task, self._process
         self._buffer = None
         self._owner = None

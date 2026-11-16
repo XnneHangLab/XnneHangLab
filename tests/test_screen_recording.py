@@ -401,3 +401,94 @@ def test_closed_manager_cannot_restart_recording() -> None:
         await manager.close()
 
     asyncio.run(run())
+
+
+@pytest.mark.parametrize("reason", ["duration-limit", "idle-timeout"])
+def test_recording_automatically_stops_without_model_or_status_keepalive(
+    monkeypatch: pytest.MonkeyPatch, reason: str
+) -> None:
+    async def run() -> None:
+        process = FakeProcess()
+        process.stdout.feed_data(rgb(0))
+
+        async def spawn(*args: Any, **kwargs: Any) -> FakeProcess:
+            return process
+
+        monkeypatch.setattr(recording.sys, "platform", "win32")
+        monkeypatch.setattr(recording.asyncio, "create_subprocess_exec", spawn)
+        tool = ScreenRecordTool()
+        ctx = AgentContext(
+            workspace_root=Path.cwd(),
+            extra={"client_uid": "client", "service_context": SimpleNamespace(history_uid="history")},
+        )
+        try:
+            await tool.execute({"action": "start", "width": 160, "height": 90}, ctx)
+            last_review = tool._last_review_at
+            status = await tool.execute({"action": "status"}, ctx)
+            assert status.data and status.data["recording"]
+            assert tool._last_review_at == last_review
+            if reason == "duration-limit":
+                tool._started_at = time.monotonic() - 601
+            else:
+                tool._last_review_at = time.monotonic() - 121
+            process.stdout.feed_data(rgb(20))
+            assert tool._task is not None
+            await asyncio.wait_for(asyncio.shield(tool._task), 1)
+            assert process.terminated == 1 and tool._buffer is None
+            status = await tool.execute({"action": "status"}, ctx)
+            assert status.data and not status.data["recording"] and status.data["stop_reason"] == reason
+        finally:
+            await tool.stop()
+
+    asyncio.run(run())
+
+
+def test_websocket_controls_call_tools_without_a_chat_turn() -> None:
+    import json
+
+    from lab.websocket_handler import WebSocketHandler
+
+    async def run() -> None:
+        calls = []
+        messages = []
+        agent_ctx = AgentContext(workspace_root=Path.cwd())
+
+        async def call(name: str, args: dict[str, Any], ctx: AgentContext) -> Any:
+            from lab.tools.types import ToolResult
+
+            calls.append((name, args["action"]))
+            return ToolResult(
+                ok=True, text="state", data={"recording": args["action"] != "stop", "remaining_seconds": 600}
+            )
+
+        core = SimpleNamespace(
+            agent_context=agent_ctx,
+            chat_supports_vision=True,
+            tool_manager=SimpleNamespace(has_builtin=lambda name: True, call_tool=call),
+        )
+        runtime = SimpleNamespace(agent_engine=SimpleNamespace(core=core), history_uid="h")
+        handler = SimpleNamespace(client_contexts={"c": runtime})
+
+        async def send(text: str) -> None:
+            messages.append(json.loads(text))
+
+        ws = SimpleNamespace(send_text=send)
+        for action in ["start", "stop", "status", "review"]:
+            await WebSocketHandler._handle_screen_record_control(
+                cast("Any", handler), cast("Any", ws), "c", {"action": action}
+            )
+        assert calls == [
+            ("screen_record", "start"),
+            ("screen_record", "status"),
+            ("screen_record", "stop"),
+            ("screen_record", "status"),
+            ("screen_record", "status"),
+            ("screen_record", "status"),
+        ]
+        assert (
+            messages[0]["type"] == "screen-record-state" and messages[0]["recording_state"]["remaining_seconds"] == 600
+        )
+        assert messages[-1]["error"]
+        assert agent_ctx.extra["client_uid"] == "c" and agent_ctx.extra["service_context"] is runtime
+
+    asyncio.run(run())

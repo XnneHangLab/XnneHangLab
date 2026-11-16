@@ -166,6 +166,7 @@ class WebSocketHandler:
             "audio-play-start": self._handle_audio_play_start,
             "audio-play-began": self._handle_audio_play_began,
             "frontend-playback-complete": self._handle_frontend_playback_complete,
+            "screen-record-control": self._handle_screen_record_control,
         }
 
     async def handle_new_connection(self, websocket: WebSocket, client_uid: str) -> None:
@@ -343,6 +344,33 @@ class WebSocketHandler:
             await handler(websocket, client_uid, data)
         else:
             logger.warning(f"Unknown message type: {msg_type}")
+
+    async def _handle_screen_record_control(self, websocket: WebSocket, client_uid: str, data: dict[str, Any]) -> None:
+        """Control local capture directly; never creates an agent/chat turn."""
+        action = data.get("action")
+        context = self.client_contexts[client_uid]
+        core = getattr(context.agent_engine, "core", None)
+        manager = getattr(core, "tool_manager", None)
+        agent_ctx = getattr(core, "agent_context", None)
+        available = manager is not None and agent_ctx is not None and manager.has_builtin("screen_record")
+        state: dict[str, Any] = {"available": available, "recording": False}
+        error: str | None = None
+        if action not in {"start", "stop", "status"}:
+            error = "不支持的记录操作。"
+        elif not available:
+            error = "当前角色未启用屏幕记录工具。"
+        elif action == "start" and not getattr(core, "chat_supports_vision", False):
+            error = "请先选择支持视觉的聊天模型。"
+        else:
+            agent_ctx.extra.update(client_uid=client_uid, service_context=context)
+            result = await manager.call_tool("screen_record", {"action": action}, agent_ctx)
+            if not result.ok:
+                error = result.error
+            status = await manager.call_tool("screen_record", {"action": "status"}, agent_ctx)
+            state.update(status.data or {})
+        await websocket.send_text(
+            json.dumps({"type": "screen-record-state", "action": action, "recording_state": state, "error": error})
+        )
 
     async def _handle_group_operation(self, websocket: WebSocket, client_uid: str, data: dict[str, Any]) -> None:
         """Handle group-related operations"""
