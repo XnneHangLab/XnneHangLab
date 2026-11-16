@@ -752,3 +752,44 @@ def test_parallel_screenshot_and_ocr_batch_delivers_image_without_running_ocr(ag
     )
     assert isinstance(messages[-1].content, list)
     assert isinstance(messages[-1].content[-1], ImagePart)
+
+
+def test_tool_screenshot_remains_visible_in_main_chat_followup(agent_ctx: AgentContext) -> None:
+    class RetainedStorage(DummyStorage):
+        def load(self) -> list[OpenAIMessage]:
+            messages = []
+            for block, reply in self.turns:
+                assert isinstance(block, UserPromptBlock)
+                messages.extend(
+                    [OpenAIMessage(role="user", content=block.render()), OpenAIMessage(role="assistant", content=reply)]
+                )
+            return messages
+
+    chat = FakeChatLLM()
+    storage = RetainedStorage()
+    agent_ctx.extra.update(client_uid="client", service_context=SimpleNamespace(history_uid="history"))
+    core = AgentCore(
+        chat_llm=cast("Any", chat),
+        tool_manager=cast(
+            "Any",
+            FakeToolManager(ToolResult(ok=True, text="captured", data={"image_b64": "ZmFrZQ==", "mime": "image/png"})),
+        ),
+        agent_context=agent_ctx,
+        context_injector=None,
+        storage=storage,
+        chat_system_prompt="system",
+        enable_tool=True,
+    )
+    core.chat_supports_vision = True
+
+    async def run() -> None:
+        await _collect_tokens(core)
+        async for _ in core.run_turn(user_text="What was on the left of that screenshot?"):
+            pass
+
+    asyncio.run(run())
+    assert len(chat.calls) == 3
+    content = chat.calls[-1][0].content
+    assert isinstance(content, list) and any(isinstance(part, ImagePart) for part in content)
+    assert "historical image" in str(content)
+    assert all(isinstance(message.content, str) for message in storage.load())

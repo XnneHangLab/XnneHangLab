@@ -12,6 +12,7 @@ from lab.agent.agents.memory_agent.prompt_builder import PromptBuilder
 from lab.agent.agents.memory_agent.types import DEFAULT_TOOL_IMAGE_LABEL, ImagePayload
 from lab.agent.output_types import ToolCallEvent
 from lab.agent.types import OpenAIMessage, ScreenShotResult
+from lab.agent.visual_history import VisualHistory
 from lab.tools.types import ToolResult
 
 if TYPE_CHECKING:
@@ -263,6 +264,8 @@ class AgentCore:
 
         self.msg = MessageFactory()
         self.prompt = PromptBuilder()
+        self.visual_history = VisualHistory()
+        self._visual_owner: tuple[str, str] | None = None
 
     def _append_context_entry(self, base: ContextEntry | None, extra: ContextEntry) -> ContextEntry:
         if base is None:
@@ -345,7 +348,23 @@ class AgentCore:
             流式输出的回复 token 和 tool call 事件（ToolCallEvent）。
         """
         history = self.storage.load()
+        extra = self.agent_context.extra if self.agent_context is not None else {}
+        runtime = extra.get("service_context")
+        visual_owner = (
+            (str(extra["client_uid"]), str(getattr(runtime, "history_uid", "")))
+            if extra.get("client_uid") and runtime is not None
+            else None
+        )
+        if visual_owner != self._visual_owner:
+            self.visual_history.clear()
+            self._visual_owner = visual_owner
+        retain_images = self.chat_supports_vision and visual_owner is not None
+        if retain_images:
+            history = self.visual_history.attach(history)
+        else:
+            self.visual_history.clear()
         user_images = user_images or []
+        turn_images = list(user_images) if retain_images else []
         tool_image = None
 
         if self._hook_manager is not None and self.agent_context is not None:
@@ -561,6 +580,8 @@ class AgentCore:
                         )
                     )
                     last_tool_image_handoff_b64 = tool_image.b64
+                    if retain_images:
+                        turn_images.append(tool_image)
                     logger.info(
                         "[TOOL_IMAGE] tool_image attached to chat model: label={} mime={} source={}",
                         tool_image.label,
@@ -597,5 +618,7 @@ class AgentCore:
             user_block.vision_tool_summary = vision_tool_entry
             user_block.validate()
             self.storage.append_turn(user_block, complete_response)
+            if turn_images:
+                self.visual_history.remember(self.storage.load(), turn_images)
         if self._hook_manager is not None and self.agent_context is not None:
             await self._hook_manager.after_turn(user_text, complete_response, self.agent_context)

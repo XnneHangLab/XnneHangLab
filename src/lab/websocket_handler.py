@@ -46,6 +46,9 @@ async def _stop_session_tools(context: ServiceContext | None, task: asyncio.Task
         task.cancel()
         await asyncio.gather(task, return_exceptions=True)
     core = getattr(getattr(context, "agent_engine", None), "core", None)
+    visual_history = getattr(core, "visual_history", None)
+    if visual_history is not None:
+        visual_history.clear()
     manager = getattr(core, "tool_manager", None)
     if manager is not None:
         await manager.stop()

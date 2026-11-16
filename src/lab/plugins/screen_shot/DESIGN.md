@@ -11,6 +11,16 @@
 - **上游关系**：参考并按需移植算法，由 Lab 负责 Python 实现；不承诺与上游逐版本、逐行或逐像素一致。
 - **交互边界**：采集画面不自动发起聊天。普通 mood_chat 的心情与定时调度独立运行，不消费视觉事件。
 
+## 主聊天视觉上下文与排除项
+
+桌宠的画面由正在对话的同一个模型直接理解，角色提示、对话历史和图片进入同一请求。**排除 dsh-see-now #67 的隔离子代理/独立视觉上下文特性**：不另起无聊天历史的视觉请求，不把 `vision_summary` 转交主模型作为视觉输入替代，也不以缓存优化为理由恢复这条串行链路。#67 仅记录为上游评估结果，不移植其调用路径。
+
+[VisualHistory](../../agent/visual_history.py) 提供仅内存的近期图片窗口：最多四张、base64 ASCII 合计 8 MiB、最近四个已完成回合。仅带明确 client 与 runtime 身份的 WebSocket 会话启用；HTTP 共享聊天上下文不保留图片。用户上传图、工具截图和回顾拼图都可进入窗口，回合未完成或取消则不保存本轮图片。
+
+保留图在构造请求时挂回原用户回合，用稳定标签和 `delivered_at` 标明它是历史画面；该时间为交付记录时间，不是截图曝光时间。持久化 `ConversationStorage` 仍只存文本。窗口用回合索引及原用户/助手文本精确匹配；历史替换、缩短或压缩导致锚点变化时丢弃对应图片，宁可失去旧视觉信息也不挂错回合。会话切换、断连、Agent 关闭与重新加载历史会清空窗口；重启/重开历史不会恢复原图。
+
+淘汰最旧图片不改磁盘历史；稳定前缀之前未变的部分可被提供商缓存，但历史回合补图和图片淘汰仍会改变请求前缀，不能承诺缓存命中率不降。此窗口不等同于 See Now 默认 300→100 的持久化附件省略策略。预算只管已完成回合图片，不是当前请求总预算；同轮工具图、拼图尺寸、提供商限制和总费用仍需独立测量。当前采集缓存的时长预算与聊天图片的四回合预算也相互独立。
+
 ## 当前实现与约束
 
 以下流程已实现。截图与 OCR 是独立工具调用；图中的两条分支不表示并行执行。
@@ -25,7 +35,9 @@ flowchart TD
     Agent -->|"准确读取文字，且 OCR 已启用"| OCR["screen_ocr：独立截图并识别"]
     OCR --> Text["采集 ID / UTC / 不可信文字"]
     Text --> Reply
-    Reply --> History["历史仅保存结构化文本与回复"]
+    Reply --> History["磁盘历史仅保存结构化文本与回复"]
+    Reply --> Window["主聊天内存图片窗口：4 张 / 8 MiB / 4 回合"]
+    Window -->|"后续请求，恢复到原回合"| Agent
 ```
 
 | 能力 | 代码入口 | 当前行为 |
@@ -34,7 +46,7 @@ flowchart TD
 | 按需 OCR | [screen_ocr](./__init__.py) | 独立采集，不复用此前截图；返回采集 ID、UTC 时间及文字 |
 | 配置 | [plugin.toml](./plugin.toml) | `enable_ocr=false`；`ocr_threads=2`，范围 1–32 的整数 |
 | 工具图片交付 | [AgentCore](../../agent/core.py) | `ToolResult.data.image_b64` 或 `b64` 加 MIME，转换为带标签的用户图片消息 |
-| 聊天历史 | [storage.py](../../agent/storage.py) | 保存结构化文本和回复，不保存原图；下一轮不能重新查看上一轮原图 |
+| 聊天历史 | [storage.py](../../agent/storage.py)、[visual_history.py](../../agent/visual_history.py) | 磁盘只保存文本；WebSocket 主聊天内存保留有界近期图片供后续追问 |
 | 短时采集与回顾 | [recording.py](./recording.py) | `screen_record` 工具，Windows FFmpeg gdigrab、有界 RGB24 缓存、JPEG 回顾拼图 |
 | 资源清理 | [AgentFactory](../../agent/agent_factory.py)、[ToolManager](../../tools/manager.py) | Agent 关闭、WebSocket 断开/切换历史、应用退出时调用工具 `stop()`；记录停止会回收 FFmpeg 并清空缓存 |
 
@@ -57,7 +69,7 @@ flowchart TD
 | 停止记录 | 停止并回收采集进程，清空该会话帧缓存；重复停止安全 |
 | 读取台词、字幕 | 继续独立调用 OCR，不作为截图或回顾交付的前置步骤 |
 
-首次回顾只输出一张拼图，复用现有单图片工具结果。暂不增加多图片附件协议，也不修改跨轮历史图片策略。屏幕图片、OCR 文字及上游产生的文字均视为不可信数据，不能成为系统指令。
+首次回顾只输出一张拼图，复用现有单图片工具结果；已交付图片按上方近期窗口策略保留。屏幕图片、OCR 文字及上游产生的文字均视为不可信数据，不能成为系统指令。
 
 ### 记录参数与默认值
 
@@ -146,7 +158,7 @@ stateDiagram-v2
 | `sessionController`、`followup`、`steer` | 当前按需范围不引入后台唤醒和轮中插话接口 |
 | `runner.watch/peek` 管理窗口、声音和取图 | 只移植需要的采集/筛帧逻辑，工具语义由 Lab 定义 |
 | `peek` 取已攒好的图；`flushNow` 补最近帧并出图 | 不将它们直接等同于“请求后新鲜单帧” |
-| `image/offload` 批量省略历史图片 | 当前历史不保存原图，无需实现；以后保留跨轮图片时再设计预算、淘汰及引用方式 |
+| `image/offload` 批量省略历史图片 | 磁盘历史不保存图片，主聊天只恢复有界内存图片窗口，无需 DSH 事件投影 |
 | DeepSeek patch 网格和 token 估算 | 仅作特定模型参考，不作为通用模型成本承诺 |
 | `~/.dsh` 配置、悬浮窗、音频监听和语音总线 | 使用 Lab profile、界面与现有 OCR/TTS 管线 |
 
@@ -191,7 +203,7 @@ Windows build 26100、Intel Family 6 Model 154，本机真实桌面、FFmpeg 实
 | `src/cuts.js`、`src/pipeline.js` | 变化评分、筛帧、有界队列 | `FrameBuffer` 使用独立 RGB 平均差、最小/最大间隔与最新帧；未移植上游 HSV/完整切点算法 |
 | `src/pack.js`、`src/sheet.js`、`src/png.js` | 布局与图片输出 | `compose_review` 使用 Pillow 两列简单布局、最多八帧，不移植完整装箱 |
 | `src/runner.js` | 生命周期、新鲜帧与队列取图的区别 | 仅参考行为，重新适配 Lab 会话归属 |
-| `src/offload.js`、`src/tuning.js` | 历史图片触发线与留底策略 | 当前无需采用；评估基线默认 300 张触发、保留 100 张 |
+| `src/offload.js`、`src/tuning.js` | 历史图片触发线与留底策略 | 不采用 DSH 持久化事件；Lab 主聊天近期窗口为 4 张 / 8 MiB / 4 回合 |
 | `src/index.js`、`src/loop.js`、`src/timer.js` | DSH 注册、附件、省略事件、主动唤醒 | 当前范围不移植 |
 
 上游更新采用按需审查，不自动拉取或覆盖 Python 文件。流程中的文档与同步记录更新是同一个 PR 的组成部分：
@@ -228,5 +240,6 @@ flowchart TD
 |---|---|---|---|
 | 2026-11-14 | `1d98dd5`，上述模块 | 仅源码评估；确定 Python 本地实现路线，尚未移植采集/筛帧 | 设计文档初稿；不是完整 See Now 接入 |
 | 2026-11-14 | 同一评估基线的 `capture.js` / `pipeline.js` 思路 | #514 部分采用设计思想；`recording.py` 为独立 Python 实现，未复制或翻译上游代码 | 新增 `test_screen_recording.py`；gdigrab + RGB 平均差，与上游引擎探测、HSV 判据和装箱保持显式差异。无 Launcher 变更 |
+| 2026-11-16 | [上游 #67](https://github.com/SAOS-3624/dsh-see-now/pull/67)，文档合入 `49c7525` / 维护者说明 `0b4bd11` | 不采用隔离视觉上下文；保留同一聊天模型直接看图的契约 | 新增 `visual_history.py` 与 `test_visual_history.py`，实现主聊天有界近期图片；不增加模型请求 |
 
 后续记录应填写完整 commit 链接、上游特性或修复、本地文件及对应测试、采用范围、未采用部分和原因、性能结果（若适用）、Lab PR 与配套 Launcher PR。迁移完成后，把本文相应能力从“待实现”改为“已实现”，并记录实际配置和生命周期入口。

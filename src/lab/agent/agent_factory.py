@@ -281,6 +281,7 @@ class AgentFactory:
         original_close = agent.close
 
         async def _close_with_hooks() -> None:
+            core.visual_history.clear()
             if core.tool_manager is not None:
                 await core.tool_manager.close()
             hook_manager = getattr(core, "_hook_manager", None)

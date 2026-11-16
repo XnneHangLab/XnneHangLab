@@ -88,7 +88,7 @@ MemoryAgent (agent.py)                ← 编排器
 
 ### History 不存 base64
 
-`MemoryStore` 写回时只存文本内容，不保留图片 base64，避免 memory 文件膨胀。
+`MemoryStore` 写回时只存文本内容，不保留图片 base64，避免 memory 文件膨胀。`AgentCore.visual_history` 在 WebSocket 会话内另行保留最近四回合内最多四张、合计 8 MiB base64 的图片；后续请求将其恢复到原用户回合，使同一个聊天模型能继续查看近期画面。会话切换、关闭和历史重载清空此窗口；压缩后锚点不匹配也丢弃，重启后不恢复原图。
 
 ### Tool 图与用户图隔离
 
