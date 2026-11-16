@@ -84,7 +84,7 @@ MemoryAgent (agent.py)                ← 编排器
 | True | 原图与文本直接交给 chat；工具截图在工具返回后附加到下一次 chat 请求 |
 | False | 不发送图片，注入无法分析图片的明确提示 |
 
-用户要求看屏幕时，`screen_shot` 获取新鲜截图并直接交给聊天模型。`screen_ocr` 可选启用，用独立截图补充台词、字幕，返回采集标识和 UTC 时间；图片交付不等待 OCR。屏幕图片及文字均作为不可信输入处理，普通 mood_chat 不消费视觉事件。
+用户先开启本地记录，再由 `screen_record review` 将近期关键帧拼图交给同一个聊天模型。`screen_shot` 插件不再暴露同名单帧工具。`screen_ocr` 可选启用，用独立截图补充台词、字幕，返回采集标识和 UTC 时间；图片交付不等待 OCR。屏幕图片及文字均作为不可信输入处理，普通 mood_chat 不消费视觉事件。
 
 ### History 不存 base64
 

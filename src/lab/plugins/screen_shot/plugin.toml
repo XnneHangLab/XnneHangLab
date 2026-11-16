@@ -3,7 +3,7 @@ id = "screen_shot"
 name = "Screen Shot"
 version = "0.1.0"
 type = "tool"
-description = "捕获当前桌面截图并返回 base64 编码 JPEG，无显示器环境自动跳过注册"
+description = "读取已记录的屏幕关键帧，并提供可选的独立 OCR"
 author = "XnneHangLab"
 source = "builtin"
 

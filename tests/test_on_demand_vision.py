@@ -10,7 +10,7 @@ from PIL import Image
 
 from lab.plugin.loader import PluginLoader
 from lab.plugins.mood_chat import MoodChatPlugin, MoodChatPluginConfig
-from lab.plugins.screen_shot import ScreenShotPlugin, ScreenShotResult
+from lab.plugins.screen_shot import ScreenShotPlugin
 from lab.profile.schema import Profile
 from lab.tools.types import AgentContext
 
@@ -71,40 +71,26 @@ def test_mood_turn_ignores_visual_changes_and_keeps_ordinary_prompt() -> None:
 
 
 @pytest.mark.parametrize("enable_ocr", [False, True])
-def test_screenshot_is_fresh_and_never_calls_ocr(monkeypatch: pytest.MonkeyPatch, enable_ocr: bool) -> None:
+def test_plugin_exposes_recording_and_optional_ocr_but_no_screenshot(enable_ocr: bool) -> None:
+    from lab.tools.manager import ToolManager
+
     plugin = ScreenShotPlugin(enable_ocr=enable_ocr)
-    frames = iter(["first", "second"])
-    monkeypatch.setattr(ScreenShotPlugin, "capture", lambda: ScreenShotResult(image_b64=next(frames)))
-    if plugin._ocr_tool is not None:
-
-        def fail_if_called() -> None:
-            raise AssertionError("screenshot must never wait for OCR")
-
-        monkeypatch.setattr(plugin._ocr_tool, "_read_screen", fail_if_called)
-    assert [tool.name for tool in plugin.get_tools()] == (
-        ["screen_shot", "screen_record", "screen_ocr"] if enable_ocr else ["screen_shot", "screen_record"]
-    )
-    ctx = AgentContext(workspace_root=Path.cwd())
-
-    async def run() -> None:
-        first = await plugin.get_tools()[0].execute({}, ctx)
-        second = await plugin.get_tools()[0].execute({}, ctx)
-        assert first.ok and second.ok
-        assert first.data is not None and second.data is not None
-        assert first.data["image_b64"] == "first" and second.data["image_b64"] == "second"
-        assert first.data["capture_id"] != second.data["capture_id"]
-        assert first.data["captured_at"]
-        assert not ctx.extra
-
-    asyncio.run(run())
+    tools = plugin.get_tools()
+    assert [tool.name for tool in tools] == (["screen_record", "screen_ocr"] if enable_ocr else ["screen_record"])
+    manager = ToolManager()
+    for tool in tools:
+        manager.register_builtin(tool)
+    result = asyncio.run(manager.call_tool("screen_shot", {}, AgentContext(workspace_root=Path.cwd())))
+    assert not result.ok and "unknown tool" in (result.error or "")
 
 
-def test_ocr_returns_capture_identity_and_failure_does_not_affect_screenshot(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ocr_returns_capture_identity_and_failure_does_not_affect_record_status(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     plugin = ScreenShotPlugin(enable_ocr=True)
     ocr = plugin._ocr_tool
     assert ocr is not None
     monkeypatch.setattr(ScreenShotPlugin, "capture_image", lambda: Image.new("RGB", (20, 20)))
-    monkeypatch.setattr(ScreenShotPlugin, "capture", lambda: ScreenShotResult(image_b64="fresh"))
     ocr._engine = lambda _: ([([], "subtitle", 0.9)], None)
     ctx = AgentContext(workspace_root=Path.cwd())
 
@@ -120,7 +106,7 @@ def test_ocr_returns_capture_identity_and_failure_does_not_affect_screenshot(mon
 
         ocr._engine = fail
         assert not (await ocr.execute({}, ctx)).ok
-        assert (await plugin.get_tools()[0].execute({}, ctx)).ok
+        assert (await plugin.get_tools()[0].execute({"action": "status"}, ctx)).ok
         assert not ctx.extra
 
     asyncio.run(run())
@@ -132,7 +118,6 @@ def test_cancelled_slow_ocr_has_no_late_delivery_or_queue(monkeypatch: pytest.Mo
     assert ocr is not None
     started, release = threading.Event(), threading.Event()
     monkeypatch.setattr(ScreenShotPlugin, "capture_image", lambda: Image.new("RGB", (20, 20)))
-    monkeypatch.setattr(ScreenShotPlugin, "capture", lambda: ScreenShotResult(image_b64="fresh"))
 
     def slow(_: object):
         started.set()
@@ -147,7 +132,7 @@ def test_cancelled_slow_ocr_has_no_late_delivery_or_queue(monkeypatch: pytest.Mo
         task = asyncio.create_task(ocr.execute({}, old_ctx))
         try:
             assert await asyncio.to_thread(started.wait, 2)
-            image = await asyncio.wait_for(plugin.get_tools()[0].execute({}, new_ctx), timeout=1)
+            image = await asyncio.wait_for(plugin.get_tools()[0].execute({"action": "status"}, new_ctx), timeout=1)
             assert image.ok
             task.cancel()
             with pytest.raises(asyncio.CancelledError):

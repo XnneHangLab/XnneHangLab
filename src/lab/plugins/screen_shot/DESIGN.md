@@ -4,8 +4,8 @@
 
 ## 状态与决策
 
-- **已实现**：用户按需截图、独立可选 OCR、图片直送视觉聊天模型、旧视觉观察配置兼容，以及用户显式开启的 Windows 短时采集、关键帧筛选和按需回顾拼图。
-- **首版范围**：仅 WebSocket 会话可开启记录；Windows 使用 FFmpeg gdigrab。其他平台仍可使用原有 `screen_shot`，持续采集尚未验证。
+- **已实现**：用户读取关键帧拼图、独立可选 OCR、图片直送视觉聊天模型、旧视觉观察配置兼容，以及用户显式开启的 Windows 短时采集、关键帧筛选和按需回顾拼图。
+- **首版范围**：仅 WebSocket 会话可开启记录；Windows 使用 FFmpeg gdigrab。单帧 `screen_shot` 工具已移除；其他平台的持续采集尚未支持。
 - **后续方向**：按真实样本评估更精细的评分与采集引擎，不承诺上游全部能力。
 - **技术路线**：使用 Lab 现有 Python、NumPy、Pillow；短时采集由 Python 管理 FFmpeg。不新增 Node 运行时，不新增 dsh-see-now submodule，不整份复制其源码。
 - **上游关系**：参考并按需移植算法，由 Lab 负责 Python 实现；不承诺与上游逐版本、逐行或逐像素一致。
@@ -23,13 +23,13 @@
 
 ## 当前实现与约束
 
-以下流程已实现。截图与 OCR 是独立工具调用；图中的两条分支不表示并行执行。
+以下流程已实现。记录回顾与 OCR 是独立工具调用；图中的两条分支不表示并行执行。
 
 ```mermaid
 flowchart TD
     Request["用户请求"] --> Agent["AgentCore：聊天模型选择工具"]
-    Agent -->|"看屏幕"| Capture["screen_shot：Pillow 新鲜截图"]
-    Capture --> Image["采集 ID / UTC / JPEG + base64"]
+    Agent -->|"读取已记录画面"| Capture["screen_record review：关键帧拼图"]
+    Capture --> Image["帧编号 / 时间清单 / JPEG + base64"]
     Image --> Handoff["AgentCore 附加图片到本轮消息"]
     Handoff --> Reply["聊天模型回复 → TTS / Live2D"]
     Agent -->|"准确读取文字，且 OCR 已启用"| OCR["screen_ocr：独立截图并识别"]
@@ -42,7 +42,7 @@ flowchart TD
 
 | 能力 | 代码入口 | 当前行为 |
 |---|---|---|
-| 新鲜截图 | [ScreenShotPlugin](./__init__.py) | Pillow 采集，长边最多 1280，JPEG/base64；在线程中执行 |
+| 模型工具入口 | [ScreenShotPlugin](./__init__.py) | 插件名保留 `screen_shot`，仅注册 `screen_record` 和可选 OCR，不注册同名单帧工具 |
 | 按需 OCR | [screen_ocr](./__init__.py) | 独立采集，不复用此前截图；返回采集 ID、UTC 时间及文字 |
 | 配置 | [plugin.toml](./plugin.toml) | `enable_ocr=false`；`ocr_threads=2`，范围 1–32 的整数 |
 | 工具图片交付 | [AgentCore](../../agent/core.py) | `ToolResult.data.image_b64` 或 `b64` 加 MIME，转换为带标签的用户图片消息 |
@@ -50,19 +50,17 @@ flowchart TD
 | 短时采集与回顾 | [recording.py](./recording.py) | `screen_record` 工具，Windows FFmpeg gdigrab、有界 RGB24 缓存、JPEG 回顾拼图 |
 | 资源清理 | [AgentFactory](../../agent/agent_factory.py)、[ToolManager](../../tools/manager.py) | Agent 关闭、WebSocket 断开/切换历史、应用退出时调用工具 `stop()`；记录停止会回收 FFmpeg 并清空缓存 |
 
-截图与 OCR 同批调用时，AgentCore 拒绝该批 OCR 并提示另行调用，避免工具循环等待 OCR 后才交付图片。原生 OCR 无法随 Python 请求取消立即终止，但结果只返回原请求，没有跨请求补发；同一 OCR 工具实例在识别未结束前拒绝并发请求。
+记录回顾与 OCR 同批调用时，AgentCore 拒绝该批 OCR 并提示另行调用，避免工具循环等待 OCR 后才交付图片。原生 OCR 无法随 Python 请求取消立即终止，但结果只返回原请求，没有跨请求补发；同一 OCR 工具实例在识别未结束前拒绝并发请求。
 
-截图 ID 与 UTC 时间目前在采集开始前生成，用于标识本次采集，不代表曝光完成时间。现有 `[VISION_TIMING]` 的 capture 包含采集和缩放；image_delivery 记录工具准备返回的时间，不代表提供商已收到图片。`[CHAT_TIMING]` 记录各轮请求开始和首个文本 token。
-
-截图会在 `data/screenshots/` 写调试副本，目前没有自动保留上限。短时采集不得沿用“每帧写调试图”的方式；其磁盘保留策略应与内存帧缓存分别处理。
+OCR ID 与 UTC 时间在本次独立采集开始前生成；回顾帧时间由记录循环读到完整帧时生成，均不等同于曝光时间。记录路径不逐帧写调试图片；单帧工具及其调试副本写入已移除。
 
 ## 工具交互契约
 
-`screen_shot` 和 `screen_ocr` 沿用原有接口，`screen_record` 提供 `start/stop/status/review` 四个动作。前端普通窗口屏幕面板、pet_mode 输入条的屏幕图标均提供开始/停止按钮和状态倒计时；pet_mode 右键菜单及托盘菜单也提供记录状态和开始/停止入口，隐藏输入条或鼠标穿透时仍可通过托盘操作。全局 `ScreenRecordProvider` 只建立一份 WebSocket 订阅和轮询，跨模式共享状态。通过 `screen-record-control` WebSocket 消息直接控制工具，不发起 LLM 请求；浏览器屏幕共享与后端记录是独立状态。记录只有在实际 WebSocket 会话中才可开启；HTTP 共享聊天上下文不能开启记录，避免跨请求共用屏幕缓存。
+`screen_shot` 插件不再注册同名单帧工具，`screen_ocr` 保持独立；`screen_record` 提供 `start/stop/status/review` 四个动作。前端普通窗口屏幕面板、pet_mode 输入条的屏幕图标均提供开始/停止按钮和状态倒计时；pet_mode 右键菜单及托盘菜单也提供记录状态和开始/停止入口，隐藏输入条或鼠标穿透时仍可通过托盘操作。全局 `ScreenRecordProvider` 只建立一份 WebSocket 订阅和轮询，跨模式共享状态。通过 `screen-record-control` WebSocket 消息直接控制工具，不发起 LLM 请求；浏览器屏幕共享与后端记录是独立状态。记录只有在实际 WebSocket 会话中才可开启；HTTP 共享聊天上下文不能开启记录，避免跨请求共用屏幕缓存。
 
 | 用户意图 | 行为与结果 |
 |---|---|
-| 看现在 | 沿用 `screen_shot`，获取请求之后的新鲜单帧；不返回后台旧拼图 |
+| 查看近期画面 | 先开启记录，再调用 `screen_record review`；包含最新采样帧，不保证请求后新鲜单帧 |
 | 开始记录最近画面 | 用户显式开启采集；仅缓存有限时间和数量的画面，不启动模型请求 |
 | 看最近一段 | 从当前会话已记录的时间窗挑选关键帧，返回一张按时间排序的拼图和帧时间清单 |
 | 没有提前记录 | 明确返回无可回顾画面，不能用当前截图伪装过去画面 |
@@ -139,7 +137,7 @@ stateDiagram-v2
     Idle --> Idle: 重复停止
 ```
 
-- 首版验证 Windows，显式使用 Lab 配置的 FFmpeg 路径并探测所需能力；缺失时给出错误，不影响现有 Pillow 单帧截图。其他平台未验证前不能宣称支持。
+- 首版验证 Windows，显式使用 Lab 配置的 FFmpeg 路径并探测所需能力；缺失时给出错误，其他平台未验证前不能宣称支持。
 - FFmpeg stdout 为固定尺寸 RGB24；按字节累积完整一帧，处理短读，不能将一个 pipe chunk 当一帧。stderr 单独持续读取并限制错误尾部大小，避免阻塞。
 - 采集会话绑定实际运行会话的身份，不能只按 profile 名称或“最后一次说话的会话”索引；同 profile 的不同会话不得共用画面。
 - 开启、停止、来源/尺寸切换、进程退出和应用关闭须走同一套清理路径；停止要等待进程退出并在限时后强制回收，同时关闭管道、任务和帧引用。
@@ -174,7 +172,7 @@ stateDiagram-v2
 短时采集使用确定性的合成帧和假采集进程覆盖：
 
 1. 静止去重、切换保留、持续运动有界选帧，拼图顺序与时间一致。
-2. 看现在不会返回缓存旧帧；没有记录时回顾明确为空。
+2. 没有记录时回顾明确为空；review 含最新采样帧，单帧 screen_shot 不在注册工具表中。
 3. 时长、帧数及像素/字节上限有效，慢消费者不造成无界队列。
 4. 同时会话、来源切换、取消、启动失败、进程中途退出及重复停止均不串数据、不泄漏进程。
 5. OCR 关闭、慢速和失败均不阻塞图片交付；采集变化本身不产生聊天请求，普通 mood_chat 保持有效。
@@ -206,7 +204,7 @@ Windows build 26100、Intel Family 6 Model 154，本机真实桌面、FFmpeg 实
 
 | 上游路径 | 参考内容 | Lab 当前对应情况 |
 |---|---|---|
-| `src/capture.js` | RGB 管道、引擎探测、进程失败处理 | `recording.py` 独立 Python 实现 RGB24 短读与退出处理，仅 gdigrab；单帧仍为 Pillow |
+| `src/capture.js` | RGB 管道、引擎探测、进程失败处理 | `recording.py` 独立 Python 实现 RGB24 短读与退出处理，仅 gdigrab；Pillow 采集只用于独立 OCR |
 | `src/cuts.js`、`src/pipeline.js` | 变化评分、筛帧、有界队列 | `FrameBuffer` 使用独立 RGB 平均差、最小/最大间隔与最新帧；未移植上游 HSV/完整切点算法 |
 | `src/pack.js`、`src/sheet.js`、`src/png.js` | 布局与图片输出 | `compose_review` 使用 Pillow 两列简单布局、最多八帧，不移植完整装箱 |
 | `src/runner.js` | 生命周期、新鲜帧与队列取图的区别 | 仅参考行为，重新适配 Lab 会话归属 |

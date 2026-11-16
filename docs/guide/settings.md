@@ -301,7 +301,7 @@ api_format = "chat_completion"
 
 ### 按需看屏幕与 OCR
 
-角色 profile 启用 `screen_shot` 后，用户可请求新鲜截图。需要准确读取字幕、台词时，可在该 profile 中启用独立 OCR 工具：
+角色 profile 启用 `screen_shot` 插件后，可记录屏幕并通过 `screen_record review` 获取关键帧拼图；模型可调用的单帧 `screen_shot` 工具已移除，插件标识为兼容既有 profile 而保留。需要准确读取字幕、台词时，可在该 profile 中启用独立 OCR 工具：
 
 ```toml
 [plugins.screen_shot]
@@ -319,7 +319,7 @@ ocr_threads = 2
 {"action": "start", "seconds": 30, "fps": 2, "max_frames": 24}
 ```
 
-这会在内存中记录最近画面，不自动发言。前端普通窗口“屏幕”面板和 pet_mode 输入条的屏幕图标提供开始/停止按钮与状态倒计时；右键及托盘菜单也能开始/停止，输入条隐藏或鼠标穿透时可使用托盘。按钮直接控制后端，不消耗模型 token，与原有屏幕共享独立。默认最长记录十分钟，连续两分钟没有回顾请求时自动停止并清空缓存；状态查询不会续期。之后用 `{"action":"review","seconds":15,"review_frames":4}` 获取已有时间窗中的关键帧拼图，用 `status` 查询、`stop` 停止并清空。没有提前开启记录就没有过去的画面；看当前画面仍使用新鲜的 `screen_shot`。采集使用 `[asr].FFMPEG_PATH`，缺失或不支持时明确失败，不影响 Pillow 截图。
+这会在内存中记录最近画面，不自动发言。前端普通窗口“屏幕”面板和 pet_mode 输入条的屏幕图标提供开始/停止按钮与状态倒计时；右键及托盘菜单也能开始/停止，输入条隐藏或鼠标穿透时可使用托盘。按钮直接控制后端，不消耗模型 token，与原有屏幕共享独立。默认最长记录十分钟，连续两分钟没有回顾请求时自动停止并清空缓存；状态查询不会续期。之后用 `{"action":"review","seconds":15,"review_frames":4}` 获取已有时间窗中的关键帧拼图，用 `status` 查询、`stop` 停止并清空。没有提前开启记录就没有过去的画面；review 会带上最新采样帧，但不是请求后立即截取的新鲜单帧。采集使用 `[asr].FFMPEG_PATH`，缺失或不支持时明确失败。
 
 完整参数、缓存预算、会话清理和上游维护约定见源码旁的 `src/lab/plugins/screen_shot/DESIGN.md`。首版仅支持 Windows WebSocket 会话的记录，HTTP 共享聊天上下文不启动采集。
 

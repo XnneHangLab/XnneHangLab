@@ -170,11 +170,11 @@ class ScreenRecordTool(BuiltinTool):
         "Explicitly start/stop bounded local screen recording, inspect status, or review recent key frames. "
         "Only start when the user asks to record/watch recent activity. Recording never starts chat. "
         "Automatically stops after 10 minutes or 2 minutes without a review by default; status polling does not extend it. "
-        "Review needs earlier recording; screen_shot is for a fresh current image. Windows only. "
+        "Review needs earlier recording and includes the latest sampled frame. Windows only. "
         "Start options: seconds retention, fps, dimensions, max_frames/max_bytes, threshold, min_gap/max_gap. "
         "Review options: seconds lookback and review_frames (1–8)."
     )
-    usage_hint = "仅用户明确要求开始记录时 start；回顾用 review，看现在用 screen_shot；结束用 stop。"
+    usage_hint = "仅用户明确要求开始记录时 start；读取近期画面用 review；结束用 stop。"
 
     def __init__(self) -> None:
         self._process: asyncio.subprocess.Process | None = None
@@ -241,7 +241,7 @@ class ScreenRecordTool(BuiltinTool):
                     return ToolResult(
                         ok=False,
                         text="",
-                        error="Screen recording requires an active WebSocket session; use screen_shot for a current image.",
+                        error="Screen recording requires an active WebSocket session.",
                     )
                 try:
                     await self._start(options, ctx)
@@ -301,9 +301,7 @@ class ScreenRecordTool(BuiltinTool):
 
     async def _start(self, options: RecordArgs, ctx: AgentContext) -> None:
         if sys.platform != "win32":
-            raise RuntimeError(
-                "Short screen recording is currently supported on Windows only; use screen_shot for current capture."
-            )
+            raise RuntimeError("Short screen recording is currently supported on Windows only.")
         ffmpeg = str(ctx.extra.get("ffmpeg_path", "ffmpeg"))
         self._error = None
         self._stderr = ""
