@@ -10,6 +10,10 @@
 
 图片直接交给支持视觉的聊天模型；纯文本模型收到图片时得到无法分析图片的提示。工具截图使用 `tool1` 标签，上传图片使用 `p1/p2/...` 标签。历史只保存文本，不保存图片 base64。
 
-按需看屏幕通过 `screen_shot` 将新鲜截图直接交给聊天模型；启用 `[plugins.screen_shot].enable_ocr` 后，可另行调用 `screen_ocr` 读取台词或字幕。OCR 使用独立截图，并返回采集标识和 UTC 时间。普通 `mood_chat` 按心情和时间调度，不消费视觉事件。
+用户通过按钮开启记录后，模型可调用 `screen_record review` 读取近期关键帧拼图。`screen_shot` 保留为插件标识，已不再注册同名单帧工具；启用 `[plugins.screen_shot].enable_ocr` 后，可另行调用 `screen_ocr` 读取台词或字幕。OCR 使用独立截图，并返回采集标识和 UTC 时间。普通 `mood_chat` 按心情和时间调度，不消费视觉事件。
+
+Windows WebSocket 会话还可按用户明确要求调用 `screen_record`：`start` 开启本地有界记录，`review` 获取最近关键帧拼图，`status` 查询状态，`stop` 结束并清空缓存。记录不会触发主动聊天，未提前记录时不能回顾过去。
 
 详见 [MemoryAgent 架构](../../../../../docs/guide/architecture/memory-agent.md)。
+
+视觉采集、关键帧回顾的设计与上游同步记录见 [screen_shot/DESIGN.md](../../../plugins/screen_shot/DESIGN.md)。

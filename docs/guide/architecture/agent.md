@@ -132,6 +132,6 @@ MemoryAgent 本身**不做 LLM 调用**，所有生成逻辑委托给 `AgentCore
 
 ## 不变量
 
-- **History 不写 base64**：`ConversationStorage` 只持久化纯文本内容
+- **History 不写 base64**：`ConversationStorage` 只持久化纯文本内容；WebSocket 主聊天通过独立的有界内存图片窗口保留近期画面，直接附回原用户回合。
 - **Tool 图与用户图隔离**：tool 回调图标签 `tool1`，与用户上传图 `p1/p2...` 语义分离
 - **MemoryAgent 不直接调 LLM**：所有生成逻辑在 `AgentCore` 内部，MemoryAgent 只消费 token 流

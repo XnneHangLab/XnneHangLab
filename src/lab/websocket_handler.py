@@ -40,6 +40,20 @@ if TYPE_CHECKING:
     from lab.agent.output_types import DisplayTextDict
 
 
+async def _stop_session_tools(context: ServiceContext | None, task: asyncio.Task[Any] | None = None) -> None:
+    # Stop the old turn before releasing tools so it cannot restart capture during cleanup.
+    if task is not None and not task.done():
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+    core = getattr(getattr(context, "agent_engine", None), "core", None)
+    visual_history = getattr(core, "visual_history", None)
+    if visual_history is not None:
+        visual_history.clear()
+    manager = getattr(core, "tool_manager", None)
+    if manager is not None:
+        await manager.stop()
+
+
 class MessageType(Enum):
     """Enum for WebSocket message types"""
 
@@ -152,6 +166,7 @@ class WebSocketHandler:
             "audio-play-start": self._handle_audio_play_start,
             "audio-play-began": self._handle_audio_play_began,
             "frontend-playback-complete": self._handle_frontend_playback_complete,
+            "screen-record-control": self._handle_screen_record_control,
         }
 
     async def handle_new_connection(self, websocket: WebSocket, client_uid: str) -> None:
@@ -330,6 +345,33 @@ class WebSocketHandler:
         else:
             logger.warning(f"Unknown message type: {msg_type}")
 
+    async def _handle_screen_record_control(self, websocket: WebSocket, client_uid: str, data: dict[str, Any]) -> None:
+        """Control local capture directly; never creates an agent/chat turn."""
+        action = data.get("action")
+        context = self.client_contexts[client_uid]
+        core = getattr(context.agent_engine, "core", None)
+        manager = getattr(core, "tool_manager", None)
+        agent_ctx = getattr(core, "agent_context", None)
+        available = manager is not None and agent_ctx is not None and manager.has_builtin("screen_record")
+        state: dict[str, Any] = {"available": available, "recording": False}
+        error: str | None = None
+        if action not in {"start", "stop", "status"}:
+            error = "不支持的记录操作。"
+        elif not available:
+            error = "当前角色未启用屏幕记录工具。"
+        elif action == "start" and not getattr(core, "chat_supports_vision", False):
+            error = "请先选择支持视觉的聊天模型。"
+        else:
+            agent_ctx.extra.update(client_uid=client_uid, service_context=context)
+            result = await manager.call_tool("screen_record", {"action": action}, agent_ctx)
+            if not result.ok:
+                error = result.error
+            status = await manager.call_tool("screen_record", {"action": "status"}, agent_ctx)
+            state.update(status.data or {})
+        await websocket.send_text(
+            json.dumps({"type": "screen-record-state", "action": action, "recording_state": state, "error": error})
+        )
+
     async def _handle_group_operation(self, websocket: WebSocket, client_uid: str, data: dict[str, Any]) -> None:
         """Handle group-related operations"""
         operation = data.get("type") or ""
@@ -360,6 +402,7 @@ class WebSocketHandler:
         )
 
         session_context = self.client_contexts.get(client_uid)
+        await _stop_session_tools(session_context, self.current_conversation_tasks.pop(client_uid, None))
         if (
             session_context is not None
             and session_context.agent_engine is not None
@@ -376,17 +419,6 @@ class WebSocketHandler:
         self.client_connections.pop(client_uid, None)
         self.client_contexts.pop(client_uid, None)
         self.received_data_buffers.pop(client_uid, None)
-        if client_uid in self.current_conversation_tasks:
-            task = self.current_conversation_tasks[client_uid]
-            if task and not task.done():
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    logger.debug("Conversation task cancelled during disconnect cleanup for {}", client_uid)
-                except Exception as exc:
-                    logger.warning("Conversation task failed during disconnect cleanup for {}: {}", client_uid, exc)
-            self.current_conversation_tasks.pop(client_uid, None)
 
         logger.info(f"Client {client_uid} disconnected")
         message_handler.cleanup_client(client_uid)
@@ -457,6 +489,8 @@ class WebSocketHandler:
             return
 
         context = self.client_contexts[client_uid]
+        # Clear session-owned captures before rebinding history.
+        await _stop_session_tools(context, self.current_conversation_tasks.pop(client_uid, None))
         # Update history_uid in service context
         context.history_uid = history_uid
         # print(context.history_uid)
@@ -491,6 +525,7 @@ class WebSocketHandler:
             raise ValueError("agent_engine cannot be None")
         history_uid = create_new_history(context.character_config.profile_id)
         if history_uid:
+            await _stop_session_tools(context, self.current_conversation_tasks.pop(client_uid, None))
             context.history_uid = history_uid
             context.agent_engine.set_memory_from_history(
                 conf_uid=context.character_config.profile_id,
@@ -527,7 +562,8 @@ class WebSocketHandler:
                 }
             )
         )
-        if history_uid == context.history_uid:
+        if success and history_uid == context.history_uid:
+            await _stop_session_tools(context, self.current_conversation_tasks.pop(client_uid, None))
             context.history_uid = ""
 
     async def _handle_audio_data(self, websocket: WebSocket, client_uid: str, data: WSMessage) -> None:

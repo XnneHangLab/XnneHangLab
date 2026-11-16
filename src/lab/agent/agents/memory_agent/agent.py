@@ -79,6 +79,7 @@ class MemoryAgent(AgentInterface):
         """No resources to release."""
 
     def set_memory_from_history(self, conf_uid: str, history_uid: str) -> None:
+        self.core.visual_history.clear()
         self.memory.set_memory_from_history(conf_uid, history_uid)
 
     def handle_interrupt(self, heard_response: str) -> None:

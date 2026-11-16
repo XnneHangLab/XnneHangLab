@@ -301,7 +301,7 @@ api_format = "chat_completion"
 
 ### 按需看屏幕与 OCR
 
-角色 profile 启用 `screen_shot` 后，用户可请求新鲜截图。需要准确读取字幕、台词时，可在该 profile 中启用独立 OCR 工具：
+角色 profile 启用 `screen_shot` 插件后，可记录屏幕并通过 `screen_record review` 获取关键帧拼图；模型可调用的单帧 `screen_shot` 工具已移除，插件标识为兼容既有 profile 而保留。需要准确读取字幕、台词时，可在该 profile 中启用独立 OCR 工具：
 
 ```toml
 [plugins.screen_shot]
@@ -310,6 +310,18 @@ ocr_threads = 2
 ```
 
 默认关闭 OCR；截图交付始终不等待 OCR。`screen_ocr` 会单独采集一帧并返回采集标识、UTC 时间和识别文字，不能将其文字当作先前截图的内容。OCR 在本次工具请求中执行，取消后不会补发结果；原生识别可能继续计算到返回，其间同一工具拒绝重复 OCR 请求。没有后台采样、待处理帧队列或视觉主动发言。旧 profile 中的 `visual_observer` 和 mood_chat 的游戏模式字段加载时兼容忽略；普通 mood_chat 保持独立运行。
+
+### 按需回顾最近画面
+
+在 Windows 的 WebSocket 会话中启用 `screen_shot` 插件后，可按用户明确要求调用 `screen_record`，无需新增 Launcher 设置。工具参数示例：
+
+```json
+{"action": "start", "seconds": 30, "fps": 2, "max_frames": 24}
+```
+
+这会在内存中记录最近画面，不自动发言。前端普通窗口“屏幕”面板和 pet_mode 输入条的屏幕图标提供开始/停止按钮与状态倒计时；右键及托盘菜单也能开始/停止，输入条隐藏或鼠标穿透时可使用托盘。按钮直接控制后端，不消耗模型 token，与原有屏幕共享独立。默认最长记录十分钟，连续两分钟没有回顾请求时自动停止并清空缓存；状态查询不会续期。之后用 `{"action":"review","seconds":15,"review_frames":4}` 获取已有时间窗中的关键帧拼图，用 `status` 查询、`stop` 停止并清空。没有提前开启记录就没有过去的画面；review 会带上最新采样帧，但不是请求后立即截取的新鲜单帧。采集使用 `[asr].FFMPEG_PATH`，缺失或不支持时明确失败。
+
+完整参数、缓存预算、会话清理和上游维护约定见源码旁的 `src/lab/plugins/screen_shot/DESIGN.md`。首版仅支持 Windows WebSocket 会话的记录，HTTP 共享聊天上下文不启动采集。
 
 ### 🌍 [agent.translate]
 
